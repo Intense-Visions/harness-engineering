@@ -12,10 +12,10 @@ export interface ModuleSourceReader {
   readModuleSource(module: string): Promise<SourceFile[] | null>;
 }
 
-/** Serve-gate verdict: serve a fresh unit, or refuse a source-stale one. */
+/** Serve-gate verdict: serve a fresh unit, or refuse a source-stale / incomplete one. */
 export type ServeVerdict =
   | { serve: true; unit: ComprehensionUnit }
-  | { serve: false; reason: 'source-stale'; module: string; recompile: true };
+  | { serve: false; reason: 'source-stale' | 'incomplete'; module: string; recompile: true };
 
 /**
  * The serve-time hash gate — the sole correctness authority (D7), LLM-free.
@@ -37,6 +37,14 @@ export async function serveGate(
   }
   if (computeSourceHash(current) !== unit.provenance.sourceHash) {
     return { serve: false, reason: 'source-stale', module, recompile: true };
+  }
+  // #319: an INCOMPLETE unit's hash MATCHES the working tree (it covers the full module), but its
+  // interface-contract omits the excluded (e.g. scrub-blocked) members. A LOCAL consumer holds the
+  // full source, so recompile it into a COMPLETE unit rather than serve a partial interface. (A
+  // trust-remote consumer, which has no local source and never reaches this gate, serves it but is
+  // told it is incomplete.)
+  if (unit.provenance.incomplete && unit.provenance.incomplete.length > 0) {
+    return { serve: false, reason: 'incomplete', module, recompile: true };
   }
   return { serve: true, unit };
 }

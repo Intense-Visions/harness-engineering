@@ -54,6 +54,10 @@ export function serializeUnit(unit: ComprehensionUnit): string {
     `model: ${p.model === null ? 'null' : quoteYamlScalar(p.model)}`,
     `semantic: ${p.semantic}`,
     `members: [${p.members.map(quoteYamlScalar).join(', ')}]`,
+    // #319: only emitted for an INCOMPLETE unit, so a complete unit's bytes are unchanged.
+    ...(p.incomplete && p.incomplete.length > 0
+      ? [`incomplete: [${p.incomplete.map(quoteYamlScalar).join(', ')}]`]
+      : []),
     '---',
     '',
   ];
@@ -135,6 +139,11 @@ function parseProvenance(data: Record<string, unknown>): Result<ComprehensionPro
   const compiler = parseCompiler(data.compiler);
   const model = data.model === null || data.model === undefined ? null : scalarString(data.model);
   const members = Array.isArray(data.members) ? data.members.map((m) => scalarString(m)) : [];
+  // #319: excluded members (a scrub-blocked file kept in the identity). Optional — a legacy or
+  // complete unit has none, and it round-trips absent.
+  const incomplete = Array.isArray(data.incomplete)
+    ? data.incomplete.map((m) => scalarString(m))
+    : [];
   // ADR 0109: preserve a legacy `compiledAt` if present so an untouched shard
   // round-trips unchanged; omit it entirely otherwise (freshly compiled units).
   const compiledAt =
@@ -148,6 +157,7 @@ function parseProvenance(data: Record<string, unknown>): Result<ComprehensionPro
     model,
     semantic,
     members,
+    ...(incomplete.length > 0 ? { incomplete } : {}),
   });
 }
 

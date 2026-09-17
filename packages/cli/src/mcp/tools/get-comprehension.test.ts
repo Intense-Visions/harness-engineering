@@ -372,6 +372,27 @@ describe('serveOrRecompile — remote store (harness-comprehension-serve consume
     expect(extract).not.toHaveBeenCalled();
   });
 
+  it('#319: Mode B serves an INCOMPLETE remote unit but surfaces the excluded members', async () => {
+    const unit = freshUnit(module, source);
+    unit.provenance.incomplete = ['secret.ts'];
+    const remoteStore = fakeStore({ [module]: unit });
+    const out = await serveOrRecompile(
+      module,
+      false,
+      deps({
+        store: fakeStore(),
+        remoteStore,
+        trustRemote: true,
+        reader: fakeReader({}), // no local source → Mode B
+      })
+    );
+    expect(out.status).toBe('served');
+    if (out.status === 'served') {
+      expect(out.recompiled).toBe(false);
+      expect(out.incomplete).toEqual(['secret.ts']);
+    }
+  });
+
   it('Mode A: local source present + remote unit fresh vs it → served (validated), not recompiled', async () => {
     const remoteStore = fakeStore({ [module]: freshUnit(module, source) });
     const extract = vi.fn(() => staticExtraction);
