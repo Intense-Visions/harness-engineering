@@ -106,7 +106,10 @@ describe('createHttpComprehensionReadIO — listUnitPaths (batch) + cache', () =
     const url = new URL(calls[0].url);
     expect(url.origin + url.pathname).toBe(`${BASE}/comprehension-units`);
     expect(calls[0].init?.method).toBe('POST');
-    expect(JSON.parse(String(calls[0].init?.body))).toEqual({ outpost: OUTPOST, modules: [] });
+    // `modules` omitted = every unit for the Outpost; an explicit `[]` would list none.
+    const body = JSON.parse(String(calls[0].init?.body));
+    expect(body).toEqual({ outpost: OUTPOST });
+    expect(body).not.toHaveProperty('modules');
   });
 
   it('primes the cache so a subsequent readFile is a HIT (no extra request)', async () => {
