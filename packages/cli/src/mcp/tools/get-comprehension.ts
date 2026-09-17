@@ -117,6 +117,13 @@ export type GetComprehensionOutcome =
       rendered: string;
       /** ADR 0109: 'absent' ⇒ static-only; the caller may enrich via put_comprehension. */
       semantic: 'present' | 'absent';
+      /**
+       * #319: excluded member basenames when a trust-remote unit is INCOMPLETE (compiled from a
+       * scrub-blocked subset). Present + non-empty ⇒ the interface contract is NOT exhaustive; the
+       * caller should not treat the listed members' exports as covered. Absent ⇒ a complete unit.
+       * Only a Mode-B (trust-remote, no local source) serve can be incomplete — Mode A recompiles.
+       */
+      incomplete?: string[];
     }
   | { status: 'unavailable'; module: string; reason: string }
   | { status: 'reentrant'; module: string };
@@ -166,6 +173,27 @@ async function recompileAndServe(
 }
 
 /**
+ * Build the Mode-B served outcome for a trust-remote unit (#319). A COMPLETE unit serves plain;
+ * an INCOMPLETE one (compiled from a scrub-blocked subset — there is no local source to recompile
+ * from) is still served but carries the excluded member basenames so the caller knows its
+ * interface contract is not exhaustive.
+ */
+function serveRemoteAuthoritative(
+  module: string,
+  unit: ComprehensionUnit
+): GetComprehensionOutcome {
+  const incomplete = unit.provenance.incomplete;
+  return {
+    status: 'served',
+    module,
+    recompiled: false,
+    rendered: renderServedUnit(unit),
+    semantic: unit.provenance.semantic,
+    ...(incomplete && incomplete.length > 0 ? { incomplete } : {}),
+  };
+}
+
+/**
  * Serve a module's unit, recompiling only that module on a source-stale unit or a
  * force request. Pure over the injected IO — no throw, no disk, no LLM unless the
  * caller wires a real `generateSemantic`.
@@ -182,14 +210,9 @@ export async function serveOrRecompile(
       if (remote.ok) {
         const localSource = await deps.reader.readModuleSource(module);
         if (localSource === null && deps.trustRemote) {
-          // Mode B: no local source to validate against → trust the hosted vault as authoritative.
-          return {
-            status: 'served',
-            module,
-            recompiled: false,
-            rendered: renderServedUnit(remote.value),
-            semantic: remote.value.provenance.semantic,
-          };
+          // Mode B: no local source to validate against → trust the hosted vault as authoritative
+          // (an INCOMPLETE unit is served but marked, #319 — see {@link serveRemoteAuthoritative}).
+          return serveRemoteAuthoritative(module, remote.value);
         }
         // Local source present → validate the remote unit against the working tree (Mode A).
         const verdict = await serveGate(remote.value, deps.reader);
