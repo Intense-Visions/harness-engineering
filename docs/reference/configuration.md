@@ -521,6 +521,48 @@ For a static-only, credential-free posture (no LLM ever), set `"semantic": false
 See the [comprehension substrate knowledge doc](../knowledge/comprehension/comprehension-substrate.md)
 and ADRs 0106–0108 for the design.
 
+### Remote (hosted) comprehension
+
+An optional opt-in reads compiled comprehension from a **hosted vault**
+(`harness-comprehension-serve`, e.g. pnyon) instead of — or in front of — the local
+`.harness/comprehension/` tree, so a team shares one always-fresh substrate without every
+developer recompiling. The non-secret routing is committed; the serve token never is.
+
+The routing lives in a `comprehension.remote` block in `harness.config.json`, and every field is
+also overridable per developer/machine by an env var (**env wins per field**):
+
+| Config field         | Env override                         | Default                  | Description                                                                               |
+| -------------------- | ------------------------------------ | ------------------------ | ----------------------------------------------------------------------------------------- |
+| `remote.enabled`     | `HARNESS_COMPREHENSION_STORAGE`      | `false` / local          | Turn remote-read on. Env value `remote` enables; any other value disables.                |
+| `remote.url`         | `HARNESS_COMPREHENSION_REMOTE_URL`   | `https://core.pnyon.com` | Hosted vault base URL. Omit to use the built-in default (the one value nobody can guess). |
+| `remote.outpost`     | `HARNESS_COMPREHENSION_OUTPOST`      | —                        | The Outpost (UUID) whose comprehension to read.                                           |
+| `remote.trustRemote` | `HARNESS_COMPREHENSION_TRUST_REMOTE` | `false`                  | Serve a remote unit with no local source (Mode B). Off by default.                        |
+
+```json
+{
+  "comprehension": {
+    "remote": {
+      "enabled": true,
+      "outpost": "00000000-0000-4000-8000-000000000000"
+    }
+  }
+}
+```
+
+**The serve token is the one value never committed.** It is a per-developer secret, so it comes
+only from outside `harness.config.json`, resolved in this precedence:
+
+1. `PNYON_COMPREHENSION_SERVE_TOKEN` (env) — an explicit per-machine override, always wins.
+2. The global `pnyon login` credential — `pnyon login` writes an identity-bound, read-only serve
+   token to `~/.pnyon/credentials.json` (key `comprehension-serve-token`), which the consumer reads
+   automatically. This is the zero-plumbing path: no per-repo `.env.local` is needed once you have
+   logged in. (`$PNYON_HOME` relocates the `.pnyon` directory.)
+
+If no token resolves from either source, the consumer silently **falls back to LOCAL** comprehension
+— so CI and tokenless teammates are unaffected even when `remote.enabled` is committed. Reading the
+global credential is fail-safe: a missing, malformed, or unreadable file degrades to local, never
+throws.
+
 ## `design`
 
 - **Type:** `DesignConfig`

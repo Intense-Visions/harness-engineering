@@ -1,4 +1,10 @@
-import type { ComprehensionUnit, ExtractStatic, GenerateSemantic, SourceFile } from './types';
+import type {
+  ComprehensionUnit,
+  ExtractStatic,
+  GenerateSemantic,
+  ModuleIdentity,
+  SourceFile,
+} from './types';
 import { COMPILER_VERSION, SCHEMA_VERSION } from './types';
 import { computeSourceHash } from './source-hash';
 
@@ -7,6 +13,14 @@ export interface CompileOptions {
   extractStatic: ExtractStatic;
   /** Optional — the advisory semantic half. Absent/null ⇒ static-only (SC4). */
   generateSemantic?: GenerateSemantic;
+  /**
+   * Optional FULL-module identity (#319). When the caller compiles from a lossy SUBSET (scrub-
+   * blocked members dropped), it supplies the sourceHash/members over the FULL original set plus
+   * the excluded basenames, so provenance describes the whole module and a serve-time hash over
+   * the working tree still matches. Absent ⇒ hash/members are derived from `sourceFiles` (the
+   * subset), and the unit is complete — today's byte-identical behavior.
+   */
+  provenance?: ModuleIdentity;
 }
 
 /**
@@ -46,8 +60,13 @@ export async function compileModule(
   if (module.trim().length === 0) {
     throw new Error('compileModule: module must be a non-empty path');
   }
-  const sourceHash = computeSourceHash(sourceFiles);
-  const members = memberPaths(sourceFiles);
+  // #319: when the caller supplies a full-module identity (it compiled from a lossy subset),
+  // hash/members describe the WHOLE module and `incomplete` lists the excluded members; otherwise
+  // derive them from the given files (a complete unit). Extraction ALWAYS runs over the provided
+  // `sourceFiles` — the clean subset — so blocked content never reaches the compiler (R4).
+  const sourceHash = opts.provenance?.sourceHash ?? computeSourceHash(sourceFiles);
+  const members = opts.provenance?.members ?? memberPaths(sourceFiles);
+  const incomplete = opts.provenance?.incomplete ?? [];
   const { interfaceContract, dependencySlice } = await opts.extractStatic(sourceFiles);
 
   let summary = '';
@@ -84,6 +103,8 @@ export async function compileModule(
       model,
       semantic,
       members,
+      // Omit entirely for a complete unit so its serialized bytes are unchanged (#319).
+      ...(incomplete.length > 0 ? { incomplete } : {}),
     },
     summary,
     invariants,

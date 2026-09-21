@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { defaultCommandRunner } from '../command-runner';
+import { NETWORK_COMMAND_TIMEOUT_MS, defaultCommandRunner } from '../command-runner';
 import { ASSESSMENT_MARKER, bucketsToHistory, deriveEndpointTrend, toDate } from '../shared';
 import type {
   CommandRunner,
@@ -59,21 +59,29 @@ type FetchOutcome = { ok: true; prs: PrList } | { ok: false; result: SignalResul
 async function fetchPrList(cutoffDate: string, runCommand: CommandRunner): Promise<FetchOutcome> {
   let stdout: string;
   try {
-    stdout = await runCommand('gh', [
-      'pr',
-      'list',
-      '--state',
-      'merged',
-      '--limit',
-      String(FETCH_LIMIT),
-      '--search',
-      `merged:>=${cutoffDate}`,
-      '--json',
-      'number,mergedAt,reviews',
-    ]);
+    stdout = await runCommand(
+      'gh',
+      [
+        'pr',
+        'list',
+        '--state',
+        'merged',
+        '--limit',
+        String(FETCH_LIMIT),
+        '--search',
+        `merged:>=${cutoffDate}`,
+        '--json',
+        'number,mergedAt,reviews',
+      ],
+      // A paginated network query, not a local process — see NETWORK_COMMAND_TIMEOUT_MS.
+      NETWORK_COMMAND_TIMEOUT_MS
+    );
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    return { ok: false, result: errorResult(`gh unavailable or not authenticated: ${message}`) };
+    // Report the underlying failure rather than asserting a cause: gh can be
+    // missing, unauthenticated, rate-limited, or merely slow, and only the
+    // message distinguishes them.
+    return { ok: false, result: errorResult(`gh pr list failed: ${message}`) };
   }
 
   let raw: unknown;
@@ -189,7 +197,7 @@ export const prReviewProvider: SignalProvider = {
       };
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
-      return errorResult(`gh unavailable or not authenticated: ${message}`);
+      return errorResult(`pr-review signal failed: ${message}`);
     }
   },
 };

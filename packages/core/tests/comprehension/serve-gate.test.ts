@@ -40,6 +40,23 @@ describe('serveGate (serve-time hash gate, D7/SC2)', () => {
     if (v.serve) expect(v.unit.provenance.module).toBe('pkg/mod');
   });
 
+  it('#319: recompiles an INCOMPLETE unit whose hash matches (local consumer holds full source)', async () => {
+    // The full-set hash matches the working tree, but the unit was compiled from a scrub-blocked
+    // subset (secret.ts excluded). A local consumer must recompile a COMPLETE unit, not serve the
+    // partial interface — so the gate refuses with a distinct `incomplete` reason.
+    const u = unit(computeSourceHash(FILES));
+    u.provenance.incomplete = ['secret.ts'];
+    const v = await serveGate(u, reader(FILES));
+    expect(v).toEqual({ serve: false, reason: 'incomplete', module: 'pkg/mod', recompile: true });
+  });
+
+  it('#319: an empty `incomplete` list is treated as a complete unit (serves)', async () => {
+    const u = unit(computeSourceHash(FILES));
+    u.provenance.incomplete = [];
+    const v = await serveGate(u, reader(FILES));
+    expect(v.serve).toBe(true);
+  });
+
   it('refuses when a member file content changed (source-stale + recompile)', async () => {
     const changed = [FILES[0], { path: 'b.ts', content: 'export const b = 3;' }];
     const v = await serveGate(unit(computeSourceHash(FILES)), reader(changed));

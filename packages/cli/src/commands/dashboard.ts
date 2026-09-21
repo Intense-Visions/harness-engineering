@@ -17,14 +17,37 @@ interface DashboardOptions {
   port?: string;
   apiPort?: string;
   orchestratorUrl?: string;
-  noOpen?: boolean;
+  /**
+   * Commander stores a `--no-x` flag under its POSITIVE camelCase key: `open`
+   * is `false` when the flag is passed and `true` when it is not, and a
+   * `noOpen` key is never created. Declaring the field the other way round is
+   * what let the unreachable `opts.noOpen` read typecheck cleanly — so the
+   * name here is part of the fix, not cosmetic. Same idiom as `test-craft.ts`
+   * (#1882 / PR #1954), `install.ts`, `mcp.ts` and `adoption.ts`.
+   */
+  open?: boolean;
   cwd?: string;
 }
 
 function openBrowser(url: string): void {
   const cmd =
     process.platform === 'darwin' ? 'open' : process.platform === 'win32' ? 'start' : 'xdg-open';
-  spawn(cmd, [url], { detached: true, stdio: 'ignore' }).unref();
+  // `start` is a cmd.exe BUILTIN, not an executable -- there is no start.exe on
+  // any Windows install -- so spawning it without a shell can only ever raise
+  // ENOENT. A .cmd shim on PATH does not help either; `spawn` will not execute
+  // one without `shell`.
+  const child = spawn(cmd, [url], {
+    detached: true,
+    stdio: 'ignore',
+    shell: process.platform === 'win32',
+  });
+  // FAILING TO OPEN A BROWSER MUST NEVER TAKE DOWN THE SERVER. Without a
+  // listener, `spawn`'s asynchronous ENOENT is an unhandled 'error' event,
+  // which is fatal -- so on Windows the dashboard printed its ready banner and
+  // then died of a convenience feature. Losing the browser launch is a
+  // nuisance; losing the process the user asked for is the bug.
+  child.on('error', () => {});
+  child.unref();
 }
 
 /** Returns the built server entry or the dev TypeScript source, whichever exists first. */
@@ -118,7 +141,8 @@ function runDashboard(opts: DashboardOptions): void {
   console.log(`Dashboard API starting on http://localhost:${apiPort}`);
   console.log(`Open ${url} (pass --no-open to suppress)`);
 
-  if (opts.noOpen !== true) {
+  // `--no-open` arrives as `open: false`; its absence as `open: true`.
+  if (opts.open !== false) {
     setTimeout(() => openBrowser(url), 1_500);
   }
 }

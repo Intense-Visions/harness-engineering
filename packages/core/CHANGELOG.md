@@ -1,5 +1,173 @@
 # Changelog
 
+## 0.54.0
+
+### Minor Changes
+
+- 4915e23: Incomplete-unit contract: a comprehension unit can now describe the FULL module even when the compiler only saw a lossy SUBSET (finding pnyon#319 — a fail-closed scrubber drops a blocked file, whose absence from the member set otherwise makes the unit's `sourceHash` never match a serve-time hash over the working tree, leaving it permanently source-stale).
+  - core: `ComprehensionProvenance.incomplete?: string[]` + a `ModuleIdentity` type; an optional `compileModule` `opts.provenance` seam and an optional `ComprehendModuleReader.readModuleIdentity(module)` so a reader that compiles from a subset supplies the full-set `sourceHash`/`members` (parity with the serve-time hash) plus the excluded basenames; `serializeUnit`/`parseUnit` round-trip `incomplete`; `serveGate` refuses an incomplete unit whose full-set hash matches with a distinct `incomplete` reason so a local consumer recompiles a complete unit.
+  - cli: `get_comprehension` Mode B (trust-remote, no local source) serves an incomplete unit but surfaces the excluded members on the outcome so the caller knows the interface contract is not exhaustive.
+
+  Additive and backward-compatible: a complete unit's serialized bytes are unchanged, and every existing reader/consumer is unaffected until it opts into the new seam.
+
+### Patch Changes
+
+- 9434fd5: Remote comprehension batch listing now returns the Outpost's units. `listUnitPaths` sent `modules: []`, which the hosted serve route reads as a request for zero modules, so remote enumeration always came back empty. The request now omits `modules`, which the route reads as "every unit for the Outpost".
+
+## 0.53.0
+
+### Minor Changes
+
+- c68626f: Remote comprehension consumer reads the `pnyon login` serve token from `~/.pnyon/credentials.json`
+
+  After `pnyon login` writes an identity-bound serve token to the global `~/.pnyon/credentials.json`
+  (under the published `comprehension-serve-token` key), the harness comprehension consumer now reads
+  it automatically — so a hosted-vault read no longer needs a per-repo `.env.local` /
+  `PNYON_COMPREHENSION_SERVE_TOKEN` env var. Serve-token precedence is: env
+  `PNYON_COMPREHENSION_SERVE_TOKEN` (explicit override) → global `~/.pnyon/credentials.json`.
+  - **core**: new `readPnyonServeToken` (fail-SAFE — a missing/malformed/unreadable credentials file
+    returns `undefined` so the consumer degrades to local comprehension, never throws) and a new
+    impure `resolveRemoteComprehensionWithGlobalToken(env, file?, deps?)` wrapper that injects the
+    global token into a COPIED env before delegating to the still-pure `resolveRemoteComprehension`,
+    threading the committed `comprehension.remote` block through unchanged. Both exported from the
+    comprehension barrel; the pure resolver is unchanged (cli + orchestrator resolve identically).
+  - **cli**: `get_comprehension` and `gather_context` resolve the serve token via the new wrapper
+    (the committed `comprehension.remote` file block is still passed through).
+  - **orchestrator**: the dispatch leaf pre-warm resolves the serve token via the new wrapper.
+
+  The non-secret routing (`comprehension.remote` enable/url/outpost/trust) still merges committed
+  config with env (env wins); only the serve token gains the global-credential fallback. No token ⇒
+  falls back to LOCAL, so CI + tokenless teammates are unaffected.
+
+## 0.52.0
+
+### Minor Changes
+
+- f1b3d32: Read comprehension from a remote hosted vault (harness-comprehension-serve consumer)
+
+  `get_comprehension`, `gather_context`, and the orchestrator leaf pre-warm can now serve a
+  module's compiled unit from a hosted vault (e.g. pnyon) instead of always recompiling locally:
+  - **core**: `createHttpComprehensionReadIO` — a read-only `ComprehensionIO` that fetches a
+    module's `_module.md` over HTTP (identity-bound bearer serve token, injected `fetch`;
+    404 → ENOENT-shaped so the gate treats it as absent) with a batch `listUnitPaths` that primes
+    a read cache. The env-driven opt-in `resolveRemoteComprehension` now lives in core too
+    (`HARNESS_COMPREHENSION_STORAGE=remote` + `_REMOTE_URL` + `_OUTPOST` +
+    `PNYON_COMPREHENSION_SERVE_TOKEN`, never the committed `harness.config.json`) so the cli and the
+    orchestrator resolve it identically. Both exported from the comprehension barrel.
+  - **cli**: `get_comprehension` and `gather_context` are remote-first serves — with no local
+    source they trust the vault (Mode B, opt-in `HARNESS_COMPREHENSION_TRUST_REMOTE`); with local
+    source they validate the remote unit against the working tree (Mode A) and fall through to a
+    LOCAL recompile on a mismatch or a remote miss/error. `config.ts` now re-exports the resolver
+    from core. The local store remains the sole writer.
+  - **orchestrator**: the leaf pre-warm reads through the hosted Outpost when remote is configured
+    (bypassing the local `.harness/comprehension` early-out), so a consumer with no local tree still
+    gets pre-warm from pnyon under `trustRemote`; unconfigured behavior is byte-identical to before.
+
+- 1cb8e51: Team-friendly hosted-comprehension config: committed `comprehension.remote` block + default URL
+
+  Adopting the hosted-comprehension read path is now a committed, team-shared config instead of
+  per-developer env plumbing — while the secret stays out of git:
+  - **Committed, non-secret routing** — a new `comprehension.remote` block in `harness.config.json`
+    (`{ enabled, url?, outpost, trustRemote? }`) supplies the routing for the whole team. The env
+    (`HARNESS_COMPREHENSION_*`) overrides each field per developer/machine. The serve token is the one
+    exception: it is read ONLY from `PNYON_COMPREHENSION_SERVE_TOKEN` (env) and is never a config
+    field, so no secret is committed. No token ⇒ falls back to LOCAL, so CI + tokenless teammates are
+    unaffected even when `enabled` is committed.
+  - **Default URL** — `HARNESS_COMPREHENSION_REMOTE_URL` (and the committed `url`) are optional; both
+    default to `DEFAULT_REMOTE_URL` (`https://core.pnyon.com`, exported from core). The URL is the one
+    value nobody can guess.
+  - `resolveRemoteComprehension(env, file?)` now merges the committed block with the env; `get_comprehension`,
+    `gather_context`, and the orchestrator leaf pre-warm all pass the committed block. `harness
+public-outposts` needs only a serve token.
+
+  `STORAGE=remote` stays an explicit opt-in (env `HARNESS_COMPREHENSION_STORAGE`, or committed
+  `remote.enabled`), and `TRUST_REMOTE` stays default-off.
+
+- 5297681: Discover public pnyon Outposts (`harness public-outposts`)
+
+  A contributor who wants to read a project's hosted comprehension needs its Outpost id for
+  `HARNESS_COMPREHENSION_OUTPOST`, but had no way to find it. This adds discovery:
+  - **core**: `fetchPublicOutposts({ baseUrl, token })` — GETs the pnyon public directory
+    (`GET /public-outposts`) and returns the public Outposts (id + name + knowledge count, metadata
+    only). Injected `fetch`; status/kind-only errors (never the token).
+  - **cli**: `harness public-outposts` — lists them (table, or `--json`), reading
+    `HARNESS_COMPREHENSION_REMOTE_URL` + `PNYON_COMPREHENSION_SERVE_TOKEN` from the environment. It
+    deliberately does NOT require `HARNESS_COMPREHENSION_OUTPOST` (that's what you're discovering);
+    copy an id from the output into it to read that Outpost.
+
+### Patch Changes
+
+- eaa5bbb: **Canary review detectors never wired: availability matching is now prefix-insensitive.**
+
+  `planCanaryReviewDetectors` matched the bare detector names (`canary-savant`,
+  `canary-blackhawk`, `canary-katana`, `canary-cassandra`) against the caller's
+  installed-skill catalog with a plain set lookup. Canary exposes its skills
+  plugin-qualified — `canary:canary-cassandra`, the same form harness dispatches
+  elsewhere via `harness-test-advisor` — so the lookup missed on every detector and
+  all four were silently skipped in a canary-present project.
+
+  The skip is contractually silent (a forward-wired default must never hard-halt),
+  and both the module comment and `harness-autopilot/SKILL.md` still asserted that
+  canary 5.12.0 ships none of the four. Canary has shipped all four since 7.2.0, so a
+  `0/4` result read as the documented expected state rather than as the defect it was.
+  - Availability now matches bare or plugin-qualified names at any qualification
+    depth; wired hooks still dispatch the bare name.
+  - Detector dedup and the `enabled: false` opt-out normalize the same way, so a
+    project declaring `canary:canary-cassandra` no longer gets it dispatched twice
+    or silently loses its opt-out.
+  - The stale canary-version claims are removed from the module and the skill doc,
+    and the doc test now asserts their absence rather than their presence.
+  - An enumerable catalog is collapsed onto bare names, so depth cannot matter
+    there. A predicate cannot be enumerated, only probed, so it is probed with the
+    bare name, the `canary:`-qualified form, and the deep plugin path a real Claude
+    Code catalog reports (`canary:skills:claude-code:<skill>:<skill>`) — otherwise
+    a predicate-shaped caller kept the original silent `0/4`.
+
+- 7789346: **The roadmap list-field codec was an inverse in one direction only, so every write corrupted prose in rows nobody edited.**
+
+  `encodeListField(decodeListField(x))` was not `x`. Since every `manage_roadmap`
+  call round-trips the whole roadmap, a single unrelated `add` silently rewrote
+  other rows.
+
+  The codec was built for #1757 to keep a comma INSIDE an authored list item, and
+  it does that correctly — `decode(encode(items)) === items` holds, which is what
+  the existing suite proves. The other direction was never tested, and legacy
+  `Plan` / `Blockers` values in the wild are not tidy tokens: they hold prose, and
+  prose is full of commas. `decodeListField` split on every bare comma and
+  `encodeListField` rejoined with `", "`, so each pass inserted a space that was
+  never in the file — `1,166` → `1, 166`, `146,585` → `146, 585`, `$2,241` →
+  `$2, 241`.
+
+  One project found 25 such corruptions accumulated over weeks, plus five more
+  from one `add` — in a different row from the one being added — which also
+  dropped that row's `Priority` and `External-ID` lines. The damage is cumulative
+  and invisible in review: it reads as a typo, in a file nobody diffs number by
+  number.
+
+  The module's own docstring asserted that "a plain item contains no backslash and
+  no comma, so both directions are identities on legacy content". That was true of
+  paths and tokens and false of sentences; it is corrected.
+  - The rule is now the grammar's own: `", "` is the only separator
+    `encodeListField` ever writes, so it is the only one `decodeListField` reads
+    and the only one `encodeListItem` escapes.
+  - `decodeListField` treats a comma as an item boundary only when whitespace
+    follows. A bare `1,166` is content, not a split point.
+  - `encodeListItem` escapes a comma only when whitespace follows, which avoids the
+    opposite failure of writing `1\,166` into a file a person has to read.
+  - Behaviour for genuine lists is unchanged, including the escaped-bullet form
+    `- **Blockers:** Notification System\, phase 2` that #1757 added.
+
+  Six regressions cover thousands separators, the no-backslash-in-prose rule,
+  genuine `", "` boundaries, idempotence across repeated writes (one pass is not
+  enough to prove it — the corruption compounded), a full
+  `parse(serialize(roadmap))` cycle, and the two forms a naive repair regex would
+  break: a year list `1951, 1979, 1980` and a version-date
+  `(v42, 2026-09-04 17:23)`, both of which live in a real roadmap.
+
+  Repairing an already-damaged roadmap needs the same care the tests encode: the
+  obvious `\d, \d\d\d` also matches those correct forms, while
+  `(?<=\d), (\d{3})(?!\d)` separates them.
+
 ## 0.51.0
 
 ### Minor Changes

@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { Command } from 'commander';
 
 const mockSpawn = vi.fn();
@@ -146,7 +146,13 @@ describe('dashboard action', () => {
     expect(vi.mocked(mockedSetTimeout)).toHaveBeenCalledWith(expect.any(Function), 1_500);
   });
 
-  it('passes --no-open through to the action', async () => {
+  // THIS TEST PASSED THROUGHOUT THE BUG IT IS NAMED FOR. It asserted
+  // `expect(mockSpawn).toHaveBeenCalled()` -- true because the SERVER was
+  // spawned -- and said so: "The action runs through regardless. We just
+  // verify it doesn't crash." Its own comment stated the Commander semantics
+  // the source got wrong, and then it declined to check them. A test named
+  // after a flag must assert what the flag DOES.
+  it('does not schedule a browser open when --no-open is passed', async () => {
     let callCount = 0;
     mockedExistsSync.mockImplementation(() => {
       callCount++;
@@ -156,9 +162,75 @@ describe('dashboard action', () => {
     const program = createProgram();
     await program.parseAsync(['node', 'test', 'dashboard', '--no-open']);
 
-    // Commander maps --no-open to opts.open = false.
-    // The action runs through regardless. We just verify it doesn't crash.
+    // Commander maps --no-open to opts.open === false.
+    expect(vi.mocked(mockedSetTimeout)).not.toHaveBeenCalled();
+    // ...and the server still starts. Suppressing the browser is not
+    // suppressing the dashboard.
     expect(mockSpawn).toHaveBeenCalled();
+  });
+
+  describe('openBrowser', () => {
+    const realPlatform = process.platform;
+
+    function setPlatform(value: string): void {
+      Object.defineProperty(process, 'platform', { value, configurable: true });
+    }
+
+    afterEach(() => {
+      setPlatform(realPlatform);
+    });
+
+    async function runAndFireBrowserOpen(): Promise<void> {
+      let callCount = 0;
+      mockedExistsSync.mockImplementation(() => {
+        callCount++;
+        return callCount === 1;
+      });
+      vi.mocked(mockedSetTimeout).mockImplementation(((cb: () => void) => {
+        cb();
+        return 0 as unknown as NodeJS.Timeout;
+      }) as unknown as typeof mockedSetTimeout);
+
+      const program = createProgram();
+      await program.parseAsync(['node', 'test', 'dashboard']);
+    }
+
+    // `start` is a cmd.exe BUILTIN. There is no start.exe on any Windows
+    // install, so without `shell` this call can only raise ENOENT -- and it
+    // did, on every Windows run of `harness dashboard`.
+    it('spawns the Windows opener through a shell', async () => {
+      setPlatform('win32');
+      await runAndFireBrowserOpen();
+
+      const browserCall = mockSpawn.mock.calls.find((call) => call[0] === 'start');
+      expect(browserCall).toBeDefined();
+      expect(browserCall?.[2]).toMatchObject({ shell: true });
+    });
+
+    it('does not use a shell on darwin, where the opener is a real binary', async () => {
+      setPlatform('darwin');
+      await runAndFireBrowserOpen();
+
+      const browserCall = mockSpawn.mock.calls.find((call) => call[0] === 'open');
+      expect(browserCall).toBeDefined();
+      expect(browserCall?.[2]).toMatchObject({ shell: false });
+    });
+
+    // The regression that actually cost a user their dashboard: `spawn`
+    // reports ENOENT asynchronously, and an 'error' event with no listener is
+    // FATAL. The banner printed, then the process died.
+    it('survives an opener that cannot be spawned', async () => {
+      setPlatform('win32');
+      const child = createMockChild();
+      mockSpawn.mockReturnValue(child);
+
+      await runAndFireBrowserOpen();
+
+      expect(child.on).toHaveBeenCalledWith('error', expect.any(Function));
+      const onError = child._handlers.error;
+      expect(onError).toBeDefined();
+      expect(() => onError?.(new Error('spawn start ENOENT'))).not.toThrow();
+    });
   });
 
   it('passes custom ports to environment', async () => {
