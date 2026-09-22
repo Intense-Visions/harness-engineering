@@ -84,30 +84,230 @@ function extractFunctions(content: string): FunctionInfo[] {
 }
 
 /**
+ * Lexical contexts the brace scan can be inside. A brace that appears inside
+ * any of these is text, not structure, so it must not move the depth counter.
+ */
+type ScanContext = 'code' | 'blockComment' | 'single' | 'double' | 'template' | 'regex';
+
+// A `/` opens a regex literal only where a value cannot already have ended.
+// After an identifier, a number, or a closing `)`/`]`, the `/` is division.
+// Keywords are the exception: `return /x/` is a regex, `count / 2` is not.
+const REGEX_PRECEDING_PUNCTUATION = new Set([
+  '(',
+  ',',
+  '=',
+  ':',
+  '[',
+  '!',
+  '&',
+  '|',
+  '?',
+  '{',
+  '}',
+  ';',
+  '+',
+  '-',
+  '*',
+  '%',
+  '^',
+  '<',
+  '>',
+  '~',
+]);
+
+const REGEX_PRECEDING_KEYWORDS =
+  /\b(?:return|typeof|instanceof|in|of|new|delete|void|case|do|else|yield|await)$/;
+
+/**
+ * Decide whether the `/` at `index` starts a regex literal rather than a
+ * division operator, from the code that precedes it on the same line.
+ */
+function startsRegexLiteral(line: string, index: number): boolean {
+  const before = line.slice(0, index).trimEnd();
+  if (before === '') return true;
+  const last = before[before.length - 1]!;
+  if (REGEX_PRECEDING_PUNCTUATION.has(last)) return true;
+  return REGEX_PRECEDING_KEYWORDS.test(before);
+}
+
+/** Mutable state carried by the literal-aware brace scan. */
+interface ScanState {
+  context: ScanContext;
+  /** Inside a regex `[...]` class, where `/` does not terminate the literal. */
+  charClass: boolean;
+  /** Brace depth recorded at each open `${ ... }` interpolation. */
+  templateSpans: number[];
+  depth: number;
+  foundOpen: boolean;
+}
+
+const QUOTE_CONTEXTS: Record<string, ScanContext | undefined> = {
+  "'": 'single',
+  '"': 'double',
+  '`': 'template',
+};
+
+const QUOTE_CLOSERS: Record<string, string | undefined> = {
+  single: "'",
+  double: '"',
+  template: '`',
+};
+
+/** Advance one character inside a block comment. Returns the next index. */
+function advanceInBlockComment(line: string, c: number, state: ScanState): number {
+  if (line[c] === '*' && line[c + 1] === '/') {
+    state.context = 'code';
+    return c + 1;
+  }
+  return c;
+}
+
+/** Advance one character inside a regex literal. Returns the next index. */
+function advanceInRegex(line: string, c: number, state: ScanState): number {
+  const ch = line[c];
+  if (ch === '\\') return c + 1;
+  if (ch === '[') state.charClass = true;
+  else if (ch === ']') state.charClass = false;
+  else if (ch === '/' && !state.charClass) state.context = 'code';
+  return c;
+}
+
+/** Advance one character inside a quoted or template string. */
+function advanceInString(line: string, c: number, state: ScanState): number {
+  const ch = line[c];
+  if (ch === '\\') return c + 1;
+  if (ch === QUOTE_CLOSERS[state.context]) {
+    state.context = 'code';
+    return c;
+  }
+  if (state.context === 'template' && ch === '$' && line[c + 1] === '{') {
+    // An interpolation is code again, but its closing `}` belongs to the
+    // template, not to the enclosing block.
+    state.templateSpans.push(state.depth);
+    state.context = 'code';
+    return c + 1;
+  }
+  return c;
+}
+
+/** Advance one character inside any non-code context. */
+function advanceInNonCode(line: string, c: number, state: ScanState): number {
+  if (state.context === 'blockComment') return advanceInBlockComment(line, c, state);
+  if (state.context === 'regex') return advanceInRegex(line, c, state);
+  return advanceInString(line, c, state);
+}
+
+/**
+ * Handle a `/` in code: block comment or regex literal. (Line comments are
+ * handled by the caller, which stops scanning the line outright.) Returns the
+ * index to resume from, or -1 when it is a division operator.
+ */
+function enterSlashContext(line: string, c: number, state: ScanState): number {
+  const next = line[c + 1];
+  if (next === '*') {
+    state.context = 'blockComment';
+    return c + 1;
+  }
+  if (startsRegexLiteral(line, c)) {
+    state.context = 'regex';
+    state.charClass = false;
+    return c;
+  }
+  return -1;
+}
+
+/**
+ * If the character at `c` opens a literal or comment, enter that context and
+ * return the index to resume from. Returns -1 when it is ordinary code.
+ */
+function enterNonCodeContext(line: string, c: number, state: ScanState): number {
+  const ch = line[c];
+  if (ch === '/') return enterSlashContext(line, c, state);
+  const quoted = ch === undefined ? undefined : QUOTE_CONTEXTS[ch];
+  if (quoted !== undefined) {
+    state.context = quoted;
+    return c;
+  }
+  return -1;
+}
+
+/**
+ * Apply one code character to the brace tracker. Returns true when it ends
+ * the function.
+ */
+function applyStructuralChar(ch: string, state: ScanState): boolean {
+  if (ch === '{') {
+    state.depth++;
+    state.foundOpen = true;
+    return false;
+  }
+  if (ch === '}') {
+    const span = state.templateSpans[state.templateSpans.length - 1];
+    if (span !== undefined && state.depth === span) {
+      // Closes a `${ ... }` interpolation, not a block.
+      state.templateSpans.pop();
+      state.context = 'template';
+      return false;
+    }
+    state.depth--;
+    return state.foundOpen && state.depth === 0;
+  }
+  // Expression-bodied arrow / bodyless declaration: the statement ends before
+  // any block opens, so the function ends on this line rather than running
+  // the brace scan into the next function or to EOF (issue #1329).
+  return ch === ';' && !state.foundOpen && state.depth === 0;
+}
+
+/**
  * Find the end of a function by tracking brace depth.
+ *
+ * The scan is literal- and comment-aware: a `{` inside a string, a template
+ * literal, a regex, or a comment is ignored. Without that, an unmatched brace
+ * in a literal (`const open = '{';`) never closes, so the function's measured
+ * extent runs to EOF and it absorbs every following function's decision
+ * points (issues #1329, #2037).
+ *
+ * This is a deliberately small scanner, not a tokenizer. Regex literals are
+ * recognised by a heuristic on the preceding token rather than by parsing,
+ * because a regex may hold an unbalanced brace or a stray backtick
+ * that would otherwise derail the string tracking.
  */
 function findFunctionEnd(lines: string[], startIdx: number): number {
-  let depth = 0;
-  let foundOpen = false;
+  const state: ScanState = {
+    context: 'code',
+    charClass: false,
+    templateSpans: [],
+    depth: 0,
+    foundOpen: false,
+  };
 
   for (let i = startIdx; i < lines.length; i++) {
     const line = lines[i]!;
-    for (const ch of line) {
-      if (ch === '{') {
-        depth++;
-        foundOpen = true;
-      } else if (ch === '}') {
-        depth--;
-        if (foundOpen && depth === 0) {
-          return i;
-        }
-      } else if (ch === ';' && !foundOpen && depth === 0) {
-        // Expression-bodied arrow / bodyless declaration: the statement ends
-        // before any block opens, so the function ends on this line rather
-        // than running the brace scan into the next function or to EOF
-        // (issue #1329).
-        return i;
+
+    // Only block comments and template literals legally span a newline, so
+    // every other context is reset per line. That stops one unterminated
+    // quote from swallowing the rest of the file.
+    if (state.context !== 'blockComment' && state.context !== 'template') {
+      state.context = 'code';
+      state.charClass = false;
+    }
+
+    for (let c = 0; c < line.length; c++) {
+      if (state.context !== 'code') {
+        c = advanceInNonCode(line, c, state);
+        continue;
       }
+
+      // A `//` comment runs to the newline; nothing after it is structural.
+      if (line[c] === '/' && line[c + 1] === '/') break;
+
+      const resumeAt = enterNonCodeContext(line, c, state);
+      if (resumeAt >= 0) {
+        c = resumeAt;
+        continue;
+      }
+
+      if (applyStructuralChar(line[c]!, state)) return i;
     }
   }
 
