@@ -56,7 +56,7 @@ jobs:
           fetch-depth: 0
       - uses: actions/setup-node@v6
         with:
-          node-version: '22'
+          node-version-file: .nvmrc
       - uses: pnpm/action-setup@v5
       - run: pnpm install --frozen-lockfile
       - run: pnpm build

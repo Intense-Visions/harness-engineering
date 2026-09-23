@@ -73,7 +73,7 @@ jobs:
       - uses: actions/setup-node@v6
         if: steps.changes.outputs.run == 'true'
         with:
-          node-version: 22
+          node-version-file: .nvmrc
           cache: 'pnpm'
 
       - run: pnpm install --frozen-lockfile
@@ -130,7 +130,7 @@ jobs:
       - uses: actions/setup-node@v6
         if: steps.changes.outputs.run == 'true'
         with:
-          node-version: 22
+          node-version-file: .nvmrc
           cache: 'pnpm'
 
       - run: pnpm install --frozen-lockfile
@@ -182,7 +182,7 @@ jobs:
 
       - uses: actions/setup-node@v6
         with:
-          node-version: 22
+          node-version-file: .nvmrc
           cache: 'pnpm'
 
       - run: pnpm install --frozen-lockfile

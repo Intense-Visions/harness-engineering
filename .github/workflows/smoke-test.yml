@@ -20,7 +20,7 @@ jobs:
     steps:
       - uses: actions/setup-node@v6
         with:
-          node-version: 22
+          node-version-file: .nvmrc
 
       - name: Wait for npm CDN propagation
         run: sleep 30
