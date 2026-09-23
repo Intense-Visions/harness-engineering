@@ -342,3 +342,140 @@ describe('detectComplexityViolations — issue #1329 (findFunctionEnd runs to EO
     expect(incLengthViolations).toHaveLength(0);
   });
 });
+
+// Regression: github issue #2037 (superset of the reopened #1329). The brace
+// scan in findFunctionEnd() counted every `{` and `}` character, with no
+// awareness of string literals, template literals or comments. An unmatched
+// brace inside a literal therefore never closed, so the function's measured
+// extent ran to EOF and it absorbed every following function's decision
+// points — a 4-line `tiny()` was reported at cyclomatic complexity 25.
+describe('detectComplexityViolations — issue #2037 (braces inside literals)', () => {
+  const COMPLEX_TAIL = [
+    'export function big(a: number): boolean {',
+    `  return ${Array.from({ length: 20 }, (_, i) => `a > ${i}`).join(' && ')};`,
+    '}',
+    '',
+  ];
+
+  async function complexityOf(name: string, tinyBody: string[]): Promise<number> {
+    const content = [
+      'export function tiny(a: number): string {',
+      ...tinyBody,
+      '}',
+      '',
+      ...COMPLEX_TAIL,
+    ].join('\n');
+    await writeFixture(name, content);
+    const snapshot = makeSnapshot([{ name, content }]);
+
+    const result = await detectComplexityViolations(snapshot);
+    expect(isOk(result)).toBe(true);
+    if (!isOk(result)) throw new Error('detector failed');
+
+    const violation = result.value.violations.find(
+      (v) => v.function === 'tiny' && v.metric === 'cyclomaticComplexity'
+    );
+    return violation ? (violation.value as number) : 0;
+  }
+
+  it('does not count a brace inside a single-quoted string', async () => {
+    expect(await complexityOf('literal-single.ts', ["  const open = '{';", '  return open;'])).toBe(
+      0
+    );
+  });
+
+  it('does not count a brace inside a double-quoted string', async () => {
+    expect(await complexityOf('literal-double.ts', ['  const open = "{";', '  return open;'])).toBe(
+      0
+    );
+  });
+
+  it('does not count a brace inside a template literal', async () => {
+    expect(
+      await complexityOf('literal-template.ts', ['  const open = `{`;', '  return open;'])
+    ).toBe(0);
+  });
+
+  it('does not count a brace inside a line comment', async () => {
+    expect(
+      await complexityOf('literal-line-comment.ts', ['  // stray { brace', "  return '';"])
+    ).toBe(0);
+  });
+
+  it('does not count a brace inside a block comment', async () => {
+    expect(
+      await complexityOf('literal-block-comment.ts', [
+        '  /* stray { brace',
+        '   */',
+        "  return '';",
+      ])
+    ).toBe(0);
+  });
+
+  it('still closes on the real brace when a literal contains a balanced pair', async () => {
+    expect(
+      await complexityOf('literal-balanced.ts', ["  const both = '{}';", '  return both;'])
+    ).toBe(0);
+  });
+
+  // A regex literal may legally hold a stray backtick, quote or brace. Making
+  // the scan quote-aware without also recognising regex literals traded one
+  // runaway for another: `const re = /`([^`]+)`/g;` opened a template literal
+  // that swallowed the rest of the file.
+  it('does not treat a backtick inside a regex literal as a template literal', async () => {
+    expect(
+      await complexityOf('literal-regex-backtick.ts', [
+        '  const re = /`([^`]+)`/g;',
+        '  return re.source;',
+      ])
+    ).toBe(0);
+  });
+
+  it('does not count a brace inside a regex literal', async () => {
+    expect(
+      await complexityOf('literal-regex-brace.ts', ['  const re = /a{/;', '  return re.source;'])
+    ).toBe(0);
+  });
+
+  it('treats a division slash as division, not as a regex opener', async () => {
+    expect(
+      await complexityOf('literal-division.ts', [
+        '  const half = a / 2;',
+        '  const open = half > 0 ? 1 : 2;',
+        '  return String(open);',
+      ])
+    ).toBe(0);
+  });
+
+  it('does not let an unterminated quote run past the end of its line', async () => {
+    expect(
+      await complexityOf('literal-apostrophe-comment.ts', [
+        "  // don't let this apostrophe open a string",
+        "  return '';",
+      ])
+    ).toBe(0);
+  });
+
+  it('keeps the following function measured independently', async () => {
+    const content = [
+      'export function tiny(a: number): string {',
+      "  const open = '{';",
+      '  return open;',
+      '}',
+      '',
+      ...COMPLEX_TAIL,
+    ].join('\n');
+    await writeFixture('literal-neighbour.ts', content);
+    const snapshot = makeSnapshot([{ name: 'literal-neighbour.ts', content }]);
+
+    const result = await detectComplexityViolations(snapshot);
+    expect(isOk(result)).toBe(true);
+    if (!isOk(result)) return;
+
+    const bigViolation = result.value.violations.find(
+      (v) => v.function === 'big' && v.metric === 'cyclomaticComplexity'
+    );
+    expect(bigViolation).toBeDefined();
+    expect(bigViolation?.value).toBe(20);
+  });
+});

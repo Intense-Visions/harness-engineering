@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/src/comprehension'
-sourceHash: '63c276c233c07d8414366a63afb95104c067736d6789f2adf8f58668d2cce6e1'
+sourceHash: '5e85aee67e57f5e08b1b3ec551575e453fad64e6089f4395abacbd234b6efd1e'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -110,7 +110,7 @@ import { parseUnit, serializeUnit } from './serialize'
 import { ModuleSourceReader, serveGate } from './serve-gate'
 import { computeSourceHash } from './source-hash'
 import { COMPREHENSION_ROOT, ComprehensionIO, ComprehensionListing, SkippedUnit, UNIT_FILE } from './store'
-import { COMPILER_VERSION, ComprehensionProvenance, ComprehensionSourceFile, ComprehensionUnit, DEFAULT_SOURCE_EXTENSIONS, ExtractStatic, GenerateSemantic, SCHEMA_VERSION, SourceFile, StaticExtraction } from './types'
+import { COMPILER_VERSION, ComprehensionProvenance, ComprehensionSourceFile, ComprehensionUnit, DEFAULT_SOURCE_EXTENSIONS, ExtractStatic, GenerateSemantic, ModuleIdentity, SCHEMA_VERSION, SourceFile, StaticExtraction } from './types'
 import { Err, Ok, Result } from '@harness-engineering/types'
 import matter from 'gray-matter'
 import * as crypto from 'node:crypto'
