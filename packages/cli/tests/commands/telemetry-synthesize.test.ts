@@ -12,7 +12,39 @@ import { createTelemetryCommand } from '../../src/commands/telemetry';
  * verified end-to-end, not against mocks.
  */
 
-const MODEL = 'claude-sonnet-4-20250514'; // present in the bundled fallback pricing
+/*
+ * Priced via a SEEDED cache (see `seedPricingCache`), not via the bundled fallback.
+ * `loadPricingData` reaches the fallback only when there is no cache AND no network,
+ * so with a network available it fetches LiteLLM's live catalogue instead — and this
+ * model has since been dropped upstream, which silently turned the cost to null.
+ */
+const MODEL = 'claude-sonnet-4-20250514';
+
+/**
+ * Pin the pricing dataset so a cost assertion tests THIS repo, not LiteLLM's current
+ * catalogue. Raw per-token shape: that is what the disk cache holds and what
+ * `parseLiteLLMData` consumes.
+ */
+function seedPricingCache(projectRoot: string): void {
+  const cacheDir = path.join(projectRoot, '.harness', 'cache');
+  fs.mkdirSync(cacheDir, { recursive: true });
+  fs.writeFileSync(
+    path.join(cacheDir, 'pricing.json'),
+    JSON.stringify({
+      fetchedAt: new Date().toISOString(),
+      data: {
+        [MODEL]: {
+          mode: 'chat',
+          input_cost_per_token: 0.000003,
+          output_cost_per_token: 0.000015,
+          cache_read_input_token_cost: 0.0000003,
+          cache_creation_input_token_cost: 0.00000375,
+        },
+      },
+    }),
+    'utf8'
+  );
+}
 
 function writeAdoption(dir: string, lines: object[]): void {
   fs.mkdirSync(path.join(dir, '.harness', 'metrics'), { recursive: true });
@@ -53,6 +85,7 @@ describe('harness telemetry synthesize', () => {
   beforeEach(() => {
     originalCwd = process.cwd();
     tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-synth-'));
+    seedPricingCache(tempDir);
     process.chdir(tempDir);
   });
 
