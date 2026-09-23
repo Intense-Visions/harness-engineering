@@ -31,6 +31,11 @@ jobs:
       - run: pnpm --filter @harness-engineering/graph build
       - run: pnpm --filter @harness-engineering/core build
       - run: pnpm --filter @harness-engineering/intelligence build
+      # orchestrator imports @harness-engineering/local-models (see its package.json).
+      # It was missing from this hand-maintained order, so the orchestrator DTS build
+      # failed with TS2307 on a module that exists in the workspace but had never been
+      # built. Only needs types, which is already first.
+      - run: pnpm --filter @harness-engineering/local-models build
       - run: pnpm --filter @harness-engineering/orchestrator build
       - name: Regenerate OpenAPI artifact
         run: pnpm --filter @harness-engineering/orchestrator openapi:generate
