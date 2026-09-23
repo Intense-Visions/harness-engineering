@@ -30,6 +30,34 @@ interface ProvenanceFile {
   issues?: unknown[];
   issue?: unknown;
   stages?: unknown[];
+  route?: unknown;
+  assumptions?: unknown[];
+  specArtifact?: unknown;
+  planArtifact?: unknown;
+}
+
+/** Numbers only — the ledger declares `issues` as a number list. */
+function issueNumbers(parsed: ProvenanceFile): readonly number[] | undefined {
+  const raw = Array.isArray(parsed.issues)
+    ? parsed.issues
+    : parsed.issue !== undefined
+      ? [parsed.issue]
+      : [];
+  const numbers = raw
+    .map((value) => (typeof value === 'number' ? value : Number(value)))
+    .filter((value) => Number.isFinite(value));
+  return numbers.length > 0 ? numbers : undefined;
+}
+
+/** A present, non-empty string, or undefined — an absent field is omitted, never blanked. */
+function optionalText(value: unknown): string | undefined {
+  return typeof value === 'string' && value.length > 0 ? value : undefined;
+}
+
+/** A present, non-empty string list, or undefined. */
+function optionalTextList(value: unknown): readonly string[] | undefined {
+  if (!Array.isArray(value) || value.length === 0) return undefined;
+  return value.map(String);
 }
 
 function readJsonFile(filePath: string): unknown {
@@ -66,10 +94,20 @@ function registerRecordProvenance(waypoint: Command): void {
         process.exitCode = 1;
         return;
       }
+      const issues = issueNumbers(parsed);
+      const route = optionalText(parsed.route);
+      const assumptions = optionalTextList(parsed.assumptions);
+      const specArtifact = optionalText(parsed.specArtifact);
+      const planArtifact = optionalText(parsed.planArtifact);
       const eventId = emitFleetProvenanceWritten({
         item: provenanceItem(parsed, file),
         stages: Array.isArray(parsed.stages) ? parsed.stages.map(String) : [],
         artifactPath: path.relative(cwd, path.resolve(file)).replaceAll('\\', '/'),
+        ...(issues !== undefined ? { issues } : {}),
+        ...(route !== undefined ? { route } : {}),
+        ...(assumptions !== undefined ? { assumptions } : {}),
+        ...(specArtifact !== undefined ? { specArtifact } : {}),
+        ...(planArtifact !== undefined ? { planArtifact } : {}),
       });
       emitResult(globalOpts.json === true, { recorded: eventId !== null, eventId });
     });

@@ -56,7 +56,7 @@ jobs:
 
       - uses: actions/setup-node@v6
         with:
-          node-version: 22
+          node-version-file: .nvmrc
 
       # No `pnpm install`: the check is a dependency-free node script, so the
       # watcher cannot be taken down by an install failure in the thing it
@@ -87,7 +87,7 @@ jobs:
 
       - uses: actions/setup-node@v6
         with:
-          node-version: 22
+          node-version-file: .nvmrc
           cache: 'pnpm'
 
       - run: pnpm install --frozen-lockfile

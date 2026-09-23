@@ -141,11 +141,14 @@ describe('generateCIWorkflow (options)', () => {
     // Neither check-deps nor validate accepts --severity, so both are bare.
     expect(cmdSteps[0].run).toBe('node packages/cli/dist/bin/harness.js check-deps');
     expect(cmdSteps[1].run).toBe('node packages/cli/dist/bin/harness.js validate');
-    // Node 22 (not the npx default of 20) and a concurrency guard.
+    // The IN-REPO branch reads .nvmrc rather than restating the version. It used to
+    // assert a literal 22, which made this the 27th place the pin was written down
+    // and the one that would have to be edited in lockstep with the other 26.
     expect(workflow.on).toBeDefined();
     expect(workflow.concurrency).toBeDefined();
     const nodeStep = uses.find((s: { uses: string }) => s.uses === 'actions/setup-node@v6');
-    expect(nodeStep.with['node-version']).toBe(22);
+    expect(nodeStep.with['node-version-file']).toBe('.nvmrc');
+    expect(nodeStep.with['node-version']).toBeUndefined();
   });
 
   // Regression: #1867. The generator emitted a per-ref group with an unconditional

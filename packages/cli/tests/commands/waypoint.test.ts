@@ -71,22 +71,40 @@ describe('harness waypoint record-provenance', () => {
     expect(process.exitCode ?? 0).toBe(0);
   });
 
-  it('spools one sdlc.build.finished.v1 for a provenance artifact', async () => {
+  it('spools one fleet-provenance override, carrying what the file declares', async () => {
     configureSink();
     const artifactDir = path.join(tmpDir, 'docs', 'changes', 'my-slug');
     fs.mkdirSync(artifactDir, { recursive: true });
     const file = path.join(artifactDir, 'provenance.json');
     fs.writeFileSync(
       file,
-      JSON.stringify({ slug: 'my-slug', issues: [1], stages: ['plan', 'execute'] }),
+      JSON.stringify({
+        slug: 'my-slug',
+        issues: [1],
+        stages: ['plan', 'execute'],
+        route: 'feature',
+        assumptions: ['took the recommended default'],
+        planArtifact: 'docs/changes/my-slug/plans/plan.md',
+      }),
       'utf8'
     );
     await runCommand(['record-provenance', file]);
     expect(lastJsonOutput()).toMatchObject({ recorded: true });
     const [event] = spooledEvents();
-    expect(event?.type).toBe('sdlc.build.finished.v1');
+    expect(event?.type).toBe('sdlc.override.applied.v1');
     expect(event?.subject).toBe('item/my-slug');
-    expect(event?.data).toMatchObject({ artifact: 'provenance', stages: ['plan', 'execute'] });
+    // The route, issues and assumptions were read off the file and DISCARDED before
+    // this change -- the emitter took only item/stages/path, so the ledger never saw
+    // which route a lane ran or what it assumed.
+    expect(event?.data).toMatchObject({
+      kind: 'fleet-provenance',
+      item: 'my-slug',
+      stages: ['plan', 'execute'],
+      issues: [1],
+      route: 'feature',
+      assumptions: ['took the recommended default'],
+      planArtifact: 'docs/changes/my-slug/plans/plan.md',
+    });
   });
 
   it('derives the item from the directory name when slug is absent', async () => {

@@ -53,3 +53,4 @@ security/*
 # committed even if a broader ignore lands. (storage: "cache" adopters opt out.)
 !comprehension/
 !comprehension/**
+metrics/

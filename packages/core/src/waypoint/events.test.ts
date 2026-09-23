@@ -141,19 +141,51 @@ describe('waypoint/events — verdict grading', () => {
 });
 
 describe('waypoint/events — fleet artifacts', () => {
-  it('provenance write maps to build.finished with stages and path', () => {
+  /*
+   * This previously asserted `sdlc.build.finished.v1` with `artifact` /
+   * `artifactPath` / `stages` in `data`. That encoded the defect as the spec: the
+   * published contract declares `build.finished` as carrying only
+   * `{ outcome, prNumber, mergeCommitSha, pr }`, so every field this emitter sent
+   * was undeclared — and an undeclared field is REFUSED by the ledger, never
+   * ignored. The events spooled, shipped, and were rejected without ever landing.
+   *
+   * `fleet-provenance` is a declared `sdlc.override.applied.v1` kind with exactly
+   * these fields. Retargeting loses no signal: the old type's own meaning comes
+   * from `outcome`, which this emitter never sent.
+   */
+  it('provenance write maps to the declared fleet-provenance override kind', () => {
     emitFleetProvenanceWritten({
       item: 'my-slug',
       stages: ['brainstorm', 'plan', 'execute'],
       artifactPath: 'docs/changes/my-slug/provenance.json',
+      issues: [350],
+      route: 'feature',
+      assumptions: ['took the recommended default'],
+      planArtifact: 'docs/changes/my-slug/plans/plan.md',
     });
     const [event] = spooledEvents();
-    expect(event?.type).toBe('sdlc.build.finished.v1');
+    expect(event?.type).toBe('sdlc.override.applied.v1');
     expect(event?.data).toEqual({
-      artifact: 'provenance',
-      artifactPath: 'docs/changes/my-slug/provenance.json',
+      kind: 'fleet-provenance',
+      item: 'my-slug',
       stages: ['brainstorm', 'plan', 'execute'],
+      issues: [350],
+      route: 'feature',
+      assumptions: ['took the recommended default'],
+      planArtifact: 'docs/changes/my-slug/plans/plan.md',
     });
+  });
+
+  /* An absent optional is OMITTED, not sent blank: the contract types
+   * `specArtifact`/`planArtifact` as repo paths, and an empty string is not one. */
+  it('omits the optional fields a provenance file does not carry', () => {
+    emitFleetProvenanceWritten({
+      item: 'minimal',
+      stages: [],
+      artifactPath: 'docs/changes/minimal/provenance.json',
+    });
+    const [event] = spooledEvents();
+    expect(event?.data).toEqual({ kind: 'fleet-provenance', item: 'minimal', stages: [] });
   });
 
   it('done handoff maps to review.requested; non-done to intent.updated', () => {
