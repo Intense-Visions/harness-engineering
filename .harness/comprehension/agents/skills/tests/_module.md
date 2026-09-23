@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'agents/skills/tests'
-sourceHash: '788633a927f68270e2356d99560582c5c7774beb62252220d375499782f8bcb9'
+sourceHash: 'a9f99e59e2f97ad80938273bffdb6fffc102fe099f57f0118f5f03a37ab60b9b'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -13,6 +13,7 @@ members:
     'initialize-test-suite-project.test.ts',
     'interaction-channel.test.ts',
     'internal-refs.test.ts',
+    'issue-fleet-routes.test.ts',
     'platform-parity.test.ts',
     'references.test.ts',
     'schema.test.ts',
