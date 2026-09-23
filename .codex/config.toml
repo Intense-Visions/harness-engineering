@@ -12,6 +12,9 @@ args = ["mcp"]
 command = "harness"
 enabled = true
 
+[mcp_servers.harness.tools.code_outline]
+approval_mode = "approve"
+
 [mcp_servers.playwright]
 args = [
     "-y",

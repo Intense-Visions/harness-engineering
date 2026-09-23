@@ -34,7 +34,11 @@
         "total": 0
       },
       "suppressionCount": 0,
-      "findingIds": ["783a5c009a968228", "caebb5c38de36a6e", "8b93df1cff804a2e"]
+      "findingIds": [
+        "783a5c009a968228",
+        "caebb5c38de36a6e",
+        "8b93df1cff804a2e"
+      ]
     },
     {
       "capturedAt": "2026-09-09T14:11:58.292Z",
@@ -105,6 +109,28 @@
     {
       "capturedAt": "2026-09-09T20:06:24.013Z",
       "commitHash": "b487f04b75abb4b6f796597f43303068ee78f6ab",
+      "securityScore": 100,
+      "totalFindings": 0,
+      "bySeverity": {
+        "error": 0,
+        "warning": 0,
+        "info": 0
+      },
+      "byCategory": {},
+      "supplyChain": {
+        "critical": 0,
+        "high": 0,
+        "moderate": 0,
+        "low": 0,
+        "info": 0,
+        "total": 0
+      },
+      "suppressionCount": 0,
+      "findingIds": []
+    },
+    {
+      "capturedAt": "2026-09-17T19:02:38.326Z",
+      "commitHash": "10cd60c28dddec937ba2b2cc971a271703676b8b",
       "securityScore": 100,
       "totalFindings": 0,
       "bySeverity": {
