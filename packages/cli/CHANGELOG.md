@@ -1,5 +1,56 @@
 # @harness-engineering/cli
 
+## 12.10.1
+
+### Patch Changes
+
+- a497792: Spell `distortion`'s path defaults as POSIX literals so the generated CLI reference
+  is the same on every platform.
+
+  `DEFAULT_INPUT`, `DEFAULT_MODEL_OUT` and `REFINEMENT_EVENTS` were built with
+  `path.join('.harness', 'metrics', …)`. The first two are option defaults, so they are
+  printed in `--help` and embedded verbatim in `docs/reference/cli-commands.md` — and a
+  Windows regeneration emitted `.harness\metrics\…` where a Linux one emitted
+  `.harness/metrics/…`, failing the reference-docs drift gate for whoever regenerated
+  second.
+
+  Node's fs accepts forward slashes on Windows, so the spelling is fixed at the source
+  rather than teaching the doc generator to normalise separators, which would have to
+  tell a path from any other backslash in the text.
+
+  No behaviour change: the same files are read and written.
+
+- 4ef72cb: `harness waypoint record-provenance` now emits the event kind the published `sdlc.*` contract declares, so fleet provenance can actually reach a Waypoint ledger.
+
+  It emitted `sdlc.build.finished.v1` carrying `artifact` / `artifactPath` / `stages`. That type declares only `{ outcome, prNumber, mergeCommitSha, pr }`, and an undeclared field is refused rather than ignored — so every event was rejected at the contract check and nothing ever landed. Measured against a live ledger: 0 shipped, 13 permanently refused.
+
+  It now emits `sdlc.override.applied.v1` with the declared `fleet-provenance` kind, and forwards the `route`, `issues` and `assumptions` the CLI was already reading off the provenance file and discarding.
+
+  Patch rather than minor: the previous behaviour was non-functional by construction, and `FleetProvenanceArtifact` only gained optional fields.
+
+- a497792: `harness update` no longer reports "All packages are up to date" when it could not
+  reach the registry.
+
+  `checkAllPackages` collected results with `Promise.allSettled` and `continue`d past
+  rejections, so a package whose `npm view` failed contributed nothing to `outdated` —
+  and the caller then read an empty list as good news. Any npm hiccup (timeout, offline,
+  proxy, throttle, non-zero exit, empty response) was silently rendered as a green
+  success line, which is worse than a crash because the user acts on it. It also made
+  the update banner's own advice unreliable: `Update available … Run "harness update"
+to upgrade` pointed at a command that could quietly no-op.
+
+  Failed lookups are now tagged with their package and surfaced as `unreachable` on
+  `UpdateCheckResult`. When any package could not be checked, `harness update` names
+  each one and the reason, prints any updates it _was_ able to find, suggests the manual
+  install command, and exits non-zero instead of claiming success. "We could not check"
+  and "you are current" no longer produce the same output.
+
+- Updated dependencies [a966085]
+- Updated dependencies [4ef72cb]
+  - @harness-engineering/core@0.54.1
+  - @harness-engineering/dashboard@0.16.13
+  - @harness-engineering/orchestrator@0.27.2
+
 ## 12.10.0
 
 ### Minor Changes
