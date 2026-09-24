@@ -110,6 +110,11 @@ function printConstraintPacks(report: CICheckReport): void {
 function printCheckReport(report: CICheckReport): void {
   for (const check of report.checks) {
     checkLogFn(check.status)(`${check.name}: ${check.status} (${check.durationMs}ms)`);
+    // Why an abstaining check could not run — without this the operator sees a
+    // bare `skip` and cannot tell it apart from one they asked for (#2071).
+    if (check.skipReason) {
+      console.log(`  - did not run: ${check.skipReason}`);
+    }
     for (const issue of check.issues) {
       const prefix = issue.severity === 'error' ? '  x' : '  !';
       console.log(`${prefix} ${issue.message}${issue.file ? ` (${issue.file})` : ''}`);
@@ -125,6 +130,13 @@ function printCheckReport(report: CICheckReport): void {
   console.log('');
   if (report.exitCode === 0) {
     logger.success(`All checks passed (${report.summary.passed}/${report.summary.total})`);
+  } else if (report.summary.abstained > 0 && report.summary.failed === 0) {
+    // Never claim a pass over a gate that did not run (#2071).
+    logger.error(
+      `${report.summary.abstained} check(s) could not run, ${report.summary.passed} passed — ` +
+        'refusing to report a pass over a gate that never evaluated. Fix the configuration ' +
+        'above, or pass `--skip <check>` to acknowledge the gate is not enforced.'
+    );
   } else {
     logger.error(
       `${report.summary.failed} failed, ${report.summary.warnings} warnings, ${report.summary.passed} passed`

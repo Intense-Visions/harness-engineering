@@ -43,11 +43,47 @@ harness ci check [--json] [--fail-on <severity>] [--skip <check>]
 
 ### Exit Codes
 
-| Code | Meaning                                                  | Action      |
-| ---- | -------------------------------------------------------- | ----------- |
-| `0`  | All checks passed (or only skipped)                      | Proceed     |
-| `1`  | One or more checks failed at the configured severity     | Block merge |
-| `2`  | Harness internal error (config not found, parse failure) | Investigate |
+| Code | Meaning                                                                 | Action      |
+| ---- | ----------------------------------------------------------------------- | ----------- |
+| `0`  | Every requested check ran, and none failed at the configured severity   | Proceed     |
+| `1`  | A check failed at the configured severity, **or a check could not run** | Block merge |
+| `2`  | Harness internal error (config not found, parse failure)                | Investigate |
+
+### Checks that could not run
+
+A check reports `skip` for one of two quite different reasons, and only one of
+them is green:
+
+- **You asked for it.** `--skip docs` is an explicit, acknowledged decision not
+  to enforce that gate. It exits `0`.
+- **It abstained.** The check wanted to run and could not — it crashed, or it
+  had nothing configured to evaluate. It exits `1`, and the report carries a
+  `skipReason` explaining what was missing.
+
+An abstaining check is never counted in `summary.passed`, and the run never
+prints "All checks passed". A gate that did not run must not be readable as
+green: reporting a pass over a check that evaluated nothing is indistinguishable,
+to whoever reads the pipeline, from a genuine pass.
+
+The common abstentions and their fixes:
+
+| Abstention                                | Why                                                               | Fix                                                                             |
+| ----------------------------------------- | ----------------------------------------------------------------- | ------------------------------------------------------------------------------- |
+| `deps` — no layers configured             | Nothing to validate against                                       | Add `layers` to `harness.config.json`, or `--skip deps`                         |
+| `traceability` — no knowledge graph found | Coverage was never computed, so `minCoverage` was never evaluated | Run `harness scan`, set `traceability.enabled: false`, or `--skip traceability` |
+| `docs` / `entropy` / `perf` — crashed     | The analyzer threw (often "Could not resolve entry points")       | Fix the underlying config (e.g. `performance.entryPoints`), or `--skip <check>` |
+
+#### Escape hatch
+
+If you need the previous exit code while you fix the configuration, name the
+check explicitly:
+
+```bash
+harness ci check --skip deps,traceability
+```
+
+That is deliberately louder than silence: the gate is still not enforced, but
+the pipeline now says so out loud instead of reporting a pass over it.
 
 ### JSON Output Schema
 
@@ -75,13 +111,18 @@ interface CICheckReport {
       line?: number;
     }>;
     durationMs: number;
+    /** Present only when the check abstained — absent for an operator `--skip`. */
+    skipReason?: string;
   }>;
   summary: {
     total: number;
     passed: number;
     failed: number;
     warnings: number;
+    /** Operator-requested skips and abstentions alike. */
     skipped: number;
+    /** Of those, how many abstained. Non-zero forces a non-zero exit code. */
+    abstained: number;
   };
   exitCode: 0 | 1 | 2;
 }

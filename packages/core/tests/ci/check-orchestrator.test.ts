@@ -10,6 +10,11 @@ vi.mock('../../src/constraints/dependencies', () => ({
     ok: true,
     value: { valid: true, violations: [], graph: { nodes: [], edges: [] } },
   }),
+  defineLayer: vi.fn((name: string, patterns: string[], allowedDependencies: string[]) => ({
+    name,
+    patterns,
+    allowedDependencies,
+  })),
 }));
 
 vi.mock('../../src/context/doc-coverage', () => ({
@@ -76,12 +81,18 @@ vi.mock('../../src/architecture', () => ({
 
 import { runCIChecks } from '../../src/ci/check-orchestrator';
 
+// A *fully configured* project: every gate has something to evaluate. `layers`
+// and the traceability opt-out are load-bearing — without them the deps and
+// traceability checks abstain (#2071) rather than running, which is a different
+// scenario and is covered by check-skip-status.test.ts.
 function minimalConfig(overrides: Record<string, unknown> = {}) {
   return {
     version: 1 as const,
     rootDir: '.',
     agentsMapPath: './AGENTS.md',
     docsDir: './docs',
+    layers: [{ name: 'app', patterns: ['src/**'], allowedDependencies: [] }],
+    traceability: { enabled: false },
     ...overrides,
   };
 }

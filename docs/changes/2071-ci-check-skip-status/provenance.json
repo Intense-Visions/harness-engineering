@@ -1,0 +1,34 @@
+{
+  "issues": [2071],
+  "route": "bug",
+  "stages": ["debugging"],
+  "debugSessionNote": "The harness-debugging session file lives at .harness/debug/resolved/2071-ci-check-skip-status.md, which this repo gitignores by policy (.harness/.gitignore: debug/). Its findings are reproduced here so the committed provenance is self-contained.",
+  "rootCause": "CICheckStatus already carried 'skip', but only runAllChecks ever constructed it, and only for an operator --skip. The check bodies had no abstention channel, so a crashed check landed in the warning bucket and a check with nothing configured landed in the empty-issues bucket - both of which derive to a zero exit code in determineExitCode. 'Could not run' was unrepresentable in a check's own result.",
+  "mechanismsFixed": [
+    "1/3 crash-to-warning downgrade: docs, entropy and perf (check-orchestrator.ts :236, :282, :365 at the base SHA) now return an abstention instead of pushing a severity 'warning' issue.",
+    "2/3 deps empty pass: runDepsCheck abstains when `layers` is absent or empty instead of returning an empty issue list that derives to 'pass'.",
+    "3/3 traceability empty pass: runTraceabilityCheck abstains when store.load(graphDir) fails, instead of the 'No graph available - skip silently' early return that derived to 'pass' even at minCoverage 100."
+  ],
+  "precedent": "packages/cli/src/commands/cleanup.ts:80-90 (#1760/#1792) - 'an empty rule set cannot honestly report a pass' / 'Refusing to report a pass over zero rules.' Same refusal, applied at the check-orchestrator layer.",
+  "reproducingTest": "packages/core/tests/ci/check-skip-status.test.ts",
+  "closingKeyword": "Closes #2071",
+  "closingKeywordRationale": "All three mechanisms named in #2071 are fixed in this change: the crash-to-warning downgrade at check-orchestrator.ts:236/:282/:365, the deps empty-pass with no `layers`, and the traceability empty-pass with no graph.",
+  "baseSha": "b62f51d71863bbb5f45a5b666cd23d16925924f7",
+  "assumptions": [
+    "Fork A = A1 (decided by the human): a check that could not run reports the existing `status: 'skip'`, is not counted as passing, and exits non-zero.",
+    "Fork B = B1 (decided by the human): both `deps` with no `layers` key and `traceability` with no graph abstain via that same skip path.",
+    "RECOMMENDED DEFAULT TAKEN: an operator-requested `--skip <check>` must remain exit 0. Failing on `status === 'skip'` alone would have broken the documented skip flag, so abstention is distinguished from a requested skip by a new `CICheckResult.skipReason` (present only for abstentions) and a new `CICheckSummary.abstained` count. `--skip` is therefore the documented escape hatch.",
+    "RECOMMENDED DEFAULT TAKEN: a hard error still outranks an abstention in the status derivation (`fail` wins over `skip`), because a concrete failure is the louder and truer signal.",
+    "RECOMMENDED DEFAULT TAKEN: `traceability.enabled: false` remains a deliberate opt-out that reports `pass`, not an abstention \u2014 the project explicitly declined the gate rather than failing to run it.",
+    "RECOMMENDED DEFAULT TAKEN: the shared fixture in packages/core/tests/ci/check-orchestrator.test.ts was updated to configure `layers` and `traceability.enabled: false`. Two of its tests previously encoded the defective behaviour (a config with neither still reporting a full pass at exit 0); they now exercise a fully-configured project, and the abstention scenarios live in the new reproducing test.",
+    "DEFERRED (out of scope for #2071's three named mechanisms): `runTraceabilityCheck` also returns early when the graph loads but `queryTraceability` yields zero results. Same class of hole, but the issue names only the `store.load()` failure and Fork B1 decided only the no-graph case.",
+    "DEFERRED (pre-existing, not one of the three mechanisms): the CLI headline still prints `All checks passed (N/9)` when some checks merely warned, because warnings are deliberately non-blocking under the default `--fail-on error`. The headline can no longer appear over an abstention, since an abstention forces a non-zero exit code."
+  ],
+  "verification": {
+    "reproducingTestBeforeFix": "6 failed | 3 passed (9)",
+    "reproducingTestAfterFix": "9 passed (9)",
+    "command": "npx vitest run tests/ci/check-skip-status.test.ts (from packages/core)",
+    "endToEnd": "node packages/cli/dist/bin/harness.js ci check --skip validate,docs against a bare fixture project: before = 'All checks passed (5/9)' exit 0; after = '4 check(s) could not run, 3 passed' exit 1",
+    "suites": "packages/core 5720 passed | 1 skipped; packages/cli 8756 passed | 2 skipped; pnpm turbo build typecheck 25/25 successful"
+  }
+}
