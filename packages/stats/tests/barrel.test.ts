@@ -25,7 +25,8 @@ describe('@harness-engineering/stats barrel', () => {
   it('lays out src/ as one barrel plus one directory per instrument (SC12)', () => {
     const src = path.resolve(__dirname, '../src');
     expect(readdirSync(src).sort()).toEqual(['bandit', 'index.ts', 'sprt']);
-    expect(readdirSync(path.join(src, 'bandit'))).toEqual(['index.ts']);
+    // Phase 2 adds the bandit modules one task at a time; the exact listing is re-pinned once the surface is complete.
+    expect(readdirSync(path.join(src, 'bandit'))).toContain('index.ts');
     expect(readdirSync(path.join(src, 'sprt'))).toEqual(['index.ts']);
   });
 });
