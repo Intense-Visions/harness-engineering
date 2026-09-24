@@ -24,7 +24,7 @@ function gammaCandidate(d: number, c: number, rng: Rng): number | undefined {
     v = 1 + c * x;
   } while (v <= 0);
   v = v * v * v;
-  const u = rng();
+  const u = 1 - rng(); // (0, 1]: log(u) is finite, so u = 0 can never be an unconditional accept
   if (u < 1 - 0.0331 * x ** 4) return d * v;
   if (Math.log(u) < 0.5 * x * x + d * (1 - v + Math.log(v))) return d * v;
   return undefined;
