@@ -1,0 +1,52 @@
+{
+  "issue": 2098,
+  "issues": [2098],
+  "issueUrl": "https://github.com/Intense-Visions/harness-engineering/issues/2098",
+  "fleet": "roadmap-fleet",
+  "route": "bug",
+  "stages": ["debugging"],
+  "pipeline": "harness-debugging",
+  "phases": ["investigate", "analyze", "hypothesize", "fix"],
+  "baseCommit": "b62f51d71863bbb5f45a5b666cd23d16925924f7",
+  "branch": "fix/check-deps-skipped-abstention",
+  "debugSession": "docs/changes/check-deps-skipped-abstention-2098/debug-session.md",
+  "debugSessionNote": ".harness/debug/ is gitignored, so the resolved session record is committed here instead.",
+  "reproducingTests": [
+    "packages/cli/tests/commands/check-deps-skipped-abstention.test.ts",
+    "packages/cli/tests/mcp/tools/architecture-skipped-abstention.test.ts"
+  ],
+  "reproducingTestFixtures": ["packages/cli/tests/fixtures/deps-abstention-warn/"],
+  "redGreenEvidence": {
+    "command": "cd packages/cli && npx vitest run tests/commands/check-deps-skipped-abstention.test.ts tests/mcp/tools/architecture-skipped-abstention.test.ts",
+    "beforeFix": "Tests 7 failed | 3 passed (10) for the CLI suite alone (written first, run against the unmodified base); the exit-code assertion read 'AssertionError: expected +0 to be 3' and --findings-json printed {\"findings\":0,\"v\":1,\"check\":\"check-deps\"}.",
+    "afterFix": "Tests 12 passed (12) across both suites.",
+    "revertAndFail": "The three changed source files restored to the base SHA with both new test files left in place: Tests 8 failed | 4 passed (12). Restored from backup: 12 passed (12).",
+    "neighbouringSuites": "cd packages/cli && npx vitest run tests/commands/check-deps.test.ts tests/commands/check-deps-err-swallow.test.ts tests/commands/check-deps-cov544b.test.ts tests/mcp/tools/architecture-cov544.test.ts tests/config -> 24 files, 253 tests passed.",
+    "typecheck": "npx tsc -p packages/cli/tsconfig.json --noEmit -> exit 0"
+  },
+  "filesChanged": [
+    "packages/cli/src/commands/check-deps.ts",
+    "packages/cli/src/mcp/tools/architecture.ts",
+    "packages/cli/src/config/analysis-schema.ts",
+    "docs/reference/configuration.md",
+    ".changeset/check-deps-skipped-abstention.md"
+  ],
+  "closes": 2098,
+  "closingKeyword": "Closes #2098",
+  "assumptions": [
+    "Fork C / option C1 was decided by the human before this lane started and was implemented as given: surface a distinct abstained verdict and exit non-zero, keeping fallbackBehavior 'warn' as the documented knob that downgrades it back to exit 0. It was NOT re-litigated.",
+    "The escape hatch is exposed as `deps.fallbackBehavior` in harness.config.json, reusing core's existing LayerConfig.fallbackBehavior enum verbatim rather than inventing a new knob. The CLI default moves from the previously hardcoded 'warn' to 'skip'; the two are identical inside core except for a console.warn, so this changes no engine behaviour, only which policy the CLI declares.",
+    "The non-zero code is ExitCode.ZERO_DENOMINATOR (3), not ERROR (2). The repo's own definition of 3 is this exact case ('the command ran but examined NOTHING ... distinct from SUCCESS and from ERROR'), and `harness validate` already returns it for an incomplete run. An engine Err (#1996) still outranks it with 2.",
+    "The abstention is reported on the existing `unavailableChecks` channel that OutputFormatter.formatValidation already renders, rather than a new field — so text, --json and QUIET output all gain the verdict with no formatter change.",
+    "An abstention is NOT pushed into `issues` (that would double-print it and render it as a failure); it is added to the --findings-json count separately, so an abstained run never hands a maintenance consumer { findings: 0 }.",
+    "REACHABILITY CAVEAT, recorded honestly: the bundled TypeScriptParser.health() (packages/core/src/shared/parsers/typescript.ts:236) returns a hardcoded Ok({available:true}), so with the stock parser check-deps cannot reach the abstention branch TODAY. The discarded-abstention contract gap is real regardless, and validateDependencies is a public core export adopters call with their own LanguageParser. The reproducing tests therefore drive the abstention at the engine boundary (vi.mock of the core export) — the same technique and the same stated justification as the sibling #1996 suite, packages/cli/tests/commands/check-deps-err-swallow.test.ts:20-24.",
+    "Changeset written at 'minor' per the human's explicit instruction. FLAGGED: the instruction's premise was that the repo is at 0.54.1 (pre-1.0); @harness-engineering/cli is actually at 12.10.1, where a breaking behaviour change would strictly be 'major'. Written as instructed, surfaced for the reviewer rather than silently upgraded.",
+    "packages/core/src/ci/check-orchestrator.ts is being fixed concurrently by the #2071 lane and was NOT touched. packages/core/src/constraints/dependencies.ts needed no change at all — it already computes and types the abstention correctly.",
+    "The MCP twin does not honour deps.fallbackBehavior: it uses core's default 'error', which already refuses to report clean. Left deliberately; its new `skipped` read is a defensive contract read.",
+    "A `bug` route emits no plans/ directory. Expected, not a defect."
+  ],
+  "deferredFindings": [
+    "TypeScriptParser.health() hardcodes { available: true, version: '7.0.0' } and never probes anything, so the parser-health gate in validateDependencies is inert for the bundled parser. Worth its own issue; out of this lane's scope.",
+    "The #1188 zero-module abstention in check-deps still exits VALIDATION_FAILED (1) rather than ZERO_DENOMINATOR (3). Arguably the same verdict class as this fix; changing it is a second adopter-visible exit-code change and was deliberately not bundled."
+  ]
+}
