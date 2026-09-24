@@ -17,6 +17,11 @@
       "allowedDependencies": ["types"]
     },
     {
+      "name": "stats",
+      "pattern": "packages/stats/src/**",
+      "allowedDependencies": ["types"]
+    },
+    {
       "name": "core",
       "pattern": "packages/core/src/**",
       "allowedDependencies": ["types", "graph"]
@@ -260,6 +265,8 @@
       "packages/cli/tsup.config.ts",
       "packages/burn/src/index.ts",
       "packages/burn/src/bin/burn-hud.ts",
+      "packages/stats/src/index.ts",
+      "packages/stats/tsup.config.ts",
       "packages/local-models/src/index.ts",
       "packages/signals/src/index.ts",
       "packages/dashboard/src/server/serve.ts",
