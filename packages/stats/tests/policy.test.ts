@@ -120,3 +120,48 @@ describe('scoutFraction policy', () => {
     );
   });
 });
+
+describe('thompson policy', () => {
+  it('picks Beta(9,1) over Beta(1,9) in more than 90% of 1,000 seeded draws (SC7)', () => {
+    const { picks, explore } = tally([arm('strong', 9, 1), arm('weak', 1, 9)], thompson, 11, 1000);
+    expect(picks.get('strong') ?? 0).toBeGreaterThan(900);
+    // every pick of the lower-mean arm is an explore, and only those
+    expect(explore).toBe(picks.get('weak') ?? 0);
+  });
+
+  it('splits identical Beta(5,5) arms 40% to 60% each (SC7)', () => {
+    const { picks, explore } = tally([arm('left', 5, 5), arm('right', 5, 5)], thompson, 12, 1000);
+    for (const id of ['left', 'right']) {
+      const share = (picks.get(id) ?? 0) / 1000;
+      expect(share).toBeGreaterThanOrEqual(0.4);
+      expect(share).toBeLessThanOrEqual(0.6);
+    }
+    expect(explore).toBe(0); // equal posterior means: neither pick is below the best mean
+  });
+
+  it('labels the mode from posterior means and prints a one-line reason', () => {
+    const eligible = [arm('strong', 9, 1), arm('weak', 1, 9)];
+    const rng = mulberry32(13);
+    const seen = new Set<string>();
+    for (let i = 0; i < 200; i += 1) {
+      const choice = choose(eligible, thompson, rng);
+      seen.add(choice.mode);
+      expect(choice.reason).toMatch(/^thompson: sampled \d\.\d\d vs best-mean 0\.90/);
+      expect(choice.reason).not.toContain('\n');
+      if (choice.arm === 'weak') expect(choice.mode).toBe('explore');
+      if (choice.arm === 'strong') expect(choice.mode).toBe('exploit');
+    }
+    expect(seen.has('exploit')).toBe(true);
+  });
+
+  it('is deterministic under a seed and varies across seeds', () => {
+    const eligible = [arm('a', 3, 2), arm('b', 2, 3), arm('c', 1, 1)];
+    const run = (seed: number) => {
+      const rng = mulberry32(seed);
+      return Array.from({ length: 30 }, () => choose(eligible, thompson, rng).arm);
+    };
+    expect(run(5)).toEqual(run(5));
+    expect(new Set(run(5)).size).toBeGreaterThan(1);
+    expect(run(5)).not.toEqual(run(6));
+  });
+});

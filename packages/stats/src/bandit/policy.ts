@@ -2,7 +2,7 @@ import type { ArmState, BanditConfig, Choice } from '@harness-engineering/types'
 
 import { resolveBanditConfig, type ResolvedBanditConfig } from './config.js';
 import { NoEligibleArmsError } from './errors.js';
-import type { Rng } from './sampling.js';
+import { sampleBeta, type Rng } from './sampling.js';
 
 /**
  * Pick one arm from an already-eligible set (D7) under the configured policy
@@ -85,6 +85,24 @@ function chooseScoutFraction(
   };
 }
 
-function chooseThompson(eligible: readonly ArmState[], _rng: Rng): Choice {
-  throw new Error(`thompson policy lands in Task 7 (${String(eligible.length)} arms)`);
+function posteriorMean(arm: ArmState): number {
+  return arm.alpha / (arm.alpha + arm.beta);
+}
+
+/**
+ * One Beta draw per arm, pick the max. `mode` is `explore` when the pick's
+ * posterior mean is strictly below the best posterior mean; arms tied on the
+ * best mean are all exploit (no override for novel arms — their wide posterior
+ * is what gets them sampled).
+ */
+function chooseThompson(eligible: readonly ArmState[], rng: Rng): Choice {
+  const samples = eligible.map((arm) => ({ arm, sample: sampleBeta(arm.alpha, arm.beta, rng) }));
+  const pick = argmax(samples, (s) => s.sample);
+  const bestMean = Math.max(...eligible.map(posteriorMean));
+  const explore = posteriorMean(pick.arm) < bestMean;
+  return {
+    arm: pick.arm.arm,
+    mode: explore ? 'explore' : 'exploit',
+    reason: `thompson: sampled ${pick.sample.toFixed(2)} vs best-mean ${bestMean.toFixed(2)}${explore ? '' : ' (holds best mean)'}`,
+  };
 }
