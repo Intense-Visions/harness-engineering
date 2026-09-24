@@ -118,3 +118,45 @@ void _badMode;
 void _badPolicy;
 void _badChoiceMode;
 void _badVerdict;
+
+// --- 7. Negative: required fields must stay required (TS2741 when one is omitted) ---
+// Each literal omits exactly one required field. If that field becomes
+// optional, the directive becomes unused and typecheck fails with TS2578.
+// @ts-expect-error Pull.ts is required
+const _missingTs: Pull = { consumer: 'routing', context: 'c', arm: 'a', mode: 'explore' };
+// @ts-expect-error Pull.consumer is required
+const _missingConsumer: Pull = {
+  ts: '2026-09-24T00:00:00.000Z',
+  context: 'c',
+  arm: 'a',
+  mode: 'explore',
+};
+// @ts-expect-error Pull.context is required
+const _missingContext: Pull = {
+  ts: '2026-09-24T00:00:00.000Z',
+  consumer: 'routing',
+  arm: 'a',
+  mode: 'explore',
+};
+// @ts-expect-error Pull.arm is required
+const _missingArm: Pull = {
+  ts: '2026-09-24T00:00:00.000Z',
+  consumer: 'routing',
+  context: 'c',
+  mode: 'explore',
+};
+// @ts-expect-error Pull.mode is required
+const _missingMode: Pull = {
+  ts: '2026-09-24T00:00:00.000Z',
+  consumer: 'routing',
+  context: 'c',
+  arm: 'a',
+};
+// @ts-expect-error ArmState.novel is required
+const _missingNovel: ArmState = { arm: 'local', alpha: 1, beta: 1, effectiveN: 0, meanUtility: 0 };
+void _missingTs;
+void _missingConsumer;
+void _missingContext;
+void _missingArm;
+void _missingMode;
+void _missingNovel;
