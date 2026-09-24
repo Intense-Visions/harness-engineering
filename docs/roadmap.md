@@ -242,17 +242,6 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 - **Priority:** P1
 - **External-ID:** github:Intense-Visions/harness-engineering#849
 
-### PR Queue Triage & Merge Assistant Skill
-
-- **Status:** done
-- **Spec:** —
-- **Summary:** A skill to help teams stay on top of a large PR backlog in busy projects — triage/sort the open-PR list by risk & readiness, surface what needs review vs. what is mergeable, and assist with review and merge to cut the manual sorting effort.
-- **Blockers:** —
-- **Plan:** —
-- **Assignee:** —
-- **Priority:** —
-- **External-ID:** github:Intense-Visions/harness-engineering#1186
-
 ### Curate which MCP-server tools the local agent sees (per-server tool allowlist)
 
 - **Status:** in-progress
@@ -268,11 +257,11 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 
 - **Status:** done
 - **Spec:** docs/changes/init-ecosystem-aftercreate/proposal.md
-- **Summary:** Scaffold ecosystem-matched afterCreate install command + warn when neither install nor verify resolves
+- **Summary:** Follow-up to #1115 (lang-aware local-dispatch, #1002). The ecosystem detector (`packages/orchestrator/src/workspace/ecosystem.ts`) already exposes each ecosystem's INSTALL command alongside verify, but only verify is wired. Wire `harness init` to scaffold a matching `hooks.afterCreate` install command from the detected ecosystem, and warn loudly when a workspace has neither an install nor a verify command resolvable.
 - **Blockers:** —
 - **Plan:** —
 - **Assignee:** —
-- **Priority:** —
+- **Priority:** P2
 - **External-ID:** github:Intense-Visions/harness-engineering#1128
 
 ### Reconcile a project's configured MCP servers against the refreshed catalog (consent-gated)
@@ -340,17 +329,6 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 - **Assignee:** —
 - **Priority:** —
 - **External-ID:** github:Intense-Visions/harness-engineering#1271
-
-### init: scaffold ecosystem-matched install command + warn when neither install nor verify is configured
-
-- **Status:** done
-- **Spec:** —
-- **Summary:** Follow-up to #1115 (lang-aware local-dispatch, #1002). The ecosystem detector (`packages/orchestrator/src/workspace/ecosystem.ts`) already exposes each ecosystem's INSTALL command alongside verify, but only verify is wired. Wire `harness init` to scaffold a matching `hooks.afterCreate` install command from the detected ecosystem, and warn loudly when a workspace has neither an install nor a verify command resolvable.
-- **Blockers:** —
-- **Plan:** —
-- **Assignee:** —
-- **Priority:** P2
-- **External-ID:** github:Intense-Visions/harness-engineering#1128
 
 ### Position harness against OpenAI harness engineering
 
