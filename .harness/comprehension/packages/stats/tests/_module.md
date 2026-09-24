@@ -1,12 +1,13 @@
 ---
 schemaVersion: 1
 module: 'packages/stats/tests'
-sourceHash: '47890c5f606b2a162d32c698d684f818df32a9cb541e3a0c66e42ff1d1439d5b'
+sourceHash: 'df11c5ed2269f5f2614415ec2d10f9e3aad2660b02fc1a62933d8331b18be617'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
 members:
   [
+    'arm-model.test.ts',
     'barrel.test.ts',
     'config.test.ts',
     'ledger-parse.test.ts',
@@ -24,6 +25,7 @@ members:
 ## Dependency Slice
 
 ```
+import { decayWeight, foldArms } from '../src/bandit/arm-model'
 import { DEFAULT_PRIOR, DEFAULT_SCOUT_FRACTION, resolveBanditConfig } from '../src/bandit/config'
 import { InvalidBanditConfigError, NoEligibleArmsError } from '../src/bandit/errors'
 import { parseLine } from '../src/bandit/ledger-parse'
