@@ -128,20 +128,28 @@ function printCheckReport(report: CICheckReport): void {
     );
   }
   console.log('');
+  printVerdict(report);
+}
+
+/**
+ * The one-line verdict. The abstention branch exists so the run never claims a
+ * pass over a gate that did not evaluate anything (#2071).
+ */
+function printVerdict(report: CICheckReport): void {
+  const { passed, total, failed, warnings, abstained } = report.summary;
   if (report.exitCode === 0) {
-    logger.success(`All checks passed (${report.summary.passed}/${report.summary.total})`);
-  } else if (report.summary.abstained > 0 && report.summary.failed === 0) {
-    // Never claim a pass over a gate that did not run (#2071).
-    logger.error(
-      `${report.summary.abstained} check(s) could not run, ${report.summary.passed} passed — ` +
-        'refusing to report a pass over a gate that never evaluated. Fix the configuration ' +
-        'above, or pass `--skip <check>` to acknowledge the gate is not enforced.'
-    );
-  } else {
-    logger.error(
-      `${report.summary.failed} failed, ${report.summary.warnings} warnings, ${report.summary.passed} passed`
-    );
+    logger.success(`All checks passed (${passed}/${total})`);
+    return;
   }
+  if (abstained > 0 && failed === 0) {
+    logger.error(
+      `${abstained} check(s) could not run, ${passed} passed — refusing to report a pass ` +
+        'over a gate that never evaluated. Fix the configuration above, or pass ' +
+        '`--skip <check>` to acknowledge the gate is not enforced.'
+    );
+    return;
+  }
+  logger.error(`${failed} failed, ${warnings} warnings, ${passed} passed`);
 }
 
 async function runCheckAction(
