@@ -10,8 +10,9 @@ import * as stats from '../src/index';
  * `../src/index` resolves under vitest, and its export key-set is exactly the
  * Phase 1 instrument set (spec D6: one directory per instrument, exported as
  * one namespace). The second test pins SC12 on the filesystem itself: `src/`
- * holds only the barrel plus one directory per instrument, and each
- * instrument directory holds only its own barrel.
+ * holds only the barrel plus one directory per instrument; the `sprt`
+ * directory holds only its own barrel until Phase 3; the `bandit` listing and
+ * export keys are pinned to the Phase 2 surface.
  */
 describe('@harness-engineering/stats barrel', () => {
   it('exports exactly the instruments that ship in this phase, each as a namespace object', () => {
@@ -25,8 +26,37 @@ describe('@harness-engineering/stats barrel', () => {
   it('lays out src/ as one barrel plus one directory per instrument (SC12)', () => {
     const src = path.resolve(__dirname, '../src');
     expect(readdirSync(src).sort()).toEqual(['bandit', 'index.ts', 'sprt']);
-    // Phase 2 adds the bandit modules one task at a time; the exact listing is re-pinned once the surface is complete.
-    expect(readdirSync(path.join(src, 'bandit'))).toContain('index.ts');
+    expect(readdirSync(path.join(src, 'bandit')).sort()).toEqual([
+      'arm-model.ts',
+      'config.ts',
+      'errors.ts',
+      'index.ts',
+      'ledger-parse.ts',
+      'ledger.ts',
+      'policy.ts',
+      'sampling.ts',
+      'utility.ts',
+    ]);
     expect(readdirSync(path.join(src, 'sprt'))).toEqual(['index.ts']);
+  });
+
+  it('bandit exposes exactly the Phase 2 public surface', () => {
+    expect(Object.keys(stats.bandit).sort()).toEqual([
+      'BanditLedger',
+      'COST_EPSILON_USD',
+      'DEFAULT_LEDGER_PATH',
+      'DEFAULT_PRIOR',
+      'DEFAULT_SCOUT_FRACTION',
+      'InvalidBanditConfigError',
+      'NoEligibleArmsError',
+      'choose',
+      'decayWeight',
+      'foldArms',
+      'outcomeOnly',
+      'outcomePerDollar',
+      'resolveBanditConfig',
+    ]);
+    expect(typeof stats.bandit.choose).toBe('function');
+    expect(typeof stats.bandit.BanditLedger).toBe('function');
   });
 });
