@@ -53,9 +53,34 @@ function ledgerLines(text: string): string[] {
   return lines;
 }
 
-/** Late scoring by `ref` (spec "Ledger"); implemented in Task 10. */
+/**
+ * Late scoring by `ref` (spec "Ledger"). Within one bucket, `ref` is unique:
+ * a later full `Pull` with the same `ref` and a reward replaces the earlier
+ * unscored line; the latest scored line wins; a scored line is never
+ * downgraded by a later unscored one. A different `arm` on the same `ref` is
+ * malformed and skipped. Lines with no `ref` pass through untouched (they can
+ * only be scored inline). `consumer`/`context` already match: the bucket
+ * filter ran first, so the same `ref` in another bucket is a different pull.
+ */
 function resolveRefs(pulls: readonly Pull[]): ResolvedPulls {
-  return { pulls: [...pulls], malformed: 0 };
+  const direct: Pull[] = [];
+  const byRef = new Map<string, Pull>();
+  let malformed = 0;
+  for (const pull of pulls) {
+    if (pull.ref === undefined) {
+      direct.push(pull);
+      continue;
+    }
+    const existing = byRef.get(pull.ref);
+    if (existing === undefined) {
+      byRef.set(pull.ref, pull);
+    } else if (existing.arm !== pull.arm) {
+      malformed += 1;
+    } else if (pull.reward !== undefined || existing.reward === undefined) {
+      byRef.set(pull.ref, pull);
+    }
+  }
+  return { pulls: [...direct, ...byRef.values()], malformed };
 }
 
 /**

@@ -167,3 +167,92 @@ describe('BanditLedger.append', () => {
     expect(ledger.path).toBe(path.resolve(DEFAULT_LEDGER_PATH));
   });
 });
+
+describe('BanditLedger late scoring by ref (spec "Ledger", SC5)', () => {
+  const T0 = '2026-09-23T00:00:00.000Z';
+  const T1 = '2026-09-23T06:00:00.000Z';
+  const T2 = '2026-09-23T12:00:00.000Z';
+
+  function scored(ledger: BanditLedger) {
+    return ledger.fold('routing', 'quick-fix', config, NOW).arms;
+  }
+
+  it('attributes a later reward to the earlier unscored pull exactly once (SC5)', () => {
+    const ledger = new BanditLedger({ path: file });
+    ledger.append(pull({ ts: T0, ref: 'issue-1' }));
+    ledger.append(pull({ ts: T1, ref: 'issue-1', reward: { outcome: 1 } }));
+    const arms = scored(ledger);
+    expect(arms).toHaveLength(1);
+    const local = arms[0];
+    expect(local).toMatchObject({ arm: 'local', lastPull: T1, novel: true });
+    // the scoring line (T1, 18h old) wins wholesale: exactly one weighted observation
+    const w = Math.pow(0.5, 0.75 / 30);
+    expect(local?.effectiveN).toBeCloseTo(w, 12);
+    expect(local?.alpha).toBeCloseTo(1 + w, 12);
+    expect(local?.beta).toBe(1);
+  });
+
+  it('the latest scored line wins and a scored ref is never downgraded by a later unscored line', () => {
+    const ledger = new BanditLedger({ path: file });
+    ledger.append(pull({ ts: T0, ref: 'issue-2' }));
+    ledger.append(pull({ ts: T1, ref: 'issue-2', reward: { outcome: 0 } }));
+    ledger.append(pull({ ts: T2, ref: 'issue-2', reward: { outcome: 1 } }));
+    ledger.append(pull({ ts: T2, ref: 'issue-2' }));
+    const [local] = scored(ledger);
+    expect(local?.effectiveN).toBeCloseTo(Math.pow(0.5, 0.5 / 30), 12);
+    expect(local?.alpha).toBeGreaterThan(local?.beta ?? Infinity); // outcome 1 won
+  });
+
+  it('counts an arm mismatch on the same ref as malformed and skips it', () => {
+    const ledger = new BanditLedger({ path: file });
+    ledger.append(pull({ ts: T0, ref: 'issue-3', arm: 'local' }));
+    ledger.append(pull({ ts: T1, ref: 'issue-3', arm: 'remote', reward: { outcome: 1 } }));
+    const result = ledger.fold('routing', 'quick-fix', config, NOW);
+    expect(result.malformed).toBe(1);
+    expect(result.arms).toEqual([
+      {
+        arm: 'local',
+        alpha: 1,
+        beta: 1,
+        effectiveN: 0,
+        novel: true,
+        meanUtility: 0,
+        lastPull: T0,
+      },
+    ]);
+  });
+
+  it('the same ref in another (consumer, context) is a different pull, not a mismatch', () => {
+    const ledger = new BanditLedger({ path: file });
+    ledger.append(pull({ ts: T0, ref: 'issue-4' }));
+    ledger.append(
+      pull({ ts: T1, ref: 'issue-4', context: 'deep', arm: 'remote', reward: { outcome: 1 } })
+    );
+    const quickFix = ledger.fold('routing', 'quick-fix', config, NOW);
+    expect(quickFix.malformed).toBe(0);
+    expect(quickFix.arms[0]?.effectiveN).toBe(0);
+    const deep = ledger.fold('routing', 'deep', config, NOW);
+    expect(deep.malformed).toBe(0);
+    expect(deep.arms[0]?.arm).toBe('remote');
+    expect(deep.arms[0]?.effectiveN).toBeGreaterThan(0);
+  });
+
+  it('a pull without ref can only be scored inline: later reward lines never attach to it', () => {
+    const ledger = new BanditLedger({ path: file });
+    ledger.append(pull({ ts: T0 }));
+    ledger.append(pull({ ts: T1, reward: { outcome: 1 } }));
+    const [local] = scored(ledger);
+    expect(local?.effectiveN).toBeCloseTo(Math.pow(0.5, 0.75 / 30), 12); // exactly one scored pull
+    expect(local?.lastPull).toBe(T1);
+  });
+
+  it('an inline-scored pull with a ref is counted once and can still be re-scored later', () => {
+    const ledger = new BanditLedger({ path: file });
+    ledger.append(pull({ ts: T0, ref: 'issue-5', reward: { outcome: 0 } }));
+    expect(scored(ledger)[0]?.beta).toBeGreaterThan(1);
+    ledger.append(pull({ ts: T1, ref: 'issue-5', reward: { outcome: 1 } }));
+    const [local] = scored(ledger);
+    expect(local?.effectiveN).toBeCloseTo(Math.pow(0.5, 0.75 / 30), 12);
+    expect(local?.alpha).toBeGreaterThan(local?.beta ?? Infinity);
+  });
+});
