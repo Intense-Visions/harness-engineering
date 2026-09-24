@@ -141,7 +141,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^4.1.5
-        version: 4.1.11(@types/node@22.19.15)(@vitest/coverage-v8@4.1.11)(@vitest/ui@4.1.11)(vite@6.4.3)
+        version: 4.1.11(@types/node@22.19.15)(@vitest/coverage-v8@4.1.11)(jsdom@29.0.1)(vite@6.4.3)
 
   packages/cli:
     dependencies:
@@ -244,7 +244,7 @@ importers:
         version: 8.5.1(tsx@4.23.11)(typescript@5.9.3)(yaml@2.8.3)
       vitest:
         specifier: ^4.1.5
-        version: 4.1.11(@types/node@22.19.15)(@vitest/coverage-v8@4.1.11)(@vitest/ui@4.1.11)(vite@6.4.3)
+        version: 4.1.11(@types/node@22.19.15)(@vitest/coverage-v8@4.1.11)(jsdom@29.0.1)(vite@6.4.3)
 
   packages/core:
     dependencies:
@@ -451,7 +451,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^4.1.5
-        version: 4.1.11(@types/node@22.19.15)(@vitest/coverage-v8@4.1.11)(@vitest/ui@4.1.11)(vite@6.4.3)
+        version: 4.1.11(@types/node@22.19.15)(@vitest/coverage-v8@4.1.11)(jsdom@29.0.1)(vite@6.4.3)
 
   packages/graph:
     dependencies:
@@ -486,7 +486,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^4.1.5
-        version: 4.1.11(@types/node@22.19.15)(@vitest/coverage-v8@4.1.11)(@vitest/ui@4.1.11)(vite@6.4.3)
+        version: 4.1.11(@types/node@22.19.15)(@vitest/coverage-v8@4.1.11)(jsdom@29.0.1)(vite@6.4.3)
 
   packages/intelligence:
     dependencies:
@@ -521,7 +521,7 @@ importers:
         version: 8.5.1(tsx@4.23.11)(typescript@5.9.3)(yaml@2.8.3)
       vitest:
         specifier: ^4.1.5
-        version: 4.1.11(@types/node@22.19.15)(@vitest/coverage-v8@4.1.11)(@vitest/ui@4.1.11)(vite@6.4.3)
+        version: 4.1.11(@types/node@22.19.15)(@vitest/coverage-v8@4.1.11)(jsdom@29.0.1)(vite@6.4.3)
 
   packages/linter-gen:
     dependencies:
@@ -549,7 +549,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^4.1.5
-        version: 4.1.11(@types/node@22.19.15)(@vitest/coverage-v8@4.1.11)(@vitest/ui@4.1.11)(vite@6.4.3)
+        version: 4.1.11(@types/node@22.19.15)(@vitest/coverage-v8@4.1.11)(jsdom@29.0.1)(vite@6.4.3)
 
   packages/local-models:
     dependencies:
@@ -571,7 +571,7 @@ importers:
         version: 8.5.1(tsx@4.23.11)(typescript@5.9.3)(yaml@2.8.3)
       vitest:
         specifier: ^4.1.5
-        version: 4.1.11(@types/node@22.19.15)(@vitest/coverage-v8@4.1.11)(@vitest/ui@4.1.11)(vite@6.4.3)
+        version: 4.1.11(@types/node@22.19.15)(@vitest/coverage-v8@4.1.11)(jsdom@29.0.1)(vite@6.4.3)
 
   packages/orchestrator:
     dependencies:
@@ -659,7 +659,7 @@ importers:
         version: 8.5.1(tsx@4.23.11)(typescript@5.9.3)(yaml@2.8.3)
       vitest:
         specifier: ^4.1.5
-        version: 4.1.11(@types/node@22.19.15)(@vitest/coverage-v8@4.1.11)(@vitest/ui@4.1.11)(vite@6.4.3)
+        version: 4.1.11(@types/node@22.19.15)(@vitest/coverage-v8@4.1.11)(jsdom@29.0.1)(vite@6.4.3)
 
   packages/signals:
     dependencies:
@@ -684,7 +684,29 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^4.1.5
-        version: 4.1.11(@types/node@22.19.15)(@vitest/coverage-v8@4.1.11)(@vitest/ui@4.1.11)(vite@6.4.3)
+        version: 4.1.11(@types/node@22.19.15)(@vitest/coverage-v8@4.1.11)(jsdom@29.0.1)(vite@6.4.3)
+
+  packages/stats:
+    dependencies:
+      '@harness-engineering/types':
+        specifier: workspace:*
+        version: link:../types
+    devDependencies:
+      '@types/node':
+        specifier: ^22.19.15
+        version: 22.19.15
+      '@vitest/coverage-v8':
+        specifier: ^4.1.5
+        version: 4.1.11(vitest@4.1.11)
+      tsup:
+        specifier: ^8.5.1
+        version: 8.5.1(tsx@4.23.11)(typescript@5.9.3)(yaml@2.8.3)
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+      vitest:
+        specifier: ^4.1.5
+        version: 4.1.11(@types/node@22.19.15)(@vitest/coverage-v8@4.1.11)(jsdom@29.0.1)(vite@6.4.3)
 
   packages/types:
     dependencies:
