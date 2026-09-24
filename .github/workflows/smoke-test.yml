@@ -18,6 +18,15 @@ jobs:
     if: ${{ github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
     steps:
+      # This job deliberately has no full checkout: it tests the PUBLISHED packages
+      # from npm, not the working tree. But `node-version-file` below resolves against
+      # the runner workspace, so the one file it does need must be fetched. Sparse,
+      # non-cone so a bare filename matches, and nothing else lands in the workspace.
+      - uses: actions/checkout@v6
+        with:
+          sparse-checkout: .nvmrc
+          sparse-checkout-cone-mode: false
+
       - uses: actions/setup-node@v6
         with:
           node-version-file: .nvmrc
