@@ -8,3 +8,4 @@
  * their own consumer specs (spec D10).
  */
 export * as bandit from './bandit/index.js';
+export * as sprt from './sprt/index.js';

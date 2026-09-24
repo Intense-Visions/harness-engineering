@@ -12,4 +12,13 @@ describe('@harness-engineering/stats barrel', () => {
     expect(typeof stats.bandit).toBe('object');
     expect(stats.bandit).not.toBeNull();
   });
+
+  it('exposes the sprt instrument as a namespace', () => {
+    expect(typeof stats.sprt).toBe('object');
+    expect(stats.sprt).not.toBeNull();
+  });
+
+  it('exports exactly the instruments that ship in this phase (SC12)', () => {
+    expect(Object.keys(stats).sort()).toEqual(['bandit', 'sprt']);
+  });
 });

@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
-module: 'packages/stats/src'
-sourceHash: '60eae6ff85fb8361b187a1fb72f487bcfaa758a5aa303c3ca3f18cd0e2ddb025'
+module: 'packages/stats/src/sprt'
+sourceHash: '293288d9de103ec78f0e6061f357e630791437abf22230ee3dd0c51f7d64130b'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -11,8 +11,7 @@ members: ['index.ts']
 ## Interface Contract
 
 ```ts
-export bandit
-export sprt
+
 ```
 
 ## Dependency Slice
