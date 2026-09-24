@@ -19,9 +19,19 @@ without a layer exception.
 ```ts
 import { bandit } from '@harness-engineering/stats';
 
-const ledger = new bandit.BanditLedger(); // .harness/metrics/bandit.jsonl
+const ledger = new bandit.BanditLedger({
+  // .harness/metrics/bandit.jsonl; IO failures (append, or a fold read that is not ENOENT) land here
+  onError: (error) => log.warn('bandit ledger', error),
+});
 const config = { policy: 'scoutFraction', halfLifeDays: 30, minEffectiveN: 2 } as const;
-const { arms } = ledger.fold('routing', 'quick-fix', config, new Date());
+const { arms, malformed, bytes, readError } = ledger.fold(
+  'routing',
+  'quick-fix',
+  config,
+  new Date()
+);
+// bytes: file length folded; a hot consumer re-folds only when it changes.
+// readError: the ledger was unreadable (EISDIR, EACCES, ...): arms is [] and onError was told.
 const choice = bandit.choose(eligibleSubsetOf(arms), config, Math.random); // eligibility is yours (D7)
 const pull = {
   ts: new Date().toISOString(),

@@ -45,6 +45,7 @@ describe('BanditLedger.fold', () => {
       arms: [],
       malformed: 0,
       bytes: 0,
+      readError: false,
     });
   });
 
@@ -104,9 +105,21 @@ describe('BanditLedger.fold', () => {
     );
   });
 
-  it('rethrows read errors other than ENOENT', () => {
-    const ledger = new BanditLedger({ path: dir }); // a directory, not a file
-    expect(() => ledger.fold('routing', 'quick-fix', config, NOW)).toThrow();
+  it('routes read errors other than ENOENT to onError and returns an empty fold flagged readError', () => {
+    const onError = vi.fn<(error: Error) => void>();
+    const ledger = new BanditLedger({ path: dir, onError }); // a directory, not a file: EISDIR
+    let result: ReturnType<BanditLedger['fold']> | undefined;
+    expect(() => {
+      result = ledger.fold('routing', 'quick-fix', config, NOW);
+    }).not.toThrow();
+    expect(result).toEqual({ arms: [], malformed: 0, bytes: 0, readError: true });
+    expect(onError).toHaveBeenCalledTimes(1);
+    expect(onError.mock.calls[0]?.[0]).toBeInstanceOf(Error);
+  });
+
+  it('a read error with no onError is still a silent empty fold', () => {
+    const ledger = new BanditLedger({ path: dir });
+    expect(ledger.fold('routing', 'quick-fix', config, NOW).readError).toBe(true);
   });
 
   it('folds a 10,000-line ledger correctly (spec: O(lines) full re-fold)', () => {

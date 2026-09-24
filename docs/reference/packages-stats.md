@@ -22,7 +22,7 @@ Public surface of the explore/exploit bandit: `BanditLedger` (append + fold), `f
 
 [`packages/stats/src/bandit/ledger.ts`](/packages/stats/src/bandit/ledger.ts)
 
-`BanditLedger` over `.harness/metrics/bandit.jsonl` (path injectable): synchronous `append` (one `appendFileSync` per pull, IO failures to `onError`), and `fold(consumer, context, config, now, utility?)` — whole-file re-read, bucket filter, late scoring by `ref` (latest scored wins, never downgraded, arm mismatch is malformed), then `foldArms`. Missing file is an empty ledger; `FoldResult` carries the malformed count and the byte length read.
+`BanditLedger` over `.harness/metrics/bandit.jsonl` (path injectable): synchronous `append` (one `appendFileSync` per pull, IO failures to `onError`), and `fold(consumer, context, config, now, utility?)` — whole-file re-read, bucket filter, late scoring by `ref` (latest scored wins, never downgraded, arm mismatch is malformed), then `foldArms`. Missing file is an empty ledger; any other read failure goes to `onError` and folds empty with `readError: true`. `FoldResult` carries `arms`, the `malformed` count, the `bytes` length read (the re-fold trigger), and the `readError` flag.
 
 **Exports:** `BanditLedger`, `DEFAULT_LEDGER_PATH`, `BanditLedgerOptions`, `FoldResult`
 

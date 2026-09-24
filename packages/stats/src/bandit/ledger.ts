@@ -14,7 +14,11 @@ export const DEFAULT_LEDGER_PATH = path.join('.harness', 'metrics', 'bandit.json
 export interface BanditLedgerOptions {
   /** Ledger file; defaults to `<cwd>/.harness/metrics/bandit.jsonl`. Injectable for tests. */
   path?: string;
-  /** Receives append IO failures. A consumer that omits it loses one pull, never a dispatch (spec "Error handling"). */
+  /**
+   * Receives IO failures from `append` and from a `fold` read that fails for
+   * any reason other than a missing file. A consumer that omits it loses one
+   * pull (or folds an empty ledger), never a dispatch (spec "Error handling").
+   */
   onError?: (error: Error) => void;
 }
 
@@ -24,12 +28,24 @@ export interface FoldResult {
   malformed: number;
   /** Byte length of the file that was folded (0 when missing). A hot consumer re-folds only when this changes. */
   bytes: number;
+  /**
+   * True when the ledger could not be read for a reason other than ENOENT
+   * (EISDIR, EACCES, ...): the error went to `onError`, `arms` is empty and
+   * `bytes` is 0, so a consumer can tell "unreadable" from "empty" without a throw.
+   */
+  readError: boolean;
 }
 
 interface Bucket {
   pulls: Pull[];
   malformed: number;
   bytes: number;
+  readError: boolean;
+}
+
+interface LedgerRead {
+  raw: Buffer;
+  readError: boolean;
 }
 
 interface ResolvedPulls {
@@ -37,13 +53,21 @@ interface ResolvedPulls {
   malformed: number;
 }
 
-function readLedger(file: string): Buffer {
+/** A missing file is an empty ledger; any other read failure goes to `onError` and is flagged. */
+function readLedger(file: string, onError: BanditLedgerOptions['onError']): LedgerRead {
   try {
-    return readFileSync(file);
+    return { raw: readFileSync(file), readError: false };
   } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return Buffer.alloc(0);
-    throw error;
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+      return { raw: Buffer.alloc(0), readError: false };
+    }
+    onError?.(toError(error));
+    return { raw: Buffer.alloc(0), readError: true };
   }
+}
+
+function toError(error: unknown): Error {
+  return error instanceof Error ? error : new Error(String(error));
 }
 
 /** Split on newlines; only the empty segment after a trailing newline is dropped. Everything else is parsed. */
@@ -103,11 +127,16 @@ export class BanditLedger {
       mkdirSync(path.dirname(this.path), { recursive: true });
       appendFileSync(this.path, JSON.stringify(pull) + '\n');
     } catch (error) {
-      this.onError?.(error instanceof Error ? error : new Error(String(error)));
+      this.onError?.(toError(error));
     }
   }
 
-  /** Fold the (consumer, context) bucket into one `ArmState` per arm at the reference instant `now`. */
+  /**
+   * Fold the (consumer, context) bucket into one `ArmState` per arm at the
+   * reference instant `now`. Never throws on IO: an unreadable ledger folds
+   * empty with `readError: true` after notifying `onError`. Only an invalid
+   * config throws.
+   */
   fold(
     consumer: string,
     context: string,
@@ -122,12 +151,13 @@ export class BanditLedger {
       arms: foldArms(pulls, resolved, now, utility),
       malformed: bucket.malformed + malformed,
       bytes: bucket.bytes,
+      readError: bucket.readError,
     };
   }
 
   private readBucket(consumer: string, context: string): Bucket {
-    const raw = readLedger(this.path);
-    const bucket: Bucket = { pulls: [], malformed: 0, bytes: raw.length };
+    const { raw, readError } = readLedger(this.path, this.onError);
+    const bucket: Bucket = { pulls: [], malformed: 0, bytes: raw.length, readError };
     for (const line of ledgerLines(raw.toString('utf8'))) {
       const parsed = parseLine(line);
       if (!parsed.ok) {
