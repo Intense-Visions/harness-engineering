@@ -1,11 +1,11 @@
 ---
 schemaVersion: 1
 module: 'packages/stats/tests'
-sourceHash: 'd45af71f4cc9373b0c43f317887191dbb2ca84feae448a615440e5f94af58994'
+sourceHash: '78e1aed1f1d08720c2c1b3c064bb718e3973c9ae5e3bb461ed5b86e5b0d22b63'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
-members: ['barrel.test.ts', 'config.test.ts', 'utility.test.ts']
+members: ['barrel.test.ts', 'config.test.ts', 'sampling.test.ts', 'utility.test.ts']
 ---
 
 ## Interface Contract
@@ -19,8 +19,10 @@ members: ['barrel.test.ts', 'config.test.ts', 'utility.test.ts']
 ```
 import { DEFAULT_PRIOR, DEFAULT_SCOUT_FRACTION, resolveBanditConfig } from '../src/bandit/config'
 import { InvalidBanditConfigError, NoEligibleArmsError } from '../src/bandit/errors'
+import { sampleBeta } from '../src/bandit/sampling'
 import { COST_EPSILON_USD, outcomeOnly, outcomePerDollar } from '../src/bandit/utility'
 import * as stats from '../src/index'
+import { mulberry32 } from './helpers/prng'
 import { BanditConfig } from '@harness-engineering/types'
 import { readdirSync } from 'node:fs'
 import path from 'node:path'
