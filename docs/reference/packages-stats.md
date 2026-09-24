@@ -62,7 +62,7 @@ Decayed Beta posterior: `decayWeight(ageDays, halfLifeDays) = 0.5^(age/halfLife)
 
 [`packages/stats/src/bandit/config.ts`](/packages/stats/src/bandit/config.ts)
 
-`resolveBanditConfig`: fills defaults (`scoutFraction` 0.1, prior Beta(1,1)) and validates bounds (`scoutFraction` in [0, 1], `halfLifeDays` > 0, `minEffectiveN` ≥ 0, prior parameters > 0), throwing `InvalidBanditConfigError`.
+`resolveBanditConfig`: fills defaults (`scoutFraction` 0.1, prior Beta(1,1)) and validates the table of guards (`policy` is `scoutFraction` or `thompson`, `scoutFraction` in [0, 1], `halfLifeDays` > 0, `minEffectiveN` ≥ 0, prior parameters > 0), throwing `InvalidBanditConfigError` with the first failed guard's message.
 
 **Exports:** `resolveBanditConfig`, `ResolvedBanditConfig`, `DEFAULT_SCOUT_FRACTION`, `DEFAULT_PRIOR`
 

@@ -35,6 +35,7 @@ describe('resolveBanditConfig', () => {
     ['minEffectiveN negative', { ...base, minEffectiveN: -1 }, /minEffectiveN/],
     ['prior alpha zero', { ...base, prior: { alpha: 0, beta: 1 } }, /prior/],
     ['prior beta negative', { ...base, prior: { alpha: 1, beta: -2 } }, /prior/],
+    ['unknown policy', { ...base, policy: 'thomson' as never }, /policy must be/],
   ] as const)('rejects %s with InvalidBanditConfigError', (_name, config, message) => {
     expect(() => resolveBanditConfig(config)).toThrow(InvalidBanditConfigError);
     expect(() => resolveBanditConfig(config)).toThrow(message);

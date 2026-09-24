@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/stats/src/bandit'
-sourceHash: 'fdd29ae7425045b35114a4f39f4b4d4cdf5ebb70fb4838a97a28ed66adf68df1'
+sourceHash: 'a495fc49cba47e9752131de994c3c6f93a49c13436e02ab5af3ae56878060b57'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
