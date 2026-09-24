@@ -494,5 +494,16 @@
   "integrations": {
     "enabled": ["github", "exa"],
     "dismissed": []
+  },
+  "waypoint": {
+    "sink": {
+      "transport": "spool",
+      "source": "harness://repo/harness-engineering",
+      "ship": {
+        "url": "https://waypoint.pnyon.com",
+        "outpost": "cdb5bb13-6bac-443c-89f1-b857d292795f",
+        "project": "harness-engineering"
+      }
+    }
   }
 }
