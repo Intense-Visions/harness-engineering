@@ -9,10 +9,34 @@ Each instrument is one directory exported as one namespace, so `stats.bandit.*` 
 (no graph, no provider), so core, intelligence, orchestrator, and the CLI can all import it
 without a layer exception.
 
-| Namespace | Instrument                                                                                      | Status                                                |
-| --------- | ----------------------------------------------------------------------------------------------- | ----------------------------------------------------- |
-| `bandit`  | Explore/exploit bandit: `scoutFraction` and `thompson` policies over a half-life-decayed ledger | Scaffolded (Phase 1); implementation lands in Phase 2 |
-| `sprt`    | Bernoulli sequential probability ratio test with Wald bounds                                    | Scaffolded (Phase 1); implementation lands in Phase 3 |
+| Namespace | Instrument                                                                                      | Status                                                          |
+| --------- | ----------------------------------------------------------------------------------------------- | --------------------------------------------------------------- |
+| `bandit`  | Explore/exploit bandit: `scoutFraction` and `thompson` policies over a half-life-decayed ledger | Implemented (Phase 2): ledger, decayed arm model, both policies |
+| `sprt`    | Bernoulli sequential probability ratio test with Wald bounds                                    | Scaffolded (Phase 1); implementation lands in Phase 3           |
+
+## Usage
+
+```ts
+import { bandit } from '@harness-engineering/stats';
+
+const ledger = new bandit.BanditLedger(); // .harness/metrics/bandit.jsonl
+const config = { policy: 'scoutFraction', halfLifeDays: 30, minEffectiveN: 2 } as const;
+const { arms } = ledger.fold('routing', 'quick-fix', config, new Date());
+const choice = bandit.choose(eligibleSubsetOf(arms), config, Math.random); // eligibility is yours (D7)
+const pull = {
+  ts: new Date().toISOString(),
+  consumer: 'routing',
+  context: 'quick-fix',
+  arm: choice.arm,
+  mode: choice.mode,
+  ref: 'issue-1557',
+};
+ledger.append(pull);
+// later, score it by ref: a full Pull with the same ref plus a reward
+ledger.append({ ...pull, ts: new Date().toISOString(), reward: { outcome: 1, costUsd: 0.02 } });
+```
+
+The consumer owns eligibility (`eligibleSubsetOf` above is yours): floors, vetoes, and budgets never enter the package.
 
 Shared shapes (`Pull`, `ArmState`, `BanditConfig`, `Choice`, `SprtVerdict`, `SprtConfig`) live in
 `@harness-engineering/types` (`packages/types/src/stats.ts`) so this package and every consumer
