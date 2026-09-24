@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/stats/src/bandit'
-sourceHash: 'e104767bd8900c612c2c3fb65641b1d9bad1fa2c7e5c0bc066dba4c9cc21161a'
+sourceHash: 'd2767e180e6b5f16198ea93b786d36617f71ce3fd8466eaffea631dcabc7ea68'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -12,6 +12,7 @@ members:
     'errors.ts',
     'index.ts',
     'ledger-parse.ts',
+    'policy.ts',
     'sampling.ts',
     'utility.ts',
   ]
@@ -26,8 +27,9 @@ members:
 ## Dependency Slice
 
 ```
-import { ResolvedBanditConfig } from './config.js'
-import { InvalidBanditConfigError } from './errors.js'
+import { ResolvedBanditConfig, resolveBanditConfig } from './config.js'
+import { InvalidBanditConfigError, NoEligibleArmsError } from './errors.js'
+import { Rng } from './sampling.js'
 import { Utility, outcomeOnly } from './utility.js'
-import { ArmState, BanditConfig, Pull } from '@harness-engineering/types'
+import { ArmState, BanditConfig, Choice, Pull } from '@harness-engineering/types'
 ```
