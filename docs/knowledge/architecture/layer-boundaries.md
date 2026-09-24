@@ -16,7 +16,7 @@ The harness-engineering monorepo enforces strict layer boundaries to prevent arc
 6. **linter-gen** - Linter configuration generator (depends on: types, core)
 7. **intelligence** - AI-powered analysis (depends on: types, graph)
 8. **orchestrator** - Workflow orchestration (depends on: types, core, intelligence)
-9. **dashboard** - Web dashboard (depends on: types, core, graph)
+9. **dashboard** - Web dashboard (depends on: types, core, graph, intelligence)
 10. **cli** - CLI and MCP server (depends on: types, core, graph, linter-gen, orchestrator)
 
 Imports that violate layer boundaries are forbidden via the `forbiddenImports` configuration. The architecture threshold for layer violations is zero — any violation fails validation.
