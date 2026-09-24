@@ -89,7 +89,9 @@ void _verdicts;
 void _sprtBounded;
 void _sprtUnbounded;
 
-// --- 6. Negative: a mode outside the union must not compile ---
+// --- 6. Negative: one literal outside each spec-pinned union must not compile ---
+// Each directive is load-bearing: if the union widens to `string`, the
+// directive becomes unused and typecheck fails with TS2578.
 const _badMode: Pull = {
   ts: '2026-09-24T00:00:00.000Z',
   consumer: 'routing',
@@ -98,4 +100,21 @@ const _badMode: Pull = {
   // @ts-expect-error mode is 'exploit' | 'explore'
   mode: 'random',
 };
+const _badPolicy: BanditConfig = {
+  // @ts-expect-error policy is 'scoutFraction' | 'thompson'
+  policy: 'random',
+  halfLifeDays: 30,
+  minEffectiveN: 2,
+};
+const _badChoiceMode: Choice = {
+  arm: 'a',
+  // @ts-expect-error mode is 'exploit' | 'explore'
+  mode: 'scout',
+  reason: 'r',
+};
+// @ts-expect-error SprtVerdict is 'accept' | 'reject' | 'continue'
+const _badVerdict: SprtVerdict = 'maybe';
 void _badMode;
+void _badPolicy;
+void _badChoiceMode;
+void _badVerdict;
