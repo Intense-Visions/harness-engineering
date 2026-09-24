@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/stats/tests'
-sourceHash: '2f11fe7969947f4c22dd3d28296941456f986904648c918d50a03ce1c1d8da16'
+sourceHash: '0e3d4ebb3d9176f10ef8e5cd6e320465bd5a865d0871232e2de494269bd7b0ac'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -11,6 +11,7 @@ members:
     'barrel.test.ts',
     'config.test.ts',
     'ledger-parse.test.ts',
+    'ledger.test.ts',
     'policy.test.ts',
     'sampling.test.ts',
     'utility.test.ts',
@@ -29,6 +30,7 @@ members:
 import { decayWeight, foldArms } from '../src/bandit/arm-model'
 import { DEFAULT_PRIOR, DEFAULT_SCOUT_FRACTION, resolveBanditConfig } from '../src/bandit/config'
 import { InvalidBanditConfigError, NoEligibleArmsError } from '../src/bandit/errors'
+import { BanditLedger, DEFAULT_LEDGER_PATH } from '../src/bandit/ledger'
 import { parseLine } from '../src/bandit/ledger-parse'
 import { choose } from '../src/bandit/policy'
 import { sampleBeta } from '../src/bandit/sampling'
@@ -36,7 +38,8 @@ import { COST_EPSILON_USD, outcomeOnly, outcomePerDollar } from '../src/bandit/u
 import * as stats from '../src/index'
 import { mulberry32 } from './helpers/prng'
 import { ArmState, BanditConfig, Pull } from '@harness-engineering/types'
-import { readdirSync } from 'node:fs'
+import { appendFileSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
 import path from 'node:path'
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 ```
