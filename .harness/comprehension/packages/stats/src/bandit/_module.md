@@ -1,11 +1,11 @@
 ---
 schemaVersion: 1
 module: 'packages/stats/src/bandit'
-sourceHash: '3fb80780cfe04738a83aedd0a73256de74dc65e99fee355a53462fc4fabd871d'
+sourceHash: '73d5ca2b10040754fe6c6bc7fe6b129a09f1b682bb5fe79c73bb687acdc785c2'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
-members: ['config.ts', 'errors.ts', 'index.ts', 'sampling.ts', 'utility.ts']
+members: ['config.ts', 'errors.ts', 'index.ts', 'ledger-parse.ts', 'sampling.ts', 'utility.ts']
 ---
 
 ## Interface Contract
