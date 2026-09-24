@@ -50,18 +50,38 @@ function argmax<T>(items: readonly T[], key: (item: T) => number): T {
   return best;
 }
 
-/** Least-sampled eligible arm; novel arms first (D5); ties broken by rng. */
-function leastSampled(eligible: readonly ArmState[], rng: Rng): ArmState {
-  const novel = eligible.filter((a) => a.novel);
-  const pool = novel.length > 0 ? novel : eligible;
-  const minN = Math.min(...pool.map((a) => a.effectiveN));
-  const tied = pool.filter((a) => a.effectiveN === minN);
+/** One rng draw per tied arm, highest draw wins. A single candidate returns without a draw. */
+function breakTie(tied: readonly ArmState[], rng: Rng): ArmState {
   const single = tied.length === 1 ? tied[0] : undefined;
   if (single !== undefined) return single; // no rng draw when there is nothing to break
   return argmax(
     tied.map((a) => ({ a, r: rng() })),
     (t) => t.r
   ).a;
+}
+
+/** Least-sampled eligible arm; novel arms first (D5); ties broken by rng. */
+function leastSampled(eligible: readonly ArmState[], rng: Rng): ArmState {
+  const novel = eligible.filter((a) => a.novel);
+  const pool = novel.length > 0 ? novel : eligible;
+  const minN = Math.min(...pool.map((a) => a.effectiveN));
+  return breakTie(
+    pool.filter((a) => a.effectiveN === minN),
+    rng
+  );
+}
+
+/**
+ * Highest meanUtility; ties broken by rng, mirroring `leastSampled`. Without
+ * this a cold start (every arm unscored, meanUtility 0, sorted by id) would
+ * send every exploit pull to the alphabetically first arm.
+ */
+function bestByUtility(eligible: readonly ArmState[], rng: Rng): ArmState {
+  const maxUtility = Math.max(...eligible.map((a) => a.meanUtility));
+  return breakTie(
+    eligible.filter((a) => a.meanUtility === maxUtility),
+    rng
+  );
 }
 
 function chooseScoutFraction(
@@ -77,7 +97,7 @@ function chooseScoutFraction(
       reason: `scout 1-in-${oneIn(config.scoutFraction)}, least sampled (n=${fmtN(target.effectiveN)})`,
     };
   }
-  const best = argmax(eligible, (a) => a.meanUtility);
+  const best = bestByUtility(eligible, rng);
   return {
     arm: best.arm,
     mode: 'exploit',

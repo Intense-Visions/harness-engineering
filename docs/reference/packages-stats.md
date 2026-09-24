@@ -46,7 +46,7 @@ Decayed Beta posterior: `decayWeight(ageDays, halfLifeDays) = 0.5^(age/halfLife)
 
 [`packages/stats/src/bandit/policy.ts`](/packages/stats/src/bandit/policy.ts)
 
-`choose(eligible, config, rng)`: `scoutFraction` (probability f → least-sampled, novel-first, rng tie-break, mode explore; else highest `meanUtility`, exploit) and `thompson` (one Beta draw per arm, max wins, explore when the pick's posterior mean is below the best). Single eligible arm → exploit without consulting `rng`; empty → `NoEligibleArmsError`. Every `Choice.reason` is one printable line.
+`choose(eligible, config, rng)`: `scoutFraction` (probability f → least-sampled, novel-first, rng tie-break, mode explore; else highest `meanUtility` with the same rng tie-break so a cold start spreads across unscored arms, exploit) and `thompson` (one Beta draw per arm, max wins, explore when the pick's posterior mean is below the best). Single eligible arm → exploit without consulting `rng`; empty → `NoEligibleArmsError`. Every `Choice.reason` is one printable line.
 
 **Exports:** `choose`
 

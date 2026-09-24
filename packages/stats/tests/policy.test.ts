@@ -113,6 +113,21 @@ describe('scoutFraction policy', () => {
     for (const count of picks.values()) expect(count).toBeGreaterThan(60);
   });
 
+  it('spreads cold-start exploit picks across arms tied on meanUtility instead of the first id', () => {
+    // three all-novel, unscored arms: meanUtility 0 everywhere, so the exploit argmax is a 3-way tie
+    const cold = ['a', 'b', 'c'].map((id) => arm(id, 1, 1, { meanUtility: 0 }));
+    const { picks } = tally(cold, scout, 4, 1000);
+    expect([...picks.keys()].sort()).toEqual(['a', 'b', 'c']);
+    for (const id of ['a', 'b', 'c']) expect((picks.get(id) ?? 0) / 1000).toBeGreaterThan(0.2);
+  });
+
+  it('does not consult rng when the best meanUtility is unique', () => {
+    const rng = vi.fn(() => 0.99); // 0.99 >= 0.1: the scout gate draws once and never scouts
+    const choice = choose(eligible, scout, rng);
+    expect(choice.arm).toBe('good');
+    expect(rng).toHaveBeenCalledTimes(1);
+  });
+
   it('scoutFraction 0 never explores; non-integer 1/f is printed with one decimal', () => {
     expect(tally(eligible, { ...scout, scoutFraction: 0 }, 3, 500).explore).toBe(0);
     expect(choose(eligible, { ...scout, scoutFraction: 0.3 }, () => 0).reason).toMatch(
