@@ -161,12 +161,40 @@ describe('thompson policy', () => {
     for (let i = 0; i < 200; i += 1) {
       const choice = choose(eligible, thompson, rng);
       seen.add(choice.mode);
-      expect(choice.reason).toMatch(/^thompson: sampled \d\.\d\d vs best-mean 0\.90/);
+      expect(choice.reason).toMatch(
+        /^thompson: sampled \d\.\d\d vs best-mean 0\.90( \(holds best mean\))?$/
+      );
       expect(choice.reason).not.toContain('\n');
       if (choice.arm === 'weak') expect(choice.mode).toBe('explore');
       if (choice.arm === 'strong') expect(choice.mode).toBe('exploit');
     }
     expect(seen.has('exploit')).toBe(true);
+  });
+
+  it('observes both modes on overlapping posteriors: lower-mean picks are explore, best-mean picks exploit', () => {
+    // Beta(3,2) vs Beta(2,3): means 0.60 and 0.40 overlap enough that the weak arm wins a real share
+    const eligible = [arm('strong', 3, 2), arm('weak', 2, 3)];
+    const rng = mulberry32(13);
+    const seen = new Set<string>();
+    let weak = 0;
+    let explore = 0;
+    for (let i = 0; i < 200; i += 1) {
+      const choice = choose(eligible, thompson, rng);
+      seen.add(choice.mode);
+      if (choice.arm === 'weak') weak += 1;
+      if (choice.mode === 'explore') explore += 1;
+      // the arm decides the mode, and the reason's suffix appears exactly on exploit
+      expect(choice.mode).toBe(choice.arm === 'weak' ? 'explore' : 'exploit');
+      expect(choice.reason).toMatch(
+        choice.mode === 'explore'
+          ? /^thompson: sampled \d\.\d\d vs best-mean 0\.60$/
+          : /^thompson: sampled \d\.\d\d vs best-mean 0\.60 \(holds best mean\)$/
+      );
+    }
+    expect(seen).toEqual(new Set(['explore', 'exploit']));
+    expect(weak).toBeGreaterThan(20); // a positive share, so explore === weak is not 0 === 0
+    expect(weak).toBeLessThan(120); // and not a coin flip: the sampler must respect the means
+    expect(explore).toBe(weak);
   });
 
   it('is deterministic under a seed and varies across seeds', () => {
