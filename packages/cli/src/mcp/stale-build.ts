@@ -1,4 +1,5 @@
 import { createRequire } from 'node:module';
+import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 /**
@@ -41,13 +42,43 @@ import { fileURLToPath } from 'node:url';
 const MODULE_NOT_FOUND = 'ERR_MODULE_NOT_FOUND';
 
 /**
- * A tsup content-hashed chunk, which is the only kind of missing file that
- * implies build skew rather than a genuinely broken install.
+ * A tsup content-hashed chunk *filename*, which is the only kind of missing
+ * file that implies build skew rather than a genuinely broken install.
  *
  * Matching the *shape* rather than any particular hash is the point: the hashes
  * change every build, so a list of known names would be stale by construction.
+ *
+ * Anchored to the filename alone, because the path separator differs by
+ * platform and the filename does not. An earlier version baked a leading `/`
+ * into this pattern, which made the whole recogniser dead on Windows — where
+ * `missingPath()` hands back `D:\…\dist\dist-QI44KYEI.js` — for exactly the
+ * input it exists to catch.
  */
-const HASHED_CHUNK = /\/(?:dist|chunk)-[A-Z0-9]{8,}\.js$/;
+const HASHED_CHUNK = /^(?:dist|chunk)-[A-Z0-9]{8,}\.js$/;
+
+/**
+ * The filename at the end of a path, split on either separator.
+ *
+ * `path.basename` splits on the separator of the platform it is *running* on
+ * rather than the one that produced the path, so on POSIX it hands a Windows
+ * path back whole. Splitting on both makes the answer depend on the path
+ * instead of on the host, which is also what lets a Windows-shaped input be
+ * pinned by a test that runs everywhere.
+ */
+function fileNameOf(filePath: string): string {
+  const parts = filePath.split(/[/\\]/);
+  return parts[parts.length - 1] ?? filePath;
+}
+
+/**
+ * Does this path name a content-hashed build chunk?
+ *
+ * Exported for its own unit test: the platform skew this guards against is by
+ * definition invisible to a suite that runs on one platform at a time.
+ */
+export function isHashedChunk(filePath: string): boolean {
+  return HASHED_CHUNK.test(fileNameOf(filePath));
+}
 
 type ModuleNotFoundError = Error & { code?: string; url?: string };
 
@@ -75,9 +106,78 @@ function missingPath(error: ModuleNotFoundError): string | null {
   return quoted?.[1] ?? null;
 }
 
-/** This build's own `dist/` directory, resolved from this module's location. */
-function ownDistDir(): string {
+/**
+ * This module's own directory.
+ *
+ * In the shipped build that directory *is* `dist/`, because tsup emits a flat
+ * bundle; in the source tree it is `src/mcp/`. Everything below that cares
+ * about the difference says so explicitly rather than assuming one of them.
+ */
+function moduleDir(): string {
   return fileURLToPath(new URL('.', import.meta.url));
+}
+
+/**
+ * Is the missing file inside this build's own output directory?
+ *
+ * Both sides go through `path.resolve` so the answer does not depend on the
+ * two strings happening to be spelled the same way — today they both come from
+ * `fileURLToPath`, but nothing pins that. The explicit trailing separator is
+ * what stops a sibling directory such as `…/dist-backup/` from matching.
+ */
+function isInsideOwnDist(missing: string): boolean {
+  const own = path.resolve(moduleDir());
+  return path.resolve(missing).startsWith(own + path.sep);
+}
+
+/** The npm name of the package this module ships inside. */
+const PACKAGE_NAME = '@harness-engineering/cli';
+
+const requireHere = createRequire(import.meta.url);
+
+/** A candidate manifest's `name`, or `null` where there is no readable manifest. */
+function manifestName(manifestPath: string): string | null {
+  try {
+    return (requireHere(manifestPath) as { name?: string }).name ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Locate this package's own `package.json` by walking up from `startDir`.
+ *
+ * A fixed relative specifier cannot do this job, and the reason is the very
+ * skew this module is about. This file sits two directories deep in the source
+ * tree (`src/mcp/`) and one deep in the shipped build (tsup flattens the
+ * bundle into `dist/`). So `'../../package.json'` is right from the source and
+ * resolves a level *above* the package in the build, while `'../package.json'`
+ * is right from the build and resolves to a file that does not exist from the
+ * source. Either constant is silently wrong in one of the two layouts, and the
+ * test suite — which runs from the source — can only ever see the half it is
+ * standing in.
+ *
+ * Identifying the package instead of counting directories removes the choice:
+ * walk up and take the first manifest that actually names this package.
+ *
+ * @param startDir directory to begin the walk from.
+ * @param readName resolves a candidate manifest path to its `name` field.
+ *   Injectable so the src-versus-dist skew can be pinned without a fixture tree.
+ * @returns the absolute manifest path, or `null` if the walk reaches the
+ *   filesystem root without finding one.
+ */
+export function packageJsonPath(
+  startDir: string,
+  readName: (manifestPath: string) => string | null = manifestName
+): string | null {
+  let dir = path.resolve(startDir);
+  for (;;) {
+    const candidate = path.join(dir, 'package.json');
+    if (readName(candidate) === PACKAGE_NAME) return candidate;
+    const parent = path.dirname(dir);
+    if (parent === dir) return null;
+    dir = parent;
+  }
 }
 
 /**
@@ -90,9 +190,9 @@ function ownDistDir(): string {
  */
 function installedVersion(): string | null {
   try {
-    const require = createRequire(import.meta.url);
-    const pkg = require('../../package.json') as { version?: string };
-    return pkg.version ?? null;
+    const manifest = packageJsonPath(moduleDir());
+    if (!manifest) return null;
+    return (requireHere(manifest) as { version?: string }).version ?? null;
   } catch {
     return null;
   }
@@ -117,8 +217,8 @@ export function describeStaleBuildError(error: unknown): string | null {
   // Both conditions matter. Inside our own dist rules out a project's missing
   // dependency; the hashed-chunk shape rules out a file we simply failed to
   // ship, which is a packaging bug and wants a different report.
-  if (!missing.startsWith(ownDistDir())) return null;
-  if (!HASHED_CHUNK.test(missing)) return null;
+  if (!isInsideOwnDist(missing)) return null;
+  if (!isHashedChunk(missing)) return null;
 
   const version = installedVersion();
   const versionLine = version
