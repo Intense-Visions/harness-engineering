@@ -1,7 +1,10 @@
 import {
   appendFileSync,
+  chmodSync,
+  existsSync,
   mkdirSync,
   mkdtempSync,
+  readdirSync,
   readFileSync,
   rmSync,
   writeFileSync,
@@ -44,6 +47,7 @@ describe('BanditLedger.fold', () => {
     expect(ledger.fold('routing', 'quick-fix', config, NOW)).toEqual({
       arms: [],
       malformed: 0,
+      expired: 0,
       bytes: 0,
       readError: false,
     });
@@ -112,7 +116,7 @@ describe('BanditLedger.fold', () => {
     expect(() => {
       result = ledger.fold('routing', 'quick-fix', config, NOW);
     }).not.toThrow();
-    expect(result).toEqual({ arms: [], malformed: 0, bytes: 0, readError: true });
+    expect(result).toEqual({ arms: [], malformed: 0, expired: 0, bytes: 0, readError: true });
     expect(onError).toHaveBeenCalledTimes(1);
     expect(onError.mock.calls[0]?.[0]).toBeInstanceOf(Error);
   });
@@ -200,6 +204,162 @@ describe('BanditLedger.append', () => {
     const ledger = new BanditLedger();
     expect(DEFAULT_LEDGER_PATH).toBe(path.join('.harness', 'metrics', 'bandit.jsonl'));
     expect(ledger.path).toBe(path.resolve(DEFAULT_LEDGER_PATH));
+  });
+});
+
+describe('BanditLedger retention (fold) and compact', () => {
+  const DAY_MS = 86_400_000;
+  /** ISO instant `daysAgo` before NOW. The default bound is 10 x 30 days = 300. */
+  const at = (daysAgo: number) => new Date(NOW.getTime() - daysAgo * DAY_MS).toISOString();
+
+  it('skips a pull past the retention bound, keeps one just inside it, and keeps the boundary itself', () => {
+    const ledger = new BanditLedger({ path: file });
+    ledger.append(pull({ ts: at(301), arm: 'ancient', reward: { outcome: 1 } }));
+    ledger.append(pull({ ts: at(300), arm: 'boundary', reward: { outcome: 1 } })); // exactly 10 half-lives
+    ledger.append(pull({ ts: at(299), arm: 'recent', reward: { outcome: 1 } }));
+    const result = ledger.fold('routing', 'quick-fix', config, NOW);
+    // the ancient pull is absent, not merely down-weighted: it never creates an arm entry
+    expect(result.arms.map((a) => a.arm)).toEqual(['boundary', 'recent']); // the bound is inclusive
+    expect(result.expired).toBe(1);
+    expect(result.malformed).toBe(0); // too old to matter is not malformed
+    expect(result.arms[0]?.effectiveN).toBeCloseTo(Math.pow(0.5, 10), 12); // 2^-10, about 0.001
+    expect(result.arms[1]?.effectiveN).toBeCloseTo(Math.pow(0.5, 299 / 30), 12);
+  });
+
+  it('moves the bound with retentionHalfLives: the same pull expires under 3 and counts under 4', () => {
+    const ledger = new BanditLedger({ path: file });
+    ledger.append(pull({ ts: at(100), reward: { outcome: 1 } })); // 100 days = 3.33 half-lives
+    const under = (retentionHalfLives: number) =>
+      ledger.fold('routing', 'quick-fix', { ...config, retentionHalfLives }, NOW);
+    expect(under(3).arms).toEqual([]); // bound 90 days
+    expect(under(3).expired).toBe(1);
+    expect(under(4).arms.map((a) => a.arm)).toEqual(['local']); // bound 120 days
+    expect(under(4).expired).toBe(0);
+  });
+
+  it('compact drops exactly the expired lines, preserves the rest byte for byte, and holds the posterior', () => {
+    const ledger = new BanditLedger({ path: file });
+    const kept = [
+      pull({ ts: at(1), reward: { outcome: 1 } }),
+      pull({ ts: at(299), arm: 'remote' }),
+    ];
+    const expired = [pull({ ts: at(301), arm: 'ancient' }), pull({ ts: at(5000), arm: 'fossil' })];
+    // interleaved, so a compaction that merely truncated a prefix could not pass
+    for (const p of [expired[0], kept[0], expired[1], kept[1]]) ledger.append(p as Pull);
+    const before = ledger.fold('routing', 'quick-fix', config, NOW);
+
+    const expectedText = kept.map((p) => JSON.stringify(p) + '\n').join('');
+    expect(ledger.compact(config, NOW)).toEqual({
+      kept: 2,
+      dropped: 2,
+      bytes: Buffer.byteLength(expectedText),
+    });
+    expect(readFileSync(file, 'utf8')).toBe(expectedText);
+
+    const after = ledger.fold('routing', 'quick-fix', config, NOW);
+    expect(after.arms).toEqual(before.arms); // the fold already ignored exactly what compact deleted
+    expect(after.expired).toBe(0);
+    expect(after.bytes).toBe(Buffer.byteLength(expectedText));
+  });
+
+  it('compact is idempotent: the second call drops nothing and rewrites nothing', () => {
+    const ledger = new BanditLedger({ path: file });
+    ledger.append(pull({ ts: at(301), arm: 'ancient' }));
+    ledger.append(pull({ ts: at(1), reward: { outcome: 1 } }));
+    const first = ledger.compact(config, NOW);
+    expect(first).toEqual({ kept: 1, dropped: 1, bytes: readFileSync(file).length });
+    const text = readFileSync(file, 'utf8');
+    const second = ledger.compact(config, NOW);
+    expect(second).toEqual({ kept: 1, dropped: 0, bytes: first.bytes });
+    expect(readFileSync(file, 'utf8')).toBe(text);
+  });
+
+  it('compact on a missing file reports zeros and creates neither the file nor its directory', () => {
+    const ledger = new BanditLedger({ path: file });
+    expect(ledger.compact(config, NOW)).toEqual({ kept: 0, dropped: 0, bytes: 0 });
+    expect(existsSync(file)).toBe(false);
+    expect(existsSync(path.dirname(file))).toBe(false);
+  });
+
+  it('keeps a line retention cannot judge, so the malformed count survives compaction', () => {
+    const ledger = new BanditLedger({ path: file });
+    ledger.append(pull({ ts: at(301), arm: 'ancient' }));
+    ledger.append(pull({ ts: at(1), reward: { outcome: 1 } }));
+    appendFileSync(file, 'not json\n');
+    expect(ledger.compact(config, NOW)).toEqual({
+      kept: 2,
+      dropped: 1,
+      bytes: readFileSync(file).length,
+    });
+    expect(readFileSync(file, 'utf8')).toContain('not json\n'); // no ts to judge: never deleted blind
+    expect(ledger.fold('routing', 'quick-fix', config, NOW).malformed).toBe(1);
+  });
+
+  it('compact validates the config and leaves the ledger alone', () => {
+    const ledger = new BanditLedger({ path: file });
+    ledger.append(pull({ ts: at(301), arm: 'ancient' }));
+    const before = readFileSync(file, 'utf8');
+    expect(() => ledger.compact({ ...config, retentionHalfLives: 0 }, NOW)).toThrow(
+      /retentionHalfLives/
+    );
+    expect(readFileSync(file, 'utf8')).toBe(before);
+  });
+
+  // chmod cannot revoke directory write access on Windows — Node maps it to the read-only
+  // file attribute only — so the failure these two force never occurs there and compact
+  // succeeds. The behaviour under test is platform-independent; only the simulation is POSIX.
+  const posixOnly = it.skipIf(process.platform === 'win32');
+
+  posixOnly(
+    'an unwritable directory routes the failure to onError, leaves the ledger intact, and leaves no temp file',
+    () => {
+      const onError = vi.fn<(error: Error) => void>();
+      const flat = path.join(dir, 'bandit.jsonl'); // directly in dir, so chmod can lock the write
+      const ledger = new BanditLedger({ path: flat, onError });
+      ledger.append(pull({ ts: at(301), arm: 'ancient' }));
+      ledger.append(pull({ ts: at(1), reward: { outcome: 1 } }));
+      const before = readFileSync(flat, 'utf8');
+      chmodSync(dir, 0o500); // readable and listable, not writable: the temp file cannot be created
+      try {
+        expect(ledger.compact(config, NOW)).toEqual({ kept: 0, dropped: 0, bytes: 0 });
+      } finally {
+        chmodSync(dir, 0o700);
+      }
+      expect(onError).toHaveBeenCalledTimes(1);
+      expect(readFileSync(flat, 'utf8')).toBe(before); // uncompacted, still correct
+      expect(readdirSync(dir).filter((n) => n.endsWith('.tmp'))).toEqual([]);
+    }
+  );
+
+  posixOnly(
+    'a rename the ledger survives is reported, not thrown, even when the temp file cannot be removed',
+    () => {
+      const onError = vi.fn<(error: Error) => void>();
+      const flat = path.join(dir, 'bandit.jsonl');
+      const ledger = new BanditLedger({ path: flat, onError });
+      ledger.append(pull({ ts: at(301), arm: 'ancient' }));
+      ledger.append(pull({ ts: at(1), reward: { outcome: 1 } }));
+      const before = readFileSync(flat, 'utf8');
+      // pre-create the temp file, then lock the directory: writing an existing file still
+      // succeeds, but the rename onto the ledger and the temp cleanup both need the directory
+      const tmp = `${flat}.${String(process.pid)}.tmp`;
+      writeFileSync(tmp, '');
+      chmodSync(dir, 0o500);
+      try {
+        expect(ledger.compact(config, NOW)).toEqual({ kept: 0, dropped: 0, bytes: 0 });
+      } finally {
+        chmodSync(dir, 0o700);
+      }
+      expect(onError).toHaveBeenCalledTimes(1); // the rename failure, not a cleanup failure
+      expect(readFileSync(flat, 'utf8')).toBe(before); // the destination survived: ledger untouched
+    }
+  );
+
+  it('a compact read error other than ENOENT reports zeros through onError', () => {
+    const onError = vi.fn<(error: Error) => void>();
+    const ledger = new BanditLedger({ path: dir, onError }); // a directory, not a file: EISDIR
+    expect(ledger.compact(config, NOW)).toEqual({ kept: 0, dropped: 0, bytes: 0 });
+    expect(onError).toHaveBeenCalledTimes(1);
   });
 });
 

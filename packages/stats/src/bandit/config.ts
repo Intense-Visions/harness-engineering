@@ -8,6 +8,13 @@ export const DEFAULT_SCOUT_FRACTION = 0.1;
 export const DEFAULT_HALF_LIFE_DAYS = 30;
 /** Spec default: an arm with less than 2 effective samples is `novel` (D5). */
 export const DEFAULT_MIN_EFFECTIVE_N = 2;
+/**
+ * Spec default: the fold ignores a pull older than ten half-lives. At ten
+ * half-lives the decay weight is 2^-10 (about 0.001), so such a pull cannot
+ * materially move a posterior; dropping it is what bounds the ledger read
+ * (`BanditLedger.compact` deletes the same lines from the file).
+ */
+export const DEFAULT_RETENTION_HALF_LIVES = 10;
 /** Spec default: the uniform Beta(1,1) prior. */
 export const DEFAULT_PRIOR: Readonly<{ alpha: number; beta: number }> = { alpha: 1, beta: 1 };
 
@@ -16,6 +23,7 @@ export interface ResolvedBanditConfig extends BanditConfig {
   scoutFraction: number;
   halfLifeDays: number;
   minEffectiveN: number;
+  retentionHalfLives: number;
   prior: { alpha: number; beta: number };
 }
 
@@ -30,12 +38,14 @@ const isPolicy = (p: unknown): p is BanditConfig['policy'] =>
 /** NaN fails every comparison, so each predicate rejects NaN as well as the out-of-range values. */
 const inUnitInterval = (x: number): boolean => x >= 0 && x <= 1;
 const positive = (x: number): boolean => x > 0;
+/** Infinity would mean "never retire a pull", which is the unbounded read this bound exists to prevent. */
+const positiveFinite = (x: number): boolean => Number.isFinite(x) && x > 0;
 const nonNegative = (x: number): boolean => x >= 0;
 const positivePair = (pair: { alpha: number; beta: number }): boolean =>
   positive(pair.alpha) && positive(pair.beta);
 
 function guards(policy: unknown, filled: Omit<ResolvedBanditConfig, 'policy'>): readonly Guard[] {
-  const { scoutFraction, halfLifeDays, minEffectiveN, prior } = filled;
+  const { scoutFraction, halfLifeDays, minEffectiveN, retentionHalfLives, prior } = filled;
   return [
     {
       ok: isPolicy(policy),
@@ -54,6 +64,10 @@ function guards(policy: unknown, filled: Omit<ResolvedBanditConfig, 'policy'>): 
       message: `minEffectiveN must be >= 0, got ${String(minEffectiveN)}`,
     },
     {
+      ok: positiveFinite(retentionHalfLives),
+      message: `retentionHalfLives must be a finite number > 0, got ${String(retentionHalfLives)}`,
+    },
+    {
       ok: positivePair(prior),
       message: `prior alpha and beta must be > 0, got ${String(prior.alpha)}/${String(prior.beta)}`,
     },
@@ -61,21 +75,48 @@ function guards(policy: unknown, filled: Omit<ResolvedBanditConfig, 'policy'>): 
 }
 
 /**
- * Validate a config and fill its defaults (spec "Error handling"). The bandit
+ * Validate a config and fill its defaults (spec "Error handling", plus
+ * `retentionHalfLives`). The bandit
  * has no constructor, so `choose` and `fold` call this on every invocation; a
  * consumer that wants the throw once, at its own construction time, calls it
  * directly and keeps the resolved result (ADR 0132). The
  * `policy` check is additive to the spec's enumerated bounds: an unknown
  * policy string is rejected rather than silently running `scoutFraction`.
  */
-export function resolveBanditConfig(config: BanditConfig): ResolvedBanditConfig {
+/**
+ * Every optional numeric field paired with its spec default, as one table beside
+ * the guard table: a field cannot be guarded without also being filled, and the
+ * default it is filled with is stated once. `prior` is a pair, so it is filled
+ * separately below.
+ */
+const NUMERIC_DEFAULTS = {
+  scoutFraction: DEFAULT_SCOUT_FRACTION,
+  halfLifeDays: DEFAULT_HALF_LIFE_DAYS,
+  minEffectiveN: DEFAULT_MIN_EFFECTIVE_N,
+  retentionHalfLives: DEFAULT_RETENTION_HALF_LIVES,
+} as const satisfies Record<string, number>;
+
+type NumericField = keyof typeof NUMERIC_DEFAULTS;
+
+/** Table-driven so the count of fields cannot change the shape of this function. */
+function fillNumeric(config: BanditConfig): Record<NumericField, number> {
+  const filled: Record<NumericField, number> = { ...NUMERIC_DEFAULTS };
+  // Object.keys widens to string[]; the keys are the table's own, so the narrowing is sound
+  for (const field of Object.keys(NUMERIC_DEFAULTS) as NumericField[]) {
+    const supplied = config[field];
+    if (supplied !== undefined) filled[field] = supplied;
+  }
+  return filled;
+}
+
+/** Every optional field replaced by its spec default; `prior` is copied so the default is never shared. */
+function fillDefaults(config: BanditConfig): Omit<ResolvedBanditConfig, 'policy'> {
   const prior = config.prior ?? DEFAULT_PRIOR;
-  const filled = {
-    scoutFraction: config.scoutFraction ?? DEFAULT_SCOUT_FRACTION,
-    halfLifeDays: config.halfLifeDays ?? DEFAULT_HALF_LIFE_DAYS,
-    minEffectiveN: config.minEffectiveN ?? DEFAULT_MIN_EFFECTIVE_N,
-    prior: { alpha: prior.alpha, beta: prior.beta },
-  };
+  return { ...fillNumeric(config), prior: { alpha: prior.alpha, beta: prior.beta } };
+}
+
+export function resolveBanditConfig(config: BanditConfig): ResolvedBanditConfig {
+  const filled = fillDefaults(config);
   const failed = guards(config.policy, filled).find((g) => !g.ok);
   if (failed !== undefined) throw new InvalidBanditConfigError(failed.message);
   return { ...config, ...filled };

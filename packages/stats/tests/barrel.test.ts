@@ -53,6 +53,7 @@ describe('@harness-engineering/stats barrel', () => {
       'DEFAULT_LEDGER_PATH',
       'DEFAULT_MIN_EFFECTIVE_N',
       'DEFAULT_PRIOR',
+      'DEFAULT_RETENTION_HALF_LIVES',
       'DEFAULT_SCOUT_FRACTION',
       'InvalidBanditConfigError',
       'NoEligibleArmsError',

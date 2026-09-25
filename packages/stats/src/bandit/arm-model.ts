@@ -19,6 +19,24 @@ function ageDays(ts: string, now: Date): number {
   return Math.max(0, (now.getTime() - Date.parse(ts)) / MS_PER_DAY);
 }
 
+/**
+ * The retention bound: true when `ts` is more than `retentionHalfLives`
+ * half-lives before `now`. Such a pull weighs at most 2^-retentionHalfLives —
+ * about 0.001 at the default 10 — so it cannot materially move a posterior, and
+ * the fold skips it outright rather than accumulating a weight that rounds away.
+ * This is what bounds the work a fold does, and `BanditLedger.compact` asks the
+ * same question per line so the file and the fold agree by construction.
+ *
+ * Not on the package barrel: consumers get the behaviour through `foldArms` and
+ * `compact`, not the predicate. An expired pull is well-formed, never malformed.
+ * A `ts` that does not parse is never expired (`accumulate` skips it instead), so
+ * compaction can never delete a line it was unable to judge.
+ */
+export function isExpired(ts: string, config: ResolvedBanditConfig, now: Date): boolean {
+  const age = (now.getTime() - Date.parse(ts)) / MS_PER_DAY;
+  return age > config.retentionHalfLives * config.halfLifeDays;
+}
+
 interface Accumulator {
   arm: string;
   alpha: number;
@@ -73,6 +91,9 @@ function toArmState(acc: Accumulator, config: ResolvedBanditConfig): ArmState {
  * (not `localeCompare`, whose order depends on the host locale). The ledger only
  * hands over pulls with a parseable ISO `ts`; a direct caller's pull whose `ts`
  * does not parse is skipped (it still names the arm, so the arm folds to the prior).
+ * A pull older than `retentionHalfLives` half-lives is dropped before any of that
+ * (`isExpired`): it names no arm and leaves no trace, because its weight could not
+ * have moved the posterior anyway.
  */
 export function foldArms(
   pulls: readonly Pull[],
@@ -83,6 +104,9 @@ export function foldArms(
   const ctx: FoldContext = { config, now, utility };
   const byArm = new Map<string, Accumulator>();
   for (const pull of pulls) {
+    // outside retention: contributes nothing at all, not even an arm entry at the prior,
+    // so a fold before compaction equals a fold after it
+    if (isExpired(pull.ts, config, now)) continue;
     let acc = byArm.get(pull.arm);
     if (acc === undefined) {
       acc = newAccumulator(pull.arm, config.prior);

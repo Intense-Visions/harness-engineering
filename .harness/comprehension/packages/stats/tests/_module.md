@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/stats/tests'
-sourceHash: 'a7919d02ad73ae45be227f6cbf0a6316b51aae6c2b872ac83f582fbdef9725df'
+sourceHash: '02e6abdd5f7b68ca1529d38b6da759275cf81bd59deccc9430fa7387876e7bf4'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -30,7 +30,7 @@ members:
 
 ```
 import { decayWeight, foldArms } from '../src/bandit/arm-model'
-import { DEFAULT_HALF_LIFE_DAYS, DEFAULT_MIN_EFFECTIVE_N, DEFAULT_PRIOR, DEFAULT_SCOUT_FRACTION, resolveBanditConfig } from '../src/bandit/config'
+import { DEFAULT_HALF_LIFE_DAYS, DEFAULT_MIN_EFFECTIVE_N, DEFAULT_PRIOR, DEFAULT_RETENTION_HALF_LIVES, DEFAULT_SCOUT_FRACTION, resolveBanditConfig } from '../src/bandit/config'
 import { InvalidBanditConfigError, NoEligibleArmsError } from '../src/bandit/errors'
 import { BanditLedger, DEFAULT_LEDGER_PATH } from '../src/bandit/ledger'
 import { parseLine } from '../src/bandit/ledger-parse'
@@ -43,7 +43,7 @@ import { InvalidSprtConfigError, InvalidSprtObservationError } from '../src/sprt
 import { SprtObservation, createSprt, waldBounds } from '../src/sprt/sprt'
 import { mulberry32 } from './helpers/prng'
 import { ArmState, BanditConfig, Pull, SprtConfig, SprtVerdict } from '@harness-engineering/types'
-import { appendFileSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
+import { appendFileSync, chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'

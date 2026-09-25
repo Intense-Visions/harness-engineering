@@ -14,17 +14,21 @@ Package barrel. Exports each instrument as one namespace (`bandit`, `sprt`) so i
 
 [`packages/stats/src/bandit/index.ts`](/packages/stats/src/bandit/index.ts)
 
-Public surface of the explore/exploit bandit: `BanditLedger` (append + fold), `foldArms`, `decayWeight`, `choose`, the default utilities, config validation, and the typed errors. Sampling and line parsing are internal.
+Public surface of the explore/exploit bandit: `BanditLedger` (append + fold + compact), `foldArms`, `decayWeight`, `choose`, the default utilities, config validation, and the typed errors. Sampling, line parsing, and the retention predicate are internal.
 
-**Exports:** `BanditLedger`, `DEFAULT_LEDGER_PATH`, `foldArms`, `decayWeight`, `choose`, `outcomeOnly`, `outcomePerDollar`, `COST_EPSILON_USD`, `resolveBanditConfig`, `DEFAULT_SCOUT_FRACTION`, `DEFAULT_HALF_LIFE_DAYS`, `DEFAULT_MIN_EFFECTIVE_N`, `DEFAULT_PRIOR`, `NoEligibleArmsError`, `InvalidBanditConfigError`; types `ResolvedBanditConfig`, `BanditLedgerOptions`, `FoldResult`, `Rng`, `Reward`, `Utility`
+**Exports:** `BanditLedger`, `DEFAULT_LEDGER_PATH`, `foldArms`, `decayWeight`, `choose`, `outcomeOnly`, `outcomePerDollar`, `COST_EPSILON_USD`, `resolveBanditConfig`, `DEFAULT_SCOUT_FRACTION`, `DEFAULT_HALF_LIFE_DAYS`, `DEFAULT_MIN_EFFECTIVE_N`, `DEFAULT_RETENTION_HALF_LIVES`, `DEFAULT_PRIOR`, `NoEligibleArmsError`, `InvalidBanditConfigError`; types `ResolvedBanditConfig`, `BanditLedgerOptions`, `FoldResult`, `CompactResult`, `Rng`, `Reward`, `Utility`
 
 ## packages/stats/src/bandit/ledger.ts
 
 [`packages/stats/src/bandit/ledger.ts`](/packages/stats/src/bandit/ledger.ts)
 
-`BanditLedger` over `.harness/metrics/bandit.jsonl` (path injectable): synchronous `append` (one `appendFileSync` per pull, IO failures to `onError`), and `fold(consumer, context, config, now, utility?)` — whole-file re-read, bucket filter, late scoring by `ref` (latest scored wins and its `ts` is the decayed instant, never downgraded, arm mismatch is malformed), then `foldArms`. Missing file is an empty ledger; any other read failure goes to `onError` and folds empty with `readError: true`. `FoldResult` carries `arms`, the `malformed` count, the `bytes` length read (the re-fold trigger), and the `readError` flag.
+`BanditLedger` over `.harness/metrics/bandit.jsonl` (path injectable): synchronous `append` (one `appendFileSync` per pull, IO failures to `onError`), and `fold(consumer, context, config, now, utility?)` — file re-read, bucket filter, late scoring by `ref` (latest scored wins and its `ts` is the decayed instant, never downgraded, arm mismatch is malformed), then `foldArms`. Missing file is an empty ledger; any other read failure goes to `onError` and folds empty with `readError: true`. `FoldResult` carries `arms`, the `malformed` count, the `expired` count (pulls dropped by the retention bound — well-formed, just too old to matter, so never conflated with `malformed`), the `bytes` length read (the re-fold trigger), and the `readError` flag.
 
-**Exports:** `BanditLedger`, `DEFAULT_LEDGER_PATH`, `BanditLedgerOptions`, `FoldResult`
+`compact(config, now)` is the ledger's bound on growth: it rewrites the file keeping only the lines within `retentionHalfLives` × `halfLifeDays` of `now` and reports `CompactResult` (`kept`, `dropped`, `bytes`). It cannot change a posterior, because `fold` already skips exactly the lines it deletes. It is idempotent (nothing to drop means no rewrite at all), a no-op on a missing file that creates neither the file nor its directory, and it keeps any line whose `ts` does not parse so a consumer's `malformed` count survives compaction. It takes the config because the bound is config-derived and the ledger holds no config. Never throws on IO: a failed read or rewrite goes to `onError` and reports zeros with the ledger intact. The rewrite goes through a temp file whose rename can fail EPERM on Windows even where POSIX replaces ([#2218](https://github.com/Intense-Visions/harness-engineering/issues/2218)); the destination is re-checked on failure, and the temp cleanup swallows its own error so it can never replace the failure that caused it.
+
+`DEFAULT_LEDGER_PATH` is relative, so it resolves against `process.cwd()` at construction: a git worktree gets its own ledger, and a consumer that wants one shared ledger must pass an absolute `path`.
+
+**Exports:** `BanditLedger`, `DEFAULT_LEDGER_PATH`, `BanditLedgerOptions`, `FoldResult`, `CompactResult`
 
 ## packages/stats/src/bandit/ledger-parse.ts
 
@@ -38,7 +42,7 @@ Public surface of the explore/exploit bandit: `BanditLedger` (append + fold), `f
 
 [`packages/stats/src/bandit/arm-model.ts`](/packages/stats/src/bandit/arm-model.ts)
 
-Decayed Beta posterior: `decayWeight(ageDays, halfLifeDays) = 0.5^(age/halfLife)`; `foldArms(pulls, config, now, utility)` accumulates alpha/beta/effectiveN with those weights, flags `novel` below `minEffectiveN`, computes the decay-weighted `meanUtility`, tracks `lastPull` for unscored pulls too, and skips a pull whose `ts` does not parse. The reference instant is always the `now` argument, never the clock.
+Decayed Beta posterior: `decayWeight(ageDays, halfLifeDays) = 0.5^(age/halfLife)`; `foldArms(pulls, config, now, utility)` accumulates alpha/beta/effectiveN with those weights, flags `novel` below `minEffectiveN`, computes the decay-weighted `meanUtility`, tracks `lastPull` for unscored pulls too, and skips a pull whose `ts` does not parse. A pull older than `retentionHalfLives × halfLifeDays` is dropped before any of that, creating no arm entry at all, so a fold before compaction equals a fold after it; at the default ten half-lives such a pull weighs 2^-10 (about 0.001) and could not have moved the posterior. The retention predicate is module-internal, not on the barrel — `BanditLedger.compact` asks the same question per line, so the file and the fold agree by construction. The reference instant is always the `now` argument, never the clock.
 
 **Exports:** `decayWeight`, `foldArms`
 
@@ -46,7 +50,9 @@ Decayed Beta posterior: `decayWeight(ageDays, halfLifeDays) = 0.5^(age/halfLife)
 
 [`packages/stats/src/bandit/policy.ts`](/packages/stats/src/bandit/policy.ts)
 
-`choose(eligible, config, rng)`: `scoutFraction` (probability f → least-sampled, novel-first, rng tie-break, mode explore; else highest `meanUtility` with the same rng tie-break so a cold start spreads across unscored arms, exploit) and `thompson` (one Beta draw per arm, max wins, explore when the pick's posterior mean is below the best). Single eligible arm → exploit without consulting `rng`; empty → `NoEligibleArmsError`. Every `Choice.reason` is one printable line.
+`choose(eligible, config, rng)`: `scoutFraction` (probability f → least-sampled, novel-first, rng tie-break, mode explore; else the exploit branch) and `thompson` (one Beta draw per arm, max wins, explore when the pick's posterior mean is below the best). Single eligible arm → exploit without consulting `rng`; empty → `NoEligibleArmsError`. Every `Choice.reason` is one printable line.
+
+The exploit branch ranks only arms that have cleared the evidence bar (`novel === false`, i.e. `effectiveN >= minEffectiveN`), with an rng tie-break among those that tie on `meanUtility`. A novel arm's `meanUtility` is not a ranking signal — an unscored arm folds to 0.0 — so without the bar one lucky scout pull would score 1.0 and take every subsequent exploit pull from every untried arm. When no arm has cleared the bar there is nothing to exploit and `eligible[0]` is returned with `mode: 'exploit'` and a reason naming the situation. `eligible` is therefore a preference order: `eligible[0]` is the caller's declared default and holds the exploit branch until evidence exists, so a cold start behaves exactly as the caller's own ordering would. `thompson` needs no equivalent guard: a thin arm's posterior is still near the prior, so the draw is already evidence-weighted.
 
 **Exports:** `choose`
 
@@ -62,9 +68,9 @@ Decayed Beta posterior: `decayWeight(ageDays, halfLifeDays) = 0.5^(age/halfLife)
 
 [`packages/stats/src/bandit/config.ts`](/packages/stats/src/bandit/config.ts)
 
-`resolveBanditConfig`: fills the spec defaults for every field but `policy` (`scoutFraction` 0.1, `halfLifeDays` 30, `minEffectiveN` 2, prior Beta(1,1)) and validates the table of guards (`policy` is `scoutFraction` or `thompson`, `scoutFraction` in [0, 1], `halfLifeDays` > 0, `minEffectiveN` ≥ 0, prior parameters > 0), throwing `InvalidBanditConfigError` with the first failed guard's message. `choose` and `fold` run it on every call; a consumer that wants the throw once, at its own construction, calls it directly and keeps the result.
+`resolveBanditConfig`: fills the spec defaults for every field but `policy` (`scoutFraction` 0.1, `halfLifeDays` 30, `minEffectiveN` 2, `retentionHalfLives` 10, prior Beta(1,1)) and validates the table of guards (`policy` is `scoutFraction` or `thompson`, `scoutFraction` in [0, 1], `halfLifeDays` > 0, `minEffectiveN` ≥ 0, `retentionHalfLives` finite and > 0, prior parameters > 0), throwing `InvalidBanditConfigError` with the first failed guard's message. `retentionHalfLives` rejects Infinity as well as zero and NaN, because "never retire a pull" is the unbounded ledger read the bound exists to prevent. `choose`, `fold`, and `compact` run it on every call; a consumer that wants the throw once, at its own construction, calls it directly and keeps the result.
 
-**Exports:** `resolveBanditConfig`, `ResolvedBanditConfig`, `DEFAULT_SCOUT_FRACTION`, `DEFAULT_HALF_LIFE_DAYS`, `DEFAULT_MIN_EFFECTIVE_N`, `DEFAULT_PRIOR`
+**Exports:** `resolveBanditConfig`, `ResolvedBanditConfig`, `DEFAULT_SCOUT_FRACTION`, `DEFAULT_HALF_LIFE_DAYS`, `DEFAULT_MIN_EFFECTIVE_N`, `DEFAULT_RETENTION_HALF_LIVES`, `DEFAULT_PRIOR`
 
 ## packages/stats/src/bandit/utility.ts
 
