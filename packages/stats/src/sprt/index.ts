@@ -1,8 +1,16 @@
 /**
- * Sequential probability ratio test — public surface of the instrument.
- *
- * Phase 1 placeholder. `createSprt(config)` with Wald bounds and the Bernoulli
- * likelihood lands in Phase 3 (docs/changes/stats-explore-exploit/proposal.md,
- * "SPRT"). Only the Bernoulli variant ships in this spec (D10).
+ * Sequential probability ratio test — public surface of the instrument (spec
+ * "SPRT", D10). Build a test with `createSprt`, feed it with `observe`, read
+ * `state`; `waldBounds` exposes A and B for reports. Only the Bernoulli
+ * likelihood ships; a Gaussian variant lands with its first consumer.
  */
-export {};
+export { validateSprtConfig } from './config.js';
+export { InvalidSprtConfigError } from './errors.js';
+export {
+  createSprt,
+  waldBounds,
+  type Sprt,
+  type SprtObservation,
+  type SprtState,
+  type WaldBounds,
+} from './sprt.js';

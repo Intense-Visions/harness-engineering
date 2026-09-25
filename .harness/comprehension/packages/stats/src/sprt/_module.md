@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/stats/src/sprt'
-sourceHash: '844e675220c48b77f286cc30bc73ed3847ffc436290f4e6d102fb84bef06ba2b'
+sourceHash: 'f0c4162934fb4cfdb4c860196458029c23af18f046a203490b7dc5306c1cbb7b'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -11,7 +11,14 @@ members: ['config.ts', 'errors.ts', 'index.ts', 'sprt.ts']
 ## Interface Contract
 
 ```ts
-
+export InvalidSprtConfigError
+export Sprt
+export SprtObservation
+export SprtState
+export WaldBounds
+export createSprt
+export validateSprtConfig
+export waldBounds
 ```
 
 ## Dependency Slice

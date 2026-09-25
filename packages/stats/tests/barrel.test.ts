@@ -10,9 +10,9 @@ import * as stats from '../src/index';
  * `../src/index` resolves under vitest, and its export key-set is exactly the
  * Phase 1 instrument set (spec D6: one directory per instrument, exported as
  * one namespace). The second test pins SC12 on the filesystem itself: `src/`
- * holds only the barrel plus one directory per instrument; the `sprt`
- * directory holds only its own barrel until Phase 3; the `bandit` listing and
- * export keys are pinned to the Phase 2 surface.
+ * holds only the barrel plus one directory per instrument; the `bandit` and
+ * `sprt` listings and export keys are pinned to their Phase 2 and Phase 3
+ * surfaces.
  */
 describe('@harness-engineering/stats barrel', () => {
   it('exports exactly the instruments that ship in this phase, each as a namespace object', () => {
@@ -37,7 +37,12 @@ describe('@harness-engineering/stats barrel', () => {
       'sampling.ts',
       'utility.ts',
     ]);
-    expect(readdirSync(path.join(src, 'sprt'))).toContain('index.ts');
+    expect(readdirSync(path.join(src, 'sprt')).sort()).toEqual([
+      'config.ts',
+      'errors.ts',
+      'index.ts',
+      'sprt.ts',
+    ]);
   });
 
   it('bandit exposes exactly the Phase 2 public surface', () => {
@@ -58,5 +63,16 @@ describe('@harness-engineering/stats barrel', () => {
     ]);
     expect(typeof stats.bandit.choose).toBe('function');
     expect(typeof stats.bandit.BanditLedger).toBe('function');
+  });
+
+  it('sprt exposes exactly the Phase 3 public surface', () => {
+    expect(Object.keys(stats.sprt).sort()).toEqual([
+      'InvalidSprtConfigError',
+      'createSprt',
+      'validateSprtConfig',
+      'waldBounds',
+    ]);
+    expect(typeof stats.sprt.createSprt).toBe('function');
+    expect(typeof stats.sprt.waldBounds).toBe('function');
   });
 });
