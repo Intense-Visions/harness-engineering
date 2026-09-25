@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/tests/ci'
-sourceHash: 'effaaa26b359b54fe8b626d1d71c986d7420b28cbc33748818ac0884e1ef4fbf'
+sourceHash: '8a54a8342057301318fc99cd028d86418e5e5000982ca9cf744b9a83cca5644a'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -9,6 +9,7 @@ members:
   [
     'base-freshness.behavior.test.ts',
     'check-orchestrator.test.ts',
+    'check-skip-status.test.ts',
     'constraint-packs-orchestrator.test.ts',
     'constraint-packs-real-scanner.test.ts',
     'notifier.test.ts',

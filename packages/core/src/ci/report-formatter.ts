@@ -86,7 +86,12 @@ export function formatCIReportAsMarkdown(report: CICheckReport): string {
       ? '## \u2705 Harness CI — All Checks Passed'
       : '## \u274C Harness CI — Checks Failed';
 
-  const summaryLine = `**${summary.passed}** passed, **${summary.failed}** failed, **${summary.warnings}** warnings, **${summary.skipped}** skipped`;
+  const summaryLine =
+    `**${summary.passed}** passed, **${summary.failed}** failed, ` +
+    `**${summary.warnings}** warnings, **${summary.skipped}** skipped` +
+    // Surface the abstentions inside the skipped count: those are gates that
+    // could not run, not gates the operator chose to sit out (#2071).
+    (summary.abstained > 0 ? ` (**${summary.abstained}** could not run)` : '');
 
   const table = [
     '',

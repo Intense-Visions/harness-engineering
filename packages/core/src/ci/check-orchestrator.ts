@@ -146,6 +146,18 @@ const ALL_CHECKS: CICheckName[] = [
 interface CheckContribution {
   issues: CICheckIssue[];
   measurements: GateMeasurement[];
+  /**
+   * Set when the check could not run at all — it crashed, or it had nothing
+   * configured to evaluate. An abstaining check reports `status: 'skip'`
+   * instead of collapsing into `warn` (crash) or `pass` (nothing to check),
+   * because a gate that did not run must not be readable as green (#2071).
+   */
+  skipReason?: string;
+}
+
+/** An abstention: the check wanted to run and could not. */
+function abstain(reason: string): CheckContribution {
+  return { issues: [], measurements: [], skipReason: reason };
 }
 
 async function runValidateCheck(
@@ -180,10 +192,20 @@ async function runValidateCheck(
 async function runDepsCheck(
   projectRoot: string,
   config: Record<string, unknown>
-): Promise<CICheckIssue[]> {
+): Promise<CheckContribution> {
   const issues: CICheckIssue[] = [];
   const rawLayers = config.layers as Array<Record<string, unknown>> | undefined;
-  if (rawLayers && rawLayers.length > 0) {
+  // No layers configured means there is nothing to validate, and an empty rule
+  // set cannot honestly report a pass — the same refusal `harness cleanup -t
+  // patterns` makes over zero rules (#1760). Abstain instead (#2071).
+  if (!rawLayers || rawLayers.length === 0) {
+    return abstain(
+      'No dependency layers are configured, so the deps check had nothing to validate. ' +
+        'Add `layers` to harness.config.json, or run with `--skip deps` to acknowledge ' +
+        'that this gate is not enforced.'
+    );
+  }
+  {
     const parser = new TypeScriptParser();
     const layers = rawLayers.map((l) =>
       defineLayer(
@@ -210,13 +232,13 @@ async function runDepsCheck(
       }
     }
   }
-  return issues;
+  return { issues, measurements: [] };
 }
 
 async function runDocsCheck(
   projectRoot: string,
   config: Record<string, unknown>
-): Promise<CICheckIssue[]> {
+): Promise<CheckContribution> {
   const issues: CICheckIssue[] = [];
   const docsDir = path.join(projectRoot, (config.docsDir as string) ?? 'docs');
   const entropyConfig = (config.entropy as Record<string, unknown>) || {};
@@ -232,9 +254,12 @@ async function runDocsCheck(
       ...analysisExclude(config),
     ],
   });
+  // The check crashed: it produced no verdict, so it must not be reported as a
+  // check that ran and found a nit (#2071).
   if (!result.ok) {
-    issues.push({ severity: 'warning', message: result.error.message });
-  } else if (result.value.gaps.length > 0) {
+    return abstain(`The docs check could not run: ${result.error.message}`);
+  }
+  if (result.value.gaps.length > 0) {
     for (const gap of result.value.gaps) {
       issues.push({
         severity: 'warning',
@@ -243,13 +268,13 @@ async function runDocsCheck(
       });
     }
   }
-  return issues;
+  return { issues, measurements: [] };
 }
 
 async function runEntropyCheck(
   projectRoot: string,
   config: Record<string, unknown>
-): Promise<CICheckIssue[]> {
+): Promise<CheckContribution> {
   const issues: CICheckIssue[] = [];
   const entropyConfig = (config.entropy as Record<string, unknown>) || {};
   const perfConfig = (config.performance as Record<string, unknown>) || {};
@@ -278,9 +303,12 @@ async function runEntropyCheck(
     analyze: { drift: driftConfig ?? true, deadCode: true, patterns: false },
   });
   const result = await analyzer.analyze();
+  // The analyzer crashed: no drift or dead-code verdict was produced at all, so
+  // this is an abstention, not a run that happened to find only warnings (#2071).
   if (!result.ok) {
-    issues.push({ severity: 'warning', message: result.error.message });
-  } else {
+    return abstain(`The entropy check could not run: ${result.error.message}`);
+  }
+  {
     const report = result.value;
     if (report.drift) {
       for (const drift of report.drift.drifts) {
@@ -303,7 +331,7 @@ async function runEntropyCheck(
       }
     }
   }
-  return issues;
+  return { issues, measurements: [] };
 }
 
 async function runSecurityCheck(
@@ -361,9 +389,12 @@ async function runPerfCheck(
     },
   });
   const perfResult = await perfAnalyzer.analyze();
+  // Same shape as entropy: a crashed analyzer produced no complexity/coupling
+  // verdict, so the perf gate did not run (#2071).
   if (!perfResult.ok) {
-    issues.push({ severity: 'warning', message: perfResult.error.message });
-  } else {
+    return abstain(`The perf check could not run: ${perfResult.error.message}`);
+  }
+  {
     const perfReport = perfResult.value;
     if (perfReport.complexity) {
       for (const v of perfReport.complexity.violations) {
@@ -495,8 +526,15 @@ async function runTraceabilityCheck(
   const store = new GraphStore();
   const loaded = await store.load(graphDir);
   if (!loaded) {
-    // No graph available — skip silently
-    return { issues, measurements };
+    // No graph, so coverage was never computed — a configured `minCoverage` was
+    // not evaluated at all. Reporting that as a pass is exactly the hole in
+    // #2071; abstain so the unevaluated gate cannot read as green.
+    return abstain(
+      `No knowledge graph was found at ${graphDir}, so traceability coverage was never ` +
+        'computed. Run `harness scan` to build the graph, set `traceability.enabled` to ' +
+        'false, or run with `--skip traceability` to acknowledge that this gate is not ' +
+        'enforced.'
+    );
   }
 
   const results = queryTraceability(store);
@@ -547,6 +585,13 @@ async function runSingleCheck(
   const start = Date.now();
   const issues: CICheckIssue[] = [];
   const measurements: GateMeasurement[] = [];
+  let skipReason: string | undefined;
+
+  const absorb = (contribution: CheckContribution): void => {
+    issues.push(...contribution.issues);
+    measurements.push(...contribution.measurements);
+    if (contribution.skipReason !== undefined) skipReason = contribution.skipReason;
+  };
 
   try {
     switch (name) {
@@ -554,35 +599,29 @@ async function runSingleCheck(
         issues.push(...(await runValidateCheck(projectRoot, config)));
         break;
       case 'deps':
-        issues.push(...(await runDepsCheck(projectRoot, config)));
+        absorb(await runDepsCheck(projectRoot, config));
         break;
       case 'docs':
-        issues.push(...(await runDocsCheck(projectRoot, config)));
+        absorb(await runDocsCheck(projectRoot, config));
         break;
       case 'entropy':
-        issues.push(...(await runEntropyCheck(projectRoot, config)));
+        absorb(await runEntropyCheck(projectRoot, config));
         break;
       case 'security':
         issues.push(...(await runSecurityCheck(projectRoot, config)));
         break;
-      case 'perf': {
-        const perf = await runPerfCheck(projectRoot, config);
-        issues.push(...perf.issues);
-        measurements.push(...perf.measurements);
+      case 'perf':
+        absorb(await runPerfCheck(projectRoot, config));
         break;
-      }
       case 'phase-gate':
         issues.push(...(await runPhaseGateCheck(projectRoot, config)));
         break;
       case 'arch':
         issues.push(...(await runArchCheck(projectRoot, config)));
         break;
-      case 'traceability': {
-        const trace = await runTraceabilityCheck(projectRoot, config);
-        issues.push(...trace.issues);
-        measurements.push(...trace.measurements);
+      case 'traceability':
+        absorb(await runTraceabilityCheck(projectRoot, config));
         break;
-      }
     }
   } catch (error) {
     issues.push({
@@ -593,13 +632,25 @@ async function runSingleCheck(
 
   const hasErrors = issues.some((i) => i.severity === 'error');
   const hasWarnings = issues.some((i) => i.severity === 'warning');
-  const status = hasErrors ? 'fail' : hasWarnings ? 'warn' : 'pass';
+  // An abstention outranks pass and warn: the check produced no verdict, so it
+  // must not read as green (#2071). A hard error still wins over an abstention —
+  // something concrete went wrong and `fail` is the louder, truer signal.
+  const status = hasErrors
+    ? 'fail'
+    : skipReason !== undefined
+      ? 'skip'
+      : hasWarnings
+        ? 'warn'
+        : 'pass';
 
   return {
     name,
     status,
     issues,
     durationMs: Date.now() - start,
+    // Carried only for an abstention, so an operator `--skip` stays
+    // distinguishable from a check that wanted to run and could not.
+    ...(status === 'skip' && skipReason !== undefined ? { skipReason } : {}),
     // Attach continuous measurements only when the check took any (#1673); the
     // field stays absent for checks with no thresholded numeric metric, so the
     // serialized report shape is byte-identical for those checks.
@@ -614,11 +665,17 @@ function buildSummary(checks: CICheckResult[]): CICheckSummary {
     failed: checks.filter((c) => c.status === 'fail').length,
     warnings: checks.filter((c) => c.status === 'warn').length,
     skipped: checks.filter((c) => c.status === 'skip').length,
+    abstained: checks.filter((c) => c.skipReason !== undefined).length,
   };
 }
 
 function determineExitCode(summary: CICheckSummary, failOn: CIFailOnSeverity = 'error'): 0 | 1 | 2 {
   if (summary.failed > 0) return 1;
+  // A check that could not run did not pass. Exiting 0 here is what let an
+  // adopter's pipeline go green over a gate that never evaluated anything
+  // (#2071). Operator-requested skips are not abstentions and do not land here,
+  // so `--skip <check>` remains the escape hatch.
+  if (summary.abstained > 0) return 1;
   if (failOn === 'warning' && summary.warnings > 0) return 1;
   return 0;
 }
