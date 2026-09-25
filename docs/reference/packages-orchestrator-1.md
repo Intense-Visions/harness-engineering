@@ -64,6 +64,14 @@ Maintenance backend resolver: map a configured backend NAME to a live {@link Age
 
 **Exports:** `OrchestratorBackendFactoryOptions`, `OrchestratorBackendFactory`
 
+## packages/orchestrator/src/agent/quality-verdict-kind.ts
+
+[`packages/orchestrator/src/agent/quality-verdict-kind.ts`](/packages/orchestrator/src/agent/quality-verdict-kind.ts)
+
+Discriminated quality verdicts for the agent-exit feeders: distinguishes a JUDGED defect from a FAIL-SAFE block, and a CLEAN judgment from an UNJUDGED dispatch, while `toOutcomeClass` collapses every verdict back to the shipped `'quality-fail' | undefined` escalation class.
+
+**Exports:** `QualityVerdictSource`, `QualityUnjudgedReason`, `QualityFailSafeReason`, `QualityVerdict`, `defectVerdict`, `cleanVerdict`, `unjudgedVerdict`, `failSafeVerdict`, `toOutcomeClass`, `outcomeVerdictToQualityVerdict`, `afterCleanSecurityScan`, `QualityVerdictLogFields`, `describeVerdict`, `qualityVerdictLogFields`
+
 ## packages/orchestrator/src/agent/triage-skill-mapping.ts
 
 [`packages/orchestrator/src/agent/triage-skill-mapping.ts`](/packages/orchestrator/src/agent/triage-skill-mapping.ts)
