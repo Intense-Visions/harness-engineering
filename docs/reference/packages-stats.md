@@ -22,7 +22,7 @@ Public surface of the explore/exploit bandit: `BanditLedger` (append + fold), `f
 
 [`packages/stats/src/bandit/ledger.ts`](/packages/stats/src/bandit/ledger.ts)
 
-`BanditLedger` over `.harness/metrics/bandit.jsonl` (path injectable): synchronous `append` (one `appendFileSync` per pull, IO failures to `onError`), and `fold(consumer, context, config, now, utility?)` — whole-file re-read, bucket filter, late scoring by `ref` (latest scored wins, never downgraded, arm mismatch is malformed), then `foldArms`. Missing file is an empty ledger; any other read failure goes to `onError` and folds empty with `readError: true`. `FoldResult` carries `arms`, the `malformed` count, the `bytes` length read (the re-fold trigger), and the `readError` flag.
+`BanditLedger` over `.harness/metrics/bandit.jsonl` (path injectable): synchronous `append` (one `appendFileSync` per pull, IO failures to `onError`), and `fold(consumer, context, config, now, utility?)` — whole-file re-read, bucket filter, late scoring by `ref` (latest scored wins and its `ts` is the decayed instant, never downgraded, arm mismatch is malformed), then `foldArms`. Missing file is an empty ledger; any other read failure goes to `onError` and folds empty with `readError: true`. `FoldResult` carries `arms`, the `malformed` count, the `bytes` length read (the re-fold trigger), and the `readError` flag.
 
 **Exports:** `BanditLedger`, `DEFAULT_LEDGER_PATH`, `BanditLedgerOptions`, `FoldResult`
 
@@ -70,7 +70,7 @@ Decayed Beta posterior: `decayWeight(ageDays, halfLifeDays) = 0.5^(age/halfLife)
 
 [`packages/stats/src/bandit/utility.ts`](/packages/stats/src/bandit/utility.ts)
 
-Default utilities over the raw reward pair (D8): `outcomeOnly` and the epsilon-guarded `outcomePerDollar`.
+Default utilities over the raw reward pair (D8): `outcomeOnly` and the epsilon-guarded `outcomePerDollar` (a missing `costUsd` is the `COST_EPSILON_USD` floor, so record cost consistently within a context).
 
 **Exports:** `outcomeOnly`, `outcomePerDollar`, `COST_EPSILON_USD`, `Utility`, `Reward`
 

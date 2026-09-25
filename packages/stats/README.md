@@ -21,7 +21,7 @@ import { bandit } from '@harness-engineering/stats';
 
 const ledger = new bandit.BanditLedger({
   // .harness/metrics/bandit.jsonl; IO failures (append, or a fold read that is not ENOENT) land here
-  onError: (error) => log.warn('bandit ledger', error),
+  onError: (error) => console.warn('bandit ledger', error),
 });
 const config = { policy: 'scoutFraction', halfLifeDays: 30, minEffectiveN: 2 } as const;
 const { arms, malformed, bytes, readError } = ledger.fold(
@@ -42,11 +42,20 @@ const pull = {
   ref: 'issue-1557',
 };
 ledger.append(pull);
-// later, score it by ref: a full Pull with the same ref plus a reward
-ledger.append({ ...pull, ts: new Date().toISOString(), reward: { outcome: 1, costUsd: 0.02 } });
+// later, score it by ref: a full Pull with the same ref plus a reward; keep the dispatch ts
+ledger.append({ ...pull, reward: { outcome: 1, costUsd: 0.02 } });
 ```
 
 The consumer owns eligibility (`eligibleSubsetOf` above is yours): floors, vetoes, and budgets never enter the package.
+
+The scoring line replaces the earlier unscored line wholesale, so its `ts` is the instant that
+gets decayed and reported as `lastPull`: preserve the dispatch `ts` when scoring, or a decision
+made weeks ago re-enters at full weight the day it is scored. Every `ts` must be a UTC instant
+with a zone designator (`Date#toISOString`); a designator-less timestamp is a malformed line.
+
+`outcomePerDollar` treats a missing `costUsd` as the `COST_EPSILON_USD` floor ($0.001), so an
+unpriced pull scores as if it were nearly free and dominates the mean. Record `costUsd` on every
+pull in a bucket that folds with `outcomePerDollar`, or fold it with `outcomeOnly`.
 
 Shared shapes (`Pull`, `ArmState`, `BanditConfig`, `Choice`, `SprtVerdict`, `SprtConfig`) live in
 `@harness-engineering/types` (`packages/types/src/stats.ts`) so this package and every consumer

@@ -80,8 +80,9 @@ function ledgerLines(text: string): string[] {
 /**
  * Late scoring by `ref` (spec "Ledger"). Within one bucket, `ref` is unique:
  * a later full `Pull` with the same `ref` and a reward replaces the earlier
- * unscored line; the latest scored line wins; a scored line is never
- * downgraded by a later unscored one. A different `arm` on the same `ref` is
+ * unscored line; the latest scored line wins, and its `ts` is what gets
+ * decayed and reported as `lastPull`, so writers copy the dispatch `ts` onto
+ * the scoring line; a scored line is never downgraded by a later unscored one. A different `arm` on the same `ref` is
  * malformed and skipped. Lines with no `ref` pass through untouched (they can
  * only be scored inline). `consumer`/`context` already match: the bucket
  * filter ran first, so the same `ref` in another bucket is a different pull.
