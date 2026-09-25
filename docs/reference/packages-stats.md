@@ -16,7 +16,7 @@ Package barrel. Exports each instrument as one namespace (`bandit`, `sprt`) so i
 
 Public surface of the explore/exploit bandit: `BanditLedger` (append + fold), `foldArms`, `decayWeight`, `choose`, the default utilities, config validation, and the typed errors. Sampling and line parsing are internal.
 
-**Exports:** `BanditLedger`, `DEFAULT_LEDGER_PATH`, `foldArms`, `decayWeight`, `choose`, `outcomeOnly`, `outcomePerDollar`, `COST_EPSILON_USD`, `resolveBanditConfig`, `DEFAULT_SCOUT_FRACTION`, `DEFAULT_PRIOR`, `NoEligibleArmsError`, `InvalidBanditConfigError`; types `ResolvedBanditConfig`, `BanditLedgerOptions`, `FoldResult`, `Rng`, `Reward`, `Utility`
+**Exports:** `BanditLedger`, `DEFAULT_LEDGER_PATH`, `foldArms`, `decayWeight`, `choose`, `outcomeOnly`, `outcomePerDollar`, `COST_EPSILON_USD`, `resolveBanditConfig`, `DEFAULT_SCOUT_FRACTION`, `DEFAULT_HALF_LIFE_DAYS`, `DEFAULT_MIN_EFFECTIVE_N`, `DEFAULT_PRIOR`, `NoEligibleArmsError`, `InvalidBanditConfigError`; types `ResolvedBanditConfig`, `BanditLedgerOptions`, `FoldResult`, `Rng`, `Reward`, `Utility`
 
 ## packages/stats/src/bandit/ledger.ts
 
@@ -78,7 +78,7 @@ Default utilities over the raw reward pair (D8): `outcomeOnly` and the epsilon-g
 
 [`packages/stats/src/bandit/errors.ts`](/packages/stats/src/bandit/errors.ts)
 
-Typed errors: `NoEligibleArmsError` (empty eligible set, a consumer bug) and `InvalidBanditConfigError` (config rejected at construction).
+Typed errors: `NoEligibleArmsError` (empty eligible set, a consumer bug) and `InvalidBanditConfigError` (config rejected on every `choose()` / `fold()` via `resolveBanditConfig`; the bandit has no constructor).
 
 **Exports:** `NoEligibleArmsError`, `InvalidBanditConfigError`
 
@@ -94,7 +94,7 @@ Test helper: seeded mulberry32 PRNG so every statistical test (SC1, SC6, SC7, SC
 
 Public surface of the Bernoulli sequential probability ratio test: `createSprt` (Wald bounds, sticky terminal verdict, `maxN` resolution), `waldBounds`, `validateSprtConfig`, and the two typed errors. Only the Bernoulli likelihood ships (D10).
 
-**Exports:** `createSprt`, `waldBounds`, `validateSprtConfig`, `InvalidSprtConfigError`, `InvalidSprtObservationError`; types `Sprt`, `SprtState`, `SprtObservation`, `WaldBounds`
+**Exports:** `createSprt`, `waldBounds`, `validateSprtConfig`, `InvalidSprtConfigError`, `InvalidSprtObservationError`; types `Sprt`, `SprtState`, `SprtObservation`, `WaldBounds`, `SprtErrorRates` (the `waldBounds` parameter type)
 
 ## packages/stats/src/sprt/sprt.ts
 
@@ -108,7 +108,7 @@ Public surface of the Bernoulli sequential probability ratio test: `createSprt` 
 
 [`packages/stats/src/sprt/config.ts`](/packages/stats/src/sprt/config.ts)
 
-`validateSprtConfig`: the table of guards (`alpha`, `beta`, `p0`, `p1` in (0, 1); `alpha + beta < 1` so that A > B; `p0 ≠ p1`; `maxN` a positive integer when present), throwing `InvalidSprtConfigError` with the first failed guard's message. No defaults to fill; returns a copy. `validateErrorRates` runs just the `alpha` / `beta` subset for `waldBounds` (module-internal, not on the barrel).
+`validateSprtConfig`: the table of guards (`alpha`, `beta`, `p0`, `p1` in (0, 1); `alpha + beta < 1` so that A > B; `p0 ≠ p1`; `maxN` a positive integer when present), throwing `InvalidSprtConfigError` with the first failed guard's message. No defaults to fill; returns a copy. `validateErrorRates` runs just the `alpha` / `beta` subset for `waldBounds` (module-internal, not on the barrel); the `SprtErrorRates` type it takes is re-exported from the barrel so a consumer can name what `waldBounds` accepts.
 
 **Exports:** `validateSprtConfig`, `validateErrorRates`; type `SprtErrorRates`
 

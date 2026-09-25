@@ -1,7 +1,8 @@
 /**
  * Typed errors of the bandit instrument. Nothing else on the hot path throws
  * (spec "Error handling"): an empty eligible set is a consumer bug (D7) and an
- * invalid config is rejected at construction, never degraded through.
+ * invalid config is rejected on every `choose()` / `fold()` via
+ * `resolveBanditConfig` (the bandit has no constructor), never degraded through.
  */
 
 /** Thrown by `choose` when `eligible` is empty. The consumer owns eligibility (D7). */

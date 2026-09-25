@@ -61,9 +61,10 @@ function guards(policy: unknown, filled: Omit<ResolvedBanditConfig, 'policy'>): 
 }
 
 /**
- * Validate a config once, at construction (spec "Error handling"). `choose`
- * and `fold` call this on every invocation; a consumer that wants the throw at
- * its own construction time calls it directly and keeps the result. The
+ * Validate a config and fill its defaults (spec "Error handling"). The bandit
+ * has no constructor, so `choose` and `fold` call this on every invocation; a
+ * consumer that wants the throw once, at its own construction time, calls it
+ * directly and keeps the resolved result (ADR 0132). The
  * `policy` check is additive to the spec's enumerated bounds: an unknown
  * policy string is rejected rather than silently running `scoutFraction`.
  */

@@ -4,7 +4,7 @@
  * `state`; `waldBounds` exposes A and B for reports. Only the Bernoulli
  * likelihood ships; a Gaussian variant lands with its first consumer.
  */
-export { validateSprtConfig } from './config.js';
+export { validateSprtConfig, type SprtErrorRates } from './config.js';
 export { InvalidSprtConfigError, InvalidSprtObservationError } from './errors.js';
 export {
   createSprt,
