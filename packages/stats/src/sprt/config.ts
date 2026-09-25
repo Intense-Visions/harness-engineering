@@ -12,7 +12,10 @@ interface Guard {
 const inOpenUnitInterval = (x: number): boolean => x > 0 && x < 1;
 const positiveInteger = (x: number): boolean => Number.isInteger(x) && x > 0;
 
-function guards({ alpha, beta, p0, p1, maxN }: SprtConfig): readonly Guard[] {
+/** The declared error rates alone: everything `waldBounds` depends on. */
+export type SprtErrorRates = Pick<SprtConfig, 'alpha' | 'beta'>;
+
+function errorRateGuards({ alpha, beta }: SprtErrorRates): readonly Guard[] {
   return [
     { ok: inOpenUnitInterval(alpha), message: `alpha must be in (0, 1), got ${String(alpha)}` },
     { ok: inOpenUnitInterval(beta), message: `beta must be in (0, 1), got ${String(beta)}` },
@@ -20,6 +23,13 @@ function guards({ alpha, beta, p0, p1, maxN }: SprtConfig): readonly Guard[] {
       ok: alpha + beta < 1,
       message: `alpha + beta must be < 1 so that the Wald bounds satisfy A > B, got ${String(alpha)} + ${String(beta)}`,
     },
+  ];
+}
+
+function guards(config: SprtConfig): readonly Guard[] {
+  const { p0, p1, maxN } = config;
+  return [
+    ...errorRateGuards(config),
     { ok: inOpenUnitInterval(p0), message: `p0 must be in (0, 1), got ${String(p0)}` },
     { ok: inOpenUnitInterval(p1), message: `p1 must be in (0, 1), got ${String(p1)}` },
     { ok: p0 !== p1, message: `p0 and p1 must differ, got ${String(p0)} for both` },
@@ -39,7 +49,21 @@ function guards({ alpha, beta, p0, p1, maxN }: SprtConfig): readonly Guard[] {
  * which one observation could satisfy both stopping rules at once.
  */
 export function validateSprtConfig(config: SprtConfig): SprtConfig {
-  const failed = guards(config).find((g) => !g.ok);
-  if (failed !== undefined) throw new InvalidSprtConfigError(failed.message);
+  throwFirstFailed(guards(config));
   return { ...config };
+}
+
+/**
+ * The `alpha` / `beta` subset of the rules, for `waldBounds`: a report on a bad
+ * pair throws the same `InvalidSprtConfigError` as `createSprt` would, instead
+ * of returning `±Infinity` (alpha 0) or `NaN` (alpha above 1) silently.
+ */
+export function validateErrorRates(rates: SprtErrorRates): SprtErrorRates {
+  throwFirstFailed(errorRateGuards(rates));
+  return { alpha: rates.alpha, beta: rates.beta };
+}
+
+function throwFirstFailed(rules: readonly Guard[]): void {
+  const failed = rules.find((g) => !g.ok);
+  if (failed !== undefined) throw new InvalidSprtConfigError(failed.message);
 }

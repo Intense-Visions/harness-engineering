@@ -6,7 +6,7 @@
  */
 import type { SprtConfig, SprtVerdict } from '@harness-engineering/types';
 
-import { validateSprtConfig } from './config.js';
+import { validateErrorRates, validateSprtConfig, type SprtErrorRates } from './config.js';
 import { InvalidSprtObservationError } from './errors.js';
 
 /**
@@ -41,8 +41,13 @@ export interface Sprt {
   readonly state: SprtState;
 }
 
-/** Wald's bounds for the declared error rates; `p0`, `p1`, `maxN` play no part. */
-export function waldBounds({ alpha, beta }: Pick<SprtConfig, 'alpha' | 'beta'>): WaldBounds {
+/**
+ * Wald's bounds for the declared error rates; `p0`, `p1`, `maxN` play no part.
+ * Runs the same `alpha` / `beta` guards as `createSprt` and throws
+ * `InvalidSprtConfigError` on a bad pair, so a report never prints `Infinity` or `NaN`.
+ */
+export function waldBounds(rates: SprtErrorRates): WaldBounds {
+  const { alpha, beta } = validateErrorRates(rates);
   return { upper: Math.log((1 - beta) / alpha), lower: Math.log(beta / (1 - alpha)) };
 }
 

@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/stats/tests'
-sourceHash: '74bb67b3d589cf46ba37ebfa22b5a24cb16514ddff4df8015371c8c6c08e36e8'
+sourceHash: '1c09ed73aa0510384e52933aee2d3bd1d6b7d6a7590de24d59aff97690c99c94'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent

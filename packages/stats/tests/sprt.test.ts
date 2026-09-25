@@ -80,6 +80,19 @@ describe('waldBounds', () => {
     expect(skewed.upper).toBeCloseTo(Math.log(0.8 / 0.01), 12); // 4.382
     expect(skewed.lower).toBeCloseTo(Math.log(0.2 / 0.99), 12); // −1.599
   });
+
+  it.each([
+    ['alpha zero (would give ±Infinity)', { alpha: 0, beta: 0.5 }, /alpha must be in \(0, 1\)/],
+    ['alpha above one (would give NaN)', { alpha: 1.5, beta: 0.2 }, /alpha must be in \(0, 1\)/],
+    ['beta NaN', { alpha: 0.05, beta: Number.NaN }, /beta must be in \(0, 1\)/],
+    ['alpha + beta not below 1 (A ≤ B)', { alpha: 0.6, beta: 0.5 }, /alpha \+ beta must be < 1/],
+  ] as const)(
+    'rejects %s with InvalidSprtConfigError instead of a silent number',
+    (_name, rates, message) => {
+      expect(() => waldBounds(rates)).toThrow(InvalidSprtConfigError);
+      expect(() => waldBounds(rates)).toThrow(message);
+    }
+  );
 });
 
 describe('createSprt: Bernoulli LLR and Wald verdicts', () => {

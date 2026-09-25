@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/stats/src/sprt'
-sourceHash: 'fab49beec63401b3a0ccd6b0207ba770603d94f10a7680efd17dcb94b4b9a540'
+sourceHash: 'd96148b94d48c0583eb020f5ac690ff1242eb5889fc1578cb87e88ee80a01c52'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -25,7 +25,7 @@ export waldBounds
 ## Dependency Slice
 
 ```
-import { validateSprtConfig } from './config.js'
+import { SprtErrorRates, validateErrorRates, validateSprtConfig } from './config.js'
 import { InvalidSprtConfigError, InvalidSprtObservationError } from './errors.js'
 import { SprtConfig, SprtVerdict } from '@harness-engineering/types'
 ```

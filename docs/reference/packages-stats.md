@@ -100,7 +100,7 @@ Public surface of the Bernoulli sequential probability ratio test: `createSprt` 
 
 [`packages/stats/src/sprt/sprt.ts`](/packages/stats/src/sprt/sprt.ts)
 
-`createSprt(config)` → `{ observe(x), state }`. Each Bernoulli observation adds `ln(p1 / p0)` (success: exactly `1` or `true`) or `ln((1 − p1) / (1 − p0))` (failure: exactly `0` or `false`) to the cumulative log-likelihood ratio, which is compared inclusively with Wald's bounds A = ln((1 − β) / α) (→ `reject`, favor h1) and B = ln(β / (1 − α)) (→ `accept`, favor h0); otherwise `continue`. A terminal verdict is sticky: later observations are ignored and `state.n` is the stopping time. With `maxN`, the `maxN`-th observation still at `continue` resolves to whichever hypothesis the LLR favors; an LLR of exactly 0 accepts h0. Any other value (`0.5`, `2`, `'1'`, `null`, `undefined`, `NaN`) throws `InvalidSprtObservationError` before the sticky check and leaves the state untouched, rather than being counted as a failure. `state` is a fresh `{ llr, n, verdict }` snapshot on every read. No ledger, no clock, no rng.
+`createSprt(config)` → `{ observe(x), state }`. Each Bernoulli observation adds `ln(p1 / p0)` (success: exactly `1` or `true`) or `ln((1 − p1) / (1 − p0))` (failure: exactly `0` or `false`) to the cumulative log-likelihood ratio, which is compared inclusively with Wald's bounds A = ln((1 − β) / α) (→ `reject`, favor h1) and B = ln(β / (1 − α)) (→ `accept`, favor h0); otherwise `continue`. A terminal verdict is sticky: later observations are ignored and `state.n` is the stopping time. With `maxN`, the `maxN`-th observation still at `continue` resolves to whichever hypothesis the LLR favors; an LLR of exactly 0 accepts h0. Any other value (`0.5`, `2`, `'1'`, `null`, `undefined`, `NaN`) throws `InvalidSprtObservationError` before the sticky check and leaves the state untouched, rather than being counted as a failure. `state` is a fresh `{ llr, n, verdict }` snapshot on every read. `waldBounds({ alpha, beta })` runs the same `alpha` / `beta` guards as `createSprt` and throws `InvalidSprtConfigError` rather than returning `±Infinity` or `NaN`. No ledger, no clock, no rng.
 
 **Exports:** `createSprt`, `waldBounds`, `Sprt`, `SprtState`, `SprtObservation`, `WaldBounds`
 
@@ -108,9 +108,9 @@ Public surface of the Bernoulli sequential probability ratio test: `createSprt` 
 
 [`packages/stats/src/sprt/config.ts`](/packages/stats/src/sprt/config.ts)
 
-`validateSprtConfig`: the table of guards (`alpha`, `beta`, `p0`, `p1` in (0, 1); `alpha + beta < 1` so that A > B; `p0 ≠ p1`; `maxN` a positive integer when present), throwing `InvalidSprtConfigError` with the first failed guard's message. No defaults to fill; returns a copy.
+`validateSprtConfig`: the table of guards (`alpha`, `beta`, `p0`, `p1` in (0, 1); `alpha + beta < 1` so that A > B; `p0 ≠ p1`; `maxN` a positive integer when present), throwing `InvalidSprtConfigError` with the first failed guard's message. No defaults to fill; returns a copy. `validateErrorRates` runs just the `alpha` / `beta` subset for `waldBounds` (module-internal, not on the barrel).
 
-**Exports:** `validateSprtConfig`
+**Exports:** `validateSprtConfig`, `validateErrorRates`; type `SprtErrorRates`
 
 ## packages/stats/src/sprt/errors.ts
 
