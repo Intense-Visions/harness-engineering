@@ -71,6 +71,15 @@ describe('parseLine (spec "Ledger": malformed-line definition)', () => {
     expect(parseLine(line({ ts: '2026-09-24T10:30:00+02:00' })).ok).toBe(true);
   });
 
+  it('rejects a ts without a zone designator: Date.parse would read it as local time', () => {
+    for (const ts of ['2026-09-24T10:30:00', '2026-09-24T10:30:00.000', '2026-09-24T10:30']) {
+      expect(parseLine(line({ ts }))).toEqual({ ok: false, reason: 'bad-timestamp' });
+    }
+    expect(parseLine(line({ ts: '2026-09-24T10:30Z' })).ok).toBe(true);
+    expect(parseLine(line({ ts: '2026-09-24T10:30:00-07:00' })).ok).toBe(true);
+    expect(parseLine(line({ ts: '2026-09-24T10:30:00.123456Z' })).ok).toBe(true);
+  });
+
   it('rejects outcome outside [0, 1] and negative costUsd', () => {
     expect(parseLine(line({ reward: { outcome: 1.01 } }))).toEqual({
       ok: false,

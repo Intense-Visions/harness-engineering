@@ -4,6 +4,11 @@ import type { Pull } from '@harness-engineering/types';
  * One clause each of the spec's malformed-line definition ("Ledger"): not valid
  * JSON, missing a required `Pull` field (or wrong type), `ts` not ISO-8601,
  * `reward.outcome` outside [0, 1], `reward.costUsd` negative.
+ *
+ * `ts` must name an instant: a zone designator (`Z` or `±HH:MM`) is required.
+ * Writers must emit UTC instants (`Date#toISOString`). A designator-less
+ * timestamp is malformed because `Date.parse` would read it as local time, so
+ * the same line would decay by a different age on a UTC runner than on a laptop.
  */
 export type MalformedReason =
   | 'invalid-json'
@@ -14,7 +19,8 @@ export type MalformedReason =
 
 export type ParsedLine = { ok: true; pull: Pull } | { ok: false; reason: MalformedReason };
 
-const ISO_PREFIX = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/;
+/** `YYYY-MM-DDTHH:MM[:SS[.fff]]` followed by a mandatory zone designator. */
+const ISO_INSTANT = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?(?:Z|[+-]\d{2}:\d{2})$/;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -32,7 +38,7 @@ function hasIdentity(v: Record<string, unknown>): boolean {
 }
 
 function isIsoTimestamp(ts: string): boolean {
-  return ISO_PREFIX.test(ts) && !Number.isNaN(Date.parse(ts));
+  return ISO_INSTANT.test(ts) && !Number.isNaN(Date.parse(ts));
 }
 
 function rewardReason(reward: unknown): MalformedReason | undefined {

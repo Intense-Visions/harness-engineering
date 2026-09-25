@@ -30,7 +30,7 @@ Public surface of the explore/exploit bandit: `BanditLedger` (append + fold), `f
 
 [`packages/stats/src/bandit/ledger-parse.ts`](/packages/stats/src/bandit/ledger-parse.ts)
 
-`parseLine`: one ledger line to a `Pull` or a `MalformedReason` (invalid JSON, missing/wrong-typed field, non-ISO `ts`, outcome outside [0, 1], negative cost). Never throws.
+`parseLine`: one ledger line to a `Pull` or a `MalformedReason` (invalid JSON, missing/wrong-typed field, `ts` not an ISO-8601 instant with a zone designator (`Z` or `±HH:MM`; writers emit UTC), outcome outside [0, 1], negative cost). Never throws.
 
 **Exports:** `parseLine`, `ParsedLine`, `MalformedReason`
 
@@ -38,7 +38,7 @@ Public surface of the explore/exploit bandit: `BanditLedger` (append + fold), `f
 
 [`packages/stats/src/bandit/arm-model.ts`](/packages/stats/src/bandit/arm-model.ts)
 
-Decayed Beta posterior: `decayWeight(ageDays, halfLifeDays) = 0.5^(age/halfLife)`; `foldArms(pulls, config, now, utility)` accumulates alpha/beta/effectiveN with those weights, flags `novel` below `minEffectiveN`, computes the decay-weighted `meanUtility`, and tracks `lastPull` for unscored pulls too. The reference instant is always the `now` argument, never the clock.
+Decayed Beta posterior: `decayWeight(ageDays, halfLifeDays) = 0.5^(age/halfLife)`; `foldArms(pulls, config, now, utility)` accumulates alpha/beta/effectiveN with those weights, flags `novel` below `minEffectiveN`, computes the decay-weighted `meanUtility`, tracks `lastPull` for unscored pulls too, and skips a pull whose `ts` does not parse. The reference instant is always the `now` argument, never the clock.
 
 **Exports:** `decayWeight`, `foldArms`
 

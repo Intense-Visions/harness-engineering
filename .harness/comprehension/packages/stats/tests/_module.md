@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/stats/tests'
-sourceHash: 'c4dfb2a41e0ff2a35e3e79ca77f78bca6fe36caeed7dbee004efbd374781d088'
+sourceHash: '1d62d58e0107c69d1a85bfbd441530ef101874a520f12c18ff6349f3fe29605b'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -10,6 +10,7 @@ members:
     'arm-model.test.ts',
     'barrel.test.ts',
     'config.test.ts',
+    'ledger-dir-cache.test.ts',
     'ledger-parse.test.ts',
     'ledger.test.ts',
     'policy.test.ts',
