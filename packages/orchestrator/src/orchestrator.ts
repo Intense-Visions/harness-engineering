@@ -30,6 +30,7 @@ import {
   defectVerdict,
   failSafeVerdict,
   outcomeVerdictToQualityVerdict,
+  qualityVerdictLogFields,
   toOutcomeClass,
   unjudgedVerdict,
 } from './agent/quality-verdict-kind';
@@ -3178,9 +3179,25 @@ export class Orchestrator extends EventEmitter {
     // running it on a security-failing unit is safe. Escalation is unchanged:
     // either source ⇒ 'quality-fail' ⇒ escalate (the `??` still surfaces it). The
     // retrospective annotates the PR on a match (best-effort, inside the method).
-    const qualityClass = await this.deriveSingleAgentQualityVerdict(issue, workspacePath);
-    const retroClass = await this.deriveRoutingRetrospectiveVerdict(issue, workspacePath);
+    //
+    // Each feeder also hands back its DISCRIMINATED verdict (#2221): the collapsed class
+    // below cannot tell a judged defect from a fail-safe block, nor a clean judgment from
+    // an unjudged dispatch, so the one structured `amr:quality-verdict` line records both
+    // verdicts' kind + source/reason for the operator. Escalation reads the collapsed
+    // values only — logging never changes what escalates.
+    let qualityVerdict: QualityVerdict | undefined;
+    let retroVerdict: QualityVerdict | undefined;
+    const qualityClass = await this.deriveSingleAgentQualityVerdict(issue, workspacePath, (v) => {
+      qualityVerdict = v;
+    });
+    const retroClass = await this.deriveRoutingRetrospectiveVerdict(issue, workspacePath, (v) => {
+      retroVerdict = v;
+    });
     const outcomeClass = qualityClass ?? retroClass;
+    this.logger.info('amr:quality-verdict', {
+      issueId: issue.id,
+      ...qualityVerdictLogFields(qualityVerdict, retroVerdict),
+    });
     await this.emitWorkerExit(issue.id, 'normal', attempt, undefined, outcomeClass);
   }
 

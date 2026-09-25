@@ -336,3 +336,115 @@ describe('deriveSingleAgentQualityVerdictDetail — acceptance-eval paths', () =
     await expectVerdict(build, withSpec(), { kind: 'defect', source: 'security' });
   });
 });
+
+/** Reach the private completion seam that composes both feeders. */
+function finalize(
+  orch: Orchestrator
+): (
+  issue: Issue,
+  ws: string,
+  attempt: number | null,
+  backendName: string | undefined
+) => Promise<void> {
+  return (
+    orch as unknown as {
+      finalizeNormalCompletion: (
+        i: Issue,
+        w: string,
+        a: number | null,
+        b: string | undefined
+      ) => Promise<void>;
+    }
+  ).finalizeNormalCompletion.bind(orch);
+}
+/** Record every `logger.info` call as `[message, meta]`. */
+function spyLogger(orch: Orchestrator): Array<[string, Record<string, unknown> | undefined]> {
+  const calls: Array<[string, Record<string, unknown> | undefined]> = [];
+  const logger = (orch as unknown as { logger: Record<string, unknown> }).logger;
+  logger.info = (msg: string, meta?: Record<string, unknown>): void => {
+    calls.push([msg, meta]);
+  };
+  return calls;
+}
+/** Swap the completion emitter for a spy; returns it. */
+function spyEmitWorkerExit(orch: Orchestrator): ReturnType<typeof vi.fn> {
+  const spy = vi.fn(async () => undefined);
+  (orch as unknown as { emitWorkerExit: unknown }).emitWorkerExit = spy;
+  return spy;
+}
+const verdictLine = (
+  calls: Array<[string, Record<string, unknown> | undefined]>
+): Record<string, unknown> | undefined => calls.find((c) => c[0] === 'amr:quality-verdict')?.[1];
+
+describe('the agent-exit seam logs BOTH discriminated verdicts (the consumer)', () => {
+  it('records one amr:quality-verdict line carrying both verdicts, and still escalates a security defect', async () => {
+    const orch = newOrch(withPolicy());
+    stubDiff(orch, async () => defectHunk);
+    const calls = spyLogger(orch);
+    const exit = spyEmitWorkerExit(orch);
+
+    await finalize(orch)(ISSUE, tmpDir, 1, undefined);
+
+    expect(verdictLine(calls)).toEqual({
+      issueId: 'i1',
+      quality: { kind: 'defect', source: 'security' },
+      // auto-triage is off in this config ⇒ the retrospective never judged.
+      retrospective: { kind: 'unjudged', reason: 'triage-off' },
+    });
+    // The prose line an operator already greps is untouched (this is an ADDITION).
+    expect(
+      calls.some((c) =>
+        c[0].startsWith('amr:quality-fail — agent introduced an error-severity security finding')
+      )
+    ).toBe(true);
+    // INVARIANT: the collapsed class still reaches emitWorkerExit unchanged.
+    expect(exit).toHaveBeenCalledWith('i1', 'normal', 1, undefined, 'quality-fail');
+  });
+
+  it('distinguishes "nothing to judge" from "judged clean" in the log while both stay neutral', async () => {
+    const orch = newOrch(withPolicy());
+    stubDiff(orch, async () => []); // no introduced lines at all
+    const calls = spyLogger(orch);
+    const exit = spyEmitWorkerExit(orch);
+
+    await finalize(orch)(ISSUE, tmpDir, 1, undefined);
+
+    expect(verdictLine(calls)).toEqual({
+      issueId: 'i1',
+      quality: { kind: 'unjudged', reason: 'empty-diff' },
+      retrospective: { kind: 'unjudged', reason: 'triage-off' },
+    });
+    expect(exit).toHaveBeenCalledWith('i1', 'normal', 1, undefined, undefined);
+
+    const clean = newOrch(withPolicy());
+    stubDiff(clean, async () => cleanHunk); // scanned, and found nothing
+    const cleanCalls = spyLogger(clean);
+    const cleanExit = spyEmitWorkerExit(clean);
+
+    await finalize(clean)(ISSUE, tmpDir, 1, undefined);
+
+    expect(verdictLine(cleanCalls)).toEqual({
+      issueId: 'i1',
+      quality: { kind: 'clean', source: 'security' },
+      retrospective: { kind: 'unjudged', reason: 'triage-off' },
+    });
+    // Same neutral escalation as the unjudged exit — only the LOG tells them apart.
+    expect(cleanExit).toHaveBeenCalledWith('i1', 'normal', 1, undefined, undefined);
+  });
+
+  it('records router-off for BOTH feeders when AMR is off', async () => {
+    const orch = newOrch(withoutPolicy());
+    stubDiff(orch, async () => defectHunk);
+    const calls = spyLogger(orch);
+    const exit = spyEmitWorkerExit(orch);
+
+    await finalize(orch)(ISSUE, tmpDir, null, undefined);
+
+    expect(verdictLine(calls)).toEqual({
+      issueId: 'i1',
+      quality: { kind: 'unjudged', reason: 'router-off' },
+      retrospective: { kind: 'unjudged', reason: 'router-off' },
+    });
+    expect(exit).toHaveBeenCalledWith('i1', 'normal', null, undefined, undefined);
+  });
+});

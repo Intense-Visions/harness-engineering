@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/orchestrator/src'
-sourceHash: 'd3e526e4f0fbbf0347964082df196a766349dfad3c5f2cf6de6a566f71ed1899'
+sourceHash: 'f8190ced3e008a6380bb64b0e64eb80e5b6c0c40bfac22579ce54a20ef0a6c7a'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -217,7 +217,7 @@ import { makeLiveClassify } from './agent/live-classify'
 import { LocalModelResolver, defaultWarmModel, defaultWarmModelViaCompletion } from './agent/local-model-resolver'
 import { OrchestratorBackendFactory } from './agent/orchestrator-backend-factory'
 import { hasIntroducedSecurityDefect } from './agent/quality-verdict'
-import { QualityVerdict, afterCleanSecurityScan, cleanVerdict, defectVerdict, failSafeVerdict, outcomeVerdictToQualityVerdict, toOutcomeClass, unjudgedVerdict } from './agent/quality-verdict-kind'
+import { QualityVerdict, afterCleanSecurityScan, cleanVerdict, defectVerdict, failSafeVerdict, outcomeVerdictToQualityVerdict, qualityVerdictLogFields, toOutcomeClass, unjudgedVerdict } from './agent/quality-verdict-kind'
 import { QualityVerdict, toOutcomeClass } from './agent/quality-verdict-kind.js'
 import { IntroducedHunk } from './agent/quality-verdict.js'
 import { AgentRunner } from './agent/runner'
