@@ -5,6 +5,7 @@ import {
   DEFAULT_HALF_LIFE_DAYS,
   DEFAULT_MIN_EFFECTIVE_N,
   DEFAULT_PRIOR,
+  DEFAULT_RETENTION_HALF_LIVES,
   DEFAULT_SCOUT_FRACTION,
   resolveBanditConfig,
 } from '../src/bandit/config';
@@ -28,6 +29,18 @@ describe('resolveBanditConfig', () => {
     expect(resolved.halfLifeDays).toBe(30);
     expect(resolved.minEffectiveN).toBe(DEFAULT_MIN_EFFECTIVE_N);
     expect(resolved.minEffectiveN).toBe(2);
+  });
+
+  it('fills retentionHalfLives with the spec default of 10', () => {
+    const resolved = resolveBanditConfig({ policy: 'thompson' });
+    expect(resolved.retentionHalfLives).toBe(DEFAULT_RETENTION_HALF_LIVES);
+    expect(resolved.retentionHalfLives).toBe(10);
+  });
+
+  it('keeps a supplied retentionHalfLives over the default', () => {
+    expect(
+      resolveBanditConfig({ policy: 'thompson', retentionHalfLives: 4 }).retentionHalfLives
+    ).toBe(4);
   });
 
   it('keeps supplied halfLifeDays and minEffectiveN over the defaults', () => {
@@ -55,6 +68,14 @@ describe('resolveBanditConfig', () => {
     ['halfLifeDays NaN', { ...base, halfLifeDays: Number.NaN }, /halfLifeDays/],
     ['minEffectiveN negative', { ...base, minEffectiveN: -1 }, /minEffectiveN/],
     ['minEffectiveN NaN', { ...base, minEffectiveN: Number.NaN }, /minEffectiveN/],
+    ['retentionHalfLives zero', { ...base, retentionHalfLives: 0 }, /retentionHalfLives/],
+    ['retentionHalfLives negative', { ...base, retentionHalfLives: -1 }, /retentionHalfLives/],
+    ['retentionHalfLives NaN', { ...base, retentionHalfLives: Number.NaN }, /retentionHalfLives/],
+    [
+      'retentionHalfLives Infinity',
+      { ...base, retentionHalfLives: Number.POSITIVE_INFINITY },
+      /retentionHalfLives/,
+    ],
     ['prior alpha zero', { ...base, prior: { alpha: 0, beta: 1 } }, /prior/],
     ['prior beta negative', { ...base, prior: { alpha: 1, beta: -2 } }, /prior/],
     ['unknown policy', { ...base, policy: 'thomson' as never }, /policy must be/],

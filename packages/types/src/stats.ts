@@ -34,6 +34,7 @@ export interface BanditConfig {
   scoutFraction?: number; // default 0.1; only read by scoutFraction
   halfLifeDays?: number; // default 30
   minEffectiveN?: number; // default 2
+  retentionHalfLives?: number; // default 10; a pull older than this many half-lives is dropped from the fold
   prior?: { alpha: number; beta: number }; // default { 1, 1 }
 }
 
