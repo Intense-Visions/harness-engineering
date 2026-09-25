@@ -40,10 +40,12 @@ append to one ledger concurrently (orchestrator, CLI, fleet lanes).
    dispatch to nothing, silently.
 3. **Nothing else on the hot path throws.** The only throws are the consumer-bug carve-outs:
    - `NoEligibleArmsError` (above);
-   - config validation at construction — `InvalidBanditConfigError` from
-     `resolveBanditConfig` (`bandit/config.ts:71`: `policy` in `{scoutFraction, thompson}`,
-     `scoutFraction` in `[0, 1]`, `halfLifeDays > 0`, `minEffectiveN >= 0`, positive prior)
-     and `InvalidSprtConfigError` from `validateSprtConfig` / `waldBounds`
+   - config validation — for the bandit on every `choose()` / `fold()` call via
+     `resolveBanditConfig` (the bandit has no constructor; a consumer that wants the throw once
+     calls `resolveBanditConfig` itself and keeps the result): `InvalidBanditConfigError`
+     (`bandit/config.ts:79`: `policy` in `{scoutFraction, thompson}`, `scoutFraction` in
+     `[0, 1]`, `halfLifeDays > 0`, `minEffectiveN >= 0`, positive prior); for SPRT at
+     `createSprt()` / `waldBounds()`: `InvalidSprtConfigError` from `validateSprtConfig`
      (`sprt/config.ts`: `alpha`, `beta`, `p0`, `p1` in `(0, 1)`, `p0 ≠ p1`,
      `alpha + beta < 1` so that `A > B`, `maxN` a positive integer when present);
    - `InvalidSprtObservationError` when `observe()` receives anything other than `0`, `1`,
@@ -83,8 +85,9 @@ append to one ledger concurrently (orchestrator, CLI, fleet lanes).
 
 - Safety is enforced exactly once, in the consumer that already owns it; the bandit cannot
   weaken it and needs no per-consumer safety configuration.
-- The hot path is total except for programmer errors that surface at construction or on the
-  first bad call in tests, where they belong.
+- The hot path is total except for programmer errors that surface at `createSprt()` for SPRT
+  and on the first `choose()` / `fold()` call for the bandit (or once, at the consumer's own
+  construction, when it pre-resolves the config), where they belong.
 - Reports and human gates can print `mode` + `reason` verbatim, so exploration is visible
   without being overridable from inside the primitive.
 
