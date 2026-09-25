@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/orchestrator/src'
-sourceHash: 'a222ec0399c3707081bba443ee2eff662ef7b8a5a5f0cbd8b03478e0fcf7ec6c'
+sourceHash: 'd22b25cc99bbc144298fa99029615a41389dc96ff5f3fc264f0418215465fe68'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -12,6 +12,7 @@ members:
     'orchestrator.default-verify-runner.test.ts',
     'orchestrator.dispatch-wiring.test.ts',
     'orchestrator.local-gate.test.ts',
+    'orchestrator.quality-verdict-kind.test.ts',
     'orchestrator.quality-verdict.test.ts',
     'orchestrator.retrospective.test.ts',
     'orchestrator.routing-ingestion.test.ts',
@@ -214,7 +215,9 @@ import { buildAnalysisProviderForLayer, buildIntelligencePipeline } from './agen
 import { makeLiveClassify } from './agent/live-classify'
 import { LocalModelResolver, defaultWarmModel, defaultWarmModelViaCompletion } from './agent/local-model-resolver'
 import { OrchestratorBackendFactory } from './agent/orchestrator-backend-factory'
-import { hasIntroducedSecurityDefect, outcomeVerdictToQualityFail } from './agent/quality-verdict'
+import { hasIntroducedSecurityDefect } from './agent/quality-verdict'
+import { QualityVerdict, afterCleanSecurityScan, defectVerdict, outcomeVerdictToQualityVerdict, toOutcomeClass, unjudgedVerdict } from './agent/quality-verdict-kind'
+import { QualityVerdict, toOutcomeClass } from './agent/quality-verdict-kind.js'
 import { IntroducedHunk } from './agent/quality-verdict.js'
 import { AgentRunner } from './agent/runner'
 import { buildTriageOutcomeInput, runRetrospective } from './agent/triage-outcome'

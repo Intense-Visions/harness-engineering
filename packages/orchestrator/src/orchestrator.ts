@@ -22,7 +22,15 @@ import {
   applyResourceBudgets,
   sharedRateBudget,
 } from '@harness-engineering/core';
-import { hasIntroducedSecurityDefect, outcomeVerdictToQualityFail } from './agent/quality-verdict';
+import { hasIntroducedSecurityDefect } from './agent/quality-verdict';
+import {
+  type QualityVerdict,
+  afterCleanSecurityScan,
+  defectVerdict,
+  outcomeVerdictToQualityVerdict,
+  toOutcomeClass,
+  unjudgedVerdict,
+} from './agent/quality-verdict-kind';
 import {
   IntelligencePipeline,
   OutcomeEvaluator,
@@ -3302,9 +3310,27 @@ export class Orchestrator extends EventEmitter {
    */
   private async deriveSingleAgentQualityVerdict(
     issue: Issue,
-    workspacePath: string
+    workspacePath: string,
+    onVerdict?: (verdict: QualityVerdict) => void
   ): Promise<'quality-fail' | undefined> {
-    if (this.adaptiveRouter === null) return undefined;
+    const verdict = await this.deriveSingleAgentQualityVerdictDetail(issue, workspacePath);
+    onVerdict?.(verdict);
+    return toOutcomeClass(verdict);
+  }
+
+  /**
+   * The DISCRIMINATED single-agent feeder (#2221 prerequisite 1): the same control flow
+   * as the collapsed wrapper above, but each `return` says WHICH situation it is — a
+   * judged security defect, a judged-clean scan, a judged acceptance-eval verdict, or an
+   * unjudged dispatch (AMR off / nothing to scan / an internal error). Escalation is
+   * unchanged: every verdict collapses through `toOutcomeClass` to exactly the value this
+   * method's predecessor returned.
+   */
+  private async deriveSingleAgentQualityVerdictDetail(
+    issue: Issue,
+    workspacePath: string
+  ): Promise<QualityVerdict> {
+    if (this.adaptiveRouter === null) return unjudgedVerdict('router-off');
     try {
       const introduced = await this.workspace.getIntroducedDiff(issue.identifier);
       // No introduced (added) lines ⇒ nothing to judge: skip BOTH the security scan
@@ -3312,25 +3338,28 @@ export class Orchestrator extends EventEmitter {
       // spec-checked — deliberate (a NOT_SATISFIED on an empty added-line set is
       // low-value and this matches the security feeder's boundary); do NOT "fix"
       // this into a path that runs the eval on an empty diff.
-      if (introduced.length === 0) return undefined;
+      if (introduced.length === 0) return unjudgedVerdict('empty-diff');
       const scanner = new SecurityScanner();
       scanner.configureForProject(workspacePath);
       if (hasIntroducedSecurityDefect(introduced, scanner)) {
         this.logger.info('amr:quality-fail — agent introduced an error-severity security finding', {
           issueId: issue.id,
         });
-        return 'quality-fail';
+        return defectVerdict('security');
       }
       // Opt-in LLM spec-satisfaction verdict (4c v2). Only reached when the cheap
-      // security scan is clean, so a defect never wastes a model call.
-      return await this.deriveAcceptanceEvalVerdict(issue, workspacePath);
+      // security scan is clean, so a defect never wastes a model call. When the eval
+      // declines, the clean security scan IS the judgment we hold (afterCleanSecurityScan).
+      return afterCleanSecurityScan(
+        await this.deriveAcceptanceEvalVerdictDetail(issue, workspacePath)
+      );
     } catch (err) {
       this.logger.debug('amr quality verdict skipped (best-effort)', {
         issueId: issue.id,
         error: err instanceof Error ? err.message : String(err),
       });
     }
-    return undefined;
+    return unjudgedVerdict('internal-error');
   }
 
   /**
@@ -3346,14 +3375,17 @@ export class Orchestrator extends EventEmitter {
    * `'quality-pass'`. An absent GraphStore falls back to an ephemeral one — the
    * evaluator's `execution_outcome` persistence is best-effort and never blocks.
    */
-  private async deriveAcceptanceEvalVerdict(
+  private async deriveAcceptanceEvalVerdictDetail(
     issue: Issue,
     workspacePath: string
-  ): Promise<'quality-fail' | undefined> {
+  ): Promise<QualityVerdict> {
     const acceptanceEval = this.config.agent.routing?.policy?.acceptanceEval;
-    // AMR/Claude path gating stays here: opt-in via `acceptanceEval.enabled`.
-    if (acceptanceEval?.enabled !== true || issue.spec === null) return undefined;
-    return this.evaluateOutcomeCore(issue, workspacePath, acceptanceEval.model, 'amr');
+    // AMR/Claude path gating stays here: opt-in via `acceptanceEval.enabled`. Declining is
+    // NOT a clean bill of health — the caller decides what the security scan already proved.
+    if (acceptanceEval?.enabled !== true || issue.spec === null) {
+      return unjudgedVerdict('eval-declined');
+    }
+    return this.evaluateOutcomeDetail(issue, workspacePath, acceptanceEval.model, 'amr');
   }
 
   /**
@@ -3597,21 +3629,37 @@ export class Orchestrator extends EventEmitter {
     model: string | undefined,
     caller: 'amr' | 'local'
   ): Promise<'quality-fail' | undefined> {
+    return toOutcomeClass(await this.evaluateOutcomeDetail(issue, workspacePath, model, caller));
+  }
+
+  /**
+   * The DISCRIMINATED outcome-eval core (#2221 prerequisite 1). Same control flow as the
+   * collapsed `evaluateOutcomeCore` wrapper above; each `return` distinguishes an eval
+   * that JUDGED (defect / clean) from one that never ran (`eval-declined`: no spec on
+   * disk, no provider, an empty introduced diff) and from a guarded internal error. All
+   * non-defect paths still collapse to `undefined`, so the local gate is unchanged.
+   */
+  private async evaluateOutcomeDetail(
+    issue: Issue,
+    workspacePath: string,
+    model: string | undefined,
+    caller: 'amr' | 'local'
+  ): Promise<QualityVerdict> {
     // Prefer the roadmap-registered Spec; fall back to the conventional
     // docs/changes/<slug>/proposal.md the local design stage writes — the local
     // model often does not register the Spec field, so keying only on `issue.spec`
     // silently skips the gate on every local run. Skip only when neither resolves to
     // a real file on disk (no spec to judge against).
     const specRel = issue.spec ?? documentStagePath('spec', issue.identifier);
-    if (specRel === '') return undefined;
+    if (specRel === '') return unjudgedVerdict('eval-declined');
     const specPath = path.join(workspacePath, specRel);
     const { existsSync } = await import('node:fs');
-    if (!existsSync(specPath)) return undefined;
+    if (!existsSync(specPath)) return unjudgedVerdict('eval-declined');
     const provider = this.resolveOutcomeEvalProvider(caller);
-    if (provider === undefined) return undefined;
+    if (provider === undefined) return unjudgedVerdict('eval-declined');
     try {
       const diff = await this.workspace.getIntroducedDiffText(issue.identifier);
-      if (diff.trim() === '') return undefined;
+      if (diff.trim() === '') return unjudgedVerdict('eval-declined');
       const evaluator = new OutcomeEvaluator(provider, this.graphStore ?? new GraphStore(), {
         ...(model !== undefined ? { model } : {}),
       });
@@ -3623,8 +3671,8 @@ export class Orchestrator extends EventEmitter {
         // as weaker evidence → lower confidence, never a false blocking verdict).
         testOutput: '',
       });
-      const cls = outcomeVerdictToQualityFail(verdict);
-      if (cls === 'quality-fail') {
+      const judged = outcomeVerdictToQualityVerdict(verdict);
+      if (judged.kind === 'defect') {
         this.logger.info(
           `${caller}:quality-fail — acceptance-eval NOT_SATISFIED (high confidence)`,
           {
@@ -3633,13 +3681,13 @@ export class Orchestrator extends EventEmitter {
           }
         );
       }
-      return cls;
+      return judged;
     } catch (err) {
       this.logger.debug(`${caller} acceptance-eval skipped (best-effort)`, {
         issueId: issue.id,
         error: err instanceof Error ? err.message : String(err),
       });
-      return undefined;
+      return unjudgedVerdict('internal-error');
     }
   }
 
