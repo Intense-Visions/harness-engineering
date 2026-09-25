@@ -39,6 +39,18 @@ jobs:
   changeset-check:
     if: github.event_name == 'pull_request' && !startsWith(github.head_ref, 'changeset-release/')
     runs-on: ubuntu-latest
+    # Least authority: this job checks out the PR and diffs it against the base.
+    #
+    # Scoped at the JOB rather than the workflow root ON PURPOSE, and not (as an
+    # earlier draft of this comment claimed) to protect refresh-baselines and
+    # comprehension-refresh — tests/scripts/workflow-token-permissions.test.mjs
+    # pins those two directly, so a narrowing of either reds a test either way.
+    # The real reason: with NO root block, a future job added to this file that
+    # forgets `permissions:` has no declaration at either level and that test
+    # fails. A root `contents: read` would silently absorb it instead, and the
+    # next job to actually need write would be the one that discovers this.
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v6
         with:
@@ -52,6 +64,10 @@ jobs:
 
   build-and-test:
     runs-on: ${{ matrix.os }}
+    # Least authority: builds and runs the test matrix. The only secret it reads is
+    # CODECOV_TOKEN, a separate repository secret that `permissions:` does not scope.
+    permissions:
+      contents: read
     strategy:
       fail-fast: false
       matrix:
