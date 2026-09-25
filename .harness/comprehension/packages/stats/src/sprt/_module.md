@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/stats/src/sprt'
-sourceHash: '1b91552070189b83820af759b623bc315975d5016d3d37b09cfafba9b77f5905'
+sourceHash: '844e675220c48b77f286cc30bc73ed3847ffc436290f4e6d102fb84bef06ba2b'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent

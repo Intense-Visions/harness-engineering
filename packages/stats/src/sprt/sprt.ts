@@ -54,8 +54,21 @@ function verdictAt(llr: number, bounds: WaldBounds): SprtVerdict {
 }
 
 /**
+ * `maxN` resolution: whichever hypothesis the LLR currently favors. An LLR of
+ * exactly 0 favors neither, so h0 keeps the benefit of the doubt (`accept`):
+ * rejecting the null takes evidence, and 0 is none.
+ */
+function forcedVerdict(llr: number): SprtVerdict {
+  return llr > 0 ? 'reject' : 'accept';
+}
+
+/**
  * Build one test. Throws `InvalidSprtConfigError` at construction; nothing on
- * the `observe` path throws.
+ * the `observe` path throws. Once the verdict leaves `continue` it is sticky:
+ * later observations are ignored (not accumulated) and the same terminal
+ * verdict is returned, so `state.n` stays the stopping time and a caller can
+ * feed a whole stream without guarding every call. With `maxN`, the `maxN`-th
+ * observation that would still `continue` is resolved by `forcedVerdict`.
  */
 export function createSprt(config: SprtConfig): Sprt {
   const resolved = validateSprtConfig(config);
@@ -66,9 +79,13 @@ export function createSprt(config: SprtConfig): Sprt {
   let verdict: SprtVerdict = 'continue';
   return {
     observe(x) {
+      if (verdict !== 'continue') return verdict;
       llr += x === 1 || x === true ? terms.success : terms.failure;
       n += 1;
       verdict = verdictAt(llr, bounds);
+      if (verdict === 'continue' && resolved.maxN !== undefined && n >= resolved.maxN) {
+        verdict = forcedVerdict(llr);
+      }
       return verdict;
     },
     get state(): SprtState {

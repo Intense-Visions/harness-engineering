@@ -139,3 +139,58 @@ describe('createSprt: Bernoulli LLR and Wald verdicts', () => {
     expect(test.state.llr).toBeCloseTo(5 * (SUCCESS + FAILURE), 12); // −0.872
   });
 });
+
+describe('createSprt: a terminal verdict is sticky', () => {
+  it('returns the same reject on further observations and stops accumulating', () => {
+    const { test } = feed(base, [1, 1, 1, 1, 1, 1, 1, 1, 1]); // reject at n = 9
+    const atStop = test.state;
+    expect(test.observe(0)).toBe('reject');
+    expect(test.observe(false)).toBe('reject');
+    expect(test.state).toEqual(atStop);
+  });
+
+  it('holds accept the same way', () => {
+    const { test } = feed(base, [0, 0, 0, 0, 0, 0]); // accept at n = 6
+    expect(test.observe(1)).toBe('accept');
+    expect(test.state.n).toBe(6);
+    expect(test.state.llr).toBeCloseTo(6 * FAILURE, 12);
+  });
+});
+
+describe('createSprt: maxN resolution', () => {
+  it('resolves to reject when the LLR is positive at n = maxN', () => {
+    const { test, verdicts } = feed({ ...base, maxN: 3 }, [1, 0, 1]); // 2·ln 1.4 + ln 0.6 = 0.162 > 0
+    expect(verdicts).toEqual(['continue', 'continue', 'reject']);
+    expect(test.state.n).toBe(3);
+  });
+
+  it('resolves to accept when the LLR is negative at n = maxN', () => {
+    const { verdicts } = feed({ ...base, maxN: 3 }, [0, 1, 0]); // ln 1.4 + 2·ln 0.6 = −0.685 < 0
+    expect(verdicts).toEqual(['continue', 'continue', 'accept']);
+  });
+
+  it('tie rule: an LLR of exactly 0 at maxN favors h0 (accept)', () => {
+    // At p0 = 0.1, p1 = 0.9 the two terms are exactly ln 9 and −ln 9 in IEEE-754 (1 − 0.1 and
+    // 1 − 0.9 both round so that the ratios are exact reciprocals), so [1, 0] lands on 0 exactly;
+    // ln 9 = 2.197 stays inside A = ln 19 = 2.944, so the first observation continues.
+    const { test, verdicts } = feed({ alpha: 0.05, beta: 0.05, p0: 0.1, p1: 0.9, maxN: 2 }, [1, 0]);
+    expect(test.state.llr).toBe(0);
+    expect(verdicts).toEqual(['continue', 'accept']);
+  });
+
+  it('maxN = 1 resolves on the first observation', () => {
+    expect(createSprt({ ...base, maxN: 1 }).observe(1)).toBe('reject');
+    expect(createSprt({ ...base, maxN: 1 }).observe(0)).toBe('accept');
+  });
+
+  it('a forced verdict is sticky too', () => {
+    const { test } = feed({ ...base, maxN: 3 }, [1, 0, 1]);
+    expect(test.observe(0)).toBe('reject');
+    expect(test.state.n).toBe(3);
+  });
+
+  it('a natural crossing before maxN is unaffected', () => {
+    const { verdicts } = feed({ ...base, maxN: 200 }, [0, 0, 0, 0, 0, 0]);
+    expect(verdicts[5]).toBe('accept');
+  });
+});
