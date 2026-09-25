@@ -30,13 +30,25 @@ const HEADER =
  * node-version.ts, so the generated prompt cannot drift from the CLI.
  */
 function loadInputs() {
-  const tsx = join(ROOT, 'node_modules', '.bin', 'tsx');
-  if (!existsSync(tsx)) {
-    console.error(`Missing tsx at ${tsx}. Run \`pnpm install\` first.`);
-    process.exit(1);
-  }
+  // `node --import tsx`, NOT `node_modules/.bin/tsx`. pnpm writes three shims
+  // there -- `tsx` (a POSIX shell script), `tsx.CMD` and `tsx.ps1` -- and
+  // Windows cannot execute the extensionless one, so `execFileSync` raised
+  // `ENOENT: spawn ...\node_modules\.bin\tsx` and took `pnpm run generate-docs`
+  // (and with it the pre-push hook) down on every Windows machine.
+  //
+  // The `existsSync` guard this replaces made it worse rather than better: the
+  // POSIX shim IS present, so the check passed and gave false confidence, and
+  // the failure landed later and less legibly than the "run pnpm install"
+  // message it was written to produce. **Presence is not executability.**
+  //
+  // Resolving `tsx.CMD` instead would work on Windows and need `shell: true`,
+  // which then needs every path quoted. `--import` sidesteps the shim entirely:
+  // one code path, no shell, no quoting, same on all three platforms.
   const emitter = join(ROOT, 'packages', 'cli', 'src', 'setup', 'print-clients.ts');
-  const json = execFileSync(tsx, [emitter], { cwd: ROOT, encoding: 'utf-8' });
+  const json = execFileSync(process.execPath, ['--import', 'tsx', emitter], {
+    cwd: ROOT,
+    encoding: 'utf-8',
+  });
   return JSON.parse(json);
 }
 

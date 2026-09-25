@@ -24,12 +24,23 @@ import type {
   ComprehensionUnit,
   ExtractStatic,
   GenerateSemantic,
+  ModuleIdentity,
 } from './types';
 import type { ComprehensionListing, SkippedUnit } from './store';
 import type { Result } from '../shared/result';
 
 export interface ComprehendModuleReader {
   readModuleSource(module: string): Promise<ComprehensionSourceFile[] | null>;
+  /**
+   * OPTIONAL (#319): the FULL-module source identity, for a reader that compiles from a lossy
+   * SUBSET (e.g. scrub-blocked members dropped). Returns the sourceHash/members over the full
+   * ORIGINAL member set plus the excluded basenames, so the compiled unit's provenance describes
+   * the WHOLE module and a serve-time hash over the working tree still matches. Called per module
+   * right after {@link readModuleSource} (a reader may compute both from one fetch and cache this).
+   * Absent, or resolving `undefined`, ⇒ hash/members are derived from the returned files — a
+   * complete unit, today's byte-identical behavior.
+   */
+  readModuleIdentity?(module: string): Promise<ModuleIdentity | undefined>;
 }
 
 export interface ComprehendUnitStore {
@@ -141,7 +152,11 @@ async function compileOne(module: string, opts: ComprehendRunOptions): Promise<M
   // check can never diverge from the compile-time hash. When the committed unit is
   // already fresh, skip entirely — no recompile, no write, no provider call, no
   // git churn.
-  const currentHash = computeSourceHash(sourceFiles);
+  // #319: a reader that compiled from a lossy subset supplies the FULL-module identity so the
+  // freshness hash + the unit provenance describe the whole module (parity with a serve-time hash
+  // over the working tree). Absent ⇒ derive from the subset — today's behavior.
+  const identity = await opts.reader.readModuleIdentity?.(module);
+  const currentHash = identity?.sourceHash ?? computeSourceHash(sourceFiles);
   const existing = await opts.store.read(module);
   const prior = existing.ok ? existing.value.provenance : undefined;
   if (!opts.force && isReusableFresh(prior, currentHash, Boolean(opts.generateSemantic))) {
@@ -151,6 +166,7 @@ async function compileOne(module: string, opts: ComprehendRunOptions): Promise<M
   const unit = await compileModule(module, sourceFiles, {
     extractStatic: opts.makeExtractStatic(module),
     ...(opts.generateSemantic ? { generateSemantic: opts.generateSemantic } : {}),
+    ...(identity ? { provenance: identity } : {}),
   });
   const written = await opts.store.write(unit);
   if (!written.ok) {

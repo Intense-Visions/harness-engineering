@@ -30,6 +30,7 @@
 
 import { readFileSync, writeFileSync, readdirSync, existsSync, mkdirSync, rmSync } from 'node:fs';
 import { resolve, join } from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { tmpdir } from 'node:os';
 import { parse as parseYaml } from 'yaml';
 
@@ -88,7 +89,12 @@ function sortKeysDeep(value) {
  * first (same precondition as generate-docs.mjs's CLI/MCP references).
  */
 async function loadToolDefinitions() {
-  const cliModule = await import(join(ROOT, 'packages', 'cli', 'dist', 'index.js'));
+  // `pathToFileURL`, NOT a bare absolute path: the ESM loader reads the
+  // Windows drive letter as a URL scheme and rejects it with "Received
+  // protocol 'c:'". POSIX absolute paths start with `/` and happen to work,
+  // which is why this survived. Same fix as generate-docs.mjs.
+  const cliDist = pathToFileURL(join(ROOT, 'packages', 'cli', 'dist', 'index.js')).href;
+  const cliModule = await import(cliDist);
   const defs = cliModule.getToolDefinitions?.() ?? cliModule.TOOL_DEFINITIONS;
   if (!Array.isArray(defs) || defs.length === 0) {
     throw new Error(

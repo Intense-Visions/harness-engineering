@@ -13,14 +13,31 @@ on:
 # package directly and exercises a CLI command that walks the
 # orchestrator dep chain, so a module-load mismatch fails the release.
 
+# Least authority: this job installs and executes FRESHLY PUBLISHED packages from
+# npm. It runs on `workflow_run`, which GitHub always evaluates in the
+# default-branch context with the full token, so without this block that
+# third-party code would execute on a runner holding a write-scoped repository
+# token. It only needs to read `.nvmrc` out of a sparse checkout.
+permissions:
+  contents: read
+
 jobs:
   smoke:
     if: ${{ github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
     steps:
+      # This job deliberately has no full checkout: it tests the PUBLISHED packages
+      # from npm, not the working tree. But `node-version-file` below resolves against
+      # the runner workspace, so the one file it does need must be fetched. Sparse,
+      # non-cone so a bare filename matches, and nothing else lands in the workspace.
+      - uses: actions/checkout@v6
+        with:
+          sparse-checkout: .nvmrc
+          sparse-checkout-cone-mode: false
+
       - uses: actions/setup-node@v6
         with:
-          node-version: 22
+          node-version-file: .nvmrc
 
       - name: Wait for npm CDN propagation
         run: sleep 30

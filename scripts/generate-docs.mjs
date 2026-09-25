@@ -15,6 +15,7 @@
 
 import { readFileSync, writeFileSync, readdirSync, existsSync, mkdirSync } from 'node:fs';
 import { resolve, join, basename } from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { execSync, execFileSync } from 'node:child_process';
 import { parse as parseYaml } from 'yaml';
 
@@ -52,9 +53,21 @@ if (!existsSync(REFERENCE_DIR)) {
 
 // ─── CLI Command Reference ───────────────────────────────────────────────────
 
+// `pathToFileURL`, NOT a bare absolute path. A dynamic import() of
+// `C:\...\index.js` is rejected by the ESM loader -- "Only URLs with a scheme
+// in: file, data, and node are supported ... Received protocol 'c:'" -- because
+// Windows reads the drive letter as a URL scheme. POSIX absolute paths start
+// with `/` and happen to work, which is why this survived.
+//
+// **THE MESSAGE IT PRODUCED POINTED AT THE WRONG FIX**: the catch below reports
+// "CLI reference skipped (build CLI first: pnpm build)", so on Windows the docs
+// silently lost their CLI reference and told the reader to run a build that was
+// already done.
+const CLI_DIST = pathToFileURL(join(ROOT, 'packages', 'cli', 'dist', 'index.js')).href;
+
 async function generateCliReference() {
   // Import the CLI program to walk its command tree
-  const { createProgram } = await import(join(ROOT, 'packages', 'cli', 'dist', 'index.js'));
+  const { createProgram } = await import(CLI_DIST);
   const program = createProgram();
 
   const lines = [
@@ -184,7 +197,7 @@ async function generateMcpReference(cliAnchorLookup = new Map()) {
   // Read tool definitions by importing the server module
   let toolDefinitions;
   try {
-    const cliModule = await import(join(ROOT, 'packages', 'cli', 'dist', 'index.js'));
+    const cliModule = await import(CLI_DIST);
     toolDefinitions = cliModule.getToolDefinitions?.() || cliModule.TOOL_DEFINITIONS;
   } catch {
     // Fallback: parse the source files for tool metadata

@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/tests/roadmap'
-sourceHash: '3b4ee9806d63aaf75d6753f74ffce715fd1f48af9ae34d89c863183ef0a3e6b4'
+sourceHash: '0deb8528af6f343fd3a53827033f9cbb03c3f29e449fcf2bdd95e6a1ad4d38d3'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -78,7 +78,7 @@ import { deriveRepoFromGitRemote, parseOwnerRepoFromRemoteUrl } from '../../src/
 import { githubRepoPath, parseExternalId } from '../../src/roadmap/external-id'
 import { FEATURE_PREFIX, GROUP_PREFIX, matchFeatureHeadings, parseFeatureHeading, serializeFeatureHeading } from '../../src/roadmap/heading'
 import { checkRoadmapHealth, defaultIsArchive, groomRoadmap, isUnactionablePlanned } from '../../src/roadmap/health'
-import { decodeListField, encodeListItem } from '../../src/roadmap/list-field'
+import { decodeListField, encodeListField, encodeListItem } from '../../src/roadmap/list-field'
 import { loadProjectRoadmapMode } from '../../src/roadmap/load-mode'
 import { loadTrackerClientConfigFromProject } from '../../src/roadmap/load-tracker-client-config'
 import { RoadmapMode, getRoadmapMode } from '../../src/roadmap/mode'

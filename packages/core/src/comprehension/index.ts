@@ -23,6 +23,19 @@ export { parseUnit, serializeUnit } from './serialize';
 export { ComprehensionStore, UNIT_FILE, COMPREHENSION_ROOT } from './store';
 export type { ComprehensionIO, SkippedUnit, ComprehensionListing } from './store';
 export { createNodeComprehensionIO } from './node-io';
+export { createHttpComprehensionReadIO, RemoteUnitNotFoundError } from './http-io';
+export type { HttpComprehensionConfig } from './http-io';
+export {
+  resolveRemoteComprehension,
+  normalizeRemoteFileConfig,
+  DEFAULT_REMOTE_URL,
+} from './remote-config';
+export type { RemoteComprehensionConfig, RemoteComprehensionFileConfig } from './remote-config';
+// The IMPURE sibling: env override → global `pnyon login` credential (~/.pnyon/credentials.json),
+// so the hosted vault works with no per-repo `.env.local`. Shared by the cli AND the orchestrator.
+export { resolveRemoteComprehensionWithGlobalToken } from './remote-config-io';
+export { readPnyonServeToken, SERVE_TOKEN_CREDENTIAL_KEY } from './credential-store';
+export type { ReadPnyonServeTokenDeps } from './credential-store';
 export { compileModule } from './compile';
 export type { CompileOptions } from './compile';
 export { serveGate } from './serve-gate';
@@ -56,3 +69,8 @@ export type {
   ComprehendCheckResult,
   ComprehendStatsResult,
 } from './run';
+
+// Public-Outpost discovery — fetch the pnyon public directory (`GET /public-outposts`) so a
+// contributor can find an Outpost id to read comprehension from (proposal public-outpost-directory).
+export { fetchPublicOutposts } from './public-outposts';
+export type { PublicOutpost, FetchPublicOutpostsConfig } from './public-outposts';

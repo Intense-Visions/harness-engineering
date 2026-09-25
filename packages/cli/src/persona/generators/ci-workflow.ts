@@ -159,7 +159,14 @@ export function generateCIWorkflow(
             // graph scan) have the data they need.
             { uses: 'actions/checkout@v6', with: { 'fetch-depth': 0 } },
             { uses: 'pnpm/action-setup@v5' },
-            { uses: 'actions/setup-node@v6', with: { 'node-version': 22, cache: 'pnpm' } },
+            // `.nvmrc` is the single home for this repo's Node version; a literal here
+            // would be a 22nd copy that silently stays behind the next bump. The
+            // ADOPTER branch below keeps a literal on purpose: a consuming repo is not
+            // guaranteed to ship a .nvmrc for us to read.
+            {
+              uses: 'actions/setup-node@v6',
+              with: { 'node-version-file': '.nvmrc', cache: 'pnpm' },
+            },
             { run: 'pnpm install --frozen-lockfile' },
             // The CLI IS this repo's source; build the workspace bin before use.
             { run: 'pnpm build' },

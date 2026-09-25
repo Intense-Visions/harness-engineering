@@ -23,6 +23,41 @@ function createProgram(): Command {
   return program;
 }
 
+/*
+ * Pin the pricing dataset for tests that assert a COST.
+ *
+ * `loadPricingData` prefers a fresh disk cache, then the NETWORK, and only reaches
+ * the bundled fallback when both are absent. With no cache it therefore fetches
+ * LiteLLM's live catalogue — so a test asserting "this model costs something" was
+ * really asserting "LiteLLM still lists this model today". It stopped being true:
+ * upstream dropped `claude-sonnet-4-20250514`, the lookup returned null, and the
+ * assertion failed with nothing in this repository having changed.
+ *
+ * Seeding the cache takes the fresh-cache branch, so the real code path still runs
+ * and the data is ours. Written in LiteLLM's RAW per-token shape because that is
+ * what the cache holds and what `parseLiteLLMData` consumes.
+ */
+function seedPricingCache(projectRoot: string): void {
+  const cacheDir = path.join(projectRoot, '.harness', 'cache');
+  fs.mkdirSync(cacheDir, { recursive: true });
+  fs.writeFileSync(
+    path.join(cacheDir, 'pricing.json'),
+    JSON.stringify({
+      fetchedAt: new Date().toISOString(),
+      data: {
+        'claude-sonnet-4-20250514': {
+          mode: 'chat',
+          input_cost_per_token: 0.000003,
+          output_cost_per_token: 0.000015,
+          cache_read_input_token_cost: 0.0000003,
+          cache_creation_input_token_cost: 0.00000375,
+        },
+      },
+    }),
+    'utf8'
+  );
+}
+
 describe('E2E pipeline: hook writes → CLI reads → priced output', () => {
   const tmpDir = path.join(os.tmpdir(), `harness-pipeline-e2e-${process.pid}`);
   let consoleLogSpy: ReturnType<typeof vi.spyOn>;
@@ -336,6 +371,7 @@ describe('--json schema shape validation', () => {
     originalCwd = process.cwd();
     fs.mkdirSync(path.dirname(costsFile), { recursive: true });
     fs.writeFileSync(costsFile, schemaFixture);
+    seedPricingCache(tmpDir);
     process.chdir(tmpDir);
     logOutput = [];
     consoleLogSpy = vi.spyOn(console, 'log').mockImplementation((...args) => {

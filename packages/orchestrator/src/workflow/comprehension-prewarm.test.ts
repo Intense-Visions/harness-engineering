@@ -276,3 +276,58 @@ describe('resolveLeafPrewarm — SF4.1', () => {
     expect(res.sources.map((s) => s.label).sort()).toEqual([impA, impB, module].sort());
   });
 });
+
+describe('resolveLeafPrewarm — Mode B (trustRemote, no local source)', () => {
+  const source: SourceFile[] = [{ path: 'a.ts', content: 'export const a = 1;' }];
+  const module = 'packages/core/src';
+
+  function deps(over: Partial<LeafPrewarmDeps>): LeafPrewarmDeps {
+    return {
+      projectRoot: '/repo',
+      store: fakeStore({}),
+      reader: fakeReader({}),
+      ...over,
+    } as LeafPrewarmDeps;
+  }
+
+  it('serves the remote unit when the local source is ABSENT and trustRemote is on', async () => {
+    const unit = freshUnit(module, source);
+    const res = await resolveLeafPrewarm(
+      issue({ title: `edit ${module}/a.ts` }),
+      deps({
+        store: fakeStore({ [module]: unit }), // remote-backed store
+        reader: fakeReader({}), // no local source anywhere ⇒ readModuleSource === null
+        trustRemote: true,
+      })
+    );
+    expect(res.block).toContain(renderServedUnit(unit));
+    expect(res.sources.map((s) => s.label)).toEqual([module]);
+  });
+
+  it('does NOT serve when trustRemote is off and there is no local source (safe default)', async () => {
+    const res = await resolveLeafPrewarm(
+      issue({ title: `edit ${module}/a.ts` }),
+      deps({
+        store: fakeStore({ [module]: freshUnit(module, source) }),
+        reader: fakeReader({}),
+        // trustRemote omitted
+      })
+    );
+    expect(res.block).toBe('');
+    expect(res.sources).toEqual([]);
+  });
+
+  it('refuses a remote unit that MISMATCHES present local source, even under trustRemote (never stale)', async () => {
+    const localSource: SourceFile[] = [{ path: 'a.ts', content: 'export const a = 2; // edited' }];
+    const res = await resolveLeafPrewarm(
+      issue({ title: `edit ${module}/a.ts` }),
+      deps({
+        store: fakeStore({ [module]: freshUnit(module, source) }), // hash over the OLD source
+        reader: fakeReader({ [module]: localSource }), // local source PRESENT and different
+        trustRemote: true,
+      })
+    );
+    expect(res.block).toBe('');
+    expect(res.sources).toEqual([]);
+  });
+});

@@ -553,6 +553,14 @@ Read the Harness-\* provenance trailer for a commit, or shape-check a range (dis
 - `--range` — Shape-check every commit in a range (e.g. origin/main...HEAD).
 - `--json` — Emit the machine-readable report as JSON.
 
+### `harness public-outposts`
+
+List public pnyon Outposts you can read comprehension from (discovery directory).
+
+**Options:**
+
+- `--json` — Emit JSON to stdout instead of a table
+
 ### `harness publish-analyses`
 
 Publishes locally generated intelligence analyses to the external issue tracker (e.g., GitHub)

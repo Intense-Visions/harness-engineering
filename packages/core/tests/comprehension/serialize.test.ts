@@ -41,6 +41,24 @@ function freshNoCompiledAt(): ComprehensionUnit {
 }
 
 describe('comprehension serialize/parse', () => {
+  it('#319: round-trips an INCOMPLETE unit (excluded members preserved)', () => {
+    const u = present();
+    u.provenance.incomplete = ['secret.ts', 'creds.ts'];
+    const md = serializeUnit(u);
+    expect(md).toContain('incomplete: ["secret.ts", "creds.ts"]');
+    const parsed = parseUnit(md);
+    expect(parsed.ok).toBe(true);
+    if (parsed.ok) expect(parsed.value.provenance.incomplete).toEqual(['secret.ts', 'creds.ts']);
+  });
+
+  it('#319: a COMPLETE unit serializes with no `incomplete` line and parses back without the field', () => {
+    const md = serializeUnit(present());
+    expect(md).not.toContain('incomplete:');
+    const parsed = parseUnit(md);
+    expect(parsed.ok).toBe(true);
+    if (parsed.ok) expect(parsed.value.provenance.incomplete).toBeUndefined();
+  });
+
   it('round-trips a present (full) unit idempotently', () => {
     const md = serializeUnit(present());
     const parsed = parseUnit(md);

@@ -77,6 +77,11 @@ const ALLOWLIST: { substr: string; reason: string }[] = [
     reason: 'harness-verification: teaches the tracked-TODO convention (placeholder number)',
   },
   {
+    substr: 'Assigning issue #123 to you',
+    reason:
+      'harness-start-work: worked example of the assign-then-board-sync flow (placeholder number)',
+  },
+  {
     substr: 'PR #247',
     reason: 'ux-notification-copy: fabricated notification-copy example, not a real PR',
   },

@@ -13,6 +13,12 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+# Least authority: every step here only READS the repository (checkout, install,
+# build, run a repo script). Without this block the job would inherit the
+# repository default, which is `write` on every scope.
+permissions:
+  contents: read
+
 jobs:
   drift-check:
     runs-on: ubuntu-latest
@@ -21,7 +27,7 @@ jobs:
       - uses: pnpm/action-setup@v5
       - uses: actions/setup-node@v6
         with:
-          node-version: 22
+          node-version-file: .nvmrc
           cache: 'pnpm'
       - run: pnpm install --frozen-lockfile
       # Build in dependency order: types → graph → core+intelligence → orchestrator.
@@ -31,6 +37,11 @@ jobs:
       - run: pnpm --filter @harness-engineering/graph build
       - run: pnpm --filter @harness-engineering/core build
       - run: pnpm --filter @harness-engineering/intelligence build
+      # orchestrator imports @harness-engineering/local-models (see its package.json).
+      # It was missing from this hand-maintained order, so the orchestrator DTS build
+      # failed with TS2307 on a module that exists in the workspace but had never been
+      # built. Only needs types, which is already first.
+      - run: pnpm --filter @harness-engineering/local-models build
       - run: pnpm --filter @harness-engineering/orchestrator build
       - name: Regenerate OpenAPI artifact
         run: pnpm --filter @harness-engineering/orchestrator openapi:generate

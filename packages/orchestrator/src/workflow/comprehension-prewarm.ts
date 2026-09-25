@@ -51,6 +51,13 @@ export interface LeafPrewarmDeps {
    * preserves the pre-#1690 `resolveDirectDeps` back-compat behavior.
    */
   enrichmentTokenBudget?: number;
+  /**
+   * harness-comprehension-serve (Mode B) — trust the remote vault's unit when there
+   * is NO local source to validate it against. Set only when reading through a hosted
+   * Outpost with `trustRemote` on; otherwise a unit that fails the local freshness
+   * gate is skipped (the safe default: a stale/mismatched unit is never served).
+   */
+  trustRemote?: boolean;
 }
 
 /** The rendered pre-warm block + its per-source token breakdown. */
@@ -105,8 +112,13 @@ async function serveFresh(
     const read = await deps.store.read(module);
     if (!read.ok) return null;
     const verdict = await serveGate(read.value, deps.reader);
-    if (!verdict.serve) return null;
-    return { module, rendered: renderServedUnit(verdict.unit) };
+    if (verdict.serve) return { module, rendered: renderServedUnit(verdict.unit) };
+    // Mode B — trust the remote unit when there is NO local source to gate against.
+    // A mismatch against PRESENT local source still refuses (never serve stale).
+    if (deps.trustRemote && (await deps.reader.readModuleSource(module)) === null) {
+      return { module, rendered: renderServedUnit(read.value) };
+    }
+    return null;
   } catch {
     return null; // graceful — a serve failure never breaks dispatch
   }

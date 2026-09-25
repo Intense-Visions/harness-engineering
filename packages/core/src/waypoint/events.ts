@@ -176,18 +176,32 @@ export interface FleetProvenanceArtifact {
   readonly stages: readonly string[];
   /** Repo-relative path of the written artifact. */
   readonly artifactPath: string;
+  /** Issue numbers the lane was dispatched for, when the artifact names any. */
+  readonly issues?: readonly number[];
+  /** The confirmed route: `bug` / `spec-ready` / `feature`. */
+  readonly route?: string;
+  /** Recommended-option defaults the lane took. */
+  readonly assumptions?: readonly string[];
+  /** Repo-relative path of the spec, when the route produced one. */
+  readonly specArtifact?: string;
+  /** Repo-relative path of the plan, when the route produced one. */
+  readonly planArtifact?: string;
 }
 
-/** A fleet pipeline wrote a `provenance.json` for an item. */
 export function emitFleetProvenanceWritten(artifact: FleetProvenanceArtifact): string | null {
   return emitSdlc({
-    type: 'sdlc.build.finished.v1',
+    type: 'sdlc.override.applied.v1',
     subject: itemSubject(artifact.item),
     component: 'fleet',
     data: {
-      artifact: 'provenance',
-      artifactPath: artifact.artifactPath,
+      kind: 'fleet-provenance',
+      item: artifact.item,
       stages: artifact.stages,
+      ...(artifact.issues !== undefined ? { issues: artifact.issues } : {}),
+      ...(artifact.route !== undefined ? { route: artifact.route } : {}),
+      ...(artifact.assumptions !== undefined ? { assumptions: artifact.assumptions } : {}),
+      ...(artifact.specArtifact !== undefined ? { specArtifact: artifact.specArtifact } : {}),
+      ...(artifact.planArtifact !== undefined ? { planArtifact: artifact.planArtifact } : {}),
     },
   });
 }

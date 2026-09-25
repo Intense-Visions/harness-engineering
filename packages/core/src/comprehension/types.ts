@@ -67,6 +67,29 @@ export interface ComprehensionProvenance {
    * (recomputed from the same reader) match the compile-time hash.
    */
   members: string[];
+  /**
+   * Member BASENAMES that were EXCLUDED from the compiled body but ARE part of the module's
+   * source identity — e.g. a file a fail-closed scrubber blocked from reaching the compiler
+   * (finding #319). When present and non-empty the unit is INCOMPLETE: its `sourceHash`/`members`
+   * still cover the FULL module (so a serve-time hash over the working tree matches), but the
+   * interface-contract/semantic sections were built from the clean subset only, so a consumer
+   * must NOT treat the interface as exhaustive — a local consumer recompiles from full source;
+   * a trust-remote consumer serves it but is told it is partial. Omitted/empty ⇒ a complete unit.
+   */
+  incomplete?: string[];
+}
+
+/**
+ * The FULL-module source identity, supplied by a reader that compiles from a lossy SUBSET
+ * (e.g. pnyon's tree reader, which drops scrub-blocked members) so the unit's provenance can
+ * still describe the WHOLE module (#319). `sourceHash`/`members` are computed over the full,
+ * ORIGINAL member set — parity with a serve-time hash over the working tree — while the compiler
+ * extracts only from the clean subset; `incomplete` lists the excluded member basenames.
+ */
+export interface ModuleIdentity {
+  sourceHash: string;
+  members: string[];
+  incomplete: string[];
 }
 
 /** A source file fed to the compiler: repo/module-relative path + contents. */

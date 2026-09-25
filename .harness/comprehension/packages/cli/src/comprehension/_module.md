@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/comprehension'
-sourceHash: 'f0e3ce6413ae30045e5c4859024c0c211898f0bb41823efc2878763b09833119'
+sourceHash: '20fd7fec1c8a56fd67303d6e8773caa9b709e6163167ec5573066b5457a3e4a1'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -34,6 +34,8 @@ export DEFAULT_MAX_OUTPUT_TOKENS
 export DEFAULT_SEMANTIC_MODEL
 export MAIN_BRANCH
 export REENTRANCY_ENV
+export RemoteComprehensionConfig
+export RemoteComprehensionFileConfig
 export STATIC_SUPPORTED_EXTENSIONS
 export boundSourceDigest
 export buildSemanticPrompt
@@ -57,11 +59,14 @@ export maybeCreateGenerateSemantic
 export parseModuleSemantic
 export readComprehensionConfig
 export readSemanticMapAtRef
+export remoteFileConfig
 export renderDependencySlice
 export renderInterfaceContract
 export resolveComprehensionBranch
 export resolveComprehensionCiMode
 export resolveRefreshJobGate
+export resolveRemoteComprehension
+export resolveRemoteComprehensionWithGlobalToken
 export runComprehend
 export runComprehendCheck
 export runComprehendStats
@@ -78,7 +83,7 @@ import { ComprehensionConfig, ComprehensionConfigSchema, HarnessConfig } from '.
 import { AnalysisCliConfig, AnalysisEndpoint, ProviderKind, resolveProviderKind } from '../mcp/utils/analysis-provider'
 import { readComprehensionConfig } from './config'
 import { defaultSemanticModel } from './generate-semantic'
-import { COMPREHENSION_ROOT, ComprehensionSourceFile, DEFAULT_SOURCE_EXTENSIONS, GenerateSemantic, SemanticGeneration, SemanticInput } from '@harness-engineering/core'
+import { COMPREHENSION_ROOT, ComprehensionSourceFile, DEFAULT_SOURCE_EXTENSIONS, GenerateSemantic, RemoteComprehensionFileConfig, SemanticGeneration, SemanticInput, normalizeRemoteFileConfig } from '@harness-engineering/core'
 import { AnalysisProvider } from '@harness-engineering/intelligence'
 import { execSync, spawnSync } from 'node:child_process'
 import * as fsp from 'node:fs/promises'

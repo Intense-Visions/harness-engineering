@@ -5,6 +5,8 @@ import {
   comprehensionCli,
   selectSemanticModel,
   resolveComprehensionCiMode,
+  resolveRemoteComprehension,
+  remoteFileConfig,
 } from '../../src/comprehension/config';
 import {
   HarnessConfigSchema,
@@ -189,5 +191,82 @@ describe('selectSemanticModel (ADR 0109 slice 3 — model/provider decisions can
     expect(
       selectSemanticModel(cfg({}), { isClaudeCliAvailable: () => false, env: {} })
     ).toBeUndefined();
+  });
+});
+
+describe('resolveRemoteComprehension (env-driven, not committed config)', () => {
+  const full = {
+    HARNESS_COMPREHENSION_STORAGE: 'remote',
+    HARNESS_COMPREHENSION_REMOTE_URL: 'https://core.pnyon.example',
+    HARNESS_COMPREHENSION_OUTPOST: '7a11f0e0-0000-4000-8000-000000000001',
+    PNYON_COMPREHENSION_SERVE_TOKEN: 'pnyon_cst_secret',
+  };
+
+  it('undefined unless storage=remote (default = local)', () => {
+    expect(resolveRemoteComprehension({})).toBeUndefined();
+    expect(
+      resolveRemoteComprehension({ ...full, HARNESS_COMPREHENSION_STORAGE: 'committed' })
+    ).toBeUndefined();
+  });
+
+  it('undefined when outpost/token is missing (fail-safe: never half-enable)', () => {
+    // The URL is OPTIONAL (defaults to pnyon), so only the outpost + token are required.
+    for (const drop of ['HARNESS_COMPREHENSION_OUTPOST', 'PNYON_COMPREHENSION_SERVE_TOKEN']) {
+      const env: Record<string, string> = { ...full };
+      delete env[drop];
+      expect(resolveRemoteComprehension(env)).toBeUndefined();
+    }
+  });
+
+  it('the URL is OPTIONAL — a missing HARNESS_COMPREHENSION_REMOTE_URL still resolves (default host)', () => {
+    const env: Record<string, string> = { ...full };
+    delete env.HARNESS_COMPREHENSION_REMOTE_URL;
+    expect(resolveRemoteComprehension(env)).toBeDefined();
+  });
+
+  it('resolves the config when complete; trustRemote defaults off, enabled by 1/true', () => {
+    expect(resolveRemoteComprehension(full)).toEqual({
+      baseUrl: 'https://core.pnyon.example',
+      outpost: '7a11f0e0-0000-4000-8000-000000000001',
+      token: 'pnyon_cst_secret',
+      trustRemote: false,
+    });
+    expect(
+      resolveRemoteComprehension({ ...full, HARNESS_COMPREHENSION_TRUST_REMOTE: '1' })?.trustRemote
+    ).toBe(true);
+    expect(
+      resolveRemoteComprehension({ ...full, HARNESS_COMPREHENSION_TRUST_REMOTE: 'true' })
+        ?.trustRemote
+    ).toBe(true);
+    expect(
+      resolveRemoteComprehension({ ...full, HARNESS_COMPREHENSION_TRUST_REMOTE: 'no' })?.trustRemote
+    ).toBe(false);
+  });
+});
+
+describe('remoteFileConfig (committed comprehension.remote block → resolver file arg)', () => {
+  it('undefined when the block is absent', () => {
+    expect(remoteFileConfig(cfg())).toBeUndefined();
+  });
+
+  it('maps the committed block, dropping undefined-valued optionals', () => {
+    const cconf = cfg({ remote: { enabled: true, outpost: 'o-1' } });
+    // url/trustRemote unset in the block → omitted (not `undefined`), enabled kept.
+    expect(remoteFileConfig(cconf)).toEqual({ enabled: true, outpost: 'o-1', trustRemote: false });
+  });
+
+  it('feeds the resolver so a committed block + env token resolves remote', () => {
+    const cconf = cfg({ remote: { enabled: true, outpost: 'o-1', url: 'https://file.example' } });
+    expect(
+      resolveRemoteComprehension(
+        { PNYON_COMPREHENSION_SERVE_TOKEN: 'pnyon_cst_secret' },
+        remoteFileConfig(cconf)
+      )
+    ).toEqual({
+      baseUrl: 'https://file.example',
+      outpost: 'o-1',
+      token: 'pnyon_cst_secret',
+      trustRemote: false,
+    });
   });
 });

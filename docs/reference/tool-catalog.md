@@ -5378,7 +5378,7 @@ Write a StrategyDoc to STRATEGY.md at the project root. Validates against Strate
 }
 ```
 
-## Skills (791)
+## Skills (793)
 
 Every shipped skill contract, read live from its `skill.yaml`. A drift between a skill’s real declared contract and this catalog fails the build.
 
@@ -12536,6 +12536,34 @@ Structured ideation and exploration with harness methodology
 }
 ```
 
+### harness-branch-buster
+
+Sync a branch from its base with interactive conflict resolution, run the project's exact CI gate set locally, delegate review to harness-code-review, then classify every finding by ORIGIN (introduced by this branch vs pre-existing on the base) into a dated report and auto-fix only the in-scope ones after one approval
+
+**Contract:**
+
+```json
+{
+  "catalogTier": 1,
+  "cognitiveMode": "adversarial-reviewer",
+  "dependsOn": [
+    "harness-code-review"
+  ],
+  "name": "harness-branch-buster",
+  "platforms": [
+    "claude-code",
+    "gemini-cli",
+    "cursor",
+    "codex"
+  ],
+  "tier": 2,
+  "triggers": [
+    "manual"
+  ],
+  "type": "rigid"
+}
+```
+
 ### harness-caching
 
 Cache strategies, invalidation patterns, and distributed caching
@@ -14624,6 +14652,34 @@ SQL query optimization, index analysis, N+1 detection, and query plan review
     "on_pr"
   ],
   "type": "rigid"
+}
+```
+
+### harness-start-work
+
+Claim a tracker issue by assigning it to the current user, so a project board's status-sync automation moves the card to In progress on its own — the board follows the assignment rather than being edited by hand
+
+**Contract:**
+
+```json
+{
+  "catalogTier": 1,
+  "cognitiveMode": "meticulous-implementer",
+  "dependsOn": [],
+  "name": "harness-start-work",
+  "platforms": [
+    "claude-code",
+    "gemini-cli",
+    "cursor",
+    "codex"
+  ],
+  "tier": 2,
+  "triggers": [
+    "manual",
+    "on_new_feature",
+    "on_bug_fix"
+  ],
+  "type": "flexible"
 }
 ```
 

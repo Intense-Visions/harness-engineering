@@ -78,7 +78,7 @@ The five-phase spine, the concurrency governor, the independent-verification dis
 2. **Triage each issue on the four axes** from its own signals (title, body, existing labels, linked refs):
    - **label** — assign the project's existing type/area labels (e.g. `bug`, `enhancement`/`feature`, `documentation`, `question`) from the issue's content. Never invent a new label.
    - **dedup** — detect whether the issue restates an already-open issue or one already resolved by a merged PR. Classify `novel` or `duplicate-of <ref>`. A duplicate carries a **canonical citation**; it is flagged for closure, never for a downstream build.
-   - **route** — assign the downstream fleet that should own the issue: a decision-shaped issue → `adr-fleet`; a build-shaped feature/enhancement → `roadmap-fleet`; a CI-red / flaky-run issue → `cicd-fleet`; a coverage gap → `test-fleet`; an entropy/hotspot issue → `cleanup-fleet`. An issue that plausibly fits two stages is a **fork**, not a guess.
+   - **route** — assign the downstream fleet that should own the issue: a decision-shaped issue → `adr-fleet`; a build-shaped feature/enhancement → `roadmap-fleet`; a CI-red / flaky-run issue → `cicd-fleet`; a coverage gap → `test-fleet`; an entropy/hotspot issue → `cleanup-fleet`; a doc-drift / stale-documentation issue → `docs-fleet`; a vulnerability or supply-chain issue → `security-fleet`; a measured perf-budget violation or runtime regression → `perf-fleet`; a code-quality / craft issue → `craft-fleet`. An issue that plausibly fits two stages is a **fork**, not a guess. The routable set is exactly the family roster minus the declared **§Non-destinations** — if a member is neither, that is a gap in this skill, not a licence to guess.
    - **prioritize** — score the surviving, routed issues by impact. Do not rank ad-hoc; reuse `harness-roadmap-pilot`-style impact scoring so the order is principled and reproducible.
 
 3. **Snapshot the full open-issue list** as a shared read-only reference so slice-partitioned triage subagents (DISPATCH) still detect duplicates **across** slices, not only within one.
@@ -96,7 +96,7 @@ The five-phase spine, the concurrency governor, the independent-verification dis
      dedup,             // "novel" | "duplicate-of"
      claimedElsewhere,  // true when another run holds a live claim lease (§Cross-run claim lease); dropped from triage
      canonicalRef,      // set when dedup = duplicate-of (issue/PR citation)
-     route,             // downstream fleet: adr | roadmap | pr | cicd | test | cleanup
+     route,             // downstream fleet: adr | roadmap | pr | cicd | test | cleanup | docs | security | perf | craft
      score,             // roadmap-pilot impact score (for ranking)
      closeAuthorized,   // set in CONFIRM (human destructive-close authorization)
      forks,             // detected known label/route forks (may be empty)
@@ -160,12 +160,22 @@ The five-phase spine, the concurrency governor, the independent-verification dis
 
 5. **Degrade gracefully.** Missing `gh` auth, an un-scoreable issue, or a single slice's failed triage results in that issue (or slice) being **reported** while the rest of the batch proceeds. One bad issue never sinks the batch.
 
+## Non-destinations
+
+Three `-fleet` members are deliberately **not** routable destinations. They are listed here rather than omitted, because an unexplained absence is indistinguishable from an oversight — which is exactly how four real fleets sat unroutable while the enum looked complete:
+
+- **`ideate-fleet`** — it sits _upstream_ of intake and its queue is strategy themes, not issues. An existing issue has already been conceived; routing it back to ideation would run the conveyor backwards.
+- **`issue-fleet`** — itself. Routing an issue to intake is a no-op that would loop the queue.
+- **`bug-fleet`** — its queue is **derived from the standing codebase**, not from the tracker: it hunts _undiscovered_ defects and ranks code areas by latent risk. An issue is by definition already discovered, so it belongs with the member that fixes its shape (`roadmap-fleet` for a build-shaped fix, `cicd-fleet` for a CI-red one), not with the member that finds new ones.
+
+The route enum and this list must together account for **every** member of the family roster in `docs/reference/fleet-family.md`. A new member belongs on one side or the other before it ships; `agents/skills/tests/issue-fleet-routes.test.ts` fails until it does.
+
 ## Harness Integration
 
 - **`harness skill run issue-fleet`** — Run the full five-phase intake pipeline.
 - **`harness-roadmap-pilot`** — Its impact scoring is reused in SELECT for the `prioritize` axis so the ranked queue is principled and reproducible.
 - **`gh`** — Enumerate open issues and read their signals (SELECT), apply labels and record routes (HANDOFF), and close confirmed-duplicate issues with citations (HANDOFF/REPORT).
-- **The downstream fleets** — `adr-fleet`, `roadmap-fleet`, `pr-fleet`, `cicd-fleet`, `test-fleet`, `cleanup-fleet` — consume the routed queue issue-fleet emits; issue-fleet routes to them and never does their work.
+- **The downstream fleets** — `adr-fleet`, `roadmap-fleet`, `pr-fleet`, `cicd-fleet`, `test-fleet`, `cleanup-fleet`, `docs-fleet`, `security-fleet`, `perf-fleet`, `craft-fleet` — consume the routed queue issue-fleet emits; issue-fleet routes to them and never does their work.
 - **`docs/reference/fleet-family.md`** — The shared `-fleet` spine this skill builds on (five-phase skeleton, governor, verification discipline, worktree fan-out, never-silent invariant); issue-fleet is listed there as the intake member.
 - **§Cross-run claim lease (`docs/reference/fleet-family.md`) + `@harness-engineering/core` (`fleet/claims`)** — The canonical cross-run coordination mechanism this member consumes in SELECT (drop live-leased issues) and DISPATCH (CLAIM → HEARTBEAT → RELEASE, released at the triage terminal outcome since issue-fleet opens no PR); the pure `buildClaimBody`/`parseClaimComment`/`isLeaseLive` primitives live in core, all `gh` I/O in this (agent-executed) skill layer.
 - **`harness skill validate issue-fleet`** — The authoring-time gate for this skill's own structure and schema.

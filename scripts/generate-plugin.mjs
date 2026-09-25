@@ -30,7 +30,6 @@ import { fileURLToPath } from 'node:url';
 import { getConfig, STANDARD_HOOKS } from './lib/plugin-config.mjs';
 
 const repoRoot = resolve(fileURLToPath(import.meta.url), '..', '..');
-const tsx = join(repoRoot, 'node_modules', '.bin', 'tsx');
 const prettier = join(repoRoot, 'node_modules', 'prettier', 'bin', 'prettier.cjs');
 const cliEntry = join(repoRoot, 'packages', 'cli', 'src', 'bin', 'harness.ts');
 
@@ -49,15 +48,16 @@ if (!target) {
 const config = getConfig(target);
 const isCheck = process.argv.includes('--check');
 
-if (!existsSync(tsx)) {
-  console.error(`Missing tsx at ${tsx}. Run \`pnpm install\` first.`);
-  process.exit(1);
-}
-
 const pluginRoot = join(repoRoot, config.pluginDir);
 
 function runCli(args) {
-  execFileSync(tsx, [cliEntry, ...args], { stdio: 'inherit', cwd: repoRoot });
+  // `node --import tsx`, not `node_modules/.bin/tsx` -- Windows cannot execute
+  // the extensionless POSIX shim pnpm writes there, and the `existsSync` guard
+  // that used to sit above found it anyway. See generate-agent-setup-prompt.mjs.
+  execFileSync(process.execPath, ['--import', 'tsx', cliEntry, ...args], {
+    stdio: 'inherit',
+    cwd: repoRoot,
+  });
 }
 
 function prettierWrite(targetPath) {

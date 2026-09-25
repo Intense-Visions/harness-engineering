@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/mcp/tools'
-sourceHash: '93c512968c919a55bf93ed7ae072798b8bee87c10a1b4858600911829c7b4dee'
+sourceHash: 'cd97369567ca105d9ea4c1bea88ae168acefcf6147d645f77f2c19b4464337d3'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -464,7 +464,7 @@ import { generateSlashCommands } from '../../commands/generate-slash-commands.js
 import from '../../commands/validate-cross-check.js'
 import from '../../commands/validate.js'
 import { runComprehend } from '../../comprehension/compile-run'
-import { comprehensionEndpoint, readComprehensionConfig, selectSemanticModel } from '../../comprehension/config'
+import { comprehensionEndpoint, readComprehensionConfig, remoteFileConfig, resolveRemoteComprehensionWithGlobalToken, selectSemanticModel } from '../../comprehension/config'
 import { maybeCreateGenerateSemantic, semanticResponseSchema } from '../../comprehension/generate-semantic'
 import { committedSemanticAllowed } from '../../comprehension/policy'
 import { createStaticExtractor } from '../../comprehension/static-extractor'
@@ -563,7 +563,7 @@ import { handleSummarizeSession, summarizeSessionDefinition } from './summarize-
 import { handleUatSignoff, uatSignoffDefinition } from './uat-signoff.js'
 import from './validate.js'
 import { handleSubscribeWebhook, subscribeWebhookDefinition } from './webhook-tools'
-import { CHARS_PER_TOKEN, COMPREHENSION_ROOT, CompactionPipeline, ComprehensionSourceFile, ComprehensionStore, ComprehensionUnit, ConflictError, DEFAULT_INSTRUCTION_BUDGET, DriftConfig, Err, ExtractStatic, FeaturePatch, GenerateSemantic, LevelInstructionDensity, NewFeatureInput, Ok, PackedEnvelope, PatternConfig, RefinementContextClass, RefinementDemandReport, RefinementOperation, RefinementRequest, Result, RoadmapPromoteCoreResult, RoadmapTrackerClient, SourceFile, StaticExtraction, StructuralStrategy, TrackedFeature, TrackerSyncAdapter, TruncationStrategy, aggregateDemand, analyzeSkillInstructionDensity, applyRoadmapDiff, archiveDoneShardsForProject, classifyRefinement, computeLoadPlan, computeSourceHash, createNodeComprehensionIO, createNodeModuleSourceReader, createTrackerClient, decidePromotionForRow, detectRoadmapStorageMode, estimateTokens, extractLevel, loadProjectRoadmapMode, loadTrackerClientConfigFromProject, loadTrackerSyncConfig, paginate, renderServedUnit, resolveRoadmapStore, roadmapSourceExists, serializeEnvelope, serveGate, slugifyFeatureName } from '@harness-engineering/core'
+import { CHARS_PER_TOKEN, COMPREHENSION_ROOT, CompactionPipeline, ComprehensionSourceFile, ComprehensionStore, ComprehensionUnit, ConflictError, DEFAULT_INSTRUCTION_BUDGET, DriftConfig, Err, ExtractStatic, FeaturePatch, GenerateSemantic, LevelInstructionDensity, NewFeatureInput, Ok, PackedEnvelope, PatternConfig, RefinementContextClass, RefinementDemandReport, RefinementOperation, RefinementRequest, Result, RoadmapPromoteCoreResult, RoadmapTrackerClient, SourceFile, StaticExtraction, StructuralStrategy, TrackedFeature, TrackerSyncAdapter, TruncationStrategy, aggregateDemand, analyzeSkillInstructionDensity, applyRoadmapDiff, archiveDoneShardsForProject, classifyRefinement, computeLoadPlan, computeSourceHash, createHttpComprehensionReadIO, createNodeComprehensionIO, createNodeModuleSourceReader, createTrackerClient, decidePromotionForRow, detectRoadmapStorageMode, estimateTokens, extractLevel, loadProjectRoadmapMode, loadTrackerClientConfigFromProject, loadTrackerSyncConfig, paginate, renderServedUnit, resolveRoadmapStore, roadmapSourceExists, serializeEnvelope, serveGate, slugifyFeatureName } from '@harness-engineering/core'
 import { skipDirGlobs } from '@harness-engineering/graph'
 import { AnalysisProvider, CanaryAdapter, CanaryFrameworkInfo, GuardianAnalysis, createCanaryAdapter, readGuardianAnalyses, resolveTestCommand } from '@harness-engineering/intelligence'
 import from '@harness-engineering/linter-gen'

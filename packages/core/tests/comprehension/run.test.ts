@@ -67,6 +67,63 @@ describe('mapWithConcurrency', () => {
 });
 
 describe('runComprehend — changed/all compile + write', () => {
+  it('#319: a reader supplying readModuleIdentity stamps the FULL-set hash + incomplete onto provenance', async () => {
+    const store = fakeStore();
+    // The reader compiles from a CLEAN SUBSET (SRC = a.ts only) but reports a full-module identity
+    // covering a scrub-blocked secret.ts. The unit must carry the full-set hash/members + incomplete.
+    const identity = {
+      sourceHash: 'full-set-hash',
+      members: ['a.ts', 'secret.ts'],
+      incomplete: ['secret.ts'],
+    };
+    const reader = {
+      readModuleSource: async () => SRC,
+      readModuleIdentity: async () => identity,
+    };
+    const result = await runComprehend({
+      mode: 'changed',
+      projectRoot: '/repo',
+      reader,
+      store,
+      makeExtractStatic: noopExtract,
+      changedModules: ['pkg/a'],
+      env: {},
+    });
+    expect(result.compiled).toEqual(['pkg/a']);
+    const prov = store.writes[0].provenance;
+    expect(prov.sourceHash).toBe('full-set-hash');
+    expect(prov.members).toEqual(['a.ts', 'secret.ts']);
+    expect(prov.incomplete).toEqual(['secret.ts']);
+  });
+
+  it('#319: the identity hash drives skip-if-fresh (an unchanged full-set hash is fresh, not recompiled)', async () => {
+    const identity = {
+      sourceHash: 'stable-full-hash',
+      members: ['a.ts', 'secret.ts'],
+      incomplete: ['secret.ts'],
+    };
+    const reader = {
+      readModuleSource: async () => SRC,
+      readModuleIdentity: async () => identity,
+    };
+    const store = fakeStore();
+    const opts = {
+      mode: 'changed' as const,
+      projectRoot: '/repo',
+      reader,
+      store,
+      makeExtractStatic: noopExtract,
+      changedModules: ['pkg/a'],
+      env: {},
+    };
+    const first = await runComprehend(opts);
+    expect(first.compiled).toEqual(['pkg/a']);
+    // Second identical run: the stored full-set hash matches the identity hash → fresh, no rewrite.
+    const second = await runComprehend({ ...opts, env: {} });
+    expect(second.fresh).toEqual(['pkg/a']);
+    expect(store.writes).toHaveLength(1);
+  });
+
   it('SC3: a --changed run recompiles exactly the changed-module set', async () => {
     const store = fakeStore();
     const reader = fakeReader({ 'pkg/a': SRC, 'pkg/b': SRC });

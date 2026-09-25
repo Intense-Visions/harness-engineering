@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/tests/persona/generators'
-sourceHash: '0ea9562a475076595a34de0cb9a2cb87c64aabf5012244ee43ffb49fbf4dc811'
+sourceHash: '739c7ca4ffff32cca7c4e3e8f5a873b05e50c0403cb9ba9f42d08f6dd2d147d1'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent

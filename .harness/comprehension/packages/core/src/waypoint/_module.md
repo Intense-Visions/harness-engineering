@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/src/waypoint'
-sourceHash: 'db8e86e2223d7a0151f2212369d657a55e5429feee9e071ad2bce085fb128b97'
+sourceHash: 'da862592517667c8493bf8b596f15f2cdf93d84512097fdf4b2ce333b183d1da'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
