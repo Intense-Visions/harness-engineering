@@ -119,7 +119,7 @@ anywhere, and nothing is positioned to enforce their dependency direction.
 ### Neutral
 
 - Types-only dependency means `stats` cannot use `Result<T, E>` helpers from core; it throws
-  typed errors at construction and reports IO through `onError` (see ADR 0132).
+  typed errors when a config is resolved (per `choose()`/`fold()` for the bandit, at `createSprt()`/`waldBounds()` for SPRT) and reports IO through `onError` (see ADR 0132).
 - `burn` and `signals` remain undeclared; declaring them is a separate cleanup, not implied
   here.
 
