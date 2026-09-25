@@ -25,10 +25,10 @@ rows (IRT #1657, Kelly staking, Kalman fusion) are statistical siblings waiting 
 (`packages/core/package.json` and `packages/intelligence/package.json` each depend on
 `graph` and `types` only; `packages/orchestrator/package.json` depends on both). Placing the
 instruments in either would make them unreachable from the other without a layer exception.
-The existing leaf packages `burn` and `signals` are not declared as layers, so
-`checkLayerViolations` skips every edge touching them
+The undeclared packages `burn` (a leaf) and `signals` (which depends on `graph` and `zod`)
+are not declared as layers, so `checkLayerViolations` skips every edge touching them
 (`packages/core/src/constraints/dependencies.ts:229-241`) — they are importable from
-anywhere, and nothing enforces their dependency direction.
+anywhere, and nothing is positioned to enforce their dependency direction.
 
 ## Decision
 
@@ -41,11 +41,18 @@ anywhere, and nothing enforces their dependency direction.
 2. **`stats` is a declared layer.** `harness.config.json` `layers` carries `stats` with
    `packages/stats/src/**` and `allowedDependencies: ["types"]`, and `entropy.entryPoints`
    lists `packages/stats/src/index.ts` and `packages/stats/tsup.config.ts`. Unlike `burn` and
-   `signals`, the layer validator enforces the direction (SC10) rather than skipping the
-   package. Each consumer phase adds `stats` to its own package's `allowedDependencies`.
+   `signals`, the declaration records the intended direction where the validator reads it,
+   and relative imports inside `packages/stats/src/**` are checked against it. It does not
+   yet machine-check the cross-package direction: the validator resolves only relative
+   specifiers (`packages/core/src/constraints/dependencies.ts:100-103` skips every bare
+   `@harness-engineering/*` import), so the enforced guarantee behind SC10 is the
+   `package.json` dependency pin, verified by inspection. Each consumer phase adds `stats`
+   to its own package's `allowedDependencies` so the rule is in place when the validator
+   learns to resolve workspace specifiers.
 3. **One directory per instrument, exported as one namespace.** `packages/stats/src/index.ts`
    is `export * as bandit from './bandit/index.js'; export * as sprt from './sprt/index.js'`,
-   so `stats.bandit.choose` and a future `stats.sprt.*` name can never collide. Instruments do
+   so `stats.bandit.choose` and any `stats.sprt.*` name (or a later `stats.irt.*`) can never
+   collide. Instruments do
    not import each other's internals; each has its own typed errors
    (`packages/stats/src/bandit/errors.ts`, `packages/stats/src/sprt/errors.ts`). SC12 pins
    `packages/stats/src/` to exactly `bandit/`, `index.ts`, `sprt/`
@@ -70,8 +77,10 @@ anywhere, and nothing enforces their dependency direction.
   attribution) and an undeclared layer; the precedent worth copying is its shape (types-only
   leaf, tsup, vitest), not its contents.
 - **Ship as an undeclared package like `burn`/`signals`.** Rejected: the validator would skip
-  every edge, so nothing would stop `stats` from growing a graph or provider dependency, which
-  D4 forbids on the router's hot path.
+  every edge by design rather than by gap, so nothing would be positioned to stop `stats` from
+  growing a graph or provider dependency, which D4 forbids on the router's hot path. Today the
+  practical guard is the same either way (the `package.json` pin, see Negative); declaring the
+  layer is what lets the validator take over without a config change.
 - **One flat module instead of namespaces.** Rejected: four tracked instruments with
   overlapping vocabulary (`test`, `choose`, `state`) would collide on a flat barrel.
 
@@ -81,11 +90,14 @@ anywhere, and nothing enforces their dependency direction.
 
 - One placement importable from every consumer; one ledger format and one arm model instead of
   three (D1).
-- Dependency direction is machine-checked: `harness check-deps` reports 10 layers with 0 `stats`
-  findings and the arch baseline is unchanged (SC10).
+- The runtime dependency set is pinned to `types` by `packages/stats/package.json` (SC10,
+  verified by inspection). `harness check-deps` reports 10 layers with 0 `stats` findings and
+  the arch baseline is unchanged, which today is a necessary but not sufficient check: it does
+  not see bare-specifier imports, so it covers relative imports inside the package only.
 - The package is the durable home for #1557's second instrument (SPRT, shipped) and for IRT,
   Kelly, and Kalman (G6), each landing as a namespace without touching the others.
-- The router's hot path stays cheap: no graph, no provider, one synchronous append.
+- The package adds nothing heavy to a hot path: no graph, no provider, one synchronous append
+  per pull. The router is the intended first beneficiary once its consumer spec wires it.
 
 ### Negative / trade-offs
 
@@ -93,8 +105,16 @@ anywhere, and nothing enforces their dependency direction.
   registration before any dependent can be released (spec "Registrations required"); the
   routing consumer's release is blocked until that operator step completes.
 - The package is dark until its first consumer lands: 147 tests, zero importers (SC11).
-- Consumers must add `stats` to their layer's `allowedDependencies` explicitly; forgetting it
-  fails `check-deps` rather than silently passing as `burn` imports do.
+- Consumers must add `stats` to their layer's `allowedDependencies` explicitly. Forgetting it
+  does not fail `check-deps` today (the same bare-specifier gap as above), so the rule is
+  reviewed by inspection until the validator resolves workspace specifiers; it exists so that
+  the check fires without a config change once it does.
+- **Layer enforcement gap.** Neither `check-deps` nor the `no-layer-violation` ESLint rule
+  resolves bare `@harness-engineering/*` specifiers
+  (`packages/core/src/constraints/dependencies.ts:100-103`,
+  `packages/eslint-plugin/src/rules/no-layer-violation.ts:37`), so a `stats` import of `core`
+  via `@harness-engineering/core` would pass both today. Tracked in the layer-validator
+  bare-specifier issue, #2216.
 
 ### Neutral
 
@@ -114,7 +134,8 @@ anywhere, and nothing enforces their dependency direction.
 - `packages/stats/src/index.ts` (namespace barrel); `packages/stats/tests/barrel.test.ts`
   (SC12 directory and export pins).
 - `packages/core/src/constraints/dependencies.ts:229-241` — undeclared packages are skipped by
-  the layer validator.
+  the layer validator; `:100-103` — bare (non-relative) specifiers are skipped for every
+  package, declared or not (#2216).
 - `packages/core/package.json`, `packages/intelligence/package.json`,
   `packages/orchestrator/package.json` — dependency direction that rules out core and
   intelligence as homes.
