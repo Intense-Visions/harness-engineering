@@ -1,17 +1,16 @@
 ---
 schemaVersion: 1
-module: "packages/types/src/__type_tests__"
-sourceHash: "43e9fa47960a36c9592d86667c36aa762333759f6b91d53239fd8791fe651580"
-compiledAt: "2026-08-28T01:22:12.802Z"
-compiler: { static: "1.0.0", semantic: "1.0.0" }
-model: "claude-haiku-4-5-20251001"
+module: 'packages/types/src/__type_tests__'
+sourceHash: '16fc5a526aa90353d1a4a7d46bedb0e7506d2762d6142e1c67af1d7a7dd6f228'
+compiler: { static: '1.0.0', semantic: '1.0.0' }
+model: 'claude-haiku-4-5-20251001'
 semantic: present
-members: ["amr-phase3-routing.test-d.ts", "routing-types.test-d.ts"]
+members: ['amr-phase3-routing.test-d.ts', 'routing-types.test-d.ts', 'stats-types.test-d.ts']
 ---
 
 ## Summary
 
-The `packages/types/src/__type_tests__` module contains two TypeScript typecheck-only fixture files that validate routing-system type contracts during compilation. **amr-phase3-routing.test-d.ts** validates the AMR Phase 3 surface contract: `RoutingConfig` accepts optional `policy?: RoutingPolicy`, and `RoutingDecision` accepts optional enrichment fields (`complexity`, `tierRequired`, `estCostUsd`). **routing-types.test-d.ts** validates the Spec B Phase 0 contract: `RoutingValue` and `RoutingConfig` fields support both scalar (single backend) and array (fallback chain) forms, new `RoutingUseCase` variants enable skill/mode-based routing, and legacy types like `IssueRoutingDecision` remain available. These fixtures are excluded from the runtime build and compiled only via `pnpm typecheck`; a compilation failure signals a surface-contract regression.
+The `packages/types/src/__type_tests__` module contains three TypeScript typecheck-only fixture files that validate shared type contracts during compilation. **amr-phase3-routing.test-d.ts** validates the AMR Phase 3 surface contract: `RoutingConfig` accepts optional `policy?: RoutingPolicy`, and `RoutingDecision` accepts optional enrichment fields (`complexity`, `tierRequired`, `estCostUsd`). **routing-types.test-d.ts** validates the Spec B Phase 0 contract: `RoutingValue` and `RoutingConfig` fields support both scalar (single backend) and array (fallback chain) forms, new `RoutingUseCase` variants enable skill/mode-based routing, and legacy types like `IssueRoutingDecision` remain available. **stats-types.test-d.ts** validates the stats-explore-exploit shapes (`Pull`, `ArmState`, `BanditConfig`, `Choice`, `SprtConfig`, `SprtVerdict`): unscored, inline-scored and late-scored pulls, a policy-only `BanditConfig`, and `@ts-expect-error` negatives that pin each spec union and required field. These fixtures are excluded from the runtime build and compiled only via `pnpm typecheck`; a compilation failure signals a surface-contract regression.
 
 ## Invariants
 
@@ -32,5 +31,5 @@ The `packages/types/src/__type_tests__` module contains two TypeScript typecheck
 ## Dependency Slice
 
 ```
-import { CapabilityTier, ComplexityVerdict, IssueRoutingDecision, ResolutionSource, ResolutionStep, RoutingConfig, RoutingDecision, RoutingPolicy, RoutingUseCase, RoutingValue } from '../index'
+import { ArmState, BanditConfig, CapabilityTier, Choice, ComplexityVerdict, IssueRoutingDecision, Pull, ResolutionSource, ResolutionStep, RoutingConfig, RoutingDecision, RoutingPolicy, RoutingUseCase, RoutingValue, SprtConfig, SprtVerdict } from '../index'
 ```

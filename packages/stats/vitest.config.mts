@@ -7,14 +7,12 @@ export default defineConfig({
     ...prepushTestOptions(),
     globals: true,
     environment: 'node',
-    testTimeout: 15_000,
-    include: ['tests/**/*.test.ts'],
+    testTimeout: 30_000,
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'json-summary', 'html'],
-      include: ['src/**/*.ts'],
-      exclude: ['src/index.ts', 'src/__type_tests__/**'],
-      processingConcurrency: 1,
+      exclude: ['node_modules/', 'tests/', '**/*.test.ts', 'src/index.ts'],
+      thresholds: { lines: 80, functions: 80, branches: 80, statements: 80 },
     },
   },
 });

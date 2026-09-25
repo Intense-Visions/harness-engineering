@@ -1600,12 +1600,23 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 - **Priority:** P2
 - **External-ID:** github:Intense-Visions/harness-engineering#1555
 
+### Stats package with the explore/exploit bandit as first instrument
+
+- **Status:** in-progress
+- **Spec:** docs/changes/stats-explore-exploit/proposal.md
+- **Summary:** A new dependency-free leaf package `@harness-engineering/stats`, declared as its own layer, shipping the two instruments row `bandit-allocation-with-sequential-stopping` names: a bandit (append-only JSONL ledger under `.harness/metrics/`, Beta posterior with half-life decay and a novelty threshold, `scoutFraction` and `thompson` policies behind one `choose` interface, a one-line human reason on every choice, safety-agnostic by construction so exploration varies cost and never safety) and a Bernoulli SPRT. No consumer and no CLI in this phase, so nothing depends on the package before its manual first npm publish and trusted-publisher registration. The package is the durable home for the tracked statistical siblings (IRT, Kelly, Kalman), each built only when its consumer is specced. Three follow-on specs consume it: the adaptive-router routing consumer (#1557), fleet-command slot allocation by trailing yield, and a roadmap scout pick per batch.
+- **Blockers:** —
+- **Plan:** docs/changes/stats-explore-exploit/plans/2026-09-24-phase-1-types-and-package-scaffold-plan.md, docs/changes/stats-explore-exploit/plans/2026-09-24-phase-2-bandit-ledger-arm-model-policies-plan.md, docs/changes/stats-explore-exploit/plans/2026-09-24-phase-3-bernoulli-sprt-plan.md, docs/changes/stats-explore-exploit/plans/2026-09-24-phase-4-docs-decisions-validation-plan.md
+- **Assignee:** Chad Warner
+- **Priority:** P2
+- **External-ID:** github:Intense-Visions/harness-engineering#2202
+
 ### Explore/exploit allocation for routing decisions, with early stopping
 
 - **Status:** planned
 - **Spec:** —
 - **Summary:** The harness makes the same routing decisions thousands of times — which model tier for this task class, which reviewer configuration, which decomposition strategy — and currently either fixes them by config or (in `adaptive-model-routing`) escalates on failure. Fixed policies pay a hidden price: they never learn whether the cheaper option became good enough, and the volume that makes agentic systems expensive is exactly the volume that makes learning cheap. Build the two standard instruments. First, bandit allocation (Thompson sampling) over repeated routing decisions: mostly exploit the best-known arm, always spend a small declared fraction exploring alternatives, converge automatically as evidence accumulates — bounded regret instead of permanent guessing. Second, sequential testing (SPRT-style) for the one-shot questions `controlled-experiment-harness-for-its-own-effect` asks: instead of fixing a sample size up front, stop the moment the evidence crosses a declared threshold — typically halving the cost of an answer at the same error rates. Both must respect the existing floor: explored arms still pass every gate; exploration varies *cost*, never *safety*. Together they make the harness the first tool in this category whose routing decisions provably improve with use.
-- **Blockers:** Depends on `cost-per-merged-pr-attribution` for the reward signal
+- **Blockers:** Depends on `stats-explore-exploit` for the bandit and SPRT primitive (this row keeps the routing-consumer half)
 - **Plan:** —
 - **Assignee:** —
 - **Priority:** P2
