@@ -1,6 +1,8 @@
-import type { ArmState, BanditConfig } from '@harness-engineering/types';
+import type { ArmState, BanditConfig, Pull } from '@harness-engineering/types';
 import { describe, expect, it, vi } from 'vitest';
 
+import { foldArms } from '../src/bandit/arm-model';
+import { resolveBanditConfig } from '../src/bandit/config';
 import { InvalidBanditConfigError, NoEligibleArmsError } from '../src/bandit/errors';
 import { choose } from '../src/bandit/policy';
 import { mulberry32 } from './helpers/prng';
@@ -113,12 +115,22 @@ describe('scoutFraction policy', () => {
     for (const count of picks.values()) expect(count).toBeGreaterThan(60);
   });
 
-  it('spreads cold-start exploit picks across arms tied on meanUtility instead of the first id', () => {
-    // three all-novel, unscored arms: meanUtility 0 everywhere, so the exploit argmax is a 3-way tie
+  it('sends every cold-start exploit pull to the caller default and reaches the rest by scouting', () => {
+    // three all-novel, unscored arms: no arm has cleared minEffectiveN, so nothing can be ranked
     const cold = ['a', 'b', 'c'].map((id) => arm(id, 1, 1, { meanUtility: 0 }));
-    const { picks } = tally(cold, scout, 4, 1000);
-    expect([...picks.keys()].sort()).toEqual(['a', 'b', 'c']);
-    for (const id of ['a', 'b', 'c']) expect((picks.get(id) ?? 0) / 1000).toBeGreaterThan(0.2);
+    const rng = mulberry32(4);
+    const picks = new Map<string, number>();
+    let explore = 0;
+    for (let i = 0; i < 1000; i += 1) {
+      const choice = choose(cold, scout, rng);
+      picks.set(choice.arm, (picks.get(choice.arm) ?? 0) + 1);
+      if (choice.mode === 'explore') explore += 1;
+      // the exploit branch has no evidence to rank on, so it never leaves the caller's first arm
+      else expect(choice.arm).toBe('a');
+    }
+    expect([...picks.keys()].sort()).toEqual(['a', 'b', 'c']); // scouting still reaches every arm
+    expect(explore / 1000).toBeGreaterThan(0.08); // and it is the f=0.1 share doing it, not exploit
+    for (const id of ['b', 'c']) expect(picks.get(id) ?? 0).toBeGreaterThan(10);
   });
 
   it('does not consult rng when the best meanUtility is unique', () => {
@@ -133,6 +145,82 @@ describe('scoutFraction policy', () => {
     expect(choose(eligible, { ...scout, scoutFraction: 0.3 }, () => 0).reason).toMatch(
       /^scout 1-in-3\.3, /
     );
+  });
+});
+
+describe('scoutFraction exploit: minimum evidence', () => {
+  /** The arm a fold reports for `pulls` scored wins at age 0: effectiveN === pulls, utility 1. */
+  function scoredWins(id: string, pulls: number, minEffectiveN = 2): ArmState {
+    return arm(id, 1 + pulls, 1, {
+      effectiveN: pulls,
+      novel: pulls < minEffectiveN,
+      meanUtility: 1,
+    });
+  }
+  /** An arm dispatched but never scored: the fold reports meanUtility 0, which is not "bad". */
+  const unscored = (id: string): ArmState => arm(id, 1, 1, { meanUtility: 0 });
+  const neverScouts = () => 0.99; // 0.99 >= scoutFraction 0.1: every pull takes the exploit branch
+
+  it('one scored pull does not displace the caller default while that arm is still novel', () => {
+    const choice = choose([unscored('a'), scoredWins('b', 1)], scout, neverScouts);
+    expect(choice.arm).toBe('a'); // not 'b', whose 1.00 utility rests on a single observation
+    expect(choice.mode).toBe('exploit');
+    expect(choice.reason).toBe('no arm has minimum evidence (n<2); kept caller order');
+  });
+
+  it('displaces the caller default once the challenger clears minEffectiveN with a higher utility', () => {
+    const held = arm('a', 3, 3, { effectiveN: 4, novel: false, meanUtility: 0.5 });
+    expect(choose([held, scoredWins('b', 2)], scout, neverScouts)).toEqual({
+      arm: 'b',
+      mode: 'exploit',
+      reason: 'exploit: best mean utility 1.00 (n=2.0)',
+    });
+  });
+
+  it('keeps caller order, not id order, when every arm is novel, and draws no tie-break rng', () => {
+    const rng = vi.fn(neverScouts);
+    expect(choose(['c', 'b', 'a'].map(unscored), scout, rng)).toEqual({
+      arm: 'c',
+      mode: 'exploit',
+      reason: 'no arm has minimum evidence (n<2); kept caller order',
+    });
+    expect(rng).toHaveBeenCalledTimes(1); // the scout gate only: there is nothing to rank or tie-break
+  });
+
+  it('still breaks exploit ties with rng among arms that have cleared the bar', () => {
+    const tied = ['x', 'y', 'z'].map((id) =>
+      arm(id, 3, 3, { effectiveN: 4, novel: false, meanUtility: 0.5 })
+    );
+    const { picks, explore } = tally(tied, { ...scout, scoutFraction: 0 }, 7, 900);
+    expect(explore).toBe(0); // scoutFraction 0 isolates the exploit branch
+    expect([...picks.keys()].sort()).toEqual(['x', 'y', 'z']);
+    for (const count of picks.values()) expect(count).toBeGreaterThan(200);
+  });
+
+  it('honours a minEffectiveN above the default over the same folded pulls (end to end)', () => {
+    const now = new Date('2026-09-24T00:00:00.000Z');
+    const base = { ts: now.toISOString(), consumer: 'routing', context: 'quick-fix' } as const;
+    const pulls: Pull[] = [
+      { ...base, arm: 'a', mode: 'exploit' }, // dispatched, never scored
+      ...Array.from(
+        { length: 3 },
+        (): Pull => ({ ...base, arm: 'b', mode: 'exploit', reward: { outcome: 1 } })
+      ),
+    ];
+    const fold = (minEffectiveN: number) =>
+      foldArms(pulls, resolveBanditConfig({ ...scout, minEffectiveN }), now);
+
+    // effectiveN 3 clears the default bar of 2, so 'b' earns the exploit pull
+    expect(fold(2).map((a) => `${a.arm}:${String(a.novel)}`)).toEqual(['a:true', 'b:false']);
+    expect(choose(fold(2), { ...scout, minEffectiveN: 2 }, neverScouts).arm).toBe('b');
+
+    // the same three pulls fall short of a bar of 5: the fold's id order makes 'a' the default
+    expect(fold(5).map((a) => `${a.arm}:${String(a.novel)}`)).toEqual(['a:true', 'b:true']);
+    expect(choose(fold(5), { ...scout, minEffectiveN: 5 }, neverScouts)).toEqual({
+      arm: 'a',
+      mode: 'exploit',
+      reason: 'no arm has minimum evidence (n<5); kept caller order',
+    });
   });
 });
 

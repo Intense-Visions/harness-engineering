@@ -9,6 +9,12 @@ import { sampleBeta, type Rng } from './sampling.js';
  * (spec "Policies"). `rng` is injected so a seeded test is deterministic.
  * Throws `NoEligibleArmsError` on an empty set and `InvalidBanditConfigError`
  * on a bad config; nothing else on this path throws.
+ *
+ * Pass `eligible` in preference order: under `scoutFraction`, `eligible[0]` is
+ * the caller's declared default and is returned by the exploit branch until at
+ * least one arm has cleared `minEffectiveN`. A cold start therefore behaves
+ * exactly as the caller's own ordering would, and no arm can take over the
+ * exploit branch on evidence the config says is too thin to rank on.
  */
 export function choose(eligible: readonly ArmState[], config: BanditConfig, rng: Rng): Choice {
   const resolved = resolveBanditConfig(config);
@@ -71,17 +77,39 @@ function leastSampled(eligible: readonly ArmState[], rng: Rng): ArmState {
   );
 }
 
+/** The exploit pick, plus whether it was ranked on evidence or fell back to the caller's default. */
+interface ExploitPick {
+  arm: ArmState;
+  evidenced: boolean;
+}
+
 /**
- * Highest meanUtility; ties broken by rng, mirroring `leastSampled`. Without
- * this a cold start (every arm unscored, meanUtility 0, sorted by id) would
- * send every exploit pull to the alphabetically first arm.
+ * Highest meanUtility among the arms that have cleared the evidence bar
+ * (`novel === false`, i.e. effectiveN >= minEffectiveN); ties broken by rng,
+ * mirroring `leastSampled`. A novel arm's meanUtility is not a ranking signal:
+ * an unscored arm reads 0.0 (`arm-model.ts`), so ranking on the raw number
+ * would let one lucky scout pull score 1.0 and take every subsequent exploit
+ * pull from every arm that has not been tried yet. When no arm has cleared the
+ * bar there is nothing to exploit, so the caller's first arm — its declared
+ * default — is returned untouched. The rng tie-break stays because a field of
+ * equally-evidenced arms arriving in id order would otherwise send every
+ * exploit pull to the alphabetically first.
  */
-function bestByUtility(eligible: readonly ArmState[], rng: Rng): ArmState {
-  const maxUtility = Math.max(...eligible.map((a) => a.meanUtility));
-  return breakTie(
-    eligible.filter((a) => a.meanUtility === maxUtility),
-    rng
-  );
+function bestByUtility(eligible: readonly ArmState[], rng: Rng): ExploitPick {
+  const evidenced = eligible.filter((a) => !a.novel);
+  const fallback = eligible[0];
+  if (evidenced.length === 0) {
+    if (fallback === undefined) throw new NoEligibleArmsError(); // unreachable: `choose` rejects the empty set
+    return { arm: fallback, evidenced: false };
+  }
+  const maxUtility = Math.max(...evidenced.map((a) => a.meanUtility));
+  return {
+    arm: breakTie(
+      evidenced.filter((a) => a.meanUtility === maxUtility),
+      rng
+    ),
+    evidenced: true,
+  };
 }
 
 function chooseScoutFraction(
@@ -97,11 +125,13 @@ function chooseScoutFraction(
       reason: `scout 1-in-${oneIn(config.scoutFraction)}, least sampled (n=${fmtN(target.effectiveN)})`,
     };
   }
-  const best = bestByUtility(eligible, rng);
+  const { arm: best, evidenced } = bestByUtility(eligible, rng);
   return {
     arm: best.arm,
     mode: 'exploit',
-    reason: `exploit: best mean utility ${best.meanUtility.toFixed(2)} (n=${fmtN(best.effectiveN)})`,
+    reason: evidenced
+      ? `exploit: best mean utility ${best.meanUtility.toFixed(2)} (n=${fmtN(best.effectiveN)})`
+      : `no arm has minimum evidence (n<${String(config.minEffectiveN)}); kept caller order`,
   };
 }
 
@@ -113,7 +143,9 @@ function posteriorMean(arm: ArmState): number {
  * One Beta draw per arm, pick the max. `mode` is `explore` when the pick's
  * posterior mean is strictly below the best posterior mean; arms tied on the
  * best mean are all exploit (no override for novel arms — their wide posterior
- * is what gets them sampled).
+ * is what gets them sampled). This policy needs no `minEffectiveN` guard: a
+ * thin arm's posterior is still near the prior, so the draw is already weighted
+ * by how much evidence there is.
  */
 function chooseThompson(eligible: readonly ArmState[], rng: Rng): Choice {
   const samples = eligible.map((arm) => ({ arm, sample: sampleBeta(arm.alpha, arm.beta, rng) }));
