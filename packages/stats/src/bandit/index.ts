@@ -7,6 +7,8 @@
  */
 export { decayWeight, foldArms } from './arm-model.js';
 export {
+  DEFAULT_HALF_LIFE_DAYS,
+  DEFAULT_MIN_EFFECTIVE_N,
   DEFAULT_PRIOR,
   DEFAULT_SCOUT_FRACTION,
   resolveBanditConfig,

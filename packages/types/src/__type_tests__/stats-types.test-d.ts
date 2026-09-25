@@ -61,7 +61,8 @@ const _seasoned: ArmState = {
 void _novel;
 void _seasoned;
 
-// --- 3. BanditConfig: minimal thompson; full scoutFraction with prior ---
+// --- 3. BanditConfig: policy-only (every other field has a spec default); explicit thompson; full scoutFraction with prior ---
+const _policyOnly: BanditConfig = { policy: 'thompson' };
 const _thompson: BanditConfig = { policy: 'thompson', halfLifeDays: 30, minEffectiveN: 2 };
 const _scout: BanditConfig = {
   policy: 'scoutFraction',
@@ -70,6 +71,7 @@ const _scout: BanditConfig = {
   minEffectiveN: 2,
   prior: { alpha: 1, beta: 1 },
 };
+void _policyOnly;
 void _thompson;
 void _scout;
 

@@ -49,7 +49,9 @@ describe('@harness-engineering/stats barrel', () => {
     expect(Object.keys(stats.bandit).sort()).toEqual([
       'BanditLedger',
       'COST_EPSILON_USD',
+      'DEFAULT_HALF_LIFE_DAYS',
       'DEFAULT_LEDGER_PATH',
+      'DEFAULT_MIN_EFFECTIVE_N',
       'DEFAULT_PRIOR',
       'DEFAULT_SCOUT_FRACTION',
       'InvalidBanditConfigError',

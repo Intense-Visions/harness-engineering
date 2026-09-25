@@ -25,7 +25,8 @@ const ledger = new bandit.BanditLedger({
   // .harness/metrics/bandit.jsonl; IO failures (append, or a fold read that is not ENOENT) land here
   onError: (error) => console.warn('bandit ledger', error),
 });
-const config = { policy: 'scoutFraction', halfLifeDays: 30, minEffectiveN: 2 } as const;
+// every field but policy has a spec default: scoutFraction 0.1, halfLifeDays 30, minEffectiveN 2, prior Beta(1,1)
+const config = { policy: 'scoutFraction' } as const;
 const { arms, malformed, bytes, readError } = ledger.fold(
   'routing',
   'quick-fix',

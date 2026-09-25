@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/stats/src/bandit'
-sourceHash: '94f8d78774f85a12efa9ee4c633edc858fd63876dec0da2ca800d381508dbb80'
+sourceHash: '30e4611386aad88e597f464fd5590e730d249f7c7f50254457d9465656b7ac16'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -25,7 +25,9 @@ members:
 export BanditLedger
 export BanditLedgerOptions
 export COST_EPSILON_USD
+export DEFAULT_HALF_LIFE_DAYS
 export DEFAULT_LEDGER_PATH
+export DEFAULT_MIN_EFFECTIVE_N
 export DEFAULT_PRIOR
 export DEFAULT_SCOUT_FRACTION
 export FoldResult

@@ -4,12 +4,18 @@ import { InvalidBanditConfigError } from './errors.js';
 
 /** Spec default: one pull in ten scouts under `scoutFraction`. */
 export const DEFAULT_SCOUT_FRACTION = 0.1;
+/** Spec default: evidence loses half its weight every 30 days (D5). */
+export const DEFAULT_HALF_LIFE_DAYS = 30;
+/** Spec default: an arm with less than 2 effective samples is `novel` (D5). */
+export const DEFAULT_MIN_EFFECTIVE_N = 2;
 /** Spec default: the uniform Beta(1,1) prior. */
 export const DEFAULT_PRIOR: Readonly<{ alpha: number; beta: number }> = { alpha: 1, beta: 1 };
 
 /** A `BanditConfig` with every optional field filled and every bound checked. */
 export interface ResolvedBanditConfig extends BanditConfig {
   scoutFraction: number;
+  halfLifeDays: number;
+  minEffectiveN: number;
   prior: { alpha: number; beta: number };
 }
 
@@ -28,27 +34,24 @@ const nonNegative = (x: number): boolean => x >= 0;
 const positivePair = (pair: { alpha: number; beta: number }): boolean =>
   positive(pair.alpha) && positive(pair.beta);
 
-function guards(
-  config: BanditConfig,
-  scoutFraction: number,
-  prior: { alpha: number; beta: number }
-): readonly Guard[] {
+function guards(policy: unknown, filled: Omit<ResolvedBanditConfig, 'policy'>): readonly Guard[] {
+  const { scoutFraction, halfLifeDays, minEffectiveN, prior } = filled;
   return [
     {
-      ok: isPolicy(config.policy),
-      message: `policy must be 'scoutFraction' or 'thompson', got ${String(config.policy)}`,
+      ok: isPolicy(policy),
+      message: `policy must be 'scoutFraction' or 'thompson', got ${String(policy)}`,
     },
     {
       ok: inUnitInterval(scoutFraction),
       message: `scoutFraction must be in [0, 1], got ${String(scoutFraction)}`,
     },
     {
-      ok: positive(config.halfLifeDays),
-      message: `halfLifeDays must be > 0, got ${String(config.halfLifeDays)}`,
+      ok: positive(halfLifeDays),
+      message: `halfLifeDays must be > 0, got ${String(halfLifeDays)}`,
     },
     {
-      ok: nonNegative(config.minEffectiveN),
-      message: `minEffectiveN must be >= 0, got ${String(config.minEffectiveN)}`,
+      ok: nonNegative(minEffectiveN),
+      message: `minEffectiveN must be >= 0, got ${String(minEffectiveN)}`,
     },
     {
       ok: positivePair(prior),
@@ -65,9 +68,14 @@ function guards(
  * policy string is rejected rather than silently running `scoutFraction`.
  */
 export function resolveBanditConfig(config: BanditConfig): ResolvedBanditConfig {
-  const scoutFraction = config.scoutFraction ?? DEFAULT_SCOUT_FRACTION;
   const prior = config.prior ?? DEFAULT_PRIOR;
-  const failed = guards(config, scoutFraction, prior).find((g) => !g.ok);
+  const filled = {
+    scoutFraction: config.scoutFraction ?? DEFAULT_SCOUT_FRACTION,
+    halfLifeDays: config.halfLifeDays ?? DEFAULT_HALF_LIFE_DAYS,
+    minEffectiveN: config.minEffectiveN ?? DEFAULT_MIN_EFFECTIVE_N,
+    prior: { alpha: prior.alpha, beta: prior.beta },
+  };
+  const failed = guards(config.policy, filled).find((g) => !g.ok);
   if (failed !== undefined) throw new InvalidBanditConfigError(failed.message);
-  return { ...config, scoutFraction, prior: { alpha: prior.alpha, beta: prior.beta } };
+  return { ...config, ...filled };
 }

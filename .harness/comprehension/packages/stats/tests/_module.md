@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/stats/tests'
-sourceHash: '0eaa9e58ca6d99fc1413e2c7d667330c4677a3946fedc787d372b6943838a803'
+sourceHash: '1ad5d032f43537a3d2d571b666528dd49868a340b0ba681a53365e04c3c28551'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -30,7 +30,7 @@ members:
 
 ```
 import { decayWeight, foldArms } from '../src/bandit/arm-model'
-import { DEFAULT_PRIOR, DEFAULT_SCOUT_FRACTION, resolveBanditConfig } from '../src/bandit/config'
+import { DEFAULT_HALF_LIFE_DAYS, DEFAULT_MIN_EFFECTIVE_N, DEFAULT_PRIOR, DEFAULT_SCOUT_FRACTION, resolveBanditConfig } from '../src/bandit/config'
 import { InvalidBanditConfigError, NoEligibleArmsError } from '../src/bandit/errors'
 import { BanditLedger, DEFAULT_LEDGER_PATH } from '../src/bandit/ledger'
 import { parseLine } from '../src/bandit/ledger-parse'

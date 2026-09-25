@@ -62,9 +62,9 @@ Decayed Beta posterior: `decayWeight(ageDays, halfLifeDays) = 0.5^(age/halfLife)
 
 [`packages/stats/src/bandit/config.ts`](/packages/stats/src/bandit/config.ts)
 
-`resolveBanditConfig`: fills defaults (`scoutFraction` 0.1, prior Beta(1,1)) and validates the table of guards (`policy` is `scoutFraction` or `thompson`, `scoutFraction` in [0, 1], `halfLifeDays` > 0, `minEffectiveN` ≥ 0, prior parameters > 0), throwing `InvalidBanditConfigError` with the first failed guard's message.
+`resolveBanditConfig`: fills the spec defaults for every field but `policy` (`scoutFraction` 0.1, `halfLifeDays` 30, `minEffectiveN` 2, prior Beta(1,1)) and validates the table of guards (`policy` is `scoutFraction` or `thompson`, `scoutFraction` in [0, 1], `halfLifeDays` > 0, `minEffectiveN` ≥ 0, prior parameters > 0), throwing `InvalidBanditConfigError` with the first failed guard's message. `choose` and `fold` run it on every call; a consumer that wants the throw once, at its own construction, calls it directly and keeps the result.
 
-**Exports:** `resolveBanditConfig`, `ResolvedBanditConfig`, `DEFAULT_SCOUT_FRACTION`, `DEFAULT_PRIOR`
+**Exports:** `resolveBanditConfig`, `ResolvedBanditConfig`, `DEFAULT_SCOUT_FRACTION`, `DEFAULT_HALF_LIFE_DAYS`, `DEFAULT_MIN_EFFECTIVE_N`, `DEFAULT_PRIOR`
 
 ## packages/stats/src/bandit/utility.ts
 

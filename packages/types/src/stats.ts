@@ -10,7 +10,7 @@
  */
 
 export interface Pull {
-  ts: string; // ISO-8601
+  ts: string; // ISO-8601 instant with a zone designator (Z or ±HH:MM)
   consumer: string; // 'routing' | 'fleet-command' | 'roadmap' | free string
   context: string; // consumer-defined bucket, e.g. task class, wave, track
   arm: string; // consumer-defined arm id, e.g. backend name, fleet name
@@ -32,8 +32,8 @@ export interface ArmState {
 export interface BanditConfig {
   policy: 'scoutFraction' | 'thompson';
   scoutFraction?: number; // default 0.1; only read by scoutFraction
-  halfLifeDays: number; // default 30
-  minEffectiveN: number; // default 2
+  halfLifeDays?: number; // default 30
+  minEffectiveN?: number; // default 2
   prior?: { alpha: number; beta: number }; // default { 1, 1 }
 }
 
