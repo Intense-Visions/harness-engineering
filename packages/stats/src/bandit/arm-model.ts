@@ -39,10 +39,12 @@ function newAccumulator(arm: string, prior: ResolvedBanditConfig['prior']): Accu
 }
 
 function accumulate(acc: Accumulator, pull: Pull, ctx: FoldContext): void {
+  const age = ageDays(pull.ts, ctx.now);
+  if (Number.isNaN(age)) return; // unparseable ts: contributes nothing, mirroring the ledger's malformed skip
   if (acc.lastPull === undefined || Date.parse(pull.ts) > Date.parse(acc.lastPull))
     acc.lastPull = pull.ts;
   if (pull.reward === undefined) return; // D9: unscored contributes nothing to the posterior
-  const w = decayWeight(ageDays(pull.ts, ctx.now), ctx.config.halfLifeDays);
+  const w = decayWeight(age, ctx.config.halfLifeDays);
   acc.alpha += w * pull.reward.outcome;
   acc.beta += w * (1 - pull.reward.outcome);
   acc.effectiveN += w;
@@ -67,8 +69,9 @@ function toArmState(acc: Accumulator, config: ResolvedBanditConfig): ArmState {
  * `ArmState` per arm (spec "Arm model"): alpha = prior.alpha + sum(w * outcome),
  * beta = prior.beta + sum(w * (1 - outcome)), effectiveN = sum(w),
  * novel = effectiveN < minEffectiveN, meanUtility = decay-weighted mean of
- * `utility` over scored pulls. Result is sorted by arm id. Pulls must carry a
- * parseable ISO `ts` (the ledger guarantees this; direct callers own it).
+ * `utility` over scored pulls. Result is sorted by arm id. The ledger only
+ * hands over pulls with a parseable ISO `ts`; a direct caller's pull whose `ts`
+ * does not parse is skipped (it still names the arm, so the arm folds to the prior).
  */
 export function foldArms(
   pulls: readonly Pull[],

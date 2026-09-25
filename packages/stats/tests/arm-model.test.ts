@@ -119,6 +119,17 @@ describe('foldArms', () => {
     expect(arms[0]?.lastPull).toBe(at(2));
   });
 
+  it('skips a pull whose ts does not parse instead of poisoning the posterior with NaN', () => {
+    const bad: Pull = { ...pull('a', 0, { outcome: 1 }), ts: 'not-a-date' };
+    const arms = foldArms([bad, pull('a', 0, { outcome: 1 })], config, NOW);
+    expect(arms).toEqual([
+      { arm: 'a', alpha: 2, beta: 1, effectiveN: 1, novel: true, meanUtility: 1, lastPull: at(0) },
+    ]);
+    expect(foldArms([bad], config, NOW)).toEqual([
+      { arm: 'a', alpha: 1, beta: 1, effectiveN: 0, novel: true, meanUtility: 0 },
+    ]);
+  });
+
   it('uses the injected prior', () => {
     const strong = resolveBanditConfig({
       policy: 'thompson',
