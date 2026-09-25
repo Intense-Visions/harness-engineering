@@ -8,6 +8,12 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+# Least authority: every step here only READS the repository (checkout, install,
+# build, run a repo script). Without this block the job would inherit the
+# repository default, which is `write` on every scope.
+permissions:
+  contents: read
+
 jobs:
   bench:
     runs-on: ubuntu-latest
