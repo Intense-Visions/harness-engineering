@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/stats/src/sprt'
-sourceHash: 'c5eaf86aaa2911cd09ff6ecc42f1a19d1e8252846ddb2d8fabdb0aeccea25d5c'
+sourceHash: 'ddf968606f564a3cfa063e6466a401358f10fb74a2de1871a7fc08d25b40223a'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -14,6 +14,7 @@ members: ['config.ts', 'errors.ts', 'index.ts', 'sprt.ts']
 export InvalidSprtConfigError
 export InvalidSprtObservationError
 export Sprt
+export SprtErrorRates
 export SprtObservation
 export SprtState
 export WaldBounds

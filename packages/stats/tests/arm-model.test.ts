@@ -119,6 +119,17 @@ describe('foldArms', () => {
     expect(arms[0]?.lastPull).toBe(at(2));
   });
 
+  it('sorts arm ids by code point, not locale: uppercase before lowercase, the same on every host', () => {
+    const ids = ['beta', 'Alpha', 'alpha', 'Beta', 'a-1', 'a1'];
+    const arms = foldArms(
+      ids.map((id) => pull(id, 0)),
+      config,
+      NOW
+    );
+    // codepoint order: 'A' (65) < 'B' (66) < 'a' (97); '-' (45) < '1' (49)
+    expect(arms.map((a) => a.arm)).toEqual(['Alpha', 'Beta', 'a-1', 'a1', 'alpha', 'beta']);
+  });
+
   it('skips a pull whose ts does not parse instead of poisoning the posterior with NaN', () => {
     const bad: Pull = { ...pull('a', 0, { outcome: 1 }), ts: 'not-a-date' };
     const arms = foldArms([bad, pull('a', 0, { outcome: 1 })], config, NOW);

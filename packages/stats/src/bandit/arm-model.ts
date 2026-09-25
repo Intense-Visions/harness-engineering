@@ -69,7 +69,8 @@ function toArmState(acc: Accumulator, config: ResolvedBanditConfig): ArmState {
  * `ArmState` per arm (spec "Arm model"): alpha = prior.alpha + sum(w * outcome),
  * beta = prior.beta + sum(w * (1 - outcome)), effectiveN = sum(w),
  * novel = effectiveN < minEffectiveN, meanUtility = decay-weighted mean of
- * `utility` over scored pulls. Result is sorted by arm id. The ledger only
+ * `utility` over scored pulls. Result is sorted by arm id in code-point order
+ * (not `localeCompare`, whose order depends on the host locale). The ledger only
  * hands over pulls with a parseable ISO `ts`; a direct caller's pull whose `ts`
  * does not parse is skipped (it still names the arm, so the arm folds to the prior).
  */
@@ -91,5 +92,5 @@ export function foldArms(
   }
   return [...byArm.values()]
     .map((acc) => toArmState(acc, config))
-    .sort((a, b) => a.arm.localeCompare(b.arm));
+    .sort((a, b) => (a.arm < b.arm ? -1 : a.arm > b.arm ? 1 : 0));
 }
