@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/orchestrator/src/agent'
-sourceHash: '5ecb531eff7f7aa4ce2a0b90c9b206849a5d558e571804a011a4b32a9bca3478'
+sourceHash: '334ab5d20bf4c19ff6250716e07dc7078e32ed328c9a189c21794221533ee1e0'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -43,6 +43,8 @@ members:
     'live-classify.ts',
     'local-model-resolver.ts',
     'orchestrator-backend-factory.ts',
+    'quality-verdict-kind.test.ts',
+    'quality-verdict-kind.ts',
     'quality-verdict.test.ts',
     'quality-verdict.ts',
     'runner.ts',
@@ -77,6 +79,7 @@ export RankableCandidate
 export SUBPROCESS_ENV_ALLOW_VAR
 export SUBPROCESS_ENV_PASSTHROUGH_VAR
 export TriageVerdict
+export afterCleanSecurityScan
 export applyAnalysisEnv
 export brainstormInputFromIssue
 export buildAnalysisProvider
@@ -88,15 +91,19 @@ export buildRoutingUseCase
 export buildSubprocessEnv
 export buildTaskText
 export buildTriageOutcomeInput
+export cleanVerdict
 export contextCapFromMemoryGb
 export createBackend
 export defaultFetchModels
 export defaultPoolCapabilities
 export defaultWarmModel
 export defaultWarmModelViaCompletion
+export defectVerdict
 export deriveAnalysisEnv
+export describeVerdict
 export enrichIssueWithSpec
 export estimateCost
+export failSafeVerdict
 export hasIntroducedSecurityDefect
 export isEnvKeyAllowed
 export isLaneStateIsolationEnabled
@@ -111,9 +118,11 @@ export markApprovedForDispatch
 export migrateAgentConfig
 export normalizeLocalModel
 export outcomeVerdictToQualityFail
+export outcomeVerdictToQualityVerdict
 export parseIntroducedHunks
 export pilotScore
 export precedentLookupFromStored
+export qualityVerdictLogFields
 export rankTriageCandidates
 export renderSpecMarkdown
 export resolveSkillForTriage
@@ -123,7 +132,9 @@ export selectCheapestQualifying
 export signalsFromDiff
 export slugFor
 export toArray
+export toOutcomeClass
 export triageIssue
+export unjudgedVerdict
 ```
 
 ## Dependency Slice
@@ -165,6 +176,7 @@ import { HarnessFitProbeRunner, HarnessFitProbeRunnerDeps } from './harness-fit-
 import { makeLiveClassify } from './live-classify.js'
 import { LocalModelResolver } from './local-model-resolver'
 import { hasIntroducedSecurityDefect, outcomeVerdictToQualityFail, parseIntroducedHunks } from './quality-verdict'
+import { QualityVerdict, afterCleanSecurityScan, cleanVerdict, defectVerdict, describeVerdict, failSafeVerdict, outcomeVerdictToQualityVerdict, qualityVerdictLogFields, toOutcomeClass, unjudgedVerdict } from './quality-verdict-kind'
 import { IntroducedHunk } from './quality-verdict.js'
 import { AgentRunner } from './runner.js'
 import { DockerRuntime } from './runtime/docker.js'
