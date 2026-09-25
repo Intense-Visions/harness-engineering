@@ -138,10 +138,10 @@ describe('scoutFraction policy', () => {
 
 describe('thompson policy', () => {
   it('picks Beta(9,1) over Beta(1,9) in more than 90% of 1,000 seeded draws (SC7)', () => {
-    const { picks, explore } = tally([arm('strong', 9, 1), arm('weak', 1, 9)], thompson, 11, 1000);
+    const { picks } = tally([arm('strong', 9, 1), arm('weak', 1, 9)], thompson, 11, 1000);
     expect(picks.get('strong') ?? 0).toBeGreaterThan(900);
-    // every pick of the lower-mean arm is an explore, and only those
-    expect(explore).toBe(picks.get('weak') ?? 0);
+    // explore === weak-picks is asserted where weak wins a real share ('observes both modes on
+    // overlapping posteriors' below); under this seed weak is never drawn, so it is not repeated here
   });
 
   it('splits identical Beta(5,5) arms 40% to 60% each (SC7)', () => {
@@ -165,7 +165,8 @@ describe('thompson policy', () => {
         /^thompson: sampled \d\.\d\d vs best-mean 0\.90( \(holds best mean\))?$/
       );
       expect(choice.reason).not.toContain('\n');
-      if (choice.arm === 'weak') expect(choice.mode).toBe('explore');
+      // the arm -> mode rule is asserted for both arms in the overlapping-posteriors test below;
+      // under this seed only 'strong' is drawn, so only its branch is observable here
       if (choice.arm === 'strong') expect(choice.mode).toBe('exploit');
     }
     expect(seen.has('exploit')).toBe(true);
