@@ -68,6 +68,7 @@ describe('@harness-engineering/stats barrel', () => {
   it('sprt exposes exactly the Phase 3 public surface', () => {
     expect(Object.keys(stats.sprt).sort()).toEqual([
       'InvalidSprtConfigError',
+      'InvalidSprtObservationError',
       'createSprt',
       'validateSprtConfig',
       'waldBounds',

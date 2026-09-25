@@ -92,15 +92,15 @@ Test helper: seeded mulberry32 PRNG so every statistical test (SC1, SC6, SC7, SC
 
 [`packages/stats/src/sprt/index.ts`](/packages/stats/src/sprt/index.ts)
 
-Public surface of the Bernoulli sequential probability ratio test: `createSprt` (Wald bounds, sticky terminal verdict, `maxN` resolution), `waldBounds`, `validateSprtConfig`, and the typed error. Only the Bernoulli likelihood ships (D10).
+Public surface of the Bernoulli sequential probability ratio test: `createSprt` (Wald bounds, sticky terminal verdict, `maxN` resolution), `waldBounds`, `validateSprtConfig`, and the two typed errors. Only the Bernoulli likelihood ships (D10).
 
-**Exports:** `createSprt`, `waldBounds`, `validateSprtConfig`, `InvalidSprtConfigError`; types `Sprt`, `SprtState`, `SprtObservation`, `WaldBounds`
+**Exports:** `createSprt`, `waldBounds`, `validateSprtConfig`, `InvalidSprtConfigError`, `InvalidSprtObservationError`; types `Sprt`, `SprtState`, `SprtObservation`, `WaldBounds`
 
 ## packages/stats/src/sprt/sprt.ts
 
 [`packages/stats/src/sprt/sprt.ts`](/packages/stats/src/sprt/sprt.ts)
 
-`createSprt(config)` → `{ observe(x), state }`. Each Bernoulli observation adds `ln(p1 / p0)` (success: `1` or `true`) or `ln((1 − p1) / (1 − p0))` (failure) to the cumulative log-likelihood ratio, which is compared inclusively with Wald's bounds A = ln((1 − β) / α) (→ `reject`, favor h1) and B = ln(β / (1 − α)) (→ `accept`, favor h0); otherwise `continue`. A terminal verdict is sticky: later observations are ignored and `state.n` is the stopping time. With `maxN`, the `maxN`-th observation still at `continue` resolves to whichever hypothesis the LLR favors; an LLR of exactly 0 accepts h0. `state` is a fresh `{ llr, n, verdict }` snapshot on every read. No ledger, no clock, no rng.
+`createSprt(config)` → `{ observe(x), state }`. Each Bernoulli observation adds `ln(p1 / p0)` (success: exactly `1` or `true`) or `ln((1 − p1) / (1 − p0))` (failure: exactly `0` or `false`) to the cumulative log-likelihood ratio, which is compared inclusively with Wald's bounds A = ln((1 − β) / α) (→ `reject`, favor h1) and B = ln(β / (1 − α)) (→ `accept`, favor h0); otherwise `continue`. A terminal verdict is sticky: later observations are ignored and `state.n` is the stopping time. With `maxN`, the `maxN`-th observation still at `continue` resolves to whichever hypothesis the LLR favors; an LLR of exactly 0 accepts h0. Any other value (`0.5`, `2`, `'1'`, `null`, `undefined`, `NaN`) throws `InvalidSprtObservationError` before the sticky check and leaves the state untouched, rather than being counted as a failure. `state` is a fresh `{ llr, n, verdict }` snapshot on every read. No ledger, no clock, no rng.
 
 **Exports:** `createSprt`, `waldBounds`, `Sprt`, `SprtState`, `SprtObservation`, `WaldBounds`
 
@@ -116,9 +116,9 @@ Public surface of the Bernoulli sequential probability ratio test: `createSprt` 
 
 [`packages/stats/src/sprt/errors.ts`](/packages/stats/src/sprt/errors.ts)
 
-Typed error: `InvalidSprtConfigError` (config rejected at construction). A sibling of `bandit/errors.ts` by design — instrument namespaces never import each other.
+Typed errors: `InvalidSprtConfigError` (config rejected at construction) and `InvalidSprtObservationError` (`observe` given anything but `0`, `1`, `true`, `false`; a consumer bug, state untouched). A sibling of `bandit/errors.ts` by design — instrument namespaces never import each other.
 
-**Exports:** `InvalidSprtConfigError`
+**Exports:** `InvalidSprtConfigError`, `InvalidSprtObservationError`
 
 ## packages/stats/tsup.config.ts
 

@@ -5,7 +5,7 @@
  * likelihood ships; a Gaussian variant lands with its first consumer.
  */
 export { validateSprtConfig } from './config.js';
-export { InvalidSprtConfigError } from './errors.js';
+export { InvalidSprtConfigError, InvalidSprtObservationError } from './errors.js';
 export {
   createSprt,
   waldBounds,

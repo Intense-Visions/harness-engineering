@@ -7,9 +7,19 @@
 import type { SprtConfig, SprtVerdict } from '@harness-engineering/types';
 
 import { validateSprtConfig } from './config.js';
+import { InvalidSprtObservationError } from './errors.js';
 
-/** One Bernoulli outcome: `1` / `true` is a success under both hypotheses' `p`. */
+/**
+ * One Bernoulli outcome. Exactly `1` or `true` is a success under both
+ * hypotheses' `p`; exactly `0` or `false` is a failure. Nothing else is an
+ * observation: `observe` throws `InvalidSprtObservationError` for any other
+ * value instead of coercing it.
+ */
 export type SprtObservation = 0 | 1 | boolean;
+
+function isObservation(x: unknown): x is SprtObservation {
+  return x === 0 || x === 1 || x === true || x === false;
+}
 
 /** Wald's stopping bounds: `upper` = A = ln((1 − β) / α), `lower` = B = ln(β / (1 − α)). */
 export interface WaldBounds {
@@ -63,12 +73,14 @@ function forcedVerdict(llr: number): SprtVerdict {
 }
 
 /**
- * Build one test. Throws `InvalidSprtConfigError` at construction; nothing on
- * the `observe` path throws. Once the verdict leaves `continue` it is sticky:
- * later observations are ignored (not accumulated) and the same terminal
- * verdict is returned, so `state.n` stays the stopping time and a caller can
- * feed a whole stream without guarding every call. With `maxN`, the `maxN`-th
- * observation that would still `continue` is resolved by `forcedVerdict`.
+ * Build one test. Throws `InvalidSprtConfigError` at construction; on the
+ * `observe` path only an out-of-domain value throws (`InvalidSprtObservationError`,
+ * checked before anything else so the state never moves). Once the verdict
+ * leaves `continue` it is sticky: later observations are ignored (not
+ * accumulated) and the same terminal verdict is returned, so `state.n` stays
+ * the stopping time and a caller can feed a whole stream without guarding every
+ * call. With `maxN`, the `maxN`-th observation that would still `continue` is
+ * resolved by `forcedVerdict`.
  */
 export function createSprt(config: SprtConfig): Sprt {
   const resolved = validateSprtConfig(config);
@@ -79,6 +91,7 @@ export function createSprt(config: SprtConfig): Sprt {
   let verdict: SprtVerdict = 'continue';
   return {
     observe(x) {
+      if (!isObservation(x)) throw new InvalidSprtObservationError(x);
       if (verdict !== 'continue') return verdict;
       llr += x === 1 || x === true ? terms.success : terms.failure;
       n += 1;

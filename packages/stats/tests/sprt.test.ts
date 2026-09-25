@@ -2,8 +2,8 @@ import type { SprtConfig, SprtVerdict } from '@harness-engineering/types';
 import { describe, expect, it } from 'vitest';
 
 import { validateSprtConfig } from '../src/sprt/config';
-import { InvalidSprtConfigError } from '../src/sprt/errors';
-import { createSprt, waldBounds } from '../src/sprt/sprt';
+import { InvalidSprtConfigError, InvalidSprtObservationError } from '../src/sprt/errors';
+import { createSprt, waldBounds, type SprtObservation } from '../src/sprt/sprt';
 import { mulberry32 } from './helpers/prng';
 
 /** SC8 parameters; also the textbook fixture: ln(p1 / p0) = ln 1.4, ln((1 − p1) / (1 − p0)) = ln 0.6. */
@@ -24,6 +24,17 @@ describe('InvalidSprtConfigError', () => {
     expect(error).toBeInstanceOf(Error);
     expect(error.name).toBe('InvalidSprtConfigError');
     expect(error.message).toBe('invalid SprtConfig: alpha must be in (0, 1), got 1');
+  });
+});
+
+describe('InvalidSprtObservationError', () => {
+  it('is a distinguishable Error subclass naming the offending value and its type', () => {
+    const error = new InvalidSprtObservationError('1');
+    expect(error).toBeInstanceOf(Error);
+    expect(error.name).toBe('InvalidSprtObservationError');
+    expect(error.message).toBe(
+      'invalid SprtObservation: expected 0, 1, true, or false, got 1 (string)'
+    );
   });
 });
 
@@ -138,6 +149,48 @@ describe('createSprt: Bernoulli LLR and Wald verdicts', () => {
     expect(verdicts.every((v) => v === 'continue')).toBe(true);
     expect(test.state.n).toBe(10);
     expect(test.state.llr).toBeCloseTo(5 * (SUCCESS + FAILURE), 12); // −0.872
+  });
+});
+
+describe('createSprt: observe rejects anything but 0, 1, true, false', () => {
+  /** Values a JS consumer, an `as` cast, or JSON-sourced data can slip past the type. */
+  const outOfDomain = [
+    ['0.5', 0.5],
+    ['2', 2],
+    ['-1', -1],
+    ["'1'", '1'],
+    ['null', null],
+    ['undefined', undefined],
+    ['NaN', Number.NaN],
+  ] as const;
+
+  it.each(outOfDomain)(
+    'throws InvalidSprtObservationError for %s and leaves the state unchanged',
+    (_name, value) => {
+      const { test } = feed(base, [1, 0]);
+      const before = test.state;
+      const bad = value as unknown as SprtObservation;
+      expect(() => test.observe(bad)).toThrow(InvalidSprtObservationError);
+      expect(() => test.observe(bad)).toThrow(
+        /invalid SprtObservation: expected 0, 1, true, or false/
+      );
+      expect(test.state).toEqual(before);
+    }
+  );
+
+  it('throws before the sticky-verdict check, so a terminated test still rejects bad input', () => {
+    const { test } = feed(base, [0, 0, 0, 0, 0, 0]); // accept at n = 6
+    const atStop = test.state;
+    expect(() => test.observe(0.5 as unknown as SprtObservation)).toThrow(
+      InvalidSprtObservationError
+    );
+    expect(test.state).toEqual(atStop);
+  });
+
+  it.each([0, 1, true, false] as const)('accepts %s', (value) => {
+    const test = createSprt(base);
+    expect(test.observe(value)).toBe('continue');
+    expect(test.state.n).toBe(1);
   });
 });
 

@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/stats/tests'
-sourceHash: '6d2621641b5ba8aa57249aaeb2f01c7197bd1bbe756f128905a8a194ed33b311'
+sourceHash: '74bb67b3d589cf46ba37ebfa22b5a24cb16514ddff4df8015371c8c6c08e36e8'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -39,8 +39,8 @@ import { sampleBeta } from '../src/bandit/sampling'
 import { COST_EPSILON_USD, outcomeOnly, outcomePerDollar } from '../src/bandit/utility'
 import * as stats from '../src/index'
 import { validateSprtConfig } from '../src/sprt/config'
-import { InvalidSprtConfigError } from '../src/sprt/errors'
-import { createSprt, waldBounds } from '../src/sprt/sprt'
+import { InvalidSprtConfigError, InvalidSprtObservationError } from '../src/sprt/errors'
+import { SprtObservation, createSprt, waldBounds } from '../src/sprt/sprt'
 import { mulberry32 } from './helpers/prng'
 import { ArmState, BanditConfig, Pull, SprtConfig, SprtVerdict } from '@harness-engineering/types'
 import { appendFileSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
