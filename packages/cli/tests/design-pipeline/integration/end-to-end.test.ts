@@ -102,6 +102,13 @@ describe('runDesignPipeline (integration)', () => {
   });
 
   it('verifiersRun includes detect-drift, audit-anatomy, audit-brand, design-craft-critique on default run', async () => {
+    // The fixture needs at least one source file: audit-anatomy now abstains
+    // (throws) rather than reporting a clean audit over an empty scope (#2070),
+    // and an abstaining verifier is recorded under verifiersFailed, not
+    // verifiersRun. A project with no source files is exactly the case the
+    // abstention exists for — it is not a "default run".
+    writeFile('src/Card.tsx', `export const Card = () => <div>ok</div>;\n`);
+
     const out = await runDesignPipeline({ path: tmpDir });
     expect(out.verifiersRun).toContain('detect-drift');
     expect(out.verifiersRun).toContain('audit-anatomy');

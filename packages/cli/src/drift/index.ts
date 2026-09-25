@@ -14,10 +14,11 @@
  */
 
 import * as fs from 'node:fs';
-import * as path from 'node:path';
-import { minimatch } from 'minimatch';
 import { sanitizePath } from '../mcp/utils/sanitize-path.js';
-import { loadAnalysisExclude, loadDesignExclude } from '../config/analysis-schema.js';
+import {
+  collectDesignScanFiles,
+  resolveDesignExcludePatterns,
+} from '../shared/design-scan-targets.js';
 import type { DriftFinding, DriftSeverity, DriftStrictness } from './findings/finding.js';
 import { loadTokenSet } from './resolvers/tokens.js';
 import { loadComponentRegistry } from './resolvers/component-registry.js';
@@ -55,8 +56,6 @@ export type DetectDriftOutput = Verifier<
   { mode: DetectDriftMode; tokensLoaded: boolean; registryLoaded: boolean }
 >;
 
-const DEFAULT_GLOB_EXTENSIONS = ['.ts', '.tsx', '.js', '.jsx', '.css', '.scss'];
-
 /**
  * Resolved configuration for a single detect-design-drift run. Centralizes
  * input defaulting and the loaded token/registry resources so the entry
@@ -86,8 +85,7 @@ function resolveDriftConfig(input: DetectDriftInput): ResolvedDriftConfig {
   // runner so every caller (validate, check-design, align, design-pipeline, MCP)
   // honors them uniformly. An explicit `input.exclude` overrides the config read
   // (used by the detect_drift MCP tool); pass [] to force "no design excludes".
-  const designExclude = input.exclude ?? loadDesignExclude(projectRoot);
-  const excludePatterns = [...designExclude, ...loadAnalysisExclude(projectRoot)];
+  const excludePatterns = resolveDesignExcludePatterns(projectRoot, input.exclude);
   return {
     projectRoot,
     mode: input.mode ?? 'fast',
@@ -177,7 +175,11 @@ export async function runDetectDrift(input: DetectDriftInput): Promise<DetectDri
   const config = resolveDriftConfig(input);
   const rulesApplied = computeRulesApplied(config);
 
-  const filesToScan = await collectFiles(config.projectRoot, input.files, config.excludePatterns);
+  const filesToScan = collectDesignScanFiles(
+    config.projectRoot,
+    input.files,
+    config.excludePatterns
+  );
   const findings = scanFiles(filesToScan, config);
   const { bySeverity, byCode } = summarizeFindings(findings);
 
@@ -196,69 +198,6 @@ export async function runDetectDrift(input: DetectDriftInput): Promise<DetectDri
       registryLoaded: config.registry !== null,
     },
   };
-}
-
-/**
- * Collect candidate files for scanning. Honors the optional files arg
- * (explicit paths). Falls back to a simple walk of the project root when
- * not provided.
- */
-async function collectFiles(
-  projectRoot: string,
-  explicitFiles: readonly string[] | undefined,
-  excludePatterns: readonly string[]
-): Promise<string[]> {
-  // An explicit file list is already a deliberate scoping — bypass excludes,
-  // mirroring security.ts's handling of an explicit `files` arg.
-  if (explicitFiles !== undefined && explicitFiles.length > 0) {
-    return explicitFiles.map((f) => (path.isAbsolute(f) ? f : path.join(projectRoot, f)));
-  }
-  const out: string[] = [];
-  walk(projectRoot, out, 0);
-  if (excludePatterns.length === 0) return out;
-  return out.filter((abs) => !isExcluded(projectRoot, abs, excludePatterns));
-}
-
-/**
- * True when the file's project-relative, POSIX-normalized path matches any
- * exclude glob. `matchBase` lets a bare `*.test.ts` match at any depth,
- * consistent with skill/dispatcher.ts and the analysis.exclude semantics.
- */
-function isExcluded(
-  projectRoot: string,
-  absFile: string,
-  excludePatterns: readonly string[]
-): boolean {
-  const rel = path.relative(projectRoot, absFile).replaceAll('\\', '/');
-  return excludePatterns.some((pattern) => minimatch(rel, pattern, { matchBase: true }));
-}
-
-function walk(dir: string, out: string[], depth: number): void {
-  // Bounded depth + skip common heavy / generated dirs for performance.
-  if (depth > 8) return;
-  let entries: fs.Dirent[];
-  try {
-    entries = fs.readdirSync(dir, { withFileTypes: true });
-  } catch {
-    return;
-  }
-  for (const entry of entries) {
-    if (
-      entry.name.startsWith('.') ||
-      entry.name === 'node_modules' ||
-      entry.name === 'dist' ||
-      entry.name === 'build' ||
-      entry.name === 'coverage'
-    ) {
-      continue;
-    }
-    const full = path.join(dir, entry.name);
-    if (entry.isDirectory()) {
-      walk(full, out, depth + 1);
-    } else if (entry.isFile() && DEFAULT_GLOB_EXTENSIONS.some((ext) => entry.name.endsWith(ext))) {
-      out.push(full);
-    }
-  }
 }
 
 export type {
