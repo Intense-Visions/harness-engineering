@@ -9,10 +9,10 @@ Each instrument is one directory exported as one namespace, so `stats.bandit.*` 
 (no graph, no provider), so core, intelligence, orchestrator, and the CLI can all import it
 without a layer exception.
 
-| Namespace | Instrument                                                   | Surface                                                                                                          |
-| --------- | ------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------- |
-| `bandit`  | Explore/exploit bandit over a half-life-decayed JSONL ledger | `BanditLedger` (append, fold), `foldArms`, `choose` under the `scoutFraction` and `thompson` policies, utilities |
-| `sprt`    | Bernoulli sequential probability ratio test with Wald bounds | `createSprt` (sticky terminal verdict, `maxN` resolution), `waldBounds`, `validateSprtConfig`                    |
+| Namespace | Instrument                                                   | Surface                                                                                                                   |
+| --------- | ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------- |
+| `bandit`  | Explore/exploit bandit over a half-life-decayed JSONL ledger | `BanditLedger` (append, fold, compact), `foldArms`, `choose` under the `scoutFraction` and `thompson` policies, utilities |
+| `sprt`    | Bernoulli sequential probability ratio test with Wald bounds | `createSprt` (sticky terminal verdict, `maxN` resolution), `waldBounds`, `validateSprtConfig`                             |
 
 ## Usage
 
@@ -25,16 +25,19 @@ const ledger = new bandit.BanditLedger({
   // .harness/metrics/bandit.jsonl; IO failures (append, or a fold read that is not ENOENT) land here
   onError: (error) => console.warn('bandit ledger', error),
 });
-// every field but policy has a spec default: scoutFraction 0.1, halfLifeDays 30, minEffectiveN 2, prior Beta(1,1)
+// every field but policy has a spec default: scoutFraction 0.1, halfLifeDays 30,
+// minEffectiveN 2, retentionHalfLives 10, prior Beta(1,1)
 const config = { policy: 'scoutFraction' } as const;
-const { arms, malformed, bytes, readError } = ledger.fold(
+const { arms, malformed, expired, bytes, readError } = ledger.fold(
   'routing',
   'quick-fix',
   config,
   new Date()
 );
 // bytes: file length folded; a hot consumer re-folds only when it changes.
+// expired: pulls past the retention bound, which contributed nothing. Positive means compact has work.
 // readError: the ledger was unreadable (EISDIR, EACCES, ...): arms is [] and onError was told.
+// pass the eligible arms in preference order: arms[0] is your default until evidence exists
 const choice = bandit.choose(eligibleSubsetOf(arms), config, Math.random); // eligibility is yours (D7)
 const pull = {
   ts: new Date().toISOString(),
@@ -50,6 +53,31 @@ ledger.append({ ...pull, reward: { outcome: 1, costUsd: 0.02 } });
 ```
 
 The consumer owns eligibility (`eligibleSubsetOf` above is yours): floors, vetoes, and budgets never enter the package.
+
+Under `scoutFraction`, the exploit branch ranks only arms that have cleared `minEffectiveN` (the
+ones the fold reports with `novel: false`). An arm with no scored pulls folds to `meanUtility: 0`,
+so ranking on the raw number would let a single lucky scout pull score 1.0 and take every
+subsequent exploit pull from every untried arm. While no arm has cleared the bar there is nothing
+to exploit, so `choose` returns `eligible[0]` — order your eligible arms by preference and a cold
+start behaves exactly as your own ordering would, with the scout share still reaching the rest.
+`thompson` needs no such guard: a thin arm's posterior is still near the prior, so the draw is
+already weighted by how much evidence there is.
+
+The ledger is bounded by retention, not by an incremental fold. A pull older than
+`retentionHalfLives × halfLifeDays` weighs at most 2^-10 (about 0.001) at the defaults, so the fold
+skips it and `compact` deletes its line:
+
+```ts
+const { kept, dropped, bytes } = ledger.compact(config, new Date());
+```
+
+`compact` cannot change a posterior — the fold already ignores exactly what it deletes — and it is
+idempotent, so it is safe on any cadence (startup, after N appends, a cron). A missing file is a
+no-op, a line whose `ts` does not parse is kept so your `malformed` count survives, and IO failures
+go to `onError` and report zeros with the ledger intact rather than throwing.
+
+`DEFAULT_LEDGER_PATH` is relative, so it resolves against `process.cwd()` when the ledger is
+constructed: a git worktree gets its own ledger. Pass an absolute `path` if you want one shared.
 
 The scoring line replaces the earlier unscored line wholesale, so its `ts` is the instant that
 gets decayed and reported as `lastPull`: preserve the dispatch `ts` when scoring, or a decision
