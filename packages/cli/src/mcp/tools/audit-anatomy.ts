@@ -24,6 +24,10 @@ import { resolveComponentType } from '../../audit/component-anatomy/resolvers/co
 import { resolveAnatomyRules } from '../../audit/component-anatomy/resolvers/source-of-truth.js';
 import { runConventionRule } from '../../audit/component-anatomy/rules/convention-runner.js';
 import { PATTERN_CHECKS } from '../../audit/component-anatomy/catalog/patterns/index.js';
+import {
+  collectDesignScanFiles,
+  resolveDesignExcludePatterns,
+} from '../../shared/design-scan-targets.js';
 import type { AnatomyFinding, Severity } from '../../audit/component-anatomy/findings/finding.js';
 
 type AuditMode = 'fast' | 'full';
@@ -67,7 +71,9 @@ export const auditAnatomyDefinition = {
       files: {
         type: 'array',
         items: { type: 'string' },
-        description: 'Optional explicit file list (paths or globs) to scope the audit.',
+        description:
+          'Optional explicit file list (paths) to scope the audit. Omit it (or pass an empty ' +
+          'array) to audit all project source files, honouring design.exclude and analysis.exclude.',
       },
       designStrictness: {
         type: 'string',
@@ -99,7 +105,21 @@ export async function runAudit(input: AuditAnatomyInput): Promise<AuditAnatomyOu
   const findings: AnatomyFinding[] = [];
 
   const projectRoot = sanitizePath(input.path);
-  const candidateFiles = input.files ?? [];
+  // Default to the project's whole design surface — the same resolution the
+  // sibling check-design verifiers use — so one run audits one file set. An
+  // absent scope used to mean `[]`, which audited nothing and reported it as
+  // clean (#2070).
+  const candidateFiles = collectDesignScanFiles(
+    projectRoot,
+    input.files,
+    resolveDesignExcludePatterns(projectRoot)
+  );
+  if (candidateFiles.length === 0) {
+    throw new Error(
+      `audit-anatomy resolved no files to audit under ${projectRoot}. This is an abstention, ` +
+        'not a clean audit — check the `files` scope, design.exclude and analysis.exclude.'
+    );
+  }
 
   const conventionsApplied = new Set<string>();
   const patternsApplied = new Set<string>();
