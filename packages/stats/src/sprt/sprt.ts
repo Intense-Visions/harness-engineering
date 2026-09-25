@@ -27,10 +27,11 @@ export interface WaldBounds {
   lower: number;
 }
 
-/** Snapshot of a running test: cumulative LLR, observations consumed, current verdict. */
+/** Snapshot of a running test: cumulative LLR, observations consumed, successes among them, current verdict. */
 export interface SprtState {
   llr: number;
   n: number;
+  successes: number;
   verdict: SprtVerdict;
 }
 
@@ -59,6 +60,16 @@ interface LlrTerms {
 
 function llrTerms({ p0, p1 }: SprtConfig): LlrTerms {
   return { success: Math.log(p1 / p0), failure: Math.log((1 - p1) / (1 - p0)) };
+}
+
+/**
+ * Count-based LLR: two multiplies and one add, so the rounding error is a few
+ * ulps whatever `n` is, where repeated `llr += term` would grow it linearly.
+ * For n = 1 this is `1 · term + 0 · other = term` exactly, so the exact-bound
+ * and tie fixtures behave as under repeated addition.
+ */
+function llrOf(terms: LlrTerms, n: number, successes: number): number {
+  return successes * terms.success + (n - successes) * terms.failure;
 }
 
 /** Wald's rule with inclusive bounds: reaching A rejects h0 (favor h1), reaching B accepts it. */
@@ -93,13 +104,15 @@ export function createSprt(config: SprtConfig): Sprt {
   const terms = llrTerms(resolved);
   let llr = 0;
   let n = 0;
+  let successes = 0;
   let verdict: SprtVerdict = 'continue';
   return {
     observe(x) {
       if (!isObservation(x)) throw new InvalidSprtObservationError(x);
       if (verdict !== 'continue') return verdict;
-      llr += x === 1 || x === true ? terms.success : terms.failure;
       n += 1;
+      if (x === 1 || x === true) successes += 1;
+      llr = llrOf(terms, n, successes);
       verdict = verdictAt(llr, bounds);
       if (verdict === 'continue' && resolved.maxN !== undefined && n >= resolved.maxN) {
         verdict = forcedVerdict(llr);
@@ -107,7 +120,7 @@ export function createSprt(config: SprtConfig): Sprt {
       return verdict;
     },
     get state(): SprtState {
-      return { llr, n, verdict };
+      return { llr, n, successes, verdict };
     },
   };
 }

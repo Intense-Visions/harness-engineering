@@ -84,7 +84,8 @@ Nothing on the observe path throws except two consumer bugs. `createSprt` valida
 present) and throws `InvalidSprtConfigError` there. `observe` accepts exactly `0`, `1`, `true`, or
 `false`; any other value (`0.5`, `'1'`, `undefined`, `NaN`) throws `InvalidSprtObservationError` and
 leaves the state untouched rather than being counted as a failure. Once the verdict leaves `continue` it is sticky: further observations
-are ignored and `state.n` is the stopping time. With `maxN`, a test still undecided at the `maxN`-th
+are ignored and `state.n` is the stopping time (`state.successes` counts the successes among them; the
+LLR is computed from the two counts, not accumulated, so rounding error does not grow with `n`). With `maxN`, a test still undecided at the `maxN`-th
 observation resolves to whichever hypothesis the log-likelihood ratio favors (exactly 0 accepts h0).
 
 Shared shapes (`Pull`, `ArmState`, `BanditConfig`, `Choice`, `SprtVerdict`, `SprtConfig`) live in

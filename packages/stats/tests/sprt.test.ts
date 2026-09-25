@@ -100,8 +100,16 @@ describe('createSprt: Bernoulli LLR and Wald verdicts', () => {
     expect(() => createSprt({ ...base, p1: 0.5 })).toThrow(InvalidSprtConfigError);
   });
 
-  it('starts at llr 0, n 0, continue', () => {
-    expect(createSprt(base).state).toEqual({ llr: 0, n: 0, verdict: 'continue' });
+  it('starts at llr 0, n 0, successes 0, continue', () => {
+    expect(createSprt(base).state).toEqual({ llr: 0, n: 0, successes: 0, verdict: 'continue' });
+  });
+
+  it('counts successes separately from n and computes the LLR from the two counts', () => {
+    const { test } = feed(base, [1, 0, 1, 1, 0]);
+    expect(test.state.n).toBe(5);
+    expect(test.state.successes).toBe(3);
+    // Count-based: 3·ln 1.4 + 2·ln 0.6 in two multiplies and one add, not five additions.
+    expect(test.state.llr).toBeCloseTo(3 * SUCCESS + 2 * FAILURE, 12); // −0.0122
   });
 
   it('adds ln(p1 / p0) per success and ln((1 − p1) / (1 − p0)) per failure (hand-computed)', () => {
@@ -240,6 +248,9 @@ describe('createSprt: maxN resolution', () => {
     // At p0 = 0.1, p1 = 0.9 the two terms are exactly ln 9 and −ln 9 in IEEE-754 (1 − 0.1 and
     // 1 − 0.9 both round so that the ratios are exact reciprocals), so [1, 0] lands on 0 exactly;
     // ln 9 = 2.197 stays inside A = ln 19 = 2.944, so the first observation continues.
+    // This relies on V8's Math.log giving ln(9) + ln(0.11111111111111108) === 0 exactly (an
+    // engine-dependent IEEE-754 cancellation; the (0.2, 0.8) pair does not cancel), which is why
+    // the llr is asserted with toBe(0) before the verdict: a port to another engine fails here first.
     const { test, verdicts } = feed({ alpha: 0.05, beta: 0.05, p0: 0.1, p1: 0.9, maxN: 2 }, [1, 0]);
     expect(test.state.llr).toBe(0);
     expect(verdicts).toEqual(['continue', 'accept']);
