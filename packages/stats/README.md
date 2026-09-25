@@ -92,7 +92,7 @@ Shared shapes (`Pull`, `ArmState`, `BanditConfig`, `Choice`, `SprtVerdict`, `Spr
 `@harness-engineering/types` (`packages/types/src/stats.ts`) so this package and every consumer
 read one ledger line the same way.
 
-Design: `docs/changes/stats-explore-exploit/proposal.md`.
+Design: `docs/changes/stats-explore-exploit/proposal.md`. Concepts: `docs/knowledge/stats/explore-exploit.md`. Decisions: ADR 0131 (`docs/knowledge/decisions/0131-stats-leaf-package-home-for-statistical-instruments.md`, the leaf-package home) and ADR 0132 (`docs/knowledge/decisions/0132-safety-agnostic-stats-primitive.md`, the safety-agnostic primitive).
 
 ## Tests
 

@@ -1,6 +1,6 @@
 # Reference: packages / stats
 
-Reference index for `@harness-engineering/stats` — statistical instruments for the decisions the harness makes repeatedly under uncertainty. Each entry links the source file and summarizes its purpose and key exports. Design: [`docs/changes/stats-explore-exploit/proposal.md`](../changes/stats-explore-exploit/proposal.md).
+Reference index for `@harness-engineering/stats` — statistical instruments for the decisions the harness makes repeatedly under uncertainty. Each entry links the source file and summarizes its purpose and key exports. Design: [`docs/changes/stats-explore-exploit/proposal.md`](../changes/stats-explore-exploit/proposal.md). Concepts: [`docs/knowledge/stats/explore-exploit.md`](../knowledge/stats/explore-exploit.md). Decisions: [ADR 0131](../knowledge/decisions/0131-stats-leaf-package-home-for-statistical-instruments.md) (leaf-package home, one namespace per instrument) and [ADR 0132](../knowledge/decisions/0132-safety-agnostic-stats-primitive.md) (safety-agnostic primitive; exploration varies cost, never safety).
 
 ## packages/stats/src/index.ts
 
