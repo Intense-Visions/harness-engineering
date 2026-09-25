@@ -122,25 +122,47 @@ describe('BanditLedger.fold', () => {
     expect(ledger.fold('routing', 'quick-fix', config, NOW).readError).toBe(true);
   });
 
-  it('folds a 10,000-line ledger correctly (spec: O(lines) full re-fold)', () => {
+  it('folds a 10,000-line ledger spread over four half-lives correctly (spec: O(lines) full re-fold)', () => {
+    const DAY_MS = 86_400_000;
     const lines: string[] = [];
+    // independent expectation: plain sums of 0.5^(age / halfLife) over the same synthetic lines
+    const expected = { odd: { alpha: 1, effectiveN: 0 }, even: { beta: 1, effectiveN: 0 } };
     for (let i = 0; i < 10_000; i += 1) {
+      const daysAgo = (i % 9) * 15; // 0..120 days: 0..4 half-lives at halfLifeDays 30
+      const ts = new Date(NOW.getTime() - daysAgo * DAY_MS).toISOString();
+      const odd = i % 2 === 1;
       lines.push(
-        JSON.stringify(
-          pull({
-            ts: NOW.toISOString(),
-            arm: i % 2 === 0 ? 'even' : 'odd',
-            reward: { outcome: i % 2 },
-          })
-        )
+        JSON.stringify(pull({ ts, arm: odd ? 'odd' : 'even', reward: { outcome: odd ? 1 : 0 } }))
       );
+      const w = Math.pow(0.5, daysAgo / 30);
+      if (odd) {
+        expected.odd.alpha += w;
+        expected.odd.effectiveN += w;
+      } else {
+        expected.even.beta += w;
+        expected.even.effectiveN += w;
+      }
+      if (i % 100 === 0) {
+        // a second context in the same file must be filtered out, not folded in
+        lines.push(
+          JSON.stringify(pull({ ts, context: 'deep', arm: 'odd', reward: { outcome: 1 } }))
+        );
+      }
     }
     mkdirSync(path.dirname(file), { recursive: true }); // no prior append created nested/
     writeFileSync(file, lines.join('\n') + '\n');
     const result = new BanditLedger({ path: file }).fold('routing', 'quick-fix', config, NOW);
     expect(result.malformed).toBe(0);
-    expect(result.arms.find((a) => a.arm === 'odd')?.alpha).toBe(1 + 5000);
-    expect(result.arms.find((a) => a.arm === 'even')?.beta).toBe(1 + 5000);
+    expect(result.arms.map((a) => a.arm)).toEqual(['even', 'odd']);
+    const odd = result.arms[1];
+    const even = result.arms[0];
+    expect(odd?.alpha).toBeCloseTo(expected.odd.alpha, 6);
+    expect(odd?.beta).toBe(1);
+    expect(odd?.effectiveN).toBeCloseTo(expected.odd.effectiveN, 6);
+    expect(even?.beta).toBeCloseTo(expected.even.beta, 6);
+    expect(even?.alpha).toBe(1);
+    expect(even?.effectiveN).toBeCloseTo(expected.even.effectiveN, 6);
+    expect(expected.odd.effectiveN).toBeLessThan(5000); // decay actually applied
   });
 });
 
