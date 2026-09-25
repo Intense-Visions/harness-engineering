@@ -298,9 +298,12 @@ describe('SC8: 1,000 seeded Bernoulli streams, p0 = 0.5 vs p1 = 0.7, alpha = bet
   const underH0 = runAll(0.5, SEED);
   const underH1 = runAll(0.7, SEED + 1);
 
-  it('realized type-I error (reject under h0) is at or below 0.07', () => {
+  it('realized type-I error (reject under h0) is at or below 0.07 and at least 0.02', () => {
     const typeI = underH0.filter((s) => s.verdict === 'reject').length / STREAMS;
     expect(typeI).toBeLessThanOrEqual(0.07); // 0.050 (25 / 500) at this seed
+    // The floor makes the bound two-sided: a 1.5x-too-conservative pair of Wald bounds realizes
+    // about 0.01 here and fails, where an upper bound alone would let it through.
+    expect(typeI).toBeGreaterThanOrEqual(0.02);
   });
 
   it('realized type-II error (accept under h1) is at or below 0.07', () => {
@@ -308,12 +311,15 @@ describe('SC8: 1,000 seeded Bernoulli streams, p0 = 0.5 vs p1 = 0.7, alpha = bet
     expect(typeII).toBeLessThanOrEqual(0.07); // 0.024 (12 / 500) at this seed
   });
 
-  it('every stream terminates within maxN = 200 with a terminal verdict', () => {
-    for (const s of [...underH0, ...underH1]) {
-      expect(s.verdict).not.toBe('continue');
-      expect(s.n).toBeGreaterThanOrEqual(1);
-      expect(s.n).toBeLessThanOrEqual(200);
-    }
+  it('no stream needs the maxN cap: Wald’s bounds stop every one of the 1,000 before n = 200', () => {
+    // runStream loops until a terminal verdict, so "verdict is terminal" and "n ≤ maxN" would hold
+    // by construction; the falsifiable statements are how close any stream came to the cap and how
+    // many verdicts the cap forced. Exactly 0 is asserted (not a tolerance): the run is seeded.
+    const all = [...underH0, ...underH1];
+    const { upper, lower } = waldBounds(sc8);
+    const forced = all.filter((s) => s.n === 200 && s.llr < upper && s.llr > lower).length;
+    expect(Math.max(...all.map((s) => s.n))).toBeLessThan(200); // 162 under h0, 163 under h1
+    expect(forced / all.length).toBe(0);
   });
 
   it('mean sample size is well below maxN under each hypothesis (Wald: ≈30 under h0, ≈32 under h1)', () => {
