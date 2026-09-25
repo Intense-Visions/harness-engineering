@@ -25,6 +25,25 @@ interface CheckDepsOptions {
   quiet?: boolean;
 }
 
+/**
+ * A check that ABSTAINED — it did not malfunction, it simply validated nothing
+ * and said so (#2098).
+ *
+ * Distinct from an `analysisError` (#1996): an error says the engine broke, an
+ * abstention says the engine declined to run. Both refuse to report clean, but
+ * they are different verdicts and get different exit codes. Shape matches the
+ * `unavailableChecks` entry `OutputFormatter.formatValidation` renders, and the
+ * identical structure `harness validate` already emits.
+ */
+interface UnavailableCheck {
+  /** The analysis that abstained. */
+  check: string;
+  /** Why it did not run. Carries the engine's own reason verbatim. */
+  reason: string;
+  /** What the operator should do about it. */
+  suggestion?: string;
+}
+
 interface CheckDepsResult {
   valid: boolean;
   /** Number of unique modules (files) discovered and analyzed (#1188). */
@@ -38,6 +57,14 @@ interface CheckDepsResult {
    *  complete, and therefore refuses to report clean (#1996). Absent (not an
    *  empty array) when every engine ran, so a clean result is unchanged. */
   analysisErrors?: string[];
+  /** Analyses that abstained — they validated nothing and said so (#2098).
+   *  Absent (not an empty array) when every engine actually ran, so a clean
+   *  result is unchanged. */
+  unavailableChecks?: UnavailableCheck[];
+  /** Set when `deps.fallbackBehavior: 'warn'` downgraded an abstention back to
+   *  the pre-#2098 exit 0. The abstention is still reported — only its exit
+   *  code is downgraded (#2098). */
+  abstentionDowngraded?: boolean;
   layerViolations: Array<{
     file: string;
     imports: string;
@@ -77,6 +104,46 @@ function recordAnalysisError(
   );
 }
 
+/**
+ * Record an engine ABSTENTION on the result (#2098).
+ *
+ * `validateDependencies` already computes this verdict and labels it — an
+ * unavailable parser returns `Ok({ valid: true, violations: [], skipped: true,
+ * reason })`. Every consumer then read only `violations`, so the abstention was
+ * computed and thrown away: `valid` stayed true, the finding lists stayed empty,
+ * and the command exited 0 having validated nothing. Reading the flag is the
+ * whole fix.
+ *
+ * `downgraded` is the documented escape hatch (`deps.fallbackBehavior: 'warn'`):
+ * the abstention is still reported in every output mode, but the exit code stays
+ * 0 for projects that need the old behaviour while they fix their setup.
+ *
+ * @param result - The in-progress check-deps result to annotate.
+ * @param stage - Human-readable name of the analysis that abstained.
+ * @param reason - The engine's own reason for not running.
+ * @param downgraded - Whether `deps.fallbackBehavior: 'warn'` is in force.
+ */
+function recordAbstention(
+  result: CheckDepsResult,
+  stage: string,
+  reason: string,
+  downgraded: boolean
+): void {
+  result.unavailableChecks ??= [];
+  result.unavailableChecks.push({
+    check: stage,
+    reason: `check-deps did not run ${stage}: ${reason}`,
+    suggestion:
+      'Restore the analysis engine (the parser reported itself unavailable). ' +
+      'To keep exiting 0 meanwhile, set `deps.fallbackBehavior: "warn"` in harness.config.json.',
+  });
+  if (downgraded) {
+    result.abstentionDowngraded = true;
+    return;
+  }
+  result.valid = false;
+}
+
 export async function runCheckDeps(
   options: CheckDepsOptions
 ): Promise<Result<CheckDepsResult, CLIError>> {
@@ -113,6 +180,11 @@ export async function runCheckDeps(
       ? config.deps.exclude
       : loadDepsExclude(cwd);
 
+  // Abstention policy (#2098). Default `skip`: the engine abstains rather than
+  // warning-and-continuing, and check-deps reports that abstention instead of
+  // discarding it. `warn` is the documented downgrade back to exit 0.
+  const fallbackBehavior = config.deps?.fallbackBehavior ?? 'skip';
+
   const rootDir = path.resolve(cwd, config.rootDir);
   const parser = new TypeScriptParser();
 
@@ -124,13 +196,23 @@ export async function runCheckDeps(
     layers,
     rootDir,
     parser,
-    fallbackBehavior: 'warn',
+    fallbackBehavior,
     extraIgnore: depsExclude,
   };
 
   // Validate dependencies
   const depsResult = await validateDependencies(layerConfig);
   if (depsResult.ok) {
+    // The engine abstained — it validated nothing and labelled the result as
+    // such. Reporting this as a clean pass is the #2098 defect.
+    if (depsResult.value.skipped) {
+      recordAbstention(
+        result,
+        'layer validation',
+        depsResult.value.reason ?? 'the analysis engine abstained',
+        fallbackBehavior === 'warn'
+      );
+    }
     for (const violation of depsResult.value.violations) {
       result.valid = false;
       result.layerViolations.push({
@@ -240,6 +322,13 @@ async function runCheckDepsAction(
     issues.push({ message: result.value.analysisNote });
   }
 
+  // An engine abstention is reported in every output mode (#2098), but it is not
+  // an `issue`: the formatter renders abstentions on their own "could not run"
+  // channel precisely so a check that abstained never reads as a check that
+  // failed — or, worse, as one that passed.
+  const abstentions = result.value.unavailableChecks ?? [];
+  const fatalAbstentions = result.value.abstentionDowngraded ? 0 : abstentions.length;
+
   // Print the analyzed-module denominator in human-facing modes (#1188).
   if (mode === OutputMode.TEXT || mode === OutputMode.VERBOSE) {
     console.log(
@@ -254,28 +343,36 @@ async function runCheckDepsAction(
     layersConfigured: result.value.layersConfigured,
     // Omitted entirely on a clean run, so the clean JSON payload is unchanged (#1996).
     ...(result.value.analysisErrors ? { analysisErrors: result.value.analysisErrors } : {}),
+    // Likewise omitted on a run where every engine actually ran (#2098).
+    ...(abstentions.length > 0 ? { unavailableChecks: abstentions } : {}),
   });
 
   if (output) {
     console.log(output);
   }
 
-  // #691: findings = layer violations + circular dependencies.
+  // #691: findings = layer violations + circular dependencies. A fatal
+  // abstention counts too (#2098) — a run that validated nothing must never
+  // hand a maintenance consumer `{ findings: 0 }`.
   if (localOpts.findingsJson) {
-    console.log(formatFindingsContract(issues.length, 'check-deps'));
+    console.log(formatFindingsContract(issues.length + fatalAbstentions, 'check-deps'));
   }
 
-  // Three outcomes, three codes (#1996): the check ran and passed (SUCCESS), the
-  // check ran and found violations (VALIDATION_FAILED), or the check could not
-  // run at all (ERROR). Collapsing the third into either of the first two is what
-  // let `harness check-deps && deploy` proceed on a broken analysis.
+  // Four outcomes, four codes (#1996, #2098): the check ran and passed
+  // (SUCCESS), the check ran and found violations (VALIDATION_FAILED), the check
+  // could not run at all (ERROR), or the engine abstained and validated nothing
+  // (ZERO_DENOMINATOR — nothing malfunctioned, nothing was examined). Collapsing
+  // any of these into SUCCESS is what let `harness check-deps && deploy` proceed
+  // on an analysis that never happened.
   const analysisFailed = (result.value.analysisErrors?.length ?? 0) > 0;
   process.exit(
     analysisFailed
       ? ExitCode.ERROR
-      : result.value.valid
-        ? ExitCode.SUCCESS
-        : ExitCode.VALIDATION_FAILED
+      : fatalAbstentions > 0
+        ? ExitCode.ZERO_DENOMINATOR
+        : result.value.valid
+          ? ExitCode.SUCCESS
+          : ExitCode.VALIDATION_FAILED
   );
 }
 
