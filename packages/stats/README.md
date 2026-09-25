@@ -9,12 +9,14 @@ Each instrument is one directory exported as one namespace, so `stats.bandit.*` 
 (no graph, no provider), so core, intelligence, orchestrator, and the CLI can all import it
 without a layer exception.
 
-| Namespace | Instrument                                                                                      | Status                                                          |
-| --------- | ----------------------------------------------------------------------------------------------- | --------------------------------------------------------------- |
-| `bandit`  | Explore/exploit bandit: `scoutFraction` and `thompson` policies over a half-life-decayed ledger | Implemented (Phase 2): ledger, decayed arm model, both policies |
-| `sprt`    | Bernoulli sequential probability ratio test with Wald bounds                                    | Scaffolded (Phase 1); implementation lands in Phase 3           |
+| Namespace | Instrument                                                                                      | Status                                                                                       |
+| --------- | ----------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| `bandit`  | Explore/exploit bandit: `scoutFraction` and `thompson` policies over a half-life-decayed ledger | Implemented (Phase 2): ledger, decayed arm model, both policies                              |
+| `sprt`    | Bernoulli sequential probability ratio test with Wald bounds                                    | Implemented (Phase 3): createSprt with Wald bounds, sticky terminal verdict, maxN resolution |
 
 ## Usage
+
+### Bandit
 
 ```ts
 import { bandit } from '@harness-engineering/stats';
@@ -56,6 +58,32 @@ with a zone designator (`Date#toISOString`); a designator-less timestamp is a ma
 `outcomePerDollar` treats a missing `costUsd` as the `COST_EPSILON_USD` floor ($0.001), so an
 unpriced pull scores as if it were nearly free and dominates the mean. Record `costUsd` on every
 pull in a bucket that folds with `outcomePerDollar`, or fold it with `outcomeOnly`.
+
+### SPRT
+
+```ts
+import { sprt } from '@harness-engineering/stats';
+
+// h0: the cheap tier succeeds half the time; h1: seven times in ten. 5% declared error each way.
+const config = { alpha: 0.05, beta: 0.05, p0: 0.5, p1: 0.7, maxN: 200 };
+const test = sprt.createSprt(config); // throws InvalidSprtConfigError on a bad config, never later
+const outcomes = [1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1] as const; // your stream: 0/1 or boolean, oldest first
+for (const outcome of outcomes) {
+  if (test.observe(outcome) !== 'continue') break; // a terminal verdict is sticky anyway
+}
+const { verdict, llr, n } = test.state; // 'reject' → favor h1; 'accept' → favor h0; 'continue' → stream ran out
+const { upper, lower } = sprt.waldBounds(config); // A = ln 19 ≈ 2.94, B = −A
+console.log(
+  `${verdict} after ${n} observations: llr ${llr.toFixed(2)} in (${lower.toFixed(2)}, ${upper.toFixed(2)})`
+);
+// → reject after 12 observations: llr 3.19 in (-2.94, 2.94)
+```
+
+`observe` never throws: `createSprt` validates the config once (`alpha`, `beta`, `p0`, `p1` in (0, 1);
+`alpha + beta < 1`; `p0 ≠ p1`; `maxN` a positive integer when present) and throws
+`InvalidSprtConfigError` there. Once the verdict leaves `continue` it is sticky: further observations
+are ignored and `state.n` is the stopping time. With `maxN`, a test still undecided at the `maxN`-th
+observation resolves to whichever hypothesis the log-likelihood ratio favors (exactly 0 accepts h0).
 
 Shared shapes (`Pull`, `ArmState`, `BanditConfig`, `Choice`, `SprtVerdict`, `SprtConfig`) live in
 `@harness-engineering/types` (`packages/types/src/stats.ts`) so this package and every consumer

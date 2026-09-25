@@ -86,15 +86,39 @@ Typed errors: `NoEligibleArmsError` (empty eligible set, a consumer bug) and `In
 
 [`packages/stats/tests/helpers/prng.ts`](/packages/stats/tests/helpers/prng.ts)
 
-Test helper: seeded mulberry32 PRNG so every statistical test (SC1, SC6, SC7) is reproducible without a property-testing dependency.
+Test helper: seeded mulberry32 PRNG so every statistical test (SC1, SC6, SC7, SC8) is reproducible without a property-testing dependency.
 
 ## packages/stats/src/sprt/index.ts
 
 [`packages/stats/src/sprt/index.ts`](/packages/stats/src/sprt/index.ts)
 
-Public surface of the Bernoulli sequential probability ratio test. Phase 1 placeholder; `createSprt` with Wald bounds lands in Phase 3.
+Public surface of the Bernoulli sequential probability ratio test: `createSprt` (Wald bounds, sticky terminal verdict, `maxN` resolution), `waldBounds`, `validateSprtConfig`, and the typed error. Only the Bernoulli likelihood ships (D10).
 
-**Exports:** none yet
+**Exports:** `createSprt`, `waldBounds`, `validateSprtConfig`, `InvalidSprtConfigError`; types `Sprt`, `SprtState`, `SprtObservation`, `WaldBounds`
+
+## packages/stats/src/sprt/sprt.ts
+
+[`packages/stats/src/sprt/sprt.ts`](/packages/stats/src/sprt/sprt.ts)
+
+`createSprt(config)` → `{ observe(x), state }`. Each Bernoulli observation adds `ln(p1 / p0)` (success: `1` or `true`) or `ln((1 − p1) / (1 − p0))` (failure) to the cumulative log-likelihood ratio, which is compared inclusively with Wald's bounds A = ln((1 − β) / α) (→ `reject`, favor h1) and B = ln(β / (1 − α)) (→ `accept`, favor h0); otherwise `continue`. A terminal verdict is sticky: later observations are ignored and `state.n` is the stopping time. With `maxN`, the `maxN`-th observation still at `continue` resolves to whichever hypothesis the LLR favors; an LLR of exactly 0 accepts h0. `state` is a fresh `{ llr, n, verdict }` snapshot on every read. No ledger, no clock, no rng.
+
+**Exports:** `createSprt`, `waldBounds`, `Sprt`, `SprtState`, `SprtObservation`, `WaldBounds`
+
+## packages/stats/src/sprt/config.ts
+
+[`packages/stats/src/sprt/config.ts`](/packages/stats/src/sprt/config.ts)
+
+`validateSprtConfig`: the table of guards (`alpha`, `beta`, `p0`, `p1` in (0, 1); `alpha + beta < 1` so that A > B; `p0 ≠ p1`; `maxN` a positive integer when present), throwing `InvalidSprtConfigError` with the first failed guard's message. No defaults to fill; returns a copy.
+
+**Exports:** `validateSprtConfig`
+
+## packages/stats/src/sprt/errors.ts
+
+[`packages/stats/src/sprt/errors.ts`](/packages/stats/src/sprt/errors.ts)
+
+Typed error: `InvalidSprtConfigError` (config rejected at construction). A sibling of `bandit/errors.ts` by design — instrument namespaces never import each other.
+
+**Exports:** `InvalidSprtConfigError`
 
 ## packages/stats/tsup.config.ts
 
