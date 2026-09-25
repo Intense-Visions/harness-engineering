@@ -305,44 +305,55 @@ describe('BanditLedger retention (fold) and compact', () => {
     expect(readFileSync(file, 'utf8')).toBe(before);
   });
 
-  it('an unwritable directory routes the failure to onError, leaves the ledger intact, and leaves no temp file', () => {
-    const onError = vi.fn<(error: Error) => void>();
-    const flat = path.join(dir, 'bandit.jsonl'); // directly in dir, so chmod can lock the write
-    const ledger = new BanditLedger({ path: flat, onError });
-    ledger.append(pull({ ts: at(301), arm: 'ancient' }));
-    ledger.append(pull({ ts: at(1), reward: { outcome: 1 } }));
-    const before = readFileSync(flat, 'utf8');
-    chmodSync(dir, 0o500); // readable and listable, not writable: the temp file cannot be created
-    try {
-      expect(ledger.compact(config, NOW)).toEqual({ kept: 0, dropped: 0, bytes: 0 });
-    } finally {
-      chmodSync(dir, 0o700);
-    }
-    expect(onError).toHaveBeenCalledTimes(1);
-    expect(readFileSync(flat, 'utf8')).toBe(before); // uncompacted, still correct
-    expect(readdirSync(dir).filter((n) => n.endsWith('.tmp'))).toEqual([]);
-  });
+  // chmod cannot revoke directory write access on Windows — Node maps it to the read-only
+  // file attribute only — so the failure these two force never occurs there and compact
+  // succeeds. The behaviour under test is platform-independent; only the simulation is POSIX.
+  const posixOnly = it.skipIf(process.platform === 'win32');
 
-  it('a rename the ledger survives is reported, not thrown, even when the temp file cannot be removed', () => {
-    const onError = vi.fn<(error: Error) => void>();
-    const flat = path.join(dir, 'bandit.jsonl');
-    const ledger = new BanditLedger({ path: flat, onError });
-    ledger.append(pull({ ts: at(301), arm: 'ancient' }));
-    ledger.append(pull({ ts: at(1), reward: { outcome: 1 } }));
-    const before = readFileSync(flat, 'utf8');
-    // pre-create the temp file, then lock the directory: writing an existing file still
-    // succeeds, but the rename onto the ledger and the temp cleanup both need the directory
-    const tmp = `${flat}.${String(process.pid)}.tmp`;
-    writeFileSync(tmp, '');
-    chmodSync(dir, 0o500);
-    try {
-      expect(ledger.compact(config, NOW)).toEqual({ kept: 0, dropped: 0, bytes: 0 });
-    } finally {
-      chmodSync(dir, 0o700);
+  posixOnly(
+    'an unwritable directory routes the failure to onError, leaves the ledger intact, and leaves no temp file',
+    () => {
+      const onError = vi.fn<(error: Error) => void>();
+      const flat = path.join(dir, 'bandit.jsonl'); // directly in dir, so chmod can lock the write
+      const ledger = new BanditLedger({ path: flat, onError });
+      ledger.append(pull({ ts: at(301), arm: 'ancient' }));
+      ledger.append(pull({ ts: at(1), reward: { outcome: 1 } }));
+      const before = readFileSync(flat, 'utf8');
+      chmodSync(dir, 0o500); // readable and listable, not writable: the temp file cannot be created
+      try {
+        expect(ledger.compact(config, NOW)).toEqual({ kept: 0, dropped: 0, bytes: 0 });
+      } finally {
+        chmodSync(dir, 0o700);
+      }
+      expect(onError).toHaveBeenCalledTimes(1);
+      expect(readFileSync(flat, 'utf8')).toBe(before); // uncompacted, still correct
+      expect(readdirSync(dir).filter((n) => n.endsWith('.tmp'))).toEqual([]);
     }
-    expect(onError).toHaveBeenCalledTimes(1); // the rename failure, not a cleanup failure
-    expect(readFileSync(flat, 'utf8')).toBe(before); // the destination survived: ledger untouched
-  });
+  );
+
+  posixOnly(
+    'a rename the ledger survives is reported, not thrown, even when the temp file cannot be removed',
+    () => {
+      const onError = vi.fn<(error: Error) => void>();
+      const flat = path.join(dir, 'bandit.jsonl');
+      const ledger = new BanditLedger({ path: flat, onError });
+      ledger.append(pull({ ts: at(301), arm: 'ancient' }));
+      ledger.append(pull({ ts: at(1), reward: { outcome: 1 } }));
+      const before = readFileSync(flat, 'utf8');
+      // pre-create the temp file, then lock the directory: writing an existing file still
+      // succeeds, but the rename onto the ledger and the temp cleanup both need the directory
+      const tmp = `${flat}.${String(process.pid)}.tmp`;
+      writeFileSync(tmp, '');
+      chmodSync(dir, 0o500);
+      try {
+        expect(ledger.compact(config, NOW)).toEqual({ kept: 0, dropped: 0, bytes: 0 });
+      } finally {
+        chmodSync(dir, 0o700);
+      }
+      expect(onError).toHaveBeenCalledTimes(1); // the rename failure, not a cleanup failure
+      expect(readFileSync(flat, 'utf8')).toBe(before); // the destination survived: ledger untouched
+    }
+  );
 
   it('a compact read error other than ENOENT reports zeros through onError', () => {
     const onError = vi.fn<(error: Error) => void>();
