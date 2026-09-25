@@ -26,7 +26,9 @@ import { hasIntroducedSecurityDefect } from './agent/quality-verdict';
 import {
   type QualityVerdict,
   afterCleanSecurityScan,
+  cleanVerdict,
   defectVerdict,
+  failSafeVerdict,
   outcomeVerdictToQualityVerdict,
   toOutcomeClass,
   unjudgedVerdict,
@@ -3713,14 +3715,32 @@ export class Orchestrator extends EventEmitter {
    */
   private async deriveRoutingRetrospectiveVerdict(
     issue: Issue,
-    _workspacePath: string
+    workspacePath: string,
+    onVerdict?: (verdict: QualityVerdict) => void
   ): Promise<'quality-fail' | undefined> {
-    if (this.adaptiveRouter === null) return undefined;
-    if (this.config.roadmap?.autoTriage?.enabled !== true) return undefined;
+    const verdict = await this.deriveRoutingRetrospectiveVerdictDetail(issue, workspacePath);
+    onVerdict?.(verdict);
+    return toOutcomeClass(verdict);
+  }
+
+  /**
+   * The DISCRIMINATED retrospective (#2221 prerequisite 1). The shipped feeder returned
+   * `'quality-fail'` for a JUDGED mispredict AND for three FAIL-SAFE blocks (unreadable
+   * store on a spec-bearing unit, missing/garbled prediction, internal error), so an
+   * operator whose unit escalated could not tell bad code from a store hiccup. Each
+   * `return` now names its situation; the collapse (`fail-safe` ⇒ escalate, exactly as
+   * before) keeps SC3/SC7 behavior identical.
+   */
+  private async deriveRoutingRetrospectiveVerdictDetail(
+    issue: Issue,
+    _workspacePath: string
+  ): Promise<QualityVerdict> {
+    if (this.adaptiveRouter === null) return unjudgedVerdict('router-off');
+    if (this.config.roadmap?.autoTriage?.enabled !== true) return unjudgedVerdict('triage-off');
     // The prediction is keyed by the roadmap External-ID (the marker's write key). No
     // external id ⇒ this unit cannot have a stored prediction ⇒ nothing to grade.
     const externalId = issue.externalId;
-    if (externalId === null || externalId === '') return undefined;
+    if (externalId === null || externalId === '') return unjudgedVerdict('no-external-id');
 
     // Load the accreting triage records and find this unit's prediction slice.
     let record: eventSourcing.StoredTriageRecord | undefined;
@@ -3746,13 +3766,13 @@ export class Orchestrator extends EventEmitter {
             '(fail-safe block: a triaged unit whose prediction we cannot read never silently passes)',
           { issueId: issue.id, externalId }
         );
-        return 'quality-fail';
+        return failSafeVerdict('store-unreadable');
       }
-      return undefined;
+      return unjudgedVerdict('store-unreadable');
     }
 
     // Not a triaged unit (no record at all) ⇒ neutral, never graded.
-    if (record === undefined) return undefined;
+    if (record === undefined) return unjudgedVerdict('no-record');
 
     // A triaged unit WITH a record but WITHOUT a prediction slice is a
     // missing/garbled prediction ⇒ block+escalate (SC7 — never a silent pass).
@@ -3765,7 +3785,7 @@ export class Orchestrator extends EventEmitter {
           externalId,
         }
       );
-      return 'quality-fail';
+      return failSafeVerdict('prediction-unparseable');
     }
     const prediction: TriagePrediction = {
       verdict: stored.verdict,
@@ -3815,12 +3835,14 @@ export class Orchestrator extends EventEmitter {
           actual: result.actual.level,
           exceededBy: result.comparison.exceededBy,
         });
-        return 'quality-fail';
+        return defectVerdict('retrospective');
       }
 
       // MATCH ⇒ v1 stage-2 handling: annotate the PR for required human verification.
       await this.annotateRetrospectiveMatch(issue, externalId, result.actual.level);
-      return undefined;
+      // A match is a CONFIRMED prediction — a judged-clean verdict, not an absent one.
+      // Still neutral for escalation (`clean` collapses to `undefined`, as before).
+      return cleanVerdict('retrospective');
     } catch (err) {
       // SC7: any retrospective error takes the MISMATCH (block+escalate) path — an
       // error is never a silent pass. Best-effort logged; still returns the block.
@@ -3829,7 +3851,7 @@ export class Orchestrator extends EventEmitter {
         externalId,
         error: err instanceof Error ? err.message : String(err),
       });
-      return 'quality-fail';
+      return failSafeVerdict('internal-error');
     }
   }
 
