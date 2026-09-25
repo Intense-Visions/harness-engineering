@@ -115,18 +115,24 @@ function resolveRefs(pulls: readonly Pull[]): ResolvedPulls {
 export class BanditLedger {
   readonly path: string;
   private readonly onError: ((error: Error) => void) | undefined;
+  /** True once the ledger directory has been created by this instance; reset when an append hits ENOENT. */
+  private dirReady = false;
 
   constructor(options: BanditLedgerOptions = {}) {
     this.path = options.path ?? path.resolve(DEFAULT_LEDGER_PATH);
     this.onError = options.onError;
   }
 
-  /** Record one pull. Never throws: IO failures go to `onError`. */
+  /** Record one pull. Never throws: IO failures go to `onError`. The directory is created once per instance. */
   append(pull: Pull): void {
     try {
-      mkdirSync(path.dirname(this.path), { recursive: true });
+      if (!this.dirReady) {
+        mkdirSync(path.dirname(this.path), { recursive: true });
+        this.dirReady = true;
+      }
       appendFileSync(this.path, JSON.stringify(pull) + '\n');
     } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === 'ENOENT') this.dirReady = false;
       this.onError?.(toError(error));
     }
   }
