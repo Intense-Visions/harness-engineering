@@ -1602,12 +1602,12 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 
 ### Stats package with the explore/exploit bandit as first instrument
 
-- **Status:** in-progress
+- **Status:** done
 - **Spec:** docs/changes/stats-explore-exploit/proposal.md
 - **Summary:** A new dependency-free leaf package `@harness-engineering/stats`, declared as its own layer, shipping the two instruments row `bandit-allocation-with-sequential-stopping` names: a bandit (append-only JSONL ledger under `.harness/metrics/`, Beta posterior with half-life decay and a novelty threshold, `scoutFraction` and `thompson` policies behind one `choose` interface, a one-line human reason on every choice, safety-agnostic by construction so exploration varies cost and never safety) and a Bernoulli SPRT. No consumer and no CLI in this phase, so nothing depends on the package before its manual first npm publish and trusted-publisher registration. The package is the durable home for the tracked statistical siblings (IRT, Kelly, Kalman), each built only when its consumer is specced. Three follow-on specs consume it: the adaptive-router routing consumer (#1557), fleet-command slot allocation by trailing yield, and a roadmap scout pick per batch.
 - **Blockers:** —
 - **Plan:** docs/changes/stats-explore-exploit/plans/2026-09-24-phase-1-types-and-package-scaffold-plan.md, docs/changes/stats-explore-exploit/plans/2026-09-24-phase-2-bandit-ledger-arm-model-policies-plan.md, docs/changes/stats-explore-exploit/plans/2026-09-24-phase-3-bernoulli-sprt-plan.md, docs/changes/stats-explore-exploit/plans/2026-09-24-phase-4-docs-decisions-validation-plan.md
-- **Assignee:** Chad Warner
+- **Assignee:** —
 - **Priority:** P2
 - **External-ID:** github:Intense-Visions/harness-engineering#2202
 
@@ -3425,3 +3425,8 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 - **Assignee:** Chad Warner
 - **Action:** unassigned
 - **Date:** 2026-08-10
+
+- **Feature:** Stats package with the explore/exploit bandit as first instrument
+- **Assignee:** Chad Warner
+- **Action:** unassigned
+- **Date:** 2026-09-25

@@ -124,3 +124,8 @@ milestones:
 - **Assignee:** Chad Warner
 - **Action:** unassigned
 - **Date:** 2026-08-10
+
+- **Feature:** Stats package with the explore/exploit bandit as first instrument
+- **Assignee:** Chad Warner
+- **Action:** unassigned
+- **Date:** 2026-09-25
