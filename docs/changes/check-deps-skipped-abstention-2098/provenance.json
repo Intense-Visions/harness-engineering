@@ -8,6 +8,14 @@
   "pipeline": "harness-debugging",
   "phases": ["investigate", "analyze", "hypothesize", "fix"],
   "baseCommit": "b62f51d71863bbb5f45a5b666cd23d16925924f7",
+  "baseFreshness": {
+    "originalBase": "b62f51d71863bbb5f45a5b666cd23d16925924f7",
+    "refreshedTo": "f9f59abdefec20c37d3db6892bf34f70749c32af",
+    "method": "git merge origin/main (merge, not rebase)",
+    "conflicts": "none — no comprehension _module.md shard conflicts appeared",
+    "why": "The first all-OS green was gathered against b62f51d71. origin/main then moved 2 commits ahead: 5da30236f (#2205) rewrote .github/workflows/ci.yml job token permissions, and f9f59abde (#2206) added two proposed ADRs. Because #2205 changed the CI definition itself, the earlier green was gathered under the superseded workflow and is treated as degraded rather than verified. Re-merged and re-run so the verdict is gathered under the current workflow.",
+    "filesTouchedByNewMain": "none of this change's files"
+  },
   "branch": "fix/check-deps-skipped-abstention",
   "debugSession": "docs/changes/check-deps-skipped-abstention-2098/debug-session.md",
   "debugSessionNote": ".harness/debug/ is gitignored, so the resolved session record is committed here instead.",
@@ -40,7 +48,7 @@
     "The abstention is reported on the existing `unavailableChecks` channel that OutputFormatter.formatValidation already renders, rather than a new field — so text, --json and QUIET output all gain the verdict with no formatter change.",
     "An abstention is NOT pushed into `issues` (that would double-print it and render it as a failure); it is added to the --findings-json count separately, so an abstained run never hands a maintenance consumer { findings: 0 }.",
     "REACHABILITY CAVEAT, recorded honestly: the bundled TypeScriptParser.health() (packages/core/src/shared/parsers/typescript.ts:236) returns a hardcoded Ok({available:true}), so with the stock parser check-deps cannot reach the abstention branch TODAY. The discarded-abstention contract gap is real regardless, and validateDependencies is a public core export adopters call with their own LanguageParser. The reproducing tests therefore drive the abstention at the engine boundary (vi.mock of the core export) — the same technique and the same stated justification as the sibling #1996 suite, packages/cli/tests/commands/check-deps-err-swallow.test.ts:20-24.",
-    "Changeset written at 'minor' per the human's explicit instruction. FLAGGED: the instruction's premise was that the repo is at 0.54.1 (pre-1.0); @harness-engineering/cli is actually at 12.10.1, where a breaking behaviour change would strictly be 'major'. Written as instructed, surfaced for the reviewer rather than silently upgraded.",
+    "RESOLVED: changeset is at 'major'. The human's instruction was to size it for a non-patch-level behaviour change; it reached this lane translated as 'minor' on the premise that the package is at 0.54.1 (pre-1.0). That premise was an orchestrator error — 0.54.1 is @harness-engineering/core; this change is entirely in @harness-engineering/cli, which is at 12.10.1. Both versions re-read directly from their package.json by this lane and by the orchestrator. On a post-1.0 package a breaking behaviour change is strictly 'major', so 'major' is what implements the human's intent. The lane flagged the discrepancy rather than following the wrong level silently, and the orchestrator confirmed the correction.",
     "packages/core/src/ci/check-orchestrator.ts is being fixed concurrently by the #2071 lane and was NOT touched. packages/core/src/constraints/dependencies.ts needed no change at all — it already computes and types the abstention correctly.",
     "The MCP twin does not honour deps.fallbackBehavior: it uses core's default 'error', which already refuses to report clean. Left deliberately; its new `skipped` read is a defensive contract read.",
     "A `bug` route emits no plans/ directory. Expected, not a defect."

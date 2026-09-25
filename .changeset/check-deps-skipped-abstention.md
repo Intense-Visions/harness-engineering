@@ -1,5 +1,5 @@
 ---
-'@harness-engineering/cli': minor
+'@harness-engineering/cli': major
 ---
 
 `harness check-deps` no longer reports clean and exits 0 when its analysis engine validated nothing.
