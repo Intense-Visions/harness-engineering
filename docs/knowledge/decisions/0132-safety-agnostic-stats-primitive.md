@@ -12,8 +12,8 @@ source: docs/changes/stats-explore-exploit/proposal.md
 > **Retrospective record.** This ADR documents spec decision D7 of
 > `docs/changes/stats-explore-exploit/proposal.md`, approved with the spec and shipped in
 > Phases 2–3 of its autopilot run. The hot-path throw carve-outs below were refined by the
-> Phase 2 and Phase 3 reviews (commits `037479deb`, `e35024c14`, `fd2436db4`); the code at
-> `c3d2fae98` is recorded as authoritative.
+> Phase 2 and Phase 3 reviews (commits `037479deb`, `e35024c14`, `fd2436db4`); the code as of
+> the PR head of `docs/stats-explore-exploit-spec` is recorded as authoritative.
 
 An explore/exploit bandit deliberately picks arms that are not the current best. Every
 consumer it will serve already enforces safety rules the bandit must never relax: the
@@ -35,7 +35,7 @@ append to one ledger concurrently (orchestrator, CLI, fleet lanes).
    that owns them; the package has no hook, callback, or config field for any of them.
    Exploration therefore varies which eligible arm is tried — its cost — and nothing else.
 2. **An empty eligible set is a consumer bug, not a runtime condition to degrade through.**
-   `choose` throws `NoEligibleArmsError` (`policy.ts:16`, `bandit/errors.ts:8`) and returns no
+   `choose` throws `NoEligibleArmsError` (`policy.ts:16`, `bandit/errors.ts:9`) and returns no
    choice (SC3). Returning `undefined` or a sentinel arm would let a mis-filtered consumer
    dispatch to nothing, silently.
 3. **Nothing else on the hot path throws.** The only throws are the consumer-bug carve-outs:
@@ -43,7 +43,7 @@ append to one ledger concurrently (orchestrator, CLI, fleet lanes).
    - config validation — for the bandit on every `choose()` / `fold()` call via
      `resolveBanditConfig` (the bandit has no constructor; a consumer that wants the throw once
      calls `resolveBanditConfig` itself and keeps the result): `InvalidBanditConfigError`
-     (`bandit/config.ts:79`: `policy` in `{scoutFraction, thompson}`, `scoutFraction` in
+     (`bandit/config.ts:80`: `policy` in `{scoutFraction, thompson}`, `scoutFraction` in
      `[0, 1]`, `halfLifeDays > 0`, `minEffectiveN >= 0`, positive prior); for SPRT at
      `createSprt()` / `waldBounds()`: `InvalidSprtConfigError` from `validateSprtConfig`
      (`sprt/config.ts`: `alpha`, `beta`, `p0`, `p1` in `(0, 1)`, `p0 ≠ p1`,
@@ -113,8 +113,8 @@ append to one ledger concurrently (orchestrator, CLI, fleet lanes).
   "Policies"; "Error handling"; SC2, SC3, SC9; Assumptions A5, A6.
 - `packages/stats/src/bandit/policy.ts:13-26` (`choose` over an eligible set; empty-set
   throw), `:97,104,126` (one-line reasons).
-- `packages/stats/src/bandit/errors.ts:8-18` (`NoEligibleArmsError`, `InvalidBanditConfigError`).
-- `packages/stats/src/bandit/config.ts:31-72` (table-driven construction guards, `037479deb`).
+- `packages/stats/src/bandit/errors.ts:9-22` (`NoEligibleArmsError`, `InvalidBanditConfigError`).
+- `packages/stats/src/bandit/config.ts:37-82` (table-driven guards and `resolveBanditConfig`, run per `choose()` / `fold()`, `037479deb`, `5df3aa03e`).
 - `packages/stats/src/bandit/ledger.ts:56-66,127-137` (IO to `onError`; `readError`,
   `e35024c14`).
 - `packages/stats/src/bandit/ledger-parse.ts` (malformed-line definition, `3cb77fb86`).

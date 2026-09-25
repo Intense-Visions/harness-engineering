@@ -12,7 +12,7 @@ source: docs/changes/stats-explore-exploit/proposal.md
 > **Retrospective record.** This ADR documents spec decision D6 of
 > `docs/changes/stats-explore-exploit/proposal.md`, approved with the spec and shipped in
 > Phases 1–3 of its autopilot run (branch `docs/stats-explore-exploit-spec`). Every claim
-> below was re-read against the code at `c3d2fae98`; citations are in **References**.
+> below was re-read against the code as of the PR head; citations are in **References**.
 
 The harness needs statistical instruments in three places that do not share a dependency
 direction. The adaptive router lives in `packages/orchestrator`, fleet-command and roadmap
@@ -104,7 +104,7 @@ anywhere, and nothing is positioned to enforce their dependency direction.
 - A new public npm package needs a one-time manual first publish plus trusted-publisher
   registration before any dependent can be released (spec "Registrations required"); the
   routing consumer's release is blocked until that operator step completes.
-- The package is dark until its first consumer lands: 147 tests, zero importers (SC11).
+- The package is dark until its first consumer lands: 152 tests, zero importers (SC11).
 - Consumers must add `stats` to their layer's `allowedDependencies` explicitly. Forgetting it
   does not fail `check-deps` today (the same bare-specifier gap as above), so the rule is
   reviewed by inspection until the validator resolves workspace specifiers; it exists so that

@@ -9,10 +9,10 @@ Each instrument is one directory exported as one namespace, so `stats.bandit.*` 
 (no graph, no provider), so core, intelligence, orchestrator, and the CLI can all import it
 without a layer exception.
 
-| Namespace | Instrument                                                                                      | Status                                                                                       |
-| --------- | ----------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
-| `bandit`  | Explore/exploit bandit: `scoutFraction` and `thompson` policies over a half-life-decayed ledger | Implemented (Phase 2): ledger, decayed arm model, both policies                              |
-| `sprt`    | Bernoulli sequential probability ratio test with Wald bounds                                    | Implemented (Phase 3): createSprt with Wald bounds, sticky terminal verdict, maxN resolution |
+| Namespace | Instrument                                                   | Surface                                                                                                          |
+| --------- | ------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------- |
+| `bandit`  | Explore/exploit bandit over a half-life-decayed JSONL ledger | `BanditLedger` (append, fold), `foldArms`, `choose` under the `scoutFraction` and `thompson` policies, utilities |
+| `sprt`    | Bernoulli sequential probability ratio test with Wald bounds | `createSprt` (sticky terminal verdict, `maxN` resolution), `waldBounds`, `validateSprtConfig`                    |
 
 ## Usage
 
