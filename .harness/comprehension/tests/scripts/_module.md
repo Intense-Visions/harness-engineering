@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'tests/scripts'
-sourceHash: '6e544bf5055bb1ffc4b198faa35ed4a2f68fe27a8e15823ee20654c581ee0dfd'
+sourceHash: '3f172b59e427a2f55aaad7d264a79345b7f2eb083d526cd11acca4e74c426d63'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -18,6 +18,7 @@ members:
     'plugin-antigravity-target.test.mjs',
     'plugin-pin-sync.test.mjs',
     'workflow-merge-race.test.mjs',
+    'workflow-token-permissions.test.mjs',
   ]
 ---
 
@@ -46,4 +47,5 @@ import path, { dirname, join, resolve } from 'node:path'
 import { test } from 'node:test'
 import { fileURLToPath } from 'node:url'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { parseYaml } from 'yaml'
 ```

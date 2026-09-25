@@ -13,6 +13,14 @@ on:
 # package directly and exercises a CLI command that walks the
 # orchestrator dep chain, so a module-load mismatch fails the release.
 
+# Least authority: this job installs and executes FRESHLY PUBLISHED packages from
+# npm. It runs on `workflow_run`, which GitHub always evaluates in the
+# default-branch context with the full token, so without this block that
+# third-party code would execute on a runner holding a write-scoped repository
+# token. It only needs to read `.nvmrc` out of a sparse checkout.
+permissions:
+  contents: read
+
 jobs:
   smoke:
     if: ${{ github.event.workflow_run.conclusion == 'success' }}
