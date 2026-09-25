@@ -54,7 +54,7 @@
     "A `bug` route emits no plans/ directory. Expected, not a defect."
   ],
   "deferredFindings": [
-    "TypeScriptParser.health() hardcodes { available: true, version: '7.0.0' } and never probes anything, so the parser-health gate in validateDependencies is inert for the bundled parser. Worth its own issue; out of this lane's scope.",
+    "FILED AS #2209: TypeScriptParser.health() hardcodes { available: true, version: '7.0.0' } and never probes anything, so the parser-health gate in validateDependencies is inert for the bundled parser — the abstention this PR now reports correctly cannot currently be raised end-to-end in-repo. Upstream of this fix, in a different package; deliberately not folded in.",
     "The #1188 zero-module abstention in check-deps still exits VALIDATION_FAILED (1) rather than ZERO_DENOMINATOR (3). Arguably the same verdict class as this fix; changing it is a second adopter-visible exit-code change and was deliberately not bundled."
   ]
 }
