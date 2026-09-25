@@ -1,11 +1,11 @@
 ---
 schemaVersion: 1
 module: 'packages/stats/src/sprt'
-sourceHash: '005360bf317257c6fe98cc9e867958ea4746dad549e037b9ccc1565f55998f97'
+sourceHash: '1b91552070189b83820af759b623bc315975d5016d3d37b09cfafba9b77f5905'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
-members: ['config.ts', 'errors.ts', 'index.ts']
+members: ['config.ts', 'errors.ts', 'index.ts', 'sprt.ts']
 ---
 
 ## Interface Contract
@@ -17,6 +17,7 @@ members: ['config.ts', 'errors.ts', 'index.ts']
 ## Dependency Slice
 
 ```
+import { validateSprtConfig } from './config.js'
 import { InvalidSprtConfigError } from './errors.js'
-import { SprtConfig } from '@harness-engineering/types'
+import { SprtConfig, SprtVerdict } from '@harness-engineering/types'
 ```
