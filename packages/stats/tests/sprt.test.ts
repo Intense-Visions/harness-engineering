@@ -1,9 +1,10 @@
-import type { SprtConfig } from '@harness-engineering/types';
+import type { SprtConfig, SprtVerdict } from '@harness-engineering/types';
 import { describe, expect, it } from 'vitest';
 
 import { validateSprtConfig } from '../src/sprt/config';
 import { InvalidSprtConfigError } from '../src/sprt/errors';
 import { createSprt, waldBounds } from '../src/sprt/sprt';
+import { mulberry32 } from './helpers/prng';
 
 /** SC8 parameters; also the textbook fixture: ln(p1 / p0) = ln 1.4, ln((1 − p1) / (1 − p0)) = ln 0.6. */
 const base: SprtConfig = { alpha: 0.05, beta: 0.05, p0: 0.5, p1: 0.7 };
@@ -192,5 +193,61 @@ describe('createSprt: maxN resolution', () => {
   it('a natural crossing before maxN is unaffected', () => {
     const { verdicts } = feed({ ...base, maxN: 200 }, [0, 0, 0, 0, 0, 0]);
     expect(verdicts[5]).toBe('accept');
+  });
+});
+
+describe('SC8: 1,000 seeded Bernoulli streams, p0 = 0.5 vs p1 = 0.7, alpha = beta = 0.05, maxN = 200', () => {
+  const SEED = 20260924;
+  const STREAMS = 500; // per hypothesis: 500 under h0 + 500 under h1
+  const sc8: SprtConfig = { ...base, maxN: 200 };
+
+  /** One stream to termination; the seeded rng draws the Bernoulli(p) observations. */
+  function runStream(p: number, rng: () => number) {
+    const test = createSprt(sc8);
+    let verdict: SprtVerdict;
+    do {
+      verdict = test.observe(rng() < p ? 1 : 0);
+    } while (verdict === 'continue');
+    return test.state;
+  }
+
+  /** Each hypothesis gets its own stream so either half is reproducible on its own. */
+  function runAll(p: number, seed: number) {
+    const rng = mulberry32(seed);
+    return Array.from({ length: STREAMS }, () => runStream(p, rng));
+  }
+
+  const mean = (xs: readonly number[]) => xs.reduce((sum, x) => sum + x, 0) / xs.length;
+  const underH0 = runAll(0.5, SEED);
+  const underH1 = runAll(0.7, SEED + 1);
+
+  it('realized type-I error (reject under h0) is at or below 0.07', () => {
+    const typeI = underH0.filter((s) => s.verdict === 'reject').length / STREAMS;
+    expect(typeI).toBeLessThanOrEqual(0.07); // 0.050 (25 / 500) at this seed
+  });
+
+  it('realized type-II error (accept under h1) is at or below 0.07', () => {
+    const typeII = underH1.filter((s) => s.verdict === 'accept').length / STREAMS;
+    expect(typeII).toBeLessThanOrEqual(0.07); // 0.024 (12 / 500) at this seed
+  });
+
+  it('every stream terminates within maxN = 200 with a terminal verdict', () => {
+    for (const s of [...underH0, ...underH1]) {
+      expect(s.verdict).not.toBe('continue');
+      expect(s.n).toBeGreaterThanOrEqual(1);
+      expect(s.n).toBeLessThanOrEqual(200);
+    }
+  });
+
+  it('mean sample size is well below maxN under each hypothesis (Wald: ≈30 under h0, ≈32 under h1)', () => {
+    for (const states of [underH0, underH1]) {
+      const meanN = mean(states.map((s) => s.n));
+      expect(meanN).toBeGreaterThan(20);
+      expect(meanN).toBeLessThan(60); // 33.5 / 34.3 at this seed
+    }
+  });
+
+  it('is reproducible: the same seed yields the same verdicts and stopping times', () => {
+    expect(runAll(0.5, SEED)).toEqual(underH0);
   });
 });

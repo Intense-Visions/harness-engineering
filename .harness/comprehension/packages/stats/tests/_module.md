@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/stats/tests'
-sourceHash: 'b683674061ff69bc89f099555abe1ec078039bd64323ada461d509373c40b32d'
+sourceHash: 'f6f0584837b4d544068d1a3d7cc10bcbd98a91c6a0e2d57fc46b94d773577d04'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -42,7 +42,7 @@ import { validateSprtConfig } from '../src/sprt/config'
 import { InvalidSprtConfigError } from '../src/sprt/errors'
 import { createSprt, waldBounds } from '../src/sprt/sprt'
 import { mulberry32 } from './helpers/prng'
-import { ArmState, BanditConfig, Pull, SprtConfig } from '@harness-engineering/types'
+import { ArmState, BanditConfig, Pull, SprtConfig, SprtVerdict } from '@harness-engineering/types'
 import { appendFileSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
