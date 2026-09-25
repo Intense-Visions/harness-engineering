@@ -83,15 +83,40 @@ function guards(policy: unknown, filled: Omit<ResolvedBanditConfig, 'policy'>): 
  * `policy` check is additive to the spec's enumerated bounds: an unknown
  * policy string is rejected rather than silently running `scoutFraction`.
  */
-export function resolveBanditConfig(config: BanditConfig): ResolvedBanditConfig {
+/**
+ * Every optional numeric field paired with its spec default, as one table beside
+ * the guard table: a field cannot be guarded without also being filled, and the
+ * default it is filled with is stated once. `prior` is a pair, so it is filled
+ * separately below.
+ */
+const NUMERIC_DEFAULTS = {
+  scoutFraction: DEFAULT_SCOUT_FRACTION,
+  halfLifeDays: DEFAULT_HALF_LIFE_DAYS,
+  minEffectiveN: DEFAULT_MIN_EFFECTIVE_N,
+  retentionHalfLives: DEFAULT_RETENTION_HALF_LIVES,
+} as const satisfies Record<string, number>;
+
+type NumericField = keyof typeof NUMERIC_DEFAULTS;
+
+/** Table-driven so the count of fields cannot change the shape of this function. */
+function fillNumeric(config: BanditConfig): Record<NumericField, number> {
+  const filled: Record<NumericField, number> = { ...NUMERIC_DEFAULTS };
+  // Object.keys widens to string[]; the keys are the table's own, so the narrowing is sound
+  for (const field of Object.keys(NUMERIC_DEFAULTS) as NumericField[]) {
+    const supplied = config[field];
+    if (supplied !== undefined) filled[field] = supplied;
+  }
+  return filled;
+}
+
+/** Every optional field replaced by its spec default; `prior` is copied so the default is never shared. */
+function fillDefaults(config: BanditConfig): Omit<ResolvedBanditConfig, 'policy'> {
   const prior = config.prior ?? DEFAULT_PRIOR;
-  const filled = {
-    scoutFraction: config.scoutFraction ?? DEFAULT_SCOUT_FRACTION,
-    halfLifeDays: config.halfLifeDays ?? DEFAULT_HALF_LIFE_DAYS,
-    minEffectiveN: config.minEffectiveN ?? DEFAULT_MIN_EFFECTIVE_N,
-    retentionHalfLives: config.retentionHalfLives ?? DEFAULT_RETENTION_HALF_LIVES,
-    prior: { alpha: prior.alpha, beta: prior.beta },
-  };
+  return { ...fillNumeric(config), prior: { alpha: prior.alpha, beta: prior.beta } };
+}
+
+export function resolveBanditConfig(config: BanditConfig): ResolvedBanditConfig {
+  const filled = fillDefaults(config);
   const failed = guards(config.policy, filled).find((g) => !g.ok);
   if (failed !== undefined) throw new InvalidBanditConfigError(failed.message);
   return { ...config, ...filled };
