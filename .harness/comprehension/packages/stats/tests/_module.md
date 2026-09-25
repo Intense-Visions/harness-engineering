@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/stats/tests'
-sourceHash: '4e28d3f649824ae16f5703eff25f4ac651b119f09191a8e4e5bca21a0d53a2d2'
+sourceHash: 'bdf81527f303465abaa3fe197ed8de1ee7247c108b78ea9ec5d8e0aa34b03357'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -15,6 +15,7 @@ members:
     'ledger.test.ts',
     'policy.test.ts',
     'sampling.test.ts',
+    'sprt.test.ts',
     'utility.test.ts',
   ]
 ---
@@ -37,6 +38,7 @@ import { choose } from '../src/bandit/policy'
 import { sampleBeta } from '../src/bandit/sampling'
 import { COST_EPSILON_USD, outcomeOnly, outcomePerDollar } from '../src/bandit/utility'
 import * as stats from '../src/index'
+import { InvalidSprtConfigError } from '../src/sprt/errors'
 import { mulberry32 } from './helpers/prng'
 import { ArmState, BanditConfig, Pull } from '@harness-engineering/types'
 import { appendFileSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs'

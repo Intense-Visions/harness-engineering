@@ -1,11 +1,11 @@
 ---
 schemaVersion: 1
 module: 'packages/stats/src/sprt'
-sourceHash: '293288d9de103ec78f0e6061f357e630791437abf22230ee3dd0c51f7d64130b'
+sourceHash: 'dbc1bca578e62c0030af3c6de962a6d6843dc6eb9e573247e13fa4d0a5f26245'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
-members: ['index.ts']
+members: ['errors.ts', 'index.ts']
 ---
 
 ## Interface Contract
