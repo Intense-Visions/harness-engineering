@@ -4442,6 +4442,10 @@ Run the built-in security scanner on a project or specific files. Detects secret
     "strict": {
       "description": "Override strict mode — promotes all warnings to errors",
       "type": "boolean"
+    },
+    "supplyChainJson": {
+      "description": "Optional path (relative to the project root) to an externally-measured dependency audit JSON of { critical, high, moderate, low, info, total, packagesScanned? }, recorded in the security timeline instead of all-zero supply-chain counts. Invalid input is an error.",
+      "type": "string"
     }
   },
   "required": [

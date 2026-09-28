@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/tests/commands'
-sourceHash: '68dcf653eebe00d2e62e09ac1c1272377de4630190ab28e154686813021fef0c'
+sourceHash: '4e46645a6145c792e5ed213f04685aa31cc3cf04a975cd0e09300a0c4606423c'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -38,6 +38,7 @@ members:
     'check-perf.test.ts',
     'check-phase-gate.test.ts',
     'check-security-cov544.test.ts',
+    'check-security-supply-chain.test.ts',
     'check-security.test.ts',
     'check-vocabulary-cov544b.test.ts',
     'check-vocabulary.test.ts',

@@ -21,6 +21,14 @@ export const SupplyChainSnapshotSchema = z.object({
   low: z.number(),
   info: z.number(),
   total: z.number(),
+  /**
+   * How many packages the supplying audit covered. Present only when the counts
+   * came from an external measurement (`check-security --supply-chain-json`); it
+   * is the denominator that tells "0 advisories across 581 packages" apart from
+   * the all-zero default that means nothing was audited. Optional so existing
+   * timelines still validate.
+   */
+  packagesScanned: z.number().int().nonnegative().optional(),
 });
 
 export type SupplyChainSnapshot = z.infer<typeof SupplyChainSnapshotSchema>;

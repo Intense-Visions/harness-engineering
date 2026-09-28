@@ -1,14 +1,16 @@
 import { Command } from 'commander';
 import * as path from 'path';
 import { execSync } from 'child_process';
-import type { Result } from '@harness-engineering/core';
+import type { Result, SupplyChainSnapshot } from '@harness-engineering/core';
 import {
   Ok,
+  Err,
   SECURITY_SCAN_DEFAULT_IGNORE,
   SECURITY_SCAN_GLOB,
   SecurityScanner,
   SecurityTimelineManager,
   parseSecurityConfig,
+  readSupplyChainMeasurement,
 } from '@harness-engineering/core';
 import type { SecurityFinding, SecuritySeverity } from '@harness-engineering/core';
 import { formatFindingsContract } from '@harness-engineering/types';
@@ -26,6 +28,12 @@ interface CheckSecurityOptions {
   severity?: SecuritySeverity;
   changedOnly?: boolean;
   failOnEmpty?: boolean;
+  /**
+   * Path (resolved against `cwd`) to an externally-measured supply-chain audit.
+   * When given, its counts are recorded in the security timeline instead of the
+   * all-zero default. Invalid input fails the command — it never degrades to zeros.
+   */
+  supplyChainJson?: string;
 }
 
 interface CheckSecurityResult {
@@ -37,6 +45,11 @@ interface CheckSecurityResult {
    * `valid: true, findings: []` alone cannot express.
    */
   scannedNothing: boolean;
+  /**
+   * The supply-chain measurement recorded in the timeline, when one was supplied.
+   * Absent means no measurement was given — not that the dependency tree is clean.
+   */
+  supplyChain?: SupplyChainSnapshot;
   stats: {
     filesScanned: number;
     rulesApplied: number;
@@ -67,6 +80,17 @@ export async function runCheckSecurity(
   options: CheckSecurityOptions
 ): Promise<Result<CheckSecurityResult, Error>> {
   const projectRoot = path.resolve(cwd);
+
+  // Validate the supplied measurement before scanning, so malformed input fails
+  // fast and loudly instead of being swallowed by the best-effort capture below.
+  let supplyChain: SupplyChainSnapshot | undefined;
+  if (options.supplyChainJson !== undefined) {
+    const measurement = readSupplyChainMeasurement(
+      path.resolve(projectRoot, options.supplyChainJson)
+    );
+    if (!measurement.ok) return measurement;
+    supplyChain = measurement.value;
+  }
 
   let configData: Record<string, unknown> = {};
   try {
@@ -100,17 +124,26 @@ export async function runCheckSecurity(
 
   const result = await scanner.scanFiles(filesToScan);
 
-  // Best-effort timeline capture — never break the scan flow
+  // Timeline capture is best-effort for the scan alone. A supplied supply-chain
+  // measurement is different: the caller asked for it to be recorded, so failing
+  // to record it is an error rather than a silent no-op.
   try {
     const commitHash = execSync('git rev-parse HEAD', {
       cwd: projectRoot,
       encoding: 'utf-8',
     }).trim();
     const timelineManager = new SecurityTimelineManager(projectRoot);
-    timelineManager.capture(result, commitHash);
+    timelineManager.capture(result, commitHash, supplyChain);
     timelineManager.updateLifecycles(result.findings, commitHash);
-  } catch {
-    // Timeline capture is best-effort
+  } catch (error) {
+    if (supplyChain !== undefined) {
+      const reason = error instanceof Error ? error.message : String(error);
+      return Err(
+        new Error(`Supply-chain measurement was not recorded in the security timeline: ${reason}`, {
+          cause: error,
+        })
+      );
+    }
   }
 
   const threshold = options.severity ?? 'warning';
@@ -136,6 +169,7 @@ export async function runCheckSecurity(
     valid: filtered.length === 0 && !(scannedNothing && options.failOnEmpty === true),
     findings: filtered,
     scannedNothing,
+    ...(supplyChain !== undefined && { supplyChain }),
     stats: {
       filesScanned: result.scannedFiles,
       rulesApplied: result.rulesApplied,
@@ -152,6 +186,7 @@ async function runCheckSecurityAction(
     changedOnly?: boolean;
     findingsJson?: boolean;
     failOnEmpty?: boolean;
+    supplyChainJson?: string;
   },
   globalOpts: { json?: boolean; quiet?: boolean; verbose?: boolean }
 ): Promise<void> {
@@ -169,6 +204,7 @@ async function runCheckSecurityAction(
     severity: opts.severity,
     ...(opts.changedOnly !== undefined && { changedOnly: opts.changedOnly }),
     ...(opts.failOnEmpty !== undefined && { failOnEmpty: opts.failOnEmpty }),
+    ...(opts.supplyChainJson !== undefined && { supplyChainJson: opts.supplyChainJson }),
   });
 
   if (!result.ok) {
@@ -205,6 +241,9 @@ async function runCheckSecurityAction(
           valid: result.value.valid,
           issues,
           scannedNothing: result.value.scannedNothing,
+          ...(result.value.supplyChain !== undefined && {
+            supplyChain: result.value.supplyChain,
+          }),
           stats: result.value.stats,
         },
         null,
@@ -225,6 +264,17 @@ async function runCheckSecurityAction(
       console.log(
         `  ${result.value.stats.filesScanned} file(s) scanned, ${result.value.stats.rulesApplied} rule(s) applied`
       );
+      const supply = result.value.supplyChain;
+      if (supply !== undefined) {
+        const covered =
+          supply.packagesScanned !== undefined
+            ? ` across ${supply.packagesScanned} package(s)`
+            : '';
+        console.log(
+          `  supply chain recorded${covered}: critical ${supply.critical}, high ${supply.high}, ` +
+            `moderate ${supply.moderate}, low ${supply.low}, info ${supply.info}`
+        );
+      }
     }
   }
 
@@ -255,6 +305,10 @@ export function createCheckSecurityCommand(): Command {
     .option(
       '--fail-on-empty',
       'Fail when the scan matched 0 files. A scan that read nothing abstained rather than passed; recommended for CI gates'
+    )
+    .option(
+      '--supply-chain-json <file>',
+      'Record an externally-measured dependency audit in the security timeline: a JSON file of { critical, high, moderate, low, info, total, packagesScanned? }. Invalid input fails the command'
     )
     .option(
       '--findings-json',

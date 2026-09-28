@@ -1248,6 +1248,7 @@ Run the built-in security scanner on a project or specific files. Detects secret
 - `path` (string, required) — Path to project root
 - `files` (array, optional) — Optional list of specific files to scan. If omitted, scans all source files.
 - `strict` (boolean, optional) — Override strict mode — promotes all warnings to errors
+- `supplyChainJson` (string, optional) — Optional path (relative to the project root) to an externally-measured dependency audit JSON of { critical, high, moderate, low, info, total, packagesScanned? }, recorded in the security timeline instead of all-zero supply-chain counts. Invalid input is an error.
 
 **CLI equivalent:** [`harness check-security`](cli-commands.md#harness-check-security)
 

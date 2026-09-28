@@ -1,0 +1,6 @@
+---
+'@harness-engineering/core': minor
+'@harness-engineering/cli': minor
+---
+
+`harness check-security --supply-chain-json <file>` (and `run_security_scan`'s `supplyChainJson` input) records an externally-measured dependency audit in the security timeline. Until now every capture passed no supply-chain data, so each snapshot stored all-zero `supplyChain` counts and a `securityScore` that read as if the dependency tree had been audited clean. The file is `{ critical, high, moderate, low, info, total, packagesScanned? }`, validated strictly by the new `SupplyChainMeasurementSchema` / `readSupplyChainMeasurement` in core: unknown keys, non-integer or negative counts, a `total` that disagrees with its severities, and `packagesScanned: 0` (an abstention, not a measurement) are all rejected, and an unreadable or malformed file fails the command with exit code 2 rather than falling back to zeros. A supplied measurement that cannot be recorded (for example, no git `HEAD`) is also an error instead of being dropped by the best-effort capture. `SupplyChainSnapshotSchema` gains an optional `packagesScanned` so the denominator survives the timeline's load/save round trip. Without the option, behaviour is unchanged.

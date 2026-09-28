@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/tests/mcp/tools'
-sourceHash: '512ba7cbfd95c6c8593eb2e74193e049a0fad9c53205c1033a2956ebe292cd5a'
+sourceHash: '3264691e28ea71440aaaea702e9f9ede7263e9db3116b0480003e1bb5fab9493'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -83,6 +83,7 @@ members:
     'roadmap.test.ts',
     'search-skills.test.ts',
     'security-craft.test.ts',
+    'security-supply-chain.test.ts',
     'skill-progressive-loading.test.ts',
     'skill-proposal.test.ts',
     'skill-telemetry.test.ts',
@@ -171,7 +172,7 @@ import { handleManageRoadmap, manageRoadmapDefinition } from '../../../src/mcp/t
 import * as autoSync, { autoSyncRoadmap, triggerScopedExternalSync } from '../../../src/mcp/tools/roadmap-auto-sync'
 import { handleManageRoadmapFileLess } from '../../../src/mcp/tools/roadmap-file-less'
 import { handleSearchSkills, searchSkillsDefinition } from '../../../src/mcp/tools/search-skills.js'
-import { handleRunSecurityScan } from '../../../src/mcp/tools/security'
+import { handleRunSecurityScan, runSecurityScanDefinition } from '../../../src/mcp/tools/security'
 import { handleSecurityCraft, handleSecurityCraftFinalize, securityCraftDefinition, securityCraftFinalizeDefinition } from '../../../src/mcp/tools/security-craft'
 import { createSkillDefinition, handleCreateSkill, handleRunSkill, runSkillDefinition } from '../../../src/mcp/tools/skill'
 import { emitSkillProposalDefinition, handleEmitSkillProposal } from '../../../src/mcp/tools/skill-proposal'
@@ -205,7 +206,7 @@ import { execFileSync } from 'child_process'
 import * as fs from 'fs'
 import * as fs from 'fs/promises'
 import { execFileSync, execSync } from 'node:child_process'
-import * as fs, { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import * as fs, { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import * as fsp from 'node:fs/promises'
 import * as os, { tmpdir } from 'node:os'
 import * as path, { join } from 'node:path'

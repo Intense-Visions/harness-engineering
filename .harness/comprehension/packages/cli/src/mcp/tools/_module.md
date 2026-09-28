@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/mcp/tools'
-sourceHash: 'cd97369567ca105d9ea4c1bea88ae168acefcf6147d645f77f2c19b4464337d3'
+sourceHash: 'bcbe6102e8e9738f7d321e12414ce5c2bc7b976610073f119f7823f45bfb53e9'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -563,7 +563,7 @@ import { handleSummarizeSession, summarizeSessionDefinition } from './summarize-
 import { handleUatSignoff, uatSignoffDefinition } from './uat-signoff.js'
 import from './validate.js'
 import { handleSubscribeWebhook, subscribeWebhookDefinition } from './webhook-tools'
-import { CHARS_PER_TOKEN, COMPREHENSION_ROOT, CompactionPipeline, ComprehensionSourceFile, ComprehensionStore, ComprehensionUnit, ConflictError, DEFAULT_INSTRUCTION_BUDGET, DriftConfig, Err, ExtractStatic, FeaturePatch, GenerateSemantic, LevelInstructionDensity, NewFeatureInput, Ok, PackedEnvelope, PatternConfig, RefinementContextClass, RefinementDemandReport, RefinementOperation, RefinementRequest, Result, RoadmapPromoteCoreResult, RoadmapTrackerClient, SourceFile, StaticExtraction, StructuralStrategy, TrackedFeature, TrackerSyncAdapter, TruncationStrategy, aggregateDemand, analyzeSkillInstructionDensity, applyRoadmapDiff, archiveDoneShardsForProject, classifyRefinement, computeLoadPlan, computeSourceHash, createHttpComprehensionReadIO, createNodeComprehensionIO, createNodeModuleSourceReader, createTrackerClient, decidePromotionForRow, detectRoadmapStorageMode, estimateTokens, extractLevel, loadProjectRoadmapMode, loadTrackerClientConfigFromProject, loadTrackerSyncConfig, paginate, renderServedUnit, resolveRoadmapStore, roadmapSourceExists, serializeEnvelope, serveGate, slugifyFeatureName } from '@harness-engineering/core'
+import { CHARS_PER_TOKEN, COMPREHENSION_ROOT, CompactionPipeline, ComprehensionSourceFile, ComprehensionStore, ComprehensionUnit, ConflictError, DEFAULT_INSTRUCTION_BUDGET, DriftConfig, Err, ExtractStatic, FeaturePatch, GenerateSemantic, LevelInstructionDensity, NewFeatureInput, Ok, PackedEnvelope, PatternConfig, RefinementContextClass, RefinementDemandReport, RefinementOperation, RefinementRequest, Result, RoadmapPromoteCoreResult, RoadmapTrackerClient, SourceFile, StaticExtraction, StructuralStrategy, SupplyChainSnapshot, TrackedFeature, TrackerSyncAdapter, TruncationStrategy, aggregateDemand, analyzeSkillInstructionDensity, applyRoadmapDiff, archiveDoneShardsForProject, classifyRefinement, computeLoadPlan, computeSourceHash, createHttpComprehensionReadIO, createNodeComprehensionIO, createNodeModuleSourceReader, createTrackerClient, decidePromotionForRow, detectRoadmapStorageMode, estimateTokens, extractLevel, loadProjectRoadmapMode, loadTrackerClientConfigFromProject, loadTrackerSyncConfig, paginate, renderServedUnit, resolveRoadmapStore, roadmapSourceExists, serializeEnvelope, serveGate, slugifyFeatureName } from '@harness-engineering/core'
 import { skipDirGlobs } from '@harness-engineering/graph'
 import { AnalysisProvider, CanaryAdapter, CanaryFrameworkInfo, GuardianAnalysis, createCanaryAdapter, readGuardianAnalyses, resolveTestCommand } from '@harness-engineering/intelligence'
 import from '@harness-engineering/linter-gen'

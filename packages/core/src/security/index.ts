@@ -157,3 +157,13 @@ export type {
 } from './security-timeline-types';
 
 export { SecurityTimelineManager } from './security-timeline-manager';
+
+/**
+ * Externally-measured supply-chain input for the security timeline.
+ */
+export {
+  SupplyChainMeasurementSchema,
+  parseSupplyChainMeasurement,
+  readSupplyChainMeasurement,
+} from './supply-chain-input';
+export type { SupplyChainMeasurement } from './supply-chain-input';
