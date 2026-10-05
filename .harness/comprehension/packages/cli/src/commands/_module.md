@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/commands'
-sourceHash: '5b1e029746c29bf66fffa2e13499ef0969ddba1a495a95967d72271ea92ff173'
+sourceHash: '81afa868315aaede1df8e43a12ec9a3d558bddd42d97560a4a5b84049fd92195'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -429,6 +429,7 @@ import { RefreshJobGateReason, explainInactiveRefreshGate, resolveRefreshJobGate
 import { RefReadDeps, RegressionContext, SemanticState, defaultRefReadDeps, detectCommittedSemanticOnBranch, detectSemanticRegressions, readSemanticMapAtRef } from '../comprehension/regression'
 import { createStaticExtractor } from '../comprehension/static-extractor'
 import { loadAnalysisExclude, loadDesignExclude } from '../config/analysis-schema.js'
+import { withDependencyRules } from '../config/arch-dependency-rules'
 import { findConfigFile, loadConfig, resolveConfig } from '../config/loader'
 import { BranchingConfigSchema, ComprehensionConfig, HarnessConfig, VocabularyConfigSchema, loadDepsExclude } from '../config/schema'
 import { CopyCraftInput, CopyCraftOutput, CopySurface, runCopyCraft } from '../copy-craft/index.js'

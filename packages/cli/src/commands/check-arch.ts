@@ -1,5 +1,6 @@
 import { Command } from 'commander';
 import { loadAnalysisExclude } from '../config/analysis-schema.js';
+import { withDependencyRules } from '../config/arch-dependency-rules';
 import type { Result } from '@harness-engineering/core';
 import {
   Ok,
@@ -317,10 +318,16 @@ export async function runCheckArch(
   // not depend on it. Keeps `check-arch` consistent with every other analysis
   // scanner (entropy, ingest, security, doc-coverage), which already honor it.
   const baseArchConfig: ArchConfig = config.architecture ?? ArchConfigSchema.parse({});
-  const archConfig: ArchConfig = {
-    ...baseArchConfig,
-    excludePatterns: [...baseArchConfig.excludePatterns, ...loadAnalysisExclude(cwd)],
-  };
+  // The top-level `layers` / `forbiddenImports` rules are injected too, or the
+  // layer-violation and forbidden-import collectors measure nothing (#2235).
+  const archConfig: ArchConfig = withDependencyRules(
+    {
+      ...baseArchConfig,
+      excludePatterns: [...baseArchConfig.excludePatterns, ...loadAnalysisExclude(cwd)],
+    },
+    config,
+    cwd
+  );
 
   if (!archConfig.enabled) {
     return Ok({

@@ -161,7 +161,8 @@
         "max": 7
       }
     },
-    "modules": {}
+    "modules": {},
+    "excludePatterns": ["**/tests/fixtures/**", "templates/rehearsal-fixtures/**"]
   },
   "agentsMapPath": "./AGENTS.md",
   "docsDir": "./docs",
