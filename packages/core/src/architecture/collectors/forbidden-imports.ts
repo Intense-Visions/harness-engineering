@@ -1,27 +1,84 @@
-import type { Collector, ArchConfig, MetricResult, Violation, ConstraintRule } from '../types';
+import { dirname, resolve } from 'path';
+import { minimatch } from 'minimatch';
+import type {
+  Collector,
+  ArchConfig,
+  ArchForbiddenImportRule,
+  MetricResult,
+  Violation,
+  ConstraintRule,
+} from '../types';
 import { violationId, constraintRuleId } from './hash';
-import { validateDependencies } from '../../constraints/dependencies';
-import type { DependencyViolation } from '../../constraints/types';
-import { relativePosix } from '../../shared/fs-utils';
+import { findFiles, relativePosix } from '../../shared/fs-utils';
 import { getDefaultRegistry } from '../../shared/parsers/registry';
+import type { Import } from '../../shared/parsers';
+import { resolveExcludePatterns } from '../exclude';
 
-function mapForbiddenImportViolations(
-  forbidden: DependencyViolation[],
+/** Languages whose import specifiers this collector can resolve and match. */
+const JS_TS_LANGUAGES = new Set(['typescript', 'javascript']);
+
+/**
+ * The import's match target: a relative specifier resolved to a
+ * rootDir-relative POSIX path, anything else (a package or a `node:` builtin)
+ * as written. Mirrors `resolveImportPath` in the ESLint `no-forbidden-imports`
+ * rule so the collector and the lint rule agree on what a rule matches.
+ */
+function importTarget(specifier: string, fromFile: string, rootDir: string): string {
+  if (!specifier.startsWith('.')) return specifier;
+  return relativePosix(rootDir, resolve(dirname(fromFile), specifier));
+}
+
+function isDisallowed(specifier: string, target: string, disallow: readonly string[]): boolean {
+  return disallow.some(
+    (pattern) =>
+      specifier === pattern || minimatch(target, pattern) || minimatch(specifier, pattern)
+  );
+}
+
+async function readImports(file: string): Promise<Import[] | null> {
+  const parser = getDefaultRegistry().getForFile(file);
+  if (!parser || !JS_TS_LANGUAGES.has(parser.name)) return null;
+  const ast = await parser.parseFile(file);
+  if (!ast.ok) return null;
+  const imports = parser.extractImports(ast.value);
+  return imports.ok ? imports.value : null;
+}
+
+interface ScanState {
+  violations: Violation[];
+  seen: Set<string>;
+  analyzed: Set<string>;
+}
+
+async function scanRule(
+  rule: ArchForbiddenImportRule,
   rootDir: string,
-  category: Violation['category']
-): Violation[] {
-  return forbidden.map((v) => {
-    const relFile = relativePosix(rootDir, v.file);
-    const relImport = relativePosix(rootDir, v.imports);
-    const detail = `forbidden import: ${relFile} -> ${relImport}`;
-    return {
-      id: violationId(relFile, category ?? '', detail),
-      file: relFile,
-      category,
-      detail,
-      severity: 'error' as const,
-    };
-  });
+  exclude: readonly string[],
+  category: Violation['category'],
+  state: ScanState
+): Promise<void> {
+  for (const file of await findFiles(rule.from, rootDir, exclude)) {
+    const imports = await readImports(file);
+    if (!imports) continue;
+    state.analyzed.add(file);
+    const relFile = relativePosix(rootDir, file);
+    for (const imp of imports) {
+      const target = importTarget(imp.source, file, rootDir);
+      // One finding per import even when several rules disallow it — the
+      // ESLint rule likewise reports the first matching rule only.
+      const key = `${relFile}:${imp.location.line}:${imp.source}`;
+      if (state.seen.has(key) || !isDisallowed(imp.source, target, rule.disallow)) continue;
+      state.seen.add(key);
+      const detail = `forbidden import: ${relFile} -> ${target}`;
+      state.violations.push({
+        id: violationId(relFile, category ?? '', detail),
+        file: relFile,
+        category,
+        detail,
+        severity: 'error',
+      });
+    }
+  }
 }
 
 export class ForbiddenImportCollector implements Collector {
@@ -39,36 +96,30 @@ export class ForbiddenImportCollector implements Collector {
     ];
   }
 
-  async collect(_config: ArchConfig, rootDir: string): Promise<MetricResult[]> {
-    const registry = getDefaultRegistry();
-    // Use TypeScript parser as the default single parser for health check,
-    // but the registry enables multi-language file resolution
-    const parser = registry.getByLanguage('typescript') ?? registry.getByLanguage('javascript');
-    const result = await validateDependencies({
-      layers: [],
-      rootDir,
-      parser: parser as import('../../shared/parsers').LanguageParser,
-      fallbackBehavior: 'skip',
-    });
-
-    if (!result.ok) {
-      return [
-        {
-          category: this.category,
-          scope: 'project',
-          value: 0,
-          violations: [],
-          metadata: { error: 'Failed to validate dependencies' },
-        },
-      ];
+  /**
+   * Match every import in the files each `forbiddenImports` rule covers against
+   * that rule's `disallow` globs. Before issue #2235 this collector filtered
+   * `validateDependencies` output for `FORBIDDEN_IMPORT`, a reason that engine
+   * never emits, over `layers: []` — so it could not fire. It now applies the
+   * configured rules itself, package and builtin specifiers included.
+   */
+  async collect(config: ArchConfig, rootDir: string): Promise<MetricResult[]> {
+    const rules = config.forbiddenImports ?? [];
+    const exclude = resolveExcludePatterns(config);
+    const state: ScanState = { violations: [], seen: new Set(), analyzed: new Set() };
+    for (const rule of rules) {
+      await scanRule(rule, rootDir, exclude, this.category, state);
     }
 
-    const violations = mapForbiddenImportViolations(
-      result.value.violations.filter((v: DependencyViolation) => v.reason === 'FORBIDDEN_IMPORT'),
-      rootDir,
-      this.category
-    );
-
-    return [{ category: this.category, scope: 'project', value: violations.length, violations }];
+    return [
+      {
+        category: this.category,
+        scope: 'project',
+        value: state.violations.length,
+        violations: state.violations,
+        // Denominator: no rules, or rules that matched no file, is an abstention.
+        metadata: { rulesConfigured: rules.length, filesAnalyzed: state.analyzed.size },
+      },
+    ];
   }
 }

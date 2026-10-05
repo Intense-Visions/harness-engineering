@@ -4,18 +4,17 @@ import { buildDependencyGraph } from '../../constraints/dependencies';
 import { detectCircularDeps } from '../../constraints/circular-deps';
 import { findFiles, relativePosix } from '../../shared/fs-utils';
 import { resolveExcludePatterns } from '../exclude';
+import { getDefaultRegistry } from '../../shared/parsers/registry';
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- stub parser; real wiring via graph pipeline
-function makeStubParser(): any {
-  return {
-    name: 'typescript',
-    extensions: ['.ts', '.tsx'],
-    parseFile: async () => ({ ok: false, error: { code: 'PARSE_ERROR', message: 'not needed' } }),
-    extractImports: () => ({ ok: false, error: { code: 'EXTRACT_ERROR', message: 'not needed' } }),
-    extractExports: () => ({ ok: false, error: { code: 'EXTRACT_ERROR', message: 'not needed' } }),
-    health: async () => ({ ok: true, value: { available: true } }),
-  };
-}
+/**
+ * Every JS/TS extension the default parser registry parses. Globbing only
+ * `**\/*.ts` (the pre-#2235 behavior) left `.tsx`, `.mts`, `.cts`, `.js`,
+ * `.jsx`, `.mjs` and `.cjs` out of the graph entirely, so a cycle through any of
+ * them could never be seen. The import resolver in `buildDependencyGraph` only
+ * follows relative JS/TS specifiers, so other registry languages are left out
+ * rather than counted as nodes that can never carry an edge.
+ */
+const JS_TS_GLOB = '**/*.{ts,tsx,mts,cts,js,jsx,mjs,cjs}';
 
 function mapCycleViolations(
   cycles: Array<{ cycle: string[]; severity: 'error' | 'warning' }>,
@@ -50,8 +49,10 @@ export class CircularDepsCollector implements Collector {
   }
 
   async collect(config: ArchConfig, rootDir: string): Promise<MetricResult[]> {
-    const files = await findFiles('**/*.ts', rootDir, resolveExcludePatterns(config));
-    const graphResult = await buildDependencyGraph(files, makeStubParser());
+    const files = await findFiles(JS_TS_GLOB, rootDir, resolveExcludePatterns(config));
+    // The real registry, not a stub: a parser that never parses yields a graph
+    // with nodes and zero edges, where no cycle can exist (issue #2235).
+    const graphResult = await buildDependencyGraph(files, getDefaultRegistry());
 
     if (!graphResult.ok) {
       return [
@@ -86,7 +87,14 @@ export class CircularDepsCollector implements Collector {
         scope: 'project',
         value: cycles.length,
         violations,
-        metadata: { largestCycle, cycleCount: cycles.length },
+        // filesAnalyzed / edgeCount are the denominator: a 0 over a graph with
+        // no edges means "measured nothing", not "no cycles".
+        metadata: {
+          largestCycle,
+          cycleCount: cycles.length,
+          filesAnalyzed: graphResult.value.nodes.length,
+          edgeCount: graphResult.value.edges.length,
+        },
       },
     ];
   }

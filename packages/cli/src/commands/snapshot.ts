@@ -8,6 +8,7 @@ import type {
   TrendLine,
 } from '@harness-engineering/core';
 import { resolveConfig } from '../config/loader';
+import { withDependencyRules } from '../config/arch-dependency-rules';
 import { OutputMode } from '../output/formatter';
 import type { OutputModeType } from '../output/formatter';
 import { logger } from '../output/logger';
@@ -26,14 +27,17 @@ function getCommitHash(cwd: string): string {
 }
 
 function resolveArchConfig(
-  configPath?: string
+  configPath: string | undefined,
+  cwd: string
 ): { archConfig: ArchConfig; error?: never } | { archConfig?: never; error: CLIError } {
   const configResult = resolveConfig(configPath);
   if (!configResult.ok) {
     return { error: configResult.error };
   }
-  const archConfig: ArchConfig = configResult.value.architecture ?? ArchConfigSchema.parse({});
-  return { archConfig };
+  const config = configResult.value;
+  const base: ArchConfig = config.architecture ?? ArchConfigSchema.parse({});
+  // Same dependency rules check-arch measures against (#2235).
+  return { archConfig: withDependencyRules(base, config, cwd) };
 }
 
 function formatDelta(delta: number): string {
@@ -79,7 +83,7 @@ export async function runSnapshotCapture(options: {
   configPath?: string;
 }): Promise<SnapshotCaptureResult> {
   const cwd = options.cwd ?? process.cwd();
-  const resolved = resolveArchConfig(options.configPath);
+  const resolved = resolveArchConfig(options.configPath, cwd);
   if (resolved.error) {
     throw resolved.error;
   }

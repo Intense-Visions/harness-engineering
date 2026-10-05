@@ -1,13 +1,14 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/config'
-sourceHash: '72cc3184b6e0ccf44213475e666bbc3eecd69ae704efe8aefe9407ea90e1ba8d'
+sourceHash: '25f6032d60b33988e3161e5388873a42ccaef5de484f9ae9ad4518cb5f131b06'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
 members:
   [
     'analysis-schema.ts',
+    'arch-dependency-rules.ts',
     'ingest-schema.ts',
     'loader.ts',
     'schema.amr.test.ts',
@@ -83,6 +84,7 @@ export loadDepsExclude
 export loadDesignExclude
 export loadDesignTokenPath
 export resolveConfig
+export withDependencyRules
 ```
 
 ## Dependency Slice
@@ -94,7 +96,7 @@ import { IngestConfigSchema } from './ingest-schema.js'
 import { loadConfig } from './loader'
 import { AgentConfigSchema, HarnessConfig, HarnessConfigSchema } from './schema'
 import { collectStrippedKeys, formatStrippedKeyWarnings } from './stripped-keys'
-import { ArchConfigSchema, Err, GoldenConfigSchema, Ok, PatternConfigSchema, Result } from '@harness-engineering/core'
+import { ArchConfig, ArchConfigSchema, Err, GoldenConfigSchema, Ok, PatternConfigSchema, Result } from '@harness-engineering/core'
 import { skipDirGlobs } from '@harness-engineering/graph'
 import { BackendDefSchema, RoutingConfigSchema } from '@harness-engineering/orchestrator'
 import * as fs from 'fs'
