@@ -11,8 +11,11 @@
  */
 
 import * as fs from 'node:fs';
-import * as path from 'node:path';
 import { sanitizePath } from '../mcp/utils/sanitize-path.js';
+import {
+  collectDesignScanFiles,
+  resolveDesignExcludePatterns,
+} from '../shared/design-scan-targets.js';
 import type { Verifier } from '../shared/verifier.js';
 import type { BrandFinding, BrandSeverity, BrandStrictness } from './findings/finding.js';
 import { loadBrandRules, type BrandRules } from './resolvers/design-md-brand.js';
@@ -38,8 +41,6 @@ export type AuditBrandOutput = Verifier<
   { rulesApplied: string[] },
   { mode: AuditBrandMode; designMdLoaded: boolean; brandTokensLoaded: boolean }
 >;
-
-const DEFAULT_GLOB_EXTENSIONS = ['.ts', '.tsx', '.js', '.jsx', '.css', '.scss'];
 
 interface ResolvedOptions {
   mode: AuditBrandMode;
@@ -72,7 +73,14 @@ export async function runAuditBrand(input: AuditBrandInput): Promise<AuditBrandO
   if (tokenActive) rulesApplied.push('token-misuse');
   if (voiceActive) rulesApplied.push('forbidden-phrases');
 
-  const filesToScan = collectFiles(projectRoot, input.files);
+  // design.exclude ∪ analysis.exclude, resolved the same way detect-design-drift
+  // and audit-component-anatomy resolve them, so one check-design run scans one
+  // file set rather than three that drifted apart (#2070).
+  const filesToScan = collectDesignScanFiles(
+    projectRoot,
+    input.files,
+    resolveDesignExcludePatterns(projectRoot)
+  );
 
   const findings = scanFiles(filesToScan, {
     tokenActive,
@@ -160,42 +168,6 @@ function tallyFindings(findings: readonly BrandFinding[]): {
     byCode[f.code] = (byCode[f.code] ?? 0) + 1;
   }
   return { bySeverity, byCode };
-}
-
-function collectFiles(projectRoot: string, explicitFiles: readonly string[] | undefined): string[] {
-  if (explicitFiles !== undefined && explicitFiles.length > 0) {
-    return explicitFiles.map((f) => (path.isAbsolute(f) ? f : path.join(projectRoot, f)));
-  }
-  const out: string[] = [];
-  walk(projectRoot, out, 0);
-  return out;
-}
-
-function walk(dir: string, out: string[], depth: number): void {
-  if (depth > 8) return;
-  let entries: fs.Dirent[];
-  try {
-    entries = fs.readdirSync(dir, { withFileTypes: true });
-  } catch {
-    return;
-  }
-  for (const entry of entries) {
-    if (
-      entry.name.startsWith('.') ||
-      entry.name === 'node_modules' ||
-      entry.name === 'dist' ||
-      entry.name === 'build' ||
-      entry.name === 'coverage'
-    ) {
-      continue;
-    }
-    const full = path.join(dir, entry.name);
-    if (entry.isDirectory()) {
-      walk(full, out, depth + 1);
-    } else if (entry.isFile() && DEFAULT_GLOB_EXTENSIONS.some((ext) => entry.name.endsWith(ext))) {
-      out.push(full);
-    }
-  }
 }
 
 export type {

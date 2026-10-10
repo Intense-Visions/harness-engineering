@@ -531,10 +531,12 @@ export async function runValidate(
         | 'strict'
         | 'standard'
         | 'permissive';
-      // NOTE: component-anatomy is intentionally NOT scoped. It is called with no
-      // `files` list in both modes (a no-op in validate today), so passing the
-      // changed surface here would activate it in affected mode only and report
-      // findings a full sweep does not — breaking scoped ⊆ full parity.
+      // NOTE: component-anatomy is intentionally NOT scoped. Omitting `files`
+      // now means "every project source file" rather than "no files at all"
+      // (#2070), so both modes run the same full sweep and scoped ⊆ full parity
+      // holds trivially. Passing the changed surface here would instead report
+      // findings scoped to it that a full sweep orders differently, so the
+      // unscoped call stays.
       const auditOutput = await runComponentAnatomyAudit({
         path: cwd,
         mode: 'fast',

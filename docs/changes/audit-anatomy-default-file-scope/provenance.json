@@ -1,0 +1,46 @@
+{
+  "issue": 2070,
+  "issues": [2070],
+  "slug": "audit-anatomy-default-file-scope",
+  "title": "audit_anatomy audits zero files by default and reports clean",
+  "item": "#2070",
+  "fleet": "roadmap-fleet",
+  "route": "bug",
+  "branch": "fix/audit-anatomy-default-files",
+  "baseSha": "b62f51d71863bbb5f45a5b666cd23d16925924f7",
+  "stages": ["debugging"],
+  "closing_keyword": "Closes #2070",
+  "closingKeyword": "Closes #2070",
+  "reproducing_test": "packages/cli/tests/audit/component-anatomy/integration/default-file-scope.test.ts",
+  "reproducingTest": "packages/cli/tests/audit/component-anatomy/integration/default-file-scope.test.ts",
+  "supporting_test": "packages/cli/tests/shared/design-scan-targets.test.ts",
+  "debug_session": "docs/changes/audit-anatomy-default-file-scope/debugging.md",
+  "sourceFiles": [
+    "packages/cli/src/shared/design-scan-targets.ts",
+    "packages/cli/src/mcp/tools/audit-anatomy.ts",
+    "packages/cli/src/drift/index.ts",
+    "packages/cli/src/brand/index.ts",
+    "packages/cli/src/commands/validate.ts"
+  ],
+  "evidence": {
+    "before": "runAudit({ path: <repo>, mode: 'full' }) -> totalFiles=0, findings=0",
+    "after": "runAudit({ path: <repo>, mode: 'full' }) -> totalFiles=4121, findings=3083 (error 2, warn 3081)",
+    "control": "runAudit({ ..., files: [192 literal .tsx paths] }) -> totalFiles=192, findings=88 (unchanged by this fix)",
+    "cli_before": "harness check-design --mode full -> 'audit-anatomy (0 findings)', exit 0",
+    "cli_after": "harness check-design --mode full -> 'audit-anatomy (3083 findings)', exit 1",
+    "revert_test": "3 of 5 regression assertions fail with the fix reverted, 5 of 5 pass with it restored"
+  },
+  "assumptions": [
+    "Fork D resolved to D1 by the human before dispatch: reuse the shared scan-target resolution the sibling check-design verifiers use, so all verifiers in one run agree on their file set. SECURITY_SCAN_GLOB was explicitly ruled out as the wrong boundary for component anatomy.",
+    "The correct sibling is detect-drift's collectFiles (packages/cli/src/drift/index.ts): explicit `files` wins and bypasses excludes, otherwise walk the project root honouring design.exclude union analysis.exclude.",
+    "Took the extraction rather than a local fix, per the packages/core/src/security/scan-targets.ts precedent \u2014 that file exists because three copy-pasted glob literals had already drifted. The extraction wires audit-anatomy, detect-drift and audit-brand to one collectDesignScanFiles.",
+    "audit-brand-compliance now honours design.exclude / analysis.exclude, which it previously ignored. This only ever narrows its file set and is the behaviour design.exclude is documented to have; it is the price of 'all verifiers agree on their file set'. naming-craft keeps its own code-only extension list and was deliberately left alone: it is not one of the four check-design verifiers.",
+    "An empty `files: []` is now the absence of scoping (walk the project), not a request to audit nothing \u2014 the semantic detect-drift and audit-brand already used.",
+    "A resolved scope of zero files throws. check-design records the throw under verifiersFailed and exits 2 (degraded) rather than printing a clean audit; this matches the repo's no-silent-abstention doctrine (output/formatter.ts, mcp/tools/validate.ts, commands/roadmap/sync-verdict.ts).",
+    "tests/design-pipeline/integration/end-to-end.test.ts ran its 'default run' assertion against a completely empty temp directory and now gets the abstention. The fixture was given one source file; the test's intent (all four verifiers register and run) is unchanged.",
+    "NOT FIXED, reported as follow-ups: (1) the ANAT-P* pattern catalog fires heavily on non-UI .ts files (test files, server handlers) now that the default scope includes them \u2014 the great majority of the 3,081 new warn findings are false positives and the catalog needs a component-file gate; (2) design-pipeline still returns verdict 'pass' when a verifier lands in verifiersFailed; (3) the two error-severity ANAT-D findings this fix surfaced on this repository (a core test fixture Button.jsx and packages/dashboard EmptyState.tsx) are real and left unfixed, as fixing them is outside a CLI bug lane."
+  ],
+  "generatedBy": "roadmap-fleet build lane (harness-debugging pipeline)",
+  "date": "2026-09-24",
+  "debug_session_note": "Committed copy of the harness-debugging session record; the live session at .harness/debug/resolved/2070-audit-anatomy-default-files.md is gitignored."
+}
