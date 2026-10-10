@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/mcp'
-sourceHash: '6177f414b28dfe67911bd442dba4ae97cba13ab1874b11620e923edbcc8772d0'
+sourceHash: 'b379d8dedd68cc0d5600daa8dfbc9b8a6edc0947f10eda2ec0a1d71e52c7a82b'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -11,6 +11,8 @@ members:
     'context-surface.ts',
     'index.ts',
     'server.ts',
+    'stale-build.test.ts',
+    'stale-build.ts',
     'tool-capabilities.ts',
     'tool-capability-declarations.ts',
     'tool-tiers.ts',
@@ -47,6 +49,7 @@ import { getProjectResource } from './resources/project.js'
 import { getRulesResource } from './resources/rules.js'
 import { getSkillsResource } from './resources/skills.js'
 import { getStateResource } from './resources/state.js'
+import { describeStaleBuildError, isHashedChunk, packageJsonPath } from './stale-build.js'
 import { TOOL_CAPABILITY_DECLARATIONS } from './tool-capability-declarations.js'
 import { CORE_TOOL_NAMES, STANDARD_TOOL_NAMES } from './tool-tiers'
 import { CORE_TOOL_NAMES, McpToolTier, STANDARD_TOOL_NAMES } from './tool-tiers.js'
@@ -132,7 +135,9 @@ import { Server } from '@modelcontextprotocol/sdk/server/index.js'
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { CallToolRequestSchema, ListResourcesRequestSchema, ListToolsRequestSchema, ReadResourceRequestSchema } from '@modelcontextprotocol/sdk/types.js'
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
+import { createRequire } from 'node:module'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import path, { join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 ```

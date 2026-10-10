@@ -15,6 +15,7 @@ import { applyInjectionGuard } from './middleware/injection-guard.js';
 import { applyCompaction } from './middleware/compaction.js';
 import { applyContextBudget } from './middleware/context-budget.js';
 import { applyVersionGuard } from './middleware/version-guard.js';
+import { describeStaleBuildError } from './stale-build.js';
 import { validateToolDefinition, handleValidateProject } from './tools/validate.js';
 import { checkDependenciesDefinition, handleCheckDependencies } from './tools/architecture.js';
 import { checkDocsDefinition, handleCheckDocs } from './tools/docs.js';
@@ -747,7 +748,19 @@ async function dispatchTool(
   if (!handler) {
     return { content: [{ type: 'text', text: `Unknown tool: ${name}` }], isError: true };
   }
-  const result = await handler(args ?? {});
+  let result: Awaited<ReturnType<ToolHandler>>;
+  try {
+    result = await handler(args ?? {});
+  } catch (error) {
+    // A server that outlived its own build fails HERE — at a tool's first lazy
+    // import — rather than at startup, so this is the only place the failure is
+    // catchable with enough context to explain it. Anything else rethrows
+    // untouched: mislabelling an unrelated ERR_MODULE_NOT_FOUND would send
+    // someone to restart a server that was never the problem.
+    const staleBuild = describeStaleBuildError(error);
+    if (staleBuild === null) throw error;
+    return { content: [{ type: 'text', text: staleBuild }], isError: true };
+  }
   if (!sessionChecked.value) {
     sessionChecked.value = true;
     await appendUpdateNotification(result, resolvedRoot);
