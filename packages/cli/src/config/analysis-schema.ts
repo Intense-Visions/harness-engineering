@@ -135,15 +135,30 @@ export function loadDesignTokenPath(projectPath: string): string | undefined {
 }
 
 /**
- * Schema for the `deps.exclude` glob list (check-deps discovery scoping).
- * Kept here — alongside `analysis.exclude` / `design.exclude` — so check-deps
- * can load it without importing the full HarnessConfigSchema. Patterns are
- * minimatch globs stacked on top of the built-in node_modules/skip-dir
- * defaults (issue #1188).
+ * Schema for the `deps` block (check-deps discovery scoping and abstention
+ * policy). Kept here — alongside `analysis.exclude` / `design.exclude` — so
+ * check-deps can load it without importing the full HarnessConfigSchema.
+ * `exclude` patterns are minimatch globs stacked on top of the built-in
+ * node_modules/skip-dir defaults (issue #1188).
  */
 export const DepsConfigSchema = z.object({
   /** Extra glob patterns (minimatch) excluded from check-deps discovery. */
   exclude: z.array(z.string().min(1)).default([]),
+  /**
+   * What check-deps does when the layer-validation engine cannot run — today,
+   * when the parser reports itself unavailable (issue #2098). Maps straight
+   * onto core's `LayerConfig.fallbackBehavior`.
+   *
+   * - `skip` (the default): the engine abstains. check-deps reports the
+   *   abstention and exits `ZERO_DENOMINATOR` (3) — it validated nothing, so it
+   *   must not read as green.
+   * - `warn`: the documented escape hatch. The abstention is still reported,
+   *   but downgraded back to exit 0, for projects that need the pre-#2098 exit
+   *   code while they fix their setup.
+   * - `error`: the engine fails hard instead of abstaining; check-deps records
+   *   it as an analysis error and exits `ERROR` (2) (issue #1996).
+   */
+  fallbackBehavior: z.enum(['skip', 'warn', 'error']).optional(),
 });
 
 export type DepsConfig = z.infer<typeof DepsConfigSchema>;

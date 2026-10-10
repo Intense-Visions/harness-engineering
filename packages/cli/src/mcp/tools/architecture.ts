@@ -69,6 +69,24 @@ export async function handleCheckDependencies(input: { path: string }) {
       ...(graphDependencyData !== undefined && { graphDependencyData }),
     });
 
+    // The engine abstained: it validated nothing and labelled the result as
+    // such (#2098). Returning it as an ordinary success would hand the caller a
+    // payload byte-identical to a clean project — `valid: true`, zero
+    // violations — for a check that never ran. Say so instead.
+    if (result.ok && result.value.skipped) {
+      return {
+        content: [
+          {
+            type: 'text' as const,
+            text:
+              `check_dependencies validated nothing: ${result.value.reason ?? 'the analysis engine abstained'}. ` +
+              'No layer boundary was checked — this is not a clean result.',
+          },
+        ],
+        isError: true,
+      };
+    }
+
     // Run design constraint checks when design tokens exist in the graph
     let designViolations: Array<{
       code: string;
