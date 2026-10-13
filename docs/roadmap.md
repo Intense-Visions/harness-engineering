@@ -528,6 +528,17 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 - **Priority:** —
 - **External-ID:** github:Intense-Visions/harness-engineering#1398
 
+### User-vs-model invocation split for skills and slash commands
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** Wave 1 of ADR-0133 (mattpocock/skills technique adoption). Add an `invocation: user | model` field to skill.yaml (schema in packages/cli/src/skill/schema.ts) and render it per host: Claude Code commands emit `disable-model-invocation: true` for user-invoked skills (render-claude-code.ts), Codex emits the equivalent implicit-invocation policy (render-codex.ts), Cursor/Gemini get the closest available mapping or a documented no-op. Today 0 of the 89 generated `.claude-plugin/commands/*.md` opt out, so every command description is always-loaded context (25.8k chars total vs 2.3k for mattpocock's 11 model-invoked skills). Default rule to encode, from mattpocock's SKILL-MECHANICS.md: model-invocation only when the agent must reach the skill on its own, or another skill must; otherwise user-invoked and zero context load. Deliverables: schema field + default (model, for backward compat), renderer support across all four platform trees, an initial classification pass over the 89 tier-1/2 commands (orchestrators like fleets, autopilot, strategy, onboarding are user-invoked candidates), a composition rule that user-invoked skills may call model-invoked ones but not each other (validator check), and before/after always-loaded char counts as the success metric. Constraint: `harness` router and search_skills discovery must still reach user-invoked skills. Analysis: docs/architecture/mattpocock-skills-comparison/analysis.md §2.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#2240
+
 ### Rejection ledger — durable negative knowledge that stops re-proposal
 
 - **Status:** planned
@@ -538,6 +549,105 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 - **Assignee:** —
 - **Priority:** P3
 - **External-ID:** github:Intense-Visions/harness-engineering#1620
+
+### Trigger-phrased skill descriptions with an always-loaded context-cost budget
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** Wave 1 of ADR-0133. Rewrite model-invoked skill descriptions from capability summaries into when-to-reach trigger phrasing ("Use when the user wants…, mentions…, or …"), and make it mechanical. Today 0 of 89 command descriptions use trigger phrasing; median is 214 chars and the longest is 1,475 (e.g. acceptance-eval's description explains TypeScript authority derivation, which helps no routing decision). mattpocock principle: "The pointer's wording, not its target, decides when the agent reaches the material" and "Every word of an always-loaded pointer costs on every turn, so it earns even harder pruning than the body." Deliverables: (a) a validator rule for model-invoked skills requiring a trigger clause and a per-description char ceiling; (b) a whole-catalog always-loaded cost metric (sum of model-invoked description chars, plus token estimate) recorded as a ratcheted baseline that may only go down, surfaced by `harness skill validate` and CI; (c) a one-time rewrite of the tier-1/2 descriptions, keeping capability detail in the SKILL.md body; (d) user-invoked skills get short human-facing one-liners with trigger lists stripped. Blocked by the invocation split, since the budget counts only model-invoked entries. Success metric: always-loaded description chars reduced by at least 50% from 25.8k with no drop in the harness router's dispatch accuracy (spot-check prompts until the wave-3 eval harness exists). Analysis: docs/architecture/mattpocock-skills-comparison/analysis.md §2.
+- **Blockers:** User-vs-model invocation split for skills and slash commands
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#2241
+
+### Skill-content lint: canonical call phrasing and size, negation, disclosure baselines
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** Wave 1 of ADR-0133. The skill validator (packages/cli/src/commands/skill/validate.ts:35-56) is additive only: it requires an h1 plus BEHAVIORAL_REQUIRED_SECTIONS and RIGID_SECTIONS, and checks nothing about size, density or redundancy, so it mechanically drives sediment. Measured: tier-1/2 SKILL.md median 239 lines (p90 530, max 1,149) vs mattpocock's under 100; negation density 6.7% vs 2.8%; 5 of 793 skills use sibling reference files for progressive disclosure; cross-skill calls use at least five phrasings ("invoke `/harness:autopilot`", "Run `/harness:planning`", "transition to harness-autopilot", "invoke harness-planning", "Invoke `harness-soundness-review`"). mattpocock standardized a single form ("Call the Skill tool with \\"x\\"") after finding that bare slash mentions don't reliably load the skill. Deliverables: (1) BLOCKING: one canonical cross-skill invocation phrasing, mechanically checked, with a codemod for existing skills across all four platform trees; (2) REPORT-ONLY ratcheted per-skill baselines: body lines by tier, negation-line density, and disclosure ratio (body vs sibling reference files), so regressions surface in CI without blocking; (3) a `harness skill lint --report` view ranking the worst offenders; (4) an update to harness-skill-authoring describing progressive disclosure ("inline what every branch needs, push behind a pointer what only some branches reach"). The thresholds stay report-only until the wave-3 skill-behavior eval harness supplies evidence. Analysis: docs/architecture/mattpocock-skills-comparison/analysis.md §3-4.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#2242
+
+### Out-of-scope records for rejected ideas, checked before re-proposal
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** Wave 1 of ADR-0133. Harness keeps no durable record of rejected ideas. Rejections live in ideation-doc prose and closed issues, so they get re-proposed: the 2026-10-13 mattpocock/skills analysis rediscovered a 2026-08-10 pass on the same repo that the maintainer did not remember. mattpocock/skills keeps `.out-of-scope/<concept>.md` records (nine today), each with "Why this is out of scope" and "Prior requests" links; its `triage` skill checks them before reopening, and its SCOPE.md admits a new skill only for an observed failure that cannot be composed from existing skills. Deliverables: (1) a records directory (decide `docs/out-of-scope/` vs a knowledge-graph node type during brainstorming; it should be human-facing and committed) with a frontmatter schema (concept, decision date, rationale, prior requests, revisit-if condition) and a validator; (2) checks wired into harness-ideate, ideate-fleet, issue-fleet triage, emit_skill_proposal's soundness gate, and the external-source analysis flow (architecture-advisor comparisons), so that a matching record is surfaced, not silently blocked; (3) graph ingestion so `ask_graph` can answer "did we already reject X?"; (4) an admission rule for new skills: emit_skill_proposal must state the observed failure and why existing skills can't compose it; (5) a backfill from existing ideation "out of scope / leave" sections (e.g. docs/ideation/external-source-feature-matrix-2026-08-10.md). Analysis: docs/architecture/mattpocock-skills-comparison/analysis.md §6.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#2243
+
+### Reproduction-command gate in harness-debugging
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** Wave 1 of ADR-0133. In harness-debugging, reproduction is Step 3 of INVESTIGATE (agents/skills/claude-code/harness-debugging/SKILL.md:94), after entropy analysis and error reading. Nothing requires a runnable artifact before hypothesizing. mattpocock's diagnosing-bugs makes it the core gate ("Build the right feedback loop, and the bug is 90% fixed"; "No red-capable command, no Phase 2"): a single command, already run at least once, that is red on this bug, deterministic, fast, and agent-runnable. It ranks ten loop types from failing test to HITL script, and adds "tighten the loop" and "raise the reproduction rate" for non-deterministic bugs. Deliverables: (1) a FEEDBACK-LOOP gate before HYPOTHESIZE that records the repro command and its observed red output in the debug session (manage_state evidence), with an explicit escalation path when none can be built; (2) a sibling reference file (progressive disclosure, so the body does not grow) holding the ranked loop-type ladder, tightening techniques, and the non-determinism playbook; (3) a HITL loop script template for human-in-the-loop repros (KEY=VALUE capture output the agent can parse); (4) a rule that the regression test lands at a correct seam, and that a missing seam is reported as a finding; (5) bug-fleet's per-area hunt reuses the same gate artifact. Mirror across all four platform trees. Analysis: docs/architecture/mattpocock-skills-comparison/analysis.md §5.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#2244
+
+### Seam negotiation in harness-tdd
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** Wave 1 of ADR-0133. harness-tdd (agents/skills/claude-code/harness-tdd/SKILL.md) never mentions seams: nothing records which boundaries are tested before RED, so tests drift toward implementation-coupled or tautological assertions. mattpocock's tdd: "Test only at pre-agreed seams. Before writing any test, write down the seams under test and confirm them with the user", with a one-line "what it catches and what it misses" for each seam. It also names three anti-patterns (implementation-coupled, tautological, horizontal slicing) and keeps refactoring out of the red-green loop, leaving it to review. Deliverables: (1) a SEAMS step before the first RED that writes the seam list with catch/miss lines; in interactive mode it is confirmed with the human, in autonomous/autopilot mode it is recorded as a decision in session state and surfaced at the plan checkpoint, not blocking; (2) a sibling reference file with good-test vs bad-test examples and mocking guidance (only at system boundaries), so the body doesn't grow; (3) test-craft reuses the seam vocabulary in its critique; (4) harness-planning tasks may carry their declared seams so execution doesn't re-derive them. Keep consistent with the canary test-authoring agents' conventions. Mirror across all four platform trees. Analysis: docs/architecture/mattpocock-skills-comparison/analysis.md §5.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#2245
+
+### Vertical-slice and tracer-bullet task slicing in harness-planning
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** Wave 1 of ADR-0133. harness-planning (agents/skills/claude-code/harness-planning/SKILL.md) has no vertical-slice or tracer-bullet guidance (0 mentions), so plans can slice horizontally (all types, then all services, then all UI), which delays the first end-to-end signal and widens integration risk. mattpocock's to-tickets slices every ticket as a thin end-to-end vertical slice: the first is a tracer bullet proving the path works end to end. Wide refactors use expand-contract sequencing (add the new shape, migrate callers, remove the old), and blocking edges are wired explicitly. Deliverables: (1) a slicing rule in harness-planning, held in a sibling reference file so the body doesn't grow: the first task is a tracer bullet, each later task is independently demoable/verifiable, and horizontal slicing is flagged; (2) expand-contract as the required sequencing pattern for refactors that touch many callers, encoded as `dependsOn` edges so plan_parallelization can widen the migrate phase safely; (3) a soundness-review check that flags plans whose first verifiable end-to-end signal arrives late (e.g. after more than N tasks); (4) the harness-planner persona and autopilot PLAN phase pick it up. Interacts with plan_parallelization (ADR 0056/0057): vertical slices tend to share files, so the spec should measure the impact on wave width. Mirror across all four platform trees. Analysis: docs/architecture/mattpocock-skills-comparison/analysis.md §5.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#2246
+
+### Durable project glossary (ubiquitous language) read by pipeline skills
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** Wave 2 of ADR-0133. Harness has no durable, project-level ubiquitous language. The session `terminology` section (packages/core/src/state/session-sections.ts) is session-scoped and gets archived, graph business_fact nodes cover strategy/business knowledge rather than domain terms, and "glossary" appears only in five tier-3 domain skills. mattpocock calls a maintained GLOSSARY.md "might be the single coolest technique in this repo": it cuts agent verbosity and misnaming because every skill reads the same terms. A domain-modeling skill actively sharpens it during grilling, and other skills read it passively via a one-line pointer. Deliverables: (1) decide in brainstorming between a committed GLOSSARY.md (term, definition, aliases-to-avoid, related ADRs) with a schema validator, a graph-native `glossary_term` node type, or both (file canonical, graph ingested), consistent with the ADR-0036 rule that strategy is interview-only (a glossary is not strategy, but auto-generating it from code risks the same failure); (2) passive read pointers in brainstorming, planning, product-requirements, and the comprehension substrate; (3) active maintenance: brainstorming and knowledge-craft propose term additions/renames for human confirmation, and naming-craft flags identifiers that contradict glossary terms; (4) promotion of recurring session `terminology` entries into the glossary at session archive. Serves the Upstream grounding track. Analysis: docs/architecture/mattpocock-skills-comparison/analysis.md §5.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#2247
+
+### Deep-module vocabulary as a shared architecture reference
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** Wave 2 of ADR-0133. Harness enforces layer boundaries mechanically (enforce-architecture, ESLint rules, baselines) but its tier-1/2 skills have no shared vocabulary for module *quality*: whether a module is deep (small interface, large hidden implementation) or shallow, where the seams are, and how much leverage and locality a change has. mattpocock's codebase-design defines one vocabulary (module, interface, depth, seam, adapter, leverage, locality), plus a "deletion test" (what breaks if this module is deleted? if nothing meaningful, it is shallow) and a "design it twice" exercise. tdd and improve-codebase-architecture both reuse it. Deliverables: (1) a single shared reference document (location decided in brainstorming: a knowledge doc under docs/knowledge/ ingested into the graph, so skills point at one source of truth instead of copying it); (2) pointers from architecture-advisor, harness-refactoring, code-craft, hotspot-detector remediation and the seams step in harness-tdd; (3) evaluate a mechanical depth signal (e.g. exported-surface vs implementation-size ratio per module from the code graph), reported in codebase-health-analyst or entropy as advisory, never blocking until proven; (4) code-craft rubric entries citing the vocabulary. Serves the Ceiling-raising track. Analysis: docs/architecture/mattpocock-skills-comparison/analysis.md §5.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#2248
+
+### Skill-behavior eval harness: trigger accuracy and fixture outcomes
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** Wave 3 of ADR-0133. Neither harness nor mattpocock/skills measures skill *behavior*. Harness measures adoption (adoption.jsonl, catalog-retrospective, trust scoring); mattpocock says "There is no automated eval." As a result, every authoring decision runs on judgment, including whether the negation-density threshold should block and whether the mandatory Rationalizations/Red-Flags framing (docs/architecture/agent-skills-comparative/ADR-001.md) helps or hurts. mattpocock argues that prohibitions make the forbidden behavior more available. Deliverables: (1) trigger-accuracy evals: a labeled prompt set mapped to the expected skill (or none), run against the rendered model-invoked descriptions per host, reporting precision/recall and confusions; this guards the description-budget work against routing regressions; (2) outcome evals: small fixture repos and tasks per tier-1/2 workflow skill (e.g. debugging finds a seeded bug via a repro command; tdd writes seam-level tests), scored by deterministic checks first, with an LLM judge only where needed; (3) A/B mode: run the same fixtures against two skill variants (e.g. Red-Flags section vs positive phrasing) and report significance, reusing packages/stats SPRT; (4) a CI-optional, cost-bounded runner with cached results and no-credential degradation (the comprehension-substrate rule: CI never requires an API token); (5) the first decision it must settle: promote the report-only lint thresholds to blocking, or drop them. Blocked by the content lint and description-budget items (it evaluates their output). Serves the Compounding feedback loops track. Analysis: docs/architecture/mattpocock-skills-comparison/analysis.md §3, §8.
+- **Blockers:** Skill-content lint: canonical call phrasing and size\, negation\, disclosure baselines, Trigger-phrased skill descriptions with an always-loaded context-cost budget
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#2249
 
 ## Fleet Family — Batch Orchestration
 
