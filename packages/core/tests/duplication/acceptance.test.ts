@@ -6,8 +6,16 @@ import { buildCloneIndex } from '../../src/duplication/index';
 const PLANTED_ROOT = join(__dirname, '../fixtures/duplication/planted-clones');
 const NESTED_ROOT = join(__dirname, '../fixtures/duplication/nested-units');
 
+/**
+ * The default include glob. Hoisted to a constant rather than written as a
+ * parameter default because the architecture analyzer counts parameters by
+ * splitting the parameter text on commas, so a brace-expansion glob in a
+ * default value reads as six extra parameters.
+ */
+const DEFAULT_INCLUDE = '**/*.{ts,tsx,js,jsx,mjs,cjs,md}';
+
 /** Discovery driven solely by include globs — criterion 15. */
-async function discover(root: string, include = '**/*.{ts,tsx,js,jsx,mjs,cjs,md}') {
+async function discover(root: string, include = DEFAULT_INCLUDE) {
   return findFiles(include, root);
 }
 
