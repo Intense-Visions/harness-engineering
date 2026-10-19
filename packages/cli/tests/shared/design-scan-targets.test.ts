@@ -16,6 +16,7 @@ import * as path from 'node:path';
 import {
   DESIGN_SCAN_EXTENSIONS,
   collectDesignScanFiles,
+  isExcluded,
   resolveDesignExcludePatterns,
 } from '../../src/shared/design-scan-targets';
 import { runAudit } from '../../src/mcp/tools/audit-anatomy';
@@ -256,6 +257,70 @@ describe('design scan targets', () => {
     //
     // The property that has to hold: pruning is a SUBSET of per-file exclusion.
     // The per-file filter can only remove more files, never restore a pruned one.
+    // ENCODE the property instead of enumerating patterns. Pinning three
+    // literal patterns was real coverage but structurally could not catch a new
+    // family — and four counterexample families (brace alternation over
+    // non-contiguous depths, leading-bang negation, extension-less extglob, the
+    // probe literal itself) existed precisely because nothing asserted the
+    // general law. This formulation surfaced all four in one run.
+    //
+    // The law: the collector's output must EQUAL the walk filtered by the same
+    // per-file predicate. There is no longer a directory prune to violate it —
+    // that is why it was deleted rather than narrowed — so this test is the
+    // guard against reintroducing one.
+    it('collect() equals walk-then-filter for every pattern in a corpus', () => {
+      dir = project({
+        'src/app.css': '.a { color: #ff0000; }',
+        'src/a.tsx': SOURCE,
+        'src/vendor/nested.css': '.n { color: #ff0000; }',
+        'src/vendor/deep/deeper/x.scss': '.d { color: #ff0000; }',
+        'vendor/top.css': '.t { color: #ff0000; }',
+        'fixtures/f.vue': '<style>.f { color: #ff0000; }</style>',
+        'a/b/c/d/e/deep.less': '.z { color: #ff0000; }',
+        'README.md': '# not scannable',
+      });
+
+      const unfiltered = collectDesignScanFiles(dir, undefined, []).files;
+      const CORPUS = [
+        'vendor/**',
+        'vendor',
+        '**/vendor/**',
+        'src/*',
+        'src/*/vendor',
+        'fixtures/**',
+        '{src,vendor}/**',
+        '**/*',
+        '**',
+        '*',
+        '*.test.css',
+        '*.css',
+        'src/**',
+        'a/b/**',
+        '**/deep/**',
+        // The four families that broke the prune. Each is a legitimate
+        // minimatch pattern an adopter could write.
+        'src/{*,*/*/*}',
+        '!**/*.css',
+        '**/!(*.*)',
+        '__harness_prune_probe__',
+        '!src/vendor/**',
+        '{src/**,!src/vendor/**}',
+        '+(src|vendor)/**',
+        '?(src)/app.css',
+        '**/*.@(css|scss)',
+      ];
+
+      const violations: string[] = [];
+      for (const pattern of CORPUS) {
+        const got = collectDesignScanFiles(dir, undefined, [pattern]).files.sort();
+        const want = unfiltered.filter((f) => !isExcluded(dir, f, [pattern])).sort();
+        if (JSON.stringify(got) !== JSON.stringify(want)) {
+          violations.push(`${pattern}: got ${got.length}, want ${want.length}`);
+        }
+      }
+      expect(violations).toEqual([]);
+    });
+
     it('never prunes a directory whose files the per-file filter would keep', () => {
       dir = project({
         'src/app.css': '.a { color: #ff0000; }',
@@ -338,7 +403,17 @@ describe('design scan targets', () => {
       // The message must not promise something the disabled path contradicts:
       // disabling returns `valid: true` and exit 0, so "never a pass" was a lie.
       expect(error!.message).not.toContain('never a pass');
-      expect(error!.message).toContain('records it as not-run rather than as clean');
+      expect(error!.message).toContain('record it as not-run rather than as clean');
+      // The remedy must be SCOPED to the entry points that actually read the
+      // key. `design.audit.*.enabled` is read in exactly two places
+      // (check-design.ts, validate.ts); `harness align`, the design pipeline
+      // and the three MCP tools call these runners directly and keep
+      // abstaining. Advertising an escape that does nothing on 5 of 7 entry
+      // points is the same defect as advertising one that did nothing on the
+      // affected command — which is what round 3 found.
+      expect(error!.message).toContain('harness check-design');
+      expect(error!.message).toContain('harness validate');
+      expect(error!.message).toMatch(/Only those two commands read that key/);
     });
 
     it.each(VERIFIERS)('%s abstains when the scope discards every candidate', async (_n, run) => {

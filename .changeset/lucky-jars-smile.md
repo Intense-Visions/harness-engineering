@@ -164,7 +164,7 @@ findings, ~1-3 s** (warm vs cold); `--mode full` reports 3,141 findings in the
 same order of time. Every `harness validate` and `harness check-design` caller pays that, and
 `validate` runs all three widened verifiers. If the latency matters more than the
 coverage, scope the run with `--files`, narrow it with `design.exclude` /
-`analysis.exclude`, or disable a verifier via `design.audit.*.enabled: false`.
+`analysis.exclude`, or, on `harness check-design` / `harness validate`, disable a verifier via its own key (`design.audit.componentAnatomy.enabled`, `design.audit.driftDetection.enabled`, `design.audit.brandCompliance.enabled`).
 
 ## Two consequences of abstaining honestly, both fixed here
 

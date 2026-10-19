@@ -86,8 +86,7 @@ const SKIPPED_DIRECTORIES = new Set(['node_modules', 'dist', 'build', 'coverage'
  * `Dirent.isDirectory()` is `false` for a symlink to a directory and the walk
  * never follows one — a direct symlink cycle terminates immediately. Real
  * directory depth is bounded by PATH_MAX, and the cost of a repository walk is
- * breadth, not depth; `SKIPPED_DIRECTORIES` plus exclude-pruning below already
- * remove the heavy trees.
+ * breadth, not depth, and `SKIPPED_DIRECTORIES` already removes the heavy trees.
  *
  * What the cap actually did was drop files without saying so, and then — once
  * truncation became an abstention — hard-fail every verifier on any repository
@@ -125,11 +124,14 @@ export function noFilesScannedError(verifier: string, projectRoot: string): Erro
   return new Error(
     `${verifier} read no files under ${projectRoot}. This is an abstention, not a clean ` +
       'audit. To act on it: check the `files` scope (explicit paths only, globs are not ' +
-      'expanded), check `design.exclude` and `analysis.exclude`, or set ' +
+      'expanded), or check `design.exclude` and `analysis.exclude`. On ' +
+      '`harness check-design` and `harness validate` you can also set ' +
       `\`${disableConfigKey(verifier)}: false\` to acknowledge this verifier does not ` +
-      'apply here. Disabling removes it from the run: the report then records it as ' +
-      'not-run rather than as clean, which is the honest outcome — what it will never do ' +
-      'is report zero findings for files it did not read.'
+      'apply, which removes it from the run and has the report record it as not-run ' +
+      'rather than as clean. (Only those two commands read that key — `harness align`, ' +
+      'the design pipeline and the MCP tools call this verifier directly and will keep ' +
+      'abstaining, so there scope the run instead.) What no path will do is report zero ' +
+      'findings for files it did not read.'
   );
 }
 
@@ -214,36 +216,24 @@ export function collectDesignScanFiles(
       emptyReason: 'not-empty',
     };
   }
-  // Excludes are passed INTO the walk so an excluded directory is never
-  // descended. That is a real cost saving on a vendored tree, and it is also
-  // the correctness fix for the latch this used to have: the walk ran first and
-  // excludes were applied only to its output, so anything the walk decided on
-  // the way down could not be cleared by `design.exclude`. Pruning is
-  // conservative — the per-file filter below still runs, so a pattern the
-  // directory check does not recognise changes nothing.
+  // Walk everything; filter per-file. No directory pruning — see the note on
+  // `walk` for why that was removed rather than narrowed.
   const candidates: string[] = [];
-  // `pruned` is load-bearing, not bookkeeping. Pruning an excluded directory
-  // means the walk never saw what was inside it, so `candidates.length === 0`
-  // no longer distinguishes "this project has no design surface" from "the
-  // config excluded all of it". Without this, `design.exclude: ['**/*']` would
-  // prune everything, report `no-source`, skip the abstention and hand back a
-  // clean result over an unread project — the exact silencing the abstention
-  // exists to catch.
-  const pruned = { any: false };
-  walk(projectRoot, projectRoot, candidates, excludePatterns, pruned);
+  walk(projectRoot, candidates);
   const files =
     excludePatterns.length === 0
       ? candidates
       : candidates.filter((absolute) => !isExcluded(projectRoot, absolute, excludePatterns));
   return {
     files,
-    anyCandidateExisted: candidates.length > 0 || pruned.any,
+    // Sourced from the FILTER, not from the walk: "candidates existed before
+    // filtering and none survived it" is exactly the abstention condition, and
+    // it is observable without any claim about what a pattern covers. So
+    // `design.exclude: ['**/*']` still trips the abstention rather than
+    // masquerading as "this project has no design surface".
+    anyCandidateExisted: candidates.length > 0,
     emptyReason:
-      files.length > 0
-        ? 'not-empty'
-        : candidates.length === 0 && !pruned.any
-          ? 'no-source'
-          : 'scoped-out',
+      files.length > 0 ? 'not-empty' : candidates.length === 0 ? 'no-source' : 'scoped-out',
   };
 }
 
@@ -272,7 +262,7 @@ export function designScanAbstention(
   return null;
 }
 
-function isExcluded(
+export function isExcluded(
   projectRoot: string,
   absoluteFile: string,
   excludePatterns: readonly string[]
@@ -282,61 +272,37 @@ function isExcluded(
 }
 
 /**
- * True when a DIRECTORY provably contains nothing the per-file filter would
- * keep, so skipping it cannot hide a file that belongs in the scan.
+ * Walk the project for scannable files. Deliberately has NO knowledge of
+ * `excludePatterns`.
  *
- * The safety property has to be stated carefully, because an earlier version of
- * this function claimed one it did not have ("the per-file filter still runs, so
- * a pattern this does not recognise costs a wasted descent and nothing else").
- * That is false in the direction that matters: the per-file filter can only
- * remove MORE files, never restore a pruned one. Pruning is only conservative
- * when it is a SUBSET of per-file exclusion.
+ * An earlier revision pruned excluded directories here, as an optimization
+ * introduced alongside removing the depth cap. It had to go, and it is worth
+ * recording why rather than just deleting it:
  *
- * The previous version stripped a trailing globstar and matched with
- * `matchBase`, which made a pattern's last segment match any directory basename
- * at any depth — so `vendor` followed by slash-globstar pruned `src/vendor`
- * even though the per-file filter keeps `src/vendor/nested.css`, and a bare
- * `vendor` (a complete no-op on main) deleted whole subtrees. A real
- * DRIFT-T001 was silently never read: the same defect class this module exists
- * to remove, reintroduced by its own optimisation.
+ * - Its original justification died with the cap. Pruning was added because the
+ *   walk ran before excludes were applied to its output, so a truncated walk
+ *   could not be cleared by `design.exclude`. Removing the cap removed
+ *   truncation, which left pruning as pure optimization with no correctness
+ *   role — a vestige of a problem that no longer existed.
+ * - The property it needed is genuinely hard. "This pattern excludes everything
+ *   the walk could find below here" is a universal claim over arbitrary
+ *   minimatch input, and two successive attempts got it wrong — first a
+ *   globstar-strip plus `matchBase` (which pruned `src/vendor` while the
+ *   per-file filter keeps `src/vendor/nested.css`), then two synthetic probes
+ *   that varied depth but not leaf name (so a brace alternation over
+ *   non-contiguous depths, a leading-bang negation, an extension-less-only
+ *   extglob, and the probe literal itself all slipped through). Each wrong version silently dropped real
+ *   findings and reported a complete run — the exact defect this module exists
+ *   to remove.
+ * - `main` has no pruning and is correct, because the per-file filter already
+ *   excludes correctly. The cost of walking an excluded subtree is wasted
+ *   `readdirSync` calls on a walk that takes milliseconds over 4,274 files;
+ *   `SKIPPED_DIRECTORIES` still removes `node_modules` and friends.
  *
- * So instead of reasoning about pattern shapes, this asks the per-file
- * predicate directly, about two synthetic paths under the directory: an
- * immediate child and a deeply nested one. A pattern that excludes BOTH — for
- * arbitrary names, at two different depths — excludes everything the walk could
- * find below here. A pattern that excludes neither, or only one, leaves
- * something behind and the walk must descend. `isExcluded` is the same function
- * the per-file filter uses, so the two cannot drift apart.
+ * Deleting the prune deletes the class, and with it the two safety comments
+ * that kept asserting a property the code did not have.
  */
-function isExcludedDirectory(
-  projectRoot: string,
-  absoluteDir: string,
-  excludePatterns: readonly string[]
-): boolean {
-  // Compare resolved paths rather than `path.relative(...) === ''`: equivalent
-  // here, and it avoids producing a relative path that would then need win32
-  // separator normalization just to be thrown away.
-  if (path.resolve(absoluteDir) === path.resolve(projectRoot)) return false;
-  // Names chosen to carry no extension and match no plausible glob on their
-  // own, so a hit can only come from the directory part of the pattern.
-  const shallow = path.join(absoluteDir, PRUNE_PROBE_NAME);
-  const deep = path.join(absoluteDir, PRUNE_PROBE_NAME, PRUNE_PROBE_NAME, PRUNE_PROBE_NAME);
-  return excludePatterns.some(
-    (pattern) =>
-      isExcluded(projectRoot, shallow, [pattern]) && isExcluded(projectRoot, deep, [pattern])
-  );
-}
-
-/** See isExcludedDirectory. Deliberately extension-less and glob-hostile. */
-const PRUNE_PROBE_NAME = '__harness_prune_probe__';
-
-function walk(
-  projectRoot: string,
-  dir: string,
-  out: string[],
-  excludePatterns: readonly string[],
-  pruned: { any: boolean }
-): void {
+function walk(dir: string, out: string[]): void {
   let entries: fs.Dirent[];
   try {
     entries = fs.readdirSync(dir, { withFileTypes: true });
@@ -349,11 +315,7 @@ function walk(
     if (entry.isDirectory()) {
       // `isDirectory()` is false for a symlink to a directory (lstat-based), so
       // this never follows one and a symlink cycle cannot loop here.
-      if (isExcludedDirectory(projectRoot, full, excludePatterns)) {
-        pruned.any = true;
-        continue;
-      }
-      walk(projectRoot, full, out, excludePatterns, pruned);
+      walk(full, out);
       continue;
     }
     if (!entry.isFile()) continue;
