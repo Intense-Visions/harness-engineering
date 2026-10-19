@@ -546,3 +546,6 @@ export type {
   WaypointShipConfig,
   WaypointSinkConfig,
 } from './waypoint';
+
+// --- Stats (explore/exploit bandit + SPRT shared shapes, stats-explore-exploit) ---
+export type { Pull, ArmState, BanditConfig, Choice, SprtVerdict, SprtConfig } from './stats';

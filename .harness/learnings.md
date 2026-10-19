@@ -80,3 +80,20 @@ with an **empty** stderr tail. An empty tail means SIGTERM-kill (timeout); a rea
 carries stderr. Check the tail before believing a wrapper's asserted cause — here the wrapper
 said `gh unavailable or not authenticated: ${anyError}`, a cause it never verified, and that
 misdirection was the most expensive part of the investigation.
+
+## 2026-09-24 autopilot: stats-explore-exploit (session changes--stats-explore-exploit--proposal)
+
+- [skill:harness-autopilot] [outcome:pass] Pre-commit arch gate false REGRESSION (356>349 in untouched files) = stale packages/cli/dist; `pnpm turbo run build --filter=@harness-engineering/cli...` (cache hit) fixes it; never edit the baseline.
+- [skill:harness-autopilot] [outcome:pass] Layer `allowedDependencies` are unenforced across packages: the validator skips bare `@harness-engineering/*` specifiers (dependencies.ts:100-103). Filed #2216. Declaring a layer records intent; the package.json pin is the real guarantee.
+- [skill:harness-code-review] [outcome:pass] canary-cassandra mutant probes caught two real test gaps per-phase reviews missed (Thompson explore mode never observed; termination test unfalsifiable). Run a scratch mutant before trusting a statistical test.
+- [skill:harness-autopilot] [outcome:pass] `outcome_eval` MCP tool takes the diff inline; a 171KB diff cannot be emitted by a subagent. Use `harness outcome-eval-ci --diff <range>`; the evaluator caps each field at 12,000 chars by design (prompts.ts PROMPT_FIELD_MAX_CHARS).
+- [skill:harness-autopilot] [outcome:pass] Spec-vs-code defaults drift (BanditConfig halfLifeDays 30 / minEffectiveN 2) surfaced only at the docs phase; verifiers should diff the spec's type comments against the resolver defaults in the code phase.
+
+## 2026-09-25 harness-execution: fix the StreamingIndicator rotation flake (#2225)
+
+- [skill:harness-execution] [outcome:gotcha] A test can only pin a component's `Math.random` positionally if NOTHING ELSE in the render tree draws. `StreamingIndicator` renders `NeuralOrganism`, which draws 197 times during mount and ~195 more per 4500ms of fake time from self-rescheduling spark timers (`setTimeout(fire, 300 + Math.random() * 700)`). Measure the draw order with a spy before designing the sequence — the brief's assumed order (initial index, then period) was right only after the avatar was stubbed out.
+- [skill:harness-execution] [outcome:gotcha] React's effect order is child-before-parent, so even the PARENT's period draw sits behind every descendant's draws. Verify by spying on `setInterval` and recording the draw count at each call: `[{delay:100,drawsBefore:197},{delay:6396,drawsBefore:199},{delay:1000,drawsBefore:199}]` named the period draw unambiguously.
+- [skill:harness-execution] [outcome:decision] A pinned random sequence makes a no-repeat test pass VACUOUSLY unless the sequence deliberately repeats a value adjacently, forcing the component's `do { } while (next === prev)` guard to draw again. Pinning without that is how a flake fix quietly deletes the assertion. Confirmed by mutant: removing the guard fails the suite at rotation 2.
+- [skill:harness-execution] [outcome:gotcha] `vi.advanceTimersByTime(n)` carries unconsumed time forward, so advancing by an interval's UPPER bound fires a shorter interval twice on some iterations. Advance by the exact period, never by a bound. Measured failure rate of the upper-bound form: 8/200 mounts (~4%).
+- [skill:harness-execution] [outcome:gotcha] `packages/dashboard`'s `typecheck` excludes `tests/` (`tsconfig.json` `include: src/**/*`, `exclude: [..., tests]`), so `pnpm --filter ... typecheck` does NOT cover a test-only change. Typecheck it with a throwaway tsconfig that includes the file, or the gate is hollow.
+- [skill:harness-execution] [outcome:decision] Test-only commits in this repo carry no changeset (15/15 of the most recent test-only commits have zero `.changeset/` files). Skipped it.
