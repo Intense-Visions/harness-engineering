@@ -1,6 +1,7 @@
 import { resultToMcpResponse } from '../utils/result-adapter.js';
 import { resolveProjectConfig } from '../utils/config-resolver.js';
 import { sanitizePath } from '../utils/sanitize-path.js';
+import { loadDepsFallbackBehavior } from '../../config/analysis-schema.js';
 
 export const checkDependenciesDefinition = {
   name: 'check_dependencies',
@@ -62,12 +63,37 @@ export async function handleCheckDependencies(input: { path: string }) {
       };
     }
 
+    // Without an explicit policy, core defaults to `'error'`, so a
+    // parser-unavailable run returned `Err` and the `skipped` branch below
+    // could never execute — and the documented `deps.fallbackBehavior` config
+    // was simply ignored on the MCP surface. Same default as check-deps (#2098).
+    const fallbackBehavior = loadDepsFallbackBehavior(projectPath) ?? 'skip';
+
     const result = await validateDependencies({
       layers,
       rootDir: projectPath,
       parser,
+      fallbackBehavior,
       ...(graphDependencyData !== undefined && { graphDependencyData }),
     });
+
+    // The engine abstained: it validated nothing and labelled the result as
+    // such (#2098). Returning it as an ordinary success would hand the caller a
+    // payload byte-identical to a clean project — `valid: true`, zero
+    // violations — for a check that never ran. Say so instead.
+    if (result.ok && result.value.skipped) {
+      return {
+        content: [
+          {
+            type: 'text' as const,
+            text:
+              `check_dependencies validated nothing: ${result.value.reason ?? 'the analysis engine abstained'}. ` +
+              'No layer boundary was checked — this is not a clean result.',
+          },
+        ],
+        isError: true,
+      };
+    }
 
     // Run design constraint checks when design tokens exist in the graph
     let designViolations: Array<{

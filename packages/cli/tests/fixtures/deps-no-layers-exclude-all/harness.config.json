@@ -1,0 +1,6 @@
+{
+  "version": 1,
+  "rootDir": ".",
+  "name": "no-layers-exclude-all-project",
+  "deps": { "exclude": ["**/*"] }
+}

@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/tests/mcp/tools'
-sourceHash: '22d0dbb7c6b3e6a1c04d143624f47492c0ee1f0cbecb011a1f329489d94da027'
+sourceHash: '706d2414804d10c4f5c17b35ab0478bacd8315d0a34028530b97801e068b43d9'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -13,6 +13,7 @@ members:
     'agent.test.ts',
     'api-craft.test.ts',
     'architecture-cov544.test.ts',
+    'architecture-skipped-abstention.test.ts',
     'architecture.test.ts',
     'assess-project-cov544.test.ts',
     'assess-project-error-handling.test.ts',
