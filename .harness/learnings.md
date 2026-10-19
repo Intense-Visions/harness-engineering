@@ -80,3 +80,11 @@ with an **empty** stderr tail. An empty tail means SIGTERM-kill (timeout); a rea
 carries stderr. Check the tail before believing a wrapper's asserted cause — here the wrapper
 said `gh unavailable or not authenticated: ${anyError}`, a cause it never verified, and that
 misdirection was the most expensive part of the investigation.
+
+## 2026-09-24 autopilot: stats-explore-exploit (session changes--stats-explore-exploit--proposal)
+
+- [skill:harness-autopilot] [outcome:pass] Pre-commit arch gate false REGRESSION (356>349 in untouched files) = stale packages/cli/dist; `pnpm turbo run build --filter=@harness-engineering/cli...` (cache hit) fixes it; never edit the baseline.
+- [skill:harness-autopilot] [outcome:pass] Layer `allowedDependencies` are unenforced across packages: the validator skips bare `@harness-engineering/*` specifiers (dependencies.ts:100-103). Filed #2216. Declaring a layer records intent; the package.json pin is the real guarantee.
+- [skill:harness-code-review] [outcome:pass] canary-cassandra mutant probes caught two real test gaps per-phase reviews missed (Thompson explore mode never observed; termination test unfalsifiable). Run a scratch mutant before trusting a statistical test.
+- [skill:harness-autopilot] [outcome:pass] `outcome_eval` MCP tool takes the diff inline; a 171KB diff cannot be emitted by a subagent. Use `harness outcome-eval-ci --diff <range>`; the evaluator caps each field at 12,000 chars by design (prompts.ts PROMPT_FIELD_MAX_CHARS).
+- [skill:harness-autopilot] [outcome:pass] Spec-vs-code defaults drift (BanditConfig halfLifeDays 30 / minEffectiveN 2) surfaced only at the docs phase; verifiers should diff the spec's type comments against the resolver defaults in the code phase.
