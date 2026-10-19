@@ -8,7 +8,21 @@ function makeProjectRoot(roadmapBody: string | null): string {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'validate-roadmap-health-'));
   fs.writeFileSync(
     path.join(dir, 'harness.config.json'),
-    JSON.stringify({ version: 1, agentsMapPath: './AGENTS.md' })
+    JSON.stringify({
+      version: 1,
+      agentsMapPath: './AGENTS.md',
+      // These fixtures hold no source files, which the three design verifiers
+      // now report as an abstention rather than a clean zero-file run (#2070).
+      // That is correct for them and noise here: this file is about roadmap
+      // health, and its assertions pin `unavailableChecks` exactly.
+      design: {
+        audit: {
+          componentAnatomy: { enabled: false },
+          driftDetection: { enabled: false },
+          brandCompliance: { enabled: false },
+        },
+      },
+    })
   );
   fs.writeFileSync(path.join(dir, 'AGENTS.md'), '# Stub\n');
   if (roadmapBody !== null) {

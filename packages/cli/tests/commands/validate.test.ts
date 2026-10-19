@@ -81,6 +81,8 @@ import {
 } from '@harness-engineering/core';
 import { resolveConfig } from '../../src/config/loader';
 import { runAudit as runComponentAnatomyAudit } from '../../src/mcp/tools/audit-anatomy';
+import { runDetectDrift } from '../../src/mcp/tools/detect-drift';
+import { runAuditBrand } from '../../src/mcp/tools/audit-brand';
 
 describe('validate command', () => {
   beforeEach(() => {
@@ -503,17 +505,22 @@ describe('validate command', () => {
       expect(vi.mocked(runComponentAnatomyAudit).mock.calls.length).toBe(beforeCallCount);
     });
 
-    it('degrades gracefully when the audit throws (does not sink the whole validate)', async () => {
+    it('abstains when the audit throws (the rest of validate still reports)', async () => {
       vi.mocked(runComponentAnatomyAudit).mockRejectedValueOnce(new Error('boom: parser crashed'));
 
       const result = await runValidate({});
 
+      // Still graceful — the other checks ran and runValidate returned Ok.
       expect(result.ok).toBe(true);
       if (!result.ok) return;
       expect(result.value.checks.componentAnatomy).toBe(false);
-      const anatomyIssue = result.value.issues.find((i) => i.check === 'componentAnatomy');
-      expect(anatomyIssue?.severity).toBe('warning');
-      expect(anatomyIssue?.message).toContain('boom: parser crashed');
+      // But the abstention goes to unavailableChecks, not to a filterable
+      // severity-`warning` issue that left `complete: true` and exit 0 over an
+      // audit that applied no rule (#2070).
+      const abstention = result.value.unavailableChecks.find((u) => u.check === 'componentAnatomy');
+      expect(abstention?.reason).toContain('boom: parser crashed');
+      expect(result.value.complete).toBe(false);
+      expect(result.value.issues.some((i) => i.check === 'componentAnatomy')).toBe(false);
     });
   });
 
@@ -521,6 +528,35 @@ describe('validate command', () => {
   // the reported findings and the pass/fail verdict. When omitted, behavior is
   // unchanged (hard checks + error-severity findings fail; warnings are reported
   // but never flip the verdict).
+  // #2070, one layer up. The design verifiers now abstain (throw) over a scope
+  // they read no files from. validate used to catch that and push a
+  // severity-`warning` issue, leaving `valid: true`, `complete: true` and exit
+  // 0 over an audit that examined nothing — the same clean-report-over-nothing
+  // shape the verifier fix exists to close.
+  describe('a design verifier that could not run is an abstention, not a warning', () => {
+    const CASES = [
+      ['componentAnatomy', runComponentAnatomyAudit],
+      ['driftDetection', runDetectDrift],
+      ['brandCompliance', runAuditBrand],
+    ] as const;
+
+    it.each(CASES)('%s abstention makes the run incomplete', async (check, fn) => {
+      vi.mocked(fn as never as typeof runComponentAnatomyAudit).mockRejectedValueOnce(
+        new Error('read no files under /tmp/test')
+      );
+
+      const result = await runValidate({ cwd: '/tmp/test' });
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+
+      // The abstention is recorded as a fact about the report's completeness...
+      expect(result.value.unavailableChecks.map((u) => u.check)).toContain(check);
+      expect(result.value.complete).toBe(false);
+      // ...and is NOT filed as a filterable issue.
+      expect(result.value.issues.some((i) => i.check === check)).toBe(false);
+    });
+  });
+
   describe('severity threshold', () => {
     // Produces a single warning-severity component-anatomy finding, on an
     // otherwise-clean project, so the aggregated issue set is exactly one

@@ -18,13 +18,19 @@ now share, honouring `design.exclude` and `analysis.exclude`. One `check-design`
 one file set. A resolved scope of zero files throws instead of returning a clean
 result — a zero-file audit is an abstention, never a pass.
 
-**This is breaking for anyone whose gate runs these commands.** On this repository the
-default `check-design --mode full` audit went from `audit-anatomy (0 findings)` and
-exit 0 to 3,083 findings (2 error-severity, 3,081 warn) over 4,121 files, and exit 1.
-An adopter whose design gate is green today can go red on the first run after
-upgrading, with no change to their code. To stage the adoption, scope the run
-explicitly with `--files`, narrow it with `design.exclude` / `analysis.exclude`, or
-turn the verifier off with `design.audit.componentAnatomy.enabled: false`.
+**This is breaking for anyone whose gate runs these commands.** Measured on this
+repository with a freshly built CLI, the `audit-anatomy` verifier inside
+`check-design --mode full` went from `audit-anatomy (0 findings)` over 0 files to
+3,094 findings (2 error-severity, 3,092 warn). An adopter whose design gate is green
+today can go red on the first run after upgrading, with no change to their code. To
+stage the adoption, scope the run explicitly with `--files` (explicit paths — see the
+glob note below), narrow it with `design.exclude` / `analysis.exclude`, or turn the
+verifier off with `design.audit.componentAnatomy.enabled: false`.
+
+This repository's own `check-design` exit code does **not** change: it was already 1
+before this PR, because `detect-design-drift` emits 212 error-severity findings on
+its own. The anatomy findings are additive here. An adopter whose only error-severity
+findings would come from anatomy is the one who flips 0 → 1.
 
 Major rather than patch: the fix is small, but the observable contract of a command
 that gates CI changes from pass to fail, and `runAudit` gained a throw where it
@@ -49,6 +55,22 @@ nonexistent path reported "1 file scanned, 0 findings" for a file never opened.
 
 Also breaking for the same reason as above: `detect-design-drift` and
 `audit-brand-compliance` now throw over a project with no design surface where they
-previously returned a clean zero-file result. `harness validate` already degrades a
-throwing verifier to a warning issue; `harness check-design` records it under
-`verifiersFailed` and exits 2 (degraded).
+previously returned a clean zero-file result. `harness check-design` records a throwing verifier
+under `verifiersFailed` and exits 2 (degraded).
+
+`harness validate` used to catch the throw into a severity-`warning` issue, which
+left `valid: true`, `complete: true` and exit 0 over an audit that applied no rule —
+the same defect one layer up. All three design abstentions now go through
+`result.unavailableChecks`, the channel `roadmapHealth` already uses, which forces
+`complete: false` and the incomplete-run exit code. `harness validate` on a project
+with no design surface therefore changes from exit 0 to the incomplete-run exit code.
+
+## Also breaking: audit-brand-compliance's scope shrank
+
+`audit-brand-compliance` never honoured any exclude config — its private `collectFiles`
+walked the project and returned everything. Sharing `collectDesignScanFiles` means it
+now honours `design.exclude ∪ analysis.exclude` like its two siblings. That is the
+point of the extraction (one `check-design` run, one file set), but it is a scope
+_reduction_ for brand specifically: an adopter who excludes a directory and relies on
+`BRAND-T001` / `BRAND-V001` firing inside it will stop seeing those findings. On this
+repository brand reports 0 findings either way, so the change is not observable here.
