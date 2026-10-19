@@ -55,3 +55,49 @@ describe('fingerprintStream', () => {
     expect(fingerprintStream(['ab', 'c'])).not.toBe(fingerprintStream(['a', 'bc']));
   });
 });
+
+describe('D1 Type-2 equivalence (verified substrate)', () => {
+  const shape = (fn: string, p: string, acc: string, el: string) =>
+    `export function ${fn}(${p}: { cost: number; label: string }[]) {\n` +
+    `  let ${acc} = 0;\n` +
+    `  const seen: string[] = [];\n` +
+    `  for (const ${el} of ${p}) {\n` +
+    `    if (${el}.cost > 0) {\n` +
+    `      ${acc} += ${el}.cost;\n` +
+    `      seen.push(${el}.label);\n` +
+    `    }\n` +
+    `  }\n` +
+    `  return { total: ${acc}, labels: seen };\n` +
+    `}\n`;
+
+  function fingerprintSource(src: string): string {
+    const ast = parse(src, { tokens: true, loc: true, range: true });
+    return fingerprintStream(normalizeTokens(ast.tokens ?? [], [0, src.length]));
+  }
+
+  it('assigns the same fingerprint to functions differing only in names', () => {
+    expect(fingerprintSource(shape('addBeta', 'rows', 'acc', 'row'))).toBe(
+      fingerprintSource(shape('sumAlpha', 'items', 'total', 'item'))
+    );
+  });
+
+  it('is insensitive to whitespace and comments', () => {
+    const plain = shape('sumAlpha', 'items', 'total', 'item');
+    const decorated = `// a leading comment\n${plain.replace(/\n/g, '\n\n')}`;
+    expect(fingerprintSource(decorated)).toBe(fingerprintSource(plain));
+  });
+
+  it('is sensitive to a changed operator — not merely a name hash', () => {
+    const changed = shape('sumAlpha', 'items', 'total', 'item').replace('> 0', '>= 0');
+    expect(fingerprintSource(changed)).not.toBe(
+      fingerprintSource(shape('sumAlpha', 'items', 'total', 'item'))
+    );
+  });
+
+  it('is sensitive to a changed keyword', () => {
+    const changed = shape('sumAlpha', 'items', 'total', 'item').replace('let total', 'var total');
+    expect(fingerprintSource(changed)).not.toBe(
+      fingerprintSource(shape('sumAlpha', 'items', 'total', 'item'))
+    );
+  });
+});
