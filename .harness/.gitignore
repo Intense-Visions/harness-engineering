@@ -21,10 +21,15 @@ skills-index.json
 stack-profile.json
 # metrics/: track the holiday-confidence trend ledger, ignore everything else
 # (mirrors the security/timeline.json precedent below). Do NOT re-add a bare
-# `metrics/` rule anywhere after this block: a directory-suffix ignore stops git
-# descending into `.harness/metrics/` at all, which silently defeats the
-# un-ignore below. That is exactly what happened in 9e2b9b46d, and it kept the
-# Holiday Confidence Tracker's commit-back from ever staging a single record.
+# `metrics/` rule ANYWHERE in this file — before or after this block. A
+# directory-suffix ignore stops git descending into `.harness/metrics/` at all,
+# so no `!metrics/...` rule can re-include anything inside it, and reordering
+# does not help. That has happened twice (9e2b9b46d, then 4ef72cb82 / #2190) and
+# each time it kept the Holiday Confidence Tracker's commit-back from ever
+# staging a single record. This prose alone did not prevent the second
+# recurrence, so the contract is now enforced mechanically by
+# `packages/cli/tests/ci/harness-metrics-ignore.test.ts` (#2223), which asserts
+# git's own resolution of both halves: ledger stageable, everything else ignored.
 metrics/*
 !metrics/holiday-confidence.jsonl
 events.jsonl
@@ -53,4 +58,3 @@ security/*
 # committed even if a broader ignore lands. (storage: "cache" adopters opt out.)
 !comprehension/
 !comprehension/**
-metrics/
