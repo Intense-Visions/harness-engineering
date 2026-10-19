@@ -98,14 +98,42 @@ function section(config: Record<string, unknown>, key: string): Record<string, u
   return (config[key] as Record<string, unknown>) ?? {};
 }
 
-/** The entry point the entropy/perf analyzers would walk from, if any. */
-function entryPoints(config: Record<string, unknown>): string[] | undefined {
-  const fromEntropy = section(config, 'entropy').entryPoints as string[] | undefined;
+/**
+ * The entry points a given gate would walk from, if any.
+ *
+ * The fallback is ASYMMETRIC in the orchestrator and this mirrors it exactly:
+ * `runEntropyCheck` reads `entropy.entryPoints ?? performance.entryPoints`,
+ * while `runPerfCheck` reads only `performance.entryPoints` and never consults
+ * the entropy section. Collapsing the two into one accessor would credit
+ * `entropy.entryPoints` toward the perf gate, which never reads it — unreachable
+ * today, since no shipped template sets either key, but this file's contract is
+ * to stay in step with the orchestrator, so it models the asymmetry rather than
+ * the convenient average.
+ */
+function entryPoints(
+  config: Record<string, unknown>,
+  gate: 'entropy' | 'perf'
+): string[] | undefined {
   const fromPerf = section(config, 'performance').entryPoints as string[] | undefined;
+  if (gate === 'perf') return fromPerf;
+  const fromEntropy = section(config, 'entropy').entryPoints as string[] | undefined;
   return fromEntropy ?? fromPerf;
 }
 
-/** Extensions the TypeScript reachability analyzers can walk. */
+/**
+ * Extensions the TypeScript reachability analyzers can walk.
+ *
+ * KNOWN GAP (#2275): this is a looser test than auto-detection actually applies.
+ * `resolveEntryPoints` accepts `package.json` `main`/`exports` or one of five
+ * conventional paths (`TS_CONVENTIONS` — `src/index.ts`, `src/main.ts`,
+ * `src/index.tsx`, `index.ts`, `main.ts`), so a template shipping only
+ * `src/types/model.ts` would satisfy the check below and still abstain for
+ * real. `.mts`/`.cts` are in this list but in no convention, so the diagnostic
+ * naming them is wrong in the same way. Zero exposure today — all four
+ * TypeScript templates ship exactly `src/index.ts`, which is the first
+ * convention — and the fix is to ask the resolver rather than approximate it,
+ * which is tracked on #2275 alongside the resolver change itself.
+ */
 const TS_EXTENSIONS = ['.ts', '.tsx', '.mts', '.cts'];
 
 /**
@@ -114,15 +142,23 @@ const TS_EXTENSIONS = ['.ts', '.tsx', '.mts', '.cts'];
  * Either every configured entry point names a file the template ships, or
  * nothing is configured and auto-detection has a TypeScript file to find.
  */
-function hasWalkableRoot(config: Record<string, unknown>, files: string[]): boolean {
-  const points = entryPoints(config);
+function hasWalkableRoot(
+  config: Record<string, unknown>,
+  files: string[],
+  gate: 'entropy' | 'perf'
+): boolean {
+  const points = entryPoints(config, gate);
   const shipsTs = files.some((f) => TS_EXTENSIONS.some((ext) => f.endsWith(ext)));
   if (points === undefined || points.length === 0) return shipsTs;
   return points.every((p) => !/[*?]/.test(p) && files.includes(p.replace(/^\.\//, '')));
 }
 
-function rootDiagnostic(config: Record<string, unknown>, files: string[]): string {
-  const points = entryPoints(config);
+function rootDiagnostic(
+  config: Record<string, unknown>,
+  files: string[],
+  gate: 'entropy' | 'perf'
+): string {
+  const points = entryPoints(config, gate);
   if (points && points.length > 0) {
     return (
       `entryPoints ${JSON.stringify(points)} do not all resolve to a shipped file. ` +
@@ -176,18 +212,33 @@ describe('every shipped template scaffolds a green first `ci check` (#2071)', ()
      */
     it('entropy: can resolve a real root, or declares the gate not applicable', () => {
       const disabled = section(config, 'entropy').enabled === false;
-      expect(disabled || hasWalkableRoot(config, files), rootDiagnostic(config, files)).toBe(true);
+      expect(
+        disabled || hasWalkableRoot(config, files, 'entropy'),
+        rootDiagnostic(config, files, 'entropy')
+      ).toBe(true);
     });
 
     it('perf: can resolve a real root, or declares the gate not applicable', () => {
       const disabled = section(config, 'performance').enabled === false;
-      expect(disabled || hasWalkableRoot(config, files), rootDiagnostic(config, files)).toBe(true);
+      expect(
+        disabled || hasWalkableRoot(config, files, 'perf'),
+        rootDiagnostic(config, files, 'perf')
+      ).toBe(true);
     });
 
     it('declares no entry point that is a glob or a file it does not ship', () => {
-      // Independent of enablement: a wrong `entryPoints` SUPPRESSES
-      // auto-detection, so it is worse than having none at all.
-      for (const point of entryPoints(config) ?? []) {
+      // Checked regardless of enablement, but NOT because of suppression: a gate
+      // with `enabled: false` returns before it ever reads `entryPoints`
+      // (`check-orchestrator.ts`), so the value is simply inert there. The reason
+      // is hygiene — a shipped config value that is wrong on its face traps the
+      // adopter who later flips `enabled: true`.
+      //
+      // Both sections are checked here, since either can be wrong on its face.
+      const declared = [
+        ...((section(config, 'entropy').entryPoints as string[] | undefined) ?? []),
+        ...((section(config, 'performance').entryPoints as string[] | undefined) ?? []),
+      ];
+      for (const point of declared) {
         expect(
           point,
           `\`${point}\` is a glob, and entry points are resolved literally`

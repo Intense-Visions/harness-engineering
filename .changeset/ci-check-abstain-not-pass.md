@@ -36,11 +36,17 @@ harness ci check --skip deps,traceability
 ```
 
 Preferred fixes: add `layers` to `harness.config.json` for `deps`, run
-`harness scan` (or set `traceability.enabled: false`) for `traceability`, set
-`performance.entryPoints` for the analyzers that reported "Could not resolve
-entry points", widen the scan pattern / narrow `security.exclude` for
-`security`, and run `harness check-phase-gate` as its own CI step for
-`phase-gate`.
+`harness scan` (or set `traceability.enabled: false`) for `traceability`, widen
+the scan pattern / narrow `security.exclude` for `security`, and run
+`harness check-phase-gate` as its own CI step for `phase-gate`.
+
+For the analyzers that reported "Could not resolve entry points": ship a
+conventional entry file (`src/index.ts`) and let auto-detection find it. If you
+set `performance.entryPoints` explicitly, give it **concrete file paths** — the
+values are resolved literally and are **not** glob-expanded, so a wildcard is a
+root that matches nothing and leaves the gate reporting `pass` over an analysis
+of zero files while every export looks dead (#2275). A non-empty value also
+suppresses auto-detection, so a wrong value is worse than none.
 
 The `security` abstention matches what `harness check-security` has refused to
 call clean since #1146 (`scannedNothing`) — the `ci check` copy of the gate had
@@ -61,8 +67,8 @@ Two fixes make that true honestly rather than by skipping:
 
 - `traceability` no longer abstains on the scaffolded config, which configures
   no `minCoverage` (see above).
-- The `intermediate` and `load-bearing-minimum` templates now ship a starter
-  `src/index.ts`, as `basic` and `advanced` already did. They configured
+- The `advanced`, `intermediate` and `load-bearing-minimum` templates now ship a
+  starter `src/index.ts`, as `basic` already did. They configured
   complexity and coupling thresholds but shipped no TypeScript file at all, so
   the analyzers had nothing to resolve an entry point from and `perf`/`entropy`
   failed with "Could not resolve entry points" — a gate configured but
@@ -109,7 +115,7 @@ gain the starter `src/index.ts` that `basic` already shipped.
 
 **Every shipped template now gets a green first `harness ci check` with zero
 abstentions** — verified end to end across all four adoption levels, all four
-language bases and all six framework overlays, and pinned statically by
+language bases and all ten framework overlays, and pinned statically by
 `packages/cli/tests/templates/performance-entry-points.test.ts` so a future
 template cannot ship a red first build.
 

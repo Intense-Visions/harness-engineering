@@ -67,14 +67,33 @@ to whoever reads the pipeline, from a genuine pass.
 
 The common abstentions and their fixes:
 
-| Abstention                                       | Why                                                                               | Fix                                                                                                                                          |
-| ------------------------------------------------ | --------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
-| `deps` — no layers configured                    | Nothing to validate against                                                       | Add `layers` to `harness.config.json`, or `--skip deps`                                                                                      |
-| `traceability` — no knowledge graph found        | A configured `minCoverage` was never evaluated                                    | Run `harness scan` **and** check `traceability.includeSpecs` matches your specs, set `traceability.enabled: false`, or `--skip traceability` |
-| `traceability` — graph has no traceable features | `harness scan` ran but ingested no spec, so `minCoverage` still was not evaluated | Point `traceability.includeSpecs` at where your specs actually live and re-scan                                                              |
-| `docs` / `entropy` / `perf` — crashed            | The analyzer threw (often "Could not resolve entry points")                       | Fix the underlying config (e.g. `performance.entryPoints`), or `--skip <check>`                                                              |
-| `security` — scan matched 0 files                | Nothing was read, so an empty finding list verified nothing                       | Widen the scan pattern or narrow `security.exclude`, or `--skip security`                                                                    |
-| `phase-gate` — enabled but not evaluable         | Phase-gate validation needs CLI context the orchestrator lacks                    | Add a `harness check-phase-gate` CI step, or `--skip phase-gate`                                                                             |
+| Abstention                                       | Why                                                                               | Fix                                                                                                                                                                                                                                |
+| ------------------------------------------------ | --------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `deps` — no layers configured                    | Nothing to validate against                                                       | Add `layers` to `harness.config.json`, or `--skip deps`                                                                                                                                                                            |
+| `traceability` — no knowledge graph found        | A configured `minCoverage` was never evaluated                                    | Run `harness scan` **and** check `traceability.includeSpecs` matches your specs, set `traceability.enabled: false`, or `--skip traceability`                                                                                       |
+| `traceability` — graph has no traceable features | `harness scan` ran but ingested no spec, so `minCoverage` still was not evaluated | Point `traceability.includeSpecs` at where your specs actually live and re-scan                                                                                                                                                    |
+| `docs` / `entropy` / `perf` — crashed            | The analyzer threw (often "Could not resolve entry points")                       | Ship a conventional entry file (`src/index.ts`) and let auto-detection work, or set `performance.entryPoints` to **concrete file paths** — they are resolved literally and are **not** glob-expanded (#2275) — or `--skip <check>` |
+| `security` — scan matched 0 files                | Nothing was read, so an empty finding list verified nothing                       | Widen the scan pattern or narrow `security.exclude`, or `--skip security`                                                                                                                                                          |
+| `phase-gate` — enabled but not evaluable         | Phase-gate validation needs CLI context the orchestrator lacks                    | Add a `harness check-phase-gate` CI step, or `--skip phase-gate`                                                                                                                                                                   |
+
+#### A note on `performance.entryPoints`
+
+Three of those rows point at the reachability analyzers, so it is worth stating
+the trap plainly. **Entry points are resolved literally — they are not
+glob-expanded, and their existence is not checked** (#2275). A wildcard such as
+a recursive `src` pattern becomes a root path that matches nothing, and because
+a non-empty value also suppresses auto-detection, the result is worse than
+setting nothing at all: the dead-code walk reaches zero files, every reachable
+export is reported dead, and `perf` still exits `0` with a `pass`. It is a
+silently wrong analysis rather than a red build, which is what makes it worth
+knowing about.
+
+Prefer auto-detection: ship a conventional entry file (`src/index.ts`,
+`src/main.ts`, `index.ts`, `main.ts`, or a `package.json` `main`/`exports`
+pointing at one) and leave the key unset — that is what every shipped template
+does. If you do set it, name concrete file paths, as this repo's own
+`harness.config.json` does. Note also that the fallback is asymmetric: `entropy`
+falls back to `performance.entryPoints`, but `perf` reads only its own key.
 
 #### Escape hatch
 
