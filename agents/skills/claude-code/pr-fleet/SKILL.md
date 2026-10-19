@@ -101,7 +101,7 @@ The five-phase spine, the concurrency governor, the artifact + all-OS-CI verific
    - Superseded / stale PRs **flagged for closure** with their superseding PR — the human confirms closing; the fleet never lands them.
    - Every detected known decision fork as a **multiple-choice question** with a recommended default.
    - The **proposed concurrency** (default 2, capped at ~3).
-   - **Stacks shown bottom-first**, with each PR's base. Authorizing a stacked PR authorizes a merge into its parent's branch, **not** the default branch. Say so plainly, so the human doesn't read "landed" as "on `main`".
+   - **Stacks shown bottom-first**, with each PR's base. A stacked PR is bucketed `blocked` (§Phase 1.2) but **must still be presented here** — never filter it out of this surface for being unlandable. Authorizing a stacked PR authorizes a merge into its parent's branch, **not** the default branch. Say so plainly, so the human doesn't read "landed" as "on `main`".
    - **A heal warning for approved PRs.** On a repo that dismisses stale approvals, merging the default branch into an approved PR (to fix a conflict or a stale base) dismisses that approval. Healing an approved PR therefore costs a re-review, and the human should know before authorizing it.
 
 2. **The human explicitly checks which PRs to land.** This checked set is the **merge authorization** — the human's merge decision, captured once for the batch. The human may also trim, answer forks, and confirm closures in this same gate. A PR the human does not check is never landed, no matter how green it is.
