@@ -31,6 +31,7 @@ import {
   failSafeVerdict,
   outcomeVerdictToQualityVerdict,
   qualityVerdictLogFields,
+  retrospectiveFailSafeReason,
   toOutcomeClass,
   unjudgedVerdict,
 } from './agent/quality-verdict-kind';
@@ -3845,14 +3846,28 @@ export class Orchestrator extends EventEmitter {
       }
 
       if (result.comparison.action === 'block-escalate') {
-        this.logger.info('amr:quality-fail — post-diff retrospective mispredict (block+escalate)', {
-          issueId: issue.id,
-          externalId,
-          predicted: prediction.verdict.level,
-          actual: result.actual.level,
-          exceededBy: result.comparison.exceededBy,
-        });
-        return defectVerdict('retrospective');
+        // The comparator blocks for two very different reasons (#2221, sibling site): a
+        // JUDGED overrun, and an UNJUDGEABLE input — a stored prediction or a fresh
+        // classification carrying no known complexity band, where SC7 blocks precisely
+        // BECAUSE nothing could be compared. Both still block (the collapse is
+        // unchanged), but only the judged one is a defect.
+        const failSafeReason = retrospectiveFailSafeReason(result.comparison.reason);
+        this.logger.info(
+          failSafeReason === undefined
+            ? 'amr:quality-fail — post-diff retrospective mispredict (block+escalate)'
+            : 'amr:quality-fail — post-diff retrospective could not compare (fail-safe block)',
+          {
+            issueId: issue.id,
+            externalId,
+            predicted: prediction.verdict.level,
+            actual: result.actual.level,
+            exceededBy: result.comparison.exceededBy,
+            reason: result.comparison.reason,
+          }
+        );
+        return failSafeReason === undefined
+          ? defectVerdict('retrospective')
+          : failSafeVerdict(failSafeReason);
       }
 
       // MATCH ⇒ v1 stage-2 handling: annotate the PR for required human verification.

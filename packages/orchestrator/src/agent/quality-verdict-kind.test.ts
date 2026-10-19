@@ -10,6 +10,7 @@ import {
   describeVerdict,
   outcomeVerdictToQualityVerdict,
   qualityVerdictLogFields,
+  retrospectiveFailSafeReason,
   toOutcomeClass,
 } from './quality-verdict-kind';
 
@@ -40,6 +41,10 @@ const COLLAPSE_TABLE: Array<{ verdict: QualityVerdict; outcomeClass: 'quality-fa
     { verdict: { kind: 'fail-safe', reason: 'store-unreadable' }, outcomeClass: 'quality-fail' },
     {
       verdict: { kind: 'fail-safe', reason: 'prediction-unparseable' },
+      outcomeClass: 'quality-fail',
+    },
+    {
+      verdict: { kind: 'fail-safe', reason: 'actual-unclassifiable' },
       outcomeClass: 'quality-fail',
     },
     { verdict: { kind: 'fail-safe', reason: 'internal-error' }, outcomeClass: 'quality-fail' },
@@ -211,5 +216,30 @@ describe('describeVerdict / qualityVerdictLogFields', () => {
       quality: null,
       retrospective: null,
     });
+  });
+});
+
+describe('retrospectiveFailSafeReason — the comparator sibling (#2221)', () => {
+  it('names a fail-safe reason for each input the comparator could not judge', () => {
+    expect(retrospectiveFailSafeReason('unjudgeable-prediction')).toBe('prediction-unparseable');
+    expect(retrospectiveFailSafeReason('unjudgeable-actual')).toBe('actual-unclassifiable');
+  });
+
+  it('returns undefined for every reason the comparator actually JUDGED', () => {
+    expect(retrospectiveFailSafeReason('matched')).toBeUndefined();
+    expect(retrospectiveFailSafeReason('level-overrun')).toBeUndefined();
+    expect(retrospectiveFailSafeReason('blast-overrun')).toBeUndefined();
+  });
+
+  it('is collapse-neutral: a judged overrun and an unjudgeable input both still escalate', () => {
+    // The sibling conflation was a LABEL defect, never an escalation one. Both of these
+    // must keep returning 'quality-fail' or this fix changed who merges.
+    const judged = defectVerdict('retrospective');
+    const reason = retrospectiveFailSafeReason('unjudgeable-actual');
+    expect(reason).not.toBeUndefined();
+    const failSafe = failSafeVerdict(reason as 'actual-unclassifiable');
+    expect(toOutcomeClass(judged)).toBe('quality-fail');
+    expect(toOutcomeClass(failSafe)).toBe('quality-fail');
+    expect(judged.kind).not.toBe(failSafe.kind);
   });
 });

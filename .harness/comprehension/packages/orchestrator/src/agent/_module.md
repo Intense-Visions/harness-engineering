@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/orchestrator/src/agent'
-sourceHash: '334ab5d20bf4c19ff6250716e07dc7078e32ed328c9a189c21794221533ee1e0'
+sourceHash: '6615061c58db8c064b745ec5ab894dd49fa7498db60f3d5324ab0da3143257be'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -126,6 +126,7 @@ export qualityVerdictLogFields
 export rankTriageCandidates
 export renderSpecMarkdown
 export resolveSkillForTriage
+export retrospectiveFailSafeReason
 export runBrainstormForIssue
 export runRetrospective
 export selectCheapestQualifying
@@ -176,7 +177,7 @@ import { HarnessFitProbeRunner, HarnessFitProbeRunnerDeps } from './harness-fit-
 import { makeLiveClassify } from './live-classify.js'
 import { LocalModelResolver } from './local-model-resolver'
 import { hasIntroducedSecurityDefect, outcomeVerdictToQualityFail, parseIntroducedHunks } from './quality-verdict'
-import { QualityVerdict, afterCleanSecurityScan, cleanVerdict, defectVerdict, describeVerdict, failSafeVerdict, outcomeVerdictToQualityVerdict, qualityVerdictLogFields, toOutcomeClass, unjudgedVerdict } from './quality-verdict-kind'
+import { QualityVerdict, afterCleanSecurityScan, cleanVerdict, defectVerdict, describeVerdict, failSafeVerdict, outcomeVerdictToQualityVerdict, qualityVerdictLogFields, retrospectiveFailSafeReason, toOutcomeClass, unjudgedVerdict } from './quality-verdict-kind'
 import { IntroducedHunk } from './quality-verdict.js'
 import { AgentRunner } from './runner.js'
 import { DockerRuntime } from './runtime/docker.js'
@@ -188,7 +189,7 @@ import { resolveSkillForTriage } from './triage-skill-mapping'
 import { TriageWiringDeps, buildProbeInput, makeGraphScope, triageIssue } from './triage-wiring.js'
 import { CacheMetricsRecorder, FeatureMutation, RoadmapStore, SecurityScanner, buildLaneStateEnvOverride, eventSourcing, slugifyFeatureName } from '@harness-engineering/core'
 import { CascadeSimulator, GraphNode, GraphStore } from '@harness-engineering/graph'
-import { AnalysisProvider, AnalysisResponse, AnthropicAnalysisProvider, BrainstormInput, BrainstormOutcome, ClassifyInput, ClaudeCliAnalysisProvider, ComplexitySignals, DEFAULT_DEGRADE_AT_PCT, Fork, ForkConfidence, ForkDecision, ForkGenerator, GoNoGoCandidate, GraphScope, IntelligencePipeline, OpenAICompatibleAnalysisProvider, OutcomeVerdict, PrecedentLookup, PrecedentRate, ProbeConfig, ProbeInput, RANK_TIER, RankableCandidate, ResolvedEntity, RetrospectiveComparison, RetrospectiveConfig, SpecDraft, TIER_RANK, TriagePrediction, TriageVerdict, aggregatePrecedent, classify, compareToPrediction, depthForLevel, deriveRequiredTier, dispatchableShapeKey, extractEntities, pilotScore, rankTriageCandidates, runAutoBrainstorm, runScopingProbe } from '@harness-engineering/intelligence'
+import { AnalysisProvider, AnalysisResponse, AnthropicAnalysisProvider, BrainstormInput, BrainstormOutcome, ClassifyInput, ClaudeCliAnalysisProvider, ComplexitySignals, DEFAULT_DEGRADE_AT_PCT, Fork, ForkConfidence, ForkDecision, ForkGenerator, GoNoGoCandidate, GraphScope, IntelligencePipeline, OpenAICompatibleAnalysisProvider, OutcomeVerdict, PrecedentLookup, PrecedentRate, ProbeConfig, ProbeInput, RANK_TIER, RankableCandidate, ResolvedEntity, RetrospectiveComparison, RetrospectiveConfig, RetrospectiveReason, SpecDraft, TIER_RANK, TriagePrediction, TriageVerdict, aggregatePrecedent, classify, compareToPrediction, depthForLevel, deriveRequiredTier, dispatchableShapeKey, extractEntities, pilotScore, rankTriageCandidates, runAutoBrainstorm, runScopingProbe } from '@harness-engineering/intelligence'
 import { HarnessFitProbeTask, HarnessFitResult, HarnessFitRunner, PoolCandidateOptions, PoolStateProvider, RankProfile, poolStateToCandidates, scoreBuildQuality } from '@harness-engineering/local-models'
 import { AgentBackend, AgentConfig, AgentError, AgentEvent, AgentSession, AnthropicBackendDef, BackendCapabilities, BackendCapabilityRegistry, BackendDef, CapabilityTier, ClaudeBackendDef, ComplexityVerdict, ContainerConfig, FeatureStatus, GeminiBackendDef, IntelligenceConfig, IsolationTier, Issue, IssueTrackerClient, LocalBackendDef, LocalModelStatus, MockBackendDef, Ok, OpenAIBackendDef, PiBackendDef, PolicyNetworkMode, PolicySandboxMode, PrivacyClass, ResolutionSource, ResolutionStep, Result, Roadmap, RoadmapFeature, RoutingBudgetStatus, RoutingConfig, RoutingDecision, RoutingError, RoutingPolicy, RoutingRequest, RoutingStatus, RoutingTaskText, RoutingTelemetry, RoutingTelemetryDecision, RoutingUseCase, RoutingValue, ScopeTier, SecretConfig, SessionStartParams, TurnParams, TurnResult, WorkflowConfig } from '@harness-engineering/types'
 import * as childProcess, { execFile, execSync } from 'node:child_process'

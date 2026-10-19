@@ -12,7 +12,9 @@
 // than feared) — only over-scope trips the block.
 //
 // Fail-safe (SC7, plan §Concerns): a missing, garbled, or invalid prediction/actual
-// is treated as a MISMATCH (`block-escalate`), never a silent pass. Biasing toward
+// is treated as a MISMATCH (`block-escalate`), never a silent pass. It carries
+// `reason: 'unjudgeable-*'` so the caller can report it as a FAIL-SAFE block rather
+// than as a judged mispredict (#2221) — the ACTION is identical, the label is not. Biasing toward
 // flagging is deliberate — a false mismatch costs a human review; a false match ships
 // an under-scrutinized change and advances the ratchet on false evidence.
 //
@@ -41,6 +43,25 @@ export const LEVEL_RANK: Record<ComplexityLevel, number> = {
 export const BLAST_TOLERANCE_FACTOR = 1.5;
 export const BLAST_TOLERANCE_ABS = 2;
 
+/**
+ * WHY the comparator reached its action. On a `block-escalate` this separates a JUDGED
+ * overrun — the diff really did exceed the prediction — from an UNJUDGEABLE input, where
+ * the SC7 fail-safe blocks precisely BECAUSE no comparison could be made. Both still
+ * block (the action is unchanged), but the caller can now tell bad code from bad data
+ * instead of reporting a store hiccup as a mispredict (#2221).
+ */
+export type RetrospectiveReason =
+  /** The diff stayed within the predicted band + scope. */
+  | 'matched'
+  /** JUDGED: the actual complexity band landed >= `exceededByBands` over the prediction. */
+  | 'level-overrun'
+  /** JUDGED: same-or-lower band, but the actual blast radius blew past the threshold. */
+  | 'blast-overrun'
+  /** FAIL-SAFE: the stored prediction is missing, or its level is not a known band. */
+  | 'unjudgeable-prediction'
+  /** FAIL-SAFE: the post-diff verdict is missing, or its level is not a known band. */
+  | 'unjudgeable-actual';
+
 /** The comparator's verdict for one graded item. */
 export interface RetrospectiveComparison {
   /** True iff the actual diff stayed WITHIN the predicted band + scope (SC2). */
@@ -53,6 +74,12 @@ export interface RetrospectiveComparison {
   exceededBy: number;
   /** `verify` on a match (surface for human verify per stage); `block-escalate` on a mismatch/error. */
   action: 'verify' | 'block-escalate';
+  /**
+   * WHY this action was reached. Additive to the shipped triple — `matched`,
+   * `exceededBy` and `action` are byte-identical to before — so escalation is unchanged
+   * and only the LABEL a consumer can now put on the block is new.
+   */
+  reason: RetrospectiveReason;
 }
 
 /** Tunable comparator thresholds (wired from `roadmap.autoTriage.thresholds`, SC2). */
@@ -68,9 +95,9 @@ export interface RetrospectiveConfig {
 /** The default comparator config: any band over the prediction is a mispredict. */
 export const DEFAULT_RETROSPECTIVE_CONFIG: RetrospectiveConfig = { exceededByBands: 1 };
 
-/** A block-escalate verdict of the given severity (default 1 = the minimum over-scope). */
-function blockEscalate(exceededBy = 1): RetrospectiveComparison {
-  return { matched: false, exceededBy: Math.max(1, exceededBy), action: 'block-escalate' };
+/** A block-escalate verdict for `reason`, of the given severity (default 1 = minimum over-scope). */
+function blockEscalate(reason: RetrospectiveReason, exceededBy = 1): RetrospectiveComparison {
+  return { matched: false, exceededBy: Math.max(1, exceededBy), action: 'block-escalate', reason };
 }
 
 /** Guard: a value that is a known ComplexityLevel (never trust a stray/LLM-set string). */
@@ -97,10 +124,12 @@ export function compareToPrediction(
   config: RetrospectiveConfig = DEFAULT_RETROSPECTIVE_CONFIG
 ): RetrospectiveComparison {
   // SC7 fail-safe: any missing/garbled input is a mismatch, never a silent pass.
-  if (prediction == null || postDiffVerdict == null) return blockEscalate();
+  if (prediction == null) return blockEscalate('unjudgeable-prediction');
+  if (postDiffVerdict == null) return blockEscalate('unjudgeable-actual');
   const predictedLevel = prediction.verdict?.level;
   const actualLevel = postDiffVerdict.level;
-  if (!isLevel(predictedLevel) || !isLevel(actualLevel)) return blockEscalate();
+  if (!isLevel(predictedLevel)) return blockEscalate('unjudgeable-prediction');
+  if (!isLevel(actualLevel)) return blockEscalate('unjudgeable-actual');
 
   // SC2a: level-band overrun. Coming in at or below the predicted band is fine
   // (the diff was as easy as, or easier than, predicted). A delta ≥ the configured
@@ -108,7 +137,7 @@ export function compareToPrediction(
   // reported in `exceededBy` for forensics but does not block on its own.
   const levelDelta = LEVEL_RANK[actualLevel] - LEVEL_RANK[predictedLevel];
   const bandThreshold = Math.max(1, Math.floor(config.exceededByBands));
-  if (levelDelta >= bandThreshold) return blockEscalate(levelDelta);
+  if (levelDelta >= bandThreshold) return blockEscalate('level-overrun', levelDelta);
 
   // SC2b: blast-radius overrun at the same-or-lower band. The predicted scope is the
   // scopeEstimate the scope lever produced pre-diff; the actual is the post-diff
@@ -121,8 +150,8 @@ export function compareToPrediction(
   const actualBlast = blastRadiusOf(postDiffVerdict);
   if (actualBlast !== undefined) {
     const threshold = predictedScope * BLAST_TOLERANCE_FACTOR + BLAST_TOLERANCE_ABS;
-    if (actualBlast > threshold) return blockEscalate();
+    if (actualBlast > threshold) return blockEscalate('blast-overrun');
   }
 
-  return { matched: true, exceededBy: 0, action: 'verify' };
+  return { matched: true, exceededBy: 0, action: 'verify', reason: 'matched' };
 }

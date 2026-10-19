@@ -1,4 +1,4 @@
-import type { OutcomeVerdict } from '@harness-engineering/intelligence';
+import type { OutcomeVerdict, RetrospectiveReason } from '@harness-engineering/intelligence';
 import { outcomeVerdictToQualityFail } from './quality-verdict';
 
 /**
@@ -50,6 +50,12 @@ export type QualityFailSafeReason =
   | 'store-unreadable'
   /** Triaged unit whose stored prediction is missing or garbled. */
   | 'prediction-unparseable'
+  /**
+   * The post-diff verdict itself carried no known complexity band, so the comparator
+   * blocked WITHOUT comparing. Distinct from `prediction-unparseable`: the stored
+   * prediction was fine, the fresh classification was not.
+   */
+  | 'actual-unclassifiable'
   /** The retrospective errored; SC7 takes the block+escalate path, never a silent pass. */
   | 'internal-error';
 
@@ -129,6 +135,37 @@ export function afterCleanSecurityScan(evalVerdict: QualityVerdict): QualityVerd
   return evalVerdict.kind === 'unjudged' && evalVerdict.reason === 'eval-declined'
     ? cleanVerdict('security')
     : evalVerdict;
+}
+
+/**
+ * Which `QualityFailSafeReason`, if any, a retrospective comparator reason denotes —
+ * `undefined` when the comparator actually JUDGED (#2221 sibling site).
+ *
+ * `compareToPrediction` returns the SAME `action: 'block-escalate'` for a judged overrun
+ * and for an input it could not compare at all, so the reason is the only thing that
+ * separates bad code from bad data. Without this mapping the feeder labelled every
+ * comparator block `defect/retrospective` — reintroducing, one layer down, exactly the
+ * conflation this module exists to remove.
+ *
+ * Collapse-neutral: fail-safe and defect both collapse to `'quality-fail'`, so which
+ * units escalate is unchanged either way. Note both unjudgeable reasons are, today,
+ * unreachable through the orchestrator (the event log's `.strict()` level enum drops a
+ * garbled stored prediction, and the classifier's tie-break schema constrains the fresh
+ * verdict) — this is defence-in-depth for the exported comparator, not a live-path fix.
+ */
+export function retrospectiveFailSafeReason(
+  reason: RetrospectiveReason
+): QualityFailSafeReason | undefined {
+  switch (reason) {
+    case 'unjudgeable-prediction':
+      return 'prediction-unparseable';
+    case 'unjudgeable-actual':
+      return 'actual-unclassifiable';
+    case 'matched':
+    case 'level-overrun':
+    case 'blast-overrun':
+      return undefined;
+  }
 }
 
 /** The structured, greppable shape of one verdict in the operator-facing log. */
