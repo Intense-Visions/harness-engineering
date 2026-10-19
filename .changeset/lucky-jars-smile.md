@@ -21,7 +21,7 @@ result — see the abstention rule below.
 **This is breaking for anyone whose gate runs these commands.** Measured on this
 repository with a freshly built CLI, the `audit-anatomy` verifier inside
 `check-design --mode full` went from `audit-anatomy (0 findings)` over 0 files to
-3,094 findings (2 error-severity, 3,092 warn). An adopter whose design gate is green
+3,133 findings (2 error-severity, 3,131 warn) over 4,267 files. An adopter whose design gate is green
 today can go red on the first run after upgrading, with no change to their code. To
 stage the adoption, scope the run explicitly with `--files` (explicit paths — see the
 glob note below), narrow it with `design.exclude` / `analysis.exclude`, or turn the
@@ -85,7 +85,7 @@ fixed by scanning it, never by declaring the project unauditable.
   and reporting clean, just partial. Five files in THIS repository sat at depth 9
   and were never scanned, one a `.tsx`, so the denominator was quietly short.
 
-Together these took the denominator from 4,152 to **4,266**.
+Together these took the denominator from 4,152 to **4,267** (the odd file is this change's own new test).
 
 The last row matters: `harness init` followed by `harness validate` is exactly that
 case, and a brand-new project is not an incomplete validation run. This repository
@@ -119,9 +119,9 @@ repository brand reports 0 findings either way, so the change is not observable 
 ## Cost: the default scan is no longer free
 
 `audit-anatomy` previously read zero files in ~0 ms. Measured on this repository
-with a freshly built CLI, `runAudit({ mode: 'fast' })` is now **4,266 files, 2
-findings, ~2.9 s**; `--mode full` reports 3,132 findings in the same order of
-time. Every `harness validate` and `harness check-design` caller pays that, and
+with a freshly built CLI, `runAudit({ mode: 'fast' })` is now **4,267 files, 2
+findings, ~1-3 s** (warm vs cold); `--mode full` reports 3,133 findings in the
+same order of time. Every `harness validate` and `harness check-design` caller pays that, and
 `validate` runs all three widened verifiers. If the latency matters more than the
 coverage, scope the run with `--files`, narrow it with `design.exclude` /
 `analysis.exclude`, or disable a verifier via `design.audit.*.enabled: false`.
