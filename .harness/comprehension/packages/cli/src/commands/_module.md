@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/commands'
-sourceHash: '3b744291abcc368bd822e2ff5a47a959ea76cb91f0cc1cceabc797d9a5e2def1'
+sourceHash: '8c3e8a5e3fbb592e951af9786fe34ab34e74233aad94255718f29cf64fd4d7b2'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -146,6 +146,8 @@ export ScanConfigFileResult
 export ScanConfigFinding
 export ScanConfigResult
 export StepResult
+export abstainedMeasurements
+export abstentionReason
 export actStatusCommand
 export aggregateReport
 export assertKnownRunner
@@ -163,6 +165,7 @@ export checkCatalogFreshness
 export checkHookValidity
 export checkLivePings
 export checkSessionCorruption
+export classifyMeasurement
 export collectChangedFiles
 export commandCreators
 export configureTier0Integrations
@@ -429,6 +432,7 @@ import { RefreshJobGateReason, explainInactiveRefreshGate, resolveRefreshJobGate
 import { RefReadDeps, RegressionContext, SemanticState, defaultRefReadDeps, detectCommittedSemanticOnBranch, detectSemanticRegressions, readSemanticMapAtRef } from '../comprehension/regression'
 import { createStaticExtractor } from '../comprehension/static-extractor'
 import { loadAnalysisExclude, loadDesignExclude } from '../config/analysis-schema.js'
+import { withDependencyRules } from '../config/arch-dependency-rules'
 import { findConfigFile, loadConfig, resolveConfig } from '../config/loader'
 import { BranchingConfigSchema, ComprehensionConfig, HarnessConfig, VocabularyConfigSchema, loadDepsExclude } from '../config/schema'
 import { CopyCraftInput, CopyCraftOutput, CopySurface, runCopyCraft } from '../copy-craft/index.js'

@@ -125,24 +125,36 @@ export function noFilesScannedError(verifier: string, projectRoot: string): Erro
   return new Error(
     `${verifier} read no files under ${projectRoot}. This is an abstention, not a clean ` +
       'audit. To act on it: check the `files` scope (explicit paths only, globs are not ' +
-      'expanded), check `design.exclude` and `analysis.exclude`, or turn this verifier ' +
-      `off with \`${DISABLE_CONFIG_KEYS}\` to acknowledge it does not apply here — an ` +
-      'abstention you have acknowledged is not a failure, but it is never a pass.'
+      'expanded), check `design.exclude` and `analysis.exclude`, or set ' +
+      `\`${disableConfigKey(verifier)}: false\` to acknowledge this verifier does not ` +
+      'apply here. Disabling removes it from the run: the report then records it as ' +
+      'not-run rather than as clean, which is the honest outcome — what it will never do ' +
+      'is report zero findings for files it did not read.'
   );
 }
 
 /**
- * The real opt-out keys, spelled out rather than globbed.
+ * The opt-out key for ONE verifier, spelled out rather than globbed.
  *
- * A `design.audit.*.enabled: false` glob is not actionable: the config schema
- * names these three (`schema.ts:251/253/255`) and anything else is rejected
- * with `ignored unknown key`. `validate.ts` already names them in full in its
- * own messages; the shared one used to hand the reader a wildcard and let them
- * guess.
+ * A `design.audit.*.enabled` glob is not actionable: the schema names exactly
+ * three keys (`schema.ts:251/253/255`) and anything else is rejected with
+ * `ignored unknown key`. Naming all three in every message was one notch
+ * better and still wrong — the `detect-drift` abstention told the reader to set
+ * `componentAnatomy`. The verifier name is already a parameter, so use it.
  */
-const DISABLE_CONFIG_KEYS =
-  'design.audit.componentAnatomy.enabled / design.audit.driftDetection.enabled / ' +
-  'design.audit.brandCompliance.enabled';
+function disableConfigKey(verifier: string): string {
+  const key =
+    verifier === 'audit-anatomy'
+      ? 'componentAnatomy'
+      : verifier === 'detect-design-drift'
+        ? 'driftDetection'
+        : verifier === 'audit-brand-compliance'
+          ? 'brandCompliance'
+          : null;
+  return key === null
+    ? 'design.audit.<componentAnatomy|driftDetection|brandCompliance>.enabled'
+    : `design.audit.${key}.enabled`;
+}
 
 /**
  * The outcome of resolving a design verifier's scan targets.
@@ -270,32 +282,50 @@ function isExcluded(
 }
 
 /**
- * True when a DIRECTORY should not be descended, because an exclude pattern
- * already covers everything under it. Conservative by design: the per-file
- * filter still runs, so a pattern this does not recognise costs a wasted
- * descent and nothing else.
+ * True when a DIRECTORY provably contains nothing the per-file filter would
+ * keep, so skipping it cannot hide a file that belongs in the scan.
  *
- * A trailing globstar is stripped before matching: a pattern like
- * `third_party` followed by slash-globstar matches files UNDER the directory
- * but never the directory itself, which is exactly why `design.exclude` could
- * not stop the walk from descending into it.
+ * The safety property has to be stated carefully, because an earlier version of
+ * this function claimed one it did not have ("the per-file filter still runs, so
+ * a pattern this does not recognise costs a wasted descent and nothing else").
+ * That is false in the direction that matters: the per-file filter can only
+ * remove MORE files, never restore a pruned one. Pruning is only conservative
+ * when it is a SUBSET of per-file exclusion.
+ *
+ * The previous version stripped a trailing globstar and matched with
+ * `matchBase`, which made a pattern's last segment match any directory basename
+ * at any depth — so `vendor` followed by slash-globstar pruned `src/vendor`
+ * even though the per-file filter keeps `src/vendor/nested.css`, and a bare
+ * `vendor` (a complete no-op on main) deleted whole subtrees. A real
+ * DRIFT-T001 was silently never read: the same defect class this module exists
+ * to remove, reintroduced by its own optimisation.
+ *
+ * So instead of reasoning about pattern shapes, this asks the per-file
+ * predicate directly, about two synthetic paths under the directory: an
+ * immediate child and a deeply nested one. A pattern that excludes BOTH — for
+ * arbitrary names, at two different depths — excludes everything the walk could
+ * find below here. A pattern that excludes neither, or only one, leaves
+ * something behind and the walk must descend. `isExcluded` is the same function
+ * the per-file filter uses, so the two cannot drift apart.
  */
 function isExcludedDirectory(
   projectRoot: string,
   absoluteDir: string,
   excludePatterns: readonly string[]
 ): boolean {
-  const relative = path.relative(projectRoot, absoluteDir).replaceAll('\\', '/');
-  if (relative === '') return false;
-  return excludePatterns.some((pattern) => {
-    if (minimatch(relative, pattern, { matchBase: true })) return true;
-    const withoutTrailingGlob = pattern.replace(/\/\*\*$/, '');
-    return (
-      withoutTrailingGlob !== pattern &&
-      minimatch(relative, withoutTrailingGlob, { matchBase: true })
-    );
-  });
+  if (path.relative(projectRoot, absoluteDir) === '') return false;
+  // Names chosen to carry no extension and match no plausible glob on their
+  // own, so a hit can only come from the directory part of the pattern.
+  const shallow = path.join(absoluteDir, PRUNE_PROBE_NAME);
+  const deep = path.join(absoluteDir, PRUNE_PROBE_NAME, PRUNE_PROBE_NAME, PRUNE_PROBE_NAME);
+  return excludePatterns.some(
+    (pattern) =>
+      isExcluded(projectRoot, shallow, [pattern]) && isExcluded(projectRoot, deep, [pattern])
+  );
 }
+
+/** See isExcludedDirectory. Deliberately extension-less and glob-hostile. */
+const PRUNE_PROBE_NAME = '__harness_prune_probe__';
 
 function walk(
   projectRoot: string,

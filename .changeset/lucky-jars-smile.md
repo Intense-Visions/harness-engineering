@@ -21,14 +21,14 @@ result — see the abstention rule below.
 **This is breaking for anyone whose gate runs these commands.** Measured on this
 repository with a freshly built CLI, the `audit-anatomy` verifier inside
 `check-design --mode full` went from `audit-anatomy (0 findings)` over 0 files to
-3,133 findings (2 error-severity, 3,131 warn) over 4,268 files. An adopter whose design gate is green
+3,141 findings (2 error-severity, 3,139 warn) over 4,274 files. An adopter whose design gate is green
 today can go red on the first run after upgrading, with no change to their code. To
 stage the adoption, scope the run explicitly with `--files` (explicit paths — see the
 glob note below), narrow it with `design.exclude` / `analysis.exclude`, or turn the
 verifier off with `design.audit.componentAnatomy.enabled: false`.
 
 This repository's own `check-design` exit code does **not** change: it was already 1
-before this PR, because `detect-design-drift` emits 222 error-severity findings on
+before this PR, because `detect-design-drift` emits 225 error-severity findings on
 its own. The anatomy findings are additive here. An adopter whose only error-severity
 findings would come from anatomy is the one who flips 0 → 1.
 
@@ -61,12 +61,27 @@ looked at nothing, and "not applicable" when there was nothing of the kind to lo
 | why zero files                                                  | verdict                                        |
 | --------------------------------------------------------------- | ---------------------------------------------- |
 | candidates existed, an exclude glob discarded all of them       | abstain (throw)                                |
+| an excluded directory was pruned, leaving nothing               | abstain (throw) — pruning is tracked           |
 | explicit `files` list resolved to nothing readable (glob, typo) | abstain (throw)                                |
 | the project holds no file in any scanned extension              | **not applicable** — truthful zero-file result |
 
 Pruning an excluded directory is tracked, so `design.exclude: ['**/*']` cannot
 turn "the config excluded everything" into "this project has no design surface"
 and skip the abstention.
+
+**And pruning is a strict subset of per-file exclusion.** The directory check
+asks the _same_ `isExcluded` predicate the per-file filter uses, about two
+synthetic paths under the directory (an immediate child and a deeply nested
+one): a pattern that excludes both, for arbitrary names at two depths, excludes
+everything below. An earlier revision instead stripped a trailing globstar and
+matched with `matchBase`, which made a pattern's last segment match any
+directory basename at any depth — so `vendor/**` pruned `src/vendor` while the
+per-file filter _keeps_ `src/vendor/nested.css`, and a bare `vendor` (a complete
+no-op before this change) deleted whole subtrees. A real DRIFT-T001 was silently
+never read: the defect this module exists to remove, reintroduced by its own
+optimisation. The property matters because the per-file filter can only remove
+_more_ files — it can never restore a pruned one, so pruning is safe in exactly
+one direction.
 
 ### Two scope widenings that change this repository's numbers
 
@@ -103,7 +118,14 @@ and skip the abstention.
   never follows one; a direct symlink cycle terminates immediately. Real depth
   is PATH_MAX-bounded and the cost of a repository walk is breadth, not depth.
 
-Together these took the denominator from 4,152 to **4,268**.
+Together these widen the scan by **+107 files**, which is the stable figure:
+the absolute counts move every time this branch merges `main`, the delta does
+not. Measured apples-to-apples on one tree at this head, the old walk
+(6 extensions, depth cap 8) finds **4,167** and the new collector **4,274** —
+identical with or without `design.exclude` applied, since the old walk had no
+pruning. (An earlier revision said "from 4,152", a delta of +116; that
+before-figure came from a different tree state. +107 is the honest one, measured
+two independent ways that agree.)
 
 The last row matters: `harness init` followed by `harness validate` is exactly that
 case, and a brand-new project is not an incomplete validation run. This repository
@@ -112,7 +134,7 @@ already draws the same line for the roadmap doctor — an absent `docs/roadmap.m
 verifier under `verifiersFailed` and exits 2 (degraded) — though note
 `commands/check-design.ts` resolves `hasErrors ? 1 : degraded ? 2 : 0`, so on any
 project with an error-severity finding the exit code is 1 and the degraded code
-never surfaces. On this repository, where `detect-design-drift` alone emits 222
+never surfaces. On this repository, where `detect-design-drift` alone emits 225
 error-severity findings, an abstention exits 1.
 
 `harness validate` used to catch the throw into a severity-`warning` issue, which
@@ -137,8 +159,8 @@ repository brand reports 0 findings either way, so the change is not observable 
 ## Cost: the default scan is no longer free
 
 `audit-anatomy` previously read zero files in ~0 ms. Measured on this repository
-with a freshly built CLI, `runAudit({ mode: 'fast' })` is now **4,268 files, 2
-findings, ~1-3 s** (warm vs cold); `--mode full` reports 3,133 findings in the
+with a freshly built CLI, `runAudit({ mode: 'fast' })` is now **4,274 files, 2
+findings, ~1-3 s** (warm vs cold); `--mode full` reports 3,141 findings in the
 same order of time. Every `harness validate` and `harness check-design` caller pays that, and
 `validate` runs all three widened verifiers. If the latency matters more than the
 coverage, scope the run with `--files`, narrow it with `design.exclude` /
@@ -178,3 +200,26 @@ names exactly `componentAnatomy`, `driftDetection` and `brandCompliance` and
 anything else is rejected with `ignored unknown key`. All three are now spelled
 out, and both levers are covered by tests that run the built CLI end to end
 rather than asserting on the message string.
+
+## Two cost notes and two known asymmetries
+
+**Long lines are super-linear, and the widening extends the exposure.** The
+per-line regex cost on a pathological single-line file is super-linear and
+**pre-existing** — on a 360KB one-line file `.styl` and `.css` are
+indistinguishable (44.8s vs 45.7s), so nothing here introduced it. But seven
+more dialects are now in scope and the depth cap is gone, so more of a
+repository can reach it. The ~1-3s figure above is this repository's happy path,
+not a bound.
+
+**`SKIPPED_DIRECTORIES` and dot-directories do not set the pruning flag.** A
+project whose only design surface lives under `build/`, `coverage/` or
+`.storybook/` therefore reports a truthful-looking `valid: true` over an unread
+tree, rather than abstaining. This is pre-existing and not config-driven — those
+skips are unconditional, so no adopter setting produced them — but it is an
+asymmetry with the exclude path, which now does abstain. `.storybook/` is a
+plausible real design surface and the most likely way to hit it.
+
+**QUIET mode prints nothing**, so `(0 findings)`, `(did not run — see below)`
+and `(disabled by config — did not run)` all collapse to silence with only the
+exit code to tell them apart. Pre-existing; more reachable now that two of those
+three states exist.

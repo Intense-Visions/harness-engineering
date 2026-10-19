@@ -247,6 +247,40 @@ describe('design scan targets', () => {
       expect(targets.anyCandidateExisted).toBe(true);
     });
 
+    // The divergence that made directory pruning a REGRESSION vs main: the
+    // prune used `matchBase` on a globstar-stripped pattern, so a pattern's last
+    // segment matched any directory basename at any depth. `vendor/**` pruned
+    // `src/vendor` even though the per-file filter KEEPS `src/vendor/nested.css`,
+    // and a bare `vendor` — a complete no-op on main — deleted whole subtrees.
+    // A real DRIFT-T001 was silently never read. Untested before, hence shipped.
+    //
+    // The property that has to hold: pruning is a SUBSET of per-file exclusion.
+    // The per-file filter can only remove more files, never restore a pruned one.
+    it('never prunes a directory whose files the per-file filter would keep', () => {
+      dir = project({
+        'src/app.css': '.a { color: #ff0000; }',
+        'src/vendor/nested.css': '.n { color: #ff0000; }',
+        'vendor/top.css': '.t { color: #ff0000; }',
+      });
+
+      const rel = (patterns: string[]) =>
+        collectDesignScanFiles(dir, undefined, patterns)
+          .files.map((f) => path.relative(dir, f).replaceAll('\\', '/'))
+          .sort();
+
+      // `vendor/**` is root-anchored: it excludes `vendor/top.css` and NOT
+      // `src/vendor/nested.css`, so only the former may disappear.
+      expect(rel(['vendor/**'])).toEqual(['src/app.css', 'src/vendor/nested.css']);
+      // A bare `vendor` matches no FILE basename here, so it excludes nothing.
+      expect(rel(['vendor'])).toEqual(['src/app.css', 'src/vendor/nested.css', 'vendor/top.css']);
+      // An unrelated pattern must not touch anything.
+      expect(rel(['fixtures/**'])).toEqual([
+        'src/app.css',
+        'src/vendor/nested.css',
+        'vendor/top.css',
+      ]);
+    });
+
     it('prunes an excluded directory instead of descending it', () => {
       // design.exclude used to be unable to affect the walk at all: the walk ran
       // first and excludes were applied only to its output, so anything decided
@@ -275,6 +309,36 @@ describe('design scan targets', () => {
       } finally {
         fs.rmSync(excluded, { recursive: true, force: true });
       }
+    });
+
+    // The remedy must name the key for THE verifier that abstained. Naming all
+    // three in every message was better than the `*` glob it replaced and still
+    // wrong: the detect-drift abstention told the reader to set
+    // `componentAnatomy`.
+    it.each([
+      ['audit-anatomy', runAudit, 'componentAnatomy'],
+      ['detect-design-drift', runDetectDrift, 'driftDetection'],
+      ['audit-brand-compliance', runAuditBrand, 'brandCompliance'],
+    ] as const)('%s names its OWN opt-out key', async (_n, run, key) => {
+      dir = project({
+        'harness.config.json': JSON.stringify({ design: { exclude: ['**/*'] } }),
+        'src/List.tsx': SOURCE,
+      });
+
+      const error = await run({ path: dir, mode: 'full' }).then(
+        () => null,
+        (e: Error) => e
+      );
+      expect(error).not.toBeNull();
+      expect(error!.message).toContain(`design.audit.${key}.enabled: false`);
+      // ...and NOT the other two.
+      for (const other of ['componentAnatomy', 'driftDetection', 'brandCompliance']) {
+        if (other !== key) expect(error!.message).not.toContain(`design.audit.${other}.`);
+      }
+      // The message must not promise something the disabled path contradicts:
+      // disabling returns `valid: true` and exit 0, so "never a pass" was a lie.
+      expect(error!.message).not.toContain('never a pass');
+      expect(error!.message).toContain('records it as not-run rather than as clean');
     });
 
     it.each(VERIFIERS)('%s abstains when the scope discards every candidate', async (_n, run) => {
