@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/shared'
-sourceHash: '8050be374fa4385cb4be03c81a929be683d21dcfc33b3a578166d266d136fd05'
+sourceHash: '4d5679fde397c2b98dc7ab1562adf73ac22a7f6c72834164090e7043b59640cb'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -18,6 +18,7 @@ export emitApprovalResolved
 export emitCoreEvent
 export emitUserInputCaptured
 export isEmptyHarnessState
+export noFilesScannedError
 export readAuditTimeline
 export readHarnessState
 export resolveDesignExcludePatterns

@@ -95,4 +95,52 @@ describe('design scan targets', () => {
     expect(drift.summary.totalFiles).toBe(anatomy.summary.totalFiles);
     expect(brand.summary.totalFiles).toBe(anatomy.summary.totalFiles);
   });
+
+  // The sibling half of #2070. Closing the omitted-scope door left the
+  // explicit-scope door open: every verifier skips a candidate it cannot open,
+  // so a scope that resolves to nothing readable produced a zero-finding
+  // "clean" report for a run that read no bytes. And drift/brand counted
+  // CANDIDATES in `totalFiles`, so they claimed coverage of a file that does
+  // not exist.
+  describe('a scope that reads nothing is an abstention, not a pass', () => {
+    const VERIFIERS = [
+      ['audit-anatomy', runAudit],
+      ['detect-design-drift', runDetectDrift],
+      ['audit-brand-compliance', runAuditBrand],
+    ] as const;
+
+    const SOURCE = `export const List = ({ items }) => <ul>{items.map((i) => <li>{i}</li>)}</ul>;\n`;
+
+    it.each(VERIFIERS)('%s rejects a glob scope rather than reporting clean', async (_n, run) => {
+      dir = project({ 'src/List.tsx': SOURCE });
+      // `-f, --files` was documented as "file/glob" but no verifier has ever
+      // expanded a glob, so every glob is an unreadable path.
+      await expect(run({ path: dir, mode: 'full', files: ['src/**/*.tsx'] })).rejects.toThrow(
+        /read no files/i
+      );
+    });
+
+    it.each(VERIFIERS)('%s rejects a typo scope rather than reporting clean', async (_n, run) => {
+      dir = project({ 'src/List.tsx': SOURCE });
+      await expect(run({ path: dir, mode: 'full', files: ['src/Lst.tsx'] })).rejects.toThrow(
+        /read no files/i
+      );
+    });
+
+    it.each(VERIFIERS)('%s rejects a project with no source files', async (_n, run) => {
+      dir = project({ 'README.md': '# docs only\n' });
+      await expect(run({ path: dir, mode: 'full' })).rejects.toThrow(/read no files/i);
+    });
+
+    it.each(VERIFIERS)('%s counts files it READ, not candidates offered', async (_n, run) => {
+      dir = project({ 'src/List.tsx': SOURCE });
+      const out = await run({
+        path: dir,
+        mode: 'full',
+        files: ['src/List.tsx', 'src/gone.tsx', 'src/also-gone.tsx'],
+      });
+      // Three candidates, one readable. drift and brand reported 3 here.
+      expect(out.summary.totalFiles).toBe(1);
+    });
+  });
 });

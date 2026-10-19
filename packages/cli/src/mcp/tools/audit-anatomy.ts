@@ -26,6 +26,7 @@ import { runConventionRule } from '../../audit/component-anatomy/rules/conventio
 import { PATTERN_CHECKS } from '../../audit/component-anatomy/catalog/patterns/index.js';
 import {
   collectDesignScanFiles,
+  noFilesScannedError,
   resolveDesignExcludePatterns,
 } from '../../shared/design-scan-targets.js';
 import type { AnatomyFinding, Severity } from '../../audit/component-anatomy/findings/finding.js';
@@ -114,12 +115,7 @@ export async function runAudit(input: AuditAnatomyInput): Promise<AuditAnatomyOu
     input.files,
     resolveDesignExcludePatterns(projectRoot)
   );
-  if (candidateFiles.length === 0) {
-    throw new Error(
-      `audit-anatomy resolved no files to audit under ${projectRoot}. This is an abstention, ` +
-        'not a clean audit — check the `files` scope, design.exclude and analysis.exclude.'
-    );
-  }
+  if (candidateFiles.length === 0) throw noFilesScannedError('audit-anatomy', projectRoot);
 
   const conventionsApplied = new Set<string>();
   const patternsApplied = new Set<string>();
@@ -170,6 +166,11 @@ export async function runAudit(input: AuditAnatomyInput): Promise<AuditAnatomyOu
     const fileFindings = runConventionRule(rule, parsed, runnerOptions);
     findings.push(...fileFindings);
   }
+
+  // Candidates resolved but every one was unreadable (a glob, a typo, a
+  // deleted path): the scan loop skipped them all and `findings` is empty for
+  // want of a byte read, not for want of a defect (#2070).
+  if (totalFiles === 0) throw noFilesScannedError('audit-anatomy', projectRoot);
 
   const summary = buildSummary(findings, totalFiles, Date.now() - start);
 

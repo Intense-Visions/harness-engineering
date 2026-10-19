@@ -14,6 +14,7 @@ import * as fs from 'node:fs';
 import { sanitizePath } from '../mcp/utils/sanitize-path.js';
 import {
   collectDesignScanFiles,
+  noFilesScannedError,
   resolveDesignExcludePatterns,
 } from '../shared/design-scan-targets.js';
 import type { Verifier } from '../shared/verifier.js';
@@ -82,18 +83,20 @@ export async function runAuditBrand(input: AuditBrandInput): Promise<AuditBrandO
     resolveDesignExcludePatterns(projectRoot)
   );
 
-  const findings = scanFiles(filesToScan, {
+  if (filesToScan.length === 0) throw noFilesScannedError('audit-brand-compliance', projectRoot);
+  const { findings, filesRead } = scanFiles(filesToScan, {
     tokenActive,
     voiceActive,
     brandTokens,
     brandRules,
     strictness,
   });
+  if (filesRead === 0) throw noFilesScannedError('audit-brand-compliance', projectRoot);
 
   return {
     findings,
     summary: {
-      totalFiles: filesToScan.length,
+      totalFiles: filesRead,
       durationMs: Date.now() - startedAt,
       ...tallyFindings(findings),
     },
@@ -118,8 +121,19 @@ function isVoiceRuleActive(voiceEnabled: boolean, brandRules: BrandRules | null)
   return voiceEnabled && brandRules?.voice != null && brandRules.voice.forbiddenPhrases.length > 0;
 }
 
-function scanFiles(files: readonly string[], ctx: ScanContext): BrandFinding[] {
+/**
+ * Scan every candidate, reporting how many were actually READ. `totalFiles`
+ * used to be `filesToScan.length` — the candidate count — so a scope of one
+ * nonexistent path reported "1 file scanned, 0 findings" for a file the
+ * verifier never opened. Coverage claims count bytes read, not paths offered
+ * (#2070).
+ */
+function scanFiles(
+  files: readonly string[],
+  ctx: ScanContext
+): { findings: BrandFinding[]; filesRead: number } {
   const findings: BrandFinding[] = [];
+  let filesRead = 0;
   for (const file of files) {
     let source: string;
     try {
@@ -127,9 +141,10 @@ function scanFiles(files: readonly string[], ctx: ScanContext): BrandFinding[] {
     } catch {
       continue;
     }
+    filesRead += 1;
     findings.push(...scanSource(source, file, ctx));
   }
-  return findings;
+  return { findings, filesRead };
 }
 
 function scanSource(source: string, file: string, ctx: ScanContext): BrandFinding[] {

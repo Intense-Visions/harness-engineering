@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/mcp/tools'
-sourceHash: '9042ba3bc4b0756275b30e54be8093b03c06ff5b11484abc9c0c3af8c25483e0'
+sourceHash: 'bca4d8cfaa5f66043432c7dfde895760151a5d9cf12aa51c369c45fe56eb2c47'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -498,7 +498,7 @@ import from '../../persona/skill-executor.js'
 import { DEFAULT_RESPONSIVE_GATE_CONFIG, ResponsiveGateConfig, ResponsiveMetrics } from '../../responsive/index.js'
 import { CollectPromptsOutput, FinalizeSecurityCraftInput, SecurityCraftInput, SecurityCraftMode, SecurityCraftOutput, collectSecurityCraftPrompts, finalizeSecurityCraft, runSecurityCraft } from '../../security-craft/index.js'
 import { resolveCraftLlmMode } from '../../shared/craft/llm/provider.js'
-import { collectDesignScanFiles, resolveDesignExcludePatterns } from '../../shared/design-scan-targets.js'
+import { collectDesignScanFiles, noFilesScannedError, resolveDesignExcludePatterns } from '../../shared/design-scan-targets.js'
 import from '../../shared/state-events.js'
 import { Verifier } from '../../shared/verifier.js'
 import { dispatchSkills, dispatchSkillsFromGit, enrichSnapshotForDispatch } from '../../skill/dispatch-engine.js'

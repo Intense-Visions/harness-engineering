@@ -52,6 +52,24 @@ export function resolveDesignExcludePatterns(
 }
 
 /**
+ * The abstention a design verifier raises when it read zero files.
+ *
+ * Every verifier here resolves a candidate set and then skips any candidate it
+ * cannot open — a glob (the CLI flag documents `-f, --files` as "file/glob",
+ * which no verifier has ever expanded), a typo, a deleted path. When that skip
+ * swallows the whole set the run has audited nothing, and reporting that as
+ * zero findings is the #2070 defect through the explicit-scope door rather
+ * than the omitted-scope one. Zero files read is an abstention, never a pass.
+ */
+export function noFilesScannedError(verifier: string, projectRoot: string): Error {
+  return new Error(
+    `${verifier} read no files under ${projectRoot}. This is an abstention, not a clean ` +
+      'audit — check the `files` scope (explicit paths only, globs are not expanded), ' +
+      'design.exclude and analysis.exclude.'
+  );
+}
+
+/**
  * Collect the absolute paths a design verifier should scan.
  *
  * An explicit, non-empty `explicitFiles` list is a deliberate scoping and

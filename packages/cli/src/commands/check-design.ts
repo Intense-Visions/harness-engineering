@@ -444,7 +444,8 @@ export function createCheckDesignCommand(): Command {
     .option('-m, --mode <mode>', 'Audit mode: fast | full', 'full')
     .option(
       '-f, --files <files...>',
-      'Optional file/glob scoping. Defaults to all project source files.'
+      'Optional scoping by explicit file path (globs are not expanded). ' +
+        'Defaults to all project source files.'
     )
     .action(async (opts, cmd) => {
       const globalOpts = cmd.optsWithGlobals();

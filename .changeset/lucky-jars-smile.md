@@ -29,3 +29,26 @@ turn the verifier off with `design.audit.componentAnatomy.enabled: false`.
 Major rather than patch: the fix is small, but the observable contract of a command
 that gates CI changes from pass to fail, and `runAudit` gained a throw where it
 previously always resolved.
+
+## Sibling sweep: the explicit-scope door, and candidate counts
+
+The same defect had a second door and two more verifiers, all fixed here.
+
+Every design verifier skips a candidate it cannot open. Closing the omitted-scope
+door left that skip intact, so a scope that resolved to nothing _readable_ still
+rendered as a pass: `-f, --files` was documented as "file/glob" but no verifier has
+ever expanded a glob, so `--files 'src/**/*.tsx'` audited zero files and reported
+zero findings. A typo'd path did the same. All three verifiers now abstain when they
+read no files, not just when they resolve no candidates. The flag's help no longer
+claims glob support it does not have.
+
+`detect-design-drift` and `audit-brand-compliance` also reported `totalFiles` as the
+_candidate_ count rather than the count of files they read, so a scope of one
+nonexistent path reported "1 file scanned, 0 findings" for a file never opened.
+`totalFiles` is now bytes read, not paths offered.
+
+Also breaking for the same reason as above: `detect-design-drift` and
+`audit-brand-compliance` now throw over a project with no design surface where they
+previously returned a clean zero-file result. `harness validate` already degrades a
+throwing verifier to a warning issue; `harness check-design` records it under
+`verifiersFailed` and exits 2 (degraded).

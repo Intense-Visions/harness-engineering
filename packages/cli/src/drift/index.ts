@@ -17,6 +17,7 @@ import * as fs from 'node:fs';
 import { sanitizePath } from '../mcp/utils/sanitize-path.js';
 import {
   collectDesignScanFiles,
+  noFilesScannedError,
   resolveDesignExcludePatterns,
 } from '../shared/design-scan-targets.js';
 import type { DriftFinding, DriftSeverity, DriftStrictness } from './findings/finding.js';
@@ -114,12 +115,12 @@ function computeRulesApplied(config: ResolvedDriftConfig): string[] {
  * Run the enabled rules against a single file's source. Returns an empty
  * list when the file cannot be read.
  */
-function scanFile(file: string, config: ResolvedDriftConfig): DriftFinding[] {
+function scanFile(file: string, config: ResolvedDriftConfig): DriftFinding[] | 'unreadable' {
   let source: string;
   try {
     source = fs.readFileSync(file, 'utf-8');
   } catch {
-    return [];
+    return 'unreadable';
   }
   const findings: DriftFinding[] = [];
   if (config.tokenBypassEnabled && config.tokens !== null) {
@@ -143,12 +144,26 @@ function scanFile(file: string, config: ResolvedDriftConfig): DriftFinding[] {
 /**
  * Scan every candidate file and accumulate findings.
  */
-function scanFiles(files: readonly string[], config: ResolvedDriftConfig): DriftFinding[] {
+/**
+ * Scan every candidate, reporting how many were actually READ. `totalFiles`
+ * used to be `filesToScan.length` — the candidate count — so a scope of one
+ * nonexistent path reported "1 file scanned, 0 findings" for a file the
+ * verifier never opened. Coverage claims count bytes read, not paths offered
+ * (#2070).
+ */
+function scanFiles(
+  files: readonly string[],
+  config: ResolvedDriftConfig
+): { findings: DriftFinding[]; filesRead: number } {
   const findings: DriftFinding[] = [];
+  let filesRead = 0;
   for (const file of files) {
-    findings.push(...scanFile(file, config));
+    const result = scanFile(file, config);
+    if (result === 'unreadable') continue;
+    filesRead += 1;
+    findings.push(...result);
   }
-  return findings;
+  return { findings, filesRead };
 }
 
 /**
@@ -180,13 +195,16 @@ export async function runDetectDrift(input: DetectDriftInput): Promise<DetectDri
     input.files,
     config.excludePatterns
   );
-  const findings = scanFiles(filesToScan, config);
+  if (filesToScan.length === 0)
+    throw noFilesScannedError('detect-design-drift', config.projectRoot);
+  const { findings, filesRead } = scanFiles(filesToScan, config);
+  if (filesRead === 0) throw noFilesScannedError('detect-design-drift', config.projectRoot);
   const { bySeverity, byCode } = summarizeFindings(findings);
 
   return {
     findings,
     summary: {
-      totalFiles: filesToScan.length,
+      totalFiles: filesRead,
       durationMs: Date.now() - startedAt,
       bySeverity,
       byCode,

@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/tests/shared'
-sourceHash: 'f3432c8399ba21d2c113bdd618c07502d8d332d41988914a0a852892b354762f'
+sourceHash: '12b5d3f2327dd454615563bfeddbad0284b52ed6edc09fa8c66d7504146e7fdb'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent

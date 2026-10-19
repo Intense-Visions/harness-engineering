@@ -59,6 +59,11 @@ describe('audit-anatomy default file scope (#2070)', () => {
 
     // An empty array is the absence of scoping, not a request to audit
     // nothing — the semantic detect-design-drift and audit-brand already use.
+    // Pin the shared value away from 0 first: before the fix both spellings
+    // resolved to an empty set, so an equality-only assertion held against
+    // the very defect this test exists to catch.
+    expect(omitted.summary.totalFiles).toBeGreaterThan(0);
+    expect(omitted.findings.length).toBeGreaterThan(0);
     expect(empty.summary.totalFiles).toBe(omitted.summary.totalFiles);
     expect(empty.findings.length).toBe(omitted.findings.length);
   });

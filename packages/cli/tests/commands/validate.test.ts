@@ -49,6 +49,30 @@ vi.mock('../../src/mcp/tools/audit-anatomy', () => ({
   }),
 }));
 
+// Mock the sibling design verifiers for the same reason anatomy is mocked
+// above: these are validate's tests, and the real verifiers walk the project.
+// They now ABSTAIN (throw) over a scope they read no files from (#2070), and
+// these fixtures point at a cwd with no source files, so the real
+// implementations would add a "skipped" warning per verifier to every
+// assertion on `issues`.
+vi.mock('../../src/mcp/tools/detect-drift', () => ({
+  runDetectDrift: vi.fn().mockResolvedValue({
+    findings: [],
+    summary: { totalFiles: 0, durationMs: 0, bySeverity: {}, byCode: {} },
+    catalog: { rulesApplied: [] },
+    meta: { mode: 'fast', tokensLoaded: false, registryLoaded: false },
+  }),
+}));
+
+vi.mock('../../src/mcp/tools/audit-brand', () => ({
+  runAuditBrand: vi.fn().mockResolvedValue({
+    findings: [],
+    summary: { totalFiles: 0, durationMs: 0, bySeverity: {}, byCode: {} },
+    catalog: { rulesApplied: [] },
+    meta: { mode: 'fast', designMdLoaded: false, brandTokensLoaded: false },
+  }),
+}));
+
 import { createValidateCommand, runValidate } from '../../src/commands/validate';
 import {
   validateAgentsMap,
