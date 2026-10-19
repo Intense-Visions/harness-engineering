@@ -14,6 +14,7 @@ import {
   runCheckArch,
   abstainedMeasurements,
   classifyMeasurement,
+  abstentionReason,
 } from '../../src/commands/check-arch';
 import type { ArchMeasurement, ConfiguredCategories } from '../../src/commands/check-arch';
 import { withDependencyRules } from '../../src/config/arch-dependency-rules';
@@ -287,6 +288,50 @@ describe('abstainedMeasurements (issue #2235)', () => {
         declared({ layers: true })
       )
     ).toBe('abstained');
+  });
+
+  it('says the rules did not reach the collector, not `layersConfigured=0`', () => {
+    // The warning text is the whole user-visible deliverable here. Printing the
+    // bare denominator to a project that DID declare layers reads as "you did
+    // not configure layers" — collapsing the very distinction this split exists
+    // to draw, at the one place a human reads it.
+    const dropped = measurement({ metadata: { layersConfigured: 0, modulesAnalyzed: 4000 } });
+
+    const reason = abstentionReason(dropped, declared({ layers: true }));
+    expect(reason).toBe(
+      'rules are configured but the collector received none — they did not reach it'
+    );
+    expect(reason).not.toContain('layersConfigured');
+
+    // A project that genuinely declared nothing is not-applicable and never
+    // reaches this message at all.
+    expect(abstainedMeasurements([dropped], declared({}))).toEqual([]);
+  });
+
+  it('keeps the existing reasons for the other abstention shapes', () => {
+    expect(
+      abstentionReason(
+        measurement({ category: 'circular-deps', metadata: { error: 'boom' } }),
+        declared({})
+      )
+    ).toBe('collector failed: boom');
+    expect(
+      abstentionReason(
+        measurement({
+          metadata: { layersConfigured: 2, modulesAnalyzed: 0, skipped: 'no parser' },
+        }),
+        declared({ layers: true })
+      )
+    ).toBe('abstained: no parser');
+    expect(
+      abstentionReason(
+        measurement({
+          category: 'complexity',
+          metadata: { filesAnalyzed: 31, functionsAnalyzed: 0 },
+        }),
+        declared({})
+      )
+    ).toBe('nothing to measure (functionsAnalyzed=0)');
   });
 
   it('never silences a dead parser: the three ungated collectors still abstain', () => {

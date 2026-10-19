@@ -237,9 +237,16 @@ export function classifyMeasurement(
   // categories.
   const gate = configGate(m.category, meta, declared);
   if (gate === 'not-applicable') return 'not-applicable';
-  // Declared rules the collector never received: a 0 here is the #2235 defect,
-  // not a clean result, however many modules were parsed. Checked before the
-  // work denominators precisely because `modulesAnalyzed` can be large.
+  // ORDERING IS LOAD-BEARING — do not move this below the work-denominator
+  // check. Declared rules the collector never received is the #2235 defect
+  // itself, and in that case `modulesAnalyzed` is *large*, not zero: the
+  // collector happily parsed the whole repo and applied no rules to it. So the
+  // work denominators find nothing wrong and the measurement would classify
+  // `measured` — a silent structural zero on the very surface built to catch
+  // it. Sourcing the config answer correctly is necessary but NOT sufficient;
+  // this ordering is the other half. Covered by "flags rules the project
+  // declared that never reached the collector" in
+  // `check-arch-dependency-rules.test.ts`.
   if (gate === 'rules-not-received') return 'abstained';
   if (meta.skipped !== undefined || meta.error !== undefined) return 'abstained';
   const analysedNothing = WORK_DENOMINATORS.some(
@@ -269,9 +276,24 @@ function describe(value: unknown): string {
   return JSON.stringify(value) ?? 'unknown';
 }
 
-/** One-line reason an abstained measurement did not measure anything. */
-function abstentionReason(m: ArchMeasurement): string {
+/**
+ * One-line reason an abstained measurement did not measure anything.
+ *
+ * Exported for the same reason as `classifyMeasurement`: this string is the
+ * entire user-visible deliverable of the abstention channel, so it is worth
+ * asserting directly rather than only through the logger.
+ */
+export function abstentionReason(m: ArchMeasurement, declared?: ConfiguredCategories): string {
   const meta = m.metadata ?? {};
+  // Say "the rules did not reach the collector", never `layersConfigured=0`.
+  // To a project that DID configure layers, the bare denominator reads as "you
+  // did not configure layers" — a wrong answer confidently delivered, and the
+  // exact confusion the not-applicable/rules-not-received split exists to
+  // remove. Undoing that distinction in the one place a human reads it would
+  // make the whole channel self-inconsistent.
+  if (configGate(m.category, meta, declared) === 'rules-not-received') {
+    return 'rules are configured but the collector received none — they did not reach it';
+  }
   if (meta.error !== undefined) return `collector failed: ${describe(meta.error)}`;
   if (meta.skipped !== undefined) return `abstained: ${describe(meta.skipped)}`;
   const zeroed = Object.entries(meta)
@@ -731,7 +753,8 @@ function printArchResult(
   if (mode !== OutputMode.QUIET) {
     for (const m of abstainedMeasurements(value.measurements ?? [], value.configuredCategories)) {
       logger.warn(
-        `${m.category}: reported ${m.value} but measured nothing — ${abstentionReason(m)}. ` +
+        `${m.category}: reported ${m.value} but measured nothing — ` +
+          `${abstentionReason(m, value.configuredCategories)}. ` +
           `Treat this as "not measured", not as a clean result.`
       );
     }
