@@ -1431,6 +1431,28 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 - **Priority:** P2
 - **External-ID:** github:Intense-Visions/harness-engineering#1681
 
+### Mechanical duplication detection — a DRY floor for the gate stack
+
+- **Status:** planned
+- **Spec:** docs/changes/duplication-detection/proposal.md
+- **Summary:** DRY is the only major quality axis with zero mechanical enforcement: it is documented in `harness-refactoring` (a procedure with no detector upstream) and in `code-craft` rubric CODE-R004 (which names the Rule of Three but whose per-unit prompt carries one unit's source span, making its own question unanswerable), and enforced nowhere — a measured gap against the Harness Coverage KPI. Build a deterministic, offline Type-2 clone index as a reusable `packages/core/src/duplication/` module (normalized token-stream fingerprints via `@typescript-eslint/typescript-estree`, identifiers→I and literals→L), an advisory-first entropy detector over it at a Rule-of-Three threshold, a `partial-extraction` ranking signal for classes whose members already import a common shared module, and the `siblings` wiring that gives CODE-R004 its cross-file evidence. Granularity was decided by measurement, not preference: a probe found 60 whole-unit clone classes against 6,173 sliding-window classes, with real top hits including `sumCosts` ×10 across every craft package and a JSON-response helper ×16 across orchestrator routes under three different names. Never fail-closed (#855 precedent). Leaves a stable `CloneClass` interface that `idiom-contagion-epidemiology` and `semantic-canonicalization-entropy-floor` are both already predicated on. Does not fix the 60 classes it finds; sub-unit/CPD detection and the baseline ratchet are deferred.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** P2
+- **External-ID:** —
+
+### Design-time reuse discovery — "this already exists" before the code is written
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** `duplication-detection` catches copy-paste after it lands; the more expensive failure is reinvention — a spec proposing something the codebase already implements. `harness-brainstorming` already instructs "Check for prior art. Has this been partially solved elsewhere?" (SKILL.md step 4) with no tool behind it, and `spec-craft`'s seven rubrics contain no reuse/prior-art rubric, so the check is unenforced prose. Build the retrieval side: at spec time, search for existing implementations of what the spec proposes and surface them to the author before a line is written. This is deliberately a *recall* problem, not the *detection* problem `duplication-detection` solves — it needs semantic/Type-4 similarity (the existing `VectorStore` cosine top-K in `@harness-engineering/graph` plus `gather_context` are the likely substrate), and it has no clean ground truth, which is why it is scoped separately rather than bundled. Prevention over cleanup: the highest-leverage DRY intervention is the duplicate that never gets created.
+- **Blockers:** Depends on `duplication-detection`
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** P3
+- **External-ID:** —
+
 ## v5.0 — Catalog Rationalization
 
 ### Change init skill default recommendation away from "basic"
