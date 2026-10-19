@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/tests/duplication'
-sourceHash: 'a6fe32ee6cbf84360b4c25127bece85e467e5a1fe9c739fe081ad6ffe5f8286c'
+sourceHash: '71a3fe51055620b5b7017d228be65aaab1d577ff6b02ebd521420fcd55f9238f'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -28,8 +28,8 @@ members:
 import { DEFAULT_DUPLICATION_CONFIG, buildCloneIndex, fingerprintFile, isEligibleFile, resolveDuplicationConfig } from '../../src/duplication/index'
 import { fingerprintStream, normalizeTokens } from '../../src/duplication/tokens'
 import { extractUnits } from '../../src/duplication/units'
-import { CloneClass, CloneIndex, CloneMember, CloneUnitKind, DEFAULT_DUPLICATION_CONFIG, DuplicationConfig, buildCloneIndex } from '../../src/index'
 import { findFiles } from '../../src/shared/fs-utils'
+import { CloneClass, CloneIndex, CloneMember, CloneUnitKind, DEFAULT_DUPLICATION_CONFIG, DuplicationConfig, buildCloneIndex } from '@harness-engineering/core'
 import { parse } from '@typescript-eslint/typescript-estree'
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'

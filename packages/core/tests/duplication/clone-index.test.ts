@@ -91,6 +91,14 @@ const bodyB = (fn: string, p: string, acc: string, el: string) =>
   `  return ${acc};\n` +
   `}\n`;
 
+/**
+ * A ONE-LINE outer function whose inline arrow begins on the same line, so the
+ * outer and the arrow both key to `${file}:1` in `byMember` — the ambiguity the
+ * spec names as a known risk. Both bodies clear `minTokens` on their own.
+ */
+const collide = (fn: string, p: string, a: string, b: string) =>
+  `export function ${fn}(${p}) { return ${p}.map((${a}) => { const ${b} = ${a} * 2; const q = ${b} + 1; const r = q * 3; const s = r - 4; const t = s / 5; const u = t + 6; return ${b} + q + r + s + t + u; }); }\n`;
+
 async function scratch(files: Record<string, string>): Promise<string> {
   const root = await mkdtemp(join(tmpdir(), 'dup-idx-'));
   for (const [rel, content] of Object.entries(files)) {
@@ -280,7 +288,7 @@ describe('buildCloneIndex', () => {
     }
   });
 
-  it('maps byMember by file:startLine, resolving a collision to the higher-ranked class', async () => {
+  it('maps every member to its owning class by file:startLine', async () => {
     const root = await scratch({
       'src/a.ts': body('sumAlpha', 'items', 'total', 'item'),
       'src/b.ts': body('addBeta', 'rows', 'acc', 'row'),
@@ -297,6 +305,45 @@ describe('buildCloneIndex', () => {
         for (const member of cls.members) {
           expect(index.byMember.get(`${member.file}:${member.startLine}`)).toBe(cls);
         }
+      }
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it('resolves a real byMember collision to the higher-ranked class', async () => {
+    const root = await scratch({
+      'src/x1.ts': collide('outerOne', 'items', 'alpha', 'beta'),
+      'src/x2.ts': collide('outerTwo', 'rows', 'gamma', 'delta'),
+      'src/x3.ts': collide('outerThree', 'entries', 'epsilon', 'zeta'),
+    });
+    try {
+      const result = await buildCloneIndex(
+        ['src/x1.ts', 'src/x2.ts', 'src/x3.ts'].map((f) => join(root, f)),
+        { rootDir: root, ignorePatterns: [] }
+      );
+      if (!result.ok) throw new Error('expected ok');
+      const index = result.value;
+
+      // Two classes form — the outer functions and the inline arrows — and every
+      // member of both sits on line 1, so the keys genuinely collide.
+      expect(index.classes).toHaveLength(2);
+      expect(index.classes.flatMap((c) => c.members).map((m) => m.startLine)).toEqual([
+        1, 1, 1, 1, 1, 1,
+      ]);
+
+      // Six members collapse onto three keys — that IS the collision.
+      expect(index.byMember.size).toBe(3);
+
+      const [higher, lower] = [...index.classes].sort((a, b) => b.rank - a.rank);
+      expect(higher.rank).toBeGreaterThan(lower.rank);
+      for (const member of higher.members) {
+        expect(index.byMember.get(`${member.file}:${member.startLine}`)).toBe(higher);
+      }
+      // The lower-ranked class owns no key, despite having members.
+      expect(lower.members.length).toBeGreaterThan(0);
+      for (const member of lower.members) {
+        expect(index.byMember.get(`${member.file}:${member.startLine}`)).not.toBe(lower);
       }
     } finally {
       await rm(root, { recursive: true, force: true });

@@ -1,13 +1,16 @@
 import { describe, it, expect } from 'vitest';
-import { buildCloneIndex, DEFAULT_DUPLICATION_CONFIG } from '../../src/index';
+import { buildCloneIndex, DEFAULT_DUPLICATION_CONFIG } from '@harness-engineering/core';
 import type {
   CloneIndex,
   CloneClass,
   CloneMember,
   CloneUnitKind,
   DuplicationConfig,
-} from '../../src/index';
+} from '@harness-engineering/core';
 
+// Criterion 11 says "importable from `@harness-engineering/core`", so this suite
+// imports the PACKAGE SPECIFIER, not `../../src/index`. The source barrel would stay
+// green through a tsup/export regression that dropped the module from `dist`.
 describe('core barrel — duplication surface (criterion 11)', () => {
   it('re-exports buildCloneIndex from the package entry point', () => {
     expect(typeof buildCloneIndex).toBe('function');

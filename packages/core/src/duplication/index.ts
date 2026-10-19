@@ -70,8 +70,10 @@ export interface CloneIndex {
     classesReported: number;
     /**
      * Classes that actually formed (>= 2 members) and were then dropped for
-     * falling below `minInstances` or matching `ignorePatterns`. A unit that
-     * never reached grouping is counted in `unitsBelowMinTokens` instead.
+     * falling below `minInstances`. A unit that never reached grouping is
+     * counted in `unitsBelowMinTokens` instead. `ignorePatterns` is NOT a
+     * contributor: it filters at file level before any read, so an ignored
+     * file's units never group.
      */
     classesSuppressed: number;
     /** Groups dropped by the maxClasses report cap. */

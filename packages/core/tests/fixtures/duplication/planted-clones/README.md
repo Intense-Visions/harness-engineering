@@ -30,7 +30,7 @@ So at the defaults, Class C is **not** a suppressed class: it is three excluded 
 `aa4d181bced59cb4` group ever exists. Class B _is_ a suppressed class: it formed with 2 members
 and was dropped by `minInstances: 3`. Hence `classesSuppressed: 1`, not 2.
 
-Measured stats with `ignorePatterns: []` over the 13 paths discovered by
+Measured stats with `ignorePatterns: []` over the 14 paths discovered by
 `**/*.{ts,tsx,js,jsx,mjs,cjs,md}`:
 
 ```

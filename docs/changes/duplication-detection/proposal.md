@@ -170,7 +170,7 @@ export interface CloneIndex {
     unitsFingerprinted: number;
     unitsBelowMinTokens: number; // excluded BEFORE grouping — never fingerprinted
     classesReported: number;
-    classesSuppressed: number; // formed, then dropped: below minInstances or matched ignorePatterns
+    classesSuppressed: number; // formed, then dropped for falling below minInstances
     classesTruncated: number; // dropped by the maxClasses report cap
   };
 }
@@ -195,8 +195,11 @@ Following the `Result` / `AnalysisError` convention already used by the sibling 
 - If a unit yields fewer than `minTokens` tokens, it shall be excluded from fingerprinting
   **before grouping** and counted in `unitsBelowMinTokens`. Such a unit can never form or join a
   clone class, so it is never counted in `classesSuppressed` — that counter is only for classes
-  that actually formed and were then dropped for falling below `minInstances` or matching
-  `ignorePatterns`. (The earlier wording conflated the two, which is incoherent: a unit that was
+  that actually formed and were then dropped for falling below `minInstances`. It deliberately
+  does NOT cover `ignorePatterns`: those are applied as a file-level filter before any file is
+  read, so a class whose members match an ignore glob can never form in the first place. (An
+  earlier revision listed `ignorePatterns` here, which made that limb of the counter
+  unreachable.) (The earlier wording conflated the two, which is incoherent: a unit that was
   never fingerprinted cannot become a suppressed class.)
 - If more than `maxClasses` classes qualify, the detector shall report the top `maxClasses` by
   `rank` and record the number dropped in `classesTruncated`.

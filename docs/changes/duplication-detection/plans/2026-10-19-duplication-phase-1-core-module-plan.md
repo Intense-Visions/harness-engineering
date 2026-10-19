@@ -4,6 +4,44 @@
 **Spec:** `docs/changes/duplication-detection/proposal.md` (section "### Phase 1: Core duplication module")
 **Session:** `changes--duplication-detection--proposal`
 **Worktree:** `/Users/cwarner/Projects/iv/hd-dry-concept` (branch `brainstorm/dry-refactoring-concept`)
+
+---
+
+> ## ⚠️ PARTIALLY SUPERSEDED by spec amendment `3a14eac83`
+>
+> This plan was written **before** the spec amendment that made `minTokens` a **unit-level bar
+> applied before grouping** (sub-threshold units are never fingerprinted and land in the new
+> `stats.unitsBelowMinTokens`; `classesSuppressed` counts only classes that formed and were then
+> dropped for falling below `minInstances`). **The shipped implementation follows the SPEC, not
+> this document.** The plan text is retained as the historical record of how Phase 1 was planned
+> and is deliberately NOT rewritten — but these nine places are stale, and the spec wins at every
+> one of them:
+>
+> 1. **Observable Truth 7** — asserts a group is counted in `classesSuppressed` when its
+>    `tokenCount` is below `minTokens`. Superseded: that is `unitsBelowMinTokens`, pre-grouping.
+> 2. **Decision P4** — decides the bars are applied "at group level after grouping". Superseded.
+> 3. **The `CloneIndex` sketch** — its comment conflates the two bars and the sketch has no
+>    `unitsBelowMinTokens` field at all. The shipped `stats` has **seven** fields.
+> 4. **The reference implementation** — `if (units.length < minInstances || tokenCount < minTokens)`
+>    is the superseded single-stage bar.
+> 5. **Task 5 test description** — "suppresses a three-member group below minTokens" expecting
+>    `classesSuppressed: 1`. Shipped instead: no class ever forms; `unitsBelowMinTokens: 3`,
+>    `classesSuppressed: 0`.
+> 6. **Task 8 test description** — "counts the two sub-bar groups in classesSuppressed" expecting 2. Shipped: `1`.
+> 7. **Task 7 fixture table** — Class C "counted in `classesSuppressed`" and `classesSuppressed: 2`.
+>    Shipped fixture README and an independent probe both measure **1**; Class C never groups.
+> 8. **Uncertainty U3** — anticipated this exact fork and predicted the 2→1 change. It is the
+>    branch that was taken, so U3 is RESOLVED, not open.
+> 9. **Observable Truth 1** — pins criterion 11 to `import … from '../../src/index'`. The shipped
+>    `barrel.test.ts` imports the package specifier `@harness-engineering/core` instead, because
+>    the source barrel would stay green through a `dist` export regression.
+>
+> Also note: `extractUnits` gained a `NON_CHILD_KEYS` skip list and a visited set after
+> verification proved the plan's verbatim walker overflowed the stack on a parent-linked AST, and
+> `walk`/`toUnit` were split out of the original single function to clear the complexity bar.
+
+---
+
 **Rigor:** standard
 **Tasks:** 11
 **Time:** ~42 min

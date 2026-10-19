@@ -68,9 +68,24 @@ function toUnit(record: Record<string, unknown>, consumed: Set<object>): DupUnit
   };
 }
 
+/**
+ * Keys on an ESTree node that never hold child nodes.
+ *
+ * `parent` is the load-bearing one: `@typescript-eslint/parser` and ESLint set
+ * parent back-pointers, and following them makes the walk cyclic — a parsed
+ * Program with parents linked overflowed the stack even at `--stack-size=2000`.
+ * `tokens` and `comments` hang off `Program` only and held ~1400 entries for a
+ * single mid-sized file, all traversed for nothing. The `seen` set below makes
+ * termination unconditional; this list makes the walk cheap as well.
+ */
+const NON_CHILD_KEYS = new Set(['parent', 'tokens', 'comments', 'loc', 'range', 'type']);
+
 /** Recurse the tree, collecting units in source order. */
-function walk(node: unknown, units: DupUnit[], consumed: Set<object>): void {
+function walk(node: unknown, units: DupUnit[], consumed: Set<object>, seen: Set<object>): void {
   if (node === null || typeof node !== 'object') return;
+  if (seen.has(node)) return;
+  seen.add(node);
+
   const record = node as Record<string, unknown>;
 
   if (!consumed.has(node)) {
@@ -80,11 +95,12 @@ function walk(node: unknown, units: DupUnit[], consumed: Set<object>): void {
 
   // Recurse unconditionally — a consumed node is skipped as a unit, but units
   // nested inside its body are still reportable.
-  for (const value of Object.values(record)) {
+  for (const [key, value] of Object.entries(record)) {
+    if (NON_CHILD_KEYS.has(key)) continue;
     if (Array.isArray(value)) {
-      for (const item of value) walk(item, units, consumed);
+      for (const item of value) walk(item, units, consumed, seen);
     } else {
-      walk(value, units, consumed);
+      walk(value, units, consumed, seen);
     }
   }
 }
@@ -92,7 +108,7 @@ function walk(node: unknown, units: DupUnit[], consumed: Set<object>): void {
 /** Extract every reportable unit from an ESTree program, in source order. */
 export function extractUnits(ast: TSESTree.Program): DupUnit[] {
   const units: DupUnit[] = [];
-  walk(ast, units, new Set<object>());
+  walk(ast, units, new Set<object>(), new Set<object>());
   units.sort((a, b) => a.range[0] - b.range[0] || a.range[1] - b.range[1]);
   return units;
 }
