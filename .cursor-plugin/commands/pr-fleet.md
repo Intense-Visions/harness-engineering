@@ -18,8 +18,8 @@ Phases:
 - select: Enumerate the open-PR queue, triage each PR into the land-readiness taxonomy, cross-check for superseded/already-resolved PRs, and order landable candidates by land-priority
 - confirm: Present the triaged queue in one round — superseded items flagged for closure, decision forks as questions, proposed concurrency — for a single up-front human approval that carries the per-PR merge authorization
 - dispatch: Fan out worktree-isolated subagents that each run the real code-review pipeline for one PR, push fix commits for mechanical findings, and re-run CI — never merging, never fabricating approval — capped at the concurrency governor
-- verify: Independently confirm each PR proposed to land is CI-green across all target operating systems plus the project's required checks, carries a review verdict, and is mergeable — never by subagent self-report
-- land: Merge only the PRs that are both human-approved in confirm and independently verified, honoring branch protection; emit a one-row-per-PR batch summary and close superseded PRs citing the superseding PR; never merge unapproved or unverified work
+- verify: Independently confirm each PR proposed to land is CI-green across all target operating systems plus the project's required checks and against current main, carries a review verdict on the current head, is mergeable, has zero unresolved review threads, and lands on the default branch (or a stacked base the human authorized) — then record the full head SHA those checks ran against; never by subagent self-report
+- land: Merge only the PRs that are both human-approved in confirm and independently verified, pinned to the SHA verify recorded (`gh pr merge --match-head-commit`) and re-reading the review threads immediately before the merge call, honoring branch protection; emit a one-row-per-PR batch summary, report a stacked merge as landed in its parent's branch rather than the default branch, and close superseded PRs citing the superseding PR; never merge unapproved or unverified work
   </objective>
 
 <execution_context>
