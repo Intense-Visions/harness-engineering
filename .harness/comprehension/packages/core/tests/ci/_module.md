@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/tests/ci'
-sourceHash: 'b53f26d85a92b0d4d2636f799af101779c3600e3923a176b7f3985d5777ef1e4'
+sourceHash: '08f9e32126852b3d3527a1d93825bbb338bb24babb2ee9041a14af323d21ad38'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -35,6 +35,7 @@ import { DEFAULT_VERDICT_CACHE_DIR, GATE_VERSIONS, MEMOIZABLE_CHECKS, VerdictCac
 import from '../../src/context/agents-map'
 import from '../../src/context/doc-coverage'
 import { TrackerSyncAdapter } from '../../src/roadmap/tracker-sync'
+import from '../../src/security/config'
 import { CICheckName, CICheckReport, CICheckResult, Err, Ok } from '@harness-engineering/types'
 import * as fs from 'node:fs'
 import * as fs from 'node:fs/promises'

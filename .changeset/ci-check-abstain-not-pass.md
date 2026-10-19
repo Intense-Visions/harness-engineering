@@ -72,12 +72,30 @@ Two fixes make that true honestly rather than by skipping:
 A freshly scaffolded project now reports `exitCode 0`, `abstained: 0`,
 `skipped: 0` — every gate ran.
 
-**Still red out of the box:** the `go-base`, `java-base`, `python-base` and
-`rust-base` templates scaffold no `layers`, so `deps` abstains, and the
-`advanced` template configures no `performance`. Those are pre-existing
-scaffolder gaps rather than anything this change introduces, and `deps`
-abstaining over an empty rule set is one of the three mechanisms #2071 names, so
-it cannot be scoped away here. Tracked separately.
+**New: `deps`, `entropy` and `performance` gain the `enabled` opt-out their
+sibling gates already had.** `security`, `architecture`, `traceability` and
+`phaseGates` could all be declared not-applicable with `enabled: false`; these
+three could not, which left a Go, Python, Rust or Java project no honest way to
+be green — `layers` is meaningless there, and an absent `layers` abstains. The
+distinction the orchestrator now draws:
+
+- **Not applicable** — `deps.enabled: false` on a stack with no TypeScript
+  dependency graph. A deliberate declaration, exactly like `--skip deps`, and it
+  never counts as an abstention.
+- **Could not run** — the gate wanted to evaluate and had nothing to evaluate
+  with. Still an abstention, still exits `1`.
+
+The four language templates now declare `deps`, `entropy` and `performance`
+not-applicable (all three analyzers are TypeScript-based), `rust-base` also
+declares `security` not-applicable because `.rs` is not in
+`SECURITY_SCAN_EXTENSIONS`, and `advanced` gains the `performance.entryPoints`
+its siblings have plus the starter `src/index.ts` it was missing.
+
+**Every shipped template now gets a green first `harness ci check` with zero
+abstentions** — verified end to end across all four adoption levels, all four
+language bases and all six framework overlays, and pinned statically by
+`packages/cli/tests/templates/performance-entry-points.test.ts` so a future
+template cannot ship a red first build.
 
 `run_ci_checks` (MCP) returns the same report verbatim, so `skipReason`,
 `summary.abstained` and `exitCode` reach that surface unchanged; its tool

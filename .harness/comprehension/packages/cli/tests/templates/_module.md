@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/tests/templates'
-sourceHash: 'ac7bf4f3eede8675ee033161ec4018fa310223190006e15a41e07301a19b7e64'
+sourceHash: 'cd73ebd62d195595c5858660830d58e2202bf3bd80c6d261dd6217ed0dbb7810'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -37,7 +37,7 @@ import { TemplateContext, TemplateEngine } from '../../src/templates/engine'
 import { deepMergeJson, mergePackageJson } from '../../src/templates/merger'
 import { applyEcosystemAfterCreate, ensureComprehensionSearchIgnore, ensureHarnessGitignore } from '../../src/templates/post-write'
 import { TemplateMetadataSchema } from '../../src/templates/schema'
-import { COMPREHENSION_ROOT } from '@harness-engineering/core'
+import { COMPREHENSION_ROOT, SECURITY_SCAN_EXTENSIONS } from '@harness-engineering/core'
 import * as fs from 'fs'
 import { spawnSync } from 'node:child_process'
 import * as fs, { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'

@@ -138,6 +138,28 @@ See [architecture.md](./architecture.md) for architectural decisions.
     ],
     "autoFix": false
   },
+  "performance": {
+    "entryPoints": [
+      "src/**/*.ts"
+    ],
+    "complexity": {
+      "enabled": true,
+      "thresholds": {
+        "cyclomaticComplexity": {
+          "error": 12,
+          "warn": 8
+        }
+      }
+    },
+    "coupling": {
+      "enabled": true,
+      "thresholds": {
+        "fanOut": {
+          "warn": 10
+        }
+      }
+    }
+  },
   "template": {
     "level": "advanced",
     "version": 1
@@ -164,6 +186,8 @@ See [architecture.md](./architecture.md) for architectural decisions.
     "typescript": "^5.0.0"
   }
 }",
+  "src/index.ts": "export {};
+",
 }
 `;
 
@@ -231,6 +255,18 @@ too-many-arguments-threshold = 7
   "name": "snapshot-test",
   "agentsMapPath": "./AGENTS.md",
   "docsDir": "./docs",
+  "deps": {
+    "enabled": false
+  },
+  "entropy": {
+    "enabled": false
+  },
+  "performance": {
+    "enabled": false
+  },
+  "security": {
+    "enabled": false
+  },
   "template": {
     "language": "rust",
     "version": 1
@@ -513,6 +549,15 @@ snapshot-test -- A Python project managed with Harness Engineering practices.
   "name": "snapshot-test",
   "agentsMapPath": "./AGENTS.md",
   "docsDir": "./docs",
+  "deps": {
+    "enabled": false
+  },
+  "entropy": {
+    "enabled": false
+  },
+  "performance": {
+    "enabled": false
+  },
   "template": {
     "language": "python",
     "version": 1
@@ -911,6 +956,15 @@ snapshot-test -- A Python project managed with Harness Engineering practices.
   "name": "snapshot-test",
   "agentsMapPath": "./AGENTS.md",
   "docsDir": "./docs",
+  "deps": {
+    "enabled": false
+  },
+  "entropy": {
+    "enabled": false
+  },
+  "performance": {
+    "enabled": false
+  },
   "template": {
     "language": "python",
     "version": 1
@@ -1055,6 +1109,15 @@ require github.com/gin-gonic/gin v1.9.1
   "name": "snapshot-test",
   "agentsMapPath": "./AGENTS.md",
   "docsDir": "./docs",
+  "deps": {
+    "enabled": false
+  },
+  "entropy": {
+    "enabled": false
+  },
+  "performance": {
+    "enabled": false
+  },
   "template": {
     "language": "go",
     "version": 1
@@ -1176,6 +1239,15 @@ go 1.21
   "name": "snapshot-test",
   "agentsMapPath": "./AGENTS.md",
   "docsDir": "./docs",
+  "deps": {
+    "enabled": false
+  },
+  "entropy": {
+    "enabled": false
+  },
+  "performance": {
+    "enabled": false
+  },
   "template": {
     "language": "go",
     "version": 1
@@ -1516,6 +1588,15 @@ snapshot-test -- A Java project managed with Harness Engineering practices.
   "name": "snapshot-test",
   "agentsMapPath": "./AGENTS.md",
   "docsDir": "./docs",
+  "deps": {
+    "enabled": false
+  },
+  "entropy": {
+    "enabled": false
+  },
+  "performance": {
+    "enabled": false
+  },
   "template": {
     "language": "java",
     "version": 1
@@ -2172,6 +2253,15 @@ snapshot-test -- A Python project managed with Harness Engineering practices.
   "name": "snapshot-test",
   "agentsMapPath": "./AGENTS.md",
   "docsDir": "./docs",
+  "deps": {
+    "enabled": false
+  },
+  "entropy": {
+    "enabled": false
+  },
+  "performance": {
+    "enabled": false
+  },
   "template": {
     "language": "python",
     "version": 1
@@ -2518,6 +2608,18 @@ too-many-arguments-threshold = 7
   "name": "snapshot-test",
   "agentsMapPath": "./AGENTS.md",
   "docsDir": "./docs",
+  "deps": {
+    "enabled": false
+  },
+  "entropy": {
+    "enabled": false
+  },
+  "performance": {
+    "enabled": false
+  },
+  "security": {
+    "enabled": false
+  },
   "template": {
     "language": "rust",
     "version": 1
@@ -2617,6 +2719,15 @@ snapshot-test -- A Java project managed with Harness Engineering practices.
   "name": "snapshot-test",
   "agentsMapPath": "./AGENTS.md",
   "docsDir": "./docs",
+  "deps": {
+    "enabled": false
+  },
+  "entropy": {
+    "enabled": false
+  },
+  "performance": {
+    "enabled": false
+  },
   "template": {
     "language": "java",
     "version": 1

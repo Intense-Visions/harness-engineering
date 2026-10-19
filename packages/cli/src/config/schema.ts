@@ -98,6 +98,13 @@ export const DriftConfigSchema = z.object({
  * Schema for entropy (drift/stale code) management configuration.
  */
 export const EntropyConfigSchema = z.object({
+  /**
+   * Whether the drift / dead-code gate applies to this project at all. The
+   * analyzer is TypeScript-based, so `false` is the honest setting for a Go,
+   * Python, Rust or Java codebase: not-applicable, as opposed to a gate that
+   * tried to run and could not (#2071).
+   */
+  enabled: z.boolean().default(true),
   /** Explicit entry points for reachability analysis (overrides auto-detection) */
   entryPoints: z.array(z.string()).optional(),
   /** Patterns to exclude from entropy analysis */
@@ -162,6 +169,13 @@ export const SecurityConfigSchema = z
  */
 export const PerformanceConfigSchema = z
   .object({
+    /**
+     * Whether the complexity / coupling gate applies to this project at all.
+     * Same reasoning as `entropy.enabled`: the analyzer is TypeScript-based, so
+     * a non-TypeScript stack declares it not-applicable rather than leaving it
+     * to abstain (#2071).
+     */
+    enabled: z.boolean().default(true),
     /**
      * Entry points for the reachability walk the complexity/coupling analyzers
      * start from. Without one (and with no `entropy.entryPoints` to fall back

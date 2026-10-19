@@ -194,6 +194,14 @@ async function runDepsCheck(
   config: Record<string, unknown>
 ): Promise<CheckContribution> {
   const issues: CICheckIssue[] = [];
+  // `deps.enabled: false` is a deliberate not-applicable — the stack has no
+  // TypeScript dependency graph to validate. That is an operator decision like
+  // `--skip deps`, so it is a plain skip and never an abstention. Without this
+  // a Go or Rust project had no honest way to be green, because `layers` is
+  // meaningless there and an absent `layers` abstains (#2071).
+  const depsConfig = (config.deps as Record<string, unknown>) || {};
+  if (depsConfig.enabled === false) return { issues, measurements: [] };
+
   const rawLayers = config.layers as Array<Record<string, unknown>> | undefined;
   // No layers configured means there is nothing to validate, and an empty rule
   // set cannot honestly report a pass — the same refusal `harness cleanup -t
@@ -278,6 +286,10 @@ async function runEntropyCheck(
   const issues: CICheckIssue[] = [];
   const entropyConfig = (config.entropy as Record<string, unknown>) || {};
   const perfConfig = (config.performance as Record<string, unknown>) || {};
+  // Not-applicable beats could-not-run: the drift/dead-code analyzer is
+  // TypeScript-based, so a non-TS stack says so here and takes a plain skip
+  // rather than abstaining on an entry point it was never going to resolve.
+  if (entropyConfig.enabled === false) return { issues, measurements: [] };
   // Fallback: use performance entry points if entropy section has none configured
   const entryPoints =
     (entropyConfig.entryPoints as string[]) ?? (perfConfig.entryPoints as string[]);
@@ -394,6 +406,8 @@ async function runPerfCheck(
   const issues: CICheckIssue[] = [];
   const measurements: GateMeasurement[] = [];
   const perfConfig = (config.performance as Record<string, unknown>) || {};
+  // Same not-applicable opt-out as `entropy.enabled` — see there.
+  if (perfConfig.enabled === false) return { issues, measurements };
   const entryPoints = perfConfig.entryPoints as string[] | undefined;
   const perfAnalyzer = new EntropyAnalyzer({
     rootDir: projectRoot,

@@ -97,10 +97,21 @@ scaffolded by `harness init` configures none of these, so the pipeline that
 `harness ci init` generates is green on its first run — and green because every
 gate ran, not because any were skipped.
 
-Switching a check off in `harness.config.json` — `security.enabled: false`,
+Switching a check off in `harness.config.json` — `deps.enabled: false`,
+`entropy.enabled: false`, `performance.enabled: false`, `security.enabled: false`,
 `traceability.enabled: false`, `phaseGates.enabled: false`, `architecture.enabled:
 false` — is the same kind of acknowledged decision as `--skip`, and stays exit
 `0`. It is only the _unacknowledged_ non-run that now goes red.
+
+That opt-out is how you say **not applicable**, which is a different thing from
+_could not run_. A Go project has no TypeScript dependency graph, so `layers` is
+meaningless there and `deps.enabled: false` is the honest setting — the gate does
+not apply to the stack. The `deps`, `entropy` and `performance` analyzers are all
+TypeScript-based, so the shipped `go-base`, `python-base`, `rust-base` and
+`java-base` templates declare all three not-applicable, and `rust-base` also
+declares `security` not-applicable because `.rs` is not among the extensions the
+scanner reads. A gate that _could not run_ is never silenced this way: it abstains
+and fails the build until you either give it what it needs or acknowledge the gap.
 
 The `run_ci_checks` MCP tool returns this report verbatim, so an agent reading
 it must treat `status: "skip"` **with** a `skipReason` as an abstention rather

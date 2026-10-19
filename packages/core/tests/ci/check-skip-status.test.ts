@@ -449,6 +449,89 @@ describe('#2071 — a check that could not run must not read as green', () => {
     });
   });
 
+  // Mechanism 8: a gate can be NOT APPLICABLE as well as unrunnable. `deps`,
+  // `entropy` and `performance` had no opt-out, so a Go/Rust/Java project — for
+  // which the TypeScript analyzers are meaningless — had no honest way to be
+  // green once an unconfigured gate started abstaining.
+  describe('a gate declared not applicable is a plain skip, never an abstention', () => {
+    it('deps: `deps.enabled: false` does not abstain even with no layers', async () => {
+      const config = baseConfig({ deps: { enabled: false } });
+      delete (config as Record<string, unknown>).layers;
+
+      const result = await runCIChecks({
+        projectRoot: '/fake',
+        config,
+        skip: ['traceability'],
+      });
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+
+      expect(checkNamed(result.value, 'deps').skipReason).toBeUndefined();
+      expect(result.value.summary.abstained).toBe(0);
+      expect(result.value.exitCode).toBe(0);
+    });
+
+    it('entropy: `entropy.enabled: false` does not abstain even when the analyzer crashes', async () => {
+      mockAnalyze.mockResolvedValue(ANALYZER_CRASH);
+
+      const result = await runCIChecks({
+        projectRoot: '/fake',
+        config: baseConfig({
+          entropy: { enabled: false },
+          performance: { enabled: false },
+        }),
+        skip: ['traceability'],
+      });
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+
+      expect(checkNamed(result.value, 'entropy').skipReason).toBeUndefined();
+      expect(checkNamed(result.value, 'perf').skipReason).toBeUndefined();
+      expect(result.value.summary.abstained).toBe(0);
+      expect(result.value.exitCode).toBe(0);
+    });
+
+    it('security: `security.enabled: false` does not abstain on a zero-file scan', async () => {
+      // The scanner is never constructed, so the 0-file abstention cannot fire.
+      const { parseSecurityConfig } = await import('../../src/security/config');
+      vi.mocked(parseSecurityConfig).mockReturnValueOnce({
+        enabled: false,
+        strict: false,
+        exclude: [],
+      } as unknown as ReturnType<typeof parseSecurityConfig>);
+      mockScanFiles.mockResolvedValue(SCAN_READ_NOTHING);
+
+      const result = await runCIChecks({
+        projectRoot: '/fake',
+        config: baseConfig(),
+        skip: ['traceability'],
+      });
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+
+      expect(checkNamed(result.value, 'security').skipReason).toBeUndefined();
+      expect(result.value.exitCode).toBe(0);
+    });
+
+    it('still abstains when the gate is left enabled', async () => {
+      // The control: `enabled` defaults to on, so omitting it keeps the
+      // abstention. A not-applicable declaration has to be deliberate.
+      const config = baseConfig();
+      delete (config as Record<string, unknown>).layers;
+
+      const result = await runCIChecks({
+        projectRoot: '/fake',
+        config,
+        skip: ['traceability'],
+      });
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+
+      expect(checkNamed(result.value, 'deps').skipReason).toBeTruthy();
+      expect(result.value.exitCode).not.toBe(0);
+    });
+  });
+
   it('leaves phase-gate alone when it is disabled in config', async () => {
     const result = await runCIChecks({
       projectRoot: '/fake',
