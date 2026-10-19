@@ -164,11 +164,20 @@ describe('design scan targets', () => {
         'src/App.vue': '<template><div/></template>',
         'src/Card.svelte': '<div/>',
       });
-      // And the message must name the ACTUAL cause. Sending a Vue adopter to
-      // check `design.exclude` is a wrong answer confidently delivered.
-      await expect(run({ path: dir, mode: 'full' })).rejects.toThrow(
-        /none of it in a format it can parse/i
+      // The message must name the ACTUAL cause — sending a Vue adopter to check
+      // `design.exclude` is a wrong answer confidently delivered — AND the
+      // remedy. A dead end with an accurate label is still a dead end; this
+      // adopter has no green path, so the abstention has to tell them how to
+      // acknowledge it.
+      const error = await run({ path: dir, mode: 'full' }).then(
+        () => null,
+        (e: Error) => e
       );
+      expect(error).not.toBeNull();
+      expect(error!.message).toMatch(/none of it in a format it can parse/i);
+      expect(error!.message).toMatch(/--files/);
+      expect(error!.message).toMatch(/design\.audit\.\*\.enabled: false/);
+      expect(error!.message).toMatch(/does not apply to your stack/i);
     });
 
     it('separates "no design surface" from "a surface I cannot read"', () => {

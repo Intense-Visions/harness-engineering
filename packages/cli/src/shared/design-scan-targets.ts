@@ -253,10 +253,13 @@ export function designScanAbstention(
       // answer confidently delivered. Name the real cause.
       return new Error(
         `${verifier} found a design surface under ${projectRoot} but none of it in a ` +
-          `format it can parse (it reads ${DESIGN_SCAN_EXTENSIONS.join(', ')}; single-file ` +
-          'component and stylesheet dialects such as .vue/.svelte/.sass are not supported). ' +
-          'This is an abstention, not a clean audit — scan the compiled output with ' +
-          '`--files`, or turn the verifier off with `design.audit.*.enabled: false`.'
+          `format it can parse: these verifiers read ${DESIGN_SCAN_EXTENSIONS.join(', ')} ` +
+          'only, and single-file-component or stylesheet dialects (.vue, .svelte, .astro, ' +
+          '.sass, .less) are not supported. This is an abstention, not a clean audit. ' +
+          'To act on it: point `--files` at compiled output, or set ' +
+          '`design.audit.*.enabled: false` to acknowledge that this gate does not apply ' +
+          'to your stack — an abstention you have acknowledged is not a failure, but it ' +
+          'will not be reported as a pass.'
       );
     }
     return noFilesScannedError(verifier, projectRoot);

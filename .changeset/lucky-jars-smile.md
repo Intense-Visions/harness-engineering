@@ -153,5 +153,8 @@ and the message names that cause instead of sending them to check
 `design.exclude`, which is not their problem. `harness check-design` on such a
 project exits 2 with three abstentions. That is the honest answer: these
 verifiers cannot parse single-file components, and saying so is better than a
-green gate over an unread codebase. To stage it, point `--files` at compiled
-output or set `design.audit.*.enabled: false`.
+green gate over an unread codebase. The abstention says so and says what to
+do about it: point `--files` at compiled output, or set
+`design.audit.*.enabled: false` to acknowledge that the gate does not apply to
+this stack. An acknowledged abstention is not a failure — but it is not reported
+as a pass either, which is the whole point.
