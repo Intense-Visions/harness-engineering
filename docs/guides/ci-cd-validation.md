@@ -67,13 +67,14 @@ to whoever reads the pipeline, from a genuine pass.
 
 The common abstentions and their fixes:
 
-| Abstention                                | Why                                                               | Fix                                                                             |
-| ----------------------------------------- | ----------------------------------------------------------------- | ------------------------------------------------------------------------------- |
-| `deps` — no layers configured             | Nothing to validate against                                       | Add `layers` to `harness.config.json`, or `--skip deps`                         |
-| `traceability` — no knowledge graph found | Coverage was never computed, so `minCoverage` was never evaluated | Run `harness scan`, set `traceability.enabled: false`, or `--skip traceability` |
-| `docs` / `entropy` / `perf` — crashed     | The analyzer threw (often "Could not resolve entry points")       | Fix the underlying config (e.g. `performance.entryPoints`), or `--skip <check>` |
-| `security` — scan matched 0 files         | Nothing was read, so an empty finding list verified nothing       | Widen the scan pattern or narrow `security.exclude`, or `--skip security`       |
-| `phase-gate` — enabled but not evaluable  | Phase-gate validation needs CLI context the orchestrator lacks    | Add a `harness check-phase-gate` CI step, or `--skip phase-gate`                |
+| Abstention                                       | Why                                                                               | Fix                                                                                                                                          |
+| ------------------------------------------------ | --------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| `deps` — no layers configured                    | Nothing to validate against                                                       | Add `layers` to `harness.config.json`, or `--skip deps`                                                                                      |
+| `traceability` — no knowledge graph found        | A configured `minCoverage` was never evaluated                                    | Run `harness scan` **and** check `traceability.includeSpecs` matches your specs, set `traceability.enabled: false`, or `--skip traceability` |
+| `traceability` — graph has no traceable features | `harness scan` ran but ingested no spec, so `minCoverage` still was not evaluated | Point `traceability.includeSpecs` at where your specs actually live and re-scan                                                              |
+| `docs` / `entropy` / `perf` — crashed            | The analyzer threw (often "Could not resolve entry points")                       | Fix the underlying config (e.g. `performance.entryPoints`), or `--skip <check>`                                                              |
+| `security` — scan matched 0 files                | Nothing was read, so an empty finding list verified nothing                       | Widen the scan pattern or narrow `security.exclude`, or `--skip security`                                                                    |
+| `phase-gate` — enabled but not evaluable         | Phase-gate validation needs CLI context the orchestrator lacks                    | Add a `harness check-phase-gate` CI step, or `--skip phase-gate`                                                                             |
 
 #### Escape hatch
 
@@ -86,6 +87,15 @@ harness ci check --skip deps,traceability
 
 That is deliberately louder than silence: the gate is still not enforced, but
 the pipeline now says so out loud instead of reporting a pass over it.
+
+An abstention only ever fires over a gate the project asked for. `traceability`
+abstains only when a `minCoverage` floor is configured — that floor is the only
+thing the check can fail on, so with no floor there is no claim to abstain over
+and the check stays a plain, exit-`0` skip. `phase-gate` and `security` behave
+the same way, keying on `phaseGates.enabled` and `security.enabled`. A project
+scaffolded by `harness init` configures none of these, so the pipeline that
+`harness ci init` generates is green on its first run — and green because every
+gate ran, not because any were skipped.
 
 Switching a check off in `harness.config.json` — `security.enabled: false`,
 `traceability.enabled: false`, `phaseGates.enabled: false`, `architecture.enabled:

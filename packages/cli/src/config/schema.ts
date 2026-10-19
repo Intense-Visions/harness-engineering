@@ -162,6 +162,16 @@ export const SecurityConfigSchema = z
  */
 export const PerformanceConfigSchema = z
   .object({
+    /**
+     * Entry points for the reachability walk the complexity/coupling analyzers
+     * start from. Without one (and with no `entropy.entryPoints` to fall back
+     * on) the analyzers cannot resolve a graph and the `perf`/`entropy` gates
+     * abstain with "Could not resolve entry points" — so a project that
+     * configures thresholds here but no entry point is asking for a gate that
+     * cannot run (#2071). Reachable before via `.passthrough()`; declared now
+     * so it is typed and documented.
+     */
+    entryPoints: z.array(z.string()).optional(),
     /** Complexity thresholds per module or pattern */
     complexity: z.record(z.unknown()).optional(),
     /** Coupling limits between modules */

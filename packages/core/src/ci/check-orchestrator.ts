@@ -543,6 +543,24 @@ async function runTraceabilityCheck(
   const traceConfig = (config.traceability as Record<string, unknown>) || {};
   if (traceConfig.enabled === false) return { issues, measurements };
 
+  const minCoverage = (traceConfig.minCoverage as number) ?? 0;
+  const severity = (traceConfig.severity as 'error' | 'warning') ?? 'warning';
+
+  // What makes an unevaluated traceability run dishonest is a *configured
+  // expectation* that never got tested. `minCoverage` is that expectation, and
+  // it is the only thing in this check that can fail: the loop below raises an
+  // issue solely on `pct < minCoverage`. With no floor (the key absent, or
+  // present and left at the schema default of 0) the gate asserts nothing, so
+  // there is no claim to abstain over and a plain skip is the honest answer.
+  //
+  // Scoping the abstention this way is also what keeps it consistent with its
+  // siblings: `phase-gate` abstains only on `phaseGates.enabled`, and `security`
+  // only on `security.enabled`. Before this, `traceability` was alone in
+  // abstaining over a gate the operator had never opted into — which turned
+  // `harness init` + `harness ci init` into a red pipeline out of the box, on
+  // generated config that contained none of the remedies below.
+  const enforcesCoverageFloor = minCoverage > 0;
+
   const graphDir = resolveGraphDir(projectRoot);
   const store = new GraphStore();
   const loaded = await store.load(graphDir);
@@ -550,19 +568,34 @@ async function runTraceabilityCheck(
     // No graph, so coverage was never computed — a configured `minCoverage` was
     // not evaluated at all. Reporting that as a pass is exactly the hole in
     // #2071; abstain so the unevaluated gate cannot read as green.
+    if (!enforcesCoverageFloor) return { issues, measurements };
     return abstain(
       `No knowledge graph was found at ${graphDir}, so traceability coverage was never ` +
-        'computed. Run `harness scan` to build the graph, set `traceability.enabled` to ' +
-        'false, or run with `--skip traceability` to acknowledge that this gate is not ' +
-        'enforced.'
+        `computed and the configured minCoverage of ${minCoverage}% was not evaluated. ` +
+        'Run `harness scan` to build the graph AND make sure it ingests your specs ' +
+        '(`traceability.includeSpecs`), set `traceability.enabled` to false, or run with ' +
+        '`--skip traceability` to acknowledge that this gate is not enforced.'
     );
   }
 
   const results = queryTraceability(store);
-  if (results.length === 0) return { issues, measurements };
-
-  const minCoverage = (traceConfig.minCoverage as number) ?? 0;
-  const severity = (traceConfig.severity as 'error' | 'warning') ?? 'warning';
+  if (results.length === 0) {
+    // The graph loaded and contained no traceable feature at all, so once again
+    // no coverage was computed and `minCoverage` was never evaluated. This is
+    // the SAME hole as the branch above, one step further along — and it is the
+    // branch the no-graph message sends the operator to: `harness scan` on a
+    // project whose specs the scan does not ingest builds a graph with zero
+    // traceable features, and the gate went straight back to a silent `pass`.
+    // A remedy that lands the operator back on the defect is not a remedy.
+    if (!enforcesCoverageFloor) return { issues, measurements };
+    return abstain(
+      `The knowledge graph at ${graphDir} contains no traceable features, so traceability ` +
+        `coverage was never computed and the configured minCoverage of ${minCoverage}% was ` +
+        'not evaluated. Check that `traceability.includeSpecs` matches where your specs ' +
+        'actually live and re-run `harness scan`, set `traceability.enabled` to false, or ' +
+        'run with `--skip traceability` to acknowledge that this gate is not enforced.'
+    );
+  }
 
   for (const result of results) {
     const pct = result.summary.coveragePercent;

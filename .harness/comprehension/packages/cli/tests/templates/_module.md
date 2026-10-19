@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/tests/templates'
-sourceHash: '128b7de4217cabe7cb73871ecd8ffebd3cd67b69a2ec34c717821714c0ab2ba6'
+sourceHash: 'ac7bf4f3eede8675ee033161ec4018fa310223190006e15a41e07301a19b7e64'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -13,6 +13,7 @@ members:
     'engine-cov544.test.ts',
     'engine.test.ts',
     'merger.test.ts',
+    'performance-entry-points.test.ts',
     'post-write.test.ts',
     'schema.test.ts',
     'snapshot.test.ts',
@@ -39,9 +40,10 @@ import { TemplateMetadataSchema } from '../../src/templates/schema'
 import { COMPREHENSION_ROOT } from '@harness-engineering/core'
 import * as fs from 'fs'
 import { spawnSync } from 'node:child_process'
-import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import * as fs, { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import * as path from 'node:path'
+import { fileURLToPath } from 'node:url'
 import * as os from 'os'
 import * as path from 'path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'

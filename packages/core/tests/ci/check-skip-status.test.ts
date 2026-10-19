@@ -61,6 +61,27 @@ vi.mock('../../src/security/config', () => ({
 
 vi.mock('glob', () => ({ glob: vi.fn().mockResolvedValue([]) }));
 
+/**
+ * The graph half of the traceability check. `load` resolving false is "no graph
+ * on disk"; true with an empty `queryTraceability` is "the graph built and the
+ * scan ingested no spec" — the branch the no-graph remedy sends the operator to.
+ */
+const { mockGraphLoad, mockQueryTraceability } = vi.hoisted(() => ({
+  mockGraphLoad: vi.fn(),
+  mockQueryTraceability: vi.fn(),
+}));
+vi.mock('@harness-engineering/graph', () => ({
+  GraphStore: class {
+    load = mockGraphLoad;
+  },
+  resolveGraphDir: vi.fn().mockReturnValue('/fake/.harness/graph'),
+  queryTraceability: mockQueryTraceability,
+  // Also exported from this module and used by the docs/entropy/security/perf
+  // arms — omitting it makes those four throw and report `fail`, which quietly
+  // invalidates every other assertion in this file.
+  skipDirGlobs: vi.fn().mockReturnValue(['**/node_modules/**']),
+}));
+
 vi.mock('../../src/architecture', () => ({
   ArchConfigSchema: {
     parse: vi.fn().mockReturnValue({
@@ -125,6 +146,8 @@ describe('#2071 — a check that could not run must not read as green', () => {
     vi.clearAllMocks();
     mockAnalyze.mockResolvedValue(ANALYZER_OK);
     mockScanFiles.mockResolvedValue(SCAN_READ_FILES);
+    mockGraphLoad.mockResolvedValue(false);
+    mockQueryTraceability.mockReturnValue([]);
   });
 
   // Mechanism 1: a crashed check was downgraded to a warning, and warnings exit 0.
@@ -264,7 +287,10 @@ describe('#2071 — a check that could not run must not read as green', () => {
   });
 
   it('counts an abstention separately from an operator skip in the summary', async () => {
-    const config = baseConfig();
+    // A configured coverage floor is what makes traceability abstain, so it is
+    // set here deliberately: this case needs two abstentions beside one
+    // operator skip.
+    const config = baseConfig({ traceability: { enabled: true, minCoverage: 100 } });
     delete (config as Record<string, unknown>).layers;
 
     const result = await runCIChecks({
@@ -330,6 +356,97 @@ describe('#2071 — a check that could not run must not read as green', () => {
     expect(phaseGate.status).not.toBe('warn');
     expect(phaseGate.skipReason).toMatch(/cannot evaluate/);
     expect(report.exitCode).not.toBe(0);
+  });
+
+  // Mechanism 6: the no-graph remedy ("run `harness scan`") landed the operator
+  // on a SECOND empty-pass return two lines further down — graph present, zero
+  // traceable features, `minCoverage` still never evaluated, exit 0.
+  it('reports traceability as skip when the graph loads but contains no traceable features', async () => {
+    mockGraphLoad.mockResolvedValue(true);
+    mockQueryTraceability.mockReturnValue([]);
+
+    const result = await runCIChecks({
+      projectRoot: '/fake',
+      config: baseConfig({
+        traceability: { enabled: true, minCoverage: 100, severity: 'error' },
+      }),
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    const report = result.value;
+
+    const trace = checkNamed(report, 'traceability');
+    expect(trace.status).toBe('skip');
+    expect(trace.skipReason).toMatch(/no traceable features/);
+    // The point of the fix: the configured floor is named, so the operator can
+    // see what was not evaluated rather than reading a bare pass.
+    expect(trace.skipReason).toMatch(/minCoverage of 100%/);
+    expect(report.exitCode).not.toBe(0);
+  });
+
+  it('evaluates traceability normally once the graph has a traceable feature', async () => {
+    mockGraphLoad.mockResolvedValue(true);
+    mockQueryTraceability.mockReturnValue([
+      {
+        featureName: 'login',
+        summary: { coveragePercent: 100 },
+        requirements: [{ requirementName: 'r1', status: 'full' }],
+      },
+    ]);
+
+    const result = await runCIChecks({
+      projectRoot: '/fake',
+      config: baseConfig({
+        traceability: { enabled: true, minCoverage: 100, severity: 'error' },
+      }),
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+
+    expect(checkNamed(result.value, 'traceability').status).toBe('pass');
+    expect(result.value.exitCode).toBe(0);
+  });
+
+  // Mechanism 7: traceability was the only check that abstained over a gate the
+  // operator had never opted into, which made `harness init` + `harness ci init`
+  // emit a pipeline that went red on its first run.
+  describe('an unconfigured traceability gate asserts nothing, so it does not abstain', () => {
+    it('stays a plain skip when no traceability key is configured at all', async () => {
+      const result = await runCIChecks({ projectRoot: '/fake', config: baseConfig() });
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+
+      const trace = checkNamed(result.value, 'traceability');
+      expect(trace.skipReason).toBeUndefined();
+      expect(result.value.summary.abstained).toBe(0);
+      expect(result.value.exitCode).toBe(0);
+    });
+
+    it('stays a plain skip when enabled with no coverage floor', async () => {
+      // `minCoverage` defaults to 0, and the only thing this check can fail on
+      // is `pct < minCoverage` — so there is no expectation to abstain over.
+      const result = await runCIChecks({
+        projectRoot: '/fake',
+        config: baseConfig({ traceability: { enabled: true } }),
+      });
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+
+      expect(checkNamed(result.value, 'traceability').skipReason).toBeUndefined();
+      expect(result.value.exitCode).toBe(0);
+    });
+
+    it('still abstains the moment a coverage floor IS configured', async () => {
+      const result = await runCIChecks({
+        projectRoot: '/fake',
+        config: baseConfig({ traceability: { enabled: true, minCoverage: 1 } }),
+      });
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+
+      expect(checkNamed(result.value, 'traceability').skipReason).toBeTruthy();
+      expect(result.value.exitCode).not.toBe(0);
+    });
   });
 
   it('leaves phase-gate alone when it is disabled in config', async () => {
