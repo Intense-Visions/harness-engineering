@@ -60,7 +60,11 @@ export {
   BLAST_TOLERANCE_ABS,
 } from './retrospective.js';
 export { DEFAULT_RETROSPECTIVE_CONFIG } from './retrospective.js';
-export type { RetrospectiveComparison, RetrospectiveConfig } from './retrospective.js';
+export type {
+  RetrospectiveComparison,
+  RetrospectiveConfig,
+  RetrospectiveReason,
+} from './retrospective.js';
 export { resolveStage, DEFAULT_RATCHET_CONFIG, V1_MAX_STAGE } from './ratchet.js';
 export type { V1Stage, RatchetOutcome, RatchetConfig } from './ratchet.js';
 

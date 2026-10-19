@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/intelligence/src'
-sourceHash: '7395ef04e84cd33468769b29d9384455667d97ed5e1fd78de330067fb1c3716f'
+sourceHash: '746043ab367c0096e2aa77721727161913644aa74d8ccfae2764f74e25f4d4ac'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -134,6 +134,7 @@ export ResolvedEntity
 export ResolvedSection
 export RetrospectiveComparison
 export RetrospectiveConfig
+export RetrospectiveReason
 export RubricCriterion
 export SENSITIVE_BLAST_THRESHOLD
 export SKILL_REGRESSION_SYSTEM_PROMPT
