@@ -326,24 +326,34 @@ function printCheckDesignResult(
 
   if (mode === OutputMode.QUIET) return;
 
-  printVerifierSection('audit-anatomy', value.findingsByVerifier.anatomy.length, () =>
+  // A verifier that abstained must not be rendered as `(0 findings)`. That is
+  // the #2070 symptom in the human report: "audit-anatomy (0 findings)" reads
+  // as clean, and a reader who skims past the failure section below takes it
+  // that way. Zero findings and zero reading are different claims.
+  const abstained = new Set(value.summary.verifiersFailed.map((f) => f.name));
+
+  printVerifierSection('audit-anatomy', value.findingsByVerifier.anatomy.length, abstained, () =>
     printAnatomyFindings(value.findingsByVerifier.anatomy, mode === OutputMode.VERBOSE)
   );
 
-  printVerifierSection('design-craft critique', value.findingsByVerifier.craft.length, () =>
-    printCraftFindings(value.findingsByVerifier.craft, mode === OutputMode.VERBOSE)
+  printVerifierSection(
+    'design-craft critique',
+    value.findingsByVerifier.craft.length,
+    abstained,
+    () => printCraftFindings(value.findingsByVerifier.craft, mode === OutputMode.VERBOSE),
+    'design-craft-critique'
   );
 
-  printVerifierSection('detect-drift', value.findingsByVerifier.drift.length, () =>
+  printVerifierSection('detect-drift', value.findingsByVerifier.drift.length, abstained, () =>
     printDriftFindings(value.findingsByVerifier.drift, mode === OutputMode.VERBOSE)
   );
 
-  printVerifierSection('audit-brand', value.findingsByVerifier.brand.length, () =>
+  printVerifierSection('audit-brand', value.findingsByVerifier.brand.length, abstained, () =>
     printBrandFindings(value.findingsByVerifier.brand, mode === OutputMode.VERBOSE)
   );
 
   if (value.summary.verifiersFailed.length > 0) {
-    console.log('\nVerifiers that failed:');
+    console.log('\nVerifiers that did not run (this report is incomplete):');
     for (const failed of value.summary.verifiersFailed) {
       console.log(`  - ${failed.name}: ${failed.error}`);
     }
@@ -357,7 +367,22 @@ function printCheckDesignResult(
   );
 }
 
-function printVerifierSection(name: string, count: number, printer: () => void): void {
+/**
+ * Print one verifier's section. `abstained` holds the names recorded in
+ * `verifiersFailed`; `verifierKey` is the name used there when it differs from
+ * the display label.
+ */
+function printVerifierSection(
+  name: string,
+  count: number,
+  abstained: ReadonlySet<string>,
+  printer: () => void,
+  verifierKey: string = name
+): void {
+  if (abstained.has(verifierKey)) {
+    console.log(`\n${name} (did not run — see below)`);
+    return;
+  }
   console.log(`\n${name} (${count} finding${count === 1 ? '' : 's'})`);
   if (count > 0) printer();
 }

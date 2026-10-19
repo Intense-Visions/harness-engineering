@@ -137,6 +137,15 @@ mattered; abstaining honestly made it live. The four warns are gone — the
 abstention was already carried in `verifiersFailed`, rendered in the text report
 and present in `--json`, so nothing is lost and the duplicate is removed.
 
+**An abstained verifier is no longer rendered as `(0 findings)`.** The human
+report printed `audit-anatomy (0 findings)` for a verifier that had read
+nothing — the #2070 symptom one surface over, since a reader who skims past the
+failure list below takes that as clean. Abstained verifiers now print
+`audit-anatomy (did not run — see below)`, and the section heading went from
+`Verifiers that failed:` to `Verifiers that did not run (this report is
+incomplete):`. A verifier that genuinely ran and found nothing still prints its
+real `(0 findings)`.
+
 **An adopter on an unsupported dialect gets told the truth.** A project whose
 components are `.vue`/`.svelte`/`.astro`, or whose stylesheets are
 `.sass`/`.less`, now abstains rather than reporting a clean audit of nothing —

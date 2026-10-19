@@ -60,4 +60,35 @@ describe('check-design --json survives an abstention (#2070)', () => {
       expect(failed.error).toMatch(/format it can parse/i);
     }
   });
+
+  it.runIf(fs.existsSync(CLI))('does not render an abstained verifier as "(0 findings)"', () => {
+    dir = fs.mkdtempSync(path.join(os.tmpdir(), 'cd-text-'));
+    fs.writeFileSync(
+      path.join(dir, 'harness.config.json'),
+      JSON.stringify({ version: 1, rootDir: '.', agentsMapPath: './AGENTS.md' })
+    );
+    fs.writeFileSync(path.join(dir, 'AGENTS.md'), '# Stub\n');
+    fs.mkdirSync(path.join(dir, 'src'));
+    fs.writeFileSync(path.join(dir, 'src', 'App.vue'), '<template><div/></template>\n');
+
+    let out = '';
+    try {
+      out = execFileSync(process.execPath, [CLI, 'check-design', '--mode', 'full'], {
+        cwd: dir,
+        encoding: 'utf8',
+        stdio: ['ignore', 'pipe', 'ignore'],
+      });
+    } catch (err) {
+      out = String((err as { stdout?: string }).stdout ?? '');
+    }
+
+    // The defect: the human report printed `audit-anatomy (0 findings)` for a
+    // verifier that read nothing — the #2070 symptom one surface over. A reader
+    // skimming past the failure list took it as clean.
+    expect(out).not.toMatch(/audit-anatomy \(0 findings\)/);
+    expect(out).toMatch(/audit-anatomy \(did not run/);
+    // design-craft genuinely ran, so it keeps its real count.
+    expect(out).toMatch(/design-craft critique \(0 findings\)/);
+    expect(out).toMatch(/did not run \(this report is incomplete\)/);
+  });
 });
