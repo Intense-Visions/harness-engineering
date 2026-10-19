@@ -136,6 +136,8 @@ const DIR_COMMENTS = {
   annotations: 'Annotations module for protected code regions and harness-ignore directives.',
   entropy:
     'Entropy module for detecting and remediating codebase drift, dead code, and complexity.',
+  duplication:
+    'Duplication module — Type-1/2 whole-unit clone index (normalized token fingerprints) over TS/JS sources; the shared substrate for the duplication entropy detector, code-craft sibling evidence, and idiom epidemiology.',
   performance: 'Performance module for benchmarking and regression detection.',
   feedback: 'Feedback module for agent-driven code review and telemetry.',
   architecture: 'Architecture module for analyzing and visualizing codebase structure.',

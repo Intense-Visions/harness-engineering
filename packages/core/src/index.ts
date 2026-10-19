@@ -84,6 +84,11 @@ export * from './annotations';
 export * from './entropy';
 
 /**
+ * Duplication module — Type-1/2 whole-unit clone index (normalized token fingerprints) over TS/JS sources; the shared substrate for the duplication entropy detector, code-craft sibling evidence, and idiom epidemiology.
+ */
+export * from './duplication';
+
+/**
  * Performance module for benchmarking and regression detection.
  */
 export * from './performance';
