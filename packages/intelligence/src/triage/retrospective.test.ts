@@ -38,6 +38,7 @@ describe('compareToPrediction', () => {
     expect(r.matched).toBe(true);
     expect(r.exceededBy).toBe(0);
     expect(r.action).toBe('verify');
+    expect(r.reason).toBe('matched');
   });
 
   it('matches when the diff came in SIMPLER than predicted (under-scope is not a mispredict)', () => {
@@ -54,6 +55,7 @@ describe('compareToPrediction', () => {
     expect(r.matched).toBe(false);
     expect(r.exceededBy).toBe(LEVEL_RANK.moderate - LEVEL_RANK.simple);
     expect(r.action).toBe('block-escalate');
+    expect(r.reason).toBe('level-overrun');
   });
 
   it('SC2: two bands over ⇒ mismatch with larger exceededBy', () => {
@@ -69,6 +71,7 @@ describe('compareToPrediction', () => {
     expect(r.matched).toBe(false);
     expect(r.exceededBy).toBeGreaterThan(0);
     expect(r.action).toBe('block-escalate');
+    expect(r.reason).toBe('blast-overrun');
   });
 
   it('blast-radius modestly above prediction but within tolerance stays matched', () => {
@@ -82,6 +85,7 @@ describe('compareToPrediction', () => {
     const r = compareToPrediction(undefined, actual('simple', 2));
     expect(r.matched).toBe(false);
     expect(r.action).toBe('block-escalate');
+    expect(r.reason).toBe('unjudgeable-prediction');
   });
 
   it('SC7: garbled prediction (missing verdict/level) ⇒ block-escalate', () => {
@@ -93,6 +97,7 @@ describe('compareToPrediction', () => {
     const r = compareToPrediction(garbled, actual('simple', 2));
     expect(r.matched).toBe(false);
     expect(r.action).toBe('block-escalate');
+    expect(r.reason).toBe('unjudgeable-prediction');
   });
 
   it('SC7: garbled actual (missing level) ⇒ block-escalate', () => {
@@ -104,6 +109,7 @@ describe('compareToPrediction', () => {
     const r = compareToPrediction(prediction('simple', 3), garbled);
     expect(r.matched).toBe(false);
     expect(r.action).toBe('block-escalate');
+    expect(r.reason).toBe('unjudgeable-actual');
   });
 
   it('SC7: an unknown/invalid level string ⇒ block-escalate (never trusted as a pass)', () => {
@@ -116,6 +122,7 @@ describe('compareToPrediction', () => {
     const r = compareToPrediction(prediction('simple', 3), weird);
     expect(r.matched).toBe(false);
     expect(r.action).toBe('block-escalate');
+    expect(r.reason).toBe('unjudgeable-actual');
   });
 
   it('SC2: a custom exceededByBands=2 tolerates a one-band drift but still blocks two bands', () => {
@@ -130,6 +137,36 @@ describe('compareToPrediction', () => {
     });
     expect(twoBands.matched).toBe(false);
     expect(twoBands.action).toBe('block-escalate');
+  });
+
+  it('#2221: a FAIL-SAFE block and a JUDGED overrun take the same ACTION but carry different reasons', () => {
+    // The sibling of the verdict-collapse this comparator feeds: both of these block, so
+    // `matched`/`action`/`exceededBy` cannot tell them apart. Only `reason` can — which is
+    // what lets the caller report bad data as a fail-safe rather than as a mispredict.
+    const judged = compareToPrediction(prediction('trivial', 2), actual('moderate', 2));
+    const failSafe = compareToPrediction(undefined, actual('simple', 2));
+
+    expect(judged.action).toBe(failSafe.action); // identical block …
+    expect(judged.matched).toBe(failSafe.matched);
+    expect(judged.reason).toBe('level-overrun'); // … distinguishable causes
+    expect(failSafe.reason).toBe('unjudgeable-prediction');
+  });
+
+  it('#2221: every reason the comparator can emit is one of the five named kinds', () => {
+    const reasons = new Set([
+      compareToPrediction(prediction('simple', 5), actual('simple', 4)).reason,
+      compareToPrediction(prediction('simple', 5), actual('moderate', 4)).reason,
+      compareToPrediction(prediction('simple', 3), actual('simple', 30)).reason,
+      compareToPrediction(undefined, actual('simple', 2)).reason,
+      compareToPrediction(prediction('simple', 3), undefined).reason,
+    ]);
+    expect([...reasons].sort()).toEqual([
+      'blast-overrun',
+      'level-overrun',
+      'matched',
+      'unjudgeable-actual',
+      'unjudgeable-prediction',
+    ]);
   });
 
   it('missing blast-radius signal on the actual falls back to level-only comparison (matched)', () => {

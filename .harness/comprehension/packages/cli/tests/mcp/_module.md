@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/tests/mcp'
-sourceHash: '36d5afae738e4e145a2515b7ceedc9de09d526fa5f9d405a61cf073fa7681a2f'
+sourceHash: '7f0837a71d7e08e0f23db583d77b7860ee0d82e66aa677616db84260edbb141a'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -11,9 +11,11 @@ members:
     'context-surface-cov544b.test.ts',
     'context-surface.test.ts',
     'dispatch-skills.test.ts',
+    'resource-stale-build.test.ts',
     'result-adapter.test.ts',
     'server-integration.test.ts',
     'server.test.ts',
+    'state-resource-stale-build.test.ts',
     'tool-tiers.test.ts',
     'update-check-hook.test.ts',
     'version-guard-surface.test.ts',
@@ -31,7 +33,8 @@ members:
 ```
 import { agentsMdEntry, gatherContextSurface, hooksEntry, mcpToolEntries, skillTreeEntries, toolDefinitionText } from '../../src/mcp/context-surface'
 import { getToolDefinitions } from '../../src/mcp/index'
-import { ToolDefinition, createHarnessServer, getResourceDefinitions, getToolDefinitions } from '../../src/mcp/server'
+import { getStateResource } from '../../src/mcp/resources/state'
+import { ToolDefinition, createHarnessServer, getResourceDefinitions, getToolDefinitions, handleReadResource } from '../../src/mcp/server'
 import { CORE_TOOL_NAMES, DEFAULT_BUDGETS, DEFAULT_CHARS_PER_TOKEN, STANDARD_TOOL_NAMES, estimateBaselineTokens, selectTier } from '../../src/mcp/tool-tiers'
 import { ToolDefinition } from '../../src/mcp/tool-types'
 import { dispatchSkillsDefinition, handleDispatchSkills } from '../../src/mcp/tools/dispatch-skills.js'
@@ -45,6 +48,7 @@ import * as fs, { readFileSync } from 'fs'
 import * as fs, { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import * as os, { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import * as os from 'os'
 import * as path, { dirname, resolve } from 'path'
 import { fileURLToPath } from 'url'
