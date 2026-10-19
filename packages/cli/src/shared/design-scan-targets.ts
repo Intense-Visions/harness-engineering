@@ -313,7 +313,10 @@ function isExcludedDirectory(
   absoluteDir: string,
   excludePatterns: readonly string[]
 ): boolean {
-  if (path.relative(projectRoot, absoluteDir) === '') return false;
+  // Compare resolved paths rather than `path.relative(...) === ''`: equivalent
+  // here, and it avoids producing a relative path that would then need win32
+  // separator normalization just to be thrown away.
+  if (path.resolve(absoluteDir) === path.resolve(projectRoot)) return false;
   // Names chosen to carry no extension and match no plausible glob on their
   // own, so a hit can only come from the directory part of the pattern.
   const shallow = path.join(absoluteDir, PRUNE_PROBE_NAME);
