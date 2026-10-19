@@ -321,8 +321,13 @@ describe('check-design command action + output rendering (cov544)', () => {
     await run(['node', 't', 'check-design']);
 
     const out = printed();
-    expect(out).toContain('Verifiers that failed:');
+    expect(out).toContain('did not run (this report is incomplete)');
     expect(out).toContain('detect-drift: drift crashed');
+    // That verifier's own section must NOT claim a finding count it never
+    // computed: `detect-drift (0 findings)` reads as clean, which is the #2070
+    // symptom in the human report.
+    expect(out).not.toContain('detect-drift (0 findings)');
+    expect(out).toContain('detect-drift (did not run');
     // no error findings, but a verifier failed ⇒ degraded ⇒ ERROR (2)
     expect(exitCodes).toEqual([2]);
   });

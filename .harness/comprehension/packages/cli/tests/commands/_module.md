@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/tests/commands'
-sourceHash: 'c15d38da10c5ae842033453cdede9ab137cfa8860b1282006a21f7cbe50eecf3'
+sourceHash: 'dbf266edd52103ba60537849615344b2f2661c4f1252b595235f773840d8faca'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -32,6 +32,7 @@ members:
     'check-deps-skipped-abstention.test.ts',
     'check-deps.test.ts',
     'check-design-cov544.test.ts',
+    'check-design-json-abstention.test.ts',
     'check-design.test.ts',
     'check-docs.test.ts',
     'check-harness-strength-cov544.test.ts',

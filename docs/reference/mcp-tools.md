@@ -479,7 +479,7 @@ Audit components for anatomy completeness. Emits ANAT-D* findings for component 
 
 - `path` (string, required) — Project root path
 - `mode` (string, optional) — fast = conventions only (cheap AST scan); full additionally runs the ANAT-P\* composition patterns.
-- `files` (array, optional) — Optional explicit file list (paths or globs) to scope the audit.
+- `files` (array, optional) — Optional explicit file list (paths) to scope the audit. Omit it (or pass an empty array) to audit all project source files, honouring design.exclude and analysis.exclude.
 - `designStrictness` (string, optional) — Overrides design.strictness from harness.config.json.
 - `catalog` (array, optional) — Optional subset of catalog entries to run.
 

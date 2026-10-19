@@ -24,6 +24,12 @@ import { resolveComponentType } from '../../audit/component-anatomy/resolvers/co
 import { resolveAnatomyRules } from '../../audit/component-anatomy/resolvers/source-of-truth.js';
 import { runConventionRule } from '../../audit/component-anatomy/rules/convention-runner.js';
 import { PATTERN_CHECKS } from '../../audit/component-anatomy/catalog/patterns/index.js';
+import {
+  collectDesignScanFiles,
+  designScanAbstention,
+  noFilesScannedError,
+  resolveDesignExcludePatterns,
+} from '../../shared/design-scan-targets.js';
 import type { AnatomyFinding, Severity } from '../../audit/component-anatomy/findings/finding.js';
 
 type AuditMode = 'fast' | 'full';
@@ -67,7 +73,9 @@ export const auditAnatomyDefinition = {
       files: {
         type: 'array',
         items: { type: 'string' },
-        description: 'Optional explicit file list (paths or globs) to scope the audit.',
+        description:
+          'Optional explicit file list (paths) to scope the audit. Omit it (or pass an empty ' +
+          'array) to audit all project source files, honouring design.exclude and analysis.exclude.',
       },
       designStrictness: {
         type: 'string',
@@ -99,7 +107,22 @@ export async function runAudit(input: AuditAnatomyInput): Promise<AuditAnatomyOu
   const findings: AnatomyFinding[] = [];
 
   const projectRoot = sanitizePath(input.path);
-  const candidateFiles = input.files ?? [];
+  // Default to the project's whole design surface — the same resolution the
+  // sibling check-design verifiers use — so one run audits one file set. An
+  // absent scope used to mean `[]`, which audited nothing and reported it as
+  // clean (#2070).
+  const targets = collectDesignScanFiles(
+    projectRoot,
+    input.files,
+    resolveDesignExcludePatterns(projectRoot)
+  );
+  const candidateFiles = targets.files;
+  // Truncated walk, or a design surface this verifier resolved down to nothing
+  // (an exclude that matched everything, an explicit list that does not resolve,
+  // or a dialect it cannot read). The rule lives in designScanAbstention so the
+  // three verifiers cannot drift apart on it.
+  const abstention = designScanAbstention('audit-anatomy', projectRoot, targets);
+  if (abstention) throw abstention;
 
   const conventionsApplied = new Set<string>();
   const patternsApplied = new Set<string>();
@@ -149,6 +172,13 @@ export async function runAudit(input: AuditAnatomyInput): Promise<AuditAnatomyOu
     }
     const fileFindings = runConventionRule(rule, parsed, runnerOptions);
     findings.push(...fileFindings);
+  }
+
+  // Candidates resolved but every one was unreadable (a glob, a typo, a
+  // deleted path): the scan loop skipped them all and `findings` is empty for
+  // want of a byte read, not for want of a defect (#2070).
+  if (candidateFiles.length > 0 && totalFiles === 0) {
+    throw noFilesScannedError('audit-anatomy', projectRoot);
   }
 
   const summary = buildSummary(findings, totalFiles, Date.now() - start);

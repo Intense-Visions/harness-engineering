@@ -278,14 +278,18 @@ describe('runValidate — per-check failure branches (cov544)', () => {
     expect(warnFinding?.line).toBeUndefined();
   });
 
-  it('degrades gracefully when drift detection throws', async () => {
+  it('abstains when drift detection throws, rather than filing a warning', async () => {
     vi.mocked(runDetectDrift).mockRejectedValueOnce(new Error('drift boom'));
     const result = await runValidate({ cwd: '/tmp/nope' });
     if (!result.ok) return;
     expect(result.value.checks.driftDetection).toBe(false);
-    const issue = result.value.issues.find((i) => i.check === 'driftDetection');
-    expect(issue?.severity).toBe('warning');
-    expect(issue?.message).toContain('drift boom');
+    // A verifier that could not run is a fact about the report's completeness,
+    // not a filterable finding (#2070).
+    expect(
+      result.value.unavailableChecks.find((u) => u.check === 'driftDetection')?.reason
+    ).toContain('drift boom');
+    expect(result.value.complete).toBe(false);
+    expect(result.value.issues.some((i) => i.check === 'driftDetection')).toBe(false);
   });
 
   it('surfaces brand error findings and flips valid', async () => {
@@ -316,14 +320,16 @@ describe('runValidate — per-check failure branches (cov544)', () => {
     expect(result.value.issues.find((i) => i.ruleId === 'BRAND-T001')?.severity).toBe('error');
   });
 
-  it('degrades gracefully when brand audit throws', async () => {
+  it('abstains when brand audit throws, rather than filing a warning', async () => {
     vi.mocked(runAuditBrand).mockRejectedValueOnce(new Error('brand boom'));
     const result = await runValidate({ cwd: '/tmp/nope' });
     if (!result.ok) return;
     expect(result.value.checks.brandCompliance).toBe(false);
-    expect(result.value.issues.find((i) => i.check === 'brandCompliance')?.message).toContain(
-      'brand boom'
-    );
+    expect(
+      result.value.unavailableChecks.find((u) => u.check === 'brandCompliance')?.reason
+    ).toContain('brand boom');
+    expect(result.value.complete).toBe(false);
+    expect(result.value.issues.some((i) => i.check === 'brandCompliance')).toBe(false);
   });
 
   it('surfaces instruction-density findings as advisory warnings without flipping valid', async () => {

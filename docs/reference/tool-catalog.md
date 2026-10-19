@@ -441,7 +441,7 @@ Audit components for anatomy completeness. Emits ANAT-D* findings for component 
       "type": "string"
     },
     "files": {
-      "description": "Optional explicit file list (paths or globs) to scope the audit.",
+      "description": "Optional explicit file list (paths) to scope the audit. Omit it (or pass an empty array) to audit all project source files, honouring design.exclude and analysis.exclude.",
       "items": {
         "type": "string"
       },

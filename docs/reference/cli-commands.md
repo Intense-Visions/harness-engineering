@@ -110,7 +110,7 @@ Run the design verifier suite (component-anatomy + design-craft critique). Mirro
 **Options:**
 
 - `-m, --mode` — Audit mode: fast | full (default: "full")
-- `-f, --files` — Optional file/glob scoping. Defaults to all project source files.
+- `-f, --files` — Optional scoping by explicit file path (globs are not expanded). Defaults to all project source files.
 
 ### `harness check-docs`
 

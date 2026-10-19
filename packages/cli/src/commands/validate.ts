@@ -531,10 +531,12 @@ export async function runValidate(
         | 'strict'
         | 'standard'
         | 'permissive';
-      // NOTE: component-anatomy is intentionally NOT scoped. It is called with no
-      // `files` list in both modes (a no-op in validate today), so passing the
-      // changed surface here would activate it in affected mode only and report
-      // findings a full sweep does not — breaking scoped ⊆ full parity.
+      // NOTE: component-anatomy is intentionally NOT scoped. Omitting `files`
+      // now means "every project source file" rather than "no files at all"
+      // (#2070), so both modes run the same full sweep and scoped ⊆ full parity
+      // holds trivially. Passing the changed surface here would instead report
+      // findings scoped to it that a full sweep orders differently, so the
+      // unscoped call stays.
       const auditOutput = await runComponentAnatomyAudit({
         path: cwd,
         mode: 'fast',
@@ -558,13 +560,18 @@ export async function runValidate(
         });
       }
     } catch (err) {
-      // Audit failures don't sink the whole validate — degrade gracefully
-      // with a single warning so the rest of the checks still report.
+      // A verifier that could not run is an abstention, not a finding. Routed
+      // through unavailableChecks (as roadmapHealth already is) so it forces
+      // `complete: false` and the incomplete-run exit code. It used to be a
+      // severity-`warning` issue, which left `valid: true` and exit 0 over an
+      // audit that examined nothing — the #2070 defect one layer up, and
+      // reachable the moment the verifier started abstaining honestly.
       result.checks.componentAnatomy = false;
-      result.issues.push({
+      result.unavailableChecks.push({
         check: 'componentAnatomy',
-        severity: 'warning',
-        message: `Component-anatomy audit skipped: ${(err as Error).message}`,
+        reason: `the component-anatomy audit could not run, so no anatomy rule was applied: ${(err as Error).message}`,
+        suggestion:
+          'Check the `files` scope, `design.exclude` and `analysis.exclude`, or turn the verifier off with `design.audit.componentAnatomy.enabled: false`.',
       });
     }
   }
@@ -607,11 +614,13 @@ export async function runValidate(
         });
       }
     } catch (err) {
+      // Same abstention channel as componentAnatomy above.
       result.checks.driftDetection = false;
-      result.issues.push({
+      result.unavailableChecks.push({
         check: 'driftDetection',
-        severity: 'warning',
-        message: `Drift detection skipped: ${(err as Error).message}`,
+        reason: `detect-design-drift could not run, so no drift rule was applied: ${(err as Error).message}`,
+        suggestion:
+          'Check the `files` scope, `design.exclude` and `analysis.exclude`, or turn the verifier off with `design.audit.driftDetection.enabled: false`.',
       });
     }
   }
@@ -652,11 +661,13 @@ export async function runValidate(
         });
       }
     } catch (err) {
+      // Same abstention channel as componentAnatomy above.
       result.checks.brandCompliance = false;
-      result.issues.push({
+      result.unavailableChecks.push({
         check: 'brandCompliance',
-        severity: 'warning',
-        message: `Brand compliance audit skipped: ${(err as Error).message}`,
+        reason: `audit-brand-compliance could not run, so no brand rule was applied: ${(err as Error).message}`,
+        suggestion:
+          'Check the `files` scope, `design.exclude` and `analysis.exclude`, or turn the verifier off with `design.audit.brandCompliance.enabled: false`.',
       });
     }
   }

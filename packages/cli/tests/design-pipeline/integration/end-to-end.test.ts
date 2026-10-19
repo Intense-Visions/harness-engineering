@@ -102,6 +102,10 @@ describe('runDesignPipeline (integration)', () => {
   });
 
   it('verifiersRun includes detect-drift, audit-anatomy, audit-brand, design-craft-critique on default run', async () => {
+    // One source file, so this is a default run over a real design surface
+    // rather than the degenerate no-surface case (#2070).
+    writeFile('src/Card.tsx', `export const Card = () => <div>ok</div>;\n`);
+
     const out = await runDesignPipeline({ path: tmpDir });
     expect(out.verifiersRun).toContain('detect-drift');
     expect(out.verifiersRun).toContain('audit-anatomy');
