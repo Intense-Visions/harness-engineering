@@ -12,11 +12,11 @@
 // than feared) — only over-scope trips the block.
 //
 // Fail-safe (SC7, plan §Concerns): a missing, garbled, or invalid prediction/actual
-// is treated as a MISMATCH (`block-escalate`), never a silent pass. It carries
-// `reason: 'unjudgeable-*'` so the caller can report it as a FAIL-SAFE block rather
-// than as a judged mispredict (#2221) — the ACTION is identical, the label is not. Biasing toward
+// is treated as a MISMATCH (`block-escalate`), never a silent pass. Biasing toward
 // flagging is deliberate — a false mismatch costs a human review; a false match ships
-// an under-scrutinized change and advances the ratchet on false evidence.
+// an under-scrutinized change and advances the ratchet on false evidence. Such a block
+// carries `reason: 'unjudgeable-*'` so the caller can report it as a FAIL-SAFE block
+// rather than as a judged mispredict (#2221): the ACTION is identical, the label is not.
 //
 // Layer note: pure, intelligence-only. Imports @harness-engineering/types
 // (ComplexityVerdict / ComplexityLevel) + the local Phase-0 sibling (TriagePrediction).
