@@ -148,8 +148,9 @@ describe('formatCIReportAsMarkdown — abstentions (#2071)', () => {
     expect(md).toContain('**traceability:**');
     expect(md).toContain('minCoverage of 100% was not evaluated');
     // The headline count was unasserted: replacing the whole
-    // `(**N** could not run)` suffix with '' left `packages/core` 93/93 green,
-    // and the suffix is the only place the abstention appears above the fold.
+    // `(**N** could not run)` suffix with '' leaves ALL of `packages/core` green
+    // with this assertion removed (494 files / 5757 tests), and the suffix is the
+    // only place the abstention appears above the fold.
     expect(md).toContain('**1** could not run');
   });
 

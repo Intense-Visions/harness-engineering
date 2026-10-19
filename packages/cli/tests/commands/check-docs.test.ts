@@ -215,12 +215,20 @@ describe('check-docs command', () => {
           path.join(root, 'harness.config.json'),
           JSON.stringify({ version: 1, name: 'uncovered', rootDir: '.', docsDir: './docs' })
         );
-        // The action handler calls `runCheckDocs` WITHOUT a `cwd`, so the scan
-        // root is `process.cwd()` and `-c` only selects the config file — the
-        // same split `check-arch` had before #911, still present here. Pointing
-        // `process.cwd()` at the fixture is therefore the only way to make the
-        // handler read this tree; without it these tests would silently measure
-        // `packages/cli` itself and pass whatever the fixture contained.
+        // The action handler calls `runCheckDocs` WITHOUT a `cwd`
+        // (`check-docs.ts` action -> `runCheckDocs`, which does
+        // `options.cwd ?? process.cwd()`), so the scan root is `process.cwd()`
+        // and `-c` only selects the config file — the same split `check-arch`
+        // fixed in #911, still present here. Pointing `process.cwd()` at the
+        // fixture is the only way to make the handler read this tree.
+        //
+        // The spy is load-bearing for the 0 and 3 cases SPECIFICALLY. Measured
+        // with it neutered against unmutated source: `Tests 2 failed | 15 passed
+        // (17)` — the SUCCESS(0) and ZERO_DENOMINATOR(3) cases fail, while
+        // `exits VALIDATION_FAILED (1)` still passes, because `packages/cli`
+        // itself sits below the 80% floor and so reaches exit 1 against the
+        // wrong directory anyway. So for the exit-1 case the spy buys honesty
+        // about WHAT was measured, not the assertion's ability to fail.
         mockCwd = vi.spyOn(process, 'cwd').mockReturnValue(root);
       });
 

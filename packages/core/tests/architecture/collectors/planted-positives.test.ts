@@ -236,8 +236,22 @@ describe('ForbiddenImportCollector (configured rules, issue #2235)', () => {
  * the entire `packages/core` suite still passes. Coupling is the only one of
  * the five metric collectors whose denominator survives that mutation, and
  * `CouplingCollector` sits in `defaultCollectors` -> `runAll` -> `runArchCheck`
- * -> `harness ci check`, which `.husky/pre-commit` does not skip. A metric
- * silently collapsing to 0 reads as an IMPROVEMENT against the baseline.
+ * -> `harness ci check`, which `.husky/pre-commit` does not skip.
+ *
+ * WHY THE DENOMINATOR IS THE THING WORTH PINNING: `filesAnalyzed` is in
+ * `WORK_DENOMINATORS` (`packages/cli/src/commands/check-arch.ts`) and `coupling`
+ * is in no `CONFIG_GATED_CATEGORIES` entry, so this one number is the sole input
+ * to `classifyMeasurement`'s measured-versus-abstained verdict for this
+ * category. An untruthful denominator therefore corrupts the verdict itself, and
+ * in the dangerous direction: a denominator reporting work it did not do reads
+ * as `measured`. A ZERO one is safe today -- verified against unmutated source,
+ * `classifyMeasurement({category:'coupling', value:0, metadata:{filesAnalyzed:0}})`
+ * returns `'abstained'` with reason `nothing to measure (filesAnalyzed=0)`.
+ * (An earlier version of this comment said a collapse to 0 "reads as an
+ * IMPROVEMENT against the baseline". That was true before #2238 shipped the
+ * abstention channel this morning -- see #2268 -- and is false against this tree.
+ * The baselined `value` for this category is already 0 regardless, so there was
+ * never an improvement to read.)
  *
  * These two cases run the REAL `detectCouplingViolations` over a tmp-dir
  * fixture and assert the denominator against the planted file count, so a 0 can

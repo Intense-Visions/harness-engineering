@@ -451,8 +451,8 @@ describe('check-arch command', () => {
      * never observes: that test asserts `passed`, and its `1=regression` arm
      * had no assertion at all. Measured on `origin/main`:
      *   - `process.exit(value.passed ? SUCCESS : VALIDATION_FAILED)` replaced by
-     *     `process.exit(ExitCode.SUCCESS)` left `packages/cli` fully green
-     *     (273 files / 3497 tests);
+     *     `process.exit(ExitCode.SUCCESS)` leaves ALL of `packages/cli` green
+     *     with only these two tests removed: 755 files / 8937 tests;
      *   - `valid: value.passed` in `printArchResult` replaced by `valid: true`
      *     left 3 files / 58 tests green.
      * Same defect class as #2071 — a regressing gate reporting a pass — and

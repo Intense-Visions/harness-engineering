@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/tests/ci'
-sourceHash: '56c214119b8ad31853dc2f3ef9576a33c63351b249fdf8352cc7eb637e3173ff'
+sourceHash: '7263b227a6325aa6eef3700a8ddc4cfea81224122d76d3df303759de68cdb029'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
