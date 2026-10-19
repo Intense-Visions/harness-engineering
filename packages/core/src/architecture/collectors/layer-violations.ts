@@ -67,30 +67,6 @@ export class LayerViolationCollector implements Collector {
       this.category
     );
 
-    // `fallbackBehavior: 'skip'` is the one policy that CAN return
-    // `Ok({ skipped: true })`, and this collector used to read only
-    // `violations` — emitting `value: 0, violations: []`, a clean metric for an
-    // analysis that abstained. Recorded on the same `metadata` channel the
-    // `!result.ok` branch above already uses (#2098).
-    //
-    // HONEST SCOPE: nothing downstream reads this yet. `check-arch` compares
-    // `value` against a baseline and has no abstention channel, so an abstained
-    // category still reads as 0 there. Tracked in #2268.
-    if (result.value.skipped) {
-      return [
-        {
-          category: this.category,
-          scope: 'project',
-          value: violations.length,
-          violations,
-          metadata: {
-            abstained: true,
-            reason: result.value.reason ?? 'the dependency analysis engine abstained',
-          },
-        },
-      ];
-    }
-
     return [{ category: this.category, scope: 'project', value: violations.length, violations }];
   }
 }
