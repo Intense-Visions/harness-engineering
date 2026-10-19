@@ -82,6 +82,22 @@ vi.mock('@harness-engineering/graph', () => ({
   skipDirGlobs: vi.fn().mockReturnValue(['**/node_modules/**']),
 }));
 
+/**
+ * MUST TRACK `src/architecture`'s EXPORT SURFACE.
+ *
+ * A factory mock replaces the module wholesale, so any export `runArchCheck`
+ * reaches for that is missing here comes back `undefined` and the arch check
+ * throws — which surfaces as `exitCode: 1` and fails every exit-code assertion
+ * in this file, nowhere near the real cause. This has now broken twice as that
+ * module gained exports (#2235/#2238 added `withDependencyRules` /
+ * `readDependencyRules`), and it is invisible to the PR that adds the export,
+ * because a mock in a test file that does not exist on its branch cannot be
+ * updated by it. If you add an export there, add it here.
+ *
+ * `tests/ci/check-orchestrator.test.ts` mocks the same module and must be kept
+ * in step; both mirror the real implementations in
+ * `src/architecture/dependency-rules.ts`.
+ */
 vi.mock('../../src/architecture', () => ({
   ArchConfigSchema: {
     parse: vi.fn().mockReturnValue({
@@ -89,9 +105,26 @@ vi.mock('../../src/architecture', () => ({
       baselinePath: '.harness/arch/baselines.json',
       thresholds: {},
       modules: {},
+      // `runArchCheck` spreads this and appends `analysisExclude(config)`, so it
+      // has to be an array rather than undefined.
+      excludePatterns: [],
     }),
   },
   runAll: vi.fn().mockResolvedValue([]),
+  // The arch check injects the top-level `layers` / `forbiddenImports` blocks
+  // into the collector config (#2235). The real `withDependencyRules` also
+  // rewrites each layer pattern under `source.rootDir`; no case in this file
+  // sets `rootDir`, so passing the patterns through is faithful here.
+  withDependencyRules: vi.fn((archConfig, source) => ({
+    ...archConfig,
+    layers: source.layers ?? [],
+    forbiddenImports: source.forbiddenImports ?? [],
+  })),
+  readDependencyRules: vi.fn((config) => ({
+    ...(typeof config.rootDir === 'string' ? { rootDir: config.rootDir } : {}),
+    layers: Array.isArray(config.layers) ? config.layers : [],
+    forbiddenImports: Array.isArray(config.forbiddenImports) ? config.forbiddenImports : [],
+  })),
 }));
 
 import { runCIChecks } from '../../src/ci/check-orchestrator';

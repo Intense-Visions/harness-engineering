@@ -1,12 +1,13 @@
 ---
 schemaVersion: 1
 module: 'packages/core/tests/ci'
-sourceHash: '08f9e32126852b3d3527a1d93825bbb338bb24babb2ee9041a14af323d21ad38'
+sourceHash: 'c5fe993629d81d87072ef932f5310ef2d3839babe6b0552550dacb03fc30802d'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
 members:
   [
+    'arch-dependency-rules.behavior.test.ts',
     'base-freshness.behavior.test.ts',
     'check-orchestrator.test.ts',
     'check-skip-status.test.ts',

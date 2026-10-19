@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/src/ci'
-sourceHash: '3397678090a4e39b88f76ce6b87aa1623f81c6f0ce68e907bc48ae41ab0dff33'
+sourceHash: 'e803c0dc157104921b7da0529ce4aaedaf927182ba0c248b3271381416faf02d'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -43,7 +43,7 @@ export shouldCacheResult
 ## Dependency Slice
 
 ```
-import { ArchConfigSchema, runArchCollectors } from '../architecture'
+import { ArchConfigSchema, readDependencyRules, runArchCollectors, withDependencyRules } from '../architecture'
 import { ArchBaselineManager } from '../architecture/baseline-manager'
 import { filterDiffByAllowances, loadArchAllowances, resolveArchBaseline } from '../architecture/baseline-resolver'
 import { diff } from '../architecture/diff'
