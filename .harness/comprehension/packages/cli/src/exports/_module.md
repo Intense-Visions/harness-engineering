@@ -1,26 +1,12 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/exports'
-sourceHash: '848621af102eb40debe7657d1b28548684379eba9d4ac6b44a2138bf4a2cff2c'
-compiledAt: '2026-08-28T01:22:09.225Z'
+sourceHash: '394a70e5285810352c0cb02718bfb84046329d16c10e44fc764f5c0cfa854564'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
-model: 'claude-haiku-4-5-20251001'
-semantic: present
+model: null
+semantic: absent
 members: ['commands.ts', 'graph.ts', 'persona.ts', 'registry.ts']
 ---
-
-## Summary
-
-This is the public API barrel for the CLI package, organizing re-exports into four cohesive domains: Commands (validation gates, code generation, analysis), Graph Operations (knowledge graph lifecycle), Personas (multi-step workflow orchestration), and Skills (registry management). The module acts as a clean pass-through that CLI commands, MCP tools, and external integrations consume as the primary surface.
-
-## Invariants
-
-- Types follow implementations — every command/orchestrator export includes its result type (e.g., CheckArchResult + runCheckArch). Consumers need both for integration.
-- Personas are the orchestration primitive — Persona schema + runPersona executor form a closed loop; detectTrigger and executeSkill are helper operands, not independent primitives.
-- Skill execution is distinct from skill management — executeSkill (runtime) is separate from install/uninstall/constraints operations (registry). Mixing these breaks the phase boundary.
-- Agent definitions are personas-adjacent — agent generators and persona runners co-export because personas execute agents as steps; their lifetimes are locked.
-- Graph and command domains don't cross — graph operations are read-only analysis; commands are mutating actions. No export bridges them; callers must orchestrate separately.
-- Exports are organized by domain, not by caller — the four-group organization (commands, graph, persona, registry) is a stability contract; changing it breaks import paths.
 
 ## Interface Contract
 
@@ -28,6 +14,7 @@ This is the public API barrel for the CLI package, organizing re-exports into fo
 export AGENT_DESCRIPTIONS
 export ALLOWED_PERSONA_COMMANDS
 export AgentDefinition
+export ArchMeasurement
 export CheckArchResult
 export CommandExecutor
 export CommandStep
