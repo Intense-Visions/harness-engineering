@@ -15,6 +15,9 @@
       "path": "./packages/burn"
     },
     {
+      "path": "./packages/stats"
+    },
+    {
       "path": "./packages/core"
     },
     {

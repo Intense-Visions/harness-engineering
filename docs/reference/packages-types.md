@@ -8,6 +8,12 @@ Auto-generated reference index for previously-undocumented modules in this group
 
 Spec B Phase 0 — typecheck-only fixture.
 
+## packages/types/src/**type_tests**/stats-types.test-d.ts
+
+[`packages/types/src/__type_tests__/stats-types.test-d.ts`](/packages/types/src/__type_tests__/stats-types.test-d.ts)
+
+stats-explore-exploit Phase 1 — typecheck-only fixture asserting the shared bandit/SPRT shapes compile as the spec's data structures describe.
+
 ## packages/types/src/auth.ts
 
 [`packages/types/src/auth.ts`](/packages/types/src/auth.ts)
@@ -55,6 +61,14 @@ Pulse config — read-side observability config block under `pulse:` in `harness
 Solution-doc frontmatter contract.
 
 **Exports:** `SolutionTrack`, `BugTrackCategory`, `KnowledgeTrackCategory`, `SolutionCategory`, `SolutionDocFrontmatter`
+
+## packages/types/src/stats.ts
+
+[`packages/types/src/stats.ts`](/packages/types/src/stats.ts)
+
+Shared shapes for `@harness-engineering/stats` and its consumers: one bandit ledger line (`Pull`), the folded per-arm posterior (`ArmState`), bandit policy configuration, the chosen arm with its printable reason, and the SPRT config and verdict.
+
+**Exports:** `Pull`, `ArmState`, `BanditConfig`, `Choice`, `SprtVerdict`, `SprtConfig`
 
 ## packages/types/src/strategy.ts
 
