@@ -61,6 +61,14 @@ interface CheckDesignResult {
     byCode: Record<string, number>;
     verifiersRun: string[];
     verifiersFailed: Array<{ name: string; error: string }>;
+    /**
+     * Verifiers the project turned off via `design.audit.*.enabled: false`.
+     * Distinct from both `verifiersRun` and `verifiersFailed`: a disabled
+     * verifier did not run, so rendering it as `(0 findings)` would make an
+     * acknowledged opt-out look like a clean result — the same conflation
+     * #2070 is about.
+     */
+    verifiersDisabled: string[];
     durationMs: number;
   };
   graphPersisted: {
@@ -86,33 +94,50 @@ export async function runCheckDesign(
   if (!configResult.ok) {
     return configResult;
   }
+  const config = configResult.value;
+
+  // Per-verifier opt-out, honouring the SAME config keys `harness validate`
+  // already reads (`validate.ts:527/585/635`). This command read none of them:
+  // `grep -n "enabled" check-design.ts` returned nothing before this change.
+  // That mattered the moment the verifiers started abstaining, because the
+  // documented escape from an abstention is to acknowledge the verifier does
+  // not apply — and on this command that escape did not exist (#2070).
+  const anatomyEnabled = config.design?.audit?.componentAnatomy?.enabled !== false;
+  const driftEnabled = config.design?.audit?.driftDetection?.enabled !== false;
+  const brandEnabled = config.design?.audit?.brandCompliance?.enabled !== false;
 
   const verifiersRun: string[] = [];
   const verifiersFailed: Array<{ name: string; error: string }> = [];
+  const verifiersDisabled: string[] = [];
+  if (!anatomyEnabled) verifiersDisabled.push('audit-anatomy');
+  if (!driftEnabled) verifiersDisabled.push('detect-drift');
+  if (!brandEnabled) verifiersDisabled.push('audit-brand');
   const anatomyFindings: AnatomyFinding[] = [];
   const craftFindings: CraftFinding[] = [];
   const driftFindings: DriftFinding[] = [];
   const brandFindings: BrandFinding[] = [];
 
   // VERIFIER 1: audit-component-anatomy
-  try {
-    const anatomyOut: AuditAnatomyOutput = await runAnatomyAudit({
-      path: cwd,
-      mode,
-      ...(options.files !== undefined && { files: options.files }),
-    });
-    anatomyFindings.push(...anatomyOut.findings);
-    verifiersRun.push('audit-anatomy');
-  } catch (err) {
-    // No logger.warn here, nor in the three siblings below. `logger.warn` is
-    // `console.log`, i.e. STDOUT, so a warned abstention prefixed a non-JSON
-    // line to `--json` output and every machine consumer got a parse error
-    // instead of a payload. The abstention is not lost: `verifiersFailed` is
-    // rendered in the text report and carried in `--json`, which is where it
-    // belongs. Verifiers failing was near-unreachable before #2070; abstaining
-    // honestly is what made this live.
-    const message = err instanceof Error ? err.message : String(err);
-    verifiersFailed.push({ name: 'audit-anatomy', error: message });
+  if (anatomyEnabled) {
+    try {
+      const anatomyOut: AuditAnatomyOutput = await runAnatomyAudit({
+        path: cwd,
+        mode,
+        ...(options.files !== undefined && { files: options.files }),
+      });
+      anatomyFindings.push(...anatomyOut.findings);
+      verifiersRun.push('audit-anatomy');
+    } catch (err) {
+      // No logger.warn here, nor in the three siblings below. `logger.warn` is
+      // `console.log`, i.e. STDOUT, so a warned abstention prefixed a non-JSON
+      // line to `--json` output and every machine consumer got a parse error
+      // instead of a payload. The abstention is not lost: `verifiersFailed` is
+      // rendered in the text report and carried in `--json`, which is where it
+      // belongs. Verifiers failing was near-unreachable before #2070; abstaining
+      // honestly is what made this live.
+      const message = err instanceof Error ? err.message : String(err);
+      verifiersFailed.push({ name: 'audit-anatomy', error: message });
+    }
   }
 
   // VERIFIER 2: design-craft critique
@@ -138,31 +163,35 @@ export async function runCheckDesign(
   }
 
   // VERIFIER 3: detect-design-drift
-  try {
-    const driftOut = await runDetectDrift({
-      path: cwd,
-      mode,
-      ...(options.files !== undefined && { files: options.files }),
-    });
-    driftFindings.push(...driftOut.findings);
-    verifiersRun.push('detect-drift');
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    verifiersFailed.push({ name: 'detect-drift', error: message });
+  if (driftEnabled) {
+    try {
+      const driftOut = await runDetectDrift({
+        path: cwd,
+        mode,
+        ...(options.files !== undefined && { files: options.files }),
+      });
+      driftFindings.push(...driftOut.findings);
+      verifiersRun.push('detect-drift');
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      verifiersFailed.push({ name: 'detect-drift', error: message });
+    }
   }
 
   // VERIFIER 4: audit-brand-compliance
-  try {
-    const brandOut = await runAuditBrand({
-      path: cwd,
-      mode,
-      ...(options.files !== undefined && { files: options.files }),
-    });
-    brandFindings.push(...brandOut.findings);
-    verifiersRun.push('audit-brand');
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    verifiersFailed.push({ name: 'audit-brand', error: message });
+  if (brandEnabled) {
+    try {
+      const brandOut = await runAuditBrand({
+        path: cwd,
+        mode,
+        ...(options.files !== undefined && { files: options.files }),
+      });
+      brandFindings.push(...brandOut.findings);
+      verifiersRun.push('audit-brand');
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      verifiersFailed.push({ name: 'audit-brand', error: message });
+    }
   }
 
   // Aggregate summary
@@ -225,6 +254,7 @@ export async function runCheckDesign(
       byCode,
       verifiersRun,
       verifiersFailed,
+      verifiersDisabled,
       durationMs,
     },
     graphPersisted,
@@ -331,25 +361,39 @@ function printCheckDesignResult(
   // as clean, and a reader who skims past the failure section below takes it
   // that way. Zero findings and zero reading are different claims.
   const abstained = new Set(value.summary.verifiersFailed.map((f) => f.name));
+  const disabled = new Set(value.summary.verifiersDisabled);
 
-  printVerifierSection('audit-anatomy', value.findingsByVerifier.anatomy.length, abstained, () =>
-    printAnatomyFindings(value.findingsByVerifier.anatomy, mode === OutputMode.VERBOSE)
+  printVerifierSection(
+    'audit-anatomy',
+    value.findingsByVerifier.anatomy.length,
+    abstained,
+    disabled,
+    () => printAnatomyFindings(value.findingsByVerifier.anatomy, mode === OutputMode.VERBOSE)
   );
 
   printVerifierSection(
     'design-craft critique',
     value.findingsByVerifier.craft.length,
     abstained,
+    disabled,
     () => printCraftFindings(value.findingsByVerifier.craft, mode === OutputMode.VERBOSE),
     'design-craft-critique'
   );
 
-  printVerifierSection('detect-drift', value.findingsByVerifier.drift.length, abstained, () =>
-    printDriftFindings(value.findingsByVerifier.drift, mode === OutputMode.VERBOSE)
+  printVerifierSection(
+    'detect-drift',
+    value.findingsByVerifier.drift.length,
+    abstained,
+    disabled,
+    () => printDriftFindings(value.findingsByVerifier.drift, mode === OutputMode.VERBOSE)
   );
 
-  printVerifierSection('audit-brand', value.findingsByVerifier.brand.length, abstained, () =>
-    printBrandFindings(value.findingsByVerifier.brand, mode === OutputMode.VERBOSE)
+  printVerifierSection(
+    'audit-brand',
+    value.findingsByVerifier.brand.length,
+    abstained,
+    disabled,
+    () => printBrandFindings(value.findingsByVerifier.brand, mode === OutputMode.VERBOSE)
   );
 
   if (value.summary.verifiersFailed.length > 0) {
@@ -376,9 +420,15 @@ function printVerifierSection(
   name: string,
   count: number,
   abstained: ReadonlySet<string>,
+  disabled: ReadonlySet<string>,
   printer: () => void,
   verifierKey: string = name
 ): void {
+  if (disabled.has(verifierKey)) {
+    // An acknowledged opt-out, not a clean result.
+    console.log(`\n${name} (disabled by config — did not run)`);
+    return;
+  }
   if (abstained.has(verifierKey)) {
     console.log(`\n${name} (did not run — see below)`);
     return;

@@ -21,14 +21,14 @@ result — see the abstention rule below.
 **This is breaking for anyone whose gate runs these commands.** Measured on this
 repository with a freshly built CLI, the `audit-anatomy` verifier inside
 `check-design --mode full` went from `audit-anatomy (0 findings)` over 0 files to
-3,133 findings (2 error-severity, 3,131 warn) over 4,267 files. An adopter whose design gate is green
+3,133 findings (2 error-severity, 3,131 warn) over 4,268 files. An adopter whose design gate is green
 today can go red on the first run after upgrading, with no change to their code. To
 stage the adoption, scope the run explicitly with `--files` (explicit paths — see the
 glob note below), narrow it with `design.exclude` / `analysis.exclude`, or turn the
 verifier off with `design.audit.componentAnatomy.enabled: false`.
 
 This repository's own `check-design` exit code does **not** change: it was already 1
-before this PR, because `detect-design-drift` emits 212 error-severity findings on
+before this PR, because `detect-design-drift` emits 222 error-severity findings on
 its own. The anatomy findings are additive here. An adopter whose only error-severity
 findings would come from anatomy is the one who flips 0 → 1.
 
@@ -58,34 +58,52 @@ nonexistent path reported "1 file scanned, 0 findings" for a file never opened.
 A zero-file run is an abstention when the verifier was ASKED to look at something and
 looked at nothing, and "not applicable" when there was nothing of the kind to look at:
 
-| why zero files                                                                                       | verdict                                        |
-| ---------------------------------------------------------------------------------------------------- | ---------------------------------------------- |
-| candidates existed, an exclude glob discarded all of them                                            | abstain (throw)                                |
-| explicit `files` list resolved to nothing readable (glob, typo)                                      | abstain (throw)                                |
-| the walk stopped at the depth cap, so it did not see the whole project                               | abstain (throw)                                |
-| the design surface is a dialect no verifier can read (`.vue`, `.svelte`, `.astro`, `.sass`, `.less`) | abstain (throw)                                |
-| the project holds no source-shaped file at all                                                       | **not applicable** — truthful zero-file result |
+| why zero files                                                  | verdict                                        |
+| --------------------------------------------------------------- | ---------------------------------------------- |
+| candidates existed, an exclude glob discarded all of them       | abstain (throw)                                |
+| explicit `files` list resolved to nothing readable (glob, typo) | abstain (throw)                                |
+| the project holds no file in any scanned extension              | **not applicable** — truthful zero-file result |
 
-The "not applicable" row is keyed off a fact about the **project**, not about one
-verifier's allowlist. Keying it off the allowlist reintroduced the original defect
-through a side door: an adopter whose components are `.vue` or `.svelte` got
-`totalFiles=0, findings=0`, empty `verifiersFailed`, exit 0 — bit for bit the
-report this change exists to prevent. A dialect the verifiers _could_ read is
-fixed by scanning it, never by declaring the project unauditable.
+Pruning an excluded directory is tracked, so `design.exclude: ['**/*']` cannot
+turn "the config excluded everything" into "this project has no design surface"
+and skip the abstention.
 
 ### Two scope widenings that change this repository's numbers
 
-- **The module variants are now scanned.** `DESIGN_SCAN_EXTENSIONS` gains `.mts`,
-  `.cts`, `.mjs`, `.cjs` — the same two languages the rules already parse,
-  previously skipped on suffix alone. That is also exactly the set `check-deps`
+- **The scan set is gated by RULE APPLICABILITY, not by file exclusion.**
+  `DESIGN_SCAN_EXTENSIONS` goes from 6 entries to 17: the module variants
+  (`.mts`, `.cts`, `.mjs`, `.cjs`), the preprocessor dialects (`.less`, `.pcss`,
+  `.sass`, `.styl`) and the single-file-component containers (`.vue`,
+  `.svelte`, `.astro`). `token-bypass-rule.ts` is pure regex over the raw
+  source with **no extension gate**, so DRIFT-T001..T004 produce identical,
+  true findings on all of them — measured, 2 findings each for the same
+  `.x { color: #ff0000; background: #00ff00; }` across css, scss, tsx, vue,
+  svelte, astro, less, pcss, sass and styl. Excluding a dialect never protected
+  anyone from a bad finding; it silently dropped a real one. The rules that do
+  need a narrower surface already gate themselves
+  (`primitive-adoption-rule.ts:54` returns `[]` unless jsx/tsx), and `.css` /
+  `.scss` have always been scanned **despite** primitive-adoption not applying
+  to them — the governing precedent. Accepted under-reporting: the anatomy
+  conventions and BRAND-V001 key on JSX shapes, so on an SFC container they see
+  `<script>` but not the template; and the token regex wants `prop: value`, so
+  colon-less stylus is read but not matched. Both are rule limits to fix in the
+  rules — under-reporting a component beats refusing to read it and calling the
+  result clean. The TS/JS half is also exactly the set `check-deps`
   discovers, so the two commands no longer disagree about what counts as source
   in one repository.
-- **The walk depth cap went from 8 to 32, and hitting it is now an abstention.**
+- **The walk depth cap is GONE.** It was 8, then briefly 32-with-abstention.
   A cap that drops files without saying so is the same defect as auditing nothing
-  and reporting clean, just partial. Five files in THIS repository sat at depth 9
-  and were never scanned, one a `.tsx`, so the denominator was quietly short.
+  and reporting clean, just partial — **two** files in THIS repository sat at
+  depth 9 and were never scanned, one a `.tsx`, so the denominator was quietly
+  short. (An earlier revision of this note said five; it is two, which is what
+  the code and test comments say.) The cap's stated justification — protection
+  from "a pathological or symlink-looping tree" — was **false**:
+  `readdirSync(dir, { withFileTypes: true })` is lstat-based, so
+  `Dirent.isDirectory()` is `false` for a symlink to a directory and the walk
+  never follows one; a direct symlink cycle terminates immediately. Real depth
+  is PATH_MAX-bounded and the cost of a repository walk is breadth, not depth.
 
-Together these took the denominator from 4,152 to **4,267** (the odd file is this change's own new test).
+Together these took the denominator from 4,152 to **4,268**.
 
 The last row matters: `harness init` followed by `harness validate` is exactly that
 case, and a brand-new project is not an incomplete validation run. This repository
@@ -94,7 +112,7 @@ already draws the same line for the roadmap doctor — an absent `docs/roadmap.m
 verifier under `verifiersFailed` and exits 2 (degraded) — though note
 `commands/check-design.ts` resolves `hasErrors ? 1 : degraded ? 2 : 0`, so on any
 project with an error-severity finding the exit code is 1 and the degraded code
-never surfaces. On this repository, where `detect-design-drift` alone emits 212
+never surfaces. On this repository, where `detect-design-drift` alone emits 222
 error-severity findings, an abstention exits 1.
 
 `harness validate` used to catch the throw into a severity-`warning` issue, which
@@ -119,7 +137,7 @@ repository brand reports 0 findings either way, so the change is not observable 
 ## Cost: the default scan is no longer free
 
 `audit-anatomy` previously read zero files in ~0 ms. Measured on this repository
-with a freshly built CLI, `runAudit({ mode: 'fast' })` is now **4,267 files, 2
+with a freshly built CLI, `runAudit({ mode: 'fast' })` is now **4,268 files, 2
 findings, ~1-3 s** (warm vs cold); `--mode full` reports 3,133 findings in the
 same order of time. Every `harness validate` and `harness check-design` caller pays that, and
 `validate` runs all three widened verifiers. If the latency matters more than the
@@ -146,15 +164,17 @@ failure list below takes that as clean. Abstained verifiers now print
 incomplete):`. A verifier that genuinely ran and found nothing still prints its
 real `(0 findings)`.
 
-**An adopter on an unsupported dialect gets told the truth.** A project whose
-components are `.vue`/`.svelte`/`.astro`, or whose stylesheets are
-`.sass`/`.less`, now abstains rather than reporting a clean audit of nothing —
-and the message names that cause instead of sending them to check
-`design.exclude`, which is not their problem. `harness check-design` on such a
-project exits 2 with three abstentions. That is the honest answer: these
-verifiers cannot parse single-file components, and saying so is better than a
-green gate over an unread codebase. The abstention says so and says what to
-do about it: point `--files` at compiled output, or set
-`design.audit.*.enabled: false` to acknowledge that the gate does not apply to
-this stack. An acknowledged abstention is not a failure — but it is not reported
-as a pass either, which is the whole point.
+**A disabled verifier is not `(0 findings)` either.** `check-design` now reads
+the same `design.audit.*.enabled` keys `harness validate` already honours — it
+read **none** of them before, so the documented way to acknowledge a verifier
+does not apply simply did not work on this command. A disabled verifier prints
+`(disabled by config — did not run)` and is carried in `--json` as
+`summary.verifiersDisabled`, because an acknowledged opt-out is not a clean
+result any more than an abstention is.
+
+**The abstention message names the real config keys.** It used to say
+`design.audit.*.enabled: false`; that glob is not actionable, since the schema
+names exactly `componentAnatomy`, `driftDetection` and `brandCompliance` and
+anything else is rejected with `ignored unknown key`. All three are now spelled
+out, and both levers are covered by tests that run the built CLI end to end
+rather than asserting on the message string.

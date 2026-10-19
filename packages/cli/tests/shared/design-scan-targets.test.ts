@@ -41,11 +41,13 @@ describe('design scan targets', () => {
   }
 
   it('pins the scanned extensions', () => {
-    // Adding one here widens every design verifier at once — that is the point.
-    // The module variants joined the list because they are the same two
-    // languages the rules already parse, and omitting them silently skipped an
-    // adopter's ESM/CJS-suffixed JavaScript. This is also the set `check-deps`
-    // discovers, so the two commands agree on what "source" means.
+    // Gated by RULE APPLICABILITY, not by file exclusion. `token-bypass-rule.ts`
+    // is pure regex over raw source with no extension gate, so DRIFT-T001 fires
+    // identically on every dialect here — excluding one does not protect anyone
+    // from a bad finding, it silently drops a real one, which is #2070. The
+    // rules that need a narrower surface gate themselves
+    // (`primitive-adoption-rule.ts:54`), and `.css`/`.scss` were always scanned
+    // despite primitive-adoption not applying to them — the governing precedent.
     expect([...DESIGN_SCAN_EXTENSIONS]).toEqual([
       '.ts',
       '.tsx',
@@ -57,6 +59,13 @@ describe('design scan targets', () => {
       '.cjs',
       '.css',
       '.scss',
+      '.less',
+      '.pcss',
+      '.sass',
+      '.styl',
+      '.vue',
+      '.svelte',
+      '.astro',
     ]);
   });
 
@@ -156,88 +165,116 @@ describe('design scan targets', () => {
     // allowlist made an adopter whose components are .vue/.svelte — or whose
     // only JS is .mjs/.cjs — get totalFiles=0, findings=0, exit 0: bit for bit
     // the #2070 report this module exists to prevent.
-    it.each(VERIFIERS)('%s abstains on a dialect it cannot read', async (_n, run) => {
-      // .vue / .svelte are a real design surface in a container format none of
-      // these verifiers can parse. (.mjs is NOT an example: it is readable
-      // JavaScript, so the fix for it was to scan it, not to abstain.)
+    // REVERSED from an earlier revision of this branch, which treated
+    // `.vue`/`.svelte`/`.less`/... as unreadable and ABSTAINED on them. That was
+    // false: these verifiers read them fine. Measured with a token set loaded,
+    // identical content `.x { color: #ff0000; background: #00ff00; }` yields two
+    // identical DRIFT-T001 findings for every one of css, scss, tsx, vue,
+    // svelte, astro, less, pcss, sass and styl. Declining to scan a dialect does
+    // not protect anyone — it silently drops a true finding, which is #2070.
+    it('scans single-file-component and preprocessor dialects for real drift', async () => {
       dir = project({
-        'src/App.vue': '<template><div/></template>',
-        'src/Card.svelte': '<div/>',
+        'design-system/tokens.json': JSON.stringify({
+          color: { p: { $value: '#ff0000', $type: 'color' } },
+        }),
+        'src/App.vue': '<template><b/></template>\n<style>.b { color: #ff0000; }</style>\n',
+        'src/C.svelte': '<style>.c { color: #ff0000; }</style>\n',
+        'src/P.astro': '<style>.p { color: #ff0000; }</style>\n',
+        'src/a.less': '.a { color: #ff0000; }\n',
+        'src/b.styl': '.b\n  color: #ff0000\n',
+        'src/c.sass': '.c\n  color: #ff0000\n',
+        'src/d.pcss': '.d { color: #ff0000; }\n',
       });
-      // The message must name the ACTUAL cause — sending a Vue adopter to check
-      // `design.exclude` is a wrong answer confidently delivered — AND the
-      // remedy. A dead end with an accurate label is still a dead end; this
-      // adopter has no green path, so the abstention has to tell them how to
-      // acknowledge it.
-      const error = await run({ path: dir, mode: 'full' }).then(
-        () => null,
-        (e: Error) => e
-      );
-      expect(error).not.toBeNull();
-      expect(error!.message).toMatch(/none of it in a format it can parse/i);
-      expect(error!.message).toMatch(/--files/);
-      expect(error!.message).toMatch(/design\.audit\.\*\.enabled: false/);
-      expect(error!.message).toMatch(/does not apply to your stack/i);
+
+      const out = await runDetectDrift({ path: dir, mode: 'full' });
+
+      expect(out.meta.tokensLoaded).toBe(true);
+      // Every one of the seven is READ and every one yields a true finding.
+      expect(out.summary.totalFiles).toBe(7);
+      const files = new Set(out.findings.map((f) => f.file.replace(/^.*[/\\]/, '')));
+      expect([...files].sort()).toEqual([
+        'App.vue',
+        'C.svelte',
+        'P.astro',
+        'a.less',
+        'b.styl',
+        'c.sass',
+        'd.pcss',
+      ]);
     });
 
-    it('separates "no design surface" from "a surface I cannot read"', () => {
-      dir = project({ 'README.md': '# docs only\n' });
-      expect(collectDesignScanFiles(dir, undefined, []).anyCandidateExisted).toBe(false);
+    it('under-reports colon-less stylus, which is a limit of the rule not the scope', async () => {
+      // Honest boundary, pinned so nobody reads the row above as "stylus is
+      // fully covered": the token-bypass regex wants `prop: value`, so stylus'
+      // colon-less form is read but not matched. That is a rule limitation to
+      // fix in the rule — it is NOT a reason to stop scanning `.styl`, which
+      // would turn an under-report into a silent clean pass.
+      dir = project({
+        'design-system/tokens.json': JSON.stringify({
+          color: { p: { $value: '#ff0000', $type: 'color' } },
+        }),
+        'src/b.styl': '.b\n  color #ff0000\n',
+      });
 
-      const other = project({ 'src/App.svelte': '<div/>' });
-      try {
-        const targets = collectDesignScanFiles(other, undefined, []);
-        // Nothing to scan, but there IS a design surface — so this is an
-        // abstention, not a clean run.
-        expect(targets.files).toEqual([]);
-        expect(targets.anyCandidateExisted).toBe(true);
-      } finally {
-        fs.rmSync(other, { recursive: true, force: true });
-      }
+      const out = await runDetectDrift({ path: dir, mode: 'full' });
+
+      expect(out.summary.totalFiles).toBe(1); // read
+      expect(out.findings).toEqual([]); // but not matched
     });
 
-    it('scans a file deeper than the old 8-level cap', () => {
-      // Two files in THIS repository sit at depth 9 and were silently dropped,
-      // one of them a .tsx — the reported denominator was quietly short.
-      dir = project({ 'a/b/c/d/e/f/g/h/i/List.tsx': SOURCE });
-      expect(collectDesignScanFiles(dir, undefined, []).files).toHaveLength(1);
+    it.each(VERIFIERS)('%s does not abstain on an SFC-only project', async (_n, run) => {
+      // The old design exited 2 here with "none of it in a format it can parse".
+      // The anatomy conventions and BRAND-V001 under-report on an SFC template
+      // (they see `<script>`, not the template) but they do not throw, and
+      // under-reporting a component beats refusing to read it and calling the
+      // result clean.
+      dir = project({ 'src/App.vue': '<template><b/></template>\n' });
+      const out = await run({ path: dir, mode: 'full' });
+      expect(out.summary.totalFiles).toBe(1);
+    });
+
+    it('has no depth cap, so a deep tree is scanned rather than truncated', () => {
+      // Was capped at 8, then 32-with-abstention. The cap's stated justification
+      // (symlink loops) was false — `readdirSync(withFileTypes)` is lstat-based
+      // so `isDirectory()` is false for a dir symlink and the walk never follows
+      // one. What the cap actually did was drop files silently, and then
+      // hard-fail any repo with a vendored tree deeper than it.
+      const deep = path.join(...Array.from({ length: 41 }, (_v, i) => `d${i}`));
+      dir = project({ [path.join(deep, 'Deep.tsx')]: SOURCE, 'src/Shallow.tsx': SOURCE });
+
+      const targets = collectDesignScanFiles(dir, undefined, []);
+      expect(targets.files).toHaveLength(2);
+      expect(targets.anyCandidateExisted).toBe(true);
+    });
+
+    it('prunes an excluded directory instead of descending it', () => {
+      // design.exclude used to be unable to affect the walk at all: the walk ran
+      // first and excludes were applied only to its output, so anything decided
+      // on the way down could not be cleared. Now excluded dirs are not entered.
+      const deep = path.join('third_party', ...Array.from({ length: 41 }, (_v, i) => `d${i}`));
+      dir = project({ [path.join(deep, 'v.css')]: '.v{color:#ff0000}', 'src/a.tsx': SOURCE });
+
+      expect(collectDesignScanFiles(dir, undefined, []).files).toHaveLength(2);
+      expect(collectDesignScanFiles(dir, undefined, ['third_party/**']).files).toHaveLength(1);
+      expect(collectDesignScanFiles(dir, undefined, ['**/third_party/**']).files).toHaveLength(1);
     });
 
     it('labels WHY the resolved set is empty, so the message can be specific', () => {
       dir = project({ 'README.md': '# docs\n' });
       expect(collectDesignScanFiles(dir, undefined, []).emptyReason).toBe('no-source');
 
-      const vue = project({ 'src/App.vue': '<div/>' });
       const excluded = project({
         'harness.config.json': JSON.stringify({ design: { exclude: ['**/*'] } }),
         'src/List.tsx': SOURCE,
       });
       try {
-        expect(collectDesignScanFiles(vue, undefined, []).emptyReason).toBe('unreadable-dialect');
         expect(
           collectDesignScanFiles(excluded, undefined, resolveDesignExcludePatterns(excluded))
             .emptyReason
         ).toBe('scoped-out');
       } finally {
-        fs.rmSync(vue, { recursive: true, force: true });
         fs.rmSync(excluded, { recursive: true, force: true });
       }
-    });
-
-    it.each(VERIFIERS)('%s abstains when the walk is truncated', async (_n, run) => {
-      // Past MAX_WALK_DEPTH. A walk that stopped early has not seen the
-      // project, so whatever it did read cannot be reported as a complete scan.
-      const deep = path.join(...Array.from({ length: 40 }, (_v, i) => `d${i}`));
-      dir = project({
-        'src/Shallow.tsx': SOURCE,
-        [path.join(deep, 'Deep.tsx')]: SOURCE,
-      });
-
-      const targets = collectDesignScanFiles(dir, undefined, []);
-      expect(targets.walkTruncated).toBe(true);
-      expect(targets.files.length).toBeGreaterThan(0); // it read SOMETHING
-
-      await expect(run({ path: dir, mode: 'full' })).rejects.toThrow(/stopped descending/i);
     });
 
     it.each(VERIFIERS)('%s abstains when the scope discards every candidate', async (_n, run) => {
