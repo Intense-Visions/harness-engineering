@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/tests/commands'
-sourceHash: '2a9cbfdcc5bac2f69cede70091048748bf5a4fd174d7b2ccc6ec70768c654884'
+sourceHash: 'bcf8a566cae7df1ffd5f2a50cb4bab195280cfbaa856d7e486d83e950778b75d'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -29,6 +29,7 @@ members:
     'check-deps-err-swallow.test.ts',
     'check-deps.test.ts',
     'check-design-cov544.test.ts',
+    'check-design-json-abstention.test.ts',
     'check-design.test.ts',
     'check-docs.test.ts',
     'check-harness-strength-cov544.test.ts',

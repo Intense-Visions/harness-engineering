@@ -161,6 +161,12 @@ export interface DesignScanTargets {
    * walk cannot report a complete scan, whatever it did manage to read.
    */
   walkTruncated: boolean;
+  /**
+   * Why `files` is empty, so the abstention can name the actual cause instead
+   * of sending every reader to check `design.exclude`. `'not-empty'` when there
+   * is something to scan.
+   */
+  emptyReason: 'not-empty' | 'no-source' | 'unreadable-dialect' | 'scoped-out';
 }
 
 /**
@@ -185,6 +191,7 @@ export function collectDesignScanFiles(
       ),
       anyCandidateExisted: true,
       walkTruncated: false,
+      emptyReason: 'not-empty',
     };
   }
   const walked: WalkResult = { candidates: [], sawSourceShaped: false, truncated: false };
@@ -199,6 +206,14 @@ export function collectDesignScanFiles(
     // read, or one it cannot. Only "neither" means "nothing to look at".
     anyCandidateExisted: walked.candidates.length > 0 || walked.sawSourceShaped,
     walkTruncated: walked.truncated,
+    emptyReason:
+      files.length > 0
+        ? 'not-empty'
+        : walked.candidates.length === 0
+          ? walked.sawSourceShaped
+            ? 'unreadable-dialect'
+            : 'no-source'
+          : 'scoped-out',
   };
 }
 
@@ -233,6 +248,17 @@ export function designScanAbstention(
     );
   }
   if (targets.anyCandidateExisted && targets.files.length === 0) {
+    if (targets.emptyReason === 'unreadable-dialect') {
+      // Sending a Vue or Svelte adopter to check `design.exclude` is a wrong
+      // answer confidently delivered. Name the real cause.
+      return new Error(
+        `${verifier} found a design surface under ${projectRoot} but none of it in a ` +
+          `format it can parse (it reads ${DESIGN_SCAN_EXTENSIONS.join(', ')}; single-file ` +
+          'component and stylesheet dialects such as .vue/.svelte/.sass are not supported). ' +
+          'This is an abstention, not a clean audit — scan the compiled output with ' +
+          '`--files`, or turn the verifier off with `design.audit.*.enabled: false`.'
+      );
+    }
     return noFilesScannedError(verifier, projectRoot);
   }
   return null;

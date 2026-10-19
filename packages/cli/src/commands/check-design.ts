@@ -104,9 +104,15 @@ export async function runCheckDesign(
     anatomyFindings.push(...anatomyOut.findings);
     verifiersRun.push('audit-anatomy');
   } catch (err) {
+    // No logger.warn here, nor in the three siblings below. `logger.warn` is
+    // `console.log`, i.e. STDOUT, so a warned abstention prefixed a non-JSON
+    // line to `--json` output and every machine consumer got a parse error
+    // instead of a payload. The abstention is not lost: `verifiersFailed` is
+    // rendered in the text report and carried in `--json`, which is where it
+    // belongs. Verifiers failing was near-unreachable before #2070; abstaining
+    // honestly is what made this live.
     const message = err instanceof Error ? err.message : String(err);
     verifiersFailed.push({ name: 'audit-anatomy', error: message });
-    logger.warn(`audit-anatomy verifier failed: ${message}`);
   }
 
   // VERIFIER 2: design-craft critique
@@ -125,12 +131,10 @@ export async function runCheckDesign(
         name: 'design-craft-critique',
         error: craftResult.error.message,
       });
-      logger.warn(`design-craft verifier failed: ${craftResult.error.message}`);
     }
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     verifiersFailed.push({ name: 'design-craft-critique', error: message });
-    logger.warn(`design-craft verifier failed: ${message}`);
   }
 
   // VERIFIER 3: detect-design-drift
@@ -145,7 +149,6 @@ export async function runCheckDesign(
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     verifiersFailed.push({ name: 'detect-drift', error: message });
-    logger.warn(`detect-drift verifier failed: ${message}`);
   }
 
   // VERIFIER 4: audit-brand-compliance
@@ -160,7 +163,6 @@ export async function runCheckDesign(
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     verifiersFailed.push({ name: 'audit-brand', error: message });
-    logger.warn(`audit-brand verifier failed: ${message}`);
   }
 
   // Aggregate summary

@@ -125,3 +125,24 @@ time. Every `harness validate` and `harness check-design` caller pays that, and
 `validate` runs all three widened verifiers. If the latency matters more than the
 coverage, scope the run with `--files`, narrow it with `design.exclude` /
 `analysis.exclude`, or disable a verifier via `design.audit.*.enabled: false`.
+
+## Two consequences of abstaining honestly, both fixed here
+
+**`check-design --json` stayed machine-readable.** Each verifier-failed branch
+called `logger.warn`, which is `console.log` — stdout. An abstention therefore
+prefixed `! audit-anatomy verifier failed: …` to the JSON payload and every
+`--json` consumer got `SyntaxError: Unexpected token '!'` instead of a result.
+Verifiers failing was near-unreachable before this change, so the warn had never
+mattered; abstaining honestly made it live. The four warns are gone — the
+abstention was already carried in `verifiersFailed`, rendered in the text report
+and present in `--json`, so nothing is lost and the duplicate is removed.
+
+**An adopter on an unsupported dialect gets told the truth.** A project whose
+components are `.vue`/`.svelte`/`.astro`, or whose stylesheets are
+`.sass`/`.less`, now abstains rather than reporting a clean audit of nothing —
+and the message names that cause instead of sending them to check
+`design.exclude`, which is not their problem. `harness check-design` on such a
+project exits 2 with three abstentions. That is the honest answer: these
+verifiers cannot parse single-file components, and saying so is better than a
+green gate over an unread codebase. To stage it, point `--files` at compiled
+output or set `design.audit.*.enabled: false`.

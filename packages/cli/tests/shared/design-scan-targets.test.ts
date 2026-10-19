@@ -164,7 +164,11 @@ describe('design scan targets', () => {
         'src/App.vue': '<template><div/></template>',
         'src/Card.svelte': '<div/>',
       });
-      await expect(run({ path: dir, mode: 'full' })).rejects.toThrow(/read no files/i);
+      // And the message must name the ACTUAL cause. Sending a Vue adopter to
+      // check `design.exclude` is a wrong answer confidently delivered.
+      await expect(run({ path: dir, mode: 'full' })).rejects.toThrow(
+        /none of it in a format it can parse/i
+      );
     });
 
     it('separates "no design surface" from "a surface I cannot read"', () => {
@@ -188,6 +192,27 @@ describe('design scan targets', () => {
       // one of them a .tsx — the reported denominator was quietly short.
       dir = project({ 'a/b/c/d/e/f/g/h/i/List.tsx': SOURCE });
       expect(collectDesignScanFiles(dir, undefined, []).files).toHaveLength(1);
+    });
+
+    it('labels WHY the resolved set is empty, so the message can be specific', () => {
+      dir = project({ 'README.md': '# docs\n' });
+      expect(collectDesignScanFiles(dir, undefined, []).emptyReason).toBe('no-source');
+
+      const vue = project({ 'src/App.vue': '<div/>' });
+      const excluded = project({
+        'harness.config.json': JSON.stringify({ design: { exclude: ['**/*'] } }),
+        'src/List.tsx': SOURCE,
+      });
+      try {
+        expect(collectDesignScanFiles(vue, undefined, []).emptyReason).toBe('unreadable-dialect');
+        expect(
+          collectDesignScanFiles(excluded, undefined, resolveDesignExcludePatterns(excluded))
+            .emptyReason
+        ).toBe('scoped-out');
+      } finally {
+        fs.rmSync(vue, { recursive: true, force: true });
+        fs.rmSync(excluded, { recursive: true, force: true });
+      }
     });
 
     it.each(VERIFIERS)('%s abstains when the walk is truncated', async (_n, run) => {
