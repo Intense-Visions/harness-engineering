@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/orchestrator/src'
-sourceHash: 'affc96ba5978362b0529bca48851f4c7199d654d7b2f9ad9a103d50d557a5e18'
+sourceHash: '986fee8c019414af9db36803df6c471f1f90e0f5f8ab423b350e8e1ea4a31678'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -287,7 +287,7 @@ import { WorkspaceHooks } from './workspace/hooks'
 import { WorkspaceManager } from './workspace/manager'
 import { CacheMetricsRecorder, GitHubIssuesSyncAdapter, HARNESS_VERSION, Issue, IssueTrackerClient, OTLPExporter, ProvenanceTrailerInput, SecurityScanner, TrackerClientConfig, applyResourceBudgets, createModelProposal, createTrackerClient, eventSourcing, listProposals, loadTrackerSyncConfig, sharedRateBudget, updateProposal, writeTaint } from '@harness-engineering/core'
 import { GraphStore } from '@harness-engineering/graph'
-import { AnalysisProvider, EnrichedSpec, IntelligencePipeline, OpenAICompatibleAnalysisProvider, OutcomeEvaluator, TriagePrediction } from '@harness-engineering/intelligence'
+import { AnalysisProvider, EnrichedSpec, IntelligencePipeline, OpenAICompatibleAnalysisProvider, OutcomeEvaluator, RetrospectiveComparison, TriagePrediction } from '@harness-engineering/intelligence'
 import { DEFAULT_HARNESS_FIT_TASKS, DedupPair, DedupPairs, DiscoverCandidatesOptions, DiscoverCandidatesResult, FrozenCandidate, HardwareDetector, HardwareProfile, HarnessFitCacheFileStore, HarnessFitProbeDeps, HarnessFitProbeTask, InstallAdapter, OllamaInstallAdapter, PoolManager, PoolStateProvider, PoolStateStore, RankerCandidate, RefreshScheduler, SchedulerTimerHandle, createBuildQualityReRanker, createNativeRecommender, curationFromCandidates, loadFrozenCandidates, probeToolCalling, runRefreshTick, selectCandidates } from '@harness-engineering/local-models'
 import { AgentBackend, BackendDef, IntelligenceConfig, Issue, IssueTrackerClient, LeafContextSource, ModelProposalRecord, Ok, RoutingDecision, RoutingError, RoutingPolicy, RoutingRequest, RoutingStatus, RoutingTelemetry, StageRun, WorkflowConfig, WorkflowExecutionPlan } from '@harness-engineering/types'
 import { execFile, execFileSync, execSync } from 'node:child_process'

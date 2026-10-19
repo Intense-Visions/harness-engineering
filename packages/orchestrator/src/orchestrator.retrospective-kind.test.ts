@@ -10,6 +10,42 @@ import { Orchestrator } from './orchestrator.js';
 import { MockBackend } from './agent/backends/mock.js';
 import type { IntroducedHunk } from './agent/quality-verdict.js';
 import { type QualityVerdict, toOutcomeClass } from './agent/quality-verdict-kind.js';
+import type { RetrospectiveComparison } from '@harness-engineering/intelligence';
+
+/**
+ * The comparator's own fail-safe reasons (`unjudgeable-prediction`/`unjudgeable-actual`)
+ * cannot be produced through the live store: `loadEvents` validates every
+ * `triage_predicted` payload against a `.strict()` complexity-level enum and DROPS a
+ * garbled one (which lands on the already-covered `prediction-unparseable` path), and
+ * `llmTiebreak` constrains the fresh post-diff verdict to the same enum. So the only way
+ * to pin the orchestrator-side WIRING — that an unjudgeable comparison becomes a
+ * `fail-safe` verdict and not a judged defect — is to inject the comparison the
+ * comparator would hand back.
+ *
+ * `runRetrospective` is therefore wrapped, not replaced: with no override set it is the
+ * real implementation verbatim (every other case in this file runs unmocked), and an
+ * override substitutes ONLY the `comparison` slice, leaving the real post-diff `actual`
+ * verdict in place so the feeder still logs and records exactly what it would in
+ * production.
+ */
+const retroOverride = vi.hoisted(() => ({
+  comparison: undefined as RetrospectiveComparison | undefined,
+}));
+
+vi.mock('./agent/triage-outcome.js', async (importOriginal) => {
+  const real = await importOriginal<typeof import('./agent/triage-outcome.js')>();
+  return {
+    ...real,
+    runRetrospective: async (
+      ...args: Parameters<typeof real.runRetrospective>
+    ): ReturnType<typeof real.runRetrospective> => {
+      const result = await real.runRetrospective(...args);
+      return retroOverride.comparison === undefined
+        ? result
+        : { ...result, comparison: retroOverride.comparison };
+    },
+  };
+});
 
 /**
  * DISCRIMINATED verdict paths (#2221 prerequisite 1) for the post-diff routing
@@ -225,12 +261,18 @@ beforeEach(() => {
   fs.mkdirSync(path.join(tmpDir, '.harness', 'workspaces'), { recursive: true });
 });
 afterEach(() => {
+  retroOverride.comparison = undefined;
   try {
     fs.rmSync(tmpDir, { recursive: true, force: true });
   } catch {
     /* best-effort */
   }
 });
+
+/** The comparison `compareToPrediction` returns for `reason`, with its shipped triple. */
+function blockEscalateWith(reason: RetrospectiveComparison['reason']): RetrospectiveComparison {
+  return { matched: false, exceededBy: 1, action: 'block-escalate', reason };
+}
 
 describe('deriveRoutingRetrospectiveVerdictDetail — every return path', () => {
   it('AMR OFF ⇒ unjudged/router-off', async () => {
@@ -332,6 +374,52 @@ describe('deriveRoutingRetrospectiveVerdictDetail — every return path', () => 
       return orch;
     };
     await expectVerdict(build, ISSUE, { kind: 'fail-safe', reason: 'internal-error' });
+  });
+
+  it('comparator could not read the prediction ⇒ FAIL-SAFE/prediction-unparseable, NOT a judged defect', async () => {
+    await seedPrediction('simple', 5);
+    retroOverride.comparison = blockEscalateWith('unjudgeable-prediction');
+    const build = (): Orchestrator => {
+      const orch = newOrch(makeConfig({ amr: true, autoTriage: true }));
+      stubDiff(orch, async () => smallHunk);
+      return orch;
+    };
+    await expectVerdict(build, ISSUE, { kind: 'fail-safe', reason: 'prediction-unparseable' });
+  });
+
+  it('comparator could not classify the actual ⇒ FAIL-SAFE/actual-unclassifiable, NOT a judged defect', async () => {
+    await seedPrediction('simple', 5);
+    retroOverride.comparison = blockEscalateWith('unjudgeable-actual');
+    const build = (): Orchestrator => {
+      const orch = newOrch(makeConfig({ amr: true, autoTriage: true }));
+      stubDiff(orch, async () => smallHunk);
+      return orch;
+    };
+    await expectVerdict(build, ISSUE, { kind: 'fail-safe', reason: 'actual-unclassifiable' });
+  });
+
+  it('a JUDGED overrun and an UNJUDGEABLE input reach block-escalate identically, yet are labelled differently', async () => {
+    // Both comparisons carry the SAME shipped triple — matched:false, exceededBy:1,
+    // action:'block-escalate' — so only `reason` separates them. This is the wiring the
+    // pure mapper cannot pin on its own: collapsing the feeder back to an unconditional
+    // `defectVerdict('retrospective')` keeps every other assertion in this file green.
+    await seedPrediction('simple', 5);
+    const build = (): Orchestrator => {
+      const orch = newOrch(makeConfig({ amr: true, autoTriage: true }));
+      stubDiff(orch, async () => smallHunk);
+      return orch;
+    };
+
+    retroOverride.comparison = blockEscalateWith('level-overrun');
+    const judged = await detail(build())(ISSUE, tmpDir);
+    retroOverride.comparison = blockEscalateWith('unjudgeable-actual');
+    const failSafe = await detail(build())(ISSUE, tmpDir);
+
+    expect(judged).toEqual({ kind: 'defect', source: 'retrospective' });
+    expect(failSafe).toEqual({ kind: 'fail-safe', reason: 'actual-unclassifiable' });
+    // … and the collapse invariant is untouched: both still escalate.
+    expect(toOutcomeClass(judged)).toBe('quality-fail');
+    expect(toOutcomeClass(failSafe)).toBe('quality-fail');
   });
 
   it('a judged mispredict and a fail-safe block collapse the SAME but are now distinguishable', async () => {
