@@ -1,11 +1,11 @@
 ---
 schemaVersion: 1
 module: 'packages/core/tests/duplication'
-sourceHash: '90b25dd052664847d6a24b1ecdf84dd70cf5ef5d7eb2de4c2d6f5ba9ea42150b'
+sourceHash: '0f95c35f338ba23fc824112c8d0ff73fdd46ef5ab7e483a84d78718ecf0be17b'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
-members: ['tokens.test.ts']
+members: ['tokens.test.ts', 'units.test.ts']
 ---
 
 ## Interface Contract
@@ -18,6 +18,7 @@ members: ['tokens.test.ts']
 
 ```
 import { fingerprintStream, normalizeTokens } from '../../src/duplication/tokens'
+import { extractUnits } from '../../src/duplication/units'
 import { parse } from '@typescript-eslint/typescript-estree'
 import { describe, expect, it } from 'vitest'
 ```
