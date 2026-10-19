@@ -1,5 +1,10 @@
 import { minimatch } from 'minimatch';
+import { parse } from '@typescript-eslint/typescript-estree';
+import type { TSESTree } from '@typescript-eslint/typescript-estree';
+import { readFileContent } from '../shared/fs-utils';
 import type { CloneUnitKind } from './units';
+import { extractUnits as extractUnitsImpl } from './units';
+import { normalizeTokens as normalize, fingerprintStream as digest } from './tokens';
 
 export type { CloneUnitKind, DupUnit } from './units';
 export { extractUnits } from './units';
@@ -152,4 +157,99 @@ export function isEligibleFile(relPath: string, ignorePatterns: readonly string[
   if (relPath.endsWith('.d.ts')) return false;
   if (!SUPPORTED_EXTENSIONS.some((ext) => relPath.endsWith(ext))) return false;
   return !ignorePatterns.some((pattern) => minimatch(relPath, pattern, { dot: true }));
+}
+
+/** One fingerprinted unit: its digest, token count, and located member. */
+export interface FingerprintedUnit {
+  fingerprint: string;
+  tokenCount: number;
+  member: CloneMember;
+}
+
+/** Why a file produced no units. */
+export type FileSkipReason = 'unreadable' | 'unparseable';
+
+/** Outcome of fingerprinting one file. */
+export type FingerprintFileResult =
+  | {
+      status: 'scanned';
+      units: FingerprintedUnit[];
+      /** Units dropped before hashing for falling below `minTokens`. */
+      unitsBelowMinTokens: number;
+    }
+  | { status: 'skipped'; reason: FileSkipReason; message: string };
+
+/**
+ * Read, parse, and fingerprint every unit in one file.
+ *
+ * The module parses the file itself rather than consuming
+ * `snapshot.files[].ast` (spec decision D7): `AST` is a lossy
+ * `{ type, body: unknown, language }` wrapper and the parser registry
+ * defaults to tree-sitter, so estree tokens would not survive the snapshot.
+ * Precedent for a detector doing its own reads:
+ * `entropy/detectors/complexity.ts`.
+ *
+ * `minTokens` is applied here, before any digest is computed, so a unit under
+ * the bar is genuinely never fingerprinted and therefore can never form or join
+ * a clone class. Those units are reported in `unitsBelowMinTokens`. A unit's
+ * token count is only knowable after normalization, so normalization runs for
+ * every unit; the hash does not.
+ *
+ * Never throws: an unreadable or unparseable file resolves to
+ * `{ status: 'skipped' }` so the caller can increment `filesSkipped` and
+ * continue. Phase 2's detector converts a skip into an `AnalysisError` with
+ * `analyzer: 'duplication'`; the entropy types live there, not here.
+ *
+ * @param absPath - Absolute path to read.
+ * @param relPath - Repo-relative POSIX path recorded on each `CloneMember`.
+ * @param minTokens - Units yielding fewer normalized tokens than this are
+ *   excluded before hashing. Defaults to `0` (exclude nothing).
+ */
+export async function fingerprintFile(
+  absPath: string,
+  relPath: string,
+  minTokens = 0
+): Promise<FingerprintFileResult> {
+  const contentResult = await readFileContent(absPath);
+  if (!contentResult.ok) {
+    return { status: 'skipped', reason: 'unreadable', message: contentResult.error.message };
+  }
+
+  // Explicitly typed, not an evolving `let`. Definite-assignment analysis
+  // proves it is set: the catch arm returns.
+  let program: TSESTree.Program;
+  try {
+    program = parse(contentResult.value, {
+      tokens: true,
+      loc: true,
+      range: true,
+      jsx: relPath.endsWith('.tsx') || relPath.endsWith('.jsx'),
+      errorOnUnknownASTType: false,
+    });
+  } catch (e) {
+    return { status: 'skipped', reason: 'unparseable', message: (e as Error).message };
+  }
+
+  const tokens = program.tokens ?? [];
+  const units: FingerprintedUnit[] = [];
+  let unitsBelowMinTokens = 0;
+  for (const unit of extractUnitsImpl(program)) {
+    const stream = normalize(tokens, unit.range);
+    if (stream.length < minTokens) {
+      unitsBelowMinTokens += 1;
+      continue;
+    }
+    units.push({
+      fingerprint: digest(stream),
+      tokenCount: stream.length,
+      member: {
+        file: relPath,
+        unit: unit.name,
+        kind: unit.kind,
+        startLine: unit.startLine,
+        endLine: unit.endLine,
+      },
+    });
+  }
+  return { status: 'scanned', units, unitsBelowMinTokens };
 }
