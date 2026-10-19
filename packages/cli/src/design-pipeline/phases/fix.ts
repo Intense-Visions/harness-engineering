@@ -58,10 +58,17 @@ export async function runFix(input: FixInput): Promise<void> {
 
     // Re-run detect to see if fixes revealed/resolved drift
     const detectResult = await safelyRedetect(projectRoot, mode, files, designStrictness);
-    if (detectResult === null) break;
-    context.driftFindings = detectResult;
+    if (!detectResult.ok) {
+      // The re-detect could not run. Breaking out silently here left
+      // `verifiersFailed` empty, so the pipeline reported a converged fix loop
+      // whose last iteration was never verified — the only one of the seven
+      // detect-drift call sites where the abstention vanished (#2070).
+      context.verifiersFailed.push({ name: 'detect-drift', error: detectResult.error });
+      break;
+    }
+    context.driftFindings = detectResult.findings;
 
-    const newCount = detectResult.length;
+    const newCount = detectResult.findings.length;
     if (newCount >= previousCount) break; // no progress
     previousCount = newCount;
     iteration++;
@@ -69,12 +76,18 @@ export async function runFix(input: FixInput): Promise<void> {
   context.summary.iterationsRun = iteration;
 }
 
+/**
+ * Re-run detect-drift inside the fix loop, reporting WHY it could not run
+ * rather than collapsing every failure to `null`. The caller records the reason
+ * on `verifiersFailed`; swallowing it let a loop that stopped because it could
+ * not verify look like a loop that stopped because it converged.
+ */
 async function safelyRedetect(
   projectRoot: string,
   mode: 'fast' | 'full',
   files: string[] | undefined,
   designStrictness: 'strict' | 'standard' | 'permissive' | undefined
-): Promise<DriftFinding[] | null> {
+): Promise<{ ok: true; findings: DriftFinding[] } | { ok: false; error: string }> {
   try {
     const result = await runDetectDrift({
       path: projectRoot,
@@ -82,9 +95,9 @@ async function safelyRedetect(
       ...(files !== undefined && { files }),
       ...(designStrictness !== undefined && { designStrictness }),
     });
-    return [...result.findings];
-  } catch {
-    return null;
+    return { ok: true, findings: [...result.findings] };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : String(err) };
   }
 }
 

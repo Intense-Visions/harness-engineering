@@ -42,7 +42,22 @@ describe('design scan targets', () => {
 
   it('pins the scanned extensions', () => {
     // Adding one here widens every design verifier at once — that is the point.
-    expect([...DESIGN_SCAN_EXTENSIONS]).toEqual(['.ts', '.tsx', '.js', '.jsx', '.css', '.scss']);
+    // The module variants joined the list because they are the same two
+    // languages the rules already parse, and omitting them silently skipped an
+    // adopter's ESM/CJS-suffixed JavaScript. This is also the set `check-deps`
+    // discovers, so the two commands agree on what "source" means.
+    expect([...DESIGN_SCAN_EXTENSIONS]).toEqual([
+      '.ts',
+      '.tsx',
+      '.mts',
+      '.cts',
+      '.js',
+      '.jsx',
+      '.mjs',
+      '.cjs',
+      '.css',
+      '.scss',
+    ]);
   });
 
   it('walks the project, skipping dotfiles and heavy directories', () => {
@@ -134,6 +149,61 @@ describe('design scan targets', () => {
       const out = await run({ path: dir, mode: 'full' });
       expect(out.summary.totalFiles).toBe(0);
       expect(out.findings).toEqual([]);
+    });
+
+    // The "not applicable" branch must key off a fact about the PROJECT, not
+    // about this verifier's six-extension allowlist. Keying it off the
+    // allowlist made an adopter whose components are .vue/.svelte — or whose
+    // only JS is .mjs/.cjs — get totalFiles=0, findings=0, exit 0: bit for bit
+    // the #2070 report this module exists to prevent.
+    it.each(VERIFIERS)('%s abstains on a dialect it cannot read', async (_n, run) => {
+      // .vue / .svelte are a real design surface in a container format none of
+      // these verifiers can parse. (.mjs is NOT an example: it is readable
+      // JavaScript, so the fix for it was to scan it, not to abstain.)
+      dir = project({
+        'src/App.vue': '<template><div/></template>',
+        'src/Card.svelte': '<div/>',
+      });
+      await expect(run({ path: dir, mode: 'full' })).rejects.toThrow(/read no files/i);
+    });
+
+    it('separates "no design surface" from "a surface I cannot read"', () => {
+      dir = project({ 'README.md': '# docs only\n' });
+      expect(collectDesignScanFiles(dir, undefined, []).anyCandidateExisted).toBe(false);
+
+      const other = project({ 'src/App.svelte': '<div/>' });
+      try {
+        const targets = collectDesignScanFiles(other, undefined, []);
+        // Nothing to scan, but there IS a design surface — so this is an
+        // abstention, not a clean run.
+        expect(targets.files).toEqual([]);
+        expect(targets.anyCandidateExisted).toBe(true);
+      } finally {
+        fs.rmSync(other, { recursive: true, force: true });
+      }
+    });
+
+    it('scans a file deeper than the old 8-level cap', () => {
+      // Two files in THIS repository sit at depth 9 and were silently dropped,
+      // one of them a .tsx — the reported denominator was quietly short.
+      dir = project({ 'a/b/c/d/e/f/g/h/i/List.tsx': SOURCE });
+      expect(collectDesignScanFiles(dir, undefined, []).files).toHaveLength(1);
+    });
+
+    it.each(VERIFIERS)('%s abstains when the walk is truncated', async (_n, run) => {
+      // Past MAX_WALK_DEPTH. A walk that stopped early has not seen the
+      // project, so whatever it did read cannot be reported as a complete scan.
+      const deep = path.join(...Array.from({ length: 40 }, (_v, i) => `d${i}`));
+      dir = project({
+        'src/Shallow.tsx': SOURCE,
+        [path.join(deep, 'Deep.tsx')]: SOURCE,
+      });
+
+      const targets = collectDesignScanFiles(dir, undefined, []);
+      expect(targets.walkTruncated).toBe(true);
+      expect(targets.files.length).toBeGreaterThan(0); // it read SOMETHING
+
+      await expect(run({ path: dir, mode: 'full' })).rejects.toThrow(/stopped descending/i);
     });
 
     it.each(VERIFIERS)('%s abstains when the scope discards every candidate', async (_n, run) => {

@@ -17,6 +17,7 @@ import * as fs from 'node:fs';
 import { sanitizePath } from '../mcp/utils/sanitize-path.js';
 import {
   collectDesignScanFiles,
+  designScanAbstention,
   noFilesScannedError,
   resolveDesignExcludePatterns,
 } from '../shared/design-scan-targets.js';
@@ -192,11 +193,12 @@ export async function runDetectDrift(input: DetectDriftInput): Promise<DetectDri
 
   const targets = collectDesignScanFiles(config.projectRoot, input.files, config.excludePatterns);
   const filesToScan = targets.files;
-  // See collectDesignScanFiles: a scope that threw every candidate away is an
-  // abstention; a project with no design surface is not applicable.
-  if (targets.anyCandidateExisted && filesToScan.length === 0) {
-    throw noFilesScannedError('detect-design-drift', config.projectRoot);
-  }
+  // Truncated walk, or a design surface this verifier resolved down to nothing
+  // (an exclude that matched everything, an explicit list that does not resolve,
+  // or a dialect it cannot read). The rule lives in designScanAbstention so the
+  // three verifiers cannot drift apart on it.
+  const abstention = designScanAbstention('detect-design-drift', config.projectRoot, targets);
+  if (abstention) throw abstention;
   const { findings, filesRead } = scanFiles(filesToScan, config);
   if (filesToScan.length > 0 && filesRead === 0) {
     throw noFilesScannedError('detect-design-drift', config.projectRoot);

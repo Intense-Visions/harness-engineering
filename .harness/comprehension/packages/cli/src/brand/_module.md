@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/brand'
-sourceHash: 'f0a28ea99be2d73335216a0f7c656f9d40bb32d7d8cf1da65dc67b75483f5926'
+sourceHash: '3dd1fc3efe88a481298ae794fbf9ccb71c2724cacc1a57eaf81847473c944013'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -22,7 +22,7 @@ export runAuditBrand
 
 ```
 import { sanitizePath } from '../mcp/utils/sanitize-path.js'
-import { collectDesignScanFiles, noFilesScannedError, resolveDesignExcludePatterns } from '../shared/design-scan-targets.js'
+import { collectDesignScanFiles, designScanAbstention, noFilesScannedError, resolveDesignExcludePatterns } from '../shared/design-scan-targets.js'
 import { Verifier } from '../shared/verifier.js'
 import { BrandFinding, BrandSeverity, BrandStrictness } from './findings/finding.js'
 import { BrandRules, loadBrandRules } from './resolvers/design-md-brand.js'

@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/shared'
-sourceHash: '101a863d41688a4c3d34ad9e68e6a17c9ea6966dc430ad017bdde488de89a2d1'
+sourceHash: 'b8e94bac99c2dde5550fa657270e50c59abcef6ff0b1c6ee32a4202d09ac9c3a'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -13,6 +13,7 @@ members: ['design-scan-targets.ts', 'state-events.ts', 'verifier.ts']
 ```ts
 export DESIGN_SCAN_EXTENSIONS
 export collectDesignScanFiles
+export designScanAbstention
 export emitApprovalRequested
 export emitApprovalResolved
 export emitCoreEvent

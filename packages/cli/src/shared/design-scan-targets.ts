@@ -27,14 +27,75 @@ import { loadAnalysisExclude, loadDesignExclude } from '../config/analysis-schem
 /**
  * Source extensions the design verifiers can meaningfully scan: the JS/TS
  * component surface plus the stylesheets the token rules read.
+ *
+ * The module variants (`.mts`/`.cts`/`.mjs`/`.cjs`) are the SAME two languages
+ * the rules already parse, and omitting them meant an adopter whose JavaScript
+ * is ESM-or-CJS-suffixed had it silently skipped. Widening here rather than
+ * declaring them unreadable also matches the discovery set `check-deps` uses
+ * (the same eight ts/tsx/mts/cts/js/jsx/mjs/cjs suffixes), so the two commands
+ * no longer disagree about what counts as source in the same repository.
  */
-export const DESIGN_SCAN_EXTENSIONS = ['.ts', '.tsx', '.js', '.jsx', '.css', '.scss'] as const;
+export const DESIGN_SCAN_EXTENSIONS = [
+  '.ts',
+  '.tsx',
+  '.mts',
+  '.cts',
+  '.js',
+  '.jsx',
+  '.mjs',
+  '.cjs',
+  '.css',
+  '.scss',
+] as const;
+
+/**
+ * Anything that LOOKS like application source, whether or not a design verifier
+ * can read it. This set is never scanned — it exists only to decide between the
+ * two reasons a default scan can come back empty:
+ *
+ *   "there is no design surface here"        -> not applicable, report clean
+ *   "there is one, in a dialect I cannot read" -> abstain
+ *
+ * Without that distinction, an adopter whose components are `.vue`/`.svelte`
+ * got `totalFiles=0, findings=0`, exit 0 — bit-for-bit the #2070 report this
+ * module exists to prevent. The narrowing in "a project with no design surface
+ * is not applicable" is correct, but only if the predicate it keys off is a
+ * fact about the PROJECT rather than a fact about this verifier's allowlist.
+ *
+ * Note what does NOT belong here: a dialect the verifiers could read is fixed
+ * by adding it to `DESIGN_SCAN_EXTENSIONS`, not by declaring the project
+ * unauditable. `.mjs` took that route.
+ */
+const SOURCE_SHAPED_EXTENSIONS = [
+  ...DESIGN_SCAN_EXTENSIONS,
+  // Single-file-component frameworks: a real design surface, in a container
+  // format none of these verifiers can parse.
+  '.vue',
+  '.svelte',
+  '.astro',
+  // Stylesheet dialects the token rules do not understand.
+  '.sass',
+  '.less',
+  '.styl',
+  '.pcss',
+] as const;
 
 /** Directories never worth walking — heavy, vendored, or generated. */
 const SKIPPED_DIRECTORIES = new Set(['node_modules', 'dist', 'build', 'coverage']);
 
-/** Depth cap on the project walk, so a pathological tree cannot stall a verifier. */
-const MAX_WALK_DEPTH = 8;
+/**
+ * Depth cap on the project walk, so a pathological or symlink-looping tree
+ * cannot stall a verifier.
+ *
+ * This was 8, which silently truncated real source trees: two files in THIS
+ * repository sit at depth 9 and were never scanned, one of them a `.tsx`, so
+ * the reported file denominator was quietly short. A cap that drops files
+ * without saying so is the same defect as auditing nothing and reporting clean,
+ * just partial. Two changes make it safe: the cap is now far beyond any
+ * plausible source tree, and hitting it is RECORDED (`walkTruncated`) and
+ * treated as an abstention instead of a complete scan.
+ */
+const MAX_WALK_DEPTH = 32;
 
 /**
  * Resolve the exclude globs a default design scan honours:
@@ -88,8 +149,18 @@ export function noFilesScannedError(verifier: string, projectRoot: string): Erro
 export interface DesignScanTargets {
   /** Absolute paths to scan. */
   files: string[];
-  /** Whether ANY candidate existed before excludes and readability narrowed it. */
+  /**
+   * Whether the project has a design surface AT ALL — keyed off
+   * `SOURCE_SHAPED_EXTENSIONS`, not off the narrower set this verifier can
+   * read, so "I do not handle `.vue`" can never render as "you have no
+   * components".
+   */
   anyCandidateExisted: boolean;
+  /**
+   * Whether the walk hit `MAX_WALK_DEPTH` and stopped descending. A truncated
+   * walk cannot report a complete scan, whatever it did manage to read.
+   */
+  walkTruncated: boolean;
 }
 
 /**
@@ -113,15 +184,58 @@ export function collectDesignScanFiles(
         path.isAbsolute(file) ? file : path.join(projectRoot, file)
       ),
       anyCandidateExisted: true,
+      walkTruncated: false,
     };
   }
-  const candidates: string[] = [];
-  walk(projectRoot, candidates, 0);
+  const walked: WalkResult = { candidates: [], sawSourceShaped: false, truncated: false };
+  walk(projectRoot, walked, 0);
   const files =
     excludePatterns.length === 0
-      ? candidates
-      : candidates.filter((absolute) => !isExcluded(projectRoot, absolute, excludePatterns));
-  return { files, anyCandidateExisted: candidates.length > 0 };
+      ? walked.candidates
+      : walked.candidates.filter((absolute) => !isExcluded(projectRoot, absolute, excludePatterns));
+  return {
+    files,
+    // Either reading is evidence of a design surface: a file this verifier can
+    // read, or one it cannot. Only "neither" means "nothing to look at".
+    anyCandidateExisted: walked.candidates.length > 0 || walked.sawSourceShaped,
+    walkTruncated: walked.truncated,
+  };
+}
+
+/**
+ * The abstention rule for a resolved scan target set, in one place so the three
+ * verifiers cannot drift apart on it. Returns the error to throw, or `null`
+ * when the targets are safe to report on.
+ *
+ * Three ways a scan is not a clean result:
+ *
+ * 1. The walk was truncated — whatever it read, it did not read everything, so
+ *    it cannot speak for the project.
+ * 2. A design surface exists and the resolved set is empty: an exclude glob
+ *    discarded all of it, or an explicit `files` list resolved to nothing, or
+ *    every file is in a dialect this verifier does not handle.
+ * 3. (Checked by the caller after scanning, since only it knows.) Candidates
+ *    resolved but none could be opened.
+ *
+ * Everything else — including a project with no source at all — is a truthful
+ * zero-file result.
+ */
+export function designScanAbstention(
+  verifier: string,
+  projectRoot: string,
+  targets: DesignScanTargets
+): Error | null {
+  if (targets.walkTruncated) {
+    return new Error(
+      `${verifier} stopped descending at ${MAX_WALK_DEPTH} directory levels under ` +
+        `${projectRoot}, so it did not see the whole project. This is an abstention, ` +
+        'not a clean audit — a truncated walk cannot report a complete scan.'
+    );
+  }
+  if (targets.anyCandidateExisted && targets.files.length === 0) {
+    return noFilesScannedError(verifier, projectRoot);
+  }
+  return null;
 }
 
 /**
@@ -138,8 +252,23 @@ function isExcluded(
   return excludePatterns.some((pattern) => minimatch(relative, pattern, { matchBase: true }));
 }
 
-function walk(dir: string, out: string[], depth: number): void {
-  if (depth > MAX_WALK_DEPTH) return;
+/** Accumulator for one project walk. */
+interface WalkResult {
+  /** Files this verifier can read. */
+  candidates: string[];
+  /** Whether any source-shaped file was seen, readable by this verifier or not. */
+  sawSourceShaped: boolean;
+  /** Whether the depth cap stopped a descent. */
+  truncated: boolean;
+}
+
+function walk(dir: string, out: WalkResult, depth: number): void {
+  if (depth > MAX_WALK_DEPTH) {
+    // Record it rather than returning quietly: the caller turns this into an
+    // abstention, because a walk that stopped early has not seen the project.
+    out.truncated = true;
+    return;
+  }
   let entries: fs.Dirent[];
   try {
     entries = fs.readdirSync(dir, { withFileTypes: true });
@@ -151,11 +280,16 @@ function walk(dir: string, out: string[], depth: number): void {
     const full = path.join(dir, entry.name);
     if (entry.isDirectory()) {
       walk(full, out, depth + 1);
-    } else if (
-      entry.isFile() &&
-      DESIGN_SCAN_EXTENSIONS.some((extension) => entry.name.endsWith(extension))
-    ) {
-      out.push(full);
+      continue;
+    }
+    if (!entry.isFile()) continue;
+    if (DESIGN_SCAN_EXTENSIONS.some((extension) => entry.name.endsWith(extension))) {
+      out.candidates.push(full);
+      out.sawSourceShaped = true;
+    } else if (SOURCE_SHAPED_EXTENSIONS.some((extension) => entry.name.endsWith(extension))) {
+      // A design surface this verifier cannot read. Not scanned, but it is the
+      // difference between "no components" and "components I do not handle".
+      out.sawSourceShaped = true;
     }
   }
 }

@@ -167,7 +167,7 @@ describe('runFix', () => {
     ]);
   });
 
-  it('stops without touching the context findings when re-detect throws', async () => {
+  it('records the failure and stops without touching the findings when re-detect throws', async () => {
     const ctx = contextWithDrift(2);
     const original = ctx.driftFindings;
     h.runAlign.mockResolvedValue(alignResult(1));
@@ -175,10 +175,15 @@ describe('runFix', () => {
 
     await runFix(makeInput(ctx));
 
-    // safelyRedetect swallows the error and returns null -> loop breaks.
     expect(ctx.summary.iterationsRun).toBe(0);
     expect(ctx.driftFindings).toBe(original);
-    expect(ctx.verifiersFailed).toEqual([]); // detect failure is silent, not recorded
+    // This used to assert `[]` — "detect failure is silent, not recorded".
+    // It was the only one of seven detect-drift call sites where the failure
+    // vanished, so a loop that stopped because it could not VERIFY its last
+    // iteration looked exactly like one that stopped because it CONVERGED
+    // (#2070). The verifiers now abstain rather than reporting a clean scan
+    // over nothing, which makes that silence reachable.
+    expect(ctx.verifiersFailed).toEqual([{ name: 'detect-drift', error: 'detect boom' }]);
   });
 
   it('forwards mode, files, and designStrictness to re-detect only when provided', async () => {

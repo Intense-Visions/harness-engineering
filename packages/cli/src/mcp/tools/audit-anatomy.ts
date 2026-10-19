@@ -26,6 +26,7 @@ import { runConventionRule } from '../../audit/component-anatomy/rules/conventio
 import { PATTERN_CHECKS } from '../../audit/component-anatomy/catalog/patterns/index.js';
 import {
   collectDesignScanFiles,
+  designScanAbstention,
   noFilesScannedError,
   resolveDesignExcludePatterns,
 } from '../../shared/design-scan-targets.js';
@@ -116,13 +117,12 @@ export async function runAudit(input: AuditAnatomyInput): Promise<AuditAnatomyOu
     resolveDesignExcludePatterns(projectRoot)
   );
   const candidateFiles = targets.files;
-  // Candidates existed and the scope discarded every one of them — an exclude
-  // that matched everything, or an explicit list of paths that do not resolve.
-  // A project with NO design surface at all is not applicable, not an
-  // abstention, and falls through to a truthful zero-file result.
-  if (targets.anyCandidateExisted && candidateFiles.length === 0) {
-    throw noFilesScannedError('audit-anatomy', projectRoot);
-  }
+  // Truncated walk, or a design surface this verifier resolved down to nothing
+  // (an exclude that matched everything, an explicit list that does not resolve,
+  // or a dialect it cannot read). The rule lives in designScanAbstention so the
+  // three verifiers cannot drift apart on it.
+  const abstention = designScanAbstention('audit-anatomy', projectRoot, targets);
+  if (abstention) throw abstention;
 
   const conventionsApplied = new Set<string>();
   const patternsApplied = new Set<string>();

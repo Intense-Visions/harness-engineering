@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/drift'
-sourceHash: '85f6082564ab1c9436e469b6b50a5da60d4a372701bd0e1c9b6f7d66de49bf60'
+sourceHash: '94ed42ee5c038c9b3def78d67eaaabd39d4866b4b692e8e304dbb675e8d03255'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -22,7 +22,7 @@ export runDetectDrift
 
 ```
 import { sanitizePath } from '../mcp/utils/sanitize-path.js'
-import { collectDesignScanFiles, noFilesScannedError, resolveDesignExcludePatterns } from '../shared/design-scan-targets.js'
+import { collectDesignScanFiles, designScanAbstention, noFilesScannedError, resolveDesignExcludePatterns } from '../shared/design-scan-targets.js'
 import { Verifier } from '../shared/verifier.js'
 import { DriftFinding, DriftSeverity, DriftStrictness } from './findings/finding.js'
 import { loadComponentRegistry } from './resolvers/component-registry.js'
