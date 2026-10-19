@@ -80,9 +80,11 @@ const PROCESSING_PHRASES = [
   'Engineering a solution…',
 ];
 
-/** The longest possible rotation delay: 4500 + random * 2000. */
-const MAX_PHRASE_DELAY_MS = 6500;
-/** The shortest possible rotation delay. */
+/**
+ * The shortest possible rotation delay. The period is `4500 + Math.random() *
+ * 2000`, so the delay is bounded by [4500, 6500); the pinned draws below fix it
+ * at this lower bound, which is the only value any test here advances by.
+ */
 const MIN_PHRASE_DELAY_MS = 4500;
 
 /**
