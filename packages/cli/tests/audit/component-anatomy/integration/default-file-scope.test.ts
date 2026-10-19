@@ -106,12 +106,28 @@ describe('audit-anatomy default file scope (#2070)', () => {
     expect([...new Set(result.findings.map((f) => f.file))]).toEqual(['vendor/List.tsx']);
   });
 
-  it('abstains instead of reporting a clean audit when the scope is empty', async () => {
+  it('reports a project with no design surface as not applicable, not an abstention', async () => {
     dir = project({ 'README.md': '# no source files here' });
 
-    // A zero-file audit is an abstention, never a pass. check-design records
-    // the throw as a failed verifier (exit 2, degraded) rather than printing
-    // `audit-anatomy (0 findings)` and exiting 0.
-    await expect(runAudit({ path: dir, mode: 'full' })).rejects.toThrow(/no files/i);
+    // "There are no files of this kind here" is TRUE, so it is reported as a
+    // truthful zero-file result rather than a throw. The repository already
+    // draws this line for the roadmap doctor — an ABSENT roadmap is "not
+    // applicable", not "could not check" — and `harness init` followed by
+    // `harness validate` is exactly this case.
+    const result = await runAudit({ path: dir, mode: 'full' });
+    expect(result.summary.totalFiles).toBe(0);
+    expect(result.findings).toEqual([]);
+  });
+
+  it('abstains when a scope existed and discarded every candidate', async () => {
+    dir = project({
+      // Candidates exist; the exclude throws all of them away. The verifier was
+      // asked to look at something and looked at nothing, and reporting that as
+      // clean is how a gate gets silenced to green (#2070).
+      'harness.config.json': JSON.stringify({ design: { exclude: ['**/*'] } }),
+      'src/List.tsx': LIST_WITH_A_FINDING,
+    });
+
+    await expect(runAudit({ path: dir, mode: 'full' })).rejects.toThrow(/read no files/i);
   });
 });

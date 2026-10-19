@@ -77,13 +77,17 @@ export async function runAuditBrand(input: AuditBrandInput): Promise<AuditBrandO
   // design.exclude ∪ analysis.exclude, resolved the same way detect-design-drift
   // and audit-component-anatomy resolve them, so one check-design run scans one
   // file set rather than three that drifted apart (#2070).
-  const filesToScan = collectDesignScanFiles(
+  const targets = collectDesignScanFiles(
     projectRoot,
     input.files,
     resolveDesignExcludePatterns(projectRoot)
   );
-
-  if (filesToScan.length === 0) throw noFilesScannedError('audit-brand-compliance', projectRoot);
+  const filesToScan = targets.files;
+  // See collectDesignScanFiles: a scope that threw every candidate away is an
+  // abstention; a project with no design surface is not applicable.
+  if (targets.anyCandidateExisted && filesToScan.length === 0) {
+    throw noFilesScannedError('audit-brand-compliance', projectRoot);
+  }
   const { findings, filesRead } = scanFiles(filesToScan, {
     tokenActive,
     voiceActive,
@@ -91,7 +95,9 @@ export async function runAuditBrand(input: AuditBrandInput): Promise<AuditBrandO
     brandRules,
     strictness,
   });
-  if (filesRead === 0) throw noFilesScannedError('audit-brand-compliance', projectRoot);
+  if (filesToScan.length > 0 && filesRead === 0) {
+    throw noFilesScannedError('audit-brand-compliance', projectRoot);
+  }
 
   return {
     findings,

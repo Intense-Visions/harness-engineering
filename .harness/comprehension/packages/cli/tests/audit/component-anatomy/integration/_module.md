@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/tests/audit/component-anatomy/integration'
-sourceHash: '2d62899df851a4d7068622b7dd928f1d206ba0784aa518f4d560c8c4447d8055'
+sourceHash: '178c1a18db4b6e056c8dabf88eb9c80747f588a9666550e16bfb2ec6c25dcf03'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent

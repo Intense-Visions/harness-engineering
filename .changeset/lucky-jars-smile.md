@@ -15,8 +15,8 @@ verifier shipped.
 The default is now the project's source files, resolved by the same
 `collectDesignScanFiles` helper `detect-design-drift` and `audit-brand-compliance`
 now share, honouring `design.exclude` and `analysis.exclude`. One `check-design` run,
-one file set. A resolved scope of zero files throws instead of returning a clean
-result — a zero-file audit is an abstention, never a pass.
+one file set. A scope that resolves to zero files throws instead of returning a clean
+result — see the abstention rule below.
 
 **This is breaking for anyone whose gate runs these commands.** Measured on this
 repository with a freshly built CLI, the `audit-anatomy` verifier inside
@@ -53,17 +53,31 @@ _candidate_ count rather than the count of files they read, so a scope of one
 nonexistent path reported "1 file scanned, 0 findings" for a file never opened.
 `totalFiles` is now bytes read, not paths offered.
 
-Also breaking for the same reason as above: `detect-design-drift` and
-`audit-brand-compliance` now throw over a project with no design surface where they
-previously returned a clean zero-file result. `harness check-design` records a throwing verifier
-under `verifiersFailed` and exits 2 (degraded).
+### The abstention rule, and the one case it deliberately excludes
+
+A zero-file run is an abstention when the verifier was ASKED to look at something and
+looked at nothing, and "not applicable" when there was nothing of the kind to look at:
+
+| why zero files                                                  | verdict                                        |
+| --------------------------------------------------------------- | ---------------------------------------------- |
+| candidates existed, an exclude glob discarded all of them       | abstain (throw)                                |
+| explicit `files` list resolved to nothing readable (glob, typo) | abstain (throw)                                |
+| the project holds no `.ts/.tsx/.js/.jsx/.css/.scss` at all      | **not applicable** — truthful zero-file result |
+
+The last row matters: `harness init` followed by `harness validate` is exactly that
+case, and a brand-new project is not an incomplete validation run. This repository
+already draws the same line for the roadmap doctor — an absent `docs/roadmap.md` is
+"not applicable", not "could not check". `harness check-design` records a throwing
+verifier under `verifiersFailed` and exits 2 (degraded).
 
 `harness validate` used to catch the throw into a severity-`warning` issue, which
 left `valid: true`, `complete: true` and exit 0 over an audit that applied no rule —
 the same defect one layer up. All three design abstentions now go through
 `result.unavailableChecks`, the channel `roadmapHealth` already uses, which forces
-`complete: false` and the incomplete-run exit code. `harness validate` on a project
-with no design surface therefore changes from exit 0 to the incomplete-run exit code.
+`complete: false` and the incomplete-run exit code. A project with no design surface is not
+applicable rather than abstaining, so `harness init` + `harness validate` still
+exits 0; a project whose `design.exclude` discards its whole design surface changes
+from exit 0 to the incomplete-run exit code.
 
 ## Also breaking: audit-brand-compliance's scope shrank
 

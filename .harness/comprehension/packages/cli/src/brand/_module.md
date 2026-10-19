@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/brand'
-sourceHash: 'ec98fa9412080560e88050b89d501fa097ef417ecf997e28e999fa412f733e73'
+sourceHash: 'f0a28ea99be2d73335216a0f7c656f9d40bb32d7d8cf1da65dc67b75483f5926'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent

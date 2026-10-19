@@ -55,7 +55,7 @@ describe('design scan targets', () => {
       '.hidden/d.ts': 'export const D = 1;\n',
     });
 
-    const collected = collectDesignScanFiles(dir, undefined, []).map((f) =>
+    const collected = collectDesignScanFiles(dir, undefined, []).files.map((f) =>
       path.relative(dir, f).replaceAll('\\', '/')
     );
 
@@ -127,8 +127,20 @@ describe('design scan targets', () => {
       );
     });
 
-    it.each(VERIFIERS)('%s rejects a project with no source files', async (_n, run) => {
+    it.each(VERIFIERS)('%s treats no design surface as not applicable', async (_n, run) => {
       dir = project({ 'README.md': '# docs only\n' });
+      // No candidates existed at all, so zero findings is a true statement, not
+      // an abstention. `harness init` + `harness validate` is this case.
+      const out = await run({ path: dir, mode: 'full' });
+      expect(out.summary.totalFiles).toBe(0);
+      expect(out.findings).toEqual([]);
+    });
+
+    it.each(VERIFIERS)('%s abstains when the scope discards every candidate', async (_n, run) => {
+      dir = project({
+        'harness.config.json': JSON.stringify({ design: { exclude: ['**/*'] } }),
+        'src/List.tsx': SOURCE,
+      });
       await expect(run({ path: dir, mode: 'full' })).rejects.toThrow(/read no files/i);
     });
 

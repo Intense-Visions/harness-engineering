@@ -190,15 +190,17 @@ export async function runDetectDrift(input: DetectDriftInput): Promise<DetectDri
   const config = resolveDriftConfig(input);
   const rulesApplied = computeRulesApplied(config);
 
-  const filesToScan = collectDesignScanFiles(
-    config.projectRoot,
-    input.files,
-    config.excludePatterns
-  );
-  if (filesToScan.length === 0)
+  const targets = collectDesignScanFiles(config.projectRoot, input.files, config.excludePatterns);
+  const filesToScan = targets.files;
+  // See collectDesignScanFiles: a scope that threw every candidate away is an
+  // abstention; a project with no design surface is not applicable.
+  if (targets.anyCandidateExisted && filesToScan.length === 0) {
     throw noFilesScannedError('detect-design-drift', config.projectRoot);
+  }
   const { findings, filesRead } = scanFiles(filesToScan, config);
-  if (filesRead === 0) throw noFilesScannedError('detect-design-drift', config.projectRoot);
+  if (filesToScan.length > 0 && filesRead === 0) {
+    throw noFilesScannedError('detect-design-drift', config.projectRoot);
+  }
   const { bySeverity, byCode } = summarizeFindings(findings);
 
   return {

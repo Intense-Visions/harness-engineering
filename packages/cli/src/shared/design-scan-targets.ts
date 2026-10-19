@@ -70,7 +70,30 @@ export function noFilesScannedError(verifier: string, projectRoot: string): Erro
 }
 
 /**
- * Collect the absolute paths a design verifier should scan.
+ * The outcome of resolving a design verifier's scan targets.
+ *
+ * `files` is what to scan. `anyCandidateExisted` separates the two reasons that
+ * list can be empty, which must NOT be reported the same way:
+ *
+ * - `false` — the project holds no design surface at all. "No files of this
+ *   kind here" is a true statement, not an abstention. `harness init` followed
+ *   by `harness validate` is exactly this case, and the repository already
+ *   draws this line for the roadmap doctor: an ABSENT roadmap is "not
+ *   applicable", not "could not check".
+ * - `true` — candidates existed and the scope threw them all away: an exclude
+ *   glob that matched everything, an unexpanded glob, a typo'd path. The
+ *   verifier was asked to look at something and looked at nothing, and
+ *   reporting that as clean is #2070. It abstains.
+ */
+export interface DesignScanTargets {
+  /** Absolute paths to scan. */
+  files: string[];
+  /** Whether ANY candidate existed before excludes and readability narrowed it. */
+  anyCandidateExisted: boolean;
+}
+
+/**
+ * Collect the paths a design verifier should scan.
  *
  * An explicit, non-empty `explicitFiles` list is a deliberate scoping and
  * bypasses `excludePatterns` — the caller has already said what it wants. An
@@ -83,16 +106,22 @@ export function collectDesignScanFiles(
   projectRoot: string,
   explicitFiles: readonly string[] | undefined,
   excludePatterns: readonly string[] = []
-): string[] {
+): DesignScanTargets {
   if (explicitFiles !== undefined && explicitFiles.length > 0) {
-    return explicitFiles.map((file) =>
-      path.isAbsolute(file) ? file : path.join(projectRoot, file)
-    );
+    return {
+      files: explicitFiles.map((file) =>
+        path.isAbsolute(file) ? file : path.join(projectRoot, file)
+      ),
+      anyCandidateExisted: true,
+    };
   }
-  const out: string[] = [];
-  walk(projectRoot, out, 0);
-  if (excludePatterns.length === 0) return out;
-  return out.filter((absolute) => !isExcluded(projectRoot, absolute, excludePatterns));
+  const candidates: string[] = [];
+  walk(projectRoot, candidates, 0);
+  const files =
+    excludePatterns.length === 0
+      ? candidates
+      : candidates.filter((absolute) => !isExcluded(projectRoot, absolute, excludePatterns));
+  return { files, anyCandidateExisted: candidates.length > 0 };
 }
 
 /**

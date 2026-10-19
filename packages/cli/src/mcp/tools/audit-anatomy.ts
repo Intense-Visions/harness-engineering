@@ -110,12 +110,19 @@ export async function runAudit(input: AuditAnatomyInput): Promise<AuditAnatomyOu
   // sibling check-design verifiers use — so one run audits one file set. An
   // absent scope used to mean `[]`, which audited nothing and reported it as
   // clean (#2070).
-  const candidateFiles = collectDesignScanFiles(
+  const targets = collectDesignScanFiles(
     projectRoot,
     input.files,
     resolveDesignExcludePatterns(projectRoot)
   );
-  if (candidateFiles.length === 0) throw noFilesScannedError('audit-anatomy', projectRoot);
+  const candidateFiles = targets.files;
+  // Candidates existed and the scope discarded every one of them — an exclude
+  // that matched everything, or an explicit list of paths that do not resolve.
+  // A project with NO design surface at all is not applicable, not an
+  // abstention, and falls through to a truthful zero-file result.
+  if (targets.anyCandidateExisted && candidateFiles.length === 0) {
+    throw noFilesScannedError('audit-anatomy', projectRoot);
+  }
 
   const conventionsApplied = new Set<string>();
   const patternsApplied = new Set<string>();
@@ -170,7 +177,9 @@ export async function runAudit(input: AuditAnatomyInput): Promise<AuditAnatomyOu
   // Candidates resolved but every one was unreadable (a glob, a typo, a
   // deleted path): the scan loop skipped them all and `findings` is empty for
   // want of a byte read, not for want of a defect (#2070).
-  if (totalFiles === 0) throw noFilesScannedError('audit-anatomy', projectRoot);
+  if (candidateFiles.length > 0 && totalFiles === 0) {
+    throw noFilesScannedError('audit-anatomy', projectRoot);
+  }
 
   const summary = buildSummary(findings, totalFiles, Date.now() - start);
 
