@@ -13,8 +13,8 @@ Phases:
 - select: Enumerate the open-PR queue, triage each PR into the land-readiness taxonomy, cross-check for superseded/already-resolved PRs, and order landable candidates by land-priority
 - confirm: Present the triaged queue in one round — superseded items flagged for closure, decision forks as questions, proposed concurrency — for a single up-front human approval that carries the per-PR merge authorization
 - dispatch: Fan out worktree-isolated subagents that each run the real code-review pipeline for one PR, push fix commits for mechanical findings, and re-run CI — never merging, never fabricating approval — capped at the concurrency governor
-- verify: Independently confirm each PR proposed to land is CI-green across all target operating systems plus the project's required checks, carries a review verdict, and is mergeable — never by subagent self-report
-- land: Merge only the PRs that are both human-approved in confirm and independently verified, honoring branch protection; emit a one-row-per-PR batch summary and close superseded PRs citing the superseding PR; never merge unapproved or unverified work
+- verify: Independently confirm each PR proposed to land is CI-green across all target operating systems plus the project's required checks and against current main, carries a review verdict on the current head, is mergeable, has zero unresolved review threads, and lands on the default branch (or a stacked base the human authorized) — then record the full head SHA those checks ran against; never by subagent self-report
+- land: Merge only the PRs that are both human-approved in confirm and independently verified, pinned to the SHA verify recorded (`gh pr merge --match-head-commit`) and re-reading the review threads immediately before the merge call, honoring branch protection; emit a one-row-per-PR batch summary, report a stacked merge as landed in its parent's branch rather than the default branch, and close superseded PRs citing the superseding PR; never merge unapproved or unverified work
 </objective>
 
 <execution_context>
@@ -76,20 +76,24 @@ The five-phase spine, the concurrency governor, the artifact + all-OS-CI verific
 1. **Enumerate the open-PR queue.** List open PRs via `gh pr list --state open`. Missing `gh` auth degrades to reporting the gap rather than aborting — with no queue access there is nothing to land. Additionally fetch PRs carrying the `fleet:claimed` label and their claim comments (piggybacks the same enumeration). A PR carrying a **live claim lease written by another run** — meaning another run is already review-assisting it — is dropped as **claimed-elsewhere** (a soft reservation); a **stale** lease is ignored and the PR stays landable. The claim record, staleness (server `updated_at`), and reclaim tiebreak are defined once in the **§Cross-run claim lease** section of `docs/reference/fleet-family.md` — do not restate them here. **Degradation note:** because every pr-fleet item is itself an open PR, the spine's "open PR is the durable claim" backstop does not distinguish concurrent runs; if the `fleet:claimed` scan is unavailable (or under `--no-claim`), pr-fleet has **no** cross-run review-assist dedup and behaves as today — log the degradation, never abort.
 
 2. **Triage each PR into the land-readiness taxonomy.** Compute each PR's bucket from `gh pr view` / `gh pr checks` mergeability, CI, and review signals:
-   - **land-ready** — CI green on all OS, review clean/approved, mergeable, no conflicts.
-   - **needs-review-assist** — CI green but no review verdict yet, or review findings unaddressed.
+   - **land-ready** — CI green on all OS, review clean/approved, mergeable, no conflicts, **zero unresolved review threads**, and the base is the default branch. A **stacked** PR is never automatically land-ready; it becomes landable only through the explicit CONFIRM authorization described under `blocked` below.
+   - **needs-review-assist** — CI green but no review verdict yet, review findings unaddressed, or review threads still unresolved.
    - **needs-heal** — CI red, merge conflicts, or a stale base needing a rebase.
-   - **blocked** — draft/WIP, depends on another unlanded PR, or an external blocker.
+   - **blocked** — draft/WIP, depends on another unlanded PR (including a **stacked** PR whose base is another open PR's branch), or an external blocker. A stacked PR is bucketed here so it is never landed on the default-branch assumption, but it is **still presented in CONFIRM and is landable under an explicit human authorization to merge into its parent's branch** (§Phase 2.1, §Phase 4.7, §Escalation) — never silently dropped from the batch.
    - **superseded / already-resolved** — closed elsewhere, or a newer PR replaces it → flag for closure, not land.
    - **stale** — no activity past the queue's threshold → flag for human triage.
 
-3. **Cross-check for supersession.** For every candidate, check whether a newer merged or open PR already delivers its change. A superseded PR is **flagged for closure with a citation**, never landed and never re-reviewed from scratch.
+3. **Read the two signals `mergeStateStatus` hides.**
+   - **Unresolved review threads.** Read `reviewThreads { isResolved }` (GraphQL) into `unresolvedThreads`. Under a "require conversation resolution" rule, a PR that is approved, green on every check and `MERGEABLE` still reports `mergeStateStatus: BLOCKED`. `gh pr merge` then fails with only _"the base branch policy prohibits the merge"_, and a token that can't read branch protection (it returns 404) can't see why. Count the threads up front so that block is never a surprise at LAND.
+   - **The base branch.** Record `baseRefName`. A PR whose base is **not** the default branch is **stacked** on another PR's branch. Merging it lands it in that branch, not the default branch, yet GitHub still shows it as "Merged". Map each stack bottom-first. The bottom PR's state (approved? conflicting?) decides whether anything in the stack reaches the default branch.
 
-4. **Order landable candidates by land-priority.** Do not rank ad-hoc. Reuse `harness-roadmap-pilot`-style impact scoring so ordering is principled and reproducible; order highest-impact-to-land first.
+4. **Cross-check for supersession.** For every candidate, check whether a newer merged or open PR already delivers its change. A superseded PR is **flagged for closure with a citation**, never landed and never re-reviewed from scratch.
 
-5. **Detect decision forks up front.** Scan each PR's discussion/diff for genuine ambiguity a lander would otherwise have to guess (e.g. "squash or merge-commit for this PR?", "does this need the changelog entry before landing?"). Surface these _known_ forks in CONFIRM; do not answer them here.
+5. **Order landable candidates by land-priority.** Do not rank ad-hoc. Reuse `harness-roadmap-pilot`-style impact scoring so ordering is principled and reproducible; order highest-impact-to-land first.
 
-6. **Build the `PrCandidate` record** for each PR:
+6. **Detect decision forks up front.** Scan each PR's discussion/diff for genuine ambiguity a lander would otherwise have to guess (e.g. "squash or merge-commit for this PR?", "does this need the changelog entry before landing?"). Surface these _known_ forks in CONFIRM; do not answer them here.
+
+7. **Build the `PrCandidate` record** for each PR:
 
    ```
    PrCandidate {
@@ -101,6 +105,10 @@ The five-phase spine, the concurrency governor, the artifact + all-OS-CI verific
      ciStatus,          // per-OS CI signal
      reviewVerdict,     // present | absent | findings-open
      mergeable,         // boolean (no conflicts, base current)
+     unresolvedThreads, // count of review threads with isResolved: false; land-ready requires 0
+     baseRef,           // baseRefName; stacked when it is not the default branch
+     stackedOn,         // set when baseRef is another open PR's head branch (that PR's number)
+     verifiedSha,       // full 40-char head SHA that VERIFY confirmed; LAND pins the merge to it
      supersededBy,      // set when bucket = superseded
      landApproved,      // set in CONFIRM (human merge authorization)
      forks,             // detected known decision forks (may be empty)
@@ -114,6 +122,8 @@ The five-phase spine, the concurrency governor, the artifact + all-OS-CI verific
    - Superseded / stale PRs **flagged for closure** with their superseding PR — the human confirms closing; the fleet never lands them.
    - Every detected known decision fork as a **multiple-choice question** with a recommended default.
    - The **proposed concurrency** (default 2, capped at ~3).
+   - **Stacks shown bottom-first**, with each PR's base. A stacked PR is bucketed `blocked` (§Phase 1.2) but **must still be presented here** — never filter it out of this surface for being unlandable. Authorizing a stacked PR authorizes a merge into its parent's branch, **not** the default branch. Say so plainly, so the human doesn't read "landed" as "on `main`".
+   - **A heal warning for approved PRs.** On a repo that dismisses stale approvals, merging the default branch into an approved PR (to fix a conflict or a stale base) dismisses that approval. Healing an approved PR therefore costs a re-review, and the human should know before authorizing it.
 
 2. **The human explicitly checks which PRs to land.** This checked set is the **merge authorization** — the human's merge decision, captured once for the batch. The human may also trim, answer forks, and confirm closures in this same gate. A PR the human does not check is never landed, no matter how green it is.
 
@@ -123,13 +133,15 @@ The five-phase spine, the concurrency governor, the artifact + all-OS-CI verific
 
 1. **One worktree-isolated subagent per PR that needs assist or heal.** Each subagent is briefed to run the **real** `harness-code-review` against its one PR's diff, push fix commits for **mechanical** findings (lint, format, import order, safe review-bot suggestions), re-run CI, and record a review verdict. It does **not** merge, does **not** post a human approval, and does **not** resolve semantic review disagreements by guessing. Feed answered forks from CONFIRM into the brief so the subagent never re-asks a settled question. `land-ready` PRs skip assist and go straight to VERIFY.
 
-2. **Cap concurrency at the governor (default 2, max ~3).** This is the machine-storm limit shared across the family: beyond roughly three concurrent subagents the compound load produces flaky failures indistinguishable from real ones. Never exceed the confirmed concurrency to "go faster" — a stormed batch is slower once you account for re-runs.
+2. **Heal before review, never after.** A heal push (merging the default branch in, or rebasing) creates a new head. With stale-review dismissal on, it also dismisses any approval already recorded. Order each needs-heal PR's work as heal, then CI re-run, then review verdict, so the verdict is recorded on the head that will land. A PR that was **approved before** the fleet healed it goes back to needs-review-assist. Its old approval is not carried forward.
 
-3. **Park unforeseen forks; never guess mid-flight.** A subagent runs autonomously on recommended-option defaults for anything routine. But if a PR hits a genuinely **unforeseen** decision fork — a review finding that needs a design call, a conflict needing human judgment — that PR **parks and reports** the fork instead of guessing. Parking is per-PR: the rest of the batch continues uninterrupted. The parked fork appears in the report for the human.
+3. **Cap concurrency at the governor (default 2, max ~3).** This is the machine-storm limit shared across the family: beyond roughly three concurrent subagents the compound load produces flaky failures indistinguishable from real ones. Never exceed the confirmed concurrency to "go faster" — a stormed batch is slower once you account for re-runs.
 
-4. **Record an "assist actions" note per PR.** Each subagent records the recommended-option defaults it took and the mechanical fixes it pushed, so the eventual report shows exactly what the fleet touched — batch review is only trustworthy when the reviewer can see what was changed.
+4. **Park unforeseen forks; never guess mid-flight.** A subagent runs autonomously on recommended-option defaults for anything routine. But if a PR hits a genuinely **unforeseen** decision fork — a review finding that needs a design call, a conflict needing human judgment — that PR **parks and reports** the fork instead of guessing. Parking is per-PR: the rest of the batch continues uninterrupted. The parked fork appears in the report for the human.
 
-5. **Push-path caveat.** A worktree created under a `.claude/`-nested path breaks the local pre-push `check-docs` gate (it self-excludes and scans zero files). Subagents push fix commits via the GitHub API or from a non-`.claude` throwaway worktree. **Never `--no-verify`** — bypassing the gate defeats the verification the land depends on.
+5. **Record an "assist actions" note per PR.** Each subagent records the recommended-option defaults it took and the mechanical fixes it pushed, so the eventual report shows exactly what the fleet touched — batch review is only trustworthy when the reviewer can see what was changed.
+
+6. **Push-path caveat.** A worktree created under a `.claude/`-nested path breaks the local pre-push `check-docs` gate (it self-excludes and scans zero files). Subagents push fix commits via the GitHub API or from a non-`.claude` throwaway worktree. **Never `--no-verify`** — bypassing the gate defeats the verification the land depends on.
 
 **Worker handoff — return the canonical `FleetHandoffRecord`.** When a worker finishes its PR it hands the orchestrator exactly one `FleetHandoffRecord` (from `@harness-engineering/types`) — the ONE bounded envelope every `-fleet` member emits, so `fleet-command` parses any fleet's worker output uniformly instead of special-casing an ad hoc per-worker report shape. The record carries `status` (`done | parked | blocked | failed`), `fleet`, `item`, a one-line `summary`, an `evidence[]` of verifiable pointers (branch, PR, artifact path, CI check — exactly the references VERIFY re-checks), `next_steps[]`, and, for any non-`done` status, a `blocker`. The orchestrator validates it with `validateFleetHandoffRecord`; a malformed or unknown-keyed record is rejected, never silently misread. See the canonical handoff record in `docs/reference/fleet-family.md`.
 
@@ -141,15 +153,25 @@ The five-phase spine, the concurrency governor, the artifact + all-OS-CI verific
 
 2. **Require all-OS CI green — and base-fresh (spine clause; the fourth mechanical condition).** Confirm the PR's CI is green on **all target operating systems** plus the project's required checks (`gh pr checks` / `gh run list`). Green on one OS is not green. A subset-red PR is not land-ready — it is reported, and the batch continues. `pr-fleet` is the only member that merges, so it is the only place a **stale** green is _directly_ exploitable: green counts toward land-ready only when it ran against **current `main`** — the SHA the CI ran against is up to date with the base tip, **or** branch protection enforces strict / up-to-date-before-merge, **or** the PR is merged-forward and re-run before landing. With `required_status_checks.strict` `false` (the GitHub default), `mergeStateStatus: CLEAN` does **not** imply freshness, so green against a base that `main` has moved past leaves the PR **not** land-ready on that evidence: it is **degraded** and reported with the stale tested base SHA vs current `main`, to be merged-forward and re-run. SELECT reads `required_status_checks.strict` and, when `false`, labels every candidate's CI **provisional** through CONFIRM so the authorizing human sees "green" is qualified. See `docs/reference/fleet-family.md` § _Base freshness_ (`classifyBaseFreshness`).
 
-3. **Require a review verdict and mergeability.** Confirm a review verdict exists (from the assist pipeline or an existing human review) and that the PR is mergeable — no conflicts, base current. A PR with an open review finding or a conflict is not land-ready.
+3. **Require a review verdict and mergeability, on the current head.** Confirm a review verdict exists (from the assist pipeline or an existing human review) and that the PR is mergeable: no conflicts, base current. A PR with an open review finding or a conflict is not land-ready. **Re-read `reviewDecision` on the head you are verifying.** After any heal push in DISPATCH, an approval recorded on an earlier head may already have been dismissed. A verdict for a SHA other than the current head doesn't count.
 
-4. **Require the human land-authorization.** Confirm the PR was checked to land in CONFIRM. A PR that is green, reviewed, and mergeable but **not** human-approved is **not** landed — it is reported as verified-but-unauthorized.
+4. **Require zero unresolved review threads.** Re-read `reviewThreads { isResolved }`. Any unresolved thread makes the PR not land-ready, whether or not the repo enforces conversation resolution, because an open thread is an open review conversation. The orchestrator may resolve a thread **only after confirming in the head code that the thread's ask has been fixed**, citing where. Never resolve a thread just to clear the gate.
 
-5. **Classify each PR** as `land-ready` (approved + all-OS CI green + review verdict + mergeable), `not-land-ready` (missing any of these), or `retry` (transient CI failure, retried at most once). No PR is landed without passing every check.
+5. **Record the verified SHA — after any merge-forward, never before.** Store the full 40-character head SHA these checks were run against as `verifiedSha`. When step 2 merged the default branch forward to cure a stale green, that push **created a new head**: re-run the checks against the new head and record **that** SHA. Recording the pre-merge-forward SHA guarantees LAND's pin is refused and the PR bounces back to VERIFY indefinitely — a loop no escalation row names. LAND merges the recorded SHA and nothing else.
+
+6. **Require the human land-authorization.** Confirm the PR was checked to land in CONFIRM. A PR that is green, reviewed, and mergeable but **not** human-approved is **not** landed — it is reported as verified-but-unauthorized.
+
+7. **Classify each PR** as `land-ready` (approved + all-OS CI green + review verdict on the current head + mergeable + zero unresolved threads + the base is the default branch **or** a stacked base the human explicitly authorized merging into in CONFIRM), `not-land-ready` (missing any of these), or `retry` (transient CI failure, retried at most once). No PR is landed without passing every check.
 
 ### Phase 5: LAND + REPORT — Human-Authorized Landing, Superseded Closure, Never Silent-Merge
 
-1. **Land only the approved + verified PRs.** Merge each PR that is both human-approved (CONFIRM) and independently verified (VERIFY), via `gh pr merge` using the repo's configured merge method and honoring branch protection. Land nothing else. If branch protection blocks a merge (e.g. a required human review is still missing), report it as not-landed with the reason — never route around protection. As each PR reaches its terminal outcome (landed, parked, reported not-land-ready, or closed as superseded), **release its cross-run claim** — remove the `fleet:claimed` label, leaving the claim comment as an audit trail (see §Cross-run claim lease).
+1. **Land only the approved + verified PRs, pinned to the verified SHA.** Merge each PR that is both human-approved (CONFIRM) and independently verified (VERIFY), via `gh pr merge --match-head-commit <verifiedSha>` using the repo's configured merge method and honoring branch protection. Land nothing else. The pin closes the gap between VERIFY and LAND: without it, a push that arrives in between lands commits nobody verified. Pass the **full** 40-character SHA, because GraphQL rejects an abbreviated one. If the head has moved, the merge is refused. Send the PR back to VERIFY; don't drop the pin and retry.
+
+   **Re-read the review threads as the last read before the merge call.** The SHA pin catches a new _commit_ between VERIFY and LAND, but a reviewer can open a thread **without pushing**: the head is unchanged, `--match-head-commit` still matches, and the PR lands carrying an open review conversation. Re-read `reviewThreads { isResolved }` immediately before `gh pr merge`; a thread that appeared since VERIFY makes the PR not-land-ready — report it with the thread link and send it back to VERIFY. This is the one land precondition the pin cannot cover, so it is the one re-read LAND owes.
+
+   **Report stacked lands honestly.** A stacked PR's merge lands it in its parent's branch, and GitHub labels it "Merged" anyway. Its report row says **"merged into `<baseRef>` (not `<default>`)"**, and the PR stays counted as not on the default branch until the bottom of its stack lands. Never count it as landed on the default branch.
+
+   **A merge call that errors may still be running.** A 5xx from `gh pr merge` can leave GitHub reporting _"Merge already in progress"_. Re-read the PR's state before retrying, and keep the same SHA pin. If branch protection blocks a merge (e.g. a required human review is still missing), report it as not-landed with the reason — never route around protection. As each PR reaches its terminal outcome (landed, parked, reported not-land-ready, or closed as superseded), **release its cross-run claim** — remove the `fleet:claimed` label, leaving the claim comment as an audit trail (see §Cross-run claim lease).
 
 2. **Emit a one-row-per-PR batch summary** for the human:
 
@@ -184,11 +206,16 @@ The five-phase spine, the concurrency governor, the artifact + all-OS-CI verific
 - Review-assist runs the real `harness-code-review` and pushes only mechanical fixes — it never fabricates an approval or guesses a semantic finding.
 - It **degrades gracefully**: missing `gh` auth, an un-mergeable PR, or a single PR's failed assist is reported while the batch continues.
 - Concurrency never exceeds the confirmed governor (default 2, max ~3).
+- Every land is pinned to the SHA VERIFY checked, and no PR lands with an unresolved review thread.
+- A stacked PR is never reported as landed on the default branch, and an approval recorded on an earlier head is never counted after a heal push.
 
 ## Gates
 
 - **No land without an explicit human authorization.** A PR not checked to land in CONFIRM is never merged, regardless of CI or review state. Landing an unauthorized PR = gate violation.
 - **No land without all-OS CI green plus a review verdict plus mergeability.** Green on a subset of operating systems (or with enforce/harness red), a missing review verdict, or an unresolved conflict means not-land-ready. Report it; do not land it.
+- **No land without zero unresolved review threads.** An open thread is an open review conversation. Resolving a thread without first confirming its ask is fixed in the head code = gate violation.
+- **No land without the SHA pin.** Every land is `gh pr merge --match-head-commit <verifiedSha>`. Merging an unpinned head, or dropping the pin after a refusal, lands commits nobody verified = gate violation.
+- **Never report a stacked merge as landed on the default branch.** A merge into another PR's branch is reported as exactly that.
 - **Never silently auto-merge.** The fleet lands only what the human authorized and verification cleared. Auto-merging unreviewed work, or routing around branch protection, = gate violation.
 - **A self-report is never verification.** Accepting "reviewed, CI green" without independently checking CI, the review verdict, and mergeability = gate violation. Re-verify independently.
 - **Review-assist never fabricates approval.** Pushing mechanical fixes is assist; posting a human approval or guessing a semantic review finding is not. The review verdict must come from the real pipeline, never invented to clear the gate.
@@ -201,21 +228,29 @@ The five-phase spine, the concurrency governor, the artifact + all-OS-CI verific
 - **A PR parks on an unforeseen fork:** surface the fork (with the PR's context and the recommended default) in the report for the human; do not guess and land. The parked PR is the only one affected.
 - **CI red on a subset of OS:** report the PR not-land-ready with the failing OS/check named; never land it. Do not average a mixed CI result into "mostly green".
 - **Branch protection blocks a merge:** report the PR not-landed with the specific unmet requirement (e.g. "required human review missing"); never route around protection to force the land.
+- **"The base branch policy prohibits the merge" on an approved, green, mergeable PR:** the most likely unmet requirement is **conversation resolution**, meaning unresolved review threads. Check `unresolvedThreads` first. For each thread, confirm in the head code that its ask is fixed. Resolve only the threads that are, and report the rest as not-landed with the thread links. Never pass `--admin`.
+- **An unresolved thread is `isOutdated` — its ask maps to no line in the head code:** the reviewer commented on a line the author has since rewritten or deleted, so §Phase 4.4's precondition ("confirm in the head code that the thread's ask has been fixed") can **never** be satisfied: the PR is permanently not-land-ready and is re-reported on every run. Do not resolve it to clear the gate, and do not keep re-queueing it. Report it **once** as not-landed with `isOutdated: true`, the thread link, and the original line, and **route it to the human** — only the reviewer or the author can say whether the rewrite addressed the ask or silently dropped it. Failing safe is right; looping forever is not.
+- **A PR's base is another open PR's branch (stacked):** land it only if the human authorized merging into that branch. Report it as not on the default branch until the bottom of the stack lands, and surface the bottom PR's blockers, because they decide whether the stack ever reaches the default branch.
 - **A PR needs a semantic conflict or design-level review finding resolved:** triage it blocked and report it; the resolution needs a human — the fleet does not force-resolve it.
 - **The queue appears coupled (one PR must land before another can merge):** land them in dependency order or, if the coupling needs human sequencing, report it; fan-out assumes independence.
 
 ## Rationalizations to Reject
 
-| Rationalization                                                                            | Reality                                                                                                                                                                 |
-| ------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| "The subagent reported it reviewed the PR and CI is green, so it's safe to land"           | A self-report is a claim, not evidence. Independently confirm all-OS CI, a recorded review verdict, and mergeability before landing — or the PR is not land-ready.      |
-| "This PR is green and reviewed — I'll land it even though the human didn't check it"       | The merge decision is the human's. A PR not checked to land in CONFIRM is never merged, no matter how ready it looks. Report it as verified-but-unauthorized.           |
-| "CI is green on Linux, land it"                                                            | Green on one OS is not green. Landing requires all target operating systems plus the project's required checks. A subset-red PR is reported not-land-ready, not landed. |
-| "There's no review on this PR, but it looks fine — I'll approve it and merge"              | Review-assist runs the real pipeline to a verdict; it never fabricates an approval. A missing review verdict means not-land-ready, not a rubber stamp.                  |
-| "This merge conflict is small — I'll resolve it however seems right and land"              | Semantic conflicts need human judgment. Force-resolving one buries an unreviewed decision in a landed PR. Triage it blocked and report it.                              |
-| "Branch protection is blocking the merge — I'll merge with admin to keep the batch moving" | Never route around protection. Report the PR not-landed with the unmet requirement; protection is part of the human merge decision, not an obstacle to it.              |
-| "This PR looks new to me — no need to check whether a newer PR already superseded it"      | Cross-check every PR for supersession. Landing a superseded PR creates a conflicting duplicate; superseded PRs are closed with a citation, not landed.                  |
-| "Bumping concurrency to six will clear the queue sooner"                                   | Beyond ~3 concurrent subagents is the machine-storm zone — compound load produces flaky failures that cost more in re-runs than the extra parallelism saves.            |
+| Rationalization                                                                                                              | Reality                                                                                                                                                                                                                                                 |
+| ---------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| "The subagent reported it reviewed the PR and CI is green, so it's safe to land"                                             | A self-report is a claim, not evidence. Independently confirm all-OS CI, a recorded review verdict, and mergeability before landing — or the PR is not land-ready.                                                                                      |
+| "This PR is green and reviewed — I'll land it even though the human didn't check it"                                         | The merge decision is the human's. A PR not checked to land in CONFIRM is never merged, no matter how ready it looks. Report it as verified-but-unauthorized.                                                                                           |
+| "CI is green on Linux, land it"                                                                                              | Green on one OS is not green. Landing requires all target operating systems plus the project's required checks. A subset-red PR is reported not-land-ready, not landed.                                                                                 |
+| "There's no review on this PR, but it looks fine — I'll approve it and merge"                                                | Review-assist runs the real pipeline to a verdict; it never fabricates an approval. A missing review verdict means not-land-ready, not a rubber stamp.                                                                                                  |
+| "This merge conflict is small — I'll resolve it however seems right and land"                                                | Semantic conflicts need human judgment. Force-resolving one buries an unreviewed decision in a landed PR. Triage it blocked and report it.                                                                                                              |
+| "Branch protection is blocking the merge — I'll merge with admin to keep the batch moving"                                   | Never route around protection. Report the PR not-landed with the unmet requirement; protection is part of the human merge decision, not an obstacle to it.                                                                                              |
+| "This PR looks new to me — no need to check whether a newer PR already superseded it"                                        | Cross-check every PR for supersession. Landing a superseded PR creates a conflicting duplicate; superseded PRs are closed with a citation, not landed.                                                                                                  |
+| "The merge is blocked by some branch policy, but it's approved and green — I'll resolve the open threads so it goes through" | Resolving a thread is a review act, not a gate key. Confirm each thread's ask is fixed in the head code first, and report the threads that aren't.                                                                                                      |
+| "The thread is outdated — the line it points at is gone, so it can't still apply. Resolve it and land"                       | An outdated thread is an unanswered question about a rewrite, not a closed one. The ask may have been dropped by the rewrite. Report it to the human with `isOutdated: true`; never self-resolve a thread whose ask you cannot locate in the head code. |
+| "GitHub says Merged, so it landed"                                                                                           | A stacked PR merges into its parent's branch. Check `baseRefName`: if it isn't the default branch, nothing reached the default branch.                                                                                                                  |
+| "It was approved before I merged `main` in, so it's still approved"                                                          | With stale-review dismissal on, the heal push dismissed that approval. Re-read `reviewDecision` on the current head; a verdict for an earlier SHA doesn't count.                                                                                        |
+| "The head only moved by a trivial commit since VERIFY — merge without the pin"                                               | The pin exists precisely for commits nobody verified. A refused pinned merge goes back to VERIFY.                                                                                                                                                       |
+| "Bumping concurrency to six will clear the queue sooner"                                                                     | Beyond ~3 concurrent subagents is the machine-storm zone — compound load produces flaky failures that cost more in re-runs than the extra parallelism saves.                                                                                            |
 
 ## Red Flags
 
@@ -297,6 +332,22 @@ An assist subagent hits a review finding that needs a design call (not a mechani
 
 A subagent reports "reviewed, CI green, ready to merge." Expected: the "a self-report is never verification" gate requires the orchestrator to independently confirm all-OS CI, the review verdict, and mergeability via `gh` before landing. Landing on the report alone is the failure this scenario guards against.
 
+### Scenario 5: Opaque block — unresolved threads behind "base branch policy prohibits the merge"
+
+A PR is approved at its head, green on every check, and `MERGEABLE`, but `mergeStateStatus` is `BLOCKED`, and `gh pr merge` fails with only _"the base branch policy prohibits the merge"_. Branch protection can't be read with the token in use. Expected: SELECT already counted two unresolved review threads, so the PR was never bucketed land-ready. The orchestrator checks each thread's ask against the head code, resolves only the threads whose fix it confirmed, and lands the pinned SHA. Admin-merging past the block, or resolving the threads unread to clear it, is the failure this scenario guards against.
+
+### Scenario 6: Stacked "landed" — a merge that never reaches the default branch
+
+The human authorizes two approved PRs, but both sit in a stack whose bottom PR is unapproved and conflicts with the default branch. Expected: CONFIRM shows the stack bottom-first, and the report rows say "merged into `<parent branch>` (not `<default>`)". The bottom PR's blockers are surfaced as what stands between the stack and the default branch. Reporting the two PRs as landed because GitHub says "Merged" is the failure this scenario guards against.
+
+### Scenario 7: Stale approval after heal
+
+An approved PR conflicts with the default branch. DISPATCH heals it by merging the default branch in, and stale-review dismissal clears the approval. Expected: VERIFY re-reads `reviewDecision` on the new head, finds `REVIEW_REQUIRED`, and reports the PR not land-ready (needs re-review), or gets a fresh verdict on the healed head. Landing on the pre-heal approval is the failure this scenario guards against.
+
+### Scenario 8: Head moves between VERIFY and LAND
+
+VERIFY confirms head `A`, then the author pushes `B` before LAND. Expected: `gh pr merge --match-head-commit A` is refused, and the PR goes back to VERIFY on `B`. Retrying without the pin is the failure this scenario guards against.
+
 
 --- skill.yaml (agents/skills/gemini-cli/pr-fleet/skill.yaml) ---
 name: pr-fleet
@@ -355,10 +406,10 @@ phases:
     description: Fan out worktree-isolated subagents that each run the real code-review pipeline for one PR, push fix commits for mechanical findings, and re-run CI — never merging, never fabricating approval — capped at the concurrency governor
     required: true
   - name: verify
-    description: Independently confirm each PR proposed to land is CI-green across all target operating systems plus the project's required checks, carries a review verdict, and is mergeable — never by subagent self-report
+    description: Independently confirm each PR proposed to land is CI-green across all target operating systems plus the project's required checks and against current main, carries a review verdict on the current head, is mergeable, has zero unresolved review threads, and lands on the default branch (or a stacked base the human authorized) — then record the full head SHA those checks ran against; never by subagent self-report
     required: true
   - name: land
-    description: Merge only the PRs that are both human-approved in confirm and independently verified, honoring branch protection; emit a one-row-per-PR batch summary and close superseded PRs citing the superseding PR; never merge unapproved or unverified work
+    description: Merge only the PRs that are both human-approved in confirm and independently verified, pinned to the SHA verify recorded (`gh pr merge --match-head-commit`) and re-reading the review threads immediately before the merge call, honoring branch protection; emit a one-row-per-PR batch summary, report a stacked merge as landed in its parent's branch rather than the default branch, and close superseded PRs citing the superseding PR; never merge unapproved or unverified work
     required: true
 state:
   persistent: false

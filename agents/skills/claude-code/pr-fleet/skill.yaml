@@ -54,10 +54,10 @@ phases:
     description: Fan out worktree-isolated subagents that each run the real code-review pipeline for one PR, push fix commits for mechanical findings, and re-run CI — never merging, never fabricating approval — capped at the concurrency governor
     required: true
   - name: verify
-    description: Independently confirm each PR proposed to land is CI-green across all target operating systems plus the project's required checks, carries a review verdict, and is mergeable — never by subagent self-report
+    description: Independently confirm each PR proposed to land is CI-green across all target operating systems plus the project's required checks and against current main, carries a review verdict on the current head, is mergeable, has zero unresolved review threads, and lands on the default branch (or a stacked base the human authorized) — then record the full head SHA those checks ran against; never by subagent self-report
     required: true
   - name: land
-    description: Merge only the PRs that are both human-approved in confirm and independently verified, honoring branch protection; emit a one-row-per-PR batch summary and close superseded PRs citing the superseding PR; never merge unapproved or unverified work
+    description: Merge only the PRs that are both human-approved in confirm and independently verified, pinned to the SHA verify recorded (`gh pr merge --match-head-commit`) and re-reading the review threads immediately before the merge call, honoring branch protection; emit a one-row-per-PR batch summary, report a stacked merge as landed in its parent's branch rather than the default branch, and close superseded PRs citing the superseding PR; never merge unapproved or unverified work
     required: true
 state:
   persistent: false
