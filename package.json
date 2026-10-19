@@ -91,32 +91,47 @@
     ],
     "overrides": {
       "hono": ">=4.13.5",
-      "@grpc/grpc-js": "^1.14.4",
+      "@grpc/grpc-js": "^1.14.5",
       "@hono/node-server": ">=2.0.10",
       "postcss": ">=8.5.23",
       "basic-ftp": ">=5.3.1",
       "body-parser": ">=2.3.0",
       "browserslist": ">=4.28.7",
       "fast-xml-parser": ">=5.7.0",
-      "ip-address": ">=10.3.1",
-      "fast-uri": ">=3.1.6 <4",
+      "ip-address": ">=10.7.1",
+      "fast-uri": ">=3.1.8 <4",
       "@humanfs/node": ">=0.16.8",
       "protobufjs": "^7.6.3",
-      "undici": "^7.29.0",
+      "undici": "^7.29.1",
       "qs": ">=6.16.0",
       "fflate": ">=0.8.3",
-      "shell-quote": "^1.8.4",
+      "shell-quote": "^1.11.0",
       "tmp": "^0.2.6",
       "nanoid": ">=3.3.17 <4",
       "react-router": ">=7.18.2 <8",
       "@babel/core": "^7.29.6",
-      "brace-expansion@2": ">=2.1.4 <3",
-      "brace-expansion@5": ">=5.0.9 <6",
+      "brace-expansion@2": ">=2.1.7 <3",
+      "brace-expansion@5": ">=5.0.12 <6",
       "js-yaml@3": ">=3.15.2 <4",
       "js-yaml@4": ">=4.3.2 <5",
       "vite": ">=6.4.3 <7",
       "esbuild@0.27": ">=0.28.1",
-      "uuid": "^11.1.1"
+      "uuid": "^11.1.1",
+      "proxy-addr": ">=2.0.8",
+      "source-map-js": ">=1.2.2",
+      "postcss-selector-parser": ">=7.1.6",
+      "@vue/server-renderer": ">=3.5.42",
+      "vue": ">=3.5.42"
+    }
+  },
+  "auditExceptions": {
+    "GHSA-vfj7-8cjw-p6xm": {
+      "reason": "braces stack-exhaustion DoS (high). NO UPSTREAM PATCH EXISTS - GitHub reports patched_versions '<0.0.0' and 3.0.3 is the latest release, so this cannot be cleared by a version move. Reached only as a transitive of micromatch, via @changesets/config, @changesets/git and fast-glob: build and release tooling that expands repo-authored glob patterns, never untrusted input, so the deeply-nested-pattern DoS has no attacker-controlled source in this repo. Re-evaluate when micromatch ships a braces-free major or upstream patches the 3.x line.",
+      "expires": "2027-04-16"
+    },
+    "GHSA-hp3w-g68c-fv3c": {
+      "reason": "sprintf-js unbounded-precision DoS (moderate). NO UPSTREAM PATCH EXISTS - patched_versions is '<0.0.0' and the advisory covers <=1.1.3, which is the latest release. Reached only via argparse@1.0.10 beneath js-yaml@3, i.e. dev and build tooling parsing repo-authored YAML; the format strings are library-internal and not attacker-supplied. The real remedy is eliminating the js-yaml@3 branch entirely (argparse 2.x drops the sprintf-js dependency), which is a structural dependency change rather than a bump and is tracked separately.",
+      "expires": "2027-04-16"
     }
   },
   "engines": {
