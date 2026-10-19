@@ -33,6 +33,9 @@ export type {
   EmergenceConfidence,
   EmergentConstraintSuggestion,
   EmergenceResult,
+  ArchLayerRule,
+  ArchForbiddenImportRule,
+  ArchDependencyRules,
 } from './types';
 
 export {
@@ -78,6 +81,9 @@ export type {
 export { diff } from './diff';
 export { resolveThresholds } from './config';
 export { isExcluded, resolveExcludePatterns } from './exclude';
+
+export { withDependencyRules, readDependencyRules } from './dependency-rules';
+export type { DependencyRuleSource } from './dependency-rules';
 
 export { archMatchers, architecture, archModule } from './matchers';
 export type { ArchHandle, ArchitectureOptions } from './matchers';

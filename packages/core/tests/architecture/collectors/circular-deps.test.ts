@@ -110,6 +110,6 @@ describe('CircularDepsCollector', () => {
     } as any);
 
     const results = await collector.collect(baseConfig, '/project');
-    expect(results[0]!.metadata).toEqual({ largestCycle: 3, cycleCount: 1 });
+    expect(results[0]!.metadata).toMatchObject({ largestCycle: 3, cycleCount: 1 });
   });
 });

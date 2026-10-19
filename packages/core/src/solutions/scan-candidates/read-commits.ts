@@ -1,6 +1,6 @@
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
-import { normalizeSince } from './git-scan';
+import { normalizeSince } from './normalize-since';
 
 const execFileAsync = promisify(execFile);
 
