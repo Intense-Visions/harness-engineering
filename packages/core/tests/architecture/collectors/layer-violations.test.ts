@@ -33,6 +33,13 @@ describe('LayerViolationCollector', () => {
     expect(results).toHaveLength(1);
     expect(results[0]!.value).toBe(0);
     expect(results[0]!.violations).toHaveLength(0);
+    // `value: 0` over `baseConfig` (which declares no `layers`) and an empty
+    // graph is the textbook structural-zero signature — the #2235 defect
+    // itself, where this collector reported a clean 0 having resolved no file
+    // to any layer. Asserting the denominator is what lets this test tell
+    // "clean" apart from "measured nothing"; without it, it passes against the
+    // very bug it is supposed to cover.
+    expect(results[0]!.metadata).toEqual({ layersConfigured: 0, modulesAnalyzed: 0 });
   });
 
   it('returns one violation per WRONG_LAYER dependency violation', async () => {

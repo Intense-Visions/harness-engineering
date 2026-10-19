@@ -77,9 +77,22 @@ vi.mock('../../src/architecture', () => ({
       baselinePath: '.harness/arch/baselines.json',
       thresholds: {},
       modules: {},
+      excludePatterns: [],
     }),
   },
   runAll: vi.fn().mockResolvedValue([]),
+  // The arch check injects the top-level `layers` / `forbiddenImports` blocks
+  // into the collector config (#2235); these mirror the real implementations.
+  withDependencyRules: vi.fn((archConfig, source) => ({
+    ...archConfig,
+    layers: source.layers ?? [],
+    forbiddenImports: source.forbiddenImports ?? [],
+  })),
+  readDependencyRules: vi.fn((config) => ({
+    rootDir: config.rootDir,
+    layers: Array.isArray(config.layers) ? config.layers : [],
+    forbiddenImports: Array.isArray(config.forbiddenImports) ? config.forbiddenImports : [],
+  })),
 }));
 
 import { runCIChecks } from '../../src/ci/check-orchestrator';

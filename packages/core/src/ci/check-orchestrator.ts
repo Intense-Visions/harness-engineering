@@ -32,7 +32,12 @@ import { SecurityScanner } from '../security/scanner';
 import { parseSecurityConfig } from '../security/config';
 import { SECURITY_SCAN_GLOB } from '../security/scan-targets';
 import { TypeScriptParser } from '../shared/parsers';
-import { ArchConfigSchema, runAll as runArchCollectors } from '../architecture';
+import {
+  ArchConfigSchema,
+  runAll as runArchCollectors,
+  withDependencyRules,
+  readDependencyRules,
+} from '../architecture';
 import { GraphStore, queryTraceability, resolveGraphDir } from '@harness-engineering/graph';
 import {
   parseVerdictCacheConfig,
@@ -497,8 +502,24 @@ async function runArchCheck(
 ): Promise<CICheckIssue[]> {
   const issues: CICheckIssue[] = [];
   const rawArchConfig = config.architecture as Record<string, unknown> | undefined;
-  const archConfig = ArchConfigSchema.parse(rawArchConfig ?? {});
-  if (!archConfig.enabled) return issues;
+  const parsedArchConfig = ArchConfigSchema.parse(rawArchConfig ?? {});
+  if (!parsedArchConfig.enabled) return issues;
+
+  // `ArchConfigSchema` deliberately does not carry `layers` / `forbiddenImports`
+  // — they live in the top-level config blocks `check-deps` and the ESLint plugin
+  // read — so they have to be injected here exactly as `check-arch` injects them
+  // (#2235). Without this the layer-violation collector sees `layers: undefined`
+  // and the forbidden-import collector sees no rules, both record 0, and this
+  // gate (the one `.husky/pre-commit` runs) writes structural zeros into the same
+  // `baselines.json` that `harness check-arch` fills with real values.
+  const archConfig = withDependencyRules(
+    {
+      ...parsedArchConfig,
+      excludePatterns: [...parsedArchConfig.excludePatterns, ...analysisExclude(config)],
+    },
+    readDependencyRules(config),
+    projectRoot
+  );
 
   const results = await runArchCollectors(archConfig, projectRoot);
 
