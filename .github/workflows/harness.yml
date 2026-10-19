@@ -46,4 +46,11 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm build
       - name: Run harness checks
-        run: node packages/cli/dist/bin/harness.js ci check --json --skip arch
+        # `traceability` is skipped explicitly because this job never builds a
+        # knowledge graph (`.harness/graph` is not committed and there is no
+        # `harness scan` step), so the gate has nothing to evaluate here. Before
+        # #2071 it reported a silent `pass` over that; now an unrunnable check
+        # abstains and fails the run, so the skip has to be stated out loud.
+        # This is the documented escape hatch, not a workaround — if the gate is
+        # ever to be enforced in CI, add a `harness scan` step and drop it here.
+        run: node packages/cli/dist/bin/harness.js ci check --json --skip arch,traceability

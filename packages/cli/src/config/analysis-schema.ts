@@ -142,6 +142,18 @@ export function loadDesignTokenPath(projectPath: string): string | undefined {
  * node_modules/skip-dir defaults (issue #1188).
  */
 export const DepsConfigSchema = z.object({
+  /**
+   * Whether the layer-boundary gate applies to this project at all.
+   *
+   * Every sibling gate already has this opt-out (`security.enabled`,
+   * `architecture.enabled`, `traceability.enabled`, `phaseGates.enabled`), and
+   * `deps` was the only one without — which left no way to say "this stack has
+   * no TypeScript dependency graph". Since #2071 an unconfigured `layers` set
+   * abstains and fails the run, so a Go or Rust project had no honest way to be
+   * green: `false` here is a deliberate not-applicable, distinct from a gate
+   * that wanted to run and could not.
+   */
+  enabled: z.boolean().default(true),
   /** Extra glob patterns (minimatch) excluded from check-deps discovery. */
   exclude: z.array(z.string().min(1)).default([]),
   /**

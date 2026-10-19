@@ -87,6 +87,15 @@ export interface CICheckResult {
   /** Execution time in milliseconds */
   durationMs: number;
   /**
+   * Why this check abstained — set only when the check *wanted* to run and
+   * could not: it crashed, or it had nothing configured to evaluate (#2071).
+   * A check the operator skipped deliberately (`--skip`) also carries
+   * `status: 'skip'` but leaves this field absent, which is what separates an
+   * acknowledged non-run from a silent one. An abstention is never counted as
+   * passing and never exits 0.
+   */
+  skipReason?: string;
+  /**
    * Continuous distance-to-threshold measurements this check took, emitted
    * alongside the binary `status` (Taguchi continuous-loss, issue #1673). Present
    * only for thresholded checks that expose a numeric metric and its target;
@@ -108,8 +117,14 @@ export interface CICheckSummary {
   failed: number;
   /** Number of checks with warnings */
   warnings: number;
-  /** Number of skipped checks */
+  /** Number of skipped checks — operator-requested skips and abstentions alike */
   skipped: number;
+  /**
+   * Of those skipped, how many *abstained*: the check could not run, rather
+   * than the operator having asked for it to be skipped (#2071). A non-zero
+   * count means the gate did not fully evaluate, so the run cannot exit 0.
+   */
+  abstained: number;
 }
 
 /**

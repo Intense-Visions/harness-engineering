@@ -23,6 +23,20 @@
     "excludePatterns": ["**/node_modules/**", "**/*.test.ts"],
     "autoFix": false
   },
+  "performance": {
+    "complexity": {
+      "enabled": true,
+      "thresholds": {
+        "cyclomaticComplexity": { "error": 12, "warn": 8 }
+      }
+    },
+    "coupling": {
+      "enabled": true,
+      "thresholds": {
+        "fanOut": { "warn": 10 }
+      }
+    }
+  },
   "template": {
     "level": "advanced",
     "version": 1
