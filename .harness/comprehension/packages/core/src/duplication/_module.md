@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/src/duplication'
-sourceHash: '9e1cf58e26d97cd194ba3a5044fab81b1a629fb8e5d253e3268c396ddb9d52c9'
+sourceHash: '16d51c66a61630570387e2ade77a328ffd602feb92d21094c0a9917653b5b96a'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -16,6 +16,7 @@ export DEFAULT_DUPLICATION_CONFIG
 export DupUnit
 export IDENTIFIER_PLACEHOLDER
 export LITERAL_PLACEHOLDER
+export buildCloneIndex
 export extractUnits
 export fingerprintFile
 export fingerprintStream
@@ -27,7 +28,9 @@ export resolveDuplicationConfig
 ## Dependency Slice
 
 ```
-import { readFileContent } from '../shared/fs-utils'
+import { EntropyError, createEntropyError } from '../shared/errors'
+import { readFileContent, relativePosix } from '../shared/fs-utils'
+import { Err, Ok, Result } from '../shared/result'
 import { digest, normalize } from './tokens'
 import { CloneUnitKind, extractUnitsImpl } from './units'
 import { TSESTree, parse } from '@typescript-eslint/typescript-estree'

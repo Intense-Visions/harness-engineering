@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/tests/duplication'
-sourceHash: '7df59ec8b8827ab19966e5ba88ee52cbf6af80057c7540f686dd1793c3fb6db8'
+sourceHash: '65fa473c21c0e09256946545676dc21e1976d39cf2cbb647a901ad29a6bb5fed'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -17,7 +17,7 @@ members: ['clone-index.test.ts', 'failure-behavior.test.ts', 'tokens.test.ts', '
 ## Dependency Slice
 
 ```
-import { DEFAULT_DUPLICATION_CONFIG, fingerprintFile, isEligibleFile, resolveDuplicationConfig } from '../../src/duplication/index'
+import { DEFAULT_DUPLICATION_CONFIG, buildCloneIndex, fingerprintFile, isEligibleFile, resolveDuplicationConfig } from '../../src/duplication/index'
 import { fingerprintStream, normalizeTokens } from '../../src/duplication/tokens'
 import { extractUnits } from '../../src/duplication/units'
 import { parse } from '@typescript-eslint/typescript-estree'

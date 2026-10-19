@@ -1,7 +1,11 @@
 import { minimatch } from 'minimatch';
 import { parse } from '@typescript-eslint/typescript-estree';
 import type { TSESTree } from '@typescript-eslint/typescript-estree';
-import { readFileContent } from '../shared/fs-utils';
+import { readFileContent, relativePosix } from '../shared/fs-utils';
+import type { Result } from '../shared/result';
+import { Ok, Err } from '../shared/result';
+import type { EntropyError } from '../shared/errors';
+import { createEntropyError } from '../shared/errors';
 import type { CloneUnitKind } from './units';
 import { extractUnits as extractUnitsImpl } from './units';
 import { normalizeTokens as normalize, fingerprintStream as digest } from './tokens';
@@ -252,4 +256,135 @@ export async function fingerprintFile(
     });
   }
   return { status: 'scanned', units, unitsBelowMinTokens };
+}
+
+/**
+ * Build a Type-1/2 clone index over `files`.
+ *
+ * Single-pass by construction — one parse per file, one digest per unit, one
+ * `Map` grouping pass. There is no member-against-member comparison, so cost
+ * is linear in total tokens, not quadratic in unit count.
+ *
+ * Discovery is the caller's: `files` is a list of absolute paths, so nothing
+ * here assumes any repository layout (success criterion 15). Ineligible paths
+ * (unsupported extension, or matched by `ignorePatterns`) are dropped before
+ * any read and are counted in neither `filesScanned` nor `filesSkipped`.
+ *
+ * The two bars act at different stages, per the amended spec. `minTokens` is a
+ * UNIT-level bar applied before grouping, inside {@link fingerprintFile}: a
+ * sub-threshold unit is never hashed and lands in `unitsBelowMinTokens`, so it
+ * can never form or join a class. `minInstances` is a CLASS-level bar applied
+ * after grouping: a group that formed with at least two members but fewer than
+ * `minInstances` is dropped and counted in `classesSuppressed`. A singleton
+ * group is not duplication at all and is counted nowhere.
+ *
+ * @param files - Absolute file paths, e.g. the output of `findFiles`.
+ * @param options - Partial {@link DuplicationConfig} plus an optional
+ *   `rootDir` (default `process.cwd()`) that member paths are relative to.
+ */
+export async function buildCloneIndex(
+  files: readonly string[],
+  options: BuildCloneIndexOptions = {}
+): Promise<Result<CloneIndex, EntropyError>> {
+  const { rootDir = process.cwd(), ...overrides } = options;
+  const config = resolveDuplicationConfig(overrides);
+
+  const eligible: Array<{ abs: string; rel: string }> = [];
+  for (const abs of files) {
+    const rel = relativePosix(rootDir, abs);
+    if (isEligibleFile(rel, config.ignorePatterns)) eligible.push({ abs, rel });
+  }
+
+  if (eligible.length === 0) {
+    return Err(
+      createEntropyError(
+        'INVALID_CONFIG',
+        `Refusing to report a pass over zero source files: duplication discovery resolved ${files.length} candidate path(s) and 0 eligible TS/JS source file(s) under ${rootDir}.`,
+        { reason: 'zero-files-discovered', file: rootDir },
+        [
+          'Check that EntropyConfig.include matches real source paths',
+          'Check that EntropyConfig.exclude / duplication.ignorePatterns are not excluding everything',
+          'Confirm the project contains .ts/.tsx/.js/.jsx/.mjs/.cjs sources',
+        ]
+      )
+    );
+  }
+
+  let filesScanned = 0;
+  let filesSkipped = 0;
+  let unitsFingerprinted = 0;
+  let unitsBelowMinTokens = 0;
+  const groups = new Map<string, FingerprintedUnit[]>();
+
+  for (const { abs, rel } of eligible) {
+    const outcome = await fingerprintFile(abs, rel, config.minTokens);
+    if (outcome.status === 'skipped') {
+      filesSkipped += 1;
+      continue;
+    }
+    filesScanned += 1;
+    unitsBelowMinTokens += outcome.unitsBelowMinTokens;
+    for (const unit of outcome.units) {
+      unitsFingerprinted += 1;
+      const bucket = groups.get(unit.fingerprint);
+      if (bucket === undefined) groups.set(unit.fingerprint, [unit]);
+      else bucket.push(unit);
+    }
+  }
+
+  // Every unit that reached grouping already cleared minTokens, so the only
+  // remaining bar is minInstances. A group of >= 2 members that fails it is
+  // suppressed; a singleton group is not duplication and is counted nowhere.
+  const qualifying: CloneClass[] = [];
+  let classesSuppressed = 0;
+  for (const [fingerprint, units] of groups) {
+    if (units.length < 2) continue;
+    if (units.length < config.minInstances) {
+      classesSuppressed += 1;
+      continue;
+    }
+    const tokenCount = units[0]!.tokenCount;
+    const members = units
+      .map((u) => u.member)
+      .sort((a, b) => a.file.localeCompare(b.file) || a.startLine - b.startLine);
+    qualifying.push({
+      fingerprint,
+      tokenCount,
+      members,
+      rank: tokenCount * members.length,
+      // Phase 1 always 'duplicate'; the partial-extraction derivation is Phase 4.
+      signal: 'duplicate',
+    });
+  }
+
+  // Rank-descending, with fingerprint as a deterministic tiebreak so the
+  // reported order never depends on filesystem or input ordering.
+  qualifying.sort((a, b) => b.rank - a.rank || a.fingerprint.localeCompare(b.fingerprint));
+  const classes = qualifying.slice(0, config.maxClasses);
+  const classesTruncated = qualifying.length - classes.length;
+
+  // byMember: first writer wins, iterating rank-descending, so an ambiguous
+  // `${file}:${startLine}` key (a function and a nested arrow can share a
+  // line) resolves deterministically to the highest-ranked owning class.
+  const byMember = new Map<string, CloneClass>();
+  for (const cls of classes) {
+    for (const member of cls.members) {
+      const key = `${member.file}:${member.startLine}`;
+      if (!byMember.has(key)) byMember.set(key, cls);
+    }
+  }
+
+  return Ok({
+    classes,
+    byMember,
+    stats: {
+      filesScanned,
+      filesSkipped,
+      unitsFingerprinted,
+      unitsBelowMinTokens,
+      classesReported: classes.length,
+      classesSuppressed,
+      classesTruncated,
+    },
+  });
 }
