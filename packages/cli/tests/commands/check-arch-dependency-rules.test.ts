@@ -15,7 +15,7 @@ import {
   abstainedMeasurements,
   classifyMeasurement,
 } from '../../src/commands/check-arch';
-import type { ArchMeasurement } from '../../src/commands/check-arch';
+import type { ArchMeasurement, ConfiguredCategories } from '../../src/commands/check-arch';
 import { withDependencyRules } from '../../src/config/arch-dependency-rules';
 import { ArchConfigSchema } from '@harness-engineering/core';
 
@@ -163,6 +163,11 @@ describe('abstainedMeasurements (issue #2235)', () => {
     };
   }
 
+  /** What the PROJECT declared, defaulting each category to "not declared". */
+  function declared(over: Partial<ConfiguredCategories>): ConfiguredCategories {
+    return { layers: false, forbiddenImports: false, ...over };
+  }
+
   it('flags a collector that abstained because the parser was unavailable', () => {
     // `layer-violations` passes `fallbackBehavior: 'skip'`, so an unhealthy
     // parser yields value 0 with `skipped` set. That 0 must not read as clean.
@@ -185,15 +190,42 @@ describe('abstainedMeasurements (issue #2235)', () => {
   });
 
   it('flags configured rules that analysed nothing — the rules exist, so a 0 is a malfunction', () => {
-    const flagged = abstainedMeasurements([
-      measurement({
-        category: 'forbidden-imports',
-        metadata: { rulesConfigured: 3, filesAnalyzed: 0 },
-      }),
-    ]);
+    const flagged = abstainedMeasurements(
+      [
+        measurement({
+          category: 'forbidden-imports',
+          metadata: { rulesConfigured: 3, filesAnalyzed: 0 },
+        }),
+      ],
+      declared({ forbiddenImports: true })
+    );
 
     expect(flagged).toHaveLength(1);
-    expect(classifyMeasurement(flagged[0]!)).toBe('abstained');
+    expect(classifyMeasurement(flagged[0]!, declared({ forbiddenImports: true }))).toBe(
+      'abstained'
+    );
+  });
+
+  it('flags rules the project declared that never reached the collector', () => {
+    // The finding this parameter exists for. `layersConfigured: 0` from the
+    // collector cannot distinguish "the project configured no layers" from
+    // "the project configured layers that never got injected" — and the second
+    // is verbatim the #2235 defect: 4,000 modules parsed, zero layers applied,
+    // `layer-violations: 0` recorded as clean. Sourced from the config, it is a
+    // malfunction and warns.
+    const dropped = measurement({ metadata: { layersConfigured: 0, modulesAnalyzed: 4000 } });
+
+    expect(classifyMeasurement(dropped, declared({ layers: true }))).toBe('abstained');
+    expect(abstainedMeasurements([dropped], declared({ layers: true }))).toHaveLength(1);
+  });
+
+  it('falls back to the reported denominator when the config is not available', () => {
+    // An external consumer classifying measurements it did not produce has only
+    // the collector's own denominator to go on. Documented as best-effort:
+    // `runCheckArch` always supersedes it by passing `configuredCategories`.
+    const dropped = measurement({ metadata: { layersConfigured: 0, modulesAnalyzed: 4000 } });
+
+    expect(classifyMeasurement(dropped)).toBe('not-applicable');
   });
 
   it('flags a run that globbed files but extracted zero functions', () => {
@@ -209,7 +241,7 @@ describe('abstainedMeasurements (issue #2235)', () => {
     expect(flagged).toHaveLength(1);
   });
 
-  it('does NOT flag a category the project never configured', () => {
+  it('does NOT flag a category the project never declared', () => {
     // `layers` and `forbiddenImports` are both optional, so having neither is a
     // policy choice with no action available. Warning here on every run would
     // make "your parser broke" look identical to "you did not configure
@@ -221,53 +253,116 @@ describe('abstainedMeasurements (issue #2235)', () => {
         metadata: { rulesConfigured: 0, filesAnalyzed: 0 },
       }),
     ];
+    const none = declared({});
 
-    expect(abstainedMeasurements(notApplicable)).toEqual([]);
-    expect(notApplicable.map(classifyMeasurement)).toEqual(['not-applicable', 'not-applicable']);
+    expect(abstainedMeasurements(notApplicable, none)).toEqual([]);
+    expect(notApplicable.map((m) => classifyMeasurement(m, none))).toEqual([
+      'not-applicable',
+      'not-applicable',
+    ]);
   });
 
-  it('treats an unconfigured category as not-applicable even when the parser also failed', () => {
-    // The parser-health signal is not lost: `circular-deps` and `complexity`
-    // carry no config denominator, so they still abstain loudly.
+  it('treats an undeclared category as not-applicable even when the parser also failed', () => {
     expect(
       classifyMeasurement(
         measurement({
           metadata: { layersConfigured: 0, modulesAnalyzed: 0, skipped: 'Parser unavailable' },
-        })
+        }),
+        declared({})
       )
     ).toBe('not-applicable');
+  });
+
+  it('keeps an `error` loud on a category the project DID declare', () => {
+    // Pins the ordering. Today every error path emits metadata containing only
+    // `{error}`, so the not-applicable check cannot trip on it — but attaching a
+    // denominator you already know to an error return is a natural refactor, and
+    // `{layersConfigured: 0, error}` must not go quiet on a project that
+    // declared layers.
     expect(
       classifyMeasurement(
-        measurement({ category: 'circular-deps', metadata: { skipped: 'Parser unavailable' } })
+        measurement({
+          metadata: { layersConfigured: 0, error: 'Failed to validate dependencies' },
+        }),
+        declared({ layers: true })
+      )
+    ).toBe('abstained');
+  });
+
+  it('never silences a dead parser: the three ungated collectors still abstain', () => {
+    // `circular-deps`, `complexity` and `coupling` carry no config gate at all,
+    // so no `ConfiguredCategories` value can quiet them. Uses each collector's
+    // REAL metadata shape — note `metadata.skipped` is set only by
+    // `layer-violations`, so asserting it on circular-deps would prove nothing.
+    const none = declared({});
+
+    expect(
+      classifyMeasurement(
+        measurement({
+          category: 'circular-deps',
+          metadata: { error: 'Failed to build dependency graph' },
+        }),
+        none
+      )
+    ).toBe('abstained');
+    expect(
+      classifyMeasurement(
+        measurement({ category: 'circular-deps', metadata: { filesAnalyzed: 0, edgeCount: 0 } }),
+        none
+      )
+    ).toBe('abstained');
+    expect(
+      classifyMeasurement(
+        measurement({
+          category: 'complexity',
+          metadata: { filesAnalyzed: 0, functionsAnalyzed: 0 },
+        }),
+        none
+      )
+    ).toBe('abstained');
+    expect(
+      classifyMeasurement(
+        measurement({ category: 'coupling', metadata: { filesAnalyzed: 0 } }),
+        none
       )
     ).toBe('abstained');
   });
 
   it('does NOT flag a genuine clean result', () => {
     expect(
-      abstainedMeasurements([
-        measurement({ metadata: { layersConfigured: 2, modulesAnalyzed: 14 } }),
-        measurement({
-          category: 'circular-deps',
-          metadata: { filesAnalyzed: 14, edgeCount: 9, cycleCount: 0, largestCycle: 0 },
-        }),
-      ])
+      abstainedMeasurements(
+        [
+          measurement({ metadata: { layersConfigured: 2, modulesAnalyzed: 14 } }),
+          measurement({
+            category: 'circular-deps',
+            metadata: { filesAnalyzed: 14, edgeCount: 9, cycleCount: 0, largestCycle: 0 },
+          }),
+        ],
+        declared({ layers: true })
+      )
     ).toEqual([]);
   });
 });
 
 describe('abstention reporting over a real run (issue #2235)', () => {
-  async function measurementsFor(root: string): Promise<ArchMeasurement[]> {
+  async function runFor(
+    root: string
+  ): Promise<{ measurements: ArchMeasurement[]; categories: ConfiguredCategories | undefined }> {
     const result = await runCheckArch({
       cwd: root,
       configPath: path.join(root, 'harness.config.json'),
       updateBaseline: true,
     });
     expect(result.ok).toBe(true);
-    return result.ok ? (result.value.measurements ?? []) : [];
+    return result.ok
+      ? {
+          measurements: result.value.measurements ?? [],
+          categories: result.value.configuredCategories,
+        }
+      : { measurements: [], categories: undefined };
   }
 
-  it('stays silent about layers and forbidden imports when neither is configured', async () => {
+  it('stays silent about layers and forbidden imports when neither is declared', async () => {
     // The common case: a project with `architecture.enabled` and no layered
     // architecture. Both blocks are `.optional()` in the schema, so this is
     // valid — and there is no action the adopter could take in response to a
@@ -277,31 +372,38 @@ describe('abstention reporting over a real run (issue #2235)', () => {
       { version: 1, architecture: { enabled: true } }
     );
 
-    const measurements = await measurementsFor(root);
+    const { measurements, categories } = await runFor(root);
     const byCategory = new Map(measurements.map((m) => [m.category, m]));
 
+    // `runCheckArch` reads this from the project config at the injection point.
+    expect(categories).toEqual({ layers: false, forbiddenImports: false });
     expect(byCategory.get('layer-violations')!.metadata).toMatchObject({ layersConfigured: 0 });
     expect(byCategory.get('forbidden-imports')!.metadata).toMatchObject({ rulesConfigured: 0 });
-    expect(classifyMeasurement(byCategory.get('layer-violations')!)).toBe('not-applicable');
-    expect(classifyMeasurement(byCategory.get('forbidden-imports')!)).toBe('not-applicable');
+    expect(classifyMeasurement(byCategory.get('layer-violations')!, categories)).toBe(
+      'not-applicable'
+    );
+    expect(classifyMeasurement(byCategory.get('forbidden-imports')!, categories)).toBe(
+      'not-applicable'
+    );
 
-    const flaggedCategories = abstainedMeasurements(measurements).map((m) => m.category);
-    expect(flaggedCategories).not.toContain('layer-violations');
-    expect(flaggedCategories).not.toContain('forbidden-imports');
+    const flagged = abstainedMeasurements(measurements, categories).map((m) => m.category);
+    expect(flagged).not.toContain('layer-violations');
+    expect(flagged).not.toContain('forbidden-imports');
   });
 
-  it('still abstains when layers ARE configured and nothing was analysed', async () => {
+  it('still abstains when layers ARE declared and nothing was analysed', async () => {
     // Same zero `modulesAnalyzed`, but the rules exist — so the 0 is a
     // malfunction and must keep warning. This is the half of the distinction
-    // that must not regress while the unconfigured case goes quiet.
+    // that must not regress while the undeclared case goes quiet.
     const root = fixture({ 'README.md': '# no source\n' }, projectConfig);
 
-    const measurements = await measurementsFor(root);
+    const { measurements, categories } = await runFor(root);
     const layers = measurements.find((m) => m.category === 'layer-violations')!;
 
+    expect(categories).toEqual({ layers: true, forbiddenImports: true });
     expect(layers.metadata).toMatchObject({ layersConfigured: 2, modulesAnalyzed: 0 });
-    expect(classifyMeasurement(layers)).toBe('abstained');
-    expect(abstainedMeasurements(measurements).map((m) => m.category)).toContain(
+    expect(classifyMeasurement(layers, categories)).toBe('abstained');
+    expect(abstainedMeasurements(measurements, categories).map((m) => m.category)).toContain(
       'layer-violations'
     );
   });

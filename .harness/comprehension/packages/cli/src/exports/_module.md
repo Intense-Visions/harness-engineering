@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/exports'
-sourceHash: '394a70e5285810352c0cb02718bfb84046329d16c10e44fc764f5c0cfa854564'
+sourceHash: '8d308cb09bab08ea7be3242ab9435a65ff5294a9b5f0f350915d43f55d7f9d77'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -18,6 +18,7 @@ export ArchMeasurement
 export CheckArchResult
 export CommandExecutor
 export CommandStep
+export ConfiguredCategories
 export CreateSkillOptions
 export DEFAULT_TOOLS
 export GEMINI_TOOL_MAP

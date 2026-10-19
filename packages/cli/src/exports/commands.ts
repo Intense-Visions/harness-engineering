@@ -18,7 +18,11 @@ export { runImpactPreview } from '../commands/impact-preview';
  * Architecture assertion checks.
  */
 export { runCheckArch } from '../commands/check-arch';
-export type { CheckArchResult, ArchMeasurement } from '../commands/check-arch';
+export type {
+  CheckArchResult,
+  ArchMeasurement,
+  ConfiguredCategories,
+} from '../commands/check-arch';
 
 /**
  * Architecture snapshot capture (timeline).
