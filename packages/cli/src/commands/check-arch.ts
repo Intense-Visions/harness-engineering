@@ -1,5 +1,6 @@
 import { Command } from 'commander';
 import { loadAnalysisExclude } from '../config/analysis-schema.js';
+import { withDependencyRules } from '../config/arch-dependency-rules';
 import type { Result } from '@harness-engineering/core';
 import {
   Ok,
@@ -48,6 +49,32 @@ interface CheckArchOptions {
   reason?: string;
 }
 
+/**
+ * What one collector actually measured, carried through to `--json` so a 0 can
+ * be told apart from an abstention (issue #2235).
+ *
+ * `value` alone is ambiguous: `layer-violations: 0` is a clean result when
+ * `layersConfigured > 0` and `modulesAnalyzed > 0`; an abstention when
+ * `modulesAnalyzed` is 0 despite configured layers, when `skipped` is set (the
+ * parser was unavailable and the collector fell back), or when `error` is set
+ * (the collector threw and `runAll` substituted a zero); and merely *not
+ * applicable* when the project declared no `layers` at all, because `layers` is
+ * optional and a project without one has nothing to measure.
+ * `classifyMeasurement` draws that three-way distinction — taking "did the
+ * project declare this?" from `ConfiguredCategories` (the config) rather than
+ * from `layersConfigured` (what the collector received), so configured rules
+ * that never reached a collector stay loud. `baselines.json` and the arch
+ * timeline store only `value` + violation IDs, so this is the surface those
+ * denominators are observable on.
+ */
+export interface ArchMeasurement {
+  category: ArchMetricCategory;
+  scope: string;
+  value: number;
+  violationCount: number;
+  metadata?: Record<string, unknown> | undefined;
+}
+
 export interface CheckArchResult {
   passed: boolean;
   mode: 'baseline' | 'threshold-only';
@@ -62,8 +89,217 @@ export interface CheckArchResult {
     delta: number;
   }>;
   thresholdViolations: Violation[];
+  /**
+   * Per-collector denominators and abstention markers; see `ArchMeasurement`.
+   * Optional so that adding it stays purely additive for external consumers
+   * that construct a `CheckArchResult`. `runCheckArch` always populates it.
+   */
+  measurements?: ArchMeasurement[];
+  /**
+   * Which rule-driven categories the project declared, read from the project
+   * config — the authoritative answer to "is this category configured?" that a
+   * collector's own denominator cannot give. Optional for the same additivity
+   * reason; `runCheckArch` always populates it.
+   */
+  configuredCategories?: ConfiguredCategories;
   baselineUpdated?: boolean;
   warning?: string;
+}
+
+/**
+ * Project each collector result down to its value plus the denominators it
+ * recorded. Without this the `metadata` every collector populates is read by
+ * exactly one place in the repo (`architecture/matchers.ts`, for module-size's
+ * `fileCount`) and is dropped by both the baseline and the timeline writers, so
+ * "measured nothing" would be indistinguishable from "0 violations" in every
+ * user-visible output.
+ */
+function summarizeMeasurements(results: MetricResult[]): ArchMeasurement[] {
+  return results.map((r) => ({
+    category: r.category,
+    scope: r.scope,
+    value: r.value,
+    violationCount: r.violations.length,
+    ...(r.metadata ? { metadata: r.metadata } : {}),
+  }));
+}
+
+/**
+ * Which rule-driven categories the *project* declared, read from the project
+ * config rather than from what a collector reported receiving.
+ *
+ * This distinction is the whole point. A collector's own `layersConfigured: 0`
+ * cannot tell "the project configured no layers" apart from "the project
+ * configured layers that never reached the collector" — and the second is
+ * exactly the #2235 defect this reporting exists to catch. Sourcing the answer
+ * from the config at the injection point makes the surface correct by
+ * construction instead of correct by accident of the current validation: a
+ * future `runCheckArch`-adjacent call site that forgets `withDependencyRules`
+ * then *warns* rather than going quiet.
+ */
+export interface ConfiguredCategories {
+  /** The project declared at least one entry in the top-level `layers` block. */
+  layers: boolean;
+  /** The project declared at least one top-level `forbiddenImports` rule. */
+  forbiddenImports: boolean;
+}
+
+/**
+ * The config denominator each rule-driven category reports, paired with the
+ * `ConfiguredCategories` flag that is authoritative for it. Categories absent
+ * from this map have no config gate — they always apply.
+ */
+const CONFIG_GATED_CATEGORIES = {
+  'layer-violations': { denominator: 'layersConfigured', declared: 'layers' },
+  'forbidden-imports': { denominator: 'rulesConfigured', declared: 'forbiddenImports' },
+} as const satisfies Record<string, { denominator: string; declared: keyof ConfiguredCategories }>;
+
+/**
+ * What the config gate says about a rule-driven category.
+ *
+ * - `not-applicable` — the project declared no rules here. Silent.
+ * - `rules-not-received` — the project DID declare rules, yet the collector
+ *   reports having received none. That is the #2235 defect itself (rules
+ *   configured but never injected), so it is an abstention however many modules
+ *   were parsed.
+ * - `pass` — no config gate for this category, or the rules arrived.
+ */
+type ConfigGateVerdict = 'not-applicable' | 'rules-not-received' | 'pass';
+
+/**
+ * Compare what the project *declared* against what the collector *received*.
+ *
+ * With `declared` in hand the answer comes from the project config, so rules
+ * that never reached the collector stay loud. Without it — an external consumer
+ * classifying measurements it did not produce — fall back to the collector's own
+ * zero config denominator, which is the only signal available and is what
+ * `runCheckArch` always supersedes.
+ */
+function configGate(
+  category: string,
+  meta: Record<string, unknown>,
+  declared: ConfiguredCategories | undefined
+): ConfigGateVerdict {
+  const gate = (
+    CONFIG_GATED_CATEGORIES as Record<
+      string,
+      { denominator: string; declared: keyof ConfiguredCategories }
+    >
+  )[category];
+  if (!gate) return 'pass';
+  const reported = meta[gate.denominator];
+  const receivedNone = typeof reported === 'number' && reported === 0;
+  if (!declared) return receivedNone ? 'not-applicable' : 'pass';
+  if (!declared[gate.declared]) return 'not-applicable';
+  return receivedNone ? 'rules-not-received' : 'pass';
+}
+
+/**
+ * Denominators that record how much work the collector actually *did*. A 0 here
+ * while the category is configured is a malfunction — the rules exist, yet
+ * nothing was analysed against them.
+ */
+const WORK_DENOMINATORS = [
+  'modulesAnalyzed',
+  'filesAnalyzed',
+  'edgeCount',
+  'functionsAnalyzed',
+] as const;
+
+/**
+ * Why a measurement's `value` is what it is.
+ *
+ * - `measured` — a real denominator backed the number; a 0 is a clean result.
+ * - `not-applicable` — the category is not configured at all, so there was
+ *   nothing to measure and nothing to fix. Silent.
+ * - `abstained` — the collector could not run, or ran against configured rules
+ *   and analysed nothing. A 0 here must not read as clean.
+ */
+export type MeasurementStatus = 'measured' | 'not-applicable' | 'abstained';
+
+/**
+ * Separate *not applicable* from *could not run*. Both yield `value: 0`, but
+ * only the second is actionable, and warning about the first on every run
+ * dilutes the signal this reporting exists to add: "your parser broke" must not
+ * look identical to "you did not configure layers" (#2235).
+ */
+export function classifyMeasurement(
+  m: ArchMeasurement,
+  declared?: ConfiguredCategories
+): MeasurementStatus {
+  const meta = m.metadata;
+  if (!meta) return 'measured';
+  // Checked before `skipped`/`error` and before the work denominators: a
+  // category the project does not use analysed nothing by definition, and a
+  // collector failure inside it is not actionable either. The parser-health
+  // signal is not lost — `circular-deps`, `complexity` and `coupling` carry no
+  // config gate at all, so a dead parser still abstains loudly on three
+  // categories.
+  const gate = configGate(m.category, meta, declared);
+  if (gate === 'not-applicable') return 'not-applicable';
+  // ORDERING IS LOAD-BEARING — do not move this below the work-denominator
+  // check. Declared rules the collector never received is the #2235 defect
+  // itself, and in that case `modulesAnalyzed` is *large*, not zero: the
+  // collector happily parsed the whole repo and applied no rules to it. So the
+  // work denominators find nothing wrong and the measurement would classify
+  // `measured` — a silent structural zero on the very surface built to catch
+  // it. Sourcing the config answer correctly is necessary but NOT sufficient;
+  // this ordering is the other half. Covered by "flags rules the project
+  // declared that never reached the collector" in
+  // `check-arch-dependency-rules.test.ts`.
+  if (gate === 'rules-not-received') return 'abstained';
+  if (meta.skipped !== undefined || meta.error !== undefined) return 'abstained';
+  const analysedNothing = WORK_DENOMINATORS.some(
+    (key) => typeof meta[key] === 'number' && meta[key] === 0
+  );
+  return analysedNothing ? 'abstained' : 'measured';
+}
+
+/**
+ * The measurements worth warning about: the collector abstained (parser
+ * unavailable), threw (and `runAll` substituted a 0), or had configured rules
+ * and still analysed nothing. A category the project never declared is
+ * excluded — see `classifyMeasurement`.
+ */
+export function abstainedMeasurements(
+  measurements: ArchMeasurement[],
+  declared?: ConfiguredCategories
+): ArchMeasurement[] {
+  return measurements.filter((m) => classifyMeasurement(m, declared) === 'abstained');
+}
+
+/** Render an unknown metadata value for a log line without risking `[object Object]`. */
+function describe(value: unknown): string {
+  if (typeof value === 'string') return value;
+  if (typeof value === 'number' || typeof value === 'boolean') return String(value);
+  if (value instanceof Error) return value.message;
+  return JSON.stringify(value) ?? 'unknown';
+}
+
+/**
+ * One-line reason an abstained measurement did not measure anything.
+ *
+ * Exported for the same reason as `classifyMeasurement`: this string is the
+ * entire user-visible deliverable of the abstention channel, so it is worth
+ * asserting directly rather than only through the logger.
+ */
+export function abstentionReason(m: ArchMeasurement, declared?: ConfiguredCategories): string {
+  const meta = m.metadata ?? {};
+  // Say "the rules did not reach the collector", never `layersConfigured=0`.
+  // To a project that DID configure layers, the bare denominator reads as "you
+  // did not configure layers" — a wrong answer confidently delivered, and the
+  // exact confusion the not-applicable/rules-not-received split exists to
+  // remove. Undoing that distinction in the one place a human reads it would
+  // make the whole channel self-inconsistent.
+  if (configGate(m.category, meta, declared) === 'rules-not-received') {
+    return 'rules are configured but the collector received none — they did not reach it';
+  }
+  if (meta.error !== undefined) return `collector failed: ${describe(meta.error)}`;
+  if (meta.skipped !== undefined) return `abstained: ${describe(meta.skipped)}`;
+  const zeroed = Object.entries(meta)
+    .filter(([, v]) => typeof v === 'number' && v === 0)
+    .map(([k]) => `${k}=0`);
+  return zeroed.length > 0 ? `nothing to measure (${zeroed.join(', ')})` : 'nothing measured';
 }
 
 function getCommitHash(cwd: string): string {
@@ -137,6 +373,7 @@ function cleanBaselineResult(extra: Partial<CheckArchResult>): CheckArchResult {
     preExisting: [],
     regressions: [],
     thresholdViolations: [],
+    measurements: [],
     ...extra,
   };
 }
@@ -218,6 +455,7 @@ function writeAllowanceUpdate(
   if (filtered.newViolations.length === 0 && filtered.regressions.length === 0) {
     return Ok(
       cleanBaselineResult({
+        measurements: summarizeMeasurements(results),
         baselineUpdated: false,
         warning: 'Arch gate already passes against the base baseline; no allowance needed.',
       })
@@ -237,6 +475,7 @@ function writeAllowanceUpdate(
   );
   return Ok(
     cleanBaselineResult({
+      measurements: summarizeMeasurements(results),
       baselineUpdated: true,
       warning:
         `Wrote arch allowance ${file} ` +
@@ -283,7 +522,9 @@ function wholeSnapshotUpdate(
     }
   }
   manager.update(results, getCommitHash(cwd));
-  return Ok(cleanBaselineResult({ baselineUpdated: true }));
+  return Ok(
+    cleanBaselineResult({ measurements: summarizeMeasurements(results), baselineUpdated: true })
+  );
 }
 
 export async function runCheckArch(
@@ -317,22 +558,43 @@ export async function runCheckArch(
   // not depend on it. Keeps `check-arch` consistent with every other analysis
   // scanner (entropy, ingest, security, doc-coverage), which already honor it.
   const baseArchConfig: ArchConfig = config.architecture ?? ArchConfigSchema.parse({});
-  const archConfig: ArchConfig = {
-    ...baseArchConfig,
-    excludePatterns: [...baseArchConfig.excludePatterns, ...loadAnalysisExclude(cwd)],
+  // The top-level `layers` / `forbiddenImports` rules are injected too, or the
+  // layer-violation and forbidden-import collectors measure nothing (#2235).
+  const archConfig: ArchConfig = withDependencyRules(
+    {
+      ...baseArchConfig,
+      excludePatterns: [...baseArchConfig.excludePatterns, ...loadAnalysisExclude(cwd)],
+    },
+    config,
+    cwd
+  );
+  // Read from `config`, NOT from `archConfig` or from what a collector reports
+  // receiving: this is the record of what the project *declared*, so a future
+  // injection that silently drops the rules reads as a malfunction rather than
+  // as "not configured" (see `ConfiguredCategories`).
+  const configuredCategories: ConfiguredCategories = {
+    layers: (config.layers ?? []).length > 0,
+    forbiddenImports: (config.forbiddenImports ?? []).length > 0,
   };
+  /** Stamp the declared-category record onto every success path out of here. */
+  const withCategories = (
+    r: Result<CheckArchResult, CLIError>
+  ): Result<CheckArchResult, CLIError> => (r.ok ? Ok({ ...r.value, configuredCategories }) : r);
 
   if (!archConfig.enabled) {
-    return Ok({
-      passed: true,
-      mode: 'threshold-only',
-      totalViolations: 0,
-      newViolations: [],
-      resolvedViolations: [],
-      preExisting: [],
-      regressions: [],
-      thresholdViolations: [],
-    });
+    return withCategories(
+      Ok({
+        passed: true,
+        mode: 'threshold-only',
+        totalViolations: 0,
+        newViolations: [],
+        resolvedViolations: [],
+        preExisting: [],
+        regressions: [],
+        thresholdViolations: [],
+        measurements: [],
+      })
+    );
   }
 
   // Guard (issue #594): a module-scoped run produces only a subset of the
@@ -370,7 +632,9 @@ export async function runCheckArch(
     // preserved (the refresh-baselines job is the single writer of the committed snapshot).
     const resolution = resolveArchBaseline(cwd, archConfig.baselinePath, manager);
     if (resolution.source === 'base-ref' && resolution.baseline) {
-      return writeAllowanceUpdate(cwd, archConfig, results, resolution.baseline, options.reason);
+      return withCategories(
+        writeAllowanceUpdate(cwd, archConfig, results, resolution.baseline, options.reason)
+      );
     }
     // Feature-branch SAFETY NET: the base ref was EXPECTED but unreadable (unfetched worktree,
     // shallow clone, or an unreadable base copy) AND this branch already has a committed
@@ -385,10 +649,12 @@ export async function runCheckArch(
       resolution.source === 'working-tree' &&
       resolution.baseline
     ) {
-      return writeAllowanceUpdate(cwd, archConfig, results, resolution.baseline, options.reason);
+      return withCategories(
+        writeAllowanceUpdate(cwd, archConfig, results, resolution.baseline, options.reason)
+      );
     }
     // Base branch / non-git / forced / genuine bootstrap: whole-snapshot (single-writer trunk).
-    return wholeSnapshotUpdate(cwd, archConfig, results, manager, options);
+    return withCategories(wholeSnapshotUpdate(cwd, archConfig, results, manager, options));
   }
 
   // Collect threshold violations from metric results. These are ALWAYS enforced and are
@@ -412,6 +678,8 @@ export async function runCheckArch(
       preExisting: [],
       regressions: [],
       thresholdViolations,
+      measurements: summarizeMeasurements(results),
+      configuredCategories,
       warning:
         'No baseline found. Running in threshold-only mode. Run with --update-baseline to capture current state.',
     });
@@ -442,6 +710,8 @@ export async function runCheckArch(
     preExisting: diffResult.preExisting,
     regressions: diffResult.regressions,
     thresholdViolations,
+    measurements: summarizeMeasurements(results),
+    configuredCategories,
   });
 }
 
@@ -476,6 +746,18 @@ function printArchResult(
   if (mode === OutputMode.JSON) {
     console.log(JSON.stringify(value, null, 2));
     return;
+  }
+  // An abstention reads as a clean 0 in every other output and in baselines.json
+  // (which records only the value), so say it out loud here (#2235). Non-fatal:
+  // a host without a working parser must still be able to run the gate.
+  if (mode !== OutputMode.QUIET) {
+    for (const m of abstainedMeasurements(value.measurements ?? [], value.configuredCategories)) {
+      logger.warn(
+        `${m.category}: reported ${m.value} but measured nothing — ` +
+          `${abstentionReason(m, value.configuredCategories)}. ` +
+          `Treat this as "not measured", not as a clean result.`
+      );
+    }
   }
   if (value.resolvedViolations.length > 0 && mode !== OutputMode.QUIET) {
     logger.success(`${value.resolvedViolations.length} violation(s) resolved since baseline.`);

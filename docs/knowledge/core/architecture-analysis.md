@@ -18,6 +18,8 @@ The architecture module continuously monitors structural health across seven met
 6. **module-size** — File count or LOC exceeding module budgets
 7. **dependency-depth** — Transitive dependency chain length
 
+`layer-violations` and `forbidden-imports` measure against the top-level `layers` and `forbiddenImports` blocks of `harness.config.json`. These are the same rules `check-deps` and the ESLint plugin enforce, and the CLI injects them into `ArchConfig`. With no rules configured, both report 0 and say so in `metadata`: `layersConfigured: 0` for layer-violations and `rulesConfigured: 0` for forbidden-imports. `circular-deps` parses every JS/TS file outside the exclude globs and reports `filesAnalyzed` and `edgeCount`. A 0 over a graph with no edges means nothing was measured, not that the code has no cycles.
+
 ## Baseline Management
 
 The `ArchBaselineManager` captures point-in-time snapshots of all metrics to `.harness/arch/baselines.json`. Each baseline records: commit hash, timestamp, per-category aggregate value, and an allowlist of known violation IDs. New violations fail CI; pre-existing violations from the baseline are allowed.
