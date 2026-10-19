@@ -768,7 +768,13 @@ async function dispatchTool(
   return result;
 }
 
-async function handleReadResource(
+/**
+ * Read one resource, translating a build-skew failure on the way out.
+ *
+ * Exported for its own test: the resource handlers are module-level constants,
+ * so the only way to prove the translation happens at this seam is to call it.
+ */
+export async function handleReadResource(
   uri: string,
   resolvedRoot: string
 ): Promise<{ contents: Array<{ uri: string; text: string; mimeType: string }> }> {
@@ -776,7 +782,28 @@ async function handleReadResource(
   if (!handler) {
     throw new Error(`Unknown resource: ${uri}`);
   }
-  const content = await handler(resolvedRoot);
+  let content: string;
+  try {
+    content = await handler(resolvedRoot);
+  } catch (error) {
+    // The resource seam is the OTHER request entry point into this long-lived
+    // process, and it fails the same way for the same reason: `harness://state`
+    // and the three graph resources reach `@harness-engineering/graph` and
+    // `@harness-engineering/core` through a lazy `import()`, so a CLI upgraded
+    // under a running server leaves them resolving against deleted chunks. The
+    // tool seam below got this translation; without it here, a resource read
+    // still answers with the opaque two-hashed-filenames error.
+    //
+    // Resources have no `isError` envelope — the protocol carries a thrown
+    // error — so the explanation is rethrown as the message rather than
+    // returned. Anything unrecognised is rethrown untouched, same rule as
+    // `dispatchTool`.
+    const staleBuild = describeStaleBuildError(error);
+    if (staleBuild === null) throw error;
+    // `cause` keeps the original specifier-and-chunk error attached, so the
+    // translation adds the explanation without destroying the evidence.
+    throw new Error(staleBuild, { cause: error });
+  }
   const mimeType = RESOURCE_DEFINITIONS.find((r) => r.uri === uri)?.mimeType ?? 'text/plain';
   return { contents: [{ uri, text: content, mimeType }] };
 }
