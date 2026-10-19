@@ -76,4 +76,38 @@ describe('check_dependencies does not report clean when the engine abstained (#2
     expect(r.isError).toBeFalsy();
     expect(() => JSON.parse(r.content[0]!.text)).not.toThrow();
   });
+
+  // Without an explicit `fallbackBehavior`, core defaults to `'error'`, so a
+  // parser-unavailable run returns `Err` and the handler's `skipped` branch
+  // could never execute — and the documented `deps.fallbackBehavior` config was
+  // ignored on the MCP surface entirely (#2098).
+  it('passes a fallbackBehavior through, defaulting to skip', async () => {
+    vi.mocked(validateDependencies).mockResolvedValueOnce(
+      Ok({ valid: true, violations: [], graph: { nodes: [], edges: [] } }) as never
+    );
+
+    await handleCheckDependencies({ path: dir });
+
+    expect(vi.mocked(validateDependencies).mock.calls[0]?.[0]).toMatchObject({
+      fallbackBehavior: 'skip',
+    });
+  });
+
+  it('honours deps.fallbackBehavior from harness.config.json', async () => {
+    const raw = JSON.parse(
+      fs.readFileSync(path.join(dir, 'harness.config.json'), 'utf-8')
+    ) as Record<string, unknown>;
+    raw.deps = { fallbackBehavior: 'error' };
+    fs.writeFileSync(path.join(dir, 'harness.config.json'), JSON.stringify(raw));
+
+    vi.mocked(validateDependencies).mockResolvedValueOnce(
+      Ok({ valid: true, violations: [], graph: { nodes: [], edges: [] } }) as never
+    );
+
+    await handleCheckDependencies({ path: dir });
+
+    expect(vi.mocked(validateDependencies).mock.calls[0]?.[0]).toMatchObject({
+      fallbackBehavior: 'error',
+    });
+  });
 });

@@ -123,6 +123,18 @@ function recordAnalysisError(
  * @param reason - The engine's own reason for not running.
  * @param downgraded - Whether `deps.fallbackBehavior: 'warn'` is in force.
  */
+/**
+ * Source sweep used for circular-dependency detection when no layers are
+ * configured. Circular detection needs a file set, not a layer model, and
+ * `check-deps` used to return a clean `valid: true` over zero modules the
+ * moment `layers` was absent — skipping the cycle check entirely (#2098).
+ *
+ * Deliberately the TypeScript/JavaScript source extensions the parser can
+ * actually read; `findFiles` stacks core's `DEFAULT_FIND_FILES_IGNORE`
+ * (node_modules, dist, .git, …) and the project's `deps.exclude` on top.
+ */
+const UNLAYERED_DISCOVERY_PATTERN = '**/*.{ts,tsx,mts,cts,js,jsx,mjs,cjs}';
+
 function recordAbstention(
   result: CheckDepsResult,
   stage: string,
@@ -164,12 +176,14 @@ export async function runCheckDeps(
     circularDeps: [],
   };
 
-  // If no layers configured, skip layer validation
-  if (!config.layers || config.layers.length === 0) {
-    return Ok(result);
-  }
-
-  result.layersConfigured = config.layers.length;
+  // Layers are optional, and their absence scopes down which half of this
+  // command runs — it does NOT end the run. This used to `return Ok(result)`
+  // with `valid: true` over zero modules, which also skipped
+  // circular-dependency detection, a check that needs no layers at all. So
+  // `harness check-deps && deploy` passed on a project with a real import
+  // cycle, on the configuration most adopters are on (#2098).
+  const layers = config.layers ?? [];
+  result.layersConfigured = layers.length;
 
   // Additional discovery-scoping globs (stacked on core's node_modules/skip-dir
   // defaults) — prefer the resolved config's `deps.exclude` (honors whatever
@@ -188,61 +202,87 @@ export async function runCheckDeps(
   const rootDir = path.resolve(cwd, config.rootDir);
   const parser = new TypeScriptParser();
 
-  // Define layers from config (convert pattern string to patterns array)
-  const layers = config.layers.map((l) => defineLayer(l.name, [l.pattern], l.allowedDependencies));
+  // Layer validation needs layers. With none configured it is genuinely not
+  // applicable, and the circular-dependency half below still runs.
+  if (layers.length > 0) {
+    const layerConfig: LayerConfig = {
+      // Define layers from config (convert pattern string to patterns array)
+      layers: layers.map((l) => defineLayer(l.name, [l.pattern], l.allowedDependencies)),
+      rootDir,
+      parser,
+      fallbackBehavior,
+      extraIgnore: depsExclude,
+    };
 
-  // Build layer config
-  const layerConfig: LayerConfig = {
-    layers,
-    rootDir,
-    parser,
-    fallbackBehavior,
-    extraIgnore: depsExclude,
-  };
-
-  // Validate dependencies
-  const depsResult = await validateDependencies(layerConfig);
-  if (depsResult.ok) {
-    // The engine abstained — it validated nothing and labelled the result as
-    // such. Reporting this as a clean pass is the #2098 defect.
-    if (depsResult.value.skipped) {
-      recordAbstention(
-        result,
-        'layer validation',
-        depsResult.value.reason ?? 'the analysis engine abstained',
-        fallbackBehavior === 'warn'
-      );
+    const depsResult = await validateDependencies(layerConfig);
+    if (depsResult.ok) {
+      // The engine abstained — it validated nothing and labelled the result as
+      // such. Reporting this as a clean pass is the #2098 defect.
+      if (depsResult.value.skipped) {
+        recordAbstention(
+          result,
+          'layer validation',
+          depsResult.value.reason ?? 'the analysis engine abstained',
+          fallbackBehavior === 'warn'
+        );
+      }
+      for (const violation of depsResult.value.violations) {
+        result.valid = false;
+        result.layerViolations.push({
+          file: violation.file,
+          imports: violation.imports,
+          fromLayer: violation.fromLayer ?? 'unknown',
+          toLayer: violation.toLayer ?? 'unknown',
+          message: violation.reason,
+        });
+      }
+    } else {
+      recordAnalysisError(result, 'layer validation', depsResult.error);
     }
-    for (const violation of depsResult.value.violations) {
-      result.valid = false;
-      result.layerViolations.push({
-        file: violation.file,
-        imports: violation.imports,
-        fromLayer: violation.fromLayer ?? 'unknown',
-        toLayer: violation.toLayer ?? 'unknown',
-        message: violation.reason,
-      });
-    }
-  } else {
-    recordAnalysisError(result, 'layer validation', depsResult.error);
   }
 
-  // Collect all files for circular dependency detection
+  // Collect all files for circular dependency detection. The layer patterns are
+  // the scope when there are any; with none configured, sweep the project's
+  // source files, because circular detection does not depend on layers and a
+  // layerless project must not get a free pass (#2098).
+  const discoveryPatterns =
+    layers.length > 0 ? layers.map((l) => l.pattern) : [UNLAYERED_DISCOVERY_PATTERN];
   const allFiles: string[] = [];
-  for (const layer of config.layers) {
-    const files = await findFiles(layer.pattern, rootDir, depsExclude);
+  for (const pattern of discoveryPatterns) {
+    const files = await findFiles(pattern, rootDir, depsExclude);
     allFiles.push(...files);
   }
   const uniqueFiles = [...new Set(allFiles)];
   result.modulesAnalyzed = uniqueFiles.length;
 
-  // Zero-module abstention (D5): layers are configured but nothing was
-  // discovered — refuse to report clean rather than silently pass (#1188).
-  if (config.layers.length > 0 && uniqueFiles.length === 0) {
-    result.valid = false;
-    result.analysisNote =
-      `check-deps analyzed 0 modules across ${config.layers.length} configured ` +
-      `layer(s) — refusing to report clean (check layer patterns / deps.exclude).`;
+  // Zero-module abstention (D5, #1188), extended to the layerless sweep (#2098).
+  //
+  // Zero modules has two causes and they are not the same claim. A scope was
+  // given and matched nothing — configured layer patterns, or a `deps.exclude`
+  // that swallowed every source file — means the command was asked to analyse
+  // something and analysed nothing, and reporting that clean is the defect.
+  // A project that simply contains no analysable source is "not applicable":
+  // there is nothing to say about imports that do not exist.
+  if (uniqueFiles.length === 0) {
+    const scopeWasGiven =
+      layers.length > 0 ||
+      // No layers, so the sweep was unscoped: the only way it can come back
+      // empty while source exists is `deps.exclude`. Probing without the
+      // excludes distinguishes the two, and only runs on the empty result.
+      (depsExclude.length > 0 &&
+        (await findFiles(UNLAYERED_DISCOVERY_PATTERN, rootDir)).length > 0);
+
+    if (scopeWasGiven) {
+      result.valid = false;
+      result.analysisNote =
+        layers.length > 0
+          ? `check-deps analyzed 0 modules across ${layers.length} configured ` +
+            `layer(s) — refusing to report clean (check layer patterns / deps.exclude).`
+          : 'check-deps analyzed 0 modules — source files exist under ' +
+            `${config.rootDir} but deps.exclude discarded all of them, so neither ` +
+            'layer validation nor circular-dependency detection ran. Refusing to ' +
+            'report clean (check deps.exclude).';
+    }
   }
 
   // Detect circular dependencies

@@ -1,6 +1,7 @@
 import { resultToMcpResponse } from '../utils/result-adapter.js';
 import { resolveProjectConfig } from '../utils/config-resolver.js';
 import { sanitizePath } from '../utils/sanitize-path.js';
+import { loadDepsFallbackBehavior } from '../../config/analysis-schema.js';
 
 export const checkDependenciesDefinition = {
   name: 'check_dependencies',
@@ -62,10 +63,17 @@ export async function handleCheckDependencies(input: { path: string }) {
       };
     }
 
+    // Without an explicit policy, core defaults to `'error'`, so a
+    // parser-unavailable run returned `Err` and the `skipped` branch below
+    // could never execute — and the documented `deps.fallbackBehavior` config
+    // was simply ignored on the MCP surface. Same default as check-deps (#2098).
+    const fallbackBehavior = loadDepsFallbackBehavior(projectPath) ?? 'skip';
+
     const result = await validateDependencies({
       layers,
       rootDir: projectPath,
       parser,
+      fallbackBehavior,
       ...(graphDependencyData !== undefined && { graphDependencyData }),
     });
 
