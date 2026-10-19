@@ -1433,12 +1433,12 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 
 ### Mechanical duplication detection — a DRY floor for the gate stack
 
-- **Status:** planned
+- **Status:** in-progress
 - **Spec:** docs/changes/duplication-detection/proposal.md
 - **Summary:** DRY is the only major quality axis with zero mechanical enforcement: it is documented in `harness-refactoring` (a procedure with no detector upstream) and in `code-craft` rubric CODE-R004 (which names the Rule of Three but whose per-unit prompt carries one unit's source span, making its own question unanswerable), and enforced nowhere — a measured gap against the Harness Coverage KPI. Build a deterministic, offline Type-2 clone index as a reusable `packages/core/src/duplication/` module (normalized token-stream fingerprints via `@typescript-eslint/typescript-estree`, identifiers→I and literals→L), an advisory-first entropy detector over it at a Rule-of-Three threshold, a `partial-extraction` ranking signal for classes whose members already import a common shared module, and the `siblings` wiring that gives CODE-R004 its cross-file evidence. Granularity was decided by measurement, not preference: a probe found 60 whole-unit clone classes against 6,173 sliding-window classes, with real top hits including `sumCosts` ×10 across every craft package and a JSON-response helper ×16 across orchestrator routes under three different names. Never fail-closed (#855 precedent). Leaves a stable `CloneClass` interface that `idiom-contagion-epidemiology` and `semantic-canonicalization-entropy-floor` are both already predicated on. Does not fix the 60 classes it finds; sub-unit/CPD detection and the baseline ratchet are deferred.
 - **Blockers:** —
 - **Plan:** —
-- **Assignee:** —
+- **Assignee:** Chad Warner
 - **Priority:** P2
 - **External-ID:** —
 
