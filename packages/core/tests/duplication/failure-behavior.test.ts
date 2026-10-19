@@ -2,7 +2,7 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { mkdtemp, writeFile, rm, mkdir } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { fingerprintFile } from '../../src/duplication/index';
+import { fingerprintFile, buildCloneIndex } from '../../src/duplication/index';
 
 let root: string;
 
@@ -71,5 +71,46 @@ describe('fingerprintFile', () => {
     if (above.status !== 'scanned') return;
     expect(above.units.map((u) => u.member.unit)).toEqual(['ok']);
     expect(above.unitsBelowMinTokens).toBe(0);
+  });
+});
+
+describe('zero-discovery guard', () => {
+  it('returns Err for an empty file list rather than an empty index', async () => {
+    const result = await buildCloneIndex([], { rootDir: root });
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.error.code).toBe('INVALID_CONFIG');
+    expect(result.error.message).toMatch(/zero source files/i);
+    expect(result.error.details.reason).toBe('zero-files-discovered');
+    expect(result.error.suggestions.length).toBeGreaterThan(0);
+  });
+
+  it('returns Err when every candidate is filtered out by extension', async () => {
+    const result = await buildCloneIndex([join(root, 'notes.md')], { rootDir: root });
+    expect(result.ok).toBe(false);
+  });
+
+  it('returns Err when ignorePatterns exclude every candidate', async () => {
+    const result = await buildCloneIndex([join(root, 'src', 'good.ts')], {
+      rootDir: root,
+      ignorePatterns: ['**/src/**'],
+    });
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.error.message).toMatch(/zero source files/i);
+  });
+
+  it('does NOT return Err when files are eligible but all fail to read', async () => {
+    // An eligible-but-unreadable set is a scan that happened and found
+    // nothing — distinct from a scan that never happened.
+    const result = await buildCloneIndex([join(root, 'src', 'absent.ts')], {
+      rootDir: root,
+      ignorePatterns: [],
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.value.stats.filesSkipped).toBe(1);
+    expect(result.value.stats.filesScanned).toBe(0);
+    expect(result.value.classes).toEqual([]);
   });
 });
