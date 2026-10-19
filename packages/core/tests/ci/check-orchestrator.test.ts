@@ -47,10 +47,13 @@ vi.mock('../../src/shared/parsers', () => ({
 vi.mock('../../src/security/scanner', () => ({
   SecurityScanner: class {
     configureForProject = vi.fn();
+    // A scan that READ files and found nothing — a real pass. `scannedFiles: 0`
+    // is an abstention now (#2071), so it would make the security gate here
+    // skip rather than pass; see check-skip-status.test.ts for that case.
     scanFiles = vi.fn().mockResolvedValue({
       findings: [],
-      scannedFiles: 0,
-      rulesApplied: 0,
+      scannedFiles: 3,
+      rulesApplied: 40,
       externalToolsUsed: [],
       coverage: 'baseline',
     });

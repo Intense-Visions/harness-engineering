@@ -337,10 +337,13 @@ async function runEntropyCheck(
 async function runSecurityCheck(
   projectRoot: string,
   config: Record<string, unknown>
-): Promise<CICheckIssue[]> {
+): Promise<CheckContribution> {
   const issues: CICheckIssue[] = [];
   const securityConfig = parseSecurityConfig((config as Record<string, unknown>).security);
-  if (!securityConfig.enabled) return issues;
+  // `security.enabled: false` is an operator decision, not an abstention: the
+  // gate was switched off on purpose, which is the same acknowledgement
+  // `--skip security` gives.
+  if (!securityConfig.enabled) return { issues, measurements: [] };
 
   const scanner = new SecurityScanner(securityConfig);
   scanner.configureForProject(projectRoot);
@@ -359,6 +362,19 @@ async function runSecurityCheck(
 
   const scanResult = await scanner.scanFiles(sourceFiles);
 
+  // A scan that read zero files verified nothing, so its empty finding list is
+  // an absence of evidence rather than evidence of absence. `harness
+  // check-security` already refuses to call that clean (`scannedNothing`,
+  // #1146); this copy of the gate reported `pass`. Abstain instead (#2071).
+  if (scanResult.scannedFiles === 0) {
+    return abstain(
+      'The security scan matched 0 files, so nothing was verified. Check the scan ' +
+        'pattern and `security.exclude` in harness.config.json, set `security.enabled` ' +
+        'to false, or run with `--skip security` to acknowledge that this gate is not ' +
+        'enforced.'
+    );
+  }
+
   for (const finding of scanResult.findings) {
     issues.push({
       severity: finding.severity === 'info' ? 'warning' : finding.severity,
@@ -368,7 +384,7 @@ async function runSecurityCheck(
       ruleId: finding.ruleId,
     });
   }
-  return issues;
+  return { issues, measurements: [] };
 }
 
 async function runPerfCheck(
@@ -437,23 +453,28 @@ async function runPerfCheck(
 async function runPhaseGateCheck(
   _projectRoot: string,
   config: Record<string, unknown>
-): Promise<CICheckIssue[]> {
+): Promise<CheckContribution> {
   const issues: CICheckIssue[] = [];
   const phaseGates = config.phaseGates as Record<string, unknown> | undefined;
   if (!phaseGates?.enabled) {
-    // Phase gates not configured — skip silently (not an error)
-    return issues;
+    // Phase gates are switched off (or were never configured). That is an
+    // operator decision, like `--skip phase-gate`, so it is a plain skip and
+    // not an abstention.
+    return { issues, measurements: [] };
   }
   // Phase gate validation requires CLI-level context (config resolution,
-  // spec/impl pattern matching). The core orchestrator cannot run it
-  // directly. When phase gates are enabled, the CI check reports this
-  // limitation so users know to also run `harness check-phase-gate`.
-  issues.push({
-    severity: 'warning',
-    message:
-      'Phase gate is enabled but requires CLI context. Run `harness check-phase-gate` separately for full validation.',
-  });
-  return issues;
+  // spec/impl pattern matching), which the core orchestrator does not have — so
+  // when phase gates ARE enabled this check evaluates nothing at all. It used
+  // to say so in a `warning`, which left the gate at `warn` and the run at exit
+  // 0: a configured gate that never ran, reading as green. That is the hole in
+  // #2071, so it abstains.
+  return abstain(
+    'Phase gates are enabled but the ci check cannot evaluate them: phase-gate ' +
+      'validation needs CLI-level context (config resolution, spec/impl pattern ' +
+      'matching) that the core orchestrator does not have. Run `harness ' +
+      'check-phase-gate` as its own CI step, or run with `--skip phase-gate` to ' +
+      'acknowledge that this gate is not enforced here.'
+  );
 }
 
 async function runArchCheck(
@@ -608,13 +629,13 @@ async function runSingleCheck(
         absorb(await runEntropyCheck(projectRoot, config));
         break;
       case 'security':
-        issues.push(...(await runSecurityCheck(projectRoot, config)));
+        absorb(await runSecurityCheck(projectRoot, config));
         break;
       case 'perf':
         absorb(await runPerfCheck(projectRoot, config));
         break;
       case 'phase-gate':
-        issues.push(...(await runPhaseGateCheck(projectRoot, config)));
+        absorb(await runPhaseGateCheck(projectRoot, config));
         break;
       case 'arch':
         issues.push(...(await runArchCheck(projectRoot, config)));

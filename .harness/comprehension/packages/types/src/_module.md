@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/types/src'
-sourceHash: '45d852a18d09d6f6567f45c3107a9a35b0e6fbf83683aefcb4fc996a8e9a3d01'
+sourceHash: '1b0acdd6446c73df385d2d2d840cf85e47c6ffa3b6fbbce88bc1c62bfd16175a'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -35,6 +35,7 @@ members:
     'sessions.ts',
     'skill.ts',
     'solutions.ts',
+    'stats.ts',
     'strategy.ts',
     'telemetry-synthesis.ts',
     'telemetry.ts',
@@ -60,6 +61,7 @@ export AgentErrorCategory
 export AgentEvent
 export AgentSession
 export AnthropicBackendDef
+export ArmState
 export AssignmentRecord
 export AuthAuditEntry
 export AuthAuditEntrySchema
@@ -70,6 +72,7 @@ export AuthTokenSchema
 export BackendCapabilities
 export BackendCapabilityRegistry
 export BackendDef
+export BanditConfig
 export BlockerRef
 export BridgeKind
 export BridgeKindSchema
@@ -90,6 +93,7 @@ export CINotifyTarget
 export CIPlatform
 export CapabilityTier
 export CheckScriptDefinition
+export Choice
 export ClaudeBackendDef
 export CleanupConfig
 export CognitiveMode
@@ -273,6 +277,7 @@ export ProposalStatus
 export ProposalStatusSchema
 export ProposalType
 export ProposalTypeSchema
+export Pull
 export PulseAdapter
 export PulseConfig
 export PulseDbSource
@@ -382,6 +387,8 @@ export SourceAbsent
 export SpendEnvelope
 export SpendEnvelopeSchema
 export SpendEnvelopeVerdict
+export SprtConfig
+export SprtVerdict
 export SshBackendDef
 export StabilityMetadata
 export StabilityTier

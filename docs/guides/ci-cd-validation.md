@@ -72,6 +72,8 @@ The common abstentions and their fixes:
 | `deps` — no layers configured             | Nothing to validate against                                       | Add `layers` to `harness.config.json`, or `--skip deps`                         |
 | `traceability` — no knowledge graph found | Coverage was never computed, so `minCoverage` was never evaluated | Run `harness scan`, set `traceability.enabled: false`, or `--skip traceability` |
 | `docs` / `entropy` / `perf` — crashed     | The analyzer threw (often "Could not resolve entry points")       | Fix the underlying config (e.g. `performance.entryPoints`), or `--skip <check>` |
+| `security` — scan matched 0 files         | Nothing was read, so an empty finding list verified nothing       | Widen the scan pattern or narrow `security.exclude`, or `--skip security`       |
+| `phase-gate` — enabled but not evaluable  | Phase-gate validation needs CLI context the orchestrator lacks    | Add a `harness check-phase-gate` CI step, or `--skip phase-gate`                |
 
 #### Escape hatch
 
@@ -84,6 +86,15 @@ harness ci check --skip deps,traceability
 
 That is deliberately louder than silence: the gate is still not enforced, but
 the pipeline now says so out loud instead of reporting a pass over it.
+
+Switching a check off in `harness.config.json` — `security.enabled: false`,
+`traceability.enabled: false`, `phaseGates.enabled: false`, `architecture.enabled:
+false` — is the same kind of acknowledged decision as `--skip`, and stays exit
+`0`. It is only the _unacknowledged_ non-run that now goes red.
+
+The `run_ci_checks` MCP tool returns this report verbatim, so an agent reading
+it must treat `status: "skip"` **with** a `skipReason` as an abstention rather
+than a pass; `summary.abstained` and `exitCode` carry the same signal.
 
 ### JSON Output Schema
 

@@ -40,16 +40,16 @@ vi.mock('../../src/shared/parsers', () => ({
   TypeScriptParser: class {},
 }));
 
+/**
+ * Hoisted so a single test can make the scan read zero files. The default is a
+ * scan that actually read something, because `scannedFiles: 0` is now an
+ * abstention and would otherwise colour every other assertion in this file.
+ */
+const mockScanFiles = vi.fn();
 vi.mock('../../src/security/scanner', () => ({
   SecurityScanner: class {
     configureForProject = vi.fn();
-    scanFiles = vi.fn().mockResolvedValue({
-      findings: [],
-      scannedFiles: 0,
-      rulesApplied: 0,
-      externalToolsUsed: [],
-      coverage: 'baseline',
-    });
+    scanFiles = mockScanFiles;
   },
 }));
 
@@ -108,10 +108,23 @@ const ANALYZER_CRASH = {
   error: new Error('Could not resolve entry points'),
 };
 
+/** A security scan that read files and found nothing: a real, honest pass. */
+const SCAN_READ_FILES = {
+  findings: [],
+  scannedFiles: 12,
+  rulesApplied: 40,
+  externalToolsUsed: [],
+  coverage: 'baseline',
+};
+
+/** A security scan whose glob matched nothing: verified nothing at all. */
+const SCAN_READ_NOTHING = { ...SCAN_READ_FILES, scannedFiles: 0 };
+
 describe('#2071 — a check that could not run must not read as green', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockAnalyze.mockResolvedValue(ANALYZER_OK);
+    mockScanFiles.mockResolvedValue(SCAN_READ_FILES);
   });
 
   // Mechanism 1: a crashed check was downgraded to a warning, and warnings exit 0.
@@ -266,5 +279,69 @@ describe('#2071 — a check that could not run must not read as green', () => {
     // docs = operator skip; deps + traceability = abstentions.
     expect(summary.skipped).toBe(3);
     expect(summary.abstained).toBe(2);
+  });
+
+  // Mechanism 4: the security scan matched zero files and reported `pass`, so a
+  // misconfigured `security.exclude` silently un-enforced the security gate.
+  it('reports security as skip when the scan matched zero files', async () => {
+    mockScanFiles.mockResolvedValue(SCAN_READ_NOTHING);
+
+    const result = await runCIChecks({
+      projectRoot: '/fake',
+      config: baseConfig(),
+      skip: ['traceability'],
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    const report = result.value;
+
+    expect(checkNamed(report, 'security').status).toBe('skip');
+    expect(checkNamed(report, 'security').skipReason).toMatch(/matched 0 files/);
+    expect(report.exitCode).not.toBe(0);
+  });
+
+  it('still reports security as pass when the scan read files and found nothing', async () => {
+    const result = await runCIChecks({
+      projectRoot: '/fake',
+      config: baseConfig(),
+      skip: ['traceability'],
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+
+    expect(checkNamed(result.value, 'security').status).toBe('pass');
+    expect(result.value.exitCode).toBe(0);
+  });
+
+  // Mechanism 5: phase-gate, when ENABLED, evaluates nothing in the core
+  // orchestrator — it used to say so in a `warning`, which exits 0.
+  it('reports phase-gate as skip when it is enabled but cannot be evaluated here', async () => {
+    const result = await runCIChecks({
+      projectRoot: '/fake',
+      config: baseConfig({ phaseGates: { enabled: true } }),
+      skip: ['traceability'],
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    const report = result.value;
+
+    const phaseGate = checkNamed(report, 'phase-gate');
+    expect(phaseGate.status).toBe('skip');
+    expect(phaseGate.status).not.toBe('warn');
+    expect(phaseGate.skipReason).toMatch(/cannot evaluate/);
+    expect(report.exitCode).not.toBe(0);
+  });
+
+  it('leaves phase-gate alone when it is disabled in config', async () => {
+    const result = await runCIChecks({
+      projectRoot: '/fake',
+      config: baseConfig({ phaseGates: { enabled: false } }),
+      skip: ['traceability'],
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+
+    expect(checkNamed(result.value, 'phase-gate').status).toBe('pass');
+    expect(result.value.exitCode).toBe(0);
   });
 });
