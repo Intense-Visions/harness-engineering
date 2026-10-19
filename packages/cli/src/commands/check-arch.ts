@@ -49,6 +49,26 @@ interface CheckArchOptions {
   reason?: string;
 }
 
+/**
+ * What one collector actually measured, carried through to `--json` so a 0 can
+ * be told apart from an abstention (issue #2235).
+ *
+ * `value` alone is ambiguous: `layer-violations: 0` is a clean result when
+ * `layersConfigured > 0` and `modulesAnalyzed > 0`, and an abstention when
+ * either is 0, when `skipped` is set (the parser was unavailable and the
+ * collector fell back), or when `error` is set (the collector threw and
+ * `runAll` substituted a zero). `baselines.json` and the arch timeline store
+ * only `value` + violation IDs, so this is the surface those denominators are
+ * observable on.
+ */
+export interface ArchMeasurement {
+  category: ArchMetricCategory;
+  scope: string;
+  value: number;
+  violationCount: number;
+  metadata?: Record<string, unknown> | undefined;
+}
+
 export interface CheckArchResult {
   passed: boolean;
   mode: 'baseline' | 'threshold-only';
@@ -63,8 +83,68 @@ export interface CheckArchResult {
     delta: number;
   }>;
   thresholdViolations: Violation[];
+  /** Per-collector denominators and abstention markers; see `ArchMeasurement`. */
+  measurements: ArchMeasurement[];
   baselineUpdated?: boolean;
   warning?: string;
+}
+
+/**
+ * Project each collector result down to its value plus the denominators it
+ * recorded. Without this the `metadata` every collector populates is read by
+ * exactly one place in the repo (`architecture/matchers.ts`, for module-size's
+ * `fileCount`) and is dropped by both the baseline and the timeline writers, so
+ * "measured nothing" would be indistinguishable from "0 violations" in every
+ * user-visible output.
+ */
+function summarizeMeasurements(results: MetricResult[]): ArchMeasurement[] {
+  return results.map((r) => ({
+    category: r.category,
+    scope: r.scope,
+    value: r.value,
+    violationCount: r.violations.length,
+    ...(r.metadata ? { metadata: r.metadata } : {}),
+  }));
+}
+
+/**
+ * A measurement that did not measure: the collector abstained (parser
+ * unavailable), threw (and `runAll` substituted a 0), or had no rules/modules to
+ * analyse. Its `value` of 0 is not a clean result and must not read as one.
+ */
+export function abstainedMeasurements(measurements: ArchMeasurement[]): ArchMeasurement[] {
+  return measurements.filter((m) => {
+    const meta = m.metadata;
+    if (!meta) return false;
+    if (meta.skipped !== undefined || meta.error !== undefined) return true;
+    const denominators = [
+      'layersConfigured',
+      'rulesConfigured',
+      'modulesAnalyzed',
+      'filesAnalyzed',
+      'edgeCount',
+    ];
+    return denominators.some((key) => typeof meta[key] === 'number' && meta[key] === 0);
+  });
+}
+
+/** Render an unknown metadata value for a log line without risking `[object Object]`. */
+function describe(value: unknown): string {
+  if (typeof value === 'string') return value;
+  if (typeof value === 'number' || typeof value === 'boolean') return String(value);
+  if (value instanceof Error) return value.message;
+  return JSON.stringify(value) ?? 'unknown';
+}
+
+/** One-line reason an abstained measurement did not measure anything. */
+function abstentionReason(m: ArchMeasurement): string {
+  const meta = m.metadata ?? {};
+  if (meta.error !== undefined) return `collector failed: ${describe(meta.error)}`;
+  if (meta.skipped !== undefined) return `abstained: ${describe(meta.skipped)}`;
+  const zeroed = Object.entries(meta)
+    .filter(([, v]) => typeof v === 'number' && v === 0)
+    .map(([k]) => `${k}=0`);
+  return zeroed.length > 0 ? `nothing to measure (${zeroed.join(', ')})` : 'nothing measured';
 }
 
 function getCommitHash(cwd: string): string {
@@ -138,6 +218,7 @@ function cleanBaselineResult(extra: Partial<CheckArchResult>): CheckArchResult {
     preExisting: [],
     regressions: [],
     thresholdViolations: [],
+    measurements: [],
     ...extra,
   };
 }
@@ -219,6 +300,7 @@ function writeAllowanceUpdate(
   if (filtered.newViolations.length === 0 && filtered.regressions.length === 0) {
     return Ok(
       cleanBaselineResult({
+        measurements: summarizeMeasurements(results),
         baselineUpdated: false,
         warning: 'Arch gate already passes against the base baseline; no allowance needed.',
       })
@@ -238,6 +320,7 @@ function writeAllowanceUpdate(
   );
   return Ok(
     cleanBaselineResult({
+      measurements: summarizeMeasurements(results),
       baselineUpdated: true,
       warning:
         `Wrote arch allowance ${file} ` +
@@ -284,7 +367,9 @@ function wholeSnapshotUpdate(
     }
   }
   manager.update(results, getCommitHash(cwd));
-  return Ok(cleanBaselineResult({ baselineUpdated: true }));
+  return Ok(
+    cleanBaselineResult({ measurements: summarizeMeasurements(results), baselineUpdated: true })
+  );
 }
 
 export async function runCheckArch(
@@ -339,6 +424,7 @@ export async function runCheckArch(
       preExisting: [],
       regressions: [],
       thresholdViolations: [],
+      measurements: [],
     });
   }
 
@@ -419,6 +505,7 @@ export async function runCheckArch(
       preExisting: [],
       regressions: [],
       thresholdViolations,
+      measurements: summarizeMeasurements(results),
       warning:
         'No baseline found. Running in threshold-only mode. Run with --update-baseline to capture current state.',
     });
@@ -449,6 +536,7 @@ export async function runCheckArch(
     preExisting: diffResult.preExisting,
     regressions: diffResult.regressions,
     thresholdViolations,
+    measurements: summarizeMeasurements(results),
   });
 }
 
@@ -483,6 +571,17 @@ function printArchResult(
   if (mode === OutputMode.JSON) {
     console.log(JSON.stringify(value, null, 2));
     return;
+  }
+  // An abstention reads as a clean 0 in every other output and in baselines.json
+  // (which records only the value), so say it out loud here (#2235). Non-fatal:
+  // a host without a working parser must still be able to run the gate.
+  if (mode !== OutputMode.QUIET) {
+    for (const m of abstainedMeasurements(value.measurements)) {
+      logger.warn(
+        `${m.category}: reported ${m.value} but measured nothing — ${abstentionReason(m)}. ` +
+          `Treat this as "not measured", not as a clean result.`
+      );
+    }
   }
   if (value.resolvedViolations.length > 0 && mode !== OutputMode.QUIET) {
     logger.success(`${value.resolvedViolations.length} violation(s) resolved since baseline.`);

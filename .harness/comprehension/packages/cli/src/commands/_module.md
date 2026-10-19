@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/commands'
-sourceHash: '81afa868315aaede1df8e43a12ec9a3d558bddd42d97560a4a5b84049fd92195'
+sourceHash: 'f9d2faa1ada6680657cc60aab08aba424889041eb21546b0fa480e98fab8b849'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -146,6 +146,7 @@ export ScanConfigFileResult
 export ScanConfigFinding
 export ScanConfigResult
 export StepResult
+export abstainedMeasurements
 export actStatusCommand
 export aggregateReport
 export assertKnownRunner

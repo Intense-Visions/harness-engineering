@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/tests/commands'
-sourceHash: '68704d6f85a58208432c3cf8e1e72e6e08041312a7f341000cfb4194dc987d9a'
+sourceHash: '8329e689fcb8141f0ccfc671b7795154bc60f64838e5969bfa991a0289d28598'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -243,7 +243,7 @@ import { createAlignDesignSystemCommand } from '../../src/commands/align-design-
 import { createApiCraftCommand } from '../../src/commands/api-craft'
 import { createAuditProtectedCommand, runAuditProtected } from '../../src/commands/audit-protected'
 import { runBackfillSkillProvenance } from '../../src/commands/backfill-skill-provenance'
-import { createCheckArchCommand, runCheckArch } from '../../src/commands/check-arch'
+import { ArchMeasurement, abstainedMeasurements, createCheckArchCommand, runCheckArch } from '../../src/commands/check-arch'
 import { createCheckDeploymentCommand, runCheckDeployment } from '../../src/commands/check-deployment'
 import { createCheckDepsCommand, runCheckDeps } from '../../src/commands/check-deps'
 import { createCheckDesignCommand, runCheckDesign } from '../../src/commands/check-design'

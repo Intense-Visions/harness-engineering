@@ -1,14 +1,17 @@
 ---
-'@harness-engineering/core': patch
-'@harness-engineering/cli': patch
+'@harness-engineering/core': minor
+'@harness-engineering/cli': minor
 ---
 
-`check-arch` now actually measures `circular-deps`, `layer-violations` and `forbidden-imports` (#2235). All three were 0 whatever the code did, so the arch ratchet reported "no new violations" for them without having looked.
+`check-arch` and `harness ci check` now actually measure `circular-deps`, `layer-violations` and `forbidden-imports` (#2235). All three were 0 whatever the code did, so the arch ratchet reported "no new violations" for them without having looked.
 
 - **`circular-deps`** built its graph with a stub parser that never parsed, giving nodes and zero edges, and it globbed only `**/*.ts`. It now uses the real parser registry and every JS/TS extension (`.ts .tsx .mts .cts .js .jsx .mjs .cjs`).
 - **`layer-violations`** validated against `layers: []`. It now uses the top-level `layers` block from `harness.config.json`, the same one `check-deps` reads. A non-default `rootDir` is folded into the layer patterns the same way `check-deps` resolves them.
 - **`forbidden-imports`** filtered for a `FORBIDDEN_IMPORT` reason that no engine ever emits. It now applies the top-level `forbiddenImports` rules itself, using the ESLint `no-forbidden-imports` matching: exact specifier, or a glob against the specifier or the resolved root-relative path. Package and `node:` builtin imports count.
-- Each of the three results now reports what it measured in `metadata`, so a 0 from a run that analysed nothing can be told apart from a clean result. The fields are `filesAnalyzed`/`edgeCount`, `layersConfigured`/`modulesAnalyzed`, and `rulesConfigured`/`filesAnalyzed`.
-- `ArchConfig` gains optional `layers` and `forbiddenImports` fields. They are not part of the `architecture` config schema. `check-arch` and `snapshot` inject them from the existing top-level blocks, so `harness.config.json` needs no change.
+- **`harness ci check --check arch`** gets the same rules. It builds its arch config inside core from `ArchConfigSchema`, which carries neither block, so that surface kept measuring 0 while `check-arch` measured real values — two producers, one `baselines.json`, different numbers. The injection now lives in core (`withDependencyRules` / `readDependencyRules`) and both call it. `harness ci check` also now stacks the project-wide `analysis.exclude` list onto the arch excludes, as `check-arch` already did.
+- Each result reports what it measured in `metadata` (`filesAnalyzed`/`edgeCount`, `layersConfigured`/`modulesAnalyzed`, `rulesConfigured`/`filesAnalyzed`, plus `skipped` when a collector abstained). `check-arch` now surfaces those denominators in a `measurements` block in `--json`, and prints a warning per abstained category in text mode, so a 0 from a run that analysed nothing can be told apart from a clean result. **They are not persisted:** `baselines.json` and the arch timeline still record only the value and the violation IDs, so a historical 0 remains ambiguous.
+- `ArchConfig` gains optional `layers` and `forbiddenImports` fields. They are not part of the `architecture` config schema. `check-arch`, `snapshot` and `ci check` inject them from the existing top-level blocks, so `harness.config.json` needs no change.
 
-**Expect your recorded values to rise.** A project with real cycles or layer breaks that are already visible to `check-deps` will now see `check-arch` count them as well.
+**BREAKING for the arch gate — read before upgrading.** Your recorded values will rise, and on a project with a real cycle, layer break or forbidden import the arch gate will start **hard-failing** rather than just reporting a bigger number. The cycle, layer and forbidden-import collectors all emit `severity: 'error'`, and `check-arch` refuses to write an allowance for any new error-severity violation (`errorSeverityRefusal`) — "a genuine threshold breach must be FIXED, not acknowledged". So `--update-baseline` cannot wave it through either, and `.husky/pre-commit`-style gates that run `harness ci check` without skipping `arch` will block commits until the violation is fixed.
+
+To upgrade: run `harness check-arch --json` first, read the `measurements` block to see what each collector now analyses, fix (or explicitly re-scope via `architecture.excludePatterns` / `analysis.exclude`) any newly-reported error-severity violation, and only then re-baseline. Order matters: re-baselining before fixing is refused, and measuring before re-baselining compares a real value against a stale 0.

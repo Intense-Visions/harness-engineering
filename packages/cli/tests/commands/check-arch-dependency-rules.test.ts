@@ -10,7 +10,8 @@ import { describe, it, expect, afterEach } from 'vitest';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
-import { runCheckArch } from '../../src/commands/check-arch';
+import { runCheckArch, abstainedMeasurements } from '../../src/commands/check-arch';
+import type { ArchMeasurement } from '../../src/commands/check-arch';
 import { withDependencyRules } from '../../src/config/arch-dependency-rules';
 import { ArchConfigSchema } from '@harness-engineering/core';
 
@@ -31,7 +32,11 @@ function fixture(files: Record<string, string>, config: Record<string, unknown>)
   return root;
 }
 
-async function recordedBaseline(root: string): Promise<Record<string, { value: number }>> {
+async function recordedBaseline(root: string): Promise<{
+  metrics: Record<string, { value: number }>;
+  /** Per-category denominators, keyed by category (see `ArchMeasurement`). */
+  denominators: Record<string, Record<string, unknown>>;
+}> {
   const result = await runCheckArch({
     cwd: root,
     configPath: path.join(root, 'harness.config.json'),
@@ -41,7 +46,13 @@ async function recordedBaseline(root: string): Promise<Record<string, { value: n
   const baseline = JSON.parse(
     fs.readFileSync(path.join(root, '.harness', 'arch', 'baselines.json'), 'utf-8')
   ) as { metrics: Record<string, { value: number }> };
-  return baseline.metrics;
+  const denominators: Record<string, Record<string, unknown>> = {};
+  if (result.ok) {
+    for (const m of result.value.measurements) {
+      denominators[m.category] = { ...(denominators[m.category] ?? {}), ...(m.metadata ?? {}) };
+    }
+  }
+  return { metrics: baseline.metrics, denominators };
 }
 
 const projectConfig = {
@@ -68,7 +79,7 @@ describe('check-arch measures the configured dependency rules (issue #2235)', ()
       projectConfig
     );
 
-    const metrics = await recordedBaseline(root);
+    const { metrics } = await recordedBaseline(root);
 
     expect(metrics['layer-violations']!.value).toBe(1);
     expect(metrics['circular-deps']!.value).toBe(1);
@@ -84,11 +95,22 @@ describe('check-arch measures the configured dependency rules (issue #2235)', ()
       projectConfig
     );
 
-    const metrics = await recordedBaseline(root);
+    const { metrics, denominators } = await recordedBaseline(root);
 
     expect(metrics['layer-violations']!.value).toBe(0);
     expect(metrics['circular-deps']!.value).toBe(0);
     expect(metrics['forbidden-imports']!.value).toBe(0);
+
+    // A 0 is only coverage if something was actually analysed. The pre-#2235
+    // collectors produced exactly these three zeros while measuring nothing, so
+    // without the denominators this test passed against the defect it guards.
+    expect(denominators['layer-violations']).toMatchObject({ layersConfigured: 2 });
+    expect(denominators['layer-violations']!.modulesAnalyzed as number).toBeGreaterThan(0);
+    expect(denominators['layer-violations']!.skipped).toBeUndefined();
+    expect(denominators['circular-deps']!.filesAnalyzed as number).toBeGreaterThan(0);
+    expect(denominators['circular-deps']!.edgeCount as number).toBeGreaterThan(0);
+    expect(denominators['forbidden-imports']).toMatchObject({ rulesConfigured: 1 });
+    expect(denominators['forbidden-imports']!.filesAnalyzed as number).toBeGreaterThan(0);
   });
 });
 
@@ -123,5 +145,61 @@ describe('withDependencyRules', () => {
 
     expect(merged.layers![0]!.pattern).toBe('app/src/ui/**');
     expect(merged.forbiddenImports).toEqual([]);
+  });
+});
+
+describe('abstainedMeasurements (issue #2235)', () => {
+  function measurement(overrides: Partial<ArchMeasurement>): ArchMeasurement {
+    return {
+      category: 'layer-violations',
+      scope: 'project',
+      value: 0,
+      violationCount: 0,
+      ...overrides,
+    };
+  }
+
+  it('flags a collector that abstained because the parser was unavailable', () => {
+    // `layer-violations` passes `fallbackBehavior: 'skip'`, so an unhealthy
+    // parser yields value 0 with `skipped` set. That 0 must not read as clean.
+    const flagged = abstainedMeasurements([
+      measurement({
+        metadata: { layersConfigured: 2, modulesAnalyzed: 0, skipped: 'Parser unavailable' },
+      }),
+    ]);
+
+    expect(flagged).toHaveLength(1);
+    expect(flagged[0]!.metadata!.skipped).toBe('Parser unavailable');
+  });
+
+  it('flags a collector that threw (runAll substitutes value 0)', () => {
+    const flagged = abstainedMeasurements([
+      measurement({ category: 'circular-deps', metadata: { error: 'Error: boom' } }),
+    ]);
+
+    expect(flagged).toHaveLength(1);
+  });
+
+  it('flags a zero denominator — no rules configured means nothing was measured', () => {
+    const flagged = abstainedMeasurements([
+      measurement({
+        category: 'forbidden-imports',
+        metadata: { rulesConfigured: 0, filesAnalyzed: 12 },
+      }),
+    ]);
+
+    expect(flagged).toHaveLength(1);
+  });
+
+  it('does NOT flag a genuine clean result', () => {
+    expect(
+      abstainedMeasurements([
+        measurement({ metadata: { layersConfigured: 2, modulesAnalyzed: 14 } }),
+        measurement({
+          category: 'circular-deps',
+          metadata: { filesAnalyzed: 14, edgeCount: 9, cycleCount: 0, largestCycle: 0 },
+        }),
+      ])
+    ).toEqual([]);
   });
 });

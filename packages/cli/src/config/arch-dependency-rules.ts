@@ -1,36 +1,30 @@
-import * as path from 'node:path';
+import { withDependencyRules as withDependencyRulesCore } from '@harness-engineering/core';
 import type { ArchConfig } from '@harness-engineering/core';
 import type { HarnessConfig } from './schema';
 
 /**
- * Inject the project's top-level `layers` and `forbiddenImports` rules into the
- * arch config the collectors run with (issue #2235).
+ * CLI-typed wrapper over core's `withDependencyRules` (issue #2235).
  *
- * The layer-violation and forbidden-import collectors used to receive neither,
- * so `check-arch` measured nothing for either category and recorded 0 — an
- * abstention reported as a clean measurement. These are the same blocks
- * `check-deps` and the ESLint plugin enforce; nothing new is read from the
- * `architecture` block.
- *
- * Layer patterns are relative to `rootDir` (that is how `check-deps` resolves
- * them), while the collectors run from the project directory, so a non-default
- * `rootDir` is folded into each pattern. `forbiddenImports` globs are already
- * project-relative, matching the ESLint rule.
+ * The injection itself lives in core because `harness ci check` — the gate
+ * `.husky/pre-commit` runs — builds its arch config inside core and must inject
+ * the identical rules. Two producers writing one `baselines.json` have to
+ * measure the same thing, or the ratchet compares a structural 0 against a real
+ * value. This wrapper only narrows the source type to the CLI's `HarnessConfig`.
  */
 export function withDependencyRules(
   archConfig: ArchConfig,
   config: Pick<HarnessConfig, 'rootDir' | 'layers' | 'forbiddenImports'>,
   cwd: string
 ): ArchConfig {
-  const rootPrefix = path
-    .relative(cwd, path.resolve(cwd, config.rootDir ?? '.'))
-    .replaceAll('\\', '/');
-  return {
-    ...archConfig,
-    layers: (config.layers ?? []).map((layer) => ({
-      ...layer,
-      pattern: rootPrefix ? path.posix.join(rootPrefix, layer.pattern) : layer.pattern,
-    })),
-    forbiddenImports: config.forbiddenImports ?? [],
-  };
+  return withDependencyRulesCore(
+    archConfig,
+    {
+      ...(config.rootDir !== undefined ? { rootDir: config.rootDir } : {}),
+      ...(config.layers !== undefined ? { layers: config.layers } : {}),
+      ...(config.forbiddenImports !== undefined
+        ? { forbiddenImports: config.forbiddenImports }
+        : {}),
+    },
+    cwd
+  );
 }

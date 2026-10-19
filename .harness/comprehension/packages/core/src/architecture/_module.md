@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/src/architecture'
-sourceHash: '56378a9dd7584bae3150397b2c9bcfade23ae2b832baf17e290ae4dc9d996c1f'
+sourceHash: '60fb885d15eb6270a070184e16545bbc41f8d78dfe42952b2fada28666746030'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -11,6 +11,7 @@ members:
     'baseline-resolver.ts',
     'cluster-violations.ts',
     'config.ts',
+    'dependency-rules.ts',
     'detect-emergence.ts',
     'detect-stale.ts',
     'diff.ts',
@@ -47,9 +48,12 @@ export ArchBaselineSchema
 export ArchBaselineSource
 export ArchConfig
 export ArchConfigSchema
+export ArchDependencyRules
 export ArchDiffResult
 export ArchDiffResultSchema
+export ArchForbiddenImportRule
 export ArchHandle
+export ArchLayerRule
 export ArchMetricCategory
 export ArchMetricCategorySchema
 export ArchitectureOptions
@@ -73,6 +77,7 @@ export CouplingCollector
 export DEFAULT_STABILITY_THRESHOLDS
 export DataPoint
 export DepDepthCollector
+export DependencyRuleSource
 export DetectStaleResult
 export Direction
 export DirectionSchema
@@ -147,6 +152,7 @@ export isWholeSnapshotContext
 export loadArchAllowances
 export normalizeViolationPattern
 export projectValue
+export readDependencyRules
 export resolveArchBaseline
 export resolveExcludePatterns
 export resolveThresholds
@@ -155,6 +161,7 @@ export syncConstraintNodes
 export violationId
 export weeksUntilThreshold
 export weightedLinearRegression
+export withDependencyRules
 export writeArchAllowance
 ```
 
@@ -182,7 +189,7 @@ import { SpecImpactEstimator } from './spec-impact-estimator'
 import { ConstraintNodeStore } from './sync-constraints'
 import { TimelineManager } from './timeline-manager'
 import { CategorySnapshot, DEFAULT_STABILITY_THRESHOLDS, TimelineFile, TimelineFileSchema, TimelineSnapshot, TrendLine, TrendResult } from './timeline-types'
-import { ArchBaseline, ArchBaselineSchema, ArchConfig, ArchConfigSchema, ArchDiffResult, ArchMetricCategory, ArchMetricCategorySchema, CategoryBaseline, CategoryRegression, ConstraintRule, EmergenceConfidence, EmergenceResult, EmergentConstraintSuggestion, MetricResult, ThresholdConfig, Violation, ViolationHistory, ViolationSnapshot } from './types'
+import { ArchBaseline, ArchBaselineSchema, ArchConfig, ArchConfigSchema, ArchDependencyRules, ArchDiffResult, ArchForbiddenImportRule, ArchLayerRule, ArchMetricCategory, ArchMetricCategorySchema, CategoryBaseline, CategoryRegression, ConstraintRule, EmergenceConfidence, EmergenceResult, EmergentConstraintSuggestion, MetricResult, ThresholdConfig, Violation, ViolationHistory, ViolationSnapshot } from './types'
 import { minimatch } from 'minimatch'
 import { execFileSync } from 'node:child_process'
 import { randomBytes } from 'node:crypto'
