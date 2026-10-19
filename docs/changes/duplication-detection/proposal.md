@@ -352,13 +352,60 @@ named substrate that #1612 and #1646 depend on.
 
 ## Implementation Order
 
-| Phase | Deliverable                                                                                           | Independently verifiable         |
-| ----- | ----------------------------------------------------------------------------------------------------- | -------------------------------- |
-| 1     | Core `duplication/` module: tokenization, unit extraction, `buildCloneIndex`, fixture tests           | Yes — no wiring                  |
-| 2     | Entropy detector, config and report types, registration, barrel                                       | Yes — appears in `EntropyReport` |
-| 3     | CLI and MCP surface, regenerated docs. **Run the top-20 precision audit here** and tighten exclusions | Yes — end-to-end runnable        |
-| 4     | `partial-extraction` signal and ranking                                                               | Yes — `fenced-json` case         |
-| 5     | `code-craft` `siblings` wiring, CODE-R004 repair, extractor-agreement test                            | Yes                              |
+Each phase is independently verifiable and lands on its own.
+
+### Phase 1: Core duplication module
+
+<!-- complexity: medium -->
+
+Create `packages/core/src/duplication/` — `tokens.ts` (Type-2 normalization over
+`@typescript-eslint/typescript-estree` tokens), `units.ts` (ESTree unit extraction), `index.ts`
+(`buildCloneIndex`). Fixture-based tests only; no wiring into the entropy pipeline yet.
+Verifiable alone: `buildCloneIndex` returns the expected clone classes for a fixture project
+with a planted known set (criterion 15).
+
+### Phase 2: Entropy detector and registration
+
+<!-- complexity: medium -->
+
+Add `entropy/detectors/duplication.ts` (`detectDuplication`), the `DuplicationConfig` and
+`DuplicationReport` types, `EntropyConfig.analyze.duplication?`, `EntropyReport.duplication?`,
+the `'duplication'` member of the `AnalysisError['analyzer']` union, the `detectors/index.ts`
+export, and the `DIR_COMMENTS.duplication` barrel entry followed by `pnpm run generate:barrels`.
+Includes the Failure behavior contract (skip-and-record on unreadable/unparseable files, the
+`maxClasses` cap, and the zero-discovery guard).
+Verifiable alone: duplication findings appear in `EntropyReport`; criteria 7, 8, 12, 13, 14.
+
+### Phase 3: CLI and MCP surface
+
+<!-- complexity: medium -->
+
+Add `duplication` to `CleanupType`, the `-t` option help, and the `cleanup` command
+`.description()`; add the value to the `detect_entropy` MCP type enum; regenerate
+`docs/reference/cli-commands.md` and `docs/reference/mcp-tools.md` via `pnpm run generate-docs`.
+**This phase carries the top-20 precision audit (criterion 2) as a human-verify checkpoint** —
+the planner must emit it as `[checkpoint:human-verify]`, because its outcome decides whether
+exclusions need tightening before the detector leaves experimental status.
+Verifiable alone: `harness cleanup -t duplication` runs end to end; criteria 1 and 2.
+
+### Phase 4: partial-extraction signal
+
+<!-- complexity: low -->
+
+Derive the `partial-extraction` label and `sharedImport` from the members' common imports, and
+rank those classes above plain duplicates.
+Verifiable alone: the `parseFencedJson` class (6 members, all 10 craft packages importing
+`shared/craft/fenced-json`) is labelled `partial-extraction`; criterion 3.
+
+### Phase 5: Repair CODE-R004 in code-craft
+
+<!-- complexity: medium -->
+
+Add the optional `siblings?: CloneMember[]` field to `BuildPromptInput` / `CritiqueInput`,
+populate it from `CloneIndex.byMember`, and append sibling locations to the rendered prompt.
+Includes the extractor-agreement test for the named line-number risk (estree `loc.start.line`
+vs `typescript` `n.getStart(sf)`, ±2 lines).
+Verifiable alone: criteria 4 and 5.
 
 ### Deferred follow-ups (filed, not phases)
 
