@@ -54,11 +54,14 @@ interface CheckArchOptions {
  * be told apart from an abstention (issue #2235).
  *
  * `value` alone is ambiguous: `layer-violations: 0` is a clean result when
- * `layersConfigured > 0` and `modulesAnalyzed > 0`, and an abstention when
- * either is 0, when `skipped` is set (the parser was unavailable and the
- * collector fell back), or when `error` is set (the collector threw and
- * `runAll` substituted a zero). `baselines.json` and the arch timeline store
- * only `value` + violation IDs, so this is the surface those denominators are
+ * `layersConfigured > 0` and `modulesAnalyzed > 0`; an abstention when
+ * `modulesAnalyzed` is 0 despite configured layers, when `skipped` is set (the
+ * parser was unavailable and the collector fell back), or when `error` is set
+ * (the collector threw and `runAll` substituted a zero); and merely *not
+ * applicable* when `layersConfigured` is 0, because `layers` is optional and a
+ * project without one has nothing to measure. `classifyMeasurement` draws that
+ * three-way distinction. `baselines.json` and the arch timeline store only
+ * `value` + violation IDs, so this is the surface those denominators are
  * observable on.
  */
 export interface ArchMeasurement {
@@ -83,8 +86,12 @@ export interface CheckArchResult {
     delta: number;
   }>;
   thresholdViolations: Violation[];
-  /** Per-collector denominators and abstention markers; see `ArchMeasurement`. */
-  measurements: ArchMeasurement[];
+  /**
+   * Per-collector denominators and abstention markers; see `ArchMeasurement`.
+   * Optional so that adding it stays purely additive for external consumers
+   * that construct a `CheckArchResult`. `runCheckArch` always populates it.
+   */
+  measurements?: ArchMeasurement[];
   baselineUpdated?: boolean;
   warning?: string;
 }
@@ -108,24 +115,69 @@ function summarizeMeasurements(results: MetricResult[]): ArchMeasurement[] {
 }
 
 /**
- * A measurement that did not measure: the collector abstained (parser
- * unavailable), threw (and `runAll` substituted a 0), or had no rules/modules to
- * analyse. Its `value` of 0 is not a clean result and must not read as one.
+ * Denominators that record how much the *project asked for*. A 0 here is a
+ * policy choice, not a malfunction: `layers` and `forbiddenImports` are both
+ * optional in the config schema, so having no layered architecture and no
+ * forbidden-import rules is valid and common.
+ */
+const CONFIG_DENOMINATORS = ['layersConfigured', 'rulesConfigured'] as const;
+
+/**
+ * Denominators that record how much work the collector actually *did*. A 0 here
+ * while the category is configured is a malfunction — the rules exist, yet
+ * nothing was analysed against them.
+ */
+const WORK_DENOMINATORS = [
+  'modulesAnalyzed',
+  'filesAnalyzed',
+  'edgeCount',
+  'functionsAnalyzed',
+] as const;
+
+/**
+ * Why a measurement's `value` is what it is.
+ *
+ * - `measured` — a real denominator backed the number; a 0 is a clean result.
+ * - `not-applicable` — the category is not configured at all, so there was
+ *   nothing to measure and nothing to fix. Silent.
+ * - `abstained` — the collector could not run, or ran against configured rules
+ *   and analysed nothing. A 0 here must not read as clean.
+ */
+export type MeasurementStatus = 'measured' | 'not-applicable' | 'abstained';
+
+/**
+ * Separate *not applicable* from *could not run*. Both yield `value: 0`, but
+ * only the second is actionable, and warning about the first on every run
+ * dilutes the signal this reporting exists to add: "your parser broke" must not
+ * look identical to "you did not configure layers" (#2235).
+ */
+export function classifyMeasurement(m: ArchMeasurement): MeasurementStatus {
+  const meta = m.metadata;
+  if (!meta) return 'measured';
+  // Checked before `skipped`/`error` and before the work denominators: an
+  // unconfigured category necessarily analysed nothing too, and a collector
+  // failure inside a category the project does not use is not actionable
+  // either. The parser-health signal is not lost — `circular-deps` and
+  // `complexity` carry no config denominator, so they still abstain loudly.
+  const unconfigured = CONFIG_DENOMINATORS.some(
+    (key) => typeof meta[key] === 'number' && meta[key] === 0
+  );
+  if (unconfigured) return 'not-applicable';
+  if (meta.skipped !== undefined || meta.error !== undefined) return 'abstained';
+  const analysedNothing = WORK_DENOMINATORS.some(
+    (key) => typeof meta[key] === 'number' && meta[key] === 0
+  );
+  return analysedNothing ? 'abstained' : 'measured';
+}
+
+/**
+ * The measurements worth warning about: the collector abstained (parser
+ * unavailable), threw (and `runAll` substituted a 0), or had configured rules
+ * and still analysed nothing. A category the project never configured is
+ * excluded — see `classifyMeasurement`.
  */
 export function abstainedMeasurements(measurements: ArchMeasurement[]): ArchMeasurement[] {
-  return measurements.filter((m) => {
-    const meta = m.metadata;
-    if (!meta) return false;
-    if (meta.skipped !== undefined || meta.error !== undefined) return true;
-    const denominators = [
-      'layersConfigured',
-      'rulesConfigured',
-      'modulesAnalyzed',
-      'filesAnalyzed',
-      'edgeCount',
-    ];
-    return denominators.some((key) => typeof meta[key] === 'number' && meta[key] === 0);
-  });
+  return measurements.filter((m) => classifyMeasurement(m) === 'abstained');
 }
 
 /** Render an unknown metadata value for a log line without risking `[object Object]`. */
@@ -576,7 +628,7 @@ function printArchResult(
   // (which records only the value), so say it out loud here (#2235). Non-fatal:
   // a host without a working parser must still be able to run the gate.
   if (mode !== OutputMode.QUIET) {
-    for (const m of abstainedMeasurements(value.measurements)) {
+    for (const m of abstainedMeasurements(value.measurements ?? [])) {
       logger.warn(
         `${m.category}: reported ${m.value} but measured nothing — ${abstentionReason(m)}. ` +
           `Treat this as "not measured", not as a clean result.`

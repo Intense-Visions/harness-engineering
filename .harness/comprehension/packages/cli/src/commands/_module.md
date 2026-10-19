@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/commands'
-sourceHash: 'f9d2faa1ada6680657cc60aab08aba424889041eb21546b0fa480e98fab8b849'
+sourceHash: 'a4c427e98b389ace169a60fc7708e329b64788470729999472862c976ce97e37'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -164,6 +164,7 @@ export checkCatalogFreshness
 export checkHookValidity
 export checkLivePings
 export checkSessionCorruption
+export classifyMeasurement
 export collectChangedFiles
 export commandCreators
 export configureTier0Integrations
