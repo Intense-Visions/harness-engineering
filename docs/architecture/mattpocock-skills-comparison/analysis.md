@@ -5,8 +5,9 @@
 **Source snapshot:** mattpocock/skills @ `49dd158d` (2026-10-09), v1.3.1, MIT, ~289k stars. Read-only shallow clone; nothing executed.
 **Harness measurement basis:** every harness-side figure below was re-measured at `91f09fd17`, with the method published alongside the figure so it can be reproduced.
 
+**Prior art:** `docs/ideation/external-source-feature-matrix-2026-08-10.md` compared the two at the _feature_ level. This document compares at the _technique_ level (how skills are written, loaded, composed, governed) and does not re-litigate that matrix.
+
 > **[UNVERIFIED] — every mattpocock/skills figure and quotation in this document.** This environment has no network access, so the external snapshot cannot be re-fetched or re-measured here. That covers the snapshot metadata itself (`49dd158d`, v1.3.1, MIT, and the ~289k star count, which is implausibly high and could not be checked), the skill counts (38 total / 27 shipped / 11 model-invocable / 16 setting `disable-model-invocation`), the 2,686 SKILL.md lines, the 2,299 always-loaded description chars, the 52 / 1,854 = 2.8% negation density, the nine `.out-of-scope/` records, and every quoted upstream line. They are load-bearing for the adoption decision — the 2,299 chars is the entire denominator of the "~11x" headline and the 2.8% is one term of the negation ratio — so a reader must treat them as reported, not measured. Harness-side figures carry no such caveat.
-> **Prior art:** `docs/ideation/external-source-feature-matrix-2026-08-10.md` compared the two at the _feature_ level. This document compares at the _technique_ level (how skills are written, loaded, composed, governed) and does not re-litigate that matrix.
 
 ## 1. Shape of the two systems
 
