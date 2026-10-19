@@ -16,6 +16,7 @@ import * as path from 'node:path';
 import { CircularDepsCollector } from '../../../src/architecture/collectors/circular-deps';
 import { LayerViolationCollector } from '../../../src/architecture/collectors/layer-violations';
 import { ForbiddenImportCollector } from '../../../src/architecture/collectors/forbidden-imports';
+import { CouplingCollector } from '../../../src/architecture/collectors/coupling';
 import type { ArchConfig } from '../../../src/architecture/types';
 
 const baseConfig: ArchConfig = {
@@ -223,5 +224,66 @@ describe('ForbiddenImportCollector (configured rules, issue #2235)', () => {
 
     expect(r1!.violations[0]!.id).toMatch(/^[a-f0-9]{64}$/);
     expect(r1!.violations[0]!.id).toBe(r2!.violations[0]!.id);
+  });
+});
+
+/**
+ * The coupling collector's own unit test mocks `detectCouplingViolations`, and
+ * that mock ignores the snapshot it is handed — so `findFiles` is never
+ * observed and even the `filesAnalyzed` denominator is read back out of the
+ * mock's own `stats`. Measured: replacing the collector's
+ * `await findFiles('**\/*.ts', ...)` with `[]` makes it measure ZERO files and
+ * the entire `packages/core` suite still passes. Coupling is the only one of
+ * the five metric collectors whose denominator survives that mutation, and
+ * `CouplingCollector` sits in `defaultCollectors` -> `runAll` -> `runArchCheck`
+ * -> `harness ci check`, which `.husky/pre-commit` does not skip. A metric
+ * silently collapsing to 0 reads as an IMPROVEMENT against the baseline.
+ *
+ * These two cases run the REAL `detectCouplingViolations` over a tmp-dir
+ * fixture and assert the denominator against the planted file count, so a 0 can
+ * only come from a glob that actually ran. The pair is deliberately asymmetric
+ * (3 files vs 2 after an exclude) so neither can pass on a constant.
+ *
+ * NOT asserted here: a nonzero coupling VIOLATION. `buildCouplingSnapshot` in
+ * the collector hardcodes `imports: []` for every file, so `fanOut` is always
+ * 0, `fanIn` always 0 and `transitiveDepth` always 0 — the real detector can
+ * never emit a violation through this collector whatever the fixture imports
+ * (verified against a planted 20-import hub: `value: 0`, `filesAnalyzed: 21`).
+ * Pinning the denominator is therefore the whole of what is pinnable without
+ * changing production code.
+ */
+describe('CouplingCollector (real detector, denominator)', () => {
+  const collector = new CouplingCollector();
+
+  it('counts the .ts files it globbed, not a number handed back by a mock', async () => {
+    plant({
+      'src/a.ts': "import { b } from './b';\nexport const a = () => b;\n",
+      'src/b.ts': 'export const b = 1;\n',
+      'src/nested/c.ts': 'export const c = 2;\n',
+      // Outside `**/*.ts`: proves the count tracks the glob, not the tree.
+      'src/ignored.js': 'module.exports = 1;\n',
+    });
+
+    const [result] = await collector.collect(baseConfig, root);
+
+    expect(result!.metadata).toEqual({ filesAnalyzed: 3 });
+  });
+
+  it('drops excluded files from the denominator', async () => {
+    // Positive control for the case above: same tree, one exclude, and the
+    // denominator must move. Pins `resolveExcludePatterns(config)` being passed
+    // through to `findFiles` as well as the call itself.
+    plant({
+      'src/a.ts': 'export const a = 1;\n',
+      'src/b.ts': 'export const b = 2;\n',
+      'src/generated/huge.ts': 'export const huge = 3;\n',
+    });
+
+    const [result] = await collector.collect(
+      { ...baseConfig, excludePatterns: ['src/generated/**'] },
+      root
+    );
+
+    expect(result!.metadata).toEqual({ filesAnalyzed: 2 });
   });
 });

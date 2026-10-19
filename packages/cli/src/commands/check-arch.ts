@@ -237,16 +237,25 @@ export function classifyMeasurement(
   // categories.
   const gate = configGate(m.category, meta, declared);
   if (gate === 'not-applicable') return 'not-applicable';
-  // ORDERING IS LOAD-BEARING — do not move this below the work-denominator
-  // check. Declared rules the collector never received is the #2235 defect
-  // itself, and in that case `modulesAnalyzed` is *large*, not zero: the
-  // collector happily parsed the whole repo and applied no rules to it. So the
-  // work denominators find nothing wrong and the measurement would classify
-  // `measured` — a silent structural zero on the very surface built to catch
-  // it. Sourcing the config answer correctly is necessary but NOT sufficient;
-  // this ordering is the other half. Covered by "flags rules the project
-  // declared that never reached the collector" in
-  // `check-arch-dependency-rules.test.ts`.
+  // DO NOT DELETE THIS BRANCH. Declared rules the collector never received is
+  // the #2235 defect itself, and in that case `modulesAnalyzed` is *large*, not
+  // zero: the collector happily parsed the whole repo and applied no rules to
+  // it. So the work denominators find nothing wrong, and without this branch
+  // the measurement classifies `measured` — a silent structural zero on the
+  // very surface built to catch it. Sourcing the config answer correctly is
+  // necessary but NOT sufficient; this branch is the other half.
+  //
+  // It sits above the `skipped`/`error` and work-denominator checks because
+  // that is the order the reasoning reads in, not because the position is
+  // load-bearing: every branch below it also returns `abstained`, and the only
+  // thing after them is the `measured` fallthrough. Measured: moving this line
+  // to just below the work-denominator computation leaves
+  // `tests/commands/check-arch*` fully green, while DELETING it fails "flags
+  // rules the project declared that never reached the collector" in
+  // `check-arch-dependency-rules.test.ts` with `expected 'measured' to be
+  // 'abstained'`. That test is the guard against deletion, which is the
+  // reachable way to lose the behaviour — an earlier version of this comment
+  // claimed it guarded against reordering, which it does not.
   if (gate === 'rules-not-received') return 'abstained';
   if (meta.skipped !== undefined || meta.error !== undefined) return 'abstained';
   const analysedNothing = WORK_DENOMINATORS.some(

@@ -147,6 +147,10 @@ describe('formatCIReportAsMarkdown — abstentions (#2071)', () => {
     expect(md).toContain('### Could not run');
     expect(md).toContain('**traceability:**');
     expect(md).toContain('minCoverage of 100% was not evaluated');
+    // The headline count was unasserted: replacing the whole
+    // `(**N** could not run)` suffix with '' left `packages/core` 93/93 green,
+    // and the suffix is the only place the abstention appears above the fold.
+    expect(md).toContain('**1** could not run');
   });
 
   it('distinguishes the abstention from the operator skip in the table', () => {

@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/dashboard/tests/client/components/chat/blocks'
-sourceHash: 'be0c5b1e58431dac8b5a26da98d9c6c55371ceb84379accebf2052ed541c7dd6'
+sourceHash: '137ef62e5908f2d484c4b68d728dc905b29965feccf90c00298ebf8f08b52069'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
