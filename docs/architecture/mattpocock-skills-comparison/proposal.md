@@ -4,6 +4,10 @@
 **Skill:** harness-architecture-advisor (Phase 3 PROPOSE)
 **Inputs:** `discovery.md`, `analysis.md` (this directory)
 
+> **Every claim about mattpocock/skills below is [UNVERIFIED]** and inherits the caveat stated at the top of `analysis.md`: this environment has no network access, so the external snapshot cannot be re-checked. Harness-side figures were re-measured at `91f09fd17` and carry the methods published in `analysis.md`.
+>
+> **This proposal recommends; it does not decide.** ADR-0133 records the recommendation at `status: proposed`, awaiting human sign-off.
+
 ## Verdict: which is stronger?
 
 **Harness is stronger as a system; mattpocock/skills is stronger as a _skill-authoring practice_.**
@@ -12,12 +16,12 @@ Harness wins every dimension that needs a runtime: enforcement, state, verificat
 
 mattpocock/skills wins on how the skill text itself is written and governed:
 
-- **Context load:** its always-loaded description text is about 11x smaller.
+- **Context load:** its always-loaded description text is about 11x smaller (24.6k harness chars measured, against a reported 2,299 — one unverified term).
 - **Triggers:** its descriptions say when to reach for a skill. Harness's descriptions summarize what the skill can do.
-- **Body length and tone:** its bodies are about 3-5x shorter and use about 2.4x fewer prohibitions.
+- **Body length and tone:** its bodies are about 3-5x shorter and about 1.5x less negation-dense (harness 4.2% measured, mattpocock a reported 2.8%).
 - **Composition:** there is one canonical phrasing for calling another skill.
 - **Admission:** a new skill is admitted only for an observed failure that existing skills can't compose.
-- **Rejected ideas:** they are written down, so they don't get re-proposed.
+- **Rejected ideas:** they are written down, so they don't get re-proposed. (Harness already has this gap filed as #1620, the rejection ledger — it is unbuilt, not unrecognised.)
 
 There's an irony here. mattpocock/skills enforces all of this through prose and maintainer discipline. Harness's mission is to turn that kind of discipline into constraints-as-code. **The biggest win is to adopt these techniques mechanically. A harness version should be stricter than the original, not a copy of its prose.**
 
@@ -34,7 +38,7 @@ One finding cuts against harness's own past decisions. ADR-001 from the agent-sk
 1. Add an `invocation: user | model` field to `skill.yaml`. The Claude Code renderer emits `disable-model-invocation: true` for user-invoked skills, and the matching policy fields for the other hosts.
 2. Add a validator rule that requires trigger phrasing on model-invoked descriptions and enforces a character budget. It also reports the total always-loaded cost as a ratcheted baseline.
 3. Extend `harness skill validate` with ratcheted content lint. It covers body length per tier, negation density, the canonical call phrasing for other skills, and the disclosure ratio (how much of a skill sits in sibling files that load only when needed).
-4. Add `.harness/out-of-scope/` (or `docs/out-of-scope/`) rejected-idea records. Ideation, triage, `issue-fleet` and `emit_skill_proposal` check them before re-proposing an idea.
+4. Extend the already-filed rejection ledger (#1620) with the concrete record form and the check sites: committed, human-facing rejected-idea records that ideation, triage, `issue-fleet` and `emit_skill_proposal` consult before re-proposing an idea. Add, as the genuinely new piece, a skill-admission rule: a new skill is admitted only for an observed failure that existing skills cannot compose.
 5. Build a skill-behavior eval harness covering trigger accuracy (does the right skill fire for a prompt?) and outcome on fixture tasks. It also settles the question of whether prohibitions or positive phrasing work better.
 
 **Pros:**
@@ -90,7 +94,7 @@ One finding cuts against harness's own past decisions. ADR-001 from the agent-sk
    - the invocation split (A1)
    - description trigger phrasing plus the context-cost budget (A2)
    - canonical call phrasing and the report-only body lint (A3)
-   - out-of-scope records (A4)
+   - the skill-admission rule, with the rejected-idea record form folded into #1620 (A4)
 2. **Wave 1, transplants:**
    - the reproduction-command gate in debugging (B1)
    - seams in TDD (B2)
@@ -109,7 +113,7 @@ One finding cuts against harness's own past decisions. ADR-001 from the agent-sk
 
 **Cons:**
 
-- **Coordination (Low).** Seven to nine roadmap items need sequencing. Mitigation: wave labels plus `dependsOn` edges.
+- **Coordination (Low).** Ten roadmap items need sequencing — seven in wave 1, two in wave 2, one in wave 3. Mitigation: wave labels plus `dependsOn` edges.
 - **Lint stays advisory (Low-Medium).** The body lint is advisory until wave 3, which postpones the hard enforcement benefit.
 
 **Effort:** Medium for waves 1-2 and Large for wave 3.
@@ -141,15 +145,15 @@ If the eval harness matters most to you, as the long-term way to settle every fu
 
 Each will be filed as a detailed roadmap item and built spec-first through brainstorming. The frontier-interview item is already filed, so it's excluded.
 
-| #   | Item                                                                               | Option | Wave (C) | Track                      |
-| --- | ---------------------------------------------------------------------------------- | ------ | -------- | -------------------------- |
-| 1   | User-vs-model invocation split for skills and commands                             | A1     | 1        | Multi-client portability   |
-| 2   | Trigger-phrased descriptions + always-loaded context-cost budget                   | A2     | 1        | Multi-client portability   |
-| 3   | Skill-content lint: canonical call phrasing, size/negation/disclosure report       | A3     | 1        | Compounding feedback loops |
-| 4   | Out-of-scope records + admission check for ideation/triage/proposals               | A4     | 1        | Compounding feedback loops |
-| 5   | Reproduction-command gate in harness-debugging                                     | B1     | 1        | Ceiling-raising            |
-| 6   | Seam negotiation in harness-tdd                                                    | B2     | 1        | Ceiling-raising            |
-| 7   | Vertical-slice / tracer-bullet slicing in harness-planning                         | B3     | 1        | Ceiling-raising            |
-| 8   | Durable project glossary (ubiquitous language) read by pipeline skills             | B4     | 2        | Upstream grounding         |
-| 9   | Deep-module vocabulary as shared architecture reference                            | B5     | 2        | Ceiling-raising            |
-| 10  | Skill-behavior eval harness (trigger accuracy + outcome); settle negation question | A5     | 3        | Compounding feedback loops |
+| #   | Item                                                                                          | Option | Wave (C) | Track                      |
+| --- | --------------------------------------------------------------------------------------------- | ------ | -------- | -------------------------- |
+| 1   | User-vs-model invocation split for skills and commands                                        | A1     | 1        | Multi-client portability   |
+| 2   | Trigger-phrased descriptions + always-loaded context-cost budget                              | A2     | 1        | Multi-client portability   |
+| 3   | Skill-content lint: canonical call phrasing, size/negation/disclosure report                  | A3     | 1        | Compounding feedback loops |
+| 4   | Skill-admission rule: observed failure plus non-composability (record form folded into #1620) | A4     | 1        | Compounding feedback loops |
+| 5   | Reproduction-command gate in harness-debugging                                                | B1     | 1        | Ceiling-raising            |
+| 6   | Seam negotiation in harness-tdd                                                               | B2     | 1        | Ceiling-raising            |
+| 7   | Vertical-slice / tracer-bullet slicing in harness-planning                                    | B3     | 1        | Ceiling-raising            |
+| 8   | Durable project glossary (ubiquitous language) read by pipeline skills                        | B4     | 2        | Upstream grounding         |
+| 9   | Deep-module vocabulary as shared architecture reference                                       | B5     | 2        | Ceiling-raising            |
+| 10  | Skill-behavior eval harness (trigger accuracy + outcome); settle negation question            | A5     | 3        | Compounding feedback loops |
