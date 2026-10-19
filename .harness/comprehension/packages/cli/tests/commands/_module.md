@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/tests/commands'
-sourceHash: '93af34b6bf0f363116173a05198fb32450e110f7e0600e339a3a07d2fc5d07ba'
+sourceHash: 'c15d38da10c5ae842033453cdede9ab137cfa8860b1282006a21f7cbe50eecf3'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -23,6 +23,7 @@ members:
     'audit-protected.test.ts',
     'backfill-skill-provenance.test.ts',
     'bugfleet-publish-analyses-prefix-crosstalk.test.ts',
+    'check-arch-dependency-rules.test.ts',
     'check-arch.test.ts',
     'check-deployment.test.ts',
     'check-deps-cov544b.test.ts',
@@ -244,7 +245,7 @@ import { createAlignDesignSystemCommand } from '../../src/commands/align-design-
 import { createApiCraftCommand } from '../../src/commands/api-craft'
 import { createAuditProtectedCommand, runAuditProtected } from '../../src/commands/audit-protected'
 import { runBackfillSkillProvenance } from '../../src/commands/backfill-skill-provenance'
-import { createCheckArchCommand, runCheckArch } from '../../src/commands/check-arch'
+import { ArchMeasurement, ConfiguredCategories, abstainedMeasurements, abstentionReason, classifyMeasurement, createCheckArchCommand, runCheckArch } from '../../src/commands/check-arch'
 import { createCheckDeploymentCommand, runCheckDeployment } from '../../src/commands/check-deployment'
 import { createCheckDepsCommand, runCheckDeps } from '../../src/commands/check-deps'
 import { createCheckDesignCommand, runCheckDesign } from '../../src/commands/check-design'
@@ -378,6 +379,7 @@ import { shouldRunComprehendHook } from '../../src/comprehension/hook'
 import { committedSemanticAllowed } from '../../src/comprehension/policy'
 import { explainInactiveRefreshGate, resolveRefreshJobGate } from '../../src/comprehension/refresh-gate'
 import { detectCommittedSemanticOnBranch, detectSemanticRegressions, readSemanticMapAtRef } from '../../src/comprehension/regression'
+import { withDependencyRules } from '../../src/config/arch-dependency-rules'
 import { resolveConfig } from '../../src/config/loader'
 import { HarnessConfig } from '../../src/config/schema'
 import { CopyCraftInput, CopyCraftOutput } from '../../src/copy-craft/index.js'
@@ -432,7 +434,7 @@ import { CraftCommandRun, DEFAULT_CWD, runCraftCommand } from './craft-command-h
 import { llmCalls, runCraftCommand } from './craft-command-harness.js'
 import { parseJsonStdout, runCommand } from './design-command-harness'
 import * as clack from '@clack/prompts'
-import { CiReviewResult, ConstraintError, DEFAULT_REMOTE_URL, DiffInfo, Err, GoldenFileChange, GoldenSnapshot, Ok, RefinementDemandReport, RollbackDecision, RunCiReviewOptions, SECURITY_SCAN_EXTENSIONS, SECURITY_SCAN_GLOB, applyFixes, archiveStream, buildSnapshot, checkTaint, clearTaint, createError, createFixes, createModelProposal, createProposal, createStream, detectDeadCode, detectDocDrift, extractBundle, generateSuggestions, listStreams, listTaintedSessions, loadStreamIndex, parseCiReviewVerdict, parseDiff, parseManifest, readAdoptionRecords, requestPeerReview, resetWaypointEmitterForTests, runReviewPipeline, setActiveStream, validateAgentConfigs, validateAgentsMap, validateDecisionNumbers, validateKnowledgeMap, validatePulseConfig, validateRoadmapMode, validateSolutionsDir, validateStrategy, writeConfig } from '@harness-engineering/core'
+import { ArchConfigSchema, CiReviewResult, ConstraintError, DEFAULT_REMOTE_URL, DiffInfo, Err, GoldenFileChange, GoldenSnapshot, Ok, RefinementDemandReport, RollbackDecision, RunCiReviewOptions, SECURITY_SCAN_EXTENSIONS, SECURITY_SCAN_GLOB, applyFixes, archiveStream, buildSnapshot, checkTaint, clearTaint, createError, createFixes, createModelProposal, createProposal, createStream, detectDeadCode, detectDocDrift, extractBundle, generateSuggestions, listStreams, listTaintedSessions, loadStreamIndex, parseCiReviewVerdict, parseDiff, parseManifest, readAdoptionRecords, requestPeerReview, resetWaypointEmitterForTests, runReviewPipeline, setActiveStream, validateAgentConfigs, validateAgentsMap, validateDecisionNumbers, validateKnowledgeMap, validatePulseConfig, validateRoadmapMode, validateSolutionsDir, validateStrategy, writeConfig } from '@harness-engineering/core'
 import from '@harness-engineering/graph'
 import { GUARDIAN_ANALYSIS_SCHEMA, GUARDIAN_ANALYSIS_VERSION, GuardianAnalysis, OutcomeVerdict, SkillRegressionFixture, SkillRegressionVerdict } from '@harness-engineering/intelligence'
 import { AnalysisRecord, MockBackend, RunMode, RunResult, SyncMainResult, TaskDefinition, renderAnalysisComment } from '@harness-engineering/orchestrator'
