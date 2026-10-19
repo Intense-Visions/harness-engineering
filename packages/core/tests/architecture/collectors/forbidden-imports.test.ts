@@ -1,4 +1,7 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect } from 'vitest';
+import * as fs from 'node:fs';
+import * as os from 'node:os';
+import * as path from 'node:path';
 import { ForbiddenImportCollector } from '../../../src/architecture/collectors/forbidden-imports';
 import type { ArchConfig } from '../../../src/architecture/types';
 
@@ -9,13 +12,8 @@ const baseConfig: ArchConfig = {
   modules: {},
 };
 
-vi.mock('../../../src/constraints/dependencies', () => ({
-  validateDependencies: vi.fn(),
-}));
-
-import { validateDependencies } from '../../../src/constraints/dependencies';
-const mockValidate = vi.mocked(validateDependencies);
-
+// Planted positives for the configured rules (and their clean twins) live in
+// planted-positives.test.ts; this file covers the collector's shape.
 describe('ForbiddenImportCollector', () => {
   const collector = new ForbiddenImportCollector();
 
@@ -23,75 +21,39 @@ describe('ForbiddenImportCollector', () => {
     expect(collector.category).toBe('forbidden-imports');
   });
 
-  it('returns empty results when no violations', async () => {
-    mockValidate.mockResolvedValue({
-      ok: true,
-      value: { valid: true, violations: [], graph: { nodes: [], edges: [] } },
-    } as any);
-
-    const results = await collector.collect(baseConfig, '/project');
-    expect(results).toHaveLength(1);
-    expect(results[0]!.value).toBe(0);
-    expect(results[0]!.violations).toHaveLength(0);
+  it('returns a single project-scoped result', async () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'forbidden-imports-'));
+    try {
+      const results = await collector.collect(baseConfig, root);
+      expect(results).toHaveLength(1);
+      expect(results[0]!.scope).toBe('project');
+      expect(results[0]!.category).toBe('forbidden-imports');
+      expect(results[0]!.violations).toHaveLength(0);
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+    }
   });
 
-  it('returns only FORBIDDEN_IMPORT violations', async () => {
-    mockValidate.mockResolvedValue({
-      ok: true,
-      value: {
-        valid: false,
-        violations: [
-          {
-            file: '/project/src/api/handler.ts',
-            imports: '/project/src/internal/secret.ts',
-            fromLayer: 'api',
-            toLayer: 'internal',
-            reason: 'FORBIDDEN_IMPORT',
-            line: 7,
-            suggestion: 'Use the public API instead',
-          },
-          {
-            file: '/project/src/api/handler.ts',
-            imports: '/project/src/db/connection.ts',
-            fromLayer: 'api',
-            toLayer: 'db',
-            reason: 'WRONG_LAYER',
-            line: 5,
-            suggestion: 'Fix layer',
-          },
-        ],
-        graph: { nodes: [], edges: [] },
-      },
-    } as any);
+  it('honors excludePatterns for files a rule would otherwise cover', async () => {
+    const root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'forbidden-imports-')));
+    try {
+      fs.mkdirSync(path.join(root, 'src/domain'), { recursive: true });
+      fs.writeFileSync(
+        path.join(root, 'src/domain/model.ts'),
+        "import { exec } from 'node:child_process';\nexport const m = exec;\n"
+      );
+      const rules = [{ from: 'src/domain/**', disallow: ['node:child_process'] }];
 
-    const results = await collector.collect(baseConfig, '/project');
-    expect(results[0]!.value).toBe(1);
-    expect(results[0]!.violations).toHaveLength(1);
-    expect(results[0]!.violations[0]!.detail).toContain('secret.ts');
-  });
+      const [hit] = await collector.collect({ ...baseConfig, forbiddenImports: rules }, root);
+      const [excluded] = await collector.collect(
+        { ...baseConfig, forbiddenImports: rules, excludePatterns: ['src/domain/**'] },
+        root
+      );
 
-  it('produces stable violation IDs', async () => {
-    mockValidate.mockResolvedValue({
-      ok: true,
-      value: {
-        valid: false,
-        violations: [
-          {
-            file: '/project/src/api/handler.ts',
-            imports: '/project/src/internal/secret.ts',
-            fromLayer: 'api',
-            toLayer: 'internal',
-            reason: 'FORBIDDEN_IMPORT',
-            line: 7,
-            suggestion: 'Fix',
-          },
-        ],
-        graph: { nodes: [], edges: [] },
-      },
-    } as any);
-
-    const r1 = await collector.collect(baseConfig, '/project');
-    const r2 = await collector.collect(baseConfig, '/project');
-    expect(r1[0]!.violations[0]!.id).toBe(r2[0]!.violations[0]!.id);
+      expect(hit!.value).toBe(1);
+      expect(excluded!.value).toBe(0);
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+    }
   });
 });

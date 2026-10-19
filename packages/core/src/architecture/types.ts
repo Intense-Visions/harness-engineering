@@ -129,7 +129,36 @@ export const ArchConfigSchema = z.object({
   regressionTolerance: z.number().min(0).max(1).default(0.01),
 });
 
-export type ArchConfig = z.infer<typeof ArchConfigSchema>;
+/** A layer as declared in the top-level `layers` block of harness.config.json. */
+export interface ArchLayerRule {
+  name: string;
+  pattern: string;
+  allowedDependencies: string[];
+}
+
+/** A rule as declared in the top-level `forbiddenImports` block of harness.config.json. */
+export interface ArchForbiddenImportRule {
+  from: string;
+  disallow: string[];
+  message?: string | undefined;
+}
+
+/**
+ * Dependency rules the layer-violation and forbidden-import collectors measure
+ * against (issue #2235). Deliberately NOT part of `ArchConfigSchema`: the rules
+ * already live in the top-level `layers` / `forbiddenImports` blocks of
+ * harness.config.json (the ones `check-deps` and the ESLint plugin read), so the
+ * caller injects them at run time rather than the `architecture` block growing
+ * a second copy. Without them both collectors measure nothing and report 0.
+ */
+export interface ArchDependencyRules {
+  /** Layer patterns, relative to the collector's `rootDir`. */
+  layers?: ArchLayerRule[] | undefined;
+  /** Forbidden-import rules; `from` / `disallow` globs are `rootDir`-relative. */
+  forbiddenImports?: ArchForbiddenImportRule[] | undefined;
+}
+
+export type ArchConfig = z.infer<typeof ArchConfigSchema> & ArchDependencyRules;
 
 // --- Constraint Rule ---
 
