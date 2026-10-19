@@ -168,8 +168,9 @@ export interface CloneIndex {
     filesScanned: number;
     filesSkipped: number; // unreadable or unparseable — see Failure behavior
     unitsFingerprinted: number;
+    unitsBelowMinTokens: number; // excluded BEFORE grouping — never fingerprinted
     classesReported: number;
-    classesSuppressed: number; // below minInstances/minTokens, or matched ignorePatterns
+    classesSuppressed: number; // formed, then dropped: below minInstances or matched ignorePatterns
     classesTruncated: number; // dropped by the maxClasses report cap
   };
 }
@@ -191,8 +192,12 @@ Following the `Result` / `AnalysisError` convention already used by the sibling 
   continue.
 - If a source file fails to parse, the detector shall skip that file, increment `filesSkipped`, and
   record an `AnalysisError` with `analyzer: 'duplication'` — it shall not fail the entropy run.
-- If a unit yields fewer than `minTokens` tokens, it shall be excluded from fingerprinting and
-  counted in `classesSuppressed` rather than reported.
+- If a unit yields fewer than `minTokens` tokens, it shall be excluded from fingerprinting
+  **before grouping** and counted in `unitsBelowMinTokens`. Such a unit can never form or join a
+  clone class, so it is never counted in `classesSuppressed` — that counter is only for classes
+  that actually formed and were then dropped for falling below `minInstances` or matching
+  `ignorePatterns`. (The earlier wording conflated the two, which is incoherent: a unit that was
+  never fingerprinted cannot become a suppressed class.)
 - If more than `maxClasses` classes qualify, the detector shall report the top `maxClasses` by
   `rank` and record the number dropped in `classesTruncated`.
 - If zero source files are discovered, the detector shall report that explicitly rather than
@@ -361,8 +366,16 @@ Each phase is independently verifiable and lands on its own.
 Create `packages/core/src/duplication/` — `tokens.ts` (Type-2 normalization over
 `@typescript-eslint/typescript-estree` tokens), `units.ts` (ESTree unit extraction), `index.ts`
 (`buildCloneIndex`). Fixture-based tests only; no wiring into the entropy pipeline yet.
+
+**Includes barrel registration** — the `DIR_COMMENTS.duplication` entry plus
+`pnpm run generate:barrels`. This is NOT deferrable to Phase 2: `discoverStarModules()` in
+`scripts/generate-core-barrel.mjs` keys purely on `<dir>/index.ts` existing and `duplication` is
+not in `SKIP_DIRS`, so `generate-core-barrel.mjs --check` (green today) goes red the moment this
+module's `index.ts` lands. Phase 1 also owns criterion 11, which is unreachable without it.
+
 Verifiable alone: `buildCloneIndex` returns the expected clone classes for a fixture project
-with a planted known set (criterion 15).
+with a planted known set (criterion 15), and the types are importable from
+`@harness-engineering/core` (criterion 11).
 
 ### Phase 2: Entropy detector and registration
 
@@ -370,11 +383,12 @@ with a planted known set (criterion 15).
 
 Add `entropy/detectors/duplication.ts` (`detectDuplication`), the `DuplicationConfig` and
 `DuplicationReport` types, `EntropyConfig.analyze.duplication?`, `EntropyReport.duplication?`,
-the `'duplication'` member of the `AnalysisError['analyzer']` union, the `detectors/index.ts`
-export, and the `DIR_COMMENTS.duplication` barrel entry followed by `pnpm run generate:barrels`.
+the `'duplication'` member of the `AnalysisError['analyzer']` union, and the
+`detectors/index.ts` export. (Barrel registration moved to Phase 1 — see above.)
 Includes the Failure behavior contract (skip-and-record on unreadable/unparseable files, the
 `maxClasses` cap, and the zero-discovery guard).
-Verifiable alone: duplication findings appear in `EntropyReport`; criteria 7, 8, 12, 13, 14.
+Verifiable alone: duplication findings appear in `EntropyReport`; criteria 7, 12, 13, 14
+(criterion 8's barrel half is satisfied in Phase 1; its `generate-docs` half lands in Phase 3).
 
 ### Phase 3: CLI and MCP surface
 
