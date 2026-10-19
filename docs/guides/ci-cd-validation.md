@@ -43,11 +43,106 @@ harness ci check [--json] [--fail-on <severity>] [--skip <check>]
 
 ### Exit Codes
 
-| Code | Meaning                                                  | Action      |
-| ---- | -------------------------------------------------------- | ----------- |
-| `0`  | All checks passed (or only skipped)                      | Proceed     |
-| `1`  | One or more checks failed at the configured severity     | Block merge |
-| `2`  | Harness internal error (config not found, parse failure) | Investigate |
+| Code | Meaning                                                                 | Action      |
+| ---- | ----------------------------------------------------------------------- | ----------- |
+| `0`  | Every requested check ran, and none failed at the configured severity   | Proceed     |
+| `1`  | A check failed at the configured severity, **or a check could not run** | Block merge |
+| `2`  | Harness internal error (config not found, parse failure)                | Investigate |
+
+### Checks that could not run
+
+A check reports `skip` for one of two quite different reasons, and only one of
+them is green:
+
+- **You asked for it.** `--skip docs` is an explicit, acknowledged decision not
+  to enforce that gate. It exits `0`.
+- **It abstained.** The check wanted to run and could not — it crashed, or it
+  had nothing configured to evaluate. It exits `1`, and the report carries a
+  `skipReason` explaining what was missing.
+
+An abstaining check is never counted in `summary.passed`, and the run never
+prints "All checks passed". A gate that did not run must not be readable as
+green: reporting a pass over a check that evaluated nothing is indistinguishable,
+to whoever reads the pipeline, from a genuine pass.
+
+The common abstentions and their fixes:
+
+| Abstention                                       | Why                                                                               | Fix                                                                                                                                                                                                                                |
+| ------------------------------------------------ | --------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `deps` — no layers configured                    | Nothing to validate against                                                       | Add `layers` to `harness.config.json`, or `--skip deps`                                                                                                                                                                            |
+| `traceability` — no knowledge graph found        | A configured `minCoverage` was never evaluated                                    | Run `harness scan` **and** check `traceability.includeSpecs` matches your specs, set `traceability.enabled: false`, or `--skip traceability`                                                                                       |
+| `traceability` — graph has no traceable features | `harness scan` ran but ingested no spec, so `minCoverage` still was not evaluated | Point `traceability.includeSpecs` at where your specs actually live and re-scan                                                                                                                                                    |
+| `docs` / `entropy` / `perf` — crashed            | The analyzer threw (often "Could not resolve entry points")                       | Ship a conventional entry file (`src/index.ts`) and let auto-detection work, or set `performance.entryPoints` to **concrete file paths** — they are resolved literally and are **not** glob-expanded (#2275) — or `--skip <check>` |
+| `security` — scan matched 0 files                | Nothing was read, so an empty finding list verified nothing                       | Widen the scan pattern or narrow `security.exclude`, or `--skip security`                                                                                                                                                          |
+| `phase-gate` — enabled but not evaluable         | Phase-gate validation needs CLI context the orchestrator lacks                    | Add a `harness check-phase-gate` CI step, or `--skip phase-gate`                                                                                                                                                                   |
+
+#### A note on `performance.entryPoints`
+
+Three of those rows point at the reachability analyzers, so it is worth stating
+the trap plainly. **Entry points are resolved literally — they are not
+glob-expanded, and their existence is not checked** (#2275). A wildcard such as
+a recursive `src` pattern becomes a root path that matches nothing, and because
+a non-empty value also suppresses auto-detection, the result is worse than
+setting nothing at all: the dead-code walk reaches zero files, every reachable
+export is reported dead, and `perf` still exits `0` with a `pass`. It is a
+silently wrong analysis rather than a red build, which is what makes it worth
+knowing about.
+
+Prefer auto-detection: ship a conventional entry file (`src/index.ts`,
+`src/main.ts`, `index.ts`, `main.ts`, or a `package.json` `main`/`exports`
+pointing at one) and leave the key unset — that is what every shipped template
+does. If you do set it, name concrete file paths, as this repo's own
+`harness.config.json` does. Note also that the fallback is asymmetric: `entropy`
+falls back to `performance.entryPoints`, but `perf` reads only its own key.
+
+#### Escape hatch
+
+If you need the previous exit code while you fix the configuration, name the
+check explicitly:
+
+```bash
+harness ci check --skip deps,traceability
+```
+
+That is deliberately louder than silence: the gate is still not enforced, but
+the pipeline now says so out loud instead of reporting a pass over it.
+
+An abstention only ever fires over a gate the project asked for. `traceability`
+abstains only when a `minCoverage` floor is configured — that floor is the only
+thing the check can fail on, so with no floor there is no claim to abstain over
+and the check stays a plain, exit-`0` skip. `phase-gate` and `security` behave
+the same way, keying on `phaseGates.enabled` and `security.enabled`. A project
+scaffolded by `harness init` configures none of these, so the pipeline that
+`harness ci init` generates is green on its first run, with nothing abstaining.
+
+Be precise about what that green means. On a TypeScript template every gate
+genuinely ran. On the `go-base` / `python-base` / `rust-base` / `java-base`
+templates three or four of the nine gates are declared not-applicable (below)
+and therefore did not run at all — and `summary.skipped` will still read `0`,
+because a config-level `enabled: false` reports `pass`. So `abstained: 0` means
+"no gate failed to run that wanted to"; it does not mean "every gate ran". Read
+the per-check rows, not the summary line, when you need to know which gates
+actually executed.
+
+Switching a check off in `harness.config.json` — `deps.enabled: false`,
+`entropy.enabled: false`, `performance.enabled: false`, `security.enabled: false`,
+`traceability.enabled: false`, `phaseGates.enabled: false`, `architecture.enabled:
+false` — is the same kind of acknowledged decision as `--skip`, and stays exit
+`0`. It is only the _unacknowledged_ non-run that now goes red.
+
+That opt-out is how you say **not applicable**, which is a different thing from
+_could not run_. A Go project has no TypeScript dependency graph, so `layers` is
+meaningless there and `deps.enabled: false` is the honest setting — the gate does
+not apply to the stack. The `deps`, `entropy` and `performance` analyzers are all
+TypeScript-based, so the shipped `go-base`, `python-base`, `rust-base` and
+`java-base` templates declare all three not-applicable, and `rust-base` also
+declares `security` not-applicable because `.rs` is not among the extensions the
+scanner reads (#2274). A gate that _could not run_ is never silenced this way: it abstains
+and fails the build until you either give it what it needs or acknowledge the gap.
+
+The `run_ci_checks` MCP tool returns this report verbatim, so an agent reading
+it must treat `status: "skip"` **with** a `skipReason` as an abstention rather
+than a pass; `summary.abstained` and `exitCode` carry the same signal.
 
 ### JSON Output Schema
 
@@ -75,13 +170,18 @@ interface CICheckReport {
       line?: number;
     }>;
     durationMs: number;
+    /** Present only when the check abstained — absent for an operator `--skip`. */
+    skipReason?: string;
   }>;
   summary: {
     total: number;
     passed: number;
     failed: number;
     warnings: number;
+    /** Operator-requested skips and abstentions alike. */
     skipped: number;
+    /** Of those, how many abstained. Non-zero forces a non-zero exit code. */
+    abstained: number;
   };
   exitCode: 0 | 1 | 2;
 }

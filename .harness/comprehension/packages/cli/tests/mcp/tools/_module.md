@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/tests/mcp/tools'
-sourceHash: '512ba7cbfd95c6c8593eb2e74193e049a0fad9c53205c1033a2956ebe292cd5a'
+sourceHash: '22d0dbb7c6b3e6a1c04d143624f47492c0ee1f0cbecb011a1f329489d94da027'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -18,6 +18,7 @@ members:
     'assess-project-error-handling.test.ts',
     'assess-project.test.ts',
     'brainstorming-file-less-smoke.test.ts',
+    'ci-abstention.test.ts',
     'cli-ergonomics-craft.test.ts',
     'code-craft.test.ts',
     'code-nav-handlers.test.ts',
@@ -127,6 +128,7 @@ import { addComponentDefinition, handleAddComponent, handleRunAgentTask, runAgen
 import { apiCraftDefinition, apiCraftFinalizeDefinition, handleApiCraft, handleApiCraftFinalize } from '../../../src/mcp/tools/api-craft'
 import { checkDependenciesDefinition, handleCheckDependencies } from '../../../src/mcp/tools/architecture'
 import { assessProjectDefinition, handleAssessProject, parseToolResponse, resolveLintCommand } from '../../../src/mcp/tools/assess-project'
+import { handleRunCIChecks, runCIChecksDefinition } from '../../../src/mcp/tools/ci'
 import { cliErgonomicsCraftDefinition, cliErgonomicsCraftFinalizeDefinition, handleCliErgonomicsCraft, handleCliErgonomicsCraftFinalize } from '../../../src/mcp/tools/cli-ergonomics-craft'
 import { codeCraftDefinition, codeCraftFinalizeDefinition, handleCodeCraft, handleCodeCraftFinalize } from '../../../src/mcp/tools/code-craft'
 import { codeOutlineDefinition, codeSearchDefinition, codeUnfoldDefinition, handleCodeOutline, handleCodeSearch, handleCodeUnfold } from '../../../src/mcp/tools/code-nav'
