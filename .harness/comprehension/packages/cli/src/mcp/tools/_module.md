@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/mcp/tools'
-sourceHash: '0c7d660488bd74c443c7d549604269d1467bb795803e09e239dae7fca51d7845'
+sourceHash: '4c97ba5b9de92df92a16929bb6654d57537b9af77644d0c36b748ff9d8e70d6c'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -468,7 +468,7 @@ import { comprehensionEndpoint, readComprehensionConfig, remoteFileConfig, resol
 import { maybeCreateGenerateSemantic, semanticResponseSchema } from '../../comprehension/generate-semantic'
 import { committedSemanticAllowed } from '../../comprehension/policy'
 import { createStaticExtractor } from '../../comprehension/static-extractor'
-import { loadAnalysisExclude } from '../../config/analysis-schema.js'
+import { loadAnalysisExclude, loadDepsFallbackBehavior } from '../../config/analysis-schema.js'
 import { resolveConfig } from '../../config/loader'
 import { findConfigFile, loadConfig, resolveConfig } from '../../config/loader.js'
 import { CollectPromptsOutput, CopyCraftInput, CopyCraftMode, CopyCraftOutput, FinalizeCopyCraftInput, collectCopyCraftPrompts, finalizeCopyCraft, runCopyCraft } from '../../copy-craft/index.js'
