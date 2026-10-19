@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/orchestrator/src'
-sourceHash: 'a222ec0399c3707081bba443ee2eff662ef7b8a5a5f0cbd8b03478e0fcf7ec6c'
+sourceHash: '986fee8c019414af9db36803df6c471f1f90e0f5f8ab423b350e8e1ea4a31678'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -12,7 +12,9 @@ members:
     'orchestrator.default-verify-runner.test.ts',
     'orchestrator.dispatch-wiring.test.ts',
     'orchestrator.local-gate.test.ts',
+    'orchestrator.quality-verdict-kind.test.ts',
     'orchestrator.quality-verdict.test.ts',
+    'orchestrator.retrospective-kind.test.ts',
     'orchestrator.retrospective.test.ts',
     'orchestrator.routing-ingestion.test.ts',
     'orchestrator.stale-abort-race.test.ts',
@@ -214,7 +216,9 @@ import { buildAnalysisProviderForLayer, buildIntelligencePipeline } from './agen
 import { makeLiveClassify } from './agent/live-classify'
 import { LocalModelResolver, defaultWarmModel, defaultWarmModelViaCompletion } from './agent/local-model-resolver'
 import { OrchestratorBackendFactory } from './agent/orchestrator-backend-factory'
-import { hasIntroducedSecurityDefect, outcomeVerdictToQualityFail } from './agent/quality-verdict'
+import { hasIntroducedSecurityDefect } from './agent/quality-verdict'
+import { QualityVerdict, afterCleanSecurityScan, cleanVerdict, defectVerdict, failSafeVerdict, outcomeVerdictToQualityVerdict, qualityVerdictLogFields, retrospectiveFailSafeReason, toOutcomeClass, unjudgedVerdict } from './agent/quality-verdict-kind'
+import { QualityVerdict, toOutcomeClass } from './agent/quality-verdict-kind.js'
 import { IntroducedHunk } from './agent/quality-verdict.js'
 import { AgentRunner } from './agent/runner'
 import { buildTriageOutcomeInput, runRetrospective } from './agent/triage-outcome'
@@ -283,7 +287,7 @@ import { WorkspaceHooks } from './workspace/hooks'
 import { WorkspaceManager } from './workspace/manager'
 import { CacheMetricsRecorder, GitHubIssuesSyncAdapter, HARNESS_VERSION, Issue, IssueTrackerClient, OTLPExporter, ProvenanceTrailerInput, SecurityScanner, TrackerClientConfig, applyResourceBudgets, createModelProposal, createTrackerClient, eventSourcing, listProposals, loadTrackerSyncConfig, sharedRateBudget, updateProposal, writeTaint } from '@harness-engineering/core'
 import { GraphStore } from '@harness-engineering/graph'
-import { AnalysisProvider, EnrichedSpec, IntelligencePipeline, OpenAICompatibleAnalysisProvider, OutcomeEvaluator, TriagePrediction } from '@harness-engineering/intelligence'
+import { AnalysisProvider, EnrichedSpec, IntelligencePipeline, OpenAICompatibleAnalysisProvider, OutcomeEvaluator, RetrospectiveComparison, TriagePrediction } from '@harness-engineering/intelligence'
 import { DEFAULT_HARNESS_FIT_TASKS, DedupPair, DedupPairs, DiscoverCandidatesOptions, DiscoverCandidatesResult, FrozenCandidate, HardwareDetector, HardwareProfile, HarnessFitCacheFileStore, HarnessFitProbeDeps, HarnessFitProbeTask, InstallAdapter, OllamaInstallAdapter, PoolManager, PoolStateProvider, PoolStateStore, RankerCandidate, RefreshScheduler, SchedulerTimerHandle, createBuildQualityReRanker, createNativeRecommender, curationFromCandidates, loadFrozenCandidates, probeToolCalling, runRefreshTick, selectCandidates } from '@harness-engineering/local-models'
 import { AgentBackend, BackendDef, IntelligenceConfig, Issue, IssueTrackerClient, LeafContextSource, ModelProposalRecord, Ok, RoutingDecision, RoutingError, RoutingPolicy, RoutingRequest, RoutingStatus, RoutingTelemetry, StageRun, WorkflowConfig, WorkflowExecutionPlan } from '@harness-engineering/types'
 import { execFile, execFileSync, execSync } from 'node:child_process'

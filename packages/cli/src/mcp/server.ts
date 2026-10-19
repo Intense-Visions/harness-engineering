@@ -15,6 +15,7 @@ import { applyInjectionGuard } from './middleware/injection-guard.js';
 import { applyCompaction } from './middleware/compaction.js';
 import { applyContextBudget } from './middleware/context-budget.js';
 import { applyVersionGuard } from './middleware/version-guard.js';
+import { describeStaleBuildError } from './stale-build.js';
 import { validateToolDefinition, handleValidateProject } from './tools/validate.js';
 import { checkDependenciesDefinition, handleCheckDependencies } from './tools/architecture.js';
 import { checkDocsDefinition, handleCheckDocs } from './tools/docs.js';
@@ -747,7 +748,19 @@ async function dispatchTool(
   if (!handler) {
     return { content: [{ type: 'text', text: `Unknown tool: ${name}` }], isError: true };
   }
-  const result = await handler(args ?? {});
+  let result: Awaited<ReturnType<ToolHandler>>;
+  try {
+    result = await handler(args ?? {});
+  } catch (error) {
+    // A server that outlived its own build fails HERE — at a tool's first lazy
+    // import — rather than at startup, so this is the only place the failure is
+    // catchable with enough context to explain it. Anything else rethrows
+    // untouched: mislabelling an unrelated ERR_MODULE_NOT_FOUND would send
+    // someone to restart a server that was never the problem.
+    const staleBuild = describeStaleBuildError(error);
+    if (staleBuild === null) throw error;
+    return { content: [{ type: 'text', text: staleBuild }], isError: true };
+  }
   if (!sessionChecked.value) {
     sessionChecked.value = true;
     await appendUpdateNotification(result, resolvedRoot);
@@ -755,7 +768,13 @@ async function dispatchTool(
   return result;
 }
 
-async function handleReadResource(
+/**
+ * Read one resource, translating a build-skew failure on the way out.
+ *
+ * Exported for its own test: the resource handlers are module-level constants,
+ * so the only way to prove the translation happens at this seam is to call it.
+ */
+export async function handleReadResource(
   uri: string,
   resolvedRoot: string
 ): Promise<{ contents: Array<{ uri: string; text: string; mimeType: string }> }> {
@@ -763,7 +782,28 @@ async function handleReadResource(
   if (!handler) {
     throw new Error(`Unknown resource: ${uri}`);
   }
-  const content = await handler(resolvedRoot);
+  let content: string;
+  try {
+    content = await handler(resolvedRoot);
+  } catch (error) {
+    // The resource seam is the OTHER request entry point into this long-lived
+    // process, and it fails the same way for the same reason: `harness://state`
+    // and the three graph resources reach `@harness-engineering/graph` and
+    // `@harness-engineering/core` through a lazy `import()`, so a CLI upgraded
+    // under a running server leaves them resolving against deleted chunks. The
+    // tool seam below got this translation; without it here, a resource read
+    // still answers with the opaque two-hashed-filenames error.
+    //
+    // Resources have no `isError` envelope — the protocol carries a thrown
+    // error — so the explanation is rethrown as the message rather than
+    // returned. Anything unrecognised is rethrown untouched, same rule as
+    // `dispatchTool`.
+    const staleBuild = describeStaleBuildError(error);
+    if (staleBuild === null) throw error;
+    // `cause` keeps the original specifier-and-chunk error attached, so the
+    // translation adds the explanation without destroying the evidence.
+    throw new Error(staleBuild, { cause: error });
+  }
   const mimeType = RESOURCE_DEFINITIONS.find((r) => r.uri === uri)?.mimeType ?? 'text/plain';
   return { contents: [{ uri, text: content, mimeType }] };
 }
