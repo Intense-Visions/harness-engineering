@@ -1,12 +1,13 @@
 ---
 schemaVersion: 1
 module: 'packages/core/tests/duplication'
-sourceHash: '3f4279e68b7f61c4fb5a886425205c1004a7849d4968af52b690514388922d5b'
+sourceHash: '7dd026157b03b0605fc404d76951d3ab43ae0709e71b6a961fd6811868b33257'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
 members:
   [
+    'acceptance.test.ts',
     'barrel.test.ts',
     'clone-index.test.ts',
     'failure-behavior.test.ts',
@@ -28,6 +29,7 @@ import { DEFAULT_DUPLICATION_CONFIG, buildCloneIndex, fingerprintFile, isEligibl
 import { fingerprintStream, normalizeTokens } from '../../src/duplication/tokens'
 import { extractUnits } from '../../src/duplication/units'
 import { CloneClass, CloneIndex, CloneMember, CloneUnitKind, DEFAULT_DUPLICATION_CONFIG, DuplicationConfig, buildCloneIndex } from '../../src/index'
+import { findFiles } from '../../src/shared/fs-utils'
 import { parse } from '@typescript-eslint/typescript-estree'
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
