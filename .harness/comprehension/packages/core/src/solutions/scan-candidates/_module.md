@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/src/solutions/scan-candidates'
-sourceHash: 'bcca6ba6aef1ed4e74bff9bd1b489156751ae1b43766efcfeeb8e2d09b984aca'
+sourceHash: '178e82b9d6c6b03989b346b36ab04f308e533d41e91f27814f2146a684cc21b0'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -18,6 +18,7 @@ members:
     'index.ts',
     'iso-week.test.ts',
     'iso-week.ts',
+    'normalize-since.ts',
     'read-commits.test.ts',
     'read-commits.ts',
   ]
@@ -58,6 +59,7 @@ import { crossReferenceUndocumentedFixes } from './cross-reference'
 import { ScannedCommit, gitScan, normalizeSince } from './git-scan'
 import { Hotspot, computeHotspots, computeStableHotspots } from './hotspot'
 import { IsoWeek, formatIsoWeek, isoWeek } from './iso-week'
+import { normalizeSince } from './normalize-since'
 import { readRawCommits } from './read-commits'
 import { execFile, execFileSync, execSync } from 'node:child_process'
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
