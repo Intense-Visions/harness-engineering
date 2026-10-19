@@ -94,8 +94,16 @@ thing the check can fail on, so with no floor there is no claim to abstain over
 and the check stays a plain, exit-`0` skip. `phase-gate` and `security` behave
 the same way, keying on `phaseGates.enabled` and `security.enabled`. A project
 scaffolded by `harness init` configures none of these, so the pipeline that
-`harness ci init` generates is green on its first run — and green because every
-gate ran, not because any were skipped.
+`harness ci init` generates is green on its first run, with nothing abstaining.
+
+Be precise about what that green means. On a TypeScript template every gate
+genuinely ran. On the `go-base` / `python-base` / `rust-base` / `java-base`
+templates three or four of the nine gates are declared not-applicable (below)
+and therefore did not run at all — and `summary.skipped` will still read `0`,
+because a config-level `enabled: false` reports `pass`. So `abstained: 0` means
+"no gate failed to run that wanted to"; it does not mean "every gate ran". Read
+the per-check rows, not the summary line, when you need to know which gates
+actually executed.
 
 Switching a check off in `harness.config.json` — `deps.enabled: false`,
 `entropy.enabled: false`, `performance.enabled: false`, `security.enabled: false`,
@@ -110,7 +118,7 @@ not apply to the stack. The `deps`, `entropy` and `performance` analyzers are al
 TypeScript-based, so the shipped `go-base`, `python-base`, `rust-base` and
 `java-base` templates declare all three not-applicable, and `rust-base` also
 declares `security` not-applicable because `.rs` is not among the extensions the
-scanner reads. A gate that _could not run_ is never silenced this way: it abstains
+scanner reads (#2274). A gate that _could not run_ is never silenced this way: it abstains
 and fails the build until you either give it what it needs or acknowledge the gap.
 
 The `run_ci_checks` MCP tool returns this report verbatim, so an agent reading

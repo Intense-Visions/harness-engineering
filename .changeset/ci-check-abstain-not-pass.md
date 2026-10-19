@@ -61,16 +61,30 @@ Two fixes make that true honestly rather than by skipping:
 
 - `traceability` no longer abstains on the scaffolded config, which configures
   no `minCoverage` (see above).
-- The `basic`, `intermediate` and `load-bearing-minimum` templates now scaffold
-  `performance.entryPoints`. They configured complexity and coupling thresholds
-  but no entry point for the analyzers to walk from, so `perf` and `entropy`
+- The `intermediate` and `load-bearing-minimum` templates now ship a starter
+  `src/index.ts`, as `basic` and `advanced` already did. They configured
+  complexity and coupling thresholds but shipped no TypeScript file at all, so
+  the analyzers had nothing to resolve an entry point from and `perf`/`entropy`
   failed with "Could not resolve entry points" — a gate configured but
-  unrunnable, which under this change is an abstention and a red pipeline.
-  `performance.entryPoints` is also now declared on the config schema; it was
-  previously reachable only through `.passthrough()`.
+  unrunnable, which under this change is an abstention and a red pipeline. One
+  real file makes both gates run on real content.
+
+`performance.entryPoints` is now declared on the config schema (it was reachable
+only through `.passthrough()`), and its docs state the behaviour that matters:
+entry points are resolved **literally**, with no glob expansion and no existence
+check, and a non-empty value suppresses auto-detection. A glob there is a root
+that matches nothing — the dead-code walk reaches zero files, so every export
+looks dead while `perf` still reports a pass over an analysis of nothing. No
+shipped template configures `entryPoints`; they all rely on auto-detection,
+which is correct for a scaffolded project.
 
 A freshly scaffolded project now reports `exitCode 0`, `abstained: 0`,
-`skipped: 0` — every gate ran.
+`skipped: 0`. On a TypeScript template every gate genuinely ran. On the
+language templates three or four of the nine are declared not-applicable and
+therefore did **not** run — `skipped: 0` cannot show that, because
+`enabled: false` reports `pass`. That is the existing convention for every
+config-level opt-out, so the honest summary is "nothing abstained", not
+"everything ran".
 
 **New: `deps`, `entropy` and `performance` gain the `enabled` opt-out their
 sibling gates already had.** `security`, `architecture`, `traceability` and
@@ -88,8 +102,10 @@ distinction the orchestrator now draws:
 The four language templates now declare `deps`, `entropy` and `performance`
 not-applicable (all three analyzers are TypeScript-based), `rust-base` also
 declares `security` not-applicable because `.rs` is not in
-`SECURITY_SCAN_EXTENSIONS`, and `advanced` gains the `performance.entryPoints`
-its siblings have plus the starter `src/index.ts` it was missing.
+`SECURITY_SCAN_EXTENSIONS` (tracked as #2274 — the extension list already
+covers four non-TypeScript languages, so that is a gap to close rather than a
+property of Rust), and `advanced`, `intermediate` and `load-bearing-minimum`
+gain the starter `src/index.ts` that `basic` already shipped.
 
 **Every shipped template now gets a green first `harness ci check` with zero
 abstentions** — verified end to end across all four adoption levels, all four

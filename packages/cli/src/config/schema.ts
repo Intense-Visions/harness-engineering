@@ -105,7 +105,11 @@ export const EntropyConfigSchema = z.object({
    * tried to run and could not (#2071).
    */
   enabled: z.boolean().default(true),
-  /** Explicit entry points for reachability analysis (overrides auto-detection) */
+  /**
+   * Explicit entry points for reachability analysis (overrides auto-detection).
+   * Resolved literally — see `PerformanceConfigSchema.entryPoints` for why a
+   * glob here is actively harmful rather than merely ineffective.
+   */
   entryPoints: z.array(z.string()).optional(),
   /** Patterns to exclude from entropy analysis */
   excludePatterns: z.array(z.string()).default([...skipDirGlobs(), '**/*.test.ts']),
@@ -178,12 +182,19 @@ export const PerformanceConfigSchema = z
     enabled: z.boolean().default(true),
     /**
      * Entry points for the reachability walk the complexity/coupling analyzers
-     * start from. Without one (and with no `entropy.entryPoints` to fall back
-     * on) the analyzers cannot resolve a graph and the `perf`/`entropy` gates
-     * abstain with "Could not resolve entry points" — so a project that
-     * configures thresholds here but no entry point is asking for a gate that
-     * cannot run (#2071). Reachable before via `.passthrough()`; declared now
-     * so it is typed and documented.
+     * start from. Omit it and the analyzers auto-detect (package.json `main` /
+     * `exports`, then conventional index files), which is the right default for
+     * most projects.
+     *
+     * **These are resolved literally, not glob-expanded.** `resolveEntryPoints`
+     * returns any non-empty array as-is after `path.resolve`, with no expansion
+     * and no existence check, so a wildcard value — a `src` recursive glob
+     * ending in `*.ts`, say — becomes a root path that matches nothing: the
+     * dead-code BFS then reaches zero files and every export looks dead, while
+     * `perf` still reports `pass` over an analysis of nothing. Configure concrete file paths — as this repo's own
+     * `harness.config.json` does — or leave it unset and let auto-detection
+     * work. A non-empty value here also SUPPRESSES auto-detection, so a wrong
+     * value is worse than no value.
      */
     entryPoints: z.array(z.string()).optional(),
     /** Complexity thresholds per module or pattern */

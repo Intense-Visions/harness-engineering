@@ -49,15 +49,17 @@ function readJsonHbs(file: string): Record<string, unknown> {
   return JSON.parse(raw) as Record<string, unknown>;
 }
 
-function filesUnder(dir: string): string[] {
+/** Shipped paths, relative to the template root, with the `.hbs` wrapper dropped. */
+function filesUnder(dir: string, prefix = ''): string[] {
   if (!fs.existsSync(dir)) return [];
   const out: string[] = [];
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
     if (entry.name === 'template.json') continue;
     const full = path.join(dir, entry.name);
-    if (entry.isDirectory()) out.push(...filesUnder(full));
+    const rel = prefix ? `${prefix}/${entry.name}` : entry.name;
+    if (entry.isDirectory()) out.push(...filesUnder(full, rel));
     // `.hbs` is a render wrapper, not part of the shipped filename.
-    else out.push(entry.name.replace(/\.hbs$/, ''));
+    else out.push(rel.replace(/\.hbs$/, ''));
   }
   return out;
 }
@@ -103,6 +105,41 @@ function entryPoints(config: Record<string, unknown>): string[] | undefined {
   return fromEntropy ?? fromPerf;
 }
 
+/** Extensions the TypeScript reachability analyzers can walk. */
+const TS_EXTENSIONS = ['.ts', '.tsx', '.mts', '.cts'];
+
+/**
+ * Can the analyzer resolve a root that actually exists?
+ *
+ * Either every configured entry point names a file the template ships, or
+ * nothing is configured and auto-detection has a TypeScript file to find.
+ */
+function hasWalkableRoot(config: Record<string, unknown>, files: string[]): boolean {
+  const points = entryPoints(config);
+  const shipsTs = files.some((f) => TS_EXTENSIONS.some((ext) => f.endsWith(ext)));
+  if (points === undefined || points.length === 0) return shipsTs;
+  return points.every((p) => !/[*?]/.test(p) && files.includes(p.replace(/^\.\//, '')));
+}
+
+function rootDiagnostic(config: Record<string, unknown>, files: string[]): string {
+  const points = entryPoints(config);
+  if (points && points.length > 0) {
+    return (
+      `entryPoints ${JSON.stringify(points)} do not all resolve to a shipped file. ` +
+      'They are resolved literally — no glob expansion, no existence check — so an ' +
+      'unresolvable root makes the dead-code walk reach nothing while perf still ' +
+      'reports pass. Name concrete shipped files, or drop the key and let ' +
+      'auto-detection work.'
+    );
+  }
+  return (
+    'no entryPoints configured and no TypeScript file shipped, so auto-detection has ' +
+    `nothing to find and the analyzer abstains. Ship a starter file (one of ` +
+    `${TS_EXTENSIONS.join(', ')}), or set \`entropy.enabled\`/\`performance.enabled\` to ` +
+    'false for a non-TypeScript stack.'
+  );
+}
+
 const CASES = templatesUnderTest();
 
 describe('every shipped template scaffolds a green first `ci check` (#2071)', () => {
@@ -124,32 +161,40 @@ describe('every shipped template scaffolds a green first `ci check` (#2071)', ()
       ).toBe(true);
     });
 
-    it('entropy: has an entry point to walk, or declares the gate not applicable', () => {
+    /**
+     * The reachability gates need a root the analyzer can actually walk from.
+     *
+     * This predicate checks RESOLUTION, not mere presence. An earlier revision
+     * asserted only that some `entryPoints` string existed, which encoded the
+     * belief that a configured value means the gate can run — and that belief
+     * is false. `resolveEntryPoints` returns any non-empty array as-is, with no
+     * glob expansion and no existence check, so a recursive `src` wildcard
+     * ending in `*.ts` is a root matching nothing: the dead-code BFS reaches
+     * zero files, every export looks dead, and `perf` still reports `pass`
+     * over an analysis of nothing.
+     * That shipped in four templates and the old predicate waved it through.
+     */
+    it('entropy: can resolve a real root, or declares the gate not applicable', () => {
       const disabled = section(config, 'entropy').enabled === false;
-      const points = entryPoints(config);
-      expect(
-        disabled || (points !== undefined && points.length > 0),
-        'the entropy analyzer abstains with "Could not resolve entry points" — set ' +
-          '`entropy.entryPoints`/`performance.entryPoints`, or `entropy.enabled: false`'
-      ).toBe(true);
+      expect(disabled || hasWalkableRoot(config, files), rootDiagnostic(config, files)).toBe(true);
     });
 
-    it('perf: has an entry point to walk, or declares the gate not applicable', () => {
-      const perf = section(config, 'performance');
-      const disabled = perf.enabled === false;
-      const claimsThresholds =
-        perf.complexity !== undefined ||
-        perf.coupling !== undefined ||
-        perf.sizeBudget !== undefined;
-      const points = entryPoints(config);
-      expect(
-        disabled || (points !== undefined && points.length > 0),
-        'the perf analyzer abstains with "Could not resolve entry points" — set ' +
-          '`performance.entryPoints`, or `performance.enabled: false`'
-      ).toBe(true);
-      // A template that claims thresholds but cannot run is the original defect.
-      if (claimsThresholds && !disabled) {
-        expect(points, 'thresholds configured but no entry point to apply them to').toBeDefined();
+    it('perf: can resolve a real root, or declares the gate not applicable', () => {
+      const disabled = section(config, 'performance').enabled === false;
+      expect(disabled || hasWalkableRoot(config, files), rootDiagnostic(config, files)).toBe(true);
+    });
+
+    it('declares no entry point that is a glob or a file it does not ship', () => {
+      // Independent of enablement: a wrong `entryPoints` SUPPRESSES
+      // auto-detection, so it is worse than having none at all.
+      for (const point of entryPoints(config) ?? []) {
+        expect(
+          point,
+          `\`${point}\` is a glob, and entry points are resolved literally`
+        ).not.toMatch(/[*?]/);
+        expect(files, `\`${point}\` is not a file this template ships`).toContain(
+          point.replace(/^\.\//, '')
+        );
       }
     });
 

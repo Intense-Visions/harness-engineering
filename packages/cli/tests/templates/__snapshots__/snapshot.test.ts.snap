@@ -139,9 +139,6 @@ See [architecture.md](./architecture.md) for architectural decisions.
     "autoFix": false
   },
   "performance": {
-    "entryPoints": [
-      "src/**/*.ts"
-    ],
     "complexity": {
       "enabled": true,
       "thresholds": {
@@ -431,9 +428,6 @@ See [architecture.md](./architecture.md) for architectural decisions.
     "autoFix": false
   },
   "performance": {
-    "entryPoints": [
-      "src/**/*.ts"
-    ],
     "complexity": {
       "enabled": true,
       "thresholds": {
@@ -818,9 +812,6 @@ See [architecture.md](./architecture.md) for architectural decisions.
     "autoFix": false
   },
   "performance": {
-    "entryPoints": [
-      "src/**/*.ts"
-    ],
     "complexity": {
       "enabled": true,
       "thresholds": {
@@ -1457,9 +1448,6 @@ export default [
     "autoFix": false
   },
   "performance": {
-    "entryPoints": [
-      "src/**/*.ts"
-    ],
     "complexity": {
       "enabled": true,
       "thresholds": {
@@ -1503,6 +1491,8 @@ export default [
   }
 }",
   "src/domain/.gitkeep": "",
+  "src/index.ts": "export {};
+",
   "src/services/.gitkeep": "",
   "src/types/.gitkeep": "",
 }
@@ -1909,9 +1899,6 @@ export default [
     "autoFix": false
   },
   "performance": {
-    "entryPoints": [
-      "src/**/*.ts"
-    ],
     "complexity": {
       "enabled": true,
       "thresholds": {
@@ -1957,6 +1944,8 @@ export default [
   }
 }",
   "src/domain/.gitkeep": "",
+  "src/index.ts": "export {};
+",
   "src/services/.gitkeep": "",
   "src/types/.gitkeep": "",
 }
@@ -2098,9 +2087,6 @@ See [architecture.md](./architecture.md) for architectural decisions.
     "autoFix": false
   },
   "performance": {
-    "entryPoints": [
-      "src/**/*.ts"
-    ],
     "complexity": {
       "enabled": true,
       "thresholds": {
@@ -2438,9 +2424,6 @@ See [architecture.md](./architecture.md) for architectural decisions.
     "autoFix": false
   },
   "performance": {
-    "entryPoints": [
-      "src/**/*.ts"
-    ],
     "complexity": {
       "enabled": true,
       "thresholds": {
@@ -2955,9 +2938,6 @@ See [architecture.md](./architecture.md) for architectural decisions.
     "autoFix": false
   },
   "performance": {
-    "entryPoints": [
-      "src/**/*.ts"
-    ],
     "complexity": {
       "enabled": true,
       "thresholds": {
