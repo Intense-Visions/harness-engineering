@@ -558,6 +558,17 @@ _Analysis & Intelligence:_ `predict`, `recommend`, `advise-skills`, `impact-prev
 
 _Maintenance:_ `cleanup`, `cleanup-sessions` (with Hermes Phase 2 `--all` / `--include` / `--exclude`), `fix-drift`, `doctor`, `update`, `sync-main`, `sync-analyses`, `publish-analyses`, `snapshot`, `maintenance` (Hermes Phase 2: `list` / `show`; maintenance-pipeline Phase 3: `run [taskId...]` — on-demand, report-first sweep of overdue sweep-eligible tasks, `--all` / `--only` / `--skip` / `--fix` / `--concurrency` / `--json`, infra-free with no orchestrator), `mcp-guard` (Hermes Phase 2: pre-launch OSV malware check)
 
+`harness cleanup -t duplication` and the `detect_entropy` MCP tool's `type: "duplication"`
+report clone classes (whole-unit Type-2 clones at >= 3 members and >= 40 normalized tokens,
+ranked `tokenCount x members`). They are **advisory**: clone classes never enter
+`CleanupResult.totalIssues`, so they never affect the exit code and never appear in the
+`--findings-json` contract, and on the MCP side they are reported under `advisory.duplication`
+outside `totalIssues` (spec decision D4 / [ADR-0134](docs/knowledge/decisions/0134-whole-unit-type-2-clone-detection-at-rule-of-three.md)).
+Under `-t all` / `type: "all"` the detector runs **only** when `entropy.duplication` is
+configured in `harness.config.json`; an explicit request runs on the shipped defaults, and
+`entropy.duplication: false` plus an explicit request REFUSES rather than reporting a clean
+scan it never ran.
+
 _Content & Generation:_ `blueprint`, `create-skill`, `generate-agent-definitions`, `generate-slash-commands`, `knowledge-pipeline`, `share`
 
 _Dashboard & Orchestrator:_ `dashboard`, `orchestrator`, `mcp`, `perf`
