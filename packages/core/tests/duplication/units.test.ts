@@ -169,12 +169,25 @@ describe('extractUnits — traversal safety', () => {
     }
   });
 
+  /**
+   * A unit-shaped object to plant where the walk must not look.
+   *
+   * Real tokens carry `type: 'Keyword' | 'Identifier' | 'Punctuator'` and real
+   * comments `'Line' | 'Block'` — none of which is a UNIT_KINDS key, so a test
+   * that merely parses a commented file and asserts one unit CANNOT fail:
+   * traversing `tokens` and `comments` emits nothing either way. These decoys
+   * make the skip observable.
+   */
+  const decoyUnit = (name: string) => ({
+    type: 'FunctionDeclaration',
+    id: { type: 'Identifier', name },
+    params: [],
+    body: { type: 'BlockStatement', body: [] },
+    loc: { start: { line: 1, column: 0 }, end: { line: 1, column: 1 } },
+    range: [0, 1],
+  });
+
   it('ignores program-level tokens and comments rather than walking them', () => {
-    // A token object has `type: 'Identifier'`, which is NOT a UNIT_KINDS key, so
-    // this never produced phantom units — but it was traversed for every file.
-    // `comment: true` is set here deliberately: the production parse in
-    // `fingerprintFile` does NOT set it, so `comments` is normally absent. This
-    // pins the skip for callers who do pass it.
     const ast = parse('// lead\nfunction solo(a) { return a; }', {
       tokens: true,
       comment: true,
@@ -183,6 +196,32 @@ describe('extractUnits — traversal safety', () => {
     });
     expect(ast.tokens?.length ?? 0).toBeGreaterThan(0);
     expect(ast.comments?.length ?? 0).toBeGreaterThan(0);
+
+    ast.tokens?.push(decoyUnit('phantomFromTokens') as never);
+    ast.comments?.push(decoyUnit('phantomFromComments') as never);
+
+    // Dropping 'tokens','comments' from NON_CHILD_KEYS yields
+    // ['phantomFromComments', 'phantomFromTokens', 'solo'] here.
     expect(extractUnits(ast).map((u) => u.name)).toEqual(['solo']);
+  });
+
+  it('terminates on a cycle through a key NON_CHILD_KEYS does not filter', () => {
+    // The parent-pointer test above passes because of NON_CHILD_KEYS.has('parent'),
+    // not because of the visited set, so it leaves the `seen` guard unpinned.
+    // `cycleRef` is filtered by nothing, so only `seen` can stop this walk.
+    const ast = parse('class K { m(a) { return [1].map((x) => x * 2); } }', {
+      tokens: true,
+      loc: true,
+      range: true,
+    });
+    const expected = extractUnits(ast).map((u) => `${u.kind}:${u.name}`);
+
+    const classNode = ast.body[0] as unknown as Record<string, unknown>;
+    const classBody = classNode['body'] as Record<string, unknown>;
+    classBody['cycleRef'] = classNode;
+
+    expect(() => extractUnits(ast)).not.toThrow();
+    expect(extractUnits(ast).map((u) => `${u.kind}:${u.name}`)).toEqual(expected);
+    expect(expected).toEqual(['class:K', 'method:m', 'function:<anon>']);
   });
 });
