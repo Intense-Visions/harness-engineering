@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/src/entropy/types'
-sourceHash: '585670d103a073037cf9a563a3d973aaedf52b38d84f9c85608ad05e2fc9a02d'
+sourceHash: '8d9735457a8dc812d4915218de72bcb4812429f6423d2a949d836a1558876d3b'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -12,6 +12,7 @@ members:
     'coupling.ts',
     'dead-code.ts',
     'drift.ts',
+    'duplication.ts',
     'fix.ts',
     'index.ts',
     'pattern-config.ts',
@@ -34,6 +35,7 @@ export EntropyError
 ```
 import { ProtectedRegionMap } from '../../annotations'
 import { DependencyGraph } from '../../constraints/types'
+import { CloneClass, CloneIndex, FingerprintCollision } from '../../duplication'
 import { EntropyError } from '../../shared/errors'
 import { AST, Export, Import, LanguageParser } from '../../shared/parsers'
 import { PathAlias } from '../path-aliases'
