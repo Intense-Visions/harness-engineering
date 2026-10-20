@@ -51,9 +51,11 @@ parses; candidates that resolved but could not be opened), plus the FIX loop's
 final re-detect. Every other recorded abstention now fails the gate too, and
 two of them are the ones you are most likely to hit first:
 
-- **The design-craft critique failing** (FILL phase). With an LLM backend
-  configured, an outage, a missing or unknown backend, a rate limit or a network
-  error makes the critique abstain, and the run now reports `fail` (exit `1`)
+- **The design-craft critique failing** (FILL phase). When a backend is
+  selected (`HARNESS_CRAFT_LLM` or `craft.llm.backend`) but cannot serve the
+  critique — its name is missing from `agent.backends`, its entry is
+  incomplete, or it is unreachable (an outage, a rate limit, a network error) —
+  the critique abstains, and the run now reports `fail` (exit `1`)
   with `degradedBy: ['design-craft-critique']` and zero findings. Measured on a
   fixture that otherwise passes:
   `HARNESS_CRAFT_LLM=nonexistent-backend harness design-pipeline --json` →
@@ -61,14 +63,21 @@ two of them are the ones you are most likely to hit first:
   previous release the same run was `pass`, exit `0`.
 - **`align-design-system` throwing** inside the `--fix` loop (FIX phase).
 
-Craft is documented as an advisory ceiling layer. **If you want it to stay
-advisory in CI, run with `--no-fill`** (MCP: `noFill: true`), which skips the
+Craft is documented as an advisory ceiling layer. **If you do not want a
+configured craft backend to be able to fail CI, run with `--no-fill`** (MCP: `noFill: true`), which skips the
 FILL phase — the craft critique and input bootstrap — so the critique cannot
-abstain. Measured on the same fixture with the same unreachable backend:
+abstain. Measured on the same fixture with the same unknown backend:
 `HARNESS_CRAFT_LLM=nonexistent-backend harness design-pipeline --json --no-fill`
 → exit `0`, `verdict: 'pass'`, `design-craft-critique` absent from both
-`verifiersRun` and `verifiersFailed`. Note that `--no-fill` also skips
-bootstrapping missing design inputs.
+`verifiersRun` and `verifiersFailed`. Because FILL runs after AUDIT, skipping
+it cannot hide a rule-based verifier's abstention. Know what you give up:
+`--no-fill` turns craft **off** rather than making it advisory (no craft
+suggestions at all), and it skips bootstrapping missing design inputs, so an
+empty project that reports `warn` (with stubs written) reports `pass` (with no
+stubs written) under `--no-fill`. Neither changes the exit code.
+
+With no LLM configuration at all, the critique runs in-session and does not
+abstain: an otherwise-clean project still reports `pass`, exit `0`.
 
 `@harness-engineering/cli` is post-1.0 (13.x), so a behavioural break in a
 gate's verdict lands there as a **major**, matching #2207.
