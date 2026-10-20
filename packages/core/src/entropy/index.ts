@@ -21,6 +21,13 @@ export type { GraphComplexityData } from './detectors/complexity';
 export { detectCouplingViolations } from './detectors/coupling';
 export type { GraphCouplingData } from './detectors/coupling';
 export { detectSizeBudgetViolations, parseSize } from './detectors/size-budget';
+export { detectDuplication } from './detectors/duplication';
+// Only `DuplicationReport` joins the type list below. The clone types
+// (`CloneClass`, `DuplicationConfig`, `CloneIndex`, ...) are NOT re-exported
+// here: the core barrel already does `export * from './duplication'`, so a
+// second star-export of one of those names would be ambiguous — and
+// TypeScript resolves an ambiguous star-export by silently dropping the name,
+// breaking spec criterion 11 with no error anywhere.
 
 /**
  * Annotation-based protected regions for code that must not be modified.
@@ -101,6 +108,7 @@ export type {
   SizeBudgetConfig,
   SizeBudgetViolation,
   SizeBudgetReport,
+  DuplicationReport,
   ConfigPattern,
   CodePattern,
   PatternMatch,

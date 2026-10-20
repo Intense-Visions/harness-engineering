@@ -4,3 +4,4 @@ export { detectPatternViolations } from './patterns';
 export { detectComplexityViolations } from './complexity';
 export { detectCouplingViolations } from './coupling';
 export { detectSizeBudgetViolations, parseSize } from './size-budget';
+export { detectDuplication } from './duplication';

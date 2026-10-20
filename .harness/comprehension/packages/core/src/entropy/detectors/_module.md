@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/src/entropy/detectors'
-sourceHash: '724ec2dce90a25e29ecead0e2ff5f118d7dd3cfb41fcb81900232ab719d05c15'
+sourceHash: 'df62e48cebf791ae04ffc14508c188151ce4c410592b78f69b94810222892444'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -25,6 +25,7 @@ export detectComplexityViolations
 export detectCouplingViolations
 export detectDeadCode
 export detectDocDrift
+export detectDuplication
 export detectPatternViolations
 export detectSizeBudgetViolations
 export parseSize

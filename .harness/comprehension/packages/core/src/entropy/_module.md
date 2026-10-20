@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/src/entropy'
-sourceHash: 'bbc2954594230fefd632948ccc9dee730d5b16a4ff7ad93b42cd073a0d6ece8f'
+sourceHash: 'c90b4e7b540ceebfdd9b3ecea7a1282769ff405628e7b911f6b595f2842b8c91'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -46,6 +46,7 @@ export DocumentationDrift
 export DocumentationFile
 export DriftConfig
 export DriftReport
+export DuplicationReport
 export EntropyAnalyzer
 export EntropyConfig
 export EntropyConfigSchema
@@ -96,6 +97,7 @@ export detectComplexityViolations
 export detectCouplingViolations
 export detectDeadCode
 export detectDocDrift
+export detectDuplication
 export detectPatternViolations
 export detectSizeBudgetViolations
 export generateSuggestions
