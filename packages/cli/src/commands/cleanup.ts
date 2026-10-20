@@ -12,7 +12,7 @@ import type {
 import { Ok, Err, EntropyAnalyzer } from '@harness-engineering/core';
 import { formatFindingsContract } from '@harness-engineering/types';
 import { resolveConfig } from '../config/loader';
-import { OutputFormatter, OutputMode } from '../output/formatter';
+import { OutputFormatter, OutputMode, type OutputModeType } from '../output/formatter';
 import { resolveOutputMode } from '../utils/output';
 import { logger } from '../output/logger';
 import { CLIError, ExitCode } from '../utils/errors';
@@ -428,6 +428,36 @@ export function printCleanupResult(value: CleanupResult, formatter: OutputFormat
   }
 }
 
+/**
+ * The `-t, --type` option.
+ *
+ * `.choices` and not a bare `.option`: an unrecognized value used to run no
+ * analyzer and exit 0 (see `describeUnknownIssueType`). Commander refuses
+ * before the action runs, so no findings line is published either. Hoisted out
+ * of `createCleanupCommand` to keep that function under the arch
+ * function-length threshold.
+ */
+function typeOption(): Option {
+  return new Option('-t, --type <type>', `Issue type: ${ENTROPY_ISSUE_TYPES.join(', ')}`)
+    .choices([...ENTROPY_ISSUE_TYPES])
+    .default('all');
+}
+
+/**
+ * Whether the human-readable result is printed in the current output mode.
+ *
+ * `--quiet` suppresses a clean run and shows a dirty one. "Dirty" used to mean
+ * `totalIssues > 0` alone — but `totalIssues` deliberately EXCLUDES duplication
+ * (D4 / ADR 0134), so the quiet gate suppressed the entire advisory channel
+ * this phase added: measured, `-t duplication --quiet` printed NOTHING and
+ * exited 0 with a clone class found. That was an unintended reach of the D4
+ * exclusion, not a decision anyone made.
+ */
+function shouldPrint(mode: OutputModeType, value: CleanupResult): boolean {
+  if (mode !== OutputMode.QUIET) return true;
+  return value.totalIssues > 0 || value.duplication !== undefined;
+}
+
 const CLEANUP_DESCRIPTION =
   'Detect entropy issues (doc drift, dead code, patterns, duplication). Duplication is ' +
   'advisory — it never affects the exit code — and under --type all it runs only when ' +
@@ -436,14 +466,7 @@ const CLEANUP_DESCRIPTION =
 export function createCleanupCommand(): Command {
   const command = new Command('cleanup')
     .description(CLEANUP_DESCRIPTION)
-    // `.choices` and not a bare `.option`: an unrecognized value used to run
-    // no analyzer and exit 0 (see `describeUnknownIssueType`). Commander
-    // refuses before the action runs, so no findings line is published either.
-    .addOption(
-      new Option('-t, --type <type>', `Issue type: ${ENTROPY_ISSUE_TYPES.join(', ')}`)
-        .choices([...ENTROPY_ISSUE_TYPES])
-        .default('all')
-    )
+    .addOption(typeOption())
     .option(
       '--findings-json',
       'Emit the machine-readable maintenance findings contract ({ findings: N }) as a trailing stdout line (#691)'
@@ -472,7 +495,7 @@ export function createCleanupCommand(): Command {
 
       if (mode === OutputMode.JSON) {
         console.log(JSON.stringify(result.value, null, 2));
-      } else if (mode !== OutputMode.QUIET || result.value.totalIssues > 0) {
+      } else if (shouldPrint(mode, result.value)) {
         printCleanupResult(result.value, formatter);
       }
 

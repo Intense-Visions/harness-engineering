@@ -119,6 +119,21 @@ describe.skipIf(skipUnlessBin)('harness cleanup -t duplication (spawned CLI)', (
     expect(payload.duplication.classesSuppressed).toBe(1);
   });
 
+  it('still prints the advisory section under --quiet', () => {
+    // The quiet gate was `mode !== QUIET || totalIssues > 0`, and
+    // `totalIssues` deliberately EXCLUDES duplication (D4) — so the channel
+    // this phase added was suppressed by a gate keyed on the counter the phase
+    // deliberately kept it out of. Measured before the fix:
+    // `-t duplication --quiet` printed NOTHING and exited 0 with a clone class
+    // found.
+    const result = runCLI(['cleanup', '-t', 'duplication', '--quiet'], projectDir);
+    expect(result.status).toBe(0);
+    // MUTATION: drop `|| result.value.duplication` from the gate and stdout is
+    // empty.
+    expect(result.stdout).toContain('Duplication (advisory');
+    expect(result.stdout).toContain('3x 83 tokens: totalAlpha');
+  });
+
   it('refuses an unrecognized -t value instead of exiting 0', () => {
     // Measured before `.choices`: `-t duplicaiton` printed
     // "Entropy issues: not checked" and exited 0, and with --findings-json it

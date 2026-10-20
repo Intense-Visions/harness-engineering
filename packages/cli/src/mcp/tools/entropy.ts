@@ -201,6 +201,15 @@ function summarizePatterns(patterns: any): { issueCount: number; topIssues: stri
  * classes out of its exit-code arithmetic (D4 / ADR 0134) and `totalIssues` is
  * the one number an agent reads as "is this clean", so D4 has to hold on both
  * surfaces or it holds on neither.
+ *
+ * ON THE WIRE, `topClasses` is an ARRAY here but a SCALAR when it holds
+ * exactly one element — the single most common case: the compaction
+ * middleware's structural pass collapses single-element arrays
+ * (`core/src/compaction/strategies/structural.ts:28`, documented at `:58`).
+ * A consumer must not write `topClasses[0]`; that yields `"3"`, the first
+ * character of the collapsed string. The same applies in detailed mode to
+ * `classes`, `members`, `collisions` and `skipErrors`. Deliberate, for token
+ * thrift — named here so it is not discovered the hard way.
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function summarizeDuplication(duplication: any) {
