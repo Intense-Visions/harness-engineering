@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/tests/entropy/detectors'
-sourceHash: 'e0c263a8b753dcdb7e674748496c7032e9efb48c31a844f7c557ba7fcbbbca9e'
+sourceHash: '243ce708298ddf76fbc87456e018cd1c8e137fc463b7323b570582723c75593f'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -14,6 +14,7 @@ members:
     'dead-code.test.ts',
     'drift.test.ts',
     'duplication-registration.test.ts',
+    'duplication.perf.test.ts',
     'duplication.test.ts',
     'patterns.checkers.test.ts',
     'patterns.test.ts',
@@ -32,6 +33,8 @@ members:
 ```
 import { createRegionMap } from '../../../src/annotations'
 import from '../../../src/duplication'
+import { normalizeTokens } from '../../../src/duplication/tokens'
+import { extractUnits } from '../../../src/duplication/units'
 import { GraphComplexityData, detectComplexityViolations } from '../../../src/entropy/detectors/complexity'
 import { GraphCouplingData, detectCouplingViolations } from '../../../src/entropy/detectors/coupling'
 import { buildReachabilityMap, detectDeadCode } from '../../../src/entropy/detectors/dead-code'
@@ -43,11 +46,14 @@ import { detectSizeBudgetViolations, parseSize } from '../../../src/entropy/dete
 import from '../../../src/entropy/index'
 import { buildSnapshot } from '../../../src/entropy/snapshot'
 import { CodebaseSnapshot, ComplexityConfig, ConfigPattern, CouplingConfig, DeadCodeConfig, SizeBudgetConfig, SourceFile } from '../../../src/entropy/types'
-import { findFiles } from '../../../src/shared/fs-utils'
+import { findFiles, relativePosix } from '../../../src/shared/fs-utils'
 import { TypeScriptParser } from '../../../src/shared/parsers'
 import { isOk } from '../../../src/shared/result'
 import from '@harness-engineering/core'
+import { skipDirGlobs } from '@harness-engineering/graph'
+import { parse } from '@typescript-eslint/typescript-estree'
 import { mkdtemp, rm, writeFile } from 'fs/promises'
+import { minimatch } from 'minimatch'
 import { mkdirSync, rmSync, writeFileSync } from 'node:fs'
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
