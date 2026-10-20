@@ -178,8 +178,12 @@ export interface CloneClass {
 
 export interface SkippedFile {
   file: string; // repo-relative, posix-normalized
-  reason: 'unreadable' | 'unparseable' | 'unextractable';
+  // the first three blame the FILE; 'internal-error' blames our own
+  // normalization or digest stage (or the runtime), not the file
+  reason: 'unreadable' | 'unparseable' | 'unextractable' | 'internal-error';
   message: string; // the underlying read, parse, or extraction error
+  errorName: string; // the Error's `name` — the class of failure
+  originalError: Error; // for Phase 2's EntropyError.details.originalError; NOT serializable
 }
 
 export interface FingerprintCollision {
@@ -231,8 +235,14 @@ Following the `Result` / `AnalysisError` convention already used by the sibling 
 - If a source file fails to parse, or its units cannot be extracted, normalized, or fingerprinted,
   the detector shall skip that file, increment `filesSkipped`, record a `SkippedFile` entry, and
   record an `AnalysisError` with `analyzer: 'duplication'` — it shall not fail the entropy run. The
-  reason and message are carried on the index rather than collapsed into a count, because Phase 2
-  cannot raise a per-file `AnalysisError` from a bare counter.
+  reason, message, error name and the `Error` itself are carried on the index rather than collapsed
+  into a count, because Phase 2 cannot raise a per-file `AnalysisError` from a bare counter.
+- A failure of the detector's OWN post-parse stages — normalization or the digest — shall be
+  recorded as `reason: 'internal-error'`, distinctly from the file-blaming reasons, and the
+  all-files-skipped advice shall be keyed to the reasons observed. Otherwise a FIPS-mode Node where
+  `createHash('sha1')` throws turns every file into a file-blaming skip and the error advises
+  "Check file permissions" and "Check that the discovered files are valid TS/JS", which is actively
+  misleading for an environment failure.
 - If EVERY eligible file is skipped, the detector shall report that explicitly rather than
   returning an index with zero classes. At 100% skip the result is indistinguishable from the
   zero-discovery case below; a partial skip (1 of N) still returns `Ok`, because that is a scan that

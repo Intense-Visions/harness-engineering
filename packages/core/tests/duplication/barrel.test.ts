@@ -142,7 +142,14 @@ describe('core barrel — duplication surface (criterion 11)', () => {
   it('builds a SkippedFile matching the exported interface', () => {
     expect(index.skipped).toHaveLength(1);
     const skip: SkippedFile = index.skipped[0]!;
-    expect(Object.keys(skip).sort()).toEqual(['file', 'message', 'reason']);
+    expect(Object.keys(skip).sort()).toEqual([
+      'errorName',
+      'file',
+      'message',
+      'originalError',
+      'reason',
+    ]);
     expect(skip.reason).toBe('unreadable');
+    expect(skip.originalError).toBeInstanceOf(Error);
   });
 });

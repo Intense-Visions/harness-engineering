@@ -64,6 +64,20 @@ export interface SkippedFile {
   reason: FileSkipReason;
   /** The underlying read, parse, or extraction error message. */
   message: string;
+  /**
+   * The underlying error's `name` — e.g. `'MissingNodeLocationError'`,
+   * `'TypeError'`, `'Error'`. A message alone loses the class of failure, and
+   * the class is what separates "this file is bad" from "our code broke".
+   */
+  errorName: string;
+  /**
+   * The underlying `Error` itself, for Phase 2 to put in
+   * `EntropyError.details.originalError` (which exists for exactly this).
+   *
+   * NOT JSON-serializable: a consumer that serializes the index must project
+   * `message` / `errorName` instead of the object.
+   */
+  originalError: Error;
 }
 
 /**
@@ -350,15 +364,57 @@ function summarizeSkips(skipped: readonly SkippedFile[]): string {
 }
 
 /**
+ * Suggestions for the all-files-skipped error, keyed to the reasons actually
+ * observed.
+ *
+ * A fixed list advised "Check file permissions" and "Check that the discovered
+ * files are valid TS/JS" for EVERY cause, including an `internal-error` where
+ * the files are fine and our own normalization or digest stage failed — e.g. a
+ * FIPS-mode Node rejecting sha1.
+ */
+function skipSuggestions(skipped: readonly SkippedFile[]): string[] {
+  const reasons = new Set(skipped.map((entry) => entry.reason));
+  const suggestions: string[] = [];
+  if (reasons.has('internal-error')) {
+    suggestions.push(
+      "Duplication's own normalization or digest stage failed — suspect the runtime, not the sources (e.g. a FIPS-mode Node where createHash('sha1') throws)"
+    );
+  }
+  if (reasons.has('unreadable')) {
+    suggestions.push('Check file permissions on the discovered source files');
+  }
+  if (reasons.has('unparseable')) {
+    suggestions.push('Check that the discovered files are valid TS/JS that the parser accepts');
+  }
+  if (reasons.has('unextractable')) {
+    suggestions.push('Check that the files parse to an AST carrying loc and range');
+  }
+  const first = skipped[0];
+  if (first !== undefined) {
+    suggestions.push(`First failure: ${first.file} — ${first.errorName}: ${first.message}`);
+  }
+  return suggestions;
+}
+
+/**
  * Why a file produced no units.
  *
- * `unextractable` covers the stages after a successful parse — unit
- * extraction, normalization, and digest. They used to sit OUTSIDE the
- * `try`, so the documented "never throws" contract held only by accident:
- * `extractUnits` throws {@link MissingNodeLocationError} on an AST without
- * `loc`, and nothing bounded a normalizer or hash failure either.
+ * The first three are statements about the FILE: it could not be read, the
+ * parser rejected it, or its units could not be extracted from the resulting
+ * AST. `unextractable` exists because `extractUnits` throws
+ * {@link MissingNodeLocationError} on an AST without `loc` or `range`, and
+ * that stage used to sit OUTSIDE the `try`, so the documented "never throws"
+ * contract held only by accident.
+ *
+ * `internal-error` is NOT a statement about the file: it means OUR code or the
+ * environment failed after a successful parse — normalization or the digest.
+ * The concrete case is a FIPS-mode Node where `createHash('sha1')` throws:
+ * EVERY file then failed, and with one shared reason the all-files-skipped
+ * error advised "Check file permissions" and "Check that the discovered files
+ * are valid TS/JS", which is actively misleading for an environment failure.
+ * Keeping the two distinguishable is what lets the advice be right.
  */
-export type FileSkipReason = 'unreadable' | 'unparseable' | 'unextractable';
+export type FileSkipReason = 'unreadable' | 'unparseable' | 'unextractable' | 'internal-error';
 
 /** Outcome of fingerprinting one file. */
 export type FingerprintFileResult =
@@ -368,7 +424,26 @@ export type FingerprintFileResult =
       /** Units dropped before hashing for falling below `minTokens`. */
       unitsBelowMinTokens: number;
     }
-  | { status: 'skipped'; reason: FileSkipReason; message: string };
+  | {
+      status: 'skipped';
+      reason: FileSkipReason;
+      message: string;
+      /** The underlying error's `name`. */
+      errorName: string;
+      /** The underlying error, carried so the caller can record it. */
+      originalError: Error;
+    };
+
+/** One skip outcome, carrying the error rather than flattening it to a string. */
+function skipFile(reason: FileSkipReason, error: Error): FingerprintFileResult {
+  return {
+    status: 'skipped',
+    reason,
+    message: error.message,
+    errorName: error.name,
+    originalError: error,
+  };
+}
 
 /**
  * Read, parse, and fingerprint every unit in one file.
@@ -386,8 +461,10 @@ export type FingerprintFileResult =
  * token count is only knowable after normalization, so normalization runs for
  * every unit; the hash does not.
  *
- * Never throws: an unreadable, unparseable, or unextractable file resolves to
- * `{ status: 'skipped' }` so the caller can record it in `CloneIndex.skipped`,
+ * Never throws: a file that cannot be read, parsed or extracted — and a
+ * normalization or digest failure, which is OUR failure rather than the
+ * file's — resolves to `{ status: 'skipped' }`, carrying the reason and the
+ * `Error` itself, so the caller can record it in `CloneIndex.skipped`,
  * increment `filesSkipped`, and continue. Phase 2's detector converts each
  * recorded skip into an `AnalysisError` with `analyzer: 'duplication'`; the
  * entropy types live there, not here, which is why the reason and message are
@@ -405,7 +482,7 @@ export async function fingerprintFile(
 ): Promise<FingerprintFileResult> {
   const contentResult = await readFileContent(absPath);
   if (!contentResult.ok) {
-    return { status: 'skipped', reason: 'unreadable', message: contentResult.error.message };
+    return skipFile('unreadable', contentResult.error);
   }
 
   // Explicitly typed, not an evolving `let`. Definite-assignment analysis
@@ -420,17 +497,26 @@ export async function fingerprintFile(
       errorOnUnknownASTType: false,
     });
   } catch (e) {
-    return { status: 'skipped', reason: 'unparseable', message: (e as Error).message };
+    return skipFile('unparseable', e as Error);
   }
 
-  // Extraction, normalization, and digest are inside a try of their own: the
-  // "never throws" contract above covers the whole function, and only `parse`
-  // used to be guarded.
+  // Extraction, normalization, and digest are all guarded: the "never throws"
+  // contract above covers the whole function, and only `parse` used to be
+  // inside a try. They are guarded SEPARATELY because they fail for different
+  // reasons — extraction blames the AST, normalization and the digest blame us
+  // or the environment (see {@link FileSkipReason}).
   const tokens = program.tokens ?? [];
+  let extracted: ReturnType<typeof extractUnitsImpl>;
+  try {
+    extracted = extractUnitsImpl(program);
+  } catch (e) {
+    return skipFile('unextractable', e as Error);
+  }
+
   const units: FingerprintedUnit[] = [];
   let unitsBelowMinTokens = 0;
   try {
-    for (const unit of extractUnitsImpl(program)) {
+    for (const unit of extracted) {
       const stream = normalize(tokens, unit.range);
       if (stream.length < minTokens) {
         unitsBelowMinTokens += 1;
@@ -449,7 +535,7 @@ export async function fingerprintFile(
       });
     }
   } catch (e) {
-    return { status: 'skipped', reason: 'unextractable', message: (e as Error).message };
+    return skipFile('internal-error', e as Error);
   }
   return { status: 'scanned', units, unitsBelowMinTokens };
 }
@@ -487,8 +573,8 @@ export async function fingerprintFile(
  *
  * `EntropyError.code` is NOT a discriminator: `PARSE_ERROR` is shared across
  * distinct conditions — `'all-files-skipped'` here, and the per-file
- * `'unparseable'` skips Phase 2 is specified to convert into `AnalysisError`s
- * — besides being raised by unrelated entropy modules.
+ * `'unparseable'` / `'internal-error'` skips Phase 2 is specified to convert
+ * into `AnalysisError`s — besides being raised by unrelated entropy modules.
  * Consumers must switch on `details.reason`, never on `code`.
  *
  * Grouping is keyed on `${fingerprint}:${tokenCount}`, so two units whose
@@ -555,7 +641,13 @@ export async function buildCloneIndex(
   for (const { abs, rel } of eligible) {
     const outcome = await fingerprintFile(abs, rel, config.minTokens);
     if (outcome.status === 'skipped') {
-      skipped.push({ file: rel, reason: outcome.reason, message: outcome.message });
+      skipped.push({
+        file: rel,
+        reason: outcome.reason,
+        message: outcome.message,
+        errorName: outcome.errorName,
+        originalError: outcome.originalError,
+      });
       continue;
     }
     filesScanned += 1;
@@ -591,12 +683,13 @@ export async function buildCloneIndex(
       createEntropyError(
         'PARSE_ERROR',
         `Refusing to report a pass over zero readable source files: all ${skipped.length} eligible file(s) under ${rootDir} were skipped (${summarizeSkips(skipped)}).`,
-        { reason: 'all-files-skipped', file: rootDir, issues: skipped },
-        [
-          'Check file permissions on the discovered source files',
-          'Check that the discovered files are valid TS/JS that the parser accepts',
-          `First failure: ${skipped[0]!.file} — ${skipped[0]!.message}`,
-        ]
+        {
+          reason: 'all-files-skipped',
+          file: rootDir,
+          issues: skipped,
+          originalError: skipped[0]!.originalError,
+        },
+        skipSuggestions(skipped)
       )
     );
   }

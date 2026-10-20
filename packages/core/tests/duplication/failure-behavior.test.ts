@@ -44,6 +44,10 @@ describe('fingerprintFile', () => {
     if (result.status !== 'skipped') return;
     expect(result.reason).toBe('unparseable');
     expect(result.message.length).toBeGreaterThan(0);
+    // The parser's own error class, carried rather than flattened to a string.
+    expect(result.errorName.length).toBeGreaterThan(0);
+    expect(result.originalError).toBeInstanceOf(Error);
+    expect(result.originalError.message).toBe(result.message);
   });
 
   it('parses .tsx with the jsx option enabled', async () => {
@@ -122,6 +126,10 @@ describe('zero-discovery guard', () => {
     expect(result.error.message).toMatch(/zero readable source files/i);
     expect(result.error.message).toMatch(/1 unreadable/);
     expect(result.error.suggestions.length).toBeGreaterThan(0);
+    // Advice keyed to the reason observed: a read failure, so permissions.
+    const advice = result.error.suggestions.join('\n');
+    expect(advice).toMatch(/file permissions/i);
+    expect(advice).not.toMatch(/normalization or digest/i);
   });
 
   it('returns Err when every eligible file is unparseable, not Ok with zero classes', async () => {
@@ -155,7 +163,13 @@ describe('zero-discovery guard', () => {
     expect(result.value.stats.filesScanned).toBe(1);
     expect(result.value.stats.filesSkipped).toBe(1);
     expect(result.value.skipped).toEqual([
-      { file: 'src/absent.ts', reason: 'unreadable', message: expect.any(String) },
+      {
+        file: 'src/absent.ts',
+        reason: 'unreadable',
+        message: expect.any(String),
+        errorName: 'Error',
+        originalError: expect.any(Error),
+      },
     ]);
     expect(result.value.skipped[0]!.message.length).toBeGreaterThan(0);
   });
