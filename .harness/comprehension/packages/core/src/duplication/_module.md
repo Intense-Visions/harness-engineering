@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/src/duplication'
-sourceHash: 'e8e71a1f29e0d01dab7ecc84abe6b513c5028121e9be56796bc4b4d21298de57'
+sourceHash: '514c27b1df5ffdb9217bb944211070f6687f4da476e8b1e8036f2ed6460c7861'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent

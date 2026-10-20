@@ -253,6 +253,14 @@ export function resolveDuplicationConfig(
  * case-insensitive macOS and Windows filesystems, and rejecting it on case
  * alone made it vanish from `filesScanned` and `filesSkipped` alike.
  *
+ * The ignore globs are matched case-insensitively too (`nocase`), for the same
+ * reason and against the same filesystems. Lowercasing only the extension
+ * checks left the two halves disagreeing: `src/Foo.TEST.TS` passed the
+ * extension test and then missed the default `*.test.ts` glob, so a test file
+ * entered the index as production source — newly reachable BECAUSE the
+ * extension check was made case-insensitive. `NODE_MODULES/pkg/a.js` and
+ * `src/Dist/a.js` bypassed their directory globs the same way.
+ *
  * A path that escapes `rootDir` is rejected outright. `**`-anchored globs do
  * not match a `../`-prefixed path, so such a file bypassed EVERY default
  * ignore pattern (`'src/index.ts'` was ignored while `'../../x/index.ts'` was
@@ -265,7 +273,9 @@ export function isEligibleFile(relPath: string, ignorePatterns: readonly string[
   const lower = relPath.toLowerCase();
   if (lower.endsWith('.d.ts')) return false;
   if (!SUPPORTED_EXTENSIONS.some((ext) => lower.endsWith(ext))) return false;
-  return !ignorePatterns.some((pattern) => minimatch(relPath, pattern, { dot: true }));
+  return !ignorePatterns.some((pattern) =>
+    minimatch(relPath, pattern, { dot: true, nocase: true })
+  );
 }
 
 /** One fingerprinted unit: its digest, token count, and located member. */

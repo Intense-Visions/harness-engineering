@@ -73,6 +73,39 @@ describe('isEligibleFile', () => {
     expect(isEligibleFile(file, noIgnore.ignorePatterns)).toBe(false);
   });
 
+  it.each([
+    // Extension case — admitted by the case-insensitive extension check and
+    // then missed by a case-sensitive glob, so a TEST file entered the index as
+    // production source.
+    'src/Foo.TEST.TS',
+    'src/a.Spec.tsx',
+    // Stem case.
+    'src/Foo.Test.ts',
+    'src/Gen.GENERATED.ts',
+    // Directory-segment case.
+    'NODE_MODULES/pkg/a.js',
+    'src/Dist/a.js',
+    'packages/core/Build/a.js',
+    'Tests/a.ts',
+    'src/__TESTS__/a.ts',
+    'src/Fixtures/a.ts',
+  ])('rejects %s — ignore globs are matched case-insensitively too', (file) => {
+    expect(isEligibleFile(file, DEFAULT_DUPLICATION_CONFIG.ignorePatterns)).toBe(false);
+  });
+
+  it('applies nocase to a caller-supplied pattern, not only to the defaults', () => {
+    expect(isEligibleFile('src/Generated/gen.ts', ['**/generated/**'])).toBe(false);
+    expect(isEligibleFile('src/generated/gen.ts', ['**/GENERATED/**'])).toBe(false);
+  });
+
+  it('still accepts a case-variant path that no ignore glob covers', () => {
+    // nocase must widen the ignore globs, not swallow production source.
+    expect(isEligibleFile('src/Service.TS', DEFAULT_DUPLICATION_CONFIG.ignorePatterns)).toBe(true);
+    expect(
+      isEligibleFile('src/Attestation/Index.TS', DEFAULT_DUPLICATION_CONFIG.ignorePatterns)
+    ).toBe(true);
+  });
+
   it.each(['../../x/index.ts', '../sibling/src/a.ts', '..'])(
     'rejects %s — a path outside rootDir bypasses every **-anchored ignore glob',
     (file) => {
