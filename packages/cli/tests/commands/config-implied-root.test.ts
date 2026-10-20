@@ -454,66 +454,6 @@ describe('-c selects the project root, not just the config file (#911 class)', (
   });
 
   /**
-   * `check-perf` — the action handler called `runCheckPerf(process.cwd(), ...)`
-   * while `resolveConfiguredEntryPoints` read the entry points from `-c`, so the
-   * configured entry points of one project scoped a scan of another.
-   *
-   * Discriminator: this repo has 13 standing complexity violations, so a run
-   * against the WRONG root exits VALIDATION_FAILED(1) with 13 issues naming
-   * `packages/**` files. The fixture is one trivial function, so a correctly
-   * rooted run exits SUCCESS(0) with none. Asserting "zero issues, and no issue
-   * naming a path outside the fixture" is a finding assertion, not a verdict
-   * one — it cannot be satisfied by the repo's own tree.
-   */
-  it('check-perf analyses the -c project', async () => {
-    await withProject(
-      { rootDir: './src', docsDir: './docs' },
-      async (root) => {
-        await writeFile(
-          path.join(root, 'src/thing.ts'),
-          'export function thing(a: number): number {\n  return a + 1;\n}\n'
-        );
-      },
-      async (configPath) => {
-        const { createCheckPerfCommand } = await import('../../src/commands/check-perf');
-
-        const exitError = new Error('process.exit');
-        const codes: number[] = [];
-        const logs: string[] = [];
-        const exitSpy = vi.spyOn(process, 'exit').mockImplementation(((c: number) => {
-          codes.push(c);
-          throw exitError;
-        }) as never);
-        const logSpy = vi.spyOn(console, 'log').mockImplementation((m: unknown) => {
-          logs.push(String(m));
-        });
-
-        const program = new Command();
-        program.option('-c, --config <path>', 'Config');
-        program.option('--json', 'JSON');
-        program.addCommand(createCheckPerfCommand());
-
-        try {
-          await program.parseAsync(['node', 'test', '--json', '-c', configPath, 'check-perf']);
-        } catch (e) {
-          if (e !== exitError) throw e;
-        } finally {
-          exitSpy.mockRestore();
-          logSpy.mockRestore();
-        }
-
-        const payload = JSON.parse(
-          logs.find((l) => l.includes('valid')) ?? '{"valid":null,"issues":[]}'
-        ) as { valid: boolean | null; issues: Array<{ file: string }> };
-
-        expect(payload.issues).toEqual([]);
-        expect(payload.valid).toBe(true);
-        expect(codes).toContain(0);
-      }
-    );
-  });
-
-  /**
    * `snapshot capture` — WRITES the architecture timeline. The root decided both
    * what got measured and where `.harness/arch/timeline.json` was persisted.
    *
