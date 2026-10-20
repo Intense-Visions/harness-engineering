@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/mcp/tools'
-sourceHash: '4d29193d1bcfbd7c2cd4d9b771cfe27493b9f2cf9261656e38814e7db9ae5725'
+sourceHash: 'a71f3d3423cd3f305f0959b0caa0ed2efd7404bf13ccb2fa796a5eada2ea6436'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -471,6 +471,7 @@ import { createStaticExtractor } from '../../comprehension/static-extractor'
 import { loadAnalysisExclude } from '../../config/analysis-schema.js'
 import { resolveConfig } from '../../config/loader'
 import { findConfigFile, loadConfig, resolveConfig } from '../../config/loader.js'
+import { HarnessConfig } from '../../config/schema.js'
 import { CollectPromptsOutput, CopyCraftInput, CopyCraftMode, CopyCraftOutput, FinalizeCopyCraftInput, collectCopyCraftPrompts, finalizeCopyCraft, runCopyCraft } from '../../copy-craft/index.js'
 import { SEED_EXEMPLARS } from '../../design-craft/catalog/exemplars/index.js'
 import { SEED_PATTERNS } from '../../design-craft/catalog/patterns/index.js'

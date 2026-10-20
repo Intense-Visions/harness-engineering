@@ -78,6 +78,23 @@ const defaultAnalyzeResult = {
     patterns: {
       violations: [{ pattern: 'no-any', file: 'src/hack.ts' }],
     },
+    // `EntropyReport.snapshot` is REQUIRED
+    // (`core/src/entropy/types/report.ts:25`) and the detailed response
+    // projects it (the per-file `ast` is stripped — an in-process parse tree
+    // no MCP caller can act on, and 80% of the payload). This mock omitted it
+    // entirely, so it described a report the analyzer cannot produce.
+    snapshot: {
+      files: [
+        {
+          path: 'src/old.ts',
+          ast: { type: 'Program', body: [] },
+          imports: [],
+          exports: [],
+          internalSymbols: [],
+          jsDocComments: [],
+        },
+      ],
+    },
   },
 };
 
@@ -142,6 +159,9 @@ describe('detect_entropy tool', () => {
       const data = JSON.parse(result.content[0].text);
       expect(data).toHaveProperty('drift');
       expect(data).toHaveProperty('deadCode');
+      // The snapshot survives, its per-file ASTs do not.
+      expect(data.snapshot.files[0].path).toBe('src/old.ts');
+      expect('ast' in data.snapshot.files[0]).toBe(false);
     });
 
     it('returns summary mode response when mode=summary', async () => {

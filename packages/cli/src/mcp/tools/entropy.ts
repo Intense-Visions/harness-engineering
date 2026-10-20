@@ -9,6 +9,7 @@ import { skipDirGlobs } from '@harness-engineering/graph';
 import { resultToMcpResponse } from '../utils/result-adapter.js';
 import { sanitizePath } from '../utils/sanitize-path.js';
 import { findConfigFile, loadConfig } from '../../config/loader.js';
+import type { HarnessConfig } from '../../config/schema.js';
 import { loadAnalysisExclude } from '../../config/analysis-schema.js';
 import {
   resolveDuplicationRequest,
@@ -16,17 +17,63 @@ import {
 } from '../../shared/duplication-request.js';
 
 /**
- * Load the `entropy` section of the project's harness config, if present.
- * Returns undefined when no config is found or it fails validation — callers
- * fall back to built-in entropy defaults. Kept synchronous and best-effort so
- * a missing config never breaks entropy analysis.
+ * The outcome of loading the `entropy` section of the project's harness config.
+ *
+ * `none` and `invalid` must not share a branch. No config file at all is a
+ * legitimate reason to analyze on built-in defaults. A config file that FAILS
+ * VALIDATION is not: zod rejects the whole document, so falling back discards
+ * the operator's `entryPoints` and `excludePatterns` and scans a different
+ * project than the one they configured — then reports findings over that scope
+ * as though nothing were wrong.
  */
-function loadEntropyConfig(projectPath: string) {
+type EntropyConfigLoad =
+  | { kind: 'none' }
+  | { kind: 'loaded'; entropy: HarnessConfig['entropy'] }
+  | { kind: 'invalid'; message: string };
+
+/**
+ * Load the `entropy` section of the project's harness config, if present.
+ *
+ * Best-effort for the `none` case so a project with no harness.config.json
+ * still gets entropy analysis. The `invalid` case is REPORTED, not swallowed
+ * — see {@link EntropyConfigLoad} and {@link describeInvalidConfig}.
+ */
+function loadEntropyConfig(projectPath: string): EntropyConfigLoad {
   const configFile = findConfigFile(projectPath);
-  if (!configFile.ok) return undefined;
+  if (!configFile.ok) return { kind: 'none' };
   const loaded = loadConfig(configFile.value);
-  if (!loaded.ok) return undefined;
-  return loaded.value.entropy;
+  if (!loaded.ok) return { kind: 'invalid', message: loaded.error.message };
+  return { kind: 'loaded', entropy: loaded.value.entropy };
+}
+
+/**
+ * Refuse an analysis whose config did not validate, the way `harness cleanup`
+ * already does.
+ *
+ * Before this the two surfaces had OPPOSITE failure policies on identical
+ * input. `cleanup.ts` goes through `resolveConfig`, prints
+ * `x Invalid config: - entropy.duplication.minInstances: Number must be
+ * greater than or equal to 2` and exits 2. This tool returned findings as
+ * though nothing were wrong, having silently discarded the ENTIRE `entropy`
+ * block — `entryPoints` and `excludePatterns` with it. On this repository
+ * `excludePatterns` is what carries the vendored-build-cache exclusion the
+ * duplication scope depends on, so the silent fallback changed WHAT WAS
+ * SCANNED and said nothing about it.
+ *
+ * The silent fallback predates Phase 3; a validation error inside
+ * `entropy.duplication` does not. zod stripped that key before the schema
+ * entry existed, so the new bound is what made the trap reachable. Closed
+ * here rather than documented.
+ */
+function describeInvalidConfig(message: string): string {
+  return [
+    message,
+    '',
+    'Refusing to analyze on built-in defaults: a config that fails validation is rejected whole,',
+    'so falling back would silently discard entryPoints and excludePatterns and scan a different',
+    'scope than the configured one. Fix harness.config.json and re-run — `harness cleanup` exits 2',
+    'on this same input.',
+  ].join('\n');
 }
 
 async function loadEntropyGraphOptions(projectPath: string) {
@@ -292,7 +339,14 @@ export async function handleDetectEntropy(input: {
     // / docPaths) and entry points / excludes are honored instead of silently
     // falling back to DEFAULT_DRIFT_CONFIG — issue #723. Missing/invalid config
     // is non-fatal: entropy runs with built-in defaults.
-    const entropy = loadEntropyConfig(projectPath);
+    const configLoad = loadEntropyConfig(projectPath);
+    if (configLoad.kind === 'invalid') {
+      return {
+        content: [{ type: 'text' as const, text: describeInvalidConfig(configLoad.message) }],
+        isError: true,
+      };
+    }
+    const entropy = configLoad.kind === 'loaded' ? configLoad.entropy : undefined;
     const driftConfig = entropy?.drift as Partial<DriftConfig> | undefined;
     const driftEnabled = typeFilter === 'all' || typeFilter === 'drift';
 

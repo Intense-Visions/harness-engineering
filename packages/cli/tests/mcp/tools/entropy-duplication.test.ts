@@ -169,6 +169,37 @@ describe('detect_entropy type: "duplication"', () => {
     expect(payload.advisory).toBeUndefined();
   });
 
+  // CONFIG-FAILURE PARITY with `harness cleanup`. Measured on identical input
+  // (`entropy.duplication: { minInstances: 1 }` — the exact mistake the new
+  // bound exists to catch) before this fix: the CLI printed
+  // `x Invalid config: - entropy.duplication.minInstances: Number must be
+  // greater than or equal to 2` and exited 2, while this tool returned
+  // classesReported: 1 with no error and no warning, having discarded the
+  // whole `entropy` block including the fixture's entryPoints and
+  // excludePatterns. Two surfaces, one config, opposite failure policies.
+  it('refuses an invalid config instead of silently scanning on defaults', async () => {
+    writeEntropy({ duplication: { minInstances: 1 } });
+    const result = await handleDetectEntropy({ path: projectDir, type: 'duplication' });
+    // MUTATION: restore `if (!loaded.ok) return undefined` in
+    // `loadEntropyConfig` and this row fails three ways at once.
+    expect(result.isError).toBe(true);
+    const text = result.content[0]!.text;
+    expect(text).toContain('Invalid config');
+    expect(text).toContain('entropy.duplication.minInstances');
+    expect(text).toContain('Refusing to analyze on built-in defaults');
+    // The refusal must not also leak a scan result.
+    expect(text).not.toContain('classesReported');
+  });
+
+  it('still analyzes a project with no harness.config.json at all', async () => {
+    // `none` is NOT `invalid`: no config is a legitimate reason to use the
+    // built-in defaults, and the refusal above must not swallow it.
+    fs.rmSync(path.join(projectDir, 'harness.config.json'));
+    const { result, payload } = await detect({ path: projectDir, type: 'duplication' });
+    expect(result.isError).toBeUndefined();
+    expect(payload.duplication.stats.classesReported).toBe(1);
+  });
+
   it('still refuses patterns with no rules configured (no regression)', async () => {
     const result = await handleDetectEntropy({ path: projectDir, type: 'patterns' });
     expect(result.isError).toBe(true);
