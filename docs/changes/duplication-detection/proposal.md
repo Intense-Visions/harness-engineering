@@ -526,6 +526,34 @@ the planner must emit it as `[checkpoint:human-verify]`, because its outcome dec
 exclusions need tightening before the detector leaves experimental status.
 Verifiable alone: `harness cleanup -t duplication` runs end to end; criteria 1 and 2.
 
+**Two decisions Phase 2 hands forward, both of which Phase 3 must make consciously rather than
+inherit:**
+
+1. **Whether `harness cleanup -t duplication` may exit non-zero — a D4 question, not a CLI
+   question.** Phase 2 counts clone classes in `EntropyReport.summary.totalIssues` (so a summary
+   cannot report a clean run over a scan that found classes) and in neither `summary.errors` nor
+   `summary.warnings`. But `packages/cli/src/commands/cleanup.ts` maintains its **own**
+   `totalIssues` field and ends with
+   `process.exit(result.value.totalIssues === 0 ? ExitCode.SUCCESS : ExitCode.VALIDATION_FAILED)`
+   (`cleanup.ts:150` populates it, `:230` gates on it). If Phase 3 adds `duplication` to
+   `CleanupType` and lets clone classes flow into that field unchanged, then `harness cleanup -t
+duplication` exits non-zero on advisory-only findings — **violating D4 ("advisory first; never
+   fail-closed") as a downstream consequence of a Phase-2 choice, with nobody having decided it.**
+   Phase 3 must either keep duplication out of the CLI's exit-code arithmetic or record an explicit
+   decision to change D4. ADR 0134 names this as a consequence; it is not resolved there.
+
+2. **Whether the default `ignorePatterns` should exclude vendored build caches.** Measured during
+   Phase 2 at criterion 6's scope: **2 of the 98 reported classes (6 of 388 reported members) are
+   composed of `docs/.vitepress/cache/deps_temp_*/vitepress___@vueuse_core.js`** — a Vite
+   dependency pre-bundle, i.e. vendored generated output nobody will ever refactor. They are false
+   positives by construction, and that one file is also 1,509 units over 61,904 tokens, which made
+   it the single largest contributor to the pre-optimization token-visit cost. The defaults ignore
+   `dist`, `build`, `coverage`, `generated` and `node_modules` but not `**/.vitepress/cache/**`.
+   This is left to Phase 3 deliberately, because it belongs to the **top-20 precision audit
+   (criterion 2)** that Phase 3 already owns, and because changing `DEFAULT_DUPLICATION_CONFIG`
+   would move the class counts Phase 1 and Phase 2 recorded as evidence. Phase 3's audit should
+   expect to find these two and decide the exclusion then.
+
 ### Phase 4: partial-extraction signal
 
 <!-- complexity: low -->
