@@ -1,7 +1,26 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { join } from 'node:path';
 import { EntropyAnalyzer } from '../../src/entropy/analyzer';
 import { TypeScriptParser } from '../../src/shared/parsers';
+import { detectDuplication } from '../../src/entropy/detectors/duplication';
+import { Ok } from '../../src/shared/result';
+import { createEntropyError } from '../../src/shared/errors';
+import type { DuplicationReport } from '../../src/entropy/types';
+
+/**
+ * Spy on the module the ANALYZER imports. `analyzer.ts` imports
+ * `detectDuplication` from `'./detectors/duplication'`, which resolves to the
+ * same module this path names, so the spy sits on the analyzer's own binding.
+ *
+ * If vitest ever resolved those two specifiers differently, the
+ * "not called" assertions for criterion 7 would silently become vacuous. The
+ * "calls the detector exactly once when enabled" case below is the positive
+ * control against that: it fails loudly if the spy is not the analyzer's.
+ */
+vi.mock('../../src/entropy/detectors/duplication', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../src/entropy/detectors/duplication')>();
+  return { ...actual, detectDuplication: vi.fn(actual.detectDuplication) };
+});
 
 const PLANTED = join(__dirname, '../fixtures/duplication/planted-clones');
 
@@ -66,5 +85,176 @@ describe('EntropyAnalyzer duplication wiring', () => {
     if (!result.ok) throw new Error('expected ok');
     expect(memberSets(result.value.duplication!.classes)).toEqual([CLASS_A]);
     expect(result.value.snapshot.files).toHaveLength(9);
+  });
+});
+
+describe('EntropyAnalyzer duplication invariants', () => {
+  beforeEach(() => {
+    vi.mocked(detectDuplication).mockClear();
+  });
+
+  it('does not call the detector at all when analyze.duplication is absent (criterion 7)', async () => {
+    const result = await analyzerFor({ drift: true }).analyze();
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.value.duplication).toBeUndefined();
+    // The load-bearing assertion: "shall not parse for duplication" is a
+    // claim about work NOT done, which `undefined` alone does not prove.
+    expect(vi.mocked(detectDuplication)).not.toHaveBeenCalled();
+  });
+
+  it('does not call the detector when analyze.duplication is false (criterion 7)', async () => {
+    const result = await analyzerFor({ drift: true, duplication: false }).analyze();
+    if (!result.ok) throw new Error('expected ok');
+    expect(result.value.duplication).toBeUndefined();
+    expect(vi.mocked(detectDuplication)).not.toHaveBeenCalled();
+  });
+
+  it('calls the detector exactly once when enabled', async () => {
+    const result = await analyzerFor({ duplication: { ignorePatterns: [] } }).analyze();
+    if (!result.ok) throw new Error('expected ok');
+    expect(vi.mocked(detectDuplication)).toHaveBeenCalledTimes(1);
+  });
+
+  it('counts clone classes in totalIssues and in neither errors nor warnings (D4)', async () => {
+    const off = await analyzerFor({ duplication: false }).analyze();
+    const on = await analyzerFor({ duplication: { ignorePatterns: [] } }).analyze();
+    if (!off.ok || !on.ok) throw new Error('expected ok');
+    const reported = on.value.duplication!.stats.classesReported;
+    expect(reported).toBeGreaterThan(0);
+    // Derived from the measured class count, not a hardcoded literal.
+    expect(on.value.summary.totalIssues - off.value.summary.totalIssues).toBe(reported);
+    expect(on.value.summary.errors).toBe(off.value.summary.errors);
+    expect(on.value.summary.warnings).toBe(off.value.summary.warnings);
+  });
+
+  it('leaves every sibling detector report unchanged (criterion 9)', async () => {
+    const siblings = {
+      drift: true,
+      deadCode: true,
+      patterns: { patterns: [] },
+      complexity: {},
+      coupling: {},
+      sizeBudget: {},
+    };
+    const off = await analyzerFor({ ...siblings }).analyze();
+    const on = await analyzerFor({ ...siblings, duplication: { ignorePatterns: [] } }).analyze();
+    if (!off.ok || !on.ok) throw new Error('expected ok');
+    for (const key of [
+      'drift',
+      'deadCode',
+      'patterns',
+      'complexity',
+      'coupling',
+      'sizeBudget',
+    ] as const) {
+      // Pin the denominator: a sibling that produced no report at all would
+      // make `undefined === undefined` a vacuous pass for that key.
+      expect(on.value[key]).toBeDefined();
+      expect(JSON.stringify(on.value[key])).toBe(JSON.stringify(off.value[key]));
+    }
+    expect(on.value.duplication).toBeDefined();
+    expect(off.value.duplication).toBeUndefined();
+  });
+
+  it('records a zero-discovery refusal as an AnalysisError and publishes no report (criterion 14)', async () => {
+    // `include` matches nothing, so the snapshot carries zero source files
+    // and the detector refuses rather than reporting a clean scan.
+    const result = await analyzerFor(
+      { duplication: true },
+      { include: ['src/**/*.nothing-matches-this'] }
+    ).analyze();
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.value.duplication).toBeUndefined();
+    const errors = result.value.analysisErrors.filter((e) => e.analyzer === 'duplication');
+    expect(errors).toHaveLength(1);
+    expect(errors[0]!.error.details.reason).toBe('zero-files-discovered');
+  });
+
+  it('surfaces every detector skipError as an AnalysisError tagged `duplication`, report still published (criterion 12)', async () => {
+    // The analyzer's own responsibility here is the splice loop: take the bare
+    // EntropyErrors the detector hands back, tag each `analyzer: 'duplication'`,
+    // and STILL publish the report. Driving it through a stubbed detector is
+    // what makes that deterministic — see the next case for why the real
+    // pipeline cannot force a skip.
+    const stub: DuplicationReport = {
+      classes: [],
+      byMember: new Map(),
+      collisions: [],
+      skipErrors: [
+        createEntropyError('PARSE_ERROR', 'skipped a.ts', { reason: 'unreadable', file: 'a.ts' }, [
+          'advice',
+        ]),
+        createEntropyError('PARSE_ERROR', 'skipped b.ts', { reason: 'unparseable', file: 'b.ts' }, [
+          'advice',
+        ]),
+      ],
+      stats: {
+        filesScanned: 1,
+        filesIgnored: 0,
+        filesSkipped: 2,
+        skippedTruncated: 0,
+        unitsFingerprinted: 0,
+        unitsBelowMinTokens: 0,
+        classesReported: 0,
+        classesSuppressed: 0,
+        classesTruncated: 0,
+        collisionsObserved: 0,
+        collisionsTruncated: 0,
+        violationCount: 0,
+        infoCount: 0,
+      },
+    };
+    vi.mocked(detectDuplication).mockImplementationOnce(async () => Ok(stub));
+
+    const result = await analyzerFor({ duplication: { ignorePatterns: [] } }).analyze();
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    const errors = result.value.analysisErrors.filter((e) => e.analyzer === 'duplication');
+    expect(errors).toHaveLength(2);
+    expect(errors.map((e) => e.error.details.reason)).toEqual(['unreadable', 'unparseable']);
+    for (const entry of errors) expect(entry.error.code).toBe('PARSE_ERROR');
+    // A gap, not a failure: the report is published alongside the evidence.
+    expect(result.value.duplication).toBeDefined();
+    expect(result.value.duplication!.stats.filesSkipped).toBe(2);
+  });
+
+  it('never hands the detector a file the snapshot parser rejected, so an analyzer-level skip cannot be forced', async () => {
+    // Planning decision P1's recorded consequence, asserted as a POSITIVE fact
+    // rather than hedged around: `snapshot.files` holds only what the
+    // snapshot's own parser accepted, and `analyze()` rebuilds the snapshot
+    // immediately before calling the detector — so an unparseable file is gone
+    // before the detector exists. That is why criterion 12's per-file contract
+    // is proven at the DETECTOR level (duplication.test.ts), where it can be
+    // forced, and why the case above stubs the detector to reach the
+    // analyzer's tagging.
+    const { mkdtemp, writeFile, mkdir, rm } = await import('node:fs/promises');
+    const { tmpdir } = await import('node:os');
+    const root = await mkdtemp(join(tmpdir(), 'dup-analyzer-'));
+    try {
+      await mkdir(join(root, 'src'), { recursive: true });
+      await writeFile(join(root, 'src/entry.ts'), 'export const entry = 1;\n', 'utf8');
+      await writeFile(join(root, 'src/broken.ts'), 'export function (((( {', 'utf8');
+      const analyzer = new EntropyAnalyzer({
+        rootDir: root,
+        parser: new TypeScriptParser(),
+        entryPoints: ['src/entry.ts'],
+        include: ['src/**/*.ts'],
+        analyze: { duplication: { ignorePatterns: [] } },
+      } as never);
+      const result = await analyzer.analyze();
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      const delivered = result.value.snapshot.files.map((f) => f.path);
+      expect(delivered.some((f) => f.endsWith('entry.ts'))).toBe(true);
+      expect(delivered.some((f) => f.endsWith('broken.ts'))).toBe(false);
+      // Consequently: no duplication-tagged error, and a clean partial scan.
+      const errors = result.value.analysisErrors.filter((e) => e.analyzer === 'duplication');
+      expect(errors).toEqual([]);
+      expect(result.value.duplication!.stats.filesSkipped).toBe(0);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
   });
 });
