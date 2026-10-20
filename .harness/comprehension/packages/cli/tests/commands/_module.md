@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/tests/commands'
-sourceHash: 'cc3b37ebb44ed50648e5854ac2fdbb89b35561c16aeb0a81ef48393ee570d107'
+sourceHash: '9a4467cc93be7adbffa1020d5c414c18b9f42f832638cd992917dcc92d22f459'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -56,6 +56,7 @@ members:
     'code-craft-cov544.test.ts',
     'compound-scan-candidates.test.ts',
     'comprehend-cov544.test.ts',
+    'config-implied-root.test.ts',
     'copy-craft-command.test.ts',
     'copy-craft-cov544.test.ts',
     'craft-command-harness-cohort-b.ts',
@@ -381,7 +382,7 @@ import { committedSemanticAllowed } from '../../src/comprehension/policy'
 import { explainInactiveRefreshGate, resolveRefreshJobGate } from '../../src/comprehension/refresh-gate'
 import { detectCommittedSemanticOnBranch, detectSemanticRegressions, readSemanticMapAtRef } from '../../src/comprehension/regression'
 import { withDependencyRules } from '../../src/config/arch-dependency-rules'
-import { resolveConfig } from '../../src/config/loader'
+import { resolveConfig, resolveProject } from '../../src/config/loader'
 import { HarnessConfig } from '../../src/config/schema'
 import { CopyCraftInput, CopyCraftOutput } from '../../src/copy-craft/index.js'
 import { DesignPipelineContext, runDesignPipeline } from '../../src/design-pipeline/index.js'
@@ -430,6 +431,7 @@ import { CLIError, ExitCode } from '../../src/utils/errors'
 import { markSetupComplete } from '../../src/utils/first-run'
 import { CLI_VERSION } from '../../src/version'
 import { VocabularyRule, formatViolations, scanFiles, scanText } from '../../src/vocabulary/scanner'
+import { resolveProjectFrom } from '../helpers/resolve-project-mock'
 import { ConsoleCapture, captureConsole, runToExit, stubProcessExit } from './cli-command-harness'
 import { CraftCommandRun, DEFAULT_CWD, runCraftCommand } from './craft-command-harness-cohort-b'
 import { llmCalls, runCraftCommand } from './craft-command-harness.js'

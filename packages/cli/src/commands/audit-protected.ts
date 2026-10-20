@@ -4,7 +4,7 @@ import * as path from 'path';
 import * as fs from 'fs';
 import type { Result, ProtectedRegion, AnnotationIssue } from '@harness-engineering/core';
 import { Ok, Err, parseFileRegions } from '@harness-engineering/core';
-import { resolveConfig } from '../config/loader';
+import { resolveProject } from '../config/loader';
 import { OutputFormatter, OutputMode } from '../output/formatter';
 import { resolveOutputMode } from '../utils/output';
 import { logger } from '../output/logger';
@@ -21,13 +21,15 @@ export async function runAuditProtected(options: {
   cwd?: string;
   configPath?: string;
 }): Promise<Result<AuditProtectedResult, CLIError>> {
-  const cwd = options.cwd ?? process.cwd();
-
-  const configResult = resolveConfig(options.configPath);
-  if (!configResult.ok) {
-    return Err(configResult.error);
+  // Root the scan on the project that owns the config, not `process.cwd()`:
+  // `-c` used to select the config file while the scan stayed on the current
+  // directory, so pointing it at another project measured THIS tree. Same
+  // split `check-arch` was fixed out of under #911 (9f322084c).
+  const projectResult = resolveProject(options.configPath, options.cwd);
+  if (!projectResult.ok) {
+    return Err(projectResult.error);
   }
-  const config = configResult.value;
+  const { config, root: cwd } = projectResult.value;
 
   const rootDir = path.resolve(cwd, config.rootDir);
   const excludePatterns = config.entropy?.excludePatterns ?? ['**/node_modules/**', '**/*.test.ts'];

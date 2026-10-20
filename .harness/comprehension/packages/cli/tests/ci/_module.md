@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/tests/ci'
-sourceHash: 'e5798a665b5b6e1bfcf210f0315a96d79e346aedcfb7657f8bf7384f4a69a70d'
+sourceHash: 'f4993eb705b1a4b616995a613f94d7f5c18f6bbb23306c6f95a44297cf47c8d1'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -37,6 +37,7 @@ import { createInitCommand, generateCIConfig } from '../../src/commands/ci/init'
 import { createNotifyCommand } from '../../src/commands/ci/notify'
 import { resolveConfig } from '../../src/config/loader'
 import { ExitCode } from '../../src/utils/errors'
+import { resolveProjectFrom } from '../helpers/resolve-project-mock'
 import { runCIChecks } from '@harness-engineering/core'
 import { spawnSync } from 'node:child_process'
 import * as fs, { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs'

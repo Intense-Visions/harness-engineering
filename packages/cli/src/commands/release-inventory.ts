@@ -16,7 +16,7 @@ import {
   type ReleaseTag,
   type UnreleasedCommit,
 } from '@harness-engineering/core';
-import { resolveConfig } from '../config/loader';
+import { resolveProject } from '../config/loader';
 import { OutputMode } from '../output/formatter';
 import { resolveOutputMode } from '../utils/output';
 import { logger } from '../output/logger';
@@ -196,14 +196,18 @@ export interface ReleaseInventoryOptions {
 export async function runReleaseInventory(
   options: ReleaseInventoryOptions
 ): Promise<Result<ReleaseInventoryResult, CLIError>> {
-  const cwd = options.cwd ?? process.cwd();
+  // Root the scan on the project that owns the config, not `process.cwd()`:
+  // `-c` used to select the config file while the scan stayed on the current
+  // directory, so pointing it at another project measured THIS tree. Same
+  // split `check-arch` was fixed out of under #911 (9f322084c).
+  const projectResult = resolveProject(options.configPath, options.cwd);
+  if (!projectResult.ok) return projectResult;
+  const cwd = projectResult.value.root;
   const runGit = options.runGit ?? makeDefaultRunGit(cwd);
   const fsPort = options.fsPort ?? createFsPort(cwd);
   const now = options.now ?? new Date();
 
-  const configResult = resolveConfig(options.configPath);
-  if (!configResult.ok) return configResult;
-  const raw = (configResult.value as { releaseInventory?: ReleaseInventoryConfig })
+  const raw = (projectResult.value.config as { releaseInventory?: ReleaseInventoryConfig })
     .releaseInventory;
 
   const pattern = options.tagPattern ?? raw?.tagPattern ?? 'v*';

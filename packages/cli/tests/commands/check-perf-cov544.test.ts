@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterAll } from 'vitest';
+import { resolveProjectFrom } from '../helpers/resolve-project-mock';
 import { Command } from 'commander';
 
 const mockAnalyze = vi.fn();
@@ -13,9 +14,15 @@ vi.mock('@harness-engineering/core', async (importOriginal) => {
 });
 
 const resolveConfig = vi.fn();
-vi.mock('../../src/config/loader', () => ({
-  resolveConfig: (...a: unknown[]) => resolveConfig(...a),
-}));
+vi.mock('../../src/config/loader', () => {
+  const mock = {
+    resolveConfig: (...a: unknown[]) => resolveConfig(...a),
+  };
+  // `resolveProject` is the one shape commands use for "the config AND the
+  // project root it implies" (#911 class). Derive it from the config double
+  // above rather than restating the config literal.
+  return { ...mock, resolveProject: resolveProjectFrom(mock.resolveConfig) };
+});
 
 import { createCheckPerfCommand, runCheckPerf } from '../../src/commands/check-perf';
 

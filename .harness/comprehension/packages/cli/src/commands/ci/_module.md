@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/commands/ci'
-sourceHash: 'b74bd2104226e25145c41d2dd38ea01942fb6659afb2b50ceda36b6d34e607d8'
+sourceHash: '7a08fcc86b6dda243a98ec36b75b43315ec6c1b3fb6dda62cf5d69aaa0264ce7'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -17,7 +17,7 @@ export createCICommand
 ## Dependency Slice
 
 ```
-import { resolveConfig } from '../../config/loader'
+import { resolveConfig, resolveProject } from '../../config/loader'
 import { OutputMode } from '../../output/formatter'
 import { logger } from '../../output/logger'
 import { CLIError, ExitCode } from '../../utils/errors'

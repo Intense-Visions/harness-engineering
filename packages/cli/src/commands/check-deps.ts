@@ -10,7 +10,7 @@ import {
 } from '@harness-engineering/core';
 import type { LayerConfig } from '@harness-engineering/core';
 import { formatFindingsContract } from '@harness-engineering/types';
-import { resolveConfig } from '../config/loader';
+import { resolveProject } from '../config/loader';
 import { loadDepsExclude } from '../config/schema';
 import { OutputFormatter, OutputMode, type OutputModeType } from '../output/formatter';
 import { logger } from '../output/logger';
@@ -159,14 +159,15 @@ function recordAbstention(
 export async function runCheckDeps(
   options: CheckDepsOptions
 ): Promise<Result<CheckDepsResult, CLIError>> {
-  const cwd = options.cwd ?? process.cwd();
-
-  // Load config
-  const configResult = resolveConfig(options.configPath);
-  if (!configResult.ok) {
-    return configResult;
+  // Root the scan on the project that owns the config, not `process.cwd()`:
+  // `-c` used to select the config file while the scan stayed on the current
+  // directory, so pointing it at another project measured THIS tree. Same
+  // split `check-arch` was fixed out of under #911 (9f322084c).
+  const projectResult = resolveProject(options.configPath, options.cwd);
+  if (!projectResult.ok) {
+    return projectResult;
   }
-  const config = configResult.value;
+  const { config, root: cwd } = projectResult.value;
 
   const result: CheckDepsResult = {
     valid: true,

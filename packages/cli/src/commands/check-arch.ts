@@ -29,7 +29,7 @@ import type {
   Violation,
 } from '@harness-engineering/core';
 import { formatFindingsContract } from '@harness-engineering/types';
-import { findConfigFile, loadConfig } from '../config/loader';
+import { resolveProject } from '../config/loader';
 import { OutputFormatter, OutputMode, type OutputModeType } from '../output/formatter';
 import { logger } from '../output/logger';
 import { CLIError, ExitCode } from '../utils/errors';
@@ -547,19 +547,11 @@ export async function runCheckArch(
   // — would run the collectors against, and write the baseline into,
   // process.cwd() instead of the config's own project. That leaked writes into
   // this repo's tracked packages/cli/.harness/arch/baselines.json (issue #911).
-  const configPathResult = options.configPath ? Ok(options.configPath) : findConfigFile();
-  if (!configPathResult.ok) {
-    return configPathResult;
+  const projectResult = resolveProject(options.configPath, options.cwd);
+  if (!projectResult.ok) {
+    return projectResult;
   }
-  const configPath = configPathResult.value;
-
-  const configResult = loadConfig(configPath);
-  if (!configResult.ok) {
-    return configResult;
-  }
-  const config = configResult.value;
-
-  const cwd = options.cwd ?? path.dirname(configPath);
+  const { config, root: cwd } = projectResult.value;
 
   // Resolve architecture config (defaults if not present). The project-wide
   // `analysis.exclude` list is stacked onto the arch-scoped patterns here — in

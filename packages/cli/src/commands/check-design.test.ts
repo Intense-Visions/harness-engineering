@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import * as nodePath from 'node:path';
 import { Command } from 'commander';
 import { runCheckDesign, createCheckDesignCommand } from './check-design';
 import { ExitCode } from '../utils/errors';
@@ -25,7 +26,40 @@ const hoisted = vi.hoisted(() => ({
   recordFindingsMock: vi.fn(),
 }));
 
-vi.mock('../config/loader', () => ({ resolveConfig: hoisted.resolveConfigMock }));
+/**
+ * Local twin of `tests/helpers/resolve-project-mock.ts`. This suite lives under
+ * `src/`, whose `rootDir` cannot reach `tests/`, so the derivation is inlined
+ * rather than imported.
+ */
+function resolveProjectFrom(
+  resolveConfig: (configPath?: string) => unknown
+): (configPath?: string, cwdOverride?: string) => unknown {
+  return (configPath?: string, cwdOverride?: string) => {
+    const loaded = resolveConfig(configPath) as { ok?: boolean; value?: unknown } | undefined;
+    if (!loaded || loaded.ok !== true) {
+      return loaded ?? { ok: false, error: new Error('resolveConfig mock returned nothing') };
+    }
+    const resolvedConfigPath = configPath
+      ? nodePath.resolve(configPath)
+      : nodePath.join(process.cwd(), 'harness.config.json');
+    return {
+      ok: true,
+      value: {
+        config: loaded.value,
+        configPath: resolvedConfigPath,
+        root: cwdOverride ?? nodePath.dirname(resolvedConfigPath),
+      },
+    };
+  };
+}
+
+vi.mock('../config/loader', () => ({
+  resolveConfig: hoisted.resolveConfigMock,
+  // `resolveProject` is the one shape commands use for "the config AND the
+  // project root it implies" (#911 class). Derived from the config double so
+  // the suite does not restate its config literal.
+  resolveProject: resolveProjectFrom(hoisted.resolveConfigMock),
+}));
 vi.mock('../mcp/tools/audit-anatomy', () => ({ runAudit: hoisted.anatomyMock }));
 vi.mock('../mcp/tools/design-craft', () => ({ runDesignCraft: hoisted.craftMock }));
 vi.mock('../mcp/tools/detect-drift', () => ({ runDetectDrift: hoisted.driftMock }));

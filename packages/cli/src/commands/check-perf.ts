@@ -5,7 +5,7 @@ import { Ok, EntropyAnalyzer } from '@harness-engineering/core';
 import { OutputFormatter, OutputMode, type OutputModeType } from '../output/formatter';
 import { logger } from '../output/logger';
 import { ExitCode } from '../utils/errors';
-import { resolveConfig } from '../config/loader';
+import { resolveConfig, resolveProject } from '../config/loader';
 
 /**
  * Resolve configured entry points for the perf analysis. On a monorepo the
@@ -195,7 +195,7 @@ export async function runCheckPerf(
 
 async function runCheckPerfAction(
   opts: { structural?: boolean; coupling?: boolean; size?: boolean; severity?: PerfSeverity },
-  globalOpts: { json?: boolean; quiet?: boolean; verbose?: boolean }
+  globalOpts: { json?: boolean; quiet?: boolean; verbose?: boolean; config?: string }
 ): Promise<void> {
   const mode: OutputModeType = globalOpts.json
     ? OutputMode.JSON
@@ -207,7 +207,14 @@ async function runCheckPerfAction(
 
   const formatter = new OutputFormatter(mode);
 
-  const result = await runCheckPerf(process.cwd(), {
+  // Root the analysis on the project that owns the config, not `process.cwd()`:
+  // `-c` selected the config file (entry points, via
+  // `resolveConfiguredEntryPoints`) while the scan root stayed on the current
+  // directory. Same split `check-arch` was fixed out of under #911 (9f322084c).
+  const project = resolveProject(globalOpts.config);
+  const projectRoot = project.ok ? project.value.root : process.cwd();
+
+  const result = await runCheckPerf(projectRoot, {
     ...(opts.structural !== undefined && { structural: opts.structural }),
     ...(opts.coupling !== undefined && { coupling: opts.coupling }),
     ...(opts.size !== undefined && { size: opts.size }),
