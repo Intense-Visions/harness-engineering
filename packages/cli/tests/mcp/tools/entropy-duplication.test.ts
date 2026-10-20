@@ -200,6 +200,38 @@ describe('detect_entropy type: "duplication"', () => {
     expect(payload.duplication.stats.classesReported).toBe(1);
   });
 
+  // The phase's one named MCP safety guard (spec Phase 3 forward note 3), and
+  // until this row it had ZERO coverage: deleting the whole did-not-run branch
+  // from `handleDetectEntropy` left the suite green, because the fixture has
+  // no `.harness/graph` so `snapshot-bypassed` never fired. On any
+  // graph-bearing project it is the ONLY outcome this surface can produce —
+  // `loadEntropyGraphOptions` supplies both graph keys unconditionally, which
+  // makes `EntropyAnalyzer` bypass the snapshot, and duplication discovers
+  // through `snapshot.files` — so the untested branch is the one that fires in
+  // essentially every real invocation. Its CLI twin was already tested.
+  //
+  // `saveGraph([], [])` is the whole fixture: `loadGraphStore` only needs
+  // `metadata.json` + `graph.json` at the current schema version to hand back
+  // a store, and the adapter is content with an empty one. Written through the
+  // real serializer rather than hand-rolled JSON so a schema bump cannot make
+  // this row silently stop firing.
+  it('names the did-not-run reason on a graph-bearing project', async () => {
+    const { saveGraph } = await import('@harness-engineering/graph');
+    await saveGraph(path.join(projectDir, '.harness', 'graph'), [], []);
+
+    const result = await handleDetectEntropy({ path: projectDir, type: 'duplication' });
+    // MUTATION: delete the did-not-run branch and this returns a report with
+    // `duplication` absent and isError unset — "did not run" rendering as
+    // "no duplication found", which is the opposite of the truth.
+    expect(result.isError).toBe(true);
+    const text = result.content[0]!.text;
+    expect(text).toContain('Duplication analysis did not run');
+    expect(text).toContain('no codebase snapshot was built');
+    // The analyzer's own suggestions, not a paraphrase.
+    expect(text).toContain('Supply graph data for at most one of drift / deadCode');
+    expect(text).not.toContain('classesReported');
+  });
+
   it('still refuses patterns with no rules configured (no regression)', async () => {
     const result = await handleDetectEntropy({ path: projectDir, type: 'patterns' });
     expect(result.isError).toBe(true);
