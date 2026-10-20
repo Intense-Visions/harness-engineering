@@ -343,9 +343,21 @@ export async function fingerprintFile(
 /**
  * Build a Type-1/2 clone index over `files`.
  *
- * Single-pass by construction — one parse per file, one digest per unit, one
- * `Map` grouping pass. There is no member-against-member comparison, so cost
- * is linear in total tokens, not quadratic in unit count.
+ * One parse per file, one digest per unit, one `Map` grouping pass — there is
+ * no member-against-member comparison, so nothing here is quadratic in the
+ * number of units across the repository.
+ *
+ * Per FILE, however, the cost is O(units x tokens), not linear in tokens:
+ * {@link fingerprintFile} calls `normalizeTokens(tokens, unit.range)` once per
+ * unit and each call rescans that file's ENTIRE token array. Measured over
+ * this repo's package sources, that is ~26.0M token visits against 1.4M
+ * tokens — 18.6x — concentrated in the largest files: the worst,
+ * `orchestrator/src/orchestrator.ts`, has 221 units over 22,648 tokens, so
+ * 5,005,208 visits by itself.
+ *
+ * `program.tokens` is range-sorted, so a binary search for each unit's range
+ * would make this linear. That optimization is deliberately deferred to Phase
+ * 2, where the `<10s` success criterion lives and can measure it.
  *
  * Discovery is the caller's: `files` is a list of absolute paths, so nothing
  * here assumes any repository layout (success criterion 15). Ineligible paths
