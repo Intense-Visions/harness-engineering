@@ -172,6 +172,40 @@ describe('EntropyAnalyzer duplication invariants', () => {
     expect(errors[0]!.error.details.reason).toBe('zero-files-discovered');
   });
 
+  it('names the bypassed snapshot, not discovery, when graph data replaced it', async () => {
+    // `analyze()` has TWO branches: supplying both graphDriftData AND
+    // graphDeadCodeData makes `needsSnapshot` false and replaces the snapshot
+    // with a minimal one carrying `files: []`. The duplication detector then
+    // mapped that empty list and tripped its zero-discovery refusal — a guard
+    // built for BROKEN discovery, firing on a deliberately bypassed snapshot,
+    // advising the operator to "check that EntropyConfig.include matches real
+    // source paths" when the include is fine. `loadEntropyGraphOptions` in
+    // `cli/src/mcp/tools/entropy.ts` returns both keys whenever a graph
+    // exists, so this is the live path the moment Phase 3 adds `duplication`
+    // to the `detect_entropy` enum.
+    const result = await analyzerFor({ drift: true, deadCode: true, duplication: true }).analyze({
+      graphDriftData: { staleEdges: [], missingTargets: [] },
+      graphDeadCodeData: { reachableNodeIds: [], unreachableNodes: [] },
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    // `undefined` is the honest "not run" signal; the error says why.
+    expect(result.value.duplication).toBeUndefined();
+    const errors = result.value.analysisErrors.filter((e) => e.analyzer === 'duplication');
+    expect(errors).toHaveLength(1);
+    expect(errors[0]!.error.details.reason).toBe('snapshot-bypassed');
+    // The regression this replaces: a discovery diagnosis for a non-discovery
+    // cause. Assert the wrong advice is GONE, not merely that some error exists.
+    expect(errors[0]!.error.message).not.toMatch(/zero source files/i);
+    // The literal wrong advice the zero-discovery guard gives, verbatim.
+    expect(errors[0]!.error.suggestions).not.toContain(
+      'Check that EntropyConfig.include matches real source paths'
+    );
+    expect(errors[0]!.error.suggestions.join('\n')).toMatch(/graph/i);
+    // Not run means not parsed: the detector is never reached at all.
+    expect(vi.mocked(detectDuplication)).not.toHaveBeenCalled();
+  });
+
   it('degrades duplication alone on a malformed ignorePattern, leaving the run and its siblings intact', async () => {
     // The whole point of making `buildCloneIndex` validate: `minimatch` throws
     // on a non-string pattern, the eligibility loop sits outside every `try`,

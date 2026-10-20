@@ -1,5 +1,6 @@
 import type { Result } from '../shared/result';
 import { Ok, Err } from '../shared/result';
+import { createEntropyError } from '../shared/errors';
 import type {
   EntropyError,
   EntropyConfig,
@@ -190,7 +191,37 @@ export class EntropyAnalyzer {
 
     // Duplication detection
     let duplicationReport: DuplicationReport | undefined;
-    if (this.config.analyze.duplication) {
+    if (this.config.analyze.duplication && !needsSnapshot) {
+      // The snapshot was BYPASSED, not built: the graph-fed branch above
+      // replaced it with a minimal one carrying `files: []`. Duplication
+      // discovers through `snapshot.files` (spec decision D7 — it re-parses
+      // those paths itself for estree tokens) and has no graph-fed path, so
+      // calling it here would map an empty list straight into its
+      // zero-discovery refusal: a guard for BROKEN discovery, reporting
+      // "check that EntropyConfig.include matches real source paths" when the
+      // include is fine and the snapshot was skipped on purpose.
+      //
+      // So: do not run it, leave `EntropyReport.duplication` undefined (the
+      // honest "not run" signal), and record WHY with a reason of its own.
+      //
+      // Noted rather than fixed: the other snapshot-fed detectors (patterns,
+      // complexity, coupling, sizeBudget) still run over the empty snapshot in
+      // this mode and report vacuously clean. That is pre-existing behavior
+      // and out of this change's scope; duplication can refuse because it is
+      // the only one with an explicit zero-discovery guard to refuse WITH.
+      analysisErrors.push({
+        analyzer: 'duplication',
+        error: createEntropyError(
+          'INVALID_CONFIG',
+          'Duplication analysis did not run: this run supplied both graph drift and graph dead-code data, so no codebase snapshot was built and the detector has no file list to scan. This is not a discovery failure — EntropyConfig.include was never consulted.',
+          { reason: 'snapshot-bypassed' },
+          [
+            'Supply graph data for at most one of drift / deadCode, so the snapshot is still built',
+            'Or analyze duplication in a separate pass, with no graph data, where the snapshot is built from EntropyConfig.include / exclude',
+          ]
+        ),
+      });
+    } else if (this.config.analyze.duplication) {
       const duplicationConfig =
         typeof this.config.analyze.duplication === 'object' ? this.config.analyze.duplication : {};
       const result = await detectDuplication(this.snapshot, duplicationConfig);
