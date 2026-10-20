@@ -31,12 +31,14 @@ const CLASS_C_MEMBERS = ['src/short-one.ts', 'src/short-three.ts', 'src/short-tw
 
 /**
  * The fixture's units that fall below the default `minTokens` of 40, measured:
- * the three 16-token `src/short-*.ts` functions plus the 23-token
- * `src/unique.ts` function. Under the amended spec these are excluded before
- * grouping, so they are counted in `unitsBelowMinTokens` and can never appear
- * in `classesSuppressed`.
+ * the three 16-token `src/short-*.ts` functions. Under the amended spec these
+ * are excluded before grouping, so they are counted in `unitsBelowMinTokens`
+ * and can never appear in `classesSuppressed`.
+ *
+ * `src/unique.ts` is NOT among them — at 139 tokens it clears the bar and
+ * forms a singleton group, which is exactly the path it exists to cover.
  */
-const SUB_MIN_TOKEN_UNITS = 4;
+const SUB_MIN_TOKEN_UNITS = 3;
 /** Every planted file holds exactly one function, so 12 source files -> 12 units. */
 const TOTAL_UNITS = 12;
 
@@ -72,6 +74,22 @@ describe('buildCloneIndex over the planted-clones fixture (criterion 15)', () =>
     const result = await buildCloneIndex(files, { rootDir: PLANTED_ROOT, ignorePatterns: [] });
     if (!result.ok) throw new Error('expected ok');
     expect(result.value.stats.classesSuppressed).toBe(1);
+  });
+
+  it('fingerprints the one unique unit and counts its singleton group nowhere', async () => {
+    const files = await discover(PLANTED_ROOT);
+    const result = await buildCloneIndex(files, { rootDir: PLANTED_ROOT, ignorePatterns: [] });
+    if (!result.ok) throw new Error('expected ok');
+    const stats = result.value.stats;
+    // src/unique.ts clears minTokens, so it IS hashed...
+    expect(stats.unitsFingerprinted).toBe(TOTAL_UNITS - SUB_MIN_TOKEN_UNITS);
+    // ...and its group holds one member, so it is not duplication: it appears
+    // in no class and, critically, is NOT counted in classesSuppressed, which
+    // is reserved for classes that formed with >= 2 members.
+    const reported = result.value.classes.flatMap((c) => c.members.map((m) => m.file));
+    expect(reported).not.toContain('src/unique.ts');
+    expect(stats.classesSuppressed).toBe(1);
+    expect(stats.classesReported).toBe(2);
   });
 
   it('counts the sub-minTokens units in unitsBelowMinTokens, never in classesSuppressed', async () => {
