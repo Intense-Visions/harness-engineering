@@ -200,13 +200,15 @@ export interface CloneIndex {
   stats: {
     filesScanned: number;
     filesIgnored: number; // dropped by isEligibleFile before any read
-    filesSkipped: number; // count of `skipped` — see Failure behavior
+    filesSkipped: number; // exact total; `skipped` is a capped sample of it
+    skippedTruncated: number; // skips beyond the evidence cap
     unitsFingerprinted: number;
     unitsBelowMinTokens: number; // excluded BEFORE grouping — never fingerprinted
     classesReported: number;
     classesSuppressed: number; // formed, then dropped for falling below minInstances
     classesTruncated: number; // dropped by the maxClasses report cap
-    collisionsObserved: number; // count of `collisions` — see Failure behavior
+    collisionsObserved: number; // exact total; `collisions` is a capped sample of it
+    collisionsTruncated: number; // collisions beyond the evidence cap
   };
 }
 ```
@@ -272,6 +274,15 @@ Following the `Result` / `AnalysisError` convention already used by the sibling 
   never fingerprinted cannot become a suppressed class.)
 - If more than `maxClasses` classes qualify, the detector shall report the top `maxClasses` by
   `rank` and record the number dropped in `classesTruncated`.
+- Each EVIDENCE array on the index — `skipped` and `collisions` — is capped at
+  `MAX_EVIDENCE_ENTRIES` (100), with the overflow in `stats.skippedTruncated` /
+  `stats.collisionsTruncated`, mirroring `maxClasses` / `classesTruncated`. `classes` was the only
+  bounded array: a repo with thousands of unparseable files otherwise yielded one `skipped` entry
+  per file, each carrying a full parse message and the `Error` behind it, every one of which Phase 2
+  is specified to serialize into an `AnalysisError`. The COUNTS stay exact and the reason breakdown
+  is tallied as skips happen, so a capped array never understates the damage. The cap is a module
+  constant, not a fifth `DuplicationConfig` field: it is an internal guard rail, not a reporting
+  threshold an operator tunes.
 - If zero source files are discovered, the detector shall report that explicitly rather than
   reporting zero duplication. This follows the established convention at
   `packages/cli/src/commands/cleanup.ts:88` — "Refusing to report a pass over zero rules" — and

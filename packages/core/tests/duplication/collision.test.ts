@@ -20,7 +20,7 @@ vi.mock('../../src/duplication/tokens', async () => {
   return { ...actual, fingerprintStream: () => 'deadbeefdeadbeef' };
 });
 
-const { buildCloneIndex } = await import('../../src/duplication/index');
+const { buildCloneIndex, MAX_EVIDENCE_ENTRIES } = await import('../../src/duplication/index');
 
 /** A >=40-token body parameterised only by identifier names (Type-2 clone). */
 const body = (fn: string, p: string, acc: string, el: string) =>
@@ -94,6 +94,46 @@ describe('buildCloneIndex — observed digest collisions', () => {
     expect(result.value.classes.map((c) => c.members.length)).toEqual([3]);
     expect(result.value.stats.collisionsObserved).toBe(0);
     expect(result.value.collisions).toEqual([]);
+  });
+
+  it('caps the collision evidence array while keeping the count exact', async () => {
+    // `collisions` is an evidence array on the index like `skipped`, so it gets
+    // the same bound — otherwise a deliberately collision-rich input would grow
+    // it without limit, which is the unboundedness S1 objected to.
+    const files = MAX_EVIDENCE_ENTRIES + 3;
+    const dir = await mkdtemp(join(tmpdir(), 'dup-collide-cap-'));
+    try {
+      await mkdir(join(dir, 'src'), { recursive: true });
+      const names: string[] = [];
+      for (let i = 0; i < files; i += 1) {
+        const name = `u${String(i).padStart(4, '0')}.ts`;
+        names.push(name);
+        // A distinct token count per file: every unit after the first
+        // disagrees with the first-seen count under the one mocked digest.
+        const tail = Array.from({ length: i + 1 }, () => '1').join(' + ');
+        await writeFile(
+          join(dir, 'src', name),
+          `export function f${i}(a: number) {\n  return a + ${tail};\n}\n`,
+          'utf8'
+        );
+      }
+      const result = await buildCloneIndex(
+        names.map((n) => join(dir, 'src', n)),
+        { rootDir: dir, ignorePatterns: [], minTokens: 1 }
+      );
+      if (!result.ok) throw new Error(`expected ok: ${result.error.message}`);
+      const stats = result.value.stats;
+      expect(stats.collisionsObserved).toBe(files - 1);
+      expect(result.value.collisions).toHaveLength(MAX_EVIDENCE_ENTRIES);
+      expect(stats.collisionsTruncated).toBe(files - 1 - MAX_EVIDENCE_ENTRIES);
+      expect(stats.collisionsTruncated).toBe(
+        stats.collisionsObserved - result.value.collisions.length
+      );
+      // Every file was read and reported on: the scan completed.
+      expect(stats.filesScanned).toBe(files);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
   });
 
   it('reports a class fingerprint equal to the digest of its own stream', async () => {

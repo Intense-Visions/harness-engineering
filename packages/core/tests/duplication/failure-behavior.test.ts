@@ -2,7 +2,11 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { mkdtemp, writeFile, rm, mkdir } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { fingerprintFile, buildCloneIndex } from '../../src/duplication/index';
+import {
+  fingerprintFile,
+  buildCloneIndex,
+  MAX_EVIDENCE_ENTRIES,
+} from '../../src/duplication/index';
 
 let root: string;
 
@@ -172,6 +176,78 @@ describe('zero-discovery guard', () => {
       },
     ]);
     expect(result.value.skipped[0]!.message.length).toBeGreaterThan(0);
+  });
+
+  it('caps the skipped evidence array while keeping the counts exact', async () => {
+    // `skipped` was the only unbounded array on the index (`classes` is capped
+    // by maxClasses): a repo with thousands of unparseable files yielded one
+    // entry per file, each carrying a full parse message and the Error behind
+    // it, and Phase 2 serializes every one into an AnalysisError.
+    const broken = MAX_EVIDENCE_ENTRIES + 2;
+    const dir = await mkdtemp(join(tmpdir(), 'dup-cap-'));
+    try {
+      await mkdir(join(dir, 'src'), { recursive: true });
+      const names: string[] = [];
+      for (let i = 0; i < broken; i += 1) {
+        // Zero-padded so discovery order is the order they are listed in.
+        const name = `b${String(i).padStart(4, '0')}.ts`;
+        names.push(name);
+        await writeFile(join(dir, 'src', name), `export function broken( {\n`, 'utf8');
+      }
+      // One readable file, so the all-files-skipped guard does not fire and the
+      // Ok path's stats are observable.
+      await writeFile(
+        join(dir, 'src', 'good.ts'),
+        `export function ok(a: number) {\n  return a + 1;\n}\n`,
+        'utf8'
+      );
+      const result = await buildCloneIndex(
+        [...names, 'good.ts'].map((n) => join(dir, 'src', n)),
+        { rootDir: dir, ignorePatterns: [] }
+      );
+      if (!result.ok) throw new Error(`expected ok: ${result.error.message}`);
+      const stats = result.value.stats;
+
+      // The count is exact; the evidence is a bounded sample of it.
+      expect(stats.filesSkipped).toBe(broken);
+      expect(result.value.skipped).toHaveLength(MAX_EVIDENCE_ENTRIES);
+      expect(stats.skippedTruncated).toBe(broken - MAX_EVIDENCE_ENTRIES);
+      expect(stats.skippedTruncated).toBe(stats.filesSkipped - result.value.skipped.length);
+      // Discovery order, truncating the tail rather than the head.
+      expect(result.value.skipped[0]!.file).toBe('src/b0000.ts');
+      expect(result.value.skipped.at(-1)!.file).toBe(
+        `src/b${String(MAX_EVIDENCE_ENTRIES - 1).padStart(4, '0')}.ts`
+      );
+      expect(stats.filesScanned).toBe(1);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('reports the exact reason breakdown even once the evidence array is capped', async () => {
+    // The summary is counted as skips happen, not derived from the capped
+    // array, so the message cannot understate the damage.
+    const broken = MAX_EVIDENCE_ENTRIES + 3;
+    const dir = await mkdtemp(join(tmpdir(), 'dup-cap-all-'));
+    try {
+      await mkdir(join(dir, 'src'), { recursive: true });
+      const names: string[] = [];
+      for (let i = 0; i < broken; i += 1) {
+        const name = `b${String(i).padStart(4, '0')}.ts`;
+        names.push(name);
+        await writeFile(join(dir, 'src', name), `export function broken( {\n`, 'utf8');
+      }
+      const result = await buildCloneIndex(
+        names.map((n) => join(dir, 'src', n)),
+        { rootDir: dir, ignorePatterns: [] }
+      );
+      expect(result.ok).toBe(false);
+      if (result.ok) return;
+      expect(result.error.message).toContain(`all ${broken} eligible file(s)`);
+      expect(result.error.message).toContain(`${broken} unparseable`);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
   });
 
   it('records a parse failure on skipped with its reason and message', async () => {

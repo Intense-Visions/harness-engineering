@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/src/duplication'
-sourceHash: 'eaa360dd39852a23a8c20107390f66047b80b15e1cd07c94ae1eba9eff175c1e'
+sourceHash: '02127e8c8674491d85c4212da3ba2e062ed4c13d7ebb9fa9b618b307082e8c3a'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -16,6 +16,7 @@ export DEFAULT_DUPLICATION_CONFIG
 export DupUnit
 export IDENTIFIER_PLACEHOLDER
 export LITERAL_PLACEHOLDER
+export MAX_EVIDENCE_ENTRIES
 export MissingNodeLocationError
 export buildCloneIndex
 export extractUnits

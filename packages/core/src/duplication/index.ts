@@ -111,7 +111,8 @@ export interface CloneIndex {
   /** `${file}:${startLine}` -> owning class. The seam for code-craft (Phase 5). */
   byMember: Map<string, CloneClass>;
   /**
-   * One entry per file counted in `stats.filesSkipped`, in discovery order.
+   * The first {@link MAX_EVIDENCE_ENTRIES} skipped files, in discovery order;
+   * the rest are counted in `stats.skippedTruncated`.
    *
    * `stats.filesSkipped` is the count; this is the evidence. Phase 2's detector
    * is specified to convert each skip into an `AnalysisError` with
@@ -121,8 +122,9 @@ export interface CloneIndex {
    */
   skipped: SkippedFile[];
   /**
-   * One entry per observed length-differing digest collision, in discovery
-   * order. Empty on every scan measured so far.
+   * The first {@link MAX_EVIDENCE_ENTRIES} observed length-differing digest
+   * collisions, in discovery order; the rest are counted in
+   * `stats.collisionsTruncated`. Empty on every scan measured so far.
    *
    * `stats.collisionsObserved` is the count; this is the evidence. A collision
    * is observed, not raised: grouping is keyed on
@@ -147,10 +149,16 @@ export interface CloneIndex {
      */
     filesIgnored: number;
     /**
-     * Unreadable, unparseable, or unextractable — see the spec's Failure
-     * behavior section. Every increment has a matching entry in `skipped`.
+     * Unreadable, unparseable, unextractable, or internal-error — see the
+     * spec's Failure behavior section. The exact total, which is `skipped`'s
+     * length only while that array is under {@link MAX_EVIDENCE_ENTRIES}.
      */
     filesSkipped: number;
+    /**
+     * Skips NOT recorded in `skipped` because the evidence cap was reached:
+     * `filesSkipped - skipped.length`.
+     */
+    skippedTruncated: number;
     /** Units that cleared `minTokens` and were hashed into a group. */
     unitsFingerprinted: number;
     /**
@@ -171,11 +179,17 @@ export interface CloneIndex {
     /** Groups dropped by the maxClasses report cap. */
     classesTruncated: number;
     /**
-     * Length-differing digest collisions observed while grouping. Every
-     * increment has a matching entry in `collisions`. Expected to be 0 — see
+     * Length-differing digest collisions observed while grouping. The exact
+     * total, which is `collisions`'s length only while that array is under
+     * {@link MAX_EVIDENCE_ENTRIES}. Expected to be 0 — see
      * {@link FingerprintCollision} for why a 0 is weaker than it looks.
      */
     collisionsObserved: number;
+    /**
+     * Collisions NOT recorded in `collisions` because the evidence cap was
+     * reached: `collisionsObserved - collisions.length`.
+     */
+    collisionsTruncated: number;
   };
 }
 
@@ -273,6 +287,25 @@ export const DEFAULT_DUPLICATION_CONFIG: Readonly<DuplicationConfig> = Object.fr
   maxClasses: 100,
 });
 
+/**
+ * Cap on each evidence array carried on the index — `skipped` and
+ * `collisions`.
+ *
+ * `classes` was the only capped array (`maxClasses`), so `skipped` grew
+ * without bound: a repo with thousands of unparseable files yielded one entry
+ * per file, each carrying a full parse message and the `Error` behind it, and
+ * Phase 2 is specified to serialize every one of them into an
+ * `AnalysisError`. The counts stay exact — `stats.filesSkipped` and
+ * `stats.collisionsObserved` are totals, not array lengths — and the overflow
+ * is reported in `stats.skippedTruncated` / `stats.collisionsTruncated`,
+ * mirroring `maxClasses` / `classesTruncated`.
+ *
+ * Not a {@link DuplicationConfig} field: that type is the spec'd four-field
+ * shape Phase 2 wires into `EntropyConfig`, and this is an internal guard
+ * rail, not a reporting threshold an operator tunes.
+ */
+export const MAX_EVIDENCE_ENTRIES = 100;
+
 /** Options accepted by {@link buildCloneIndex}. */
 export interface BuildCloneIndexOptions extends Partial<DuplicationConfig> {
   /**
@@ -356,10 +389,13 @@ export interface FingerprintedUnit {
   member: CloneMember;
 }
 
-/** A compact `reason x count` summary for the all-files-skipped error message. */
-function summarizeSkips(skipped: readonly SkippedFile[]): string {
-  const counts = new Map<string, number>();
-  for (const entry of skipped) counts.set(entry.reason, (counts.get(entry.reason) ?? 0) + 1);
+/**
+ * A compact `reason x count` summary for the all-files-skipped error message.
+ *
+ * Counted as skips happen rather than derived from `skipped`, so the breakdown
+ * stays exact once that array hits {@link MAX_EVIDENCE_ENTRIES}.
+ */
+function summarizeSkips(counts: ReadonlyMap<FileSkipReason, number>): string {
   return [...counts].map(([reason, count]) => `${count} ${reason}`).join(', ');
 }
 
@@ -372,8 +408,10 @@ function summarizeSkips(skipped: readonly SkippedFile[]): string {
  * the files are fine and our own normalization or digest stage failed — e.g. a
  * FIPS-mode Node rejecting sha1.
  */
-function skipSuggestions(skipped: readonly SkippedFile[]): string[] {
-  const reasons = new Set(skipped.map((entry) => entry.reason));
+function skipSuggestions(
+  reasons: ReadonlyMap<FileSkipReason, number>,
+  skipped: readonly SkippedFile[]
+): string[] {
   const suggestions: string[] = [];
   if (reasons.has('internal-error')) {
     suggestions.push(
@@ -628,8 +666,12 @@ export async function buildCloneIndex(
   }
 
   let filesScanned = 0;
+  let filesSkipped = 0;
   let unitsFingerprinted = 0;
   let unitsBelowMinTokens = 0;
+  let collisionsObserved = 0;
+  // Counts are exact; the arrays below them are capped evidence samples.
+  const skipReasons = new Map<FileSkipReason, number>();
   const skipped: SkippedFile[] = [];
   const collisions: FingerprintCollision[] = [];
   // First unit seen per digest, so a later length disagreement under the same
@@ -641,13 +683,17 @@ export async function buildCloneIndex(
   for (const { abs, rel } of eligible) {
     const outcome = await fingerprintFile(abs, rel, config.minTokens);
     if (outcome.status === 'skipped') {
-      skipped.push({
-        file: rel,
-        reason: outcome.reason,
-        message: outcome.message,
-        errorName: outcome.errorName,
-        originalError: outcome.originalError,
-      });
+      filesSkipped += 1;
+      skipReasons.set(outcome.reason, (skipReasons.get(outcome.reason) ?? 0) + 1);
+      if (skipped.length < MAX_EVIDENCE_ENTRIES) {
+        skipped.push({
+          file: rel,
+          reason: outcome.reason,
+          message: outcome.message,
+          errorName: outcome.errorName,
+          originalError: outcome.originalError,
+        });
+      }
       continue;
     }
     filesScanned += 1;
@@ -660,11 +706,14 @@ export async function buildCloneIndex(
       } else if (first.tokenCount !== unit.tokenCount) {
         // Observed, not raised: the composite key below already keeps these
         // two out of one another's class, so there is nothing to fail over.
-        collisions.push({
-          fingerprint: unit.fingerprint,
-          members: [first.member, unit.member],
-          tokenCounts: [first.tokenCount, unit.tokenCount],
-        });
+        collisionsObserved += 1;
+        if (collisions.length < MAX_EVIDENCE_ENTRIES) {
+          collisions.push({
+            fingerprint: unit.fingerprint,
+            members: [first.member, unit.member],
+            tokenCounts: [first.tokenCount, unit.tokenCount],
+          });
+        }
       }
       const key = `${unit.fingerprint}:${unit.tokenCount}`;
       const bucket = groups.get(key);
@@ -682,14 +731,14 @@ export async function buildCloneIndex(
     return Err(
       createEntropyError(
         'PARSE_ERROR',
-        `Refusing to report a pass over zero readable source files: all ${skipped.length} eligible file(s) under ${rootDir} were skipped (${summarizeSkips(skipped)}).`,
+        `Refusing to report a pass over zero readable source files: all ${filesSkipped} eligible file(s) under ${rootDir} were skipped (${summarizeSkips(skipReasons)}).`,
         {
           reason: 'all-files-skipped',
           file: rootDir,
           issues: skipped,
           originalError: skipped[0]!.originalError,
         },
-        skipSuggestions(skipped)
+        skipSuggestions(skipReasons, skipped)
       )
     );
   }
@@ -753,13 +802,15 @@ export async function buildCloneIndex(
     stats: {
       filesScanned,
       filesIgnored,
-      filesSkipped: skipped.length,
+      filesSkipped,
+      skippedTruncated: filesSkipped - skipped.length,
       unitsFingerprinted,
       unitsBelowMinTokens,
       classesReported: classes.length,
       classesSuppressed,
       classesTruncated,
-      collisionsObserved: collisions.length,
+      collisionsObserved,
+      collisionsTruncated: collisionsObserved - collisions.length,
     },
   });
 }

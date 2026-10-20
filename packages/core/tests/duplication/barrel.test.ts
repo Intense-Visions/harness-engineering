@@ -72,6 +72,7 @@ describe('core barrel — duplication surface (criterion 11)', () => {
     'fingerprintStream',
     'MissingNodeLocationError',
     'DEFAULT_DUPLICATION_CONFIG',
+    'MAX_EVIDENCE_ENTRIES',
     'IDENTIFIER_PLACEHOLDER',
     'LITERAL_PLACEHOLDER',
   ])('resolves %s from the package entry point', (name) => {
@@ -108,9 +109,11 @@ describe('core barrel — duplication surface (criterion 11)', () => {
       'classesSuppressed',
       'classesTruncated',
       'collisionsObserved',
+      'collisionsTruncated',
       'filesIgnored',
       'filesScanned',
       'filesSkipped',
+      'skippedTruncated',
       'unitsBelowMinTokens',
       'unitsFingerprinted',
     ]);
