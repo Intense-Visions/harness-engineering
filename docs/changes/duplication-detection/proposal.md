@@ -694,3 +694,209 @@ The pre-optimization per-file cost was quoted as "26.0M token visits against 1.4
 Both module comments now state scope and denominator on every figure. The standing rule for this
 change: a count without its discovery scope is not a measurement, and a ratio without its
 denominator is not one either.
+
+### Phase 3 — criterion 2: the top-20 precision audit (one round, ≥90% on the first pass)
+
+Audited at HEAD `62d6a81aa` on the product scope as it ships (no exclusion tightening).
+Reproducibility state, per this spec's audit instruction:
+`git ls-files docs/.vitepress/cache | wc -l` = **9**, `git check-ignore docs/.vitepress/cache`
+exit **1** (tracked, not ignored). Evidence came from the REAL command,
+`harness cleanup -t duplication --json`, which exited **0** over 96 advisory classes.
+
+Counters: filesScanned **2,144**, classesReported **96**, members **382**, classesSuppressed
+**162**, classesTruncated **0**.
+
+Rejection clauses (fixed): (a) extraction would need one distinct parameter per member;
+(b) structurally forced by a framework or interface contract and could not differ; (c) the
+shared body is type-only or a re-export.
+
+| #   | rank | tok | n   | class                                                        | verdict           |
+| --- | ---- | --- | --- | ------------------------------------------------------------ | ----------------- |
+| 1   | 2592 | 648 | 4   | `runGates` ×4 platform mirrors                               | genuine           |
+| 2   | 1320 | 440 | 3   | `collect{Api,CliErgonomics,Docs}CraftPrompts`                | genuine           |
+| 3   | 1288 | 161 | 8   | `handle*Craft` ×8 MCP tools                                  | genuine           |
+| 4   | 1224 | 306 | 4   | `renderReport` ×4 platform mirrors                           | genuine           |
+| 5   | 990  | 110 | 9   | `handle*CraftFinalize` ×9                                    | genuine           |
+| 6   | 980  | 98  | 10  | `sumCosts` ×10                                               | genuine           |
+| 7   | 916  | 229 | 4   | `runAction` ×4 craft commands                                | genuine           |
+| 8   | 876  | 219 | 4   | `extractConflictHunks` ×4 platform mirrors                   | genuine           |
+| 9   | 846  | 282 | 3   | `printResult` ×3 craft commands                              | genuine           |
+| 10  | 716  | 179 | 4   | `parseVitestJson` ×4 platform mirrors                        | genuine           |
+| 11  | 704  | 44  | 16  | `sendJSON` / `sendJson` / `jsonResponse` ×16 routes          | genuine           |
+| 12  | 704  | 176 | 4   | `dedupeFindings` ×4 platform mirrors                         | genuine           |
+| 13  | 693  | 77  | 9   | `finalizeInputError` ×9                                      | genuine           |
+| 14  | 630  | 210 | 3   | `parseFindingFromRaw` ×3 critique phases                     | genuine           |
+| 15  | 604  | 151 | 4   | `renderFinding` ×4 platform mirrors                          | genuine           |
+| 16  | 596  | 149 | 4   | `renderFixes` ×4 platform mirrors                            | genuine           |
+| 17  | 584  | 146 | 4   | `parseEslintJson` ×4 platform mirrors                        | genuine           |
+| 18  | 568  | 142 | 4   | `summarize` ×4 platform mirrors                              | genuine           |
+| 19  | 560  | 140 | 4   | `parseTscOutput` ×4 platform mirrors                         | genuine           |
+| 20  | 525  | 105 | 5   | 5 anonymous `.map` callbacks in `typescript-strict-agent.ts` | genuine (weakest) |
+
+**Precision: 20/20 = 100%.** Every class was judged by opening at least two members and
+reading the code, not by the name. The craft-family rows (#2, #3, #5, #6, #7, #9, #13, #14)
+differ only in a tool-name string, an injected function or a type parameter; `sumCosts` ×10 and
+the 16 JSON-response helpers have byte-identical bodies and need no parameterization at all.
+Row #20 is the one judgment call: five `ReviewFinding` literals differing in four string
+fields, extractable as `buildStrictFinding(match, tag, title, rationale, suggestion)` — four
+parameters SHARED by all five members, so clause (a) ("one distinct parameter per member")
+does not fire, though the helper is only modestly shorter than the literals.
+
+#### The platform mirrors are TRUE POSITIVES
+
+The Phase 3 plan proposed rejecting the 10 mirror classes under clause (b) and tightening the
+exclusions from 96 classes to 58. That reading was **overruled**, and the overrule's evidence
+was re-verified first-hand before the verdicts were written:
+
+- `md5 -q` over the four `harness-branch-buster/scripts/run-gates.mjs` copies:
+  `aa091f0eb1e00147120d0fe0b9aa2f7f` ×4; four distinct inodes; all four
+  `harness-branch-buster` directories are real directories, not symlinks.
+- **There is no mirror generator.** No `scripts/*mirror*` and no package script that emits the
+  copies; the only related script is `test:platform-parity`, which ASSERTS they match. The
+  files carry no generated-file marker (only an `eslint-disable` for vendored tooling).
+- All four copies landed in one commit, `32815504d` (#2134).
+- `agents/skills/codex/` holds 793 entries: **101 symlinks and 692 real directories**
+  (`harness-refactoring` IS a symlink; `harness-branch-buster` is not).
+
+Clause (b) does not apply: the parity test forces the copies to be IDENTICAL, but nothing
+forces them to be SEPARATE FILES. "Could not differ" is false — they could be one file, as 101
+sibling skills already are, and the extraction is a one-line `ln -s` this repository already
+performs elsewhere. **No exclusion tightening was applied, and `harness.config.json` was not
+modified.**
+
+#### The 38/96 concentration is a RANKING / GROUPING problem, not a precision problem
+
+Over all 96 classes: **38 (39.6%)** are composed exclusively of `agents/skills/` files,
+carrying **152 of 382 members (39.8%)**; **every one has exactly 4 members** (one per
+platform); **zero** classes span the skills tree and the rest of the repo, so the 96 partition
+into 38 mirror + **58 non-mirror classes / 230 members**; and all 38 come from **one** skill,
+`harness-branch-buster`, over 20 files (5 scripts × 4 platforms).
+
+One repeated structural cause producing 40% of the rows is a presentation problem — the
+operator reads 38 rows of the same finding. The honest remedy is grouping or a note in the
+output, never silencing. **Recorded as a Phase 4/5 follow-up; not implemented in Phase 3.**
+
+Sizing the exposure with its denominator: the 4×-copy convention reaches 692 of 793 mirror
+entries per platform (~87% of the skill tree), but only one skill carries executable code —
+exactly **11 code files per platform mirror, all in `harness-branch-buster`** (44 across four
+platforms). Everything else in the mirrors is markdown, which a code-unit detector does not
+parse. So the duplication the detector can SEE is 38 classes / 152 members / 20 files from one
+skill; the 692 figure is the convention's reach, not a count of findings, and the two must not
+be conflated.
+
+#### Arm B's open question, resolved without a second scan
+
+The plan recorded an ASSUMPTION that excluding the three non-canonical mirror trees leaves 58
+classes / 230 members. Because no class spans the skills boundary, that follows from this run:
+the 58 non-mirror classes / 230 members are exactly the complement of the 38. Digest over
+`(fingerprint, memberCount)` of that subset: `0d538cfc9c99c0c2`. That is NOT comparable to the
+Scope A whole-index digest `7e0f1622fb75abbc` recorded above — a different formula over a
+different object — so **set identity with Scope A remains unproven and is recorded as
+unproven**.
+
+### Phase 3 — Scope C: the product scope is a THIRD scope
+
+`harness cleanup -t duplication` builds `EntropyConfig` from this repository's config:
+`rootDir` = repo root, this repo's 62 configured entry points, this repo's 12
+`entropy.excludePatterns`, `DEFAULT_DUPLICATION_CONFIG` otherwise.
+
+| counter            | Scope C (product) | Scope B (detector's own) | Scope A (`packages/` only) |
+| ------------------ | ----------------- | ------------------------ | -------------------------- |
+| filesScanned       | **2,144**         | 2,153                    | 2,065                      |
+| classesReported    | **96**            | 98                       | 58                         |
+| members            | **382**           | 388                      | 230                        |
+| classesSuppressed  | **162**           | 174                      | 161                        |
+| classesTruncated   | **0**             | 0                        | 0                          |
+| vitepress-composed | **0**             | 2                        | 0                          |
+
+96 vs 98 vs 58 is **scope, not regression**. Scope C = Scope B minus this repo's
+`excludePatterns` (chiefly `**/.vitepress/cache/**`). Scope C's filesScanned is 2,144 rather
+than the 2,143 measured at plan time because Phase 3 adds one source file
+(`packages/cli/src/shared/duplication-request.ts`).
+
+### Phase 3 — criterion 1 evidence
+
+`harness cleanup -t duplication --json` on this repository, exit **0**:
+
+- `sumCosts`: one class, **10 members**, 98 tokens, rank 980 (#6 by rank).
+- The orchestrator JSON-response class: **16 members**, 44 tokens, spanning `sendJSON`,
+  `sendJson` and `jsonResponse` (#11 by rank).
+- Across all 96 classes: min members **3**, min tokens **41** — the Rule of Three and the
+  40-token floor both hold at the product scope.
+
+### Phase 3 — the command's wall clock is snapshot-dominated
+
+`harness cleanup -t duplication` on this repository: **12.2 s / 13.2 s warm, 44.6 s cold**
+(plan time measured `analyze()` alone at Scope C: 23.8-24.1 s warm, 58.7 s cold — same shape,
+a warmer machine). Criterion 6's bar is `detectDuplication` ALONE, which Phase 2 measured at
+2.4-3.0 s at Scope B. That criterion is unchanged and still unguarded (Phase 2's accepted
+gap). **The command's cost is not the detector's figure, and the detector's figure must never
+be presented as the command's runtime.**
+
+### Phase 3 — answers to Phase 2's four forward notes
+
+1. **Exit code.** Clone classes are excluded from `CleanupResult.totalIssues` — the field
+   `process.exit` gates on (`cleanup.ts`) AND the field `--findings-json` publishes as the
+   #691 maintenance contract. The plan found that second channel; both are covered, and both
+   are proved by a spawned-process test against the mutant (folding
+   `duplication.classes.length` into the sum turns the real process's status to 1 and the
+   contract line to `{ findings: 1 }`). Observed on this repository: exit **0** over 96
+   classes, `{"findings":0,"v":1,"check":"cleanup"}`. ADR 0134's open consequence is resolved,
+   not amended.
+2. **Vitepress false positives.** Moot at the product scope: this repository's
+   `entropy.excludePatterns` already carries `**/.vitepress/cache/**` and `cleanup.ts` threads
+   it, so the CLI reports **0** vitepress-composed classes among the 96. At the detector's own
+   default scope the two known false-positive classes (6 members) remain.
+   `DEFAULT_DUPLICATION_CONFIG` is **unchanged** in Phase 3: the product scope is already
+   clean, changing the default would move Phase 1's and Phase 2's recorded evidence for a case
+   this repository cannot observe, and the honest generalization (vendored dependency
+   pre-bundles of any bundler, not just vitepress) deserves its own follow-up.
+3. **Config surface.** `entropy.duplication` did not exist as a validated key:
+   `EntropyConfigSchema` had no such member, so zod stripped it —
+   `collectStrippedKeys(HarnessConfigSchema, { entropy: { duplication: { minTokens: 50 } } })`
+   returned `[{ path: 'entropy.duplication' }]` and the loader printed
+   `ignored unknown key 'entropy.duplication'` (measured before the change; `[]` after).
+   `DuplicationConfigSchema` now bounds `minTokens` (int, positive), `minInstances` (int, ≥2 —
+   `buildCloneIndex` hard-skips groups below 2, so 1/0/negative silently mean "report every
+   pair"), `maxClasses` (int, positive — `0` reports ZERO classes while counting every
+   qualifying one in `classesTruncated`, a pass over findings that were found) and
+   `ignorePatterns` (string array, documented as REPLACING the shipped 21 globs because
+   `resolveDuplicationConfig` merges by key). Measured zod-3 detail worth knowing: a wrong
+   TYPE fails both arms of the `boolean | object` union, so the field-qualified path lands
+   inside `invalid_union`'s `unionErrors` while the top-level issue path stops at
+   `entropy.duplication`; a wrong RANGE reports the field path at the top level.
+4. **`byMember`.** Omitted from the `detect_entropy` payload rather than converted. Measured
+   before the change, the detailed response carried
+   `duplication: { classes, byMember, collisions, skipErrors, stats }` with `byMember: {}` —
+   a `Map` rendered by `JSON.stringify` as an empty object, indistinguishable from an empty
+   index. `skipErrors[].details.originalError` (an `Error`, `{}` for the same reason) is
+   dropped by the same projection. `snapshot.exportMap.byFile` has the same defect, predates
+   this change, and is named rather than silently inherited. Summary mode gained
+   `advisory.duplication` (counters, member total, top three classes) strictly outside
+   `totalIssues`.
+
+### Phase 3 — two surfaces, one asymmetry worth naming
+
+On a project that HAS a knowledge graph, `detect_entropy type: "duplication"` can only return
+the did-not-run refusal: `loadEntropyGraphOptions` supplies BOTH graph keys unconditionally
+whenever a graph exists, which makes `analyze()` bypass the snapshot the detector discovers
+through. Observed on this worktree, which has no `.harness/graph` of its own —
+`resolveGraphDir` resolves to the main checkout's
+`/Users/cwarner/Projects/iv/harness-engineering/.harness/graph`, so the tool returned
+`isError: true` with the analyzer's own `snapshot-bypassed` reason in 3.5 s. That is the
+guard working on real data rather than on a fixture, and it is why "did not run" must never
+render as "found nothing". The CLI path passes no graph data and is unaffected (96 classes).
+Making `loadEntropyGraphOptions` conditional on the requested type is a **follow-up**, not
+Phase 3's scope.
+
+### Phase 3 — deferred, with owners
+
+- Knowledge-graph concept nodes (`partial-extraction`, `CloneClass`) remain unclaimed by any
+  phase and are **deferred**; `manage_adr`/graph enrichment is also not worktree-aware
+  (#1507), so half-doing it here would write to the wrong checkout.
+- Grouping or noting repeated structural causes in the output (the 38/96 concentration) —
+  Phase 4/5.
+- `loadEntropyGraphOptions` type-awareness so the MCP surface can report duplication on a
+  graph-bearing project.
+- A vendored-build-cache glob for `DEFAULT_DUPLICATION_CONFIG.ignorePatterns`, generalized
+  beyond vitepress.

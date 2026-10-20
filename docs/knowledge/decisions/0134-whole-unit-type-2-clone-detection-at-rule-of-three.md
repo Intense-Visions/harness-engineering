@@ -140,11 +140,23 @@ warnings` in `packages/core/tests/entropy/analyzer.duplication.test.ts`, which r
   until the detector runs in anger — the 60 classes are a one-time backlog and tell us nothing
   about the steady state. When a ratchet is proposed, D4 is the record that it must be argued, and
   #855 is the record of what it must not become.
-- **A downstream consequence lands in Phase 3, not here.** Clone classes count in
-  `summary.totalIssues`, and `packages/cli/src/commands/cleanup.ts` gates its exit code on a field
-  of that name. Phase 3 owns `harness cleanup -t duplication` and must decide consciously whether
-  that command can exit non-zero on duplication alone — otherwise D4 is violated downstream of a
-  Phase-2 choice, by inheritance rather than by anyone deciding it.
+- **That downstream consequence is now RESOLVED in Phase 3.** Clone classes count in
+  `EntropyReport.summary.totalIssues`, and `packages/cli/src/commands/cleanup.ts` gates its exit
+  code on a field of the same name. Phase 3 decided it consciously: `CleanupResult.totalIssues`
+  carries drift + dead code + pattern violations ONLY, and clone classes land on a separate
+  optional `duplication` block. Phase 3 also found a SECOND channel on the same field —
+  `--findings-json` publishes `totalIssues` as the #691 maintenance contract, where a consumer
+  gating on `findings > 0` would fail a build on advisory output — and excluded duplication from
+  that too. Observed on this repository: `harness cleanup -t duplication` exits **0** over 96
+  advisory classes and prints `{"findings":0,"v":1,"check":"cleanup"}`. A spawned-process test
+  holds the line: folding `duplication.classes.length` into the sum turns the real process's
+  status to 1 and the contract line to `{ findings: 1 }`. D4 is unchanged — it was honored
+  downstream, not amended.
+- **A related honesty fix rode along.** `-t duplication` runs no drift, dead-code or pattern
+  analyzer, so `totalIssues` is 0 BY OMISSION. Printing the usual green-ticked "Entropy issues: 0"
+  there would report a pass over three checks that never executed (#1760 one layer out), so
+  `CleanupResult` gained a `ran` map derived from report presence and the command prints
+  "Entropy issues: not checked" instead.
 - **Severity can be raised later; it cannot be raised accidentally.** Adding an `errorCount` to
   `DuplicationReport.stats` is a visible, reviewable type change that also requires editing
   `EntropyAnalyzer`'s summary arithmetic. That is the intended cost.
@@ -171,8 +183,13 @@ warnings` in `packages/core/tests/entropy/analyzer.duplication.test.ts`, which r
   `totalIssues`, nothing into `errors` or `warnings`.
 - `packages/cli/src/code-craft/catalog/rubrics/abstraction-earns-keep.ts` — CODE-R004, whose Rule
   of Three clause D3 aligns with and whose repair is Phase 5.
-- `packages/cli/src/commands/cleanup.ts` — the `totalIssues` exit-code gate Phase 3 must decide
-  about.
+- `packages/cli/src/commands/cleanup.ts` — the `totalIssues` exit-code gate, and the
+  `--findings-json` contract beside it; both now exclude clone classes, with the reason recorded
+  on the `totalIssues` field itself.
+- `packages/cli/tests/integration/cleanup-duplication-exit-code.e2e.test.ts` — the spawned-CLI
+  regression test for both channels (exit 0, `{ findings: 0 }`).
+- `packages/cli/src/shared/duplication-request.ts` — the opt-in and refusal rules shared by
+  `harness cleanup -t duplication` and `detect_entropy type: "duplication"`.
 - GitHub #855 — the fail-closed pre-commit architecture gate, D4's cautionary precedent.
 - GitHub #1612 (`idiom-contagion-epidemiology`), #1646 — the two tracked items that inherit this
   definition.
