@@ -34,7 +34,8 @@ const TEST_FILE_EXCLUDES = ['**/*.test.ts', '**/*.spec.ts'] as const;
  *
  * The imports and exports now come from `parseSourceFiles` — the same parse loop
  * `buildSnapshot` uses, extracted rather than duplicated — and the dependency
- * graph from the same `buildDependencyGraph` the circular-deps collector uses.
+ * graph from `buildDependencyGraphFromParsed`, which is the edge-construction
+ * half of the `buildDependencyGraph` the circular-deps collector calls.
  * `buildSnapshot` itself is deliberately NOT called: it resolves entry points
  * first and fails closed with `ENTRY_POINT_NOT_FOUND` on any repo without a
  * manifest entry point (this monorepo's own root included), and an architecture

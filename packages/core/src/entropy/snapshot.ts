@@ -256,9 +256,6 @@ function extractJSDocComments(ast: AST): JSDocComment[] {
 }
 
 /**
- * Build ExportMap from source files
- */
-/**
  * Index a parsed file set by export file and export name.
  *
  * Exported alongside {@link parseSourceFiles} so a consumer assembling a

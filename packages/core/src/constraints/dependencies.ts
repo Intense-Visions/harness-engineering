@@ -169,10 +169,14 @@ export interface ParsedFileImports {
  *
  * {@link buildDependencyGraph} re-parses every file it is given. A caller that
  * has just parsed the tree for another reason would otherwise parse the whole
- * repository twice — measured at roughly +100% user CPU on this monorepo for the
- * coupling collector, on a gate that runs in `.husky/pre-commit` (#2284). Edge
- * construction is identical; only the parse is skipped. Related: #2270, which
- * tracks sharing ONE graph across the dependency collectors.
+ * repository twice. Measured in-process for the coupling collector on this
+ * monorepo (1999 files, `process.cpuUsage()`): the parse costs 13.46s of CPU,
+ * and the graph step costs 6.09s when it re-parses versus 0.09s from
+ * already-parsed files — so skipping the second parse takes the collector from
+ * 19.55s to 13.55s, about 31% off its total, on a gate that runs in
+ * `.husky/pre-commit` (#2284). Edge construction is identical; only the parse is
+ * skipped. Related: #2270, which tracks sharing ONE graph across the dependency
+ * collectors.
  */
 export async function buildDependencyGraphFromParsed(
   nodes: string[],
