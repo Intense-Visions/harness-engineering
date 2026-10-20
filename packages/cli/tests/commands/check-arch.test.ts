@@ -449,12 +449,25 @@ describe('check-arch command', () => {
     /**
      * The exit-code mapping the sibling `runCheckArch` test is NAMED for but
      * never observes: that test asserts `passed`, and its `1=regression` arm
-     * had no assertion at all. Measured on `origin/main`:
+     * had no assertion at all.
+     *
+     * Both mutations were measured at the SAME scope — the whole `packages/cli`
+     * suite with only the two tests below removed — because a mutation that
+     * survives is green at the package, and a narrower figure cannot be checked
+     * against anything. To reproduce: delete the two tests below, apply one
+     * mutation, run `npx vitest run` from `packages/cli`.
      *   - `process.exit(value.passed ? SUCCESS : VALIDATION_FAILED)` replaced by
-     *     `process.exit(ExitCode.SUCCESS)` leaves ALL of `packages/cli` green
-     *     with only these two tests removed: 755 files / 8937 tests;
-     *   - `valid: value.passed` in `printArchResult` replaced by `valid: true`
-     *     left 3 files / 58 tests green.
+     *     `process.exit(ExitCode.SUCCESS)`: 755 files / 8937 tests, all green.
+     *   - `valid: value.passed` in `printArchResult` replaced by `valid: true`:
+     *     755 files / 8937 tests, all green.
+     *
+     * An earlier version of this comment cited "3 files / 58 tests" for the
+     * second mutation. No scope in this repo yields that — `vitest run
+     * tests/commands/check-arch` is 2 files / 54 tests, `vitest run arch` is
+     * 8 files / 94 tests, and `printArchResult` is named by this file alone —
+     * so the number could not be re-derived and has been replaced by the
+     * measurement above.
+     *
      * Same defect class as #2071 — a regressing gate reporting a pass — and
      * `arch` is not in `.husky/pre-commit`'s skip list, so it gates every commit.
      *
