@@ -90,6 +90,11 @@ export interface SkippedFile {
  * no false class forms. This record is what makes the 64-bit truncation
  * falsifiable — if these ever appear, widen the digest in `tokens.ts`.
  *
+ * Measured clean at HEAD: 0 observed over the 8,165 fingerprinted units of the
+ * MEASURED SCOPE — the 2,063 files that `findFiles` discovers under
+ * `<repo>/packages` and {@link isEligibleFile} admits under the shipped
+ * defaults, holding 13,394 extracted units.
+ *
  * It is a PARTIAL detector, and deliberately so: a collision between two
  * EQUAL-length streams agrees on `tokenCount` and is invisible here (and to
  * any token-count check). Zero observed collisions therefore means "no
@@ -117,8 +122,13 @@ export interface CloneIndex {
    * `stats.filesSkipped` is the count; this is the evidence. Phase 2's detector
    * is specified to convert each skip into an `AnalysisError` with
    * `analyzer: 'duplication'`, which it cannot do from a bare count — the
-   * reason and message were computed in {@link fingerprintFile} and then
-   * discarded here.
+   * reason, message and `Error` were computed in {@link fingerprintFile} and
+   * then discarded here.
+   *
+   * `'duplication'` is NOT yet a member of `AnalysisError['analyzer']`
+   * (`entropy/types/report.ts`), so that binding does not typecheck today.
+   * Adding the union member is Phase 2 registration work, named in the spec's
+   * Phase 2 section; this describes the intended consumer, not a current one.
    */
   skipped: SkippedFile[];
   /**
@@ -234,10 +244,11 @@ const SUPPORTED_EXTENSIONS = ['.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs'] as c
  * "barrel", which was wrong twice over: a true barrel is pure re-exports, so it
  * yields no units and cannot produce a false positive — the glob bought
  * nothing — while in practice `index.ts` is routinely a package's main
- * implementation module. Measured over this repo's package sources: the globs suppressed
- * 10 of 58 classes (17%), including `sumCosts` x10, the first named item in
- * this spec's own Evidence section, and this module's own 392-line `index.ts`
- * excluded itself.
+ * implementation module. Re-measured at HEAD over the measured scope (see
+ * {@link FingerprintCollision}): ignoring `index.*` drops the reported classes
+ * from 58 to 48, suppressing 10 classes composed entirely of `index.*` files —
+ * `sumCosts` x10 among them, the first named item in the spec's own Evidence
+ * section — and this module's own `index.ts` excluded itself.
  *
  * Frozen, and aliased straight onto `DEFAULT_DUPLICATION_CONFIG` rather than
  * copied onto it. The previous revision froze only this module-private const
@@ -588,8 +599,9 @@ export async function fingerprintFile(
  * Per FILE, however, the cost is O(units x tokens), not linear in tokens:
  * {@link fingerprintFile} calls `normalizeTokens(tokens, unit.range)` once per
  * unit and each call rescans that file's ENTIRE token array. Measured over
- * this repo's package sources, that is ~26.0M token visits against 1.4M
- * tokens — 18.6x — concentrated in the largest files: the worst,
+ * the measured scope (see {@link FingerprintCollision}), that is 26.0M token
+ * visits against 1.40M tokens — 18.6x, re-measured unchanged at HEAD —
+ * concentrated in the largest files: the worst,
  * `orchestrator/src/orchestrator.ts`, has 221 units over 22,648 tokens, so
  * 5,005,208 visits by itself.
  *

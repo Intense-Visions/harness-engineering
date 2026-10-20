@@ -16,7 +16,16 @@ import type { TSESTree } from '@typescript-eslint/typescript-estree';
  * attribute names only — an identifier inside an expression container is a
  * plain `Identifier` token and still normalizes — and a tag name is structural,
  * closer to a keyword than to a variable name: `<input>` versus `<button>` is
- * different behavior, not a rename. Collapsing it made
+ * different behavior, not a rename.
+ *
+ * That argument covers ELEMENT names; it does NOT cover attribute names, which
+ * this keeps verbatim too. `<div className="x" tabIndex={1}>` tokenizes `div`,
+ * `className` AND `tabIndex` all as `JSXIdentifier`, so a prop rename
+ * (`onClick` to `onPress`) now defeats clustering — exactly the rename case
+ * identifier normalization exists to absorb. Because normalization is
+ * token-level it cannot tell the two apart, so the cost is accepted rather
+ * than solved: a token stream carries no element/attribute distinction to
+ * branch on. Collapsing it made
  * `() => <div className="x">hi</div>` and `() => <span className="x">hi</span>`
  * share the fingerprint `213c70b88dc1f373`. `.tsx` is in
  * `SUPPORTED_EXTENSIONS` and real `.tsx` classes are reported, so this is live,
@@ -72,7 +81,8 @@ export function normalizeTokens(
 /**
  * Fingerprint a normalized token stream: sha1, truncated to 16 hex characters
  * (64 bits) for log and report readability. At this repository's scale
- * (~8,000 units) the expected collision count is ~1.7e-12; a collision would
+ * (8,165 fingerprinted units at HEAD) the expected collision count is
+ * ~1.7e-12; a collision would
  * surface as one false clone class, never as corruption. Widen to the full
  * digest if a collision is ever observed.
  *

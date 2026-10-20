@@ -51,6 +51,13 @@ export class MissingNodeLocationError extends Error {
  * `const K = class { m() {} }` otherwise reported only `method:m`, silently
  * dropping the class itself. `StaticBlock` is deliberately absent — it has no
  * name and no call site, so it is not a unit anyone can extract or reuse.
+ *
+ * It slightly widens the known `byMember` lossiness, which already collapses a
+ * function and a nested arrow that start on one line: a ONE-LINE
+ * `const K = class { m() {} }` puts the class and its method on the same
+ * `${file}:${startLine}` key. Measured a non-issue at HEAD — over the measured
+ * scope, `byMember.size` is 230, exactly the 230 reported members — but it is
+ * the same key's limitation, not a separate one.
  */
 const UNIT_KINDS: Record<string, CloneUnitKind> = {
   FunctionDeclaration: 'function',
@@ -103,8 +110,12 @@ function nameFromParent(node: object, parent: unknown): string | undefined {
 /**
  * The declared name of a unit node, or `'<anon>'`.
  *
- * Consults `node.id` / `node.key` first, then the naming parent. Without the
- * parent hop, 36.0% of this repo's units reported `<anon>`; with it, 31.2%.
+ * Consults `node.id` / `node.key` first, then the naming parent. Re-measured
+ * at HEAD over the MEASURED SCOPE — the 2,063 files that
+ * `findFiles('**` + `/*.{ts,tsx,js,jsx,mjs,cjs}', '<repo>/packages')` discovers
+ * and `isEligibleFile` admits under the shipped defaults, holding 13,394
+ * extracted units — the hop names 647 units that would otherwise be
+ * anonymous: 36.1% `<anon>` without it, 31.2% with it.
  * `CloneMember.unit` is the human-facing field and the one `code-craft` binds
  * against, so `<anon>` is a real cost. A callback argument
  * (`scan(bundle, (line) => …)`) has no name one hop up and stays `<anon>`.

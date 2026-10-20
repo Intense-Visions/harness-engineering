@@ -31,7 +31,8 @@ describe('extractUnits', () => {
 
   it('names an arrow function from its variable binding one hop up', () => {
     // `const sendJSON = (res, status, body) => {…}` is not anonymous to anyone
-    // reading it; reporting `<anon>` cost 17 of 192 members in this repo.
+    // reading it. Re-measured at HEAD: 17 of the 230 members in reported
+    // classes are still `<anon>` (they need a callee hop, not a parent hop).
     const units = unitsOf(`const f = (a: number) => a + 1;\n`);
     expect(units.map((u) => `${u.kind}:${u.name}`)).toEqual(['function:f']);
   });
