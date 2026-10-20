@@ -7,7 +7,7 @@ import {
   createNodeModuleSourceReader,
 } from '@harness-engineering/core';
 import type { AnalysisProvider } from '@harness-engineering/intelligence';
-import { resolveConfig } from '../config/loader';
+import { resolveProject } from '../config/loader';
 import type { HarnessConfig } from '../config/schema';
 import {
   readComprehensionConfig,
@@ -244,12 +244,6 @@ export async function stageCompiledUnits(
   if (result.compiled.length === 0) return;
   await formatCompiledUnits(result, store, format); // FIX D: prettier the shards BEFORE staging
   stage(result.compiled.map((module) => store.path(module)));
-}
-
-/** Load the resolved HarnessConfig, or undefined when none resolves (best-effort). */
-function loadHarnessConfig(configPath?: string): HarnessConfig | undefined {
-  const resolved = resolveConfig(configPath);
-  return resolved.ok ? resolved.value : undefined;
 }
 
 /** The two outputs of the `--since` semantic-regression gate, as the verdict consumes them. */
@@ -682,7 +676,7 @@ async function runRefreshMode(
   process.exit(ExitCode.SUCCESS);
 }
 
-async function runComprehendAction(
+export async function runComprehendAction(
   mode: ComprehendMode,
   globalConfig?: string,
   opts: {
@@ -693,8 +687,15 @@ async function runComprehendAction(
     context?: RegressionContext;
   } = {}
 ): Promise<void> {
-  const projectRoot = process.cwd();
-  const config = loadHarnessConfig(globalConfig);
+  // Root on the project that owns the config, not `process.cwd()`. `-c` used to
+  // select the config file (the hook gate, the `comprehension.ci` mode) while
+  // the unit store and the source reader stayed on the current directory — so
+  // `comprehend -c /other/project/harness.config.json` read that project's
+  // gates and compiled THIS tree, and `--stage` git-added the shards here.
+  // Same split `check-arch` was fixed out of under #911 (9f322084c).
+  const project = resolveProject(globalConfig);
+  const projectRoot = project.ok ? project.value.root : process.cwd();
+  const config = project.ok ? project.value.config : undefined;
 
   // Pre-commit-hook posture: no-op unless the opt-in gate is enabled, so the
   // shell hook can invoke unconditionally and the CLI owns the gating.

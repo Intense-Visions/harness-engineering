@@ -23,16 +23,18 @@
  * `toBe(1)` on a file count cannot be satisfied by coincidence; and it is also
  * immune to a zero-denominator abstention (#1146) being read as agreement.
  */
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { mkdtemp, mkdir, rm, writeFile, readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import * as path from 'node:path';
+import { Command } from 'commander';
 
 import { runCheckVocabulary } from '../../src/commands/check-vocabulary';
 import { runAuditProtected } from '../../src/commands/audit-protected';
 import { runCheckDeps } from '../../src/commands/check-deps';
 import { runAdd } from '../../src/commands/add';
 import { resolveProject } from '../../src/config/loader';
+import { logger } from '../../src/output/logger';
 
 /** Make a tmpdir project, run `fn` with its config path, always clean up. */
 async function withProject(
@@ -202,49 +204,402 @@ describe('-c selects the project root, not just the config file (#911 class)', (
       }
     );
   });
+  /**
+   * `comprehend` — the second of the two instances the first version of this
+   * PR's sweep MIS-CLEARED, with a stated reason ("root comes from its own
+   * `--project` plumbing") that does not exist: the command has no `--project`
+   * option at all. It read the hook gate and `comprehension.ci` mode from `-c`
+   * and rooted the unit store and source reader on `process.cwd()` — and
+   * `--changed --stage` git-adds the shards, so it WRITES into the unnamed tree.
+   *
+   * Discriminator: the compiled unit lands under the FIXTURE's
+   * `.harness/comprehension`. Against the wrong root it would have written into
+   * this repo's own comprehension tree, which is exactly the escape #911
+   * reported. `enumerateModules` finds the fixture's single module, so the unit
+   * count is 1 where the real repo has hundreds.
+   */
+  it('comprehend compiles the -c project, and writes its units there', async () => {
+    await withProject(
+      { rootDir: './src', docsDir: './docs' },
+      async (root) => {
+        await writeFile(
+          path.join(root, 'src/thing.ts'),
+          'export const thing = 1;\nexport function useThing(): number {\n  return thing;\n}\n'
+        );
+      },
+      async (configPath, root) => {
+        const { runComprehendAction } = await import('../../src/commands/comprehend');
+
+        // The compile path ends in `process.exit(0)`; swallow it so the
+        // assertion below can run on what it actually wrote.
+        const exitError = new Error('process.exit');
+        const exitSpy = vi.spyOn(process, 'exit').mockImplementation((() => {
+          throw exitError;
+        }) as never);
+        try {
+          // `--static` keeps this LLM-free and deterministic; `all` compiles the
+          // whole (one-module) fixture.
+          await runComprehendAction('all', configPath, { staticOnly: true, stage: false });
+        } catch (e) {
+          if (e !== exitError) throw e;
+        } finally {
+          exitSpy.mockRestore();
+        }
+
+        // The unit must exist under the FIXTURE, not under process.cwd().
+        const unit = path.join(root, '.harness', 'comprehension', 'src', '_module.md');
+        await expect(readFile(unit, 'utf-8')).resolves.toContain('thing');
+      }
+    );
+  });
+
+  /**
+   * `roadmap triage` — the first mis-cleared instance. It took the
+   * `roadmap.autoTriage.enabled` gate from `-c` and then read
+   * `path.join(process.cwd(), 'docs', 'roadmap.md')`, so it could apply one
+   * project's gate to another project's rows in either direction.
+   *
+   * Discriminator: the gate is enabled ONLY in the fixture, and the roadmap
+   * exists ONLY in the fixture. With the fix, the command gets past the gate and
+   * reports on the fixture's single row. Without it, the gate passes (config is
+   * read from `-c`) but the roadmap read lands in `packages/cli`, which has no
+   * `docs/roadmap.md`, so it errors instead — a different, observable outcome.
+   */
+  it('roadmap triage reads the roadmap of the -c project', async () => {
+    await withProject(
+      { rootDir: '.', docsDir: './docs', roadmap: { autoTriage: { enabled: true } } },
+      async (root) => {
+        await writeFile(
+          path.join(root, 'docs/roadmap.md'),
+          [
+            '# Roadmap',
+            '',
+            '| Item | Status | Priority | Milestone | External-ID |',
+            '| --- | --- | --- | --- | --- |',
+            '| Fixture-only row | planned | P2 | — | — |',
+            '',
+          ].join('\n')
+        );
+      },
+      async (configPath, root) => {
+        const { createRoadmapCommand } = await import('../../src/commands/roadmap');
+        const program = new Command();
+        program.option('-c, --config <path>', 'Config');
+        program.option('--json', 'JSON');
+        program.addCommand(createRoadmapCommand());
+
+        const logs: string[] = [];
+        const logSpy = vi.spyOn(logger, 'info').mockImplementation((m: unknown) => {
+          logs.push(String(m));
+        });
+        const errSpy = vi.spyOn(logger, 'error').mockImplementation((m: unknown) => {
+          logs.push(String(m));
+        });
+        try {
+          await program.parseAsync(['node', 'test', '-c', configPath, 'roadmap', 'triage']);
+        } catch {
+          // the action may exit; the assertion is on what it READ
+        } finally {
+          logSpy.mockRestore();
+          errSpy.mockRestore();
+        }
+
+        const all = logs.join('\n');
+        // It must NOT have complained about a missing roadmap under the cwd:
+        // that message naming packages/cli is the signature of the wrong root.
+        expect(all).not.toContain(path.join(process.cwd(), 'docs', 'roadmap.md'));
+        // And it must not have reported the gate as disabled — the fixture enables it.
+        expect(all).not.toContain('auto-triage is disabled');
+        // Belt and braces: if it named a roadmap path at all, it was the fixture's.
+        if (all.includes('roadmap.md')) {
+          expect(all).toContain(root);
+        }
+      }
+    );
+  });
+
+  /**
+   * `ci check` — `projectRoot: process.cwd()` with no override at all, while the
+   * config came from `-c`. This is the composed gate, so the wrong root meant
+   * every sub-check ran against the current directory.
+   *
+   * Discriminator: the fixture's `docs` check has a denominator only the fixture
+   * can produce. Asserting the report is non-empty AND that the run did not
+   * measure this repo (whose check count and findings differ) is the signal; the
+   * decisive half is the revert probe below, which changes the outcome.
+   */
+  it('ci check roots its composed checks on the -c project', async () => {
+    await withProject(
+      { rootDir: './src', docsDir: './docs' },
+      async (root) => {
+        await writeFile(path.join(root, 'src/thing.ts'), 'export const thing = 1;\n');
+        await writeFile(path.join(root, 'docs/readme.md'), '# Docs\n\n[thing](../src/thing.ts)\n');
+      },
+      async (configPath) => {
+        const { runCICheck } = await import('../../src/commands/ci/check');
+        // Skip everything that shells out or walks a graph; `docs` is enough to
+        // observe WHICH tree was measured and is fast.
+        const result = await runCICheck({
+          configPath,
+          skip: ['arch', 'traceability', 'security', 'perf', 'deps', 'entropy', 'phase-gate'],
+        });
+        expect(result.ok).toBe(true);
+        if (!result.ok) return;
+        const docs = result.value.checks.find((c) => c.name === 'docs');
+        expect(docs).toBeDefined();
+        // `runDocsCheck` uses `sourceDir: projectRoot` and emits one warning
+        // per undocumented file. The fixture's single source file is linked
+        // from its single doc, so a correctly-rooted run has ZERO issues.
+        // Against `packages/cli` (the wrong root) it is ~200 warnings, so this
+        // is a denominator assertion and not a verdict assertion.
+        expect(docs?.issues).toEqual([]);
+        expect(docs?.status).toBe('pass');
+      }
+    );
+  });
+
+  /**
+   * `check-perf` — the action handler called `runCheckPerf(process.cwd(), ...)`
+   * while `resolveConfiguredEntryPoints` read the entry points from `-c`, so the
+   * configured entry points of one project scoped a scan of another.
+   *
+   * Discriminator: this repo has 13 standing complexity violations, so a run
+   * against the WRONG root exits VALIDATION_FAILED(1) with 13 issues naming
+   * `packages/**` files. The fixture is one trivial function, so a correctly
+   * rooted run exits SUCCESS(0) with none. Asserting "zero issues, and no issue
+   * naming a path outside the fixture" is a finding assertion, not a verdict
+   * one — it cannot be satisfied by the repo's own tree.
+   */
+  it('check-perf analyses the -c project', async () => {
+    await withProject(
+      { rootDir: './src', docsDir: './docs' },
+      async (root) => {
+        await writeFile(
+          path.join(root, 'src/thing.ts'),
+          'export function thing(a: number): number {\n  return a + 1;\n}\n'
+        );
+      },
+      async (configPath) => {
+        const { createCheckPerfCommand } = await import('../../src/commands/check-perf');
+
+        const exitError = new Error('process.exit');
+        const codes: number[] = [];
+        const logs: string[] = [];
+        const exitSpy = vi.spyOn(process, 'exit').mockImplementation(((c: number) => {
+          codes.push(c);
+          throw exitError;
+        }) as never);
+        const logSpy = vi.spyOn(console, 'log').mockImplementation((m: unknown) => {
+          logs.push(String(m));
+        });
+
+        const program = new Command();
+        program.option('-c, --config <path>', 'Config');
+        program.option('--json', 'JSON');
+        program.addCommand(createCheckPerfCommand());
+
+        try {
+          await program.parseAsync(['node', 'test', '--json', '-c', configPath, 'check-perf']);
+        } catch (e) {
+          if (e !== exitError) throw e;
+        } finally {
+          exitSpy.mockRestore();
+          logSpy.mockRestore();
+        }
+
+        const payload = JSON.parse(
+          logs.find((l) => l.includes('valid')) ?? '{"valid":null,"issues":[]}'
+        ) as { valid: boolean | null; issues: Array<{ file: string }> };
+
+        expect(payload.issues).toEqual([]);
+        expect(payload.valid).toBe(true);
+        expect(codes).toContain(0);
+      }
+    );
+  });
+
+  /**
+   * `snapshot capture` — WRITES the architecture timeline. The root decided both
+   * what got measured and where `.harness/arch/timeline.json` was persisted.
+   *
+   * Discriminator: the timeline file must appear under the FIXTURE. This is the
+   * same failure #911 actually reported (a baseline written into the repo), so
+   * asserting on the written artifact is the faithful check.
+   */
+  it('snapshot capture measures and persists into the -c project', async () => {
+    await withProject(
+      { rootDir: './src', docsDir: './docs' },
+      async (root) => {
+        await writeFile(path.join(root, 'src/thing.ts'), 'export const thing = 1;\n');
+      },
+      async (configPath, root) => {
+        const { runSnapshotCapture } = await import('../../src/commands/snapshot');
+        const { snapshot } = await runSnapshotCapture({ configPath });
+        expect(snapshot).toBeDefined();
+
+        // The timeline lands in the fixture, not in process.cwd().
+        const timeline = path.join(root, '.harness', 'arch', 'timeline.json');
+        const raw = await readFile(timeline, 'utf-8');
+        expect(JSON.parse(raw).snapshots.length).toBe(1);
+      }
+    );
+  });
+
+  /**
+   * `models proposals` — read the backends from `-c` but listed the proposal
+   * queue out of `process.cwd()/.harness/proposals`.
+   *
+   * Discriminator: the fixture holds exactly one proposal with a distinctive id.
+   * `packages/cli` has no `.harness/proposals` directory at all, so the wrong
+   * root yields `[]` — right and wrong answers are 1 and 0.
+   */
+  it('models proposals lists the -c project queue', async () => {
+    await withProject(
+      { rootDir: '.', docsDir: './docs' },
+      async (root) => {
+        await mkdir(path.join(root, '.harness', 'proposals'), { recursive: true });
+        await writeFile(
+          path.join(root, '.harness', 'proposals', 'fixture-only-proposal.json'),
+          JSON.stringify({
+            kind: 'model',
+            id: 'fixture-only-proposal',
+            createdAt: new Date().toISOString(),
+            proposedBy: 'config-implied-root-test',
+            source: {
+              justification: 'Fixture proposal for the -c project-root test (#911 class).',
+            },
+            status: 'open',
+            model: {
+              action: 'add',
+              target: { hfRepoId: 'acme/fixture', ollamaName: 'fixture:latest' },
+              scoreDelta: 1,
+              diskImpactGb: 1,
+              justification: {
+                summary: 'fixture',
+                benchmarkBasis: ['fixture'],
+                hardwareFit: 'fixture',
+                evidence: 'fixture',
+                freshness: 'fixture',
+              },
+            },
+          })
+        );
+      },
+      async (configPath) => {
+        const { runModelsProposals } = await import('../../src/commands/models');
+        // HARNESS_PROJECT_ROOT still wins by design, so it must be clear for
+        // this to be a test of the config-implied root.
+        const saved = process.env['HARNESS_PROJECT_ROOT'];
+        delete process.env['HARNESS_PROJECT_ROOT'];
+        try {
+          const rows = await runModelsProposals('open', configPath);
+          expect(rows).toHaveLength(1);
+          expect(rows[0]?.['id']).toBe('fixture-only-proposal');
+        } finally {
+          if (saved !== undefined) process.env['HARNESS_PROJECT_ROOT'] = saved;
+        }
+      }
+    );
+  });
 });
 
 /**
- * Class guard. This is the test whose absence let #911 survive in a dozen
- * siblings: #911 fixed `check-arch`, the fix was copied inline rather than
- * shared, and nothing stopped the next command from pairing a `-c`-sourced
- * config load with a `process.cwd()` root again.
+ * Class guard.
  *
- * The rule is narrow on purpose, so it has no false positives: a command that
- * loads its config from the `-c` option (`resolveConfig(options.configPath)`)
- * must not ALSO derive its project root from `process.cwd()`. Commands that
- * legitimately use `process.cwd()` are untouched by it — `init` / `init-minimal`
- * create the config, `mcp-guard`'s `--config` is `.mcp.json`, and `recommend` /
- * `advise-skills` / `cleanup-sessions` call `resolveConfig()` with no argument.
- * None of those match the conjunction.
+ * An earlier version of this guard keyed on the literal spellings this PR
+ * happened to fix (`resolveConfig(options.configPath)` paired with
+ * `options.cwd ?? process.cwd()`). A review measured its real reach at 11 of
+ * 17 — it could not see `ci check`'s `projectRoot: process.cwd()`,
+ * `snapshot`'s `new TimelineManager(process.cwd())`, `models`'
+ * `HARNESS_PROJECT_ROOT ?? process.cwd()` or `check-perf`'s
+ * `runCheckPerf(process.cwd(), ...)`, and it required the literal
+ * `options.configPath`, so `comprehend` (`globalConfig`) and `roadmap triage`
+ * (a `configPath` parameter) sat in the tree as LIVE instances with the guard
+ * green. A guard passing while the defect is present is worse than no guard,
+ * so the rule below is the structural one instead:
+ *
+ *   a command that reads the global `-c` in ANY spelling and mentions
+ *   `process.cwd()` outside a comment must route through `resolveProject`.
+ *
+ * That is spelling-independent on the cwd half, which is what the previous
+ * rule got wrong. Verified in both directions: it reports no offender on this
+ * tree beyond the three justified below, and reverting `comprehend` and
+ * `roadmap triage` to their pre-fix state makes it name both.
+ *
+ * The three exemptions are shapes, not spellings, and each is named so an
+ * unexplained fourth entry fails the test rather than growing the list:
+ *   - `mcp-guard` — its `--config` is `.mcp.json`, not `harness.config.json`.
+ *   - `pulse/run` — its `--config` is the pulse config file.
+ *   - `agent/run` — persona mode threads no config to its `projectPath`, so
+ *     `-c` is ignored rather than mismatched (a different defect; see the PR's
+ *     residual risk 1).
+ *
+ * What this still does NOT catch, stated so nobody reads more protection into
+ * it than it gives: a command that reads `-c` and roots on `process.cwd()`
+ * while ALSO calling `resolveProject` somewhere else in the file for an
+ * unrelated purpose. Closing that needs real dataflow, not a grep.
  */
-describe('class guard: no command may pair a -c config load with a process.cwd() root', () => {
-  it('finds no command holding both halves of the defect', async () => {
+describe('class guard: a -c-reading command that touches process.cwd() must use resolveProject', () => {
+  /**
+   * Shapes where `-c` is a different file, or is ignored rather than mismatched.
+   * Adding an entry here is a claim that needs the comment above to justify it.
+   */
+  const JUSTIFIED = ['mcp-guard.ts', 'pulse/run.ts', 'agent/run.ts'];
+
+  it('finds no unjustified command rooting on process.cwd() while reading -c', async () => {
     const { glob } = await import('glob');
     const { readFile } = await import('node:fs/promises');
 
     const commandsDir = path.join(__dirname, '../../src/commands');
     const files = await glob('**/*.ts', { cwd: commandsDir, ignore: ['**/*.test.ts'] });
     // Guard the premise: a glob that matched nothing would make this vacuous.
-    expect(files.length).toBeGreaterThan(50);
+    expect(files.length).toBeGreaterThan(200);
 
-    const LOADS_CONFIG_FROM_FLAG = /resolveConfig\(\s*(?:options|opts)\.configPath\s*\)/;
-    const ROOTS_ON_CWD = /options\.cwd \?\? process\.cwd\(\)/;
+    // Strip block and line comments, so prose mentioning `process.cwd()` — of
+    // which this PR added a lot — never counts as using it.
+    const stripComments = (src: string): string =>
+      src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^[ \t]*\/\/.*$/gm, '');
+
+    const READS_CONFIG_FLAG = /globalOpts\.config\b|options\.configPath\b|opts\.configPath\b/;
+    const TOUCHES_CWD = /process\.cwd\(\)/;
+    const USES_HELPER = /resolveProject\s*\(/;
 
     const offenders: string[] = [];
     for (const rel of files) {
-      const source = await readFile(path.join(commandsDir, rel), 'utf-8');
-      if (LOADS_CONFIG_FROM_FLAG.test(source) && ROOTS_ON_CWD.test(source)) {
+      const source = stripComments(await readFile(path.join(commandsDir, rel), 'utf-8'));
+      if (
+        READS_CONFIG_FLAG.test(source) &&
+        TOUCHES_CWD.test(source) &&
+        !USES_HELPER.test(source) &&
+        !JUSTIFIED.includes(rel.replaceAll('\\', '/'))
+      ) {
         offenders.push(rel);
       }
     }
 
     expect(
       offenders,
-      `These commands read their config from -c but root on process.cwd(), so -c selects the ` +
-        `config FILE while the scan measures the current directory (#911's class). Use ` +
-        `resolveProject(options.configPath, options.cwd) from src/config/loader.ts instead:\n` +
+      `These commands read the global -c but derive their project root from process.cwd(), so ` +
+        `-c selects the config FILE while the work happens in the current directory (#911's ` +
+        `class, fixed for check-arch in 9f322084c). Use resolveProject(configPath) from ` +
+        `src/config/loader.ts. If -c genuinely means a different file for one of these, add it ` +
+        `to JUSTIFIED with a reason in the block comment above:\n` +
         offenders.map((f) => `  - src/commands/${f}`).join('\n')
     ).toEqual([]);
+  });
+
+  it('keeps every JUSTIFIED exemption load-bearing', async () => {
+    // An exemption that no longer matches the rule is stale: it would hide a
+    // future regression in that file. Fail rather than silently over-permit.
+    const { readFile } = await import('node:fs/promises');
+    const commandsDir = path.join(__dirname, '../../src/commands');
+    for (const rel of JUSTIFIED) {
+      const source = await readFile(path.join(commandsDir, rel), 'utf-8');
+      expect(
+        /globalOpts\.config\b|options\.configPath\b|opts\.configPath\b/.test(source) &&
+          /process\.cwd\(\)/.test(source),
+        `src/commands/${rel} is in JUSTIFIED but no longer matches the guard's rule — remove it`
+      ).toBe(true);
+    }
   });
 });

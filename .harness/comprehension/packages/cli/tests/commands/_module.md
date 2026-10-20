@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/tests/commands'
-sourceHash: 'ac1216ce11dbca76c324d2a061412f59c1d35ae346c78bc5a6257bb9370d6296'
+sourceHash: '0f2a9e226eb92fd5980cd98ef332227d29795da01c9ab8a1bb711f5b379b67be'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -258,6 +258,7 @@ import { createCheckPerfCommand, runCheckPerf } from '../../src/commands/check-p
 import { createCheckPhaseGateCommand, runCheckPhaseGate } from '../../src/commands/check-phase-gate'
 import { createCheckSecurityCommand, runCheckSecurity } from '../../src/commands/check-security'
 import { createCheckVocabularyCommand, runCheckVocabulary } from '../../src/commands/check-vocabulary'
+import from '../../src/commands/ci/check'
 import { createCleanupCommand, runCleanup } from '../../src/commands/cleanup'
 import { createCleanupSessionsCommand, runCleanupAll, runCleanupSessions } from '../../src/commands/cleanup-sessions'
 import { createCliErgonomicsCraftCommand } from '../../src/commands/cli-ergonomics-craft'
@@ -332,6 +333,7 @@ import { createRecommendCommand, runRecommend } from '../../src/commands/recomme
 import { createRehearseCommand } from '../../src/commands/rehearse'
 import { GIT_MAX_BUFFER_BYTES, assertKnownRunner, buildDegradedResult, buildDiffInfo, buildReviewBody, createReviewCiCommand, defaultRunGit, emitReviewCi, resolveDiffRange, runReviewCi } from '../../src/commands/review-ci'
 import { createLocalInvoke } from '../../src/commands/review-ci-local-adapter'
+import from '../../src/commands/roadmap'
 import { referencesTargetPr, runRollbackEvaluate, runRollbackSweepCommand, summarizeSweepReport } from '../../src/commands/rollback'
 import { createScanConfigCommand, runScanConfig } from '../../src/commands/scan-config'
 import { createSearchCommand } from '../../src/commands/search'

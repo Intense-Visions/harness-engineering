@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/commands/roadmap'
-sourceHash: 'c0d868e9a247db5ac216bfdb11c8d2a420acb5327b9c50f9d07a6b3630702e37'
+sourceHash: '3b32335ee7aa4bc65245c803b94199436e36b8db3856aaaaece0d9bfbcc1c6ec'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -43,7 +43,7 @@ export createRoadmapCommand
 ## Dependency Slice
 
 ```
-import { resolveConfig } from '../../config/loader'
+import { resolveConfig, resolveProject } from '../../config/loader'
 import { loadGraphStore } from '../../mcp/utils/graph-loader'
 import { logger } from '../../output/logger'
 import { envEnabled } from '../../utils/env-flag'

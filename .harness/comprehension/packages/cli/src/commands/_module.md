@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/commands'
-sourceHash: '5dbedf3b28d9234f75bde1f42959709374bb25c72182474a7aa7f53be758113d'
+sourceHash: '487ef36f9714620439e22c696db0fa6d0d4f69d7f98542b1e702a05f33274767'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -358,6 +358,7 @@ export runCheckVocabulary
 export runCleanup
 export runCleanupAll
 export runCleanupSessions
+export runComprehendAction
 export runCrossCheck
 export runCursorToolPicker
 export runDoctor
