@@ -1,5 +1,23 @@
 # @harness-engineering/intelligence
 
+## 0.14.0
+
+### Minor Changes
+
+- bcfbe81: The agent-exit quality verdicts are now DISCRIMINATED, so an operator can tell why a unit escalated. Both feeders (the 4c single-agent security/acceptance-eval feeder and the post-diff routing retrospective) previously returned `'quality-fail' | undefined`, collapsing four situations into two values: a judged defect looked identical to a fail-safe block taken because the triage store could not be read, and "the scan found nothing" looked identical to "there was nothing to scan". Each exit now yields a `QualityVerdict` — `defect`/`clean` with the judging `source` (`security`, `acceptance-eval`, `retrospective`), `unjudged` with a `reason` (`router-off`, `empty-diff`, `triage-off`, `no-external-id`, `no-record`, `eval-declined`, `store-unreadable`, `internal-error`), or `fail-safe` with a `reason` (`store-unreadable`, `prediction-unparseable`, `actual-unclassifiable`, `internal-error`) — and every normal exit emits one structured `amr:quality-verdict` log line carrying both verdicts.
+
+  Escalation behaviour is unchanged: `toOutcomeClass` collapses each verdict back to exactly the class the feeder returned before (defect and fail-safe escalate; clean and unjudged are neutral), pinned table-driven over every variant, and the exit seam still composes the collapsed values with `??`. The existing prose `amr:quality-fail — …` lines are untouched.
+
+  The same conflation existed one layer down, in the comparator the retrospective feeds: `compareToPrediction` returned the same `action: 'block-escalate'` for a JUDGED overrun and for an input it could not compare at all (a missing/garbled prediction or post-diff verdict), so the feeder labelled every comparator block `defect/retrospective`. `RetrospectiveComparison` now additionally carries a `reason` (`matched`, `level-overrun`, `blast-overrun`, `unjudgeable-prediction`, `unjudgeable-actual`) and the feeder maps the two unjudgeable reasons to a `fail-safe` verdict via `retrospectiveFailSafeReason`. `matched`, `exceededBy` and `action` are unchanged, so the recorded triage outcome and the escalation class are both identical; only the operator-facing label differs. Both unjudgeable reasons are, today, unreachable through the orchestrator — the event log's strict level enum drops a garbled stored prediction and the classifier's tie-break schema constrains the fresh verdict — so this is defence-in-depth for the exported comparator rather than a live-path fix.
+
+### Patch Changes
+
+- Updated dependencies [22b5f40]
+- Updated dependencies [f8dae74]
+- Updated dependencies [3cdc0ba]
+  - @harness-engineering/types@0.35.0
+  - @harness-engineering/graph@0.15.3
+
 ## 0.13.3
 
 ### Patch Changes
