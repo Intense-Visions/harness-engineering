@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/tests/commands'
-sourceHash: 'b17427641b2df9a92783230964b4b40f841a19917fcdc16f02d61dcabe250278'
+sourceHash: 'ac1216ce11dbca76c324d2a061412f59c1d35ae346c78bc5a6257bb9370d6296'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -447,6 +447,7 @@ import { execFileSync, execSync } from 'child_process'
 import { Command } from 'commander'
 import * as fs from 'fs'
 import * as fs from 'fs/promises'
+import from 'glob'
 import { execFile, execFileSync, execSync, spawnSync } from 'node:child_process'
 import * as fs, * as fsSync, * as nodeFs, fs, { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
 import * as fs, { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'

@@ -203,3 +203,48 @@ describe('-c selects the project root, not just the config file (#911 class)', (
     );
   });
 });
+
+/**
+ * Class guard. This is the test whose absence let #911 survive in a dozen
+ * siblings: #911 fixed `check-arch`, the fix was copied inline rather than
+ * shared, and nothing stopped the next command from pairing a `-c`-sourced
+ * config load with a `process.cwd()` root again.
+ *
+ * The rule is narrow on purpose, so it has no false positives: a command that
+ * loads its config from the `-c` option (`resolveConfig(options.configPath)`)
+ * must not ALSO derive its project root from `process.cwd()`. Commands that
+ * legitimately use `process.cwd()` are untouched by it — `init` / `init-minimal`
+ * create the config, `mcp-guard`'s `--config` is `.mcp.json`, and `recommend` /
+ * `advise-skills` / `cleanup-sessions` call `resolveConfig()` with no argument.
+ * None of those match the conjunction.
+ */
+describe('class guard: no command may pair a -c config load with a process.cwd() root', () => {
+  it('finds no command holding both halves of the defect', async () => {
+    const { glob } = await import('glob');
+    const { readFile } = await import('node:fs/promises');
+
+    const commandsDir = path.join(__dirname, '../../src/commands');
+    const files = await glob('**/*.ts', { cwd: commandsDir, ignore: ['**/*.test.ts'] });
+    // Guard the premise: a glob that matched nothing would make this vacuous.
+    expect(files.length).toBeGreaterThan(50);
+
+    const LOADS_CONFIG_FROM_FLAG = /resolveConfig\(\s*(?:options|opts)\.configPath\s*\)/;
+    const ROOTS_ON_CWD = /options\.cwd \?\? process\.cwd\(\)/;
+
+    const offenders: string[] = [];
+    for (const rel of files) {
+      const source = await readFile(path.join(commandsDir, rel), 'utf-8');
+      if (LOADS_CONFIG_FROM_FLAG.test(source) && ROOTS_ON_CWD.test(source)) {
+        offenders.push(rel);
+      }
+    }
+
+    expect(
+      offenders,
+      `These commands read their config from -c but root on process.cwd(), so -c selects the ` +
+        `config FILE while the scan measures the current directory (#911's class). Use ` +
+        `resolveProject(options.configPath, options.cwd) from src/config/loader.ts instead:\n` +
+        offenders.map((f) => `  - src/commands/${f}`).join('\n')
+    ).toEqual([]);
+  });
+});
