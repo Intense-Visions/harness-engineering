@@ -59,6 +59,35 @@ describe('isEligibleFile', () => {
     expect(isEligibleFile(file, noIgnore.ignorePatterns)).toBe(false);
   });
 
+  it.each(['A.TS', 'src/Foo.TSX', 'src/a.Js', 'src/a.MJS'])(
+    'accepts %s — extension matching is case-insensitive',
+    (file) => {
+      // A real Foo.TS exists on case-insensitive macOS/Windows filesystems;
+      // rejecting on case alone made it appear in neither filesScanned nor
+      // filesSkipped.
+      expect(isEligibleFile(file, noIgnore.ignorePatterns)).toBe(true);
+    }
+  );
+
+  it.each(['src/a.D.TS', 'src/types.d.TS'])('still rejects %s regardless of case', (file) => {
+    expect(isEligibleFile(file, noIgnore.ignorePatterns)).toBe(false);
+  });
+
+  it.each(['../../x/index.ts', '../sibling/src/a.ts', '..'])(
+    'rejects %s — a path outside rootDir bypasses every **-anchored ignore glob',
+    (file) => {
+      expect(isEligibleFile(file, DEFAULT_DUPLICATION_CONFIG.ignorePatterns)).toBe(false);
+      expect(isEligibleFile(file, noIgnore.ignorePatterns)).toBe(false);
+    }
+  );
+
+  it('rejects an escaping path that an ignore glob would have matched in-tree', () => {
+    const ignore = DEFAULT_DUPLICATION_CONFIG.ignorePatterns;
+    // The asymmetry this closes: in-tree the glob applies, out-of-tree it did not.
+    expect(isEligibleFile('tests/a.ts', ignore)).toBe(false);
+    expect(isEligibleFile('../../pkg/tests/a.ts', ignore)).toBe(false);
+  });
+
   it('rejects a file matched by an ignore pattern', () => {
     expect(isEligibleFile('src/generated/gen.ts', ['**/generated/**'])).toBe(false);
   });
@@ -150,6 +179,27 @@ async function scratch(files: Record<string, string>): Promise<string> {
 }
 
 describe('buildCloneIndex', () => {
+  it('refuses a file set that lies outside rootDir rather than reporting it unfiltered', async () => {
+    const root = await scratch({
+      'src/a.ts': body('sumAlpha', 'items', 'total', 'item'),
+      'src/b.ts': body('addBeta', 'rows', 'acc', 'row'),
+      'src/c.ts': body('tallyGamma', 'entries', 'sum', 'entry'),
+    });
+    try {
+      // rootDir deeper than the files: every relative path is `../`-prefixed,
+      // which no `**`-anchored ignore glob matches.
+      const result = await buildCloneIndex(
+        ['src/a.ts', 'src/b.ts', 'src/c.ts'].map((f) => join(root, f)),
+        { rootDir: join(root, 'src', 'nested', 'deeper') }
+      );
+      expect(result.ok).toBe(false);
+      if (result.ok) return;
+      expect(result.error.details.reason).toBe('zero-files-discovered');
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
   it('groups three Type-2 clones into one class and reports stats', async () => {
     const root = await scratch({
       'src/a.ts': body('sumAlpha', 'items', 'total', 'item'),

@@ -179,10 +179,23 @@ export function resolveDuplicationConfig(
  * `.d.ts` is rejected explicitly: it ends in `.ts` but carries no logic, so a
  * declaration clone class would be a guaranteed false positive under the
  * spec's own audit rejection criteria.
+ *
+ * Extensions are compared case-insensitively. A real `Foo.TS` exists on
+ * case-insensitive macOS and Windows filesystems, and rejecting it on case
+ * alone made it vanish from `filesScanned` and `filesSkipped` alike.
+ *
+ * A path that escapes `rootDir` is rejected outright. `**`-anchored globs do
+ * not match a `../`-prefixed path, so such a file bypassed EVERY default
+ * ignore pattern (`'src/index.ts'` was ignored while `'../../x/index.ts'` was
+ * not), and `CloneMember.file` would then contradict its own repo-relative
+ * contract. `rootDir` defaults to `process.cwd()`, so a caller running from a
+ * directory deeper than its sources hits this easily.
  */
 export function isEligibleFile(relPath: string, ignorePatterns: readonly string[]): boolean {
-  if (relPath.endsWith('.d.ts')) return false;
-  if (!SUPPORTED_EXTENSIONS.some((ext) => relPath.endsWith(ext))) return false;
+  if (relPath === '..' || relPath.startsWith('../')) return false;
+  const lower = relPath.toLowerCase();
+  if (lower.endsWith('.d.ts')) return false;
+  if (!SUPPORTED_EXTENSIONS.some((ext) => lower.endsWith(ext))) return false;
   return !ignorePatterns.some((pattern) => minimatch(relPath, pattern, { dot: true }));
 }
 
