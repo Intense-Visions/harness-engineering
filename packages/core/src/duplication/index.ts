@@ -1,3 +1,4 @@
+import { posix as pathPosix, win32 as pathWin32 } from 'node:path';
 import { minimatch } from 'minimatch';
 import { parse } from '@typescript-eslint/typescript-estree';
 import type { TSESTree } from '@typescript-eslint/typescript-estree';
@@ -117,6 +118,20 @@ export interface CloneIndex {
   collisions: FingerprintCollision[];
   stats: {
     filesScanned: number;
+    /**
+     * Candidate paths dropped by {@link isEligibleFile} before any read:
+     * unsupported extension, `.d.ts`, absolute, outside `rootDir`, or matched
+     * by `ignorePatterns`.
+     *
+     * An ineligible file used to be counted NOWHERE — neither `filesScanned`
+     * nor `filesSkipped` — so an operator could not tell that a scan had
+     * silently dropped files. That invisibility is how the `index.*` ignore
+     * glob hid 10 of 58 classes: nothing in the tool's own output said so, and
+     * it took a bespoke measurement to find it. It matters more now that
+     * `dist`, `build` and `coverage` are ignored by default and an adopter may
+     * keep hand-written source under one of those path segments.
+     */
+    filesIgnored: number;
     /**
      * Unreadable, unparseable, or unextractable — see the spec's Failure
      * behavior section. Every increment has a matching entry in `skipped`.
@@ -275,7 +290,7 @@ export function resolveDuplicationConfig(
 /**
  * True when a repo-relative path is a supported source file that no ignore
  * pattern matches. Ineligible files are never read, so they appear in neither
- * `filesScanned` nor `filesSkipped`.
+ * `filesScanned` nor `filesSkipped` — they are counted in `stats.filesIgnored`.
  *
  * `.d.ts` is rejected explicitly: it ends in `.ts` but carries no logic, so a
  * declaration clone class would be a guaranteed false positive under the
@@ -293,15 +308,25 @@ export function resolveDuplicationConfig(
  * extension check was made case-insensitive. `NODE_MODULES/pkg/a.js` and
  * `src/Dist/a.js` bypassed their directory globs the same way.
  *
- * A path that escapes `rootDir` is rejected outright. `**`-anchored globs do
- * not match a `../`-prefixed path, so such a file bypassed EVERY default
- * ignore pattern (`'src/index.ts'` was ignored while `'../../x/index.ts'` was
- * not), and `CloneMember.file` would then contradict its own repo-relative
- * contract. `rootDir` defaults to `process.cwd()`, so a caller running from a
- * directory deeper than its sources hits this easily.
+ * A path that escapes `rootDir` is rejected outright, and so is an ABSOLUTE
+ * one. `**`-anchored globs do not match a `../`-prefixed path, so such a file
+ * bypassed EVERY default ignore pattern (`'src/index.ts'` was ignored while
+ * `'../../x/index.ts'` was not), and `CloneMember.file` would then contradict
+ * its own repo-relative contract. `rootDir` defaults to `process.cwd()`, so a
+ * caller running from a directory deeper than its sources hits this easily.
+ *
+ * The absolute case is the Windows limb of the same hole: `path.relative`
+ * returns an ABSOLUTE path when its two arguments sit on different drives
+ * (`C:\root` to `D:\x\y.ts` yields `D:/x/y.ts` once POSIX-normalized), which
+ * neither starts with `../` nor fails the extension test, so it was eligible
+ * and `CloneMember.file` violated its own contract. Both the POSIX and the
+ * win32 predicates are applied on every platform: the repo-relative contract
+ * is the same everywhere, and a path produced on Windows can be analyzed
+ * elsewhere.
  */
 export function isEligibleFile(relPath: string, ignorePatterns: readonly string[]): boolean {
   if (relPath === '..' || relPath.startsWith('../')) return false;
+  if (pathPosix.isAbsolute(relPath) || pathWin32.isAbsolute(relPath)) return false;
   const lower = relPath.toLowerCase();
   if (lower.endsWith('.d.ts')) return false;
   if (!SUPPORTED_EXTENSIONS.some((ext) => lower.endsWith(ext))) return false;
@@ -450,9 +475,9 @@ export async function fingerprintFile(
  *
  * Discovery is the caller's: `files` is a list of absolute paths, so nothing
  * here assumes any repository layout (success criterion 15). Ineligible paths
- * (unsupported extension, outside `rootDir`, or matched by `ignorePatterns`)
- * are dropped before any read and are counted in neither `filesScanned` nor
- * `filesSkipped`.
+ * (unsupported extension, absolute, outside `rootDir`, or matched by
+ * `ignorePatterns`) are dropped before any read; they are counted in
+ * `stats.filesIgnored` and in neither `filesScanned` nor `filesSkipped`.
  *
  * A file that was eligible but failed resolves to a {@link SkippedFile} entry
  * on `skipped`, carrying the reason and the underlying message. A partial skip
@@ -492,9 +517,13 @@ export async function buildCloneIndex(
   const config = resolveDuplicationConfig(overrides);
 
   const eligible: Array<{ abs: string; rel: string }> = [];
+  let filesIgnored = 0;
   for (const abs of files) {
     const rel = relativePosix(rootDir, abs);
     if (isEligibleFile(rel, config.ignorePatterns)) eligible.push({ abs, rel });
+    // Counted, not merely dropped: a silent drop is indistinguishable from a
+    // file that was read and held no duplication.
+    else filesIgnored += 1;
   }
 
   if (eligible.length === 0) {
@@ -630,6 +659,7 @@ export async function buildCloneIndex(
     collisions,
     stats: {
       filesScanned,
+      filesIgnored,
       filesSkipped: skipped.length,
       unitsFingerprinted,
       unitsBelowMinTokens,

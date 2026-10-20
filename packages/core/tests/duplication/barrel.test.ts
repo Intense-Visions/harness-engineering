@@ -108,6 +108,7 @@ describe('core barrel — duplication surface (criterion 11)', () => {
       'classesSuppressed',
       'classesTruncated',
       'collisionsObserved',
+      'filesIgnored',
       'filesScanned',
       'filesSkipped',
       'unitsBelowMinTokens',

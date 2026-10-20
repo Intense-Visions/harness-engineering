@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/src/duplication'
-sourceHash: 'c6bc1b63e928712fe819e84abdeaa7e463f133c2242c1330531eb77d8be43301'
+sourceHash: '3fc2b062c2fd6457be24f15a7974114cfdaa7c66b006f50ed673f06f84384a37'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -37,4 +37,5 @@ import { CloneUnitKind, extractUnitsImpl } from './units'
 import { TSESTree, parse } from '@typescript-eslint/typescript-estree'
 import { minimatch } from 'minimatch'
 import { createHash } from 'node:crypto'
+import { pathPosix, pathWin32 } from 'node:path'
 ```

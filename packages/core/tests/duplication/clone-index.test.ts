@@ -141,6 +141,30 @@ describe('isEligibleFile', () => {
     }
   );
 
+  it.each(['src/a..b/c.ts', 'src/..hidden/c.ts', 'a..ts', 'src/x../y.ts'])(
+    'accepts %s — the escape guard is anchored, not a substring test',
+    (file) => {
+      // The rejection cases above are all that pinned the guard, so a
+      // "simplification" to `relPath.includes('..')` would pass every one of
+      // them while silently dropping these legitimate files.
+      expect(isEligibleFile(file, DEFAULT_DUPLICATION_CONFIG.ignorePatterns)).toBe(true);
+    }
+  );
+
+  it.each([
+    '/abs/src/a.ts',
+    '/a.ts',
+    // `path.relative('C:\\root', 'D:\\x\\y.ts')` returns an absolute path
+    // across drives on Windows; POSIX-normalized it looks like this, and it
+    // neither starts with `../` nor fails the extension test.
+    'D:/x/y.ts',
+    'C:/root/src/a.ts',
+    '//server/share/a.ts',
+  ])('rejects the absolute path %s — CloneMember.file must stay repo-relative', (file) => {
+    expect(isEligibleFile(file, DEFAULT_DUPLICATION_CONFIG.ignorePatterns)).toBe(false);
+    expect(isEligibleFile(file, noIgnore.ignorePatterns)).toBe(false);
+  });
+
   it('rejects an escaping path that an ignore glob would have matched in-tree', () => {
     const ignore = DEFAULT_DUPLICATION_CONFIG.ignorePatterns;
     // The asymmetry this closes: in-tree the glob applies, out-of-tree it did not.
@@ -519,6 +543,40 @@ describe('buildCloneIndex', () => {
       if (!result.ok) throw new Error('expected ok');
       expect(result.value.stats.filesScanned).toBe(3);
       expect(result.value.stats.filesSkipped).toBe(0);
+      // Counted somewhere: neither filesScanned nor filesSkipped moved, so
+      // without this the drop is invisible in the tool's own output.
+      expect(result.value.stats.filesIgnored).toBe(1);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it('counts a file dropped by an ignore glob in filesIgnored', async () => {
+    const root = await scratch({
+      'src/a.ts': body('sumAlpha', 'items', 'total', 'item'),
+      'src/b.ts': body('addBeta', 'rows', 'acc', 'row'),
+      'src/c.ts': body('tallyGamma', 'entries', 'sum', 'entry'),
+      // An adopter keeping hand-written source under a path segment the new
+      // defaults ignore: silently dropped before this counter existed.
+      'src/build/d.ts': body('sumDelta', 'cells', 'carry', 'cell'),
+      'src/e.test.ts': body('sumEpsilon', 'bits', 'run', 'bit'),
+    });
+    try {
+      const files = ['src/a.ts', 'src/b.ts', 'src/c.ts', 'src/build/d.ts', 'src/e.test.ts'].map(
+        (f) => join(root, f)
+      );
+      const ignored = await buildCloneIndex(files, { rootDir: root });
+      if (!ignored.ok) throw new Error('expected ok');
+      expect(ignored.value.stats.filesScanned).toBe(3);
+      expect(ignored.value.stats.filesSkipped).toBe(0);
+      expect(ignored.value.stats.filesIgnored).toBe(2);
+
+      // Same file set with no ignore patterns: nothing is ignored, and the two
+      // files reappear as scanned — so the counter tracks the globs, not shape.
+      const kept = await buildCloneIndex(files, { rootDir: root, ignorePatterns: [] });
+      if (!kept.ok) throw new Error('expected ok');
+      expect(kept.value.stats.filesIgnored).toBe(0);
+      expect(kept.value.stats.filesScanned).toBe(5);
     } finally {
       await rm(root, { recursive: true, force: true });
     }

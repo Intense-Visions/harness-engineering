@@ -195,6 +195,7 @@ export interface CloneIndex {
   collisions: FingerprintCollision[]; // one entry per observed length-differing digest collision
   stats: {
     filesScanned: number;
+    filesIgnored: number; // dropped by isEligibleFile before any read
     filesSkipped: number; // count of `skipped` — see Failure behavior
     unitsFingerprinted: number;
     unitsBelowMinTokens: number; // excluded BEFORE grouping — never fingerprinted
@@ -218,6 +219,13 @@ carries.
 
 Following the `Result` / `AnalysisError` convention already used by the sibling detectors:
 
+- If a candidate path is ineligible — unsupported extension, `.d.ts`, absolute, outside `rootDir`,
+  or matched by `ignorePatterns` — the detector shall drop it before any read and count it in
+  `stats.filesIgnored`. An ineligible file must not be invisible: counted in neither `filesScanned`
+  nor `filesSkipped`, a silently dropped file reads exactly like a file that was scanned and held no
+  duplication. An ABSOLUTE path is ineligible because `path.relative` returns one across Windows
+  drives, where it would neither start with `../` nor fail the extension test, and
+  `CloneMember.file` would then contradict its own repo-relative contract.
 - If a source file cannot be read, the detector shall skip that file, increment `filesSkipped`,
   record a `SkippedFile` entry on `CloneIndex.skipped`, and continue.
 - If a source file fails to parse, or its units cannot be extracted, normalized, or fingerprinted,
