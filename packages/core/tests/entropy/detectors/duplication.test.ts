@@ -132,3 +132,156 @@ describe('detectDuplication over the planted-clones fixture', () => {
     expect(result.value.stats.filesScanned).toBe(9);
   });
 });
+
+describe('detectDuplication failure behavior', () => {
+  it('skips an unreadable file, records it, and still returns Ok (criterion 12)', async () => {
+    const snapshot = snapshotOf(
+      [join(PLANTED, 'src/alpha.ts'), join(PLANTED, 'src/does-not-exist.ts')],
+      PLANTED
+    );
+    const result = await detectDuplication(snapshot, {
+      ignorePatterns: [],
+      minInstances: 1,
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.value.stats.filesScanned).toBe(1);
+    expect(result.value.stats.filesSkipped).toBe(1);
+    expect(result.value.skipErrors).toHaveLength(1);
+    const error = result.value.skipErrors[0]!;
+    // `details.reason` is the discriminator; `code` is PARSE_ERROR for every
+    // skip reason and for unrelated entropy failures, so it discriminates
+    // nothing.
+    expect(error.details.reason).toBe('unreadable');
+    expect(error.details.file).toBe('src/does-not-exist.ts');
+    expect(error.details.originalError).toBeInstanceOf(Error);
+    expect(error.suggestions.length).toBeGreaterThan(0);
+  });
+
+  it('skips an unparseable file with reason `unparseable`', async () => {
+    const { mkdtemp, writeFile, rm } = await import('node:fs/promises');
+    const { tmpdir } = await import('node:os');
+    const root = await mkdtemp(join(tmpdir(), 'dup-detector-'));
+    try {
+      await writeFile(join(root, 'broken.ts'), 'export function (((( {', 'utf8');
+      await writeFile(join(root, 'fine.ts'), 'export const ok = 1;\n', 'utf8');
+      const result = await detectDuplication(
+        snapshotOf([join(root, 'broken.ts'), join(root, 'fine.ts')], root),
+        { ignorePatterns: [] }
+      );
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      expect(result.value.skipErrors).toHaveLength(1);
+      expect(result.value.skipErrors[0]!.details.reason).toBe('unparseable');
+      expect(result.value.stats.filesSkipped).toBe(1);
+      expect(result.value.stats.filesScanned).toBe(1);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it('keys the remediation advice to the reason rather than emitting one fixed string', async () => {
+    // The four reasons exist so the advice can differ — advising "check file
+    // permissions" for a digest failure in our own code is actively
+    // misleading. Prove the advice is reason-keyed by forcing the two reasons
+    // that ARE forceable and asserting their suggestions diverge; a single
+    // hardcoded advice string passes every other test in this file.
+    const { mkdtemp, writeFile, rm } = await import('node:fs/promises');
+    const { tmpdir } = await import('node:os');
+    const root = await mkdtemp(join(tmpdir(), 'dup-advice-'));
+    try {
+      await writeFile(join(root, 'broken.ts'), 'export function (((( {', 'utf8');
+      await writeFile(join(root, 'fine.ts'), 'export const ok = 1;\n', 'utf8');
+      const result = await detectDuplication(
+        snapshotOf([join(root, 'broken.ts'), join(root, 'gone.ts'), join(root, 'fine.ts')], root),
+        { ignorePatterns: [] }
+      );
+      if (!result.ok) throw new Error('expected ok');
+      const byReason = new Map(
+        result.value.skipErrors.map((e) => [e.details.reason as string, e.suggestions.join(' ')])
+      );
+      // Pin both denominators before comparing, so a missing skip cannot make
+      // this a vacuous pass.
+      expect(byReason.get('unreadable')).toBeDefined();
+      expect(byReason.get('unparseable')).toBeDefined();
+      expect(byReason.get('unreadable')).not.toBe(byReason.get('unparseable'));
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it('adds a truncation entry when skip evidence exceeds the evidence cap', async () => {
+    const { mkdtemp, writeFile, rm } = await import('node:fs/promises');
+    const { tmpdir } = await import('node:os');
+    const { MAX_EVIDENCE_ENTRIES } = await import('../../../src/duplication');
+    const root = await mkdtemp(join(tmpdir(), 'dup-truncate-'));
+    try {
+      // One more broken file than the evidence cap, plus one good file so the
+      // run is a PARTIAL skip (Ok) rather than an all-skip refusal.
+      const broken = MAX_EVIDENCE_ENTRIES + 1;
+      const paths: string[] = [];
+      for (let i = 0; i < broken; i++) {
+        const file = join(root, `broken-${i}.ts`);
+        await writeFile(file, 'export function (((( {', 'utf8');
+        paths.push(file);
+      }
+      const good = join(root, 'fine.ts');
+      await writeFile(good, 'export const ok = 1;\n', 'utf8');
+      paths.push(good);
+
+      const result = await detectDuplication(snapshotOf(paths, root), {
+        ignorePatterns: [],
+      });
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      expect(result.value.stats.filesSkipped).toBe(broken);
+      expect(result.value.stats.skippedTruncated).toBe(broken - MAX_EVIDENCE_ENTRIES);
+      // The capped sample, plus exactly one entry saying the sample is capped.
+      expect(result.value.skipErrors).toHaveLength(MAX_EVIDENCE_ENTRIES + 1);
+      const last = result.value.skipErrors[result.value.skipErrors.length - 1]!;
+      expect(last.details.reason).toBe('skips-truncated');
+      // The EXACT count, not the capped sample's size: the truncation entry
+      // exists precisely so the honest total survives the cap.
+      expect(last.message).toContain(String(broken));
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it('refuses to report a pass over zero discovered files (criterion 14)', async () => {
+    const result = await detectDuplication(snapshotOf([], PLANTED));
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.error.details.reason).toBe('zero-files-discovered');
+    expect(result.error.message).toMatch(/zero source files/i);
+  });
+
+  it('refuses to report a pass when every eligible file was skipped', async () => {
+    const { mkdtemp, writeFile, rm } = await import('node:fs/promises');
+    const { tmpdir } = await import('node:os');
+    const root = await mkdtemp(join(tmpdir(), 'dup-allskip-'));
+    try {
+      await writeFile(join(root, 'broken.ts'), 'export function (((( {', 'utf8');
+      const result = await detectDuplication(snapshotOf([join(root, 'broken.ts')], root), {
+        ignorePatterns: [],
+      });
+      expect(result.ok).toBe(false);
+      if (result.ok) return;
+      expect(result.error.details.reason).toBe('all-files-skipped');
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it('drops an ineligible path into filesIgnored, counting it in neither scanned nor skipped', async () => {
+    const paths = await findFiles(INCLUDE, PLANTED);
+    expect(paths.some((p) => p.endsWith('notes.md'))).toBe(true);
+    const result = await detectDuplication(snapshotOf(paths, PLANTED), {
+      ignorePatterns: [],
+    });
+    if (!result.ok) throw new Error('expected ok');
+    const stats = result.value.stats;
+    expect(stats.filesIgnored).toBe(paths.length - stats.filesScanned - stats.filesSkipped);
+    expect(stats.filesIgnored).toBeGreaterThan(0);
+  });
+});

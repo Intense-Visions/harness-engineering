@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/tests/entropy/detectors'
-sourceHash: '67d6b495f09adc48c38a3dc261784a45a42aed697f963645917b5bd8b0e682d7'
+sourceHash: 'ff1037f933da9eac1496a0413b9d7a86f2956e25bf077b7268761af048abf4e1'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -30,6 +30,7 @@ members:
 
 ```
 import { createRegionMap } from '../../../src/annotations'
+import from '../../../src/duplication'
 import { GraphComplexityData, detectComplexityViolations } from '../../../src/entropy/detectors/complexity'
 import { GraphCouplingData, detectCouplingViolations } from '../../../src/entropy/detectors/coupling'
 import { buildReachabilityMap, detectDeadCode } from '../../../src/entropy/detectors/dead-code'
