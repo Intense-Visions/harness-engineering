@@ -6,6 +6,7 @@ import {
   extractEmbeddedJson,
   buildCorrectionPrompt,
 } from './structured-output.js';
+import { guardChildStdin } from './child-stdin.js';
 
 const DEFAULT_TIMEOUT_MS = 180_000;
 
@@ -228,6 +229,9 @@ export class GenericCliAnalysisProvider implements AnalysisProvider {
         }
       });
 
+      guardChildStdin(child.stdin, (e) =>
+        reject(new Error(`${this.command} CLI stdin write failed: ${e.message}`))
+      );
       if (invocation.stdin !== undefined) {
         child.stdin.write(invocation.stdin);
       }

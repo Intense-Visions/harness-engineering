@@ -109,9 +109,19 @@ export const defaultExecFile: ExecFileLike = async (command, args, opts) => {
     timeout,
     killSignal: 'SIGTERM',
   });
-  child.stdin?.end(opts.stdin);
 
   return new Promise<{ stdout: string }>((resolve, reject) => {
+    // A child that exits without draining stdin (crash, early exit, kill) makes
+    // the pending write fail with EPIPE. With no listener that error is UNHANDLED
+    // and takes down the host process (#2298). A closed pipe is not a result: the
+    // child's exit status below stays authoritative. Any other stdin failure means
+    // the runner never received its input, so it rejects rather than going silent.
+    child.stdin?.on('error', (e: NodeJS.ErrnoException) => {
+      if (isClosedPipeError(e)) return;
+      reject(new Error(`failed writing runner stdin: ${e.message}`));
+    });
+    child.stdin?.end(opts.stdin);
+
     let out = '';
     let outBytes = 0;
     let err = '';
@@ -150,6 +160,20 @@ export const defaultExecFile: ExecFileLike = async (command, args, opts) => {
     });
   });
 };
+
+/**
+ * Errors a stdin write gets when the child has already closed its end of the
+ * pipe: EPIPE (POSIX), ECONNRESET / EOF (win32 named pipes), or a write landing
+ * after Node destroyed the stream. None of them carries a result of its own.
+ */
+function isClosedPipeError(e: NodeJS.ErrnoException): boolean {
+  return (
+    e.code === 'EPIPE' ||
+    e.code === 'ECONNRESET' ||
+    e.code === 'EOF' ||
+    e.code === 'ERR_STREAM_DESTROYED'
+  );
+}
 
 /** Render the unified-diff string the LLM tier reads from STDIN. */
 function diffToStdin(diff: DiffInfo): string {
