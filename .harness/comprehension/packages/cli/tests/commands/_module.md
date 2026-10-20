@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/tests/commands'
-sourceHash: '884643d8377ae1b68242d0ee377434048fcad7986668b231cefd7011b3d01097'
+sourceHash: 'd94251f0be8d85cac7479957af3b89f6f2f5a5d31520f9f9096489bbb0347739'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -331,6 +331,7 @@ import { createPublishAnalysesCommand } from '../../src/commands/publish-analyse
 import { runPulseRunCommand } from '../../src/commands/pulse/run'
 import { createRecommendCommand, runRecommend } from '../../src/commands/recommend'
 import { createRehearseCommand } from '../../src/commands/rehearse'
+import from '../../src/commands/release-inventory'
 import { GIT_MAX_BUFFER_BYTES, assertKnownRunner, buildDegradedResult, buildDiffInfo, buildReviewBody, createReviewCiCommand, defaultRunGit, emitReviewCi, resolveDiffRange, runReviewCi } from '../../src/commands/review-ci'
 import { createLocalInvoke } from '../../src/commands/review-ci-local-adapter'
 import from '../../src/commands/roadmap'

@@ -256,9 +256,13 @@ function extractJSDocComments(ast: AST): JSDocComment[] {
 }
 
 /**
- * Build ExportMap from source files
+ * Index a parsed file set by export file and export name.
+ *
+ * Exported alongside {@link parseSourceFiles} so a consumer assembling a
+ * narrower snapshot keeps one implementation of the index rather than a
+ * near-copy (#2284).
  */
-function buildExportMap(files: SourceFile[]): ExportMap {
+export function buildExportMap(files: SourceFile[]): ExportMap {
   const byFile = new Map<string, Export[]>();
   const byName = new Map<string, { file: string; export: Export }[]>();
 
@@ -314,6 +318,48 @@ function refsFromCodeBlocks(doc: DocumentationFile): CodeReference[] {
 
 function extractAllCodeReferences(docs: DocumentationFile[]): CodeReference[] {
   return docs.flatMap((doc) => [...refsFromInlineRefs(doc), ...refsFromCodeBlocks(doc)]);
+}
+
+/**
+ * Parse a set of source paths into fully-populated {@link SourceFile} records.
+ *
+ * Extracted from {@link buildSnapshot} so a consumer that needs real import and
+ * export edges — but not entry points, docs or reachability — can get them from
+ * the same implementation instead of hand-rolling a second parse loop or, worse,
+ * faking the shape. `CouplingCollector` is that consumer: it cannot call
+ * `buildSnapshot`, because `resolveEntryPoints` fails closed on a repo with no
+ * manifest entry point (including this monorepo's own root), and an architecture
+ * gate that runs in `pre-commit` must not abstain for that reason (#2284).
+ *
+ * Files the registry has no parser for, and files that fail to parse, are
+ * skipped — so the returned length is the number of files genuinely analysed and
+ * is safe to report as a denominator.
+ */
+export async function parseSourceFiles(
+  filePaths: string[],
+  parserForFile: (filePath: string) => LanguageParser | null
+): Promise<SourceFile[]> {
+  const files: SourceFile[] = [];
+  for (const filePath of filePaths) {
+    const fileParser = parserForFile(filePath);
+    if (!fileParser) continue;
+
+    const parseResult = await fileParser.parseFile(filePath);
+    if (!parseResult.ok) continue;
+
+    const importsResult = fileParser.extractImports(parseResult.value);
+    const exportsResult = fileParser.extractExports(parseResult.value);
+
+    files.push({
+      path: filePath,
+      ast: parseResult.value,
+      imports: importsResult.ok ? importsResult.value : [],
+      exports: exportsResult.ok ? exportsResult.value : [],
+      internalSymbols: extractInternalSymbols(parseResult.value),
+      jsDocComments: extractJSDocComments(parseResult.value),
+    });
+  }
+  return files;
 }
 
 /**
@@ -373,28 +419,7 @@ export async function buildSnapshot(
   });
 
   // Parse source files
-  const files: SourceFile[] = [];
-  for (const filePath of sourceFilePaths) {
-    const fileParser = parserForFile(filePath);
-    if (!fileParser) continue;
-
-    const parseResult = await fileParser.parseFile(filePath);
-    if (!parseResult.ok) continue;
-
-    const importsResult = fileParser.extractImports(parseResult.value);
-    const exportsResult = fileParser.extractExports(parseResult.value);
-    const internalSymbols = extractInternalSymbols(parseResult.value);
-    const jsDocComments = extractJSDocComments(parseResult.value);
-
-    files.push({
-      path: filePath,
-      ast: parseResult.value,
-      imports: importsResult.ok ? importsResult.value : [],
-      exports: exportsResult.ok ? exportsResult.value : [],
-      internalSymbols,
-      jsDocComments,
-    });
-  }
+  const files = await parseSourceFiles(sourceFilePaths, parserForFile);
 
   // Parse test files for their import edges only (no exports/symbols — test
   // files are never classified, they only keep their import targets alive).
