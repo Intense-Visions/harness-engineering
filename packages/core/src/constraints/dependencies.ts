@@ -154,6 +154,49 @@ export interface ParserLookup {
 }
 
 /**
+ * A file whose imports have already been extracted.
+ *
+ * Structurally a subset of the entropy snapshot's `SourceFile`, declared here so
+ * `constraints` does not depend on `entropy`.
+ */
+export interface ParsedFileImports {
+  path: string;
+  imports: Import[];
+}
+
+/**
+ * Build a dependency graph from files whose imports are ALREADY extracted.
+ *
+ * {@link buildDependencyGraph} re-parses every file it is given. A caller that
+ * has just parsed the tree for another reason would otherwise parse the whole
+ * repository twice — measured at roughly +100% user CPU on this monorepo for the
+ * coupling collector, on a gate that runs in `.husky/pre-commit` (#2284). Edge
+ * construction is identical; only the parse is skipped. Related: #2270, which
+ * tracks sharing ONE graph across the dependency collectors.
+ */
+export async function buildDependencyGraphFromParsed(
+  nodes: string[],
+  parsed: ParsedFileImports[]
+): Promise<DependencyGraph> {
+  const edges: DependencyEdge[] = [];
+  for (const file of parsed) {
+    const normalizedFile = file.path.replace(/\\/g, '/');
+    for (const imp of file.imports) {
+      const resolvedPath = await resolveImportPath(imp.source, file.path, '');
+      if (resolvedPath) {
+        edges.push({
+          from: normalizedFile,
+          to: resolvedPath,
+          importType: getImportType(imp),
+          line: imp.location.line,
+        });
+      }
+    }
+  }
+  return { nodes: nodes.map((f) => f.replace(/\\/g, '/')), edges };
+}
+
+/**
  * Build a dependency graph from a list of files.
  * Accepts either a single parser or a ParserLookup for multi-language support.
  * Note: buildDependencyGraph is exported as an addition beyond spec for advanced use cases
@@ -172,14 +215,9 @@ export async function buildDependencyGraph(
   }
 
   const isLookup = 'getForFile' in parser;
-
-  // Normalize all paths to forward slashes for cross-platform consistency
-  const nodes = files.map((f) => f.replace(/\\/g, '/'));
-  const edges: DependencyEdge[] = [];
+  const parsed: ParsedFileImports[] = [];
 
   for (const file of files) {
-    const normalizedFile = file.replace(/\\/g, '/');
-
     // Select the appropriate parser for this file
     const fileParser = isLookup
       ? (parser as ParserLookup).getForFile(file)
@@ -198,20 +236,12 @@ export async function buildDependencyGraph(
       continue;
     }
 
-    for (const imp of importsResult.value) {
-      const resolvedPath = await resolveImportPath(imp.source, file, '');
-      if (resolvedPath) {
-        edges.push({
-          from: normalizedFile,
-          to: resolvedPath,
-          importType: getImportType(imp),
-          line: imp.location.line,
-        });
-      }
-    }
+    parsed.push({ path: file, imports: importsResult.value });
   }
 
-  return Ok({ nodes, edges });
+  // Nodes are every file handed in, parsed or not — unchanged from when this
+  // loop built them inline.
+  return Ok(await buildDependencyGraphFromParsed(files, parsed));
 }
 
 /**
