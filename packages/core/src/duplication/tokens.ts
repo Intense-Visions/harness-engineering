@@ -76,6 +76,13 @@ export function normalizeTokens(
  * surface as one false clone class, never as corruption. Widen to the full
  * digest if a collision is ever observed.
  *
+ * Observation is PARTIAL. `buildCloneIndex` groups on
+ * `${fingerprint}:${tokenCount}` and records a `CloneIndex.collisions` entry
+ * only when two colliding streams differ in LENGTH; two equal-length streams
+ * that collide agree on `tokenCount`, so they group together and nothing here
+ * or there can tell. "Zero collisions observed" is therefore a weaker claim
+ * than "no collisions occurred".
+ *
  * Tokens are joined with a space so that `['ab','c']` and `['a','bc']` cannot
  * alias to the same digest.
  */

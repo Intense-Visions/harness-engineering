@@ -96,11 +96,18 @@ describe('core barrel — duplication surface (criterion 11)', () => {
   });
 
   it('builds a CloneIndex with exactly the specified top-level and stats fields', () => {
-    expect(Object.keys(index).sort()).toEqual(['byMember', 'classes', 'skipped', 'stats']);
+    expect(Object.keys(index).sort()).toEqual([
+      'byMember',
+      'classes',
+      'collisions',
+      'skipped',
+      'stats',
+    ]);
     expect(Object.keys(index.stats).sort()).toEqual([
       'classesReported',
       'classesSuppressed',
       'classesTruncated',
+      'collisionsObserved',
       'filesScanned',
       'filesSkipped',
       'unitsBelowMinTokens',

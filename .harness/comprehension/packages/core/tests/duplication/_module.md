@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/tests/duplication'
-sourceHash: 'b01cd3375661697c38f5991800bf38769ba3a9c8b01790b9719923b62dfe245d'
+sourceHash: '194dbf42ab4eba2f134fee1fc394487c0c0252db0166a449d117b38a4b1b68bd'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -10,6 +10,7 @@ members:
     'acceptance.test.ts',
     'barrel.test.ts',
     'clone-index.test.ts',
+    'collision.test.ts',
     'extraction-failure.test.ts',
     'failure-behavior.test.ts',
     'tokens.test.ts',

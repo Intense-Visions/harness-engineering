@@ -32,8 +32,15 @@ export interface CloneMember {
 
 /** A set of units sharing one normalized token-stream fingerprint. */
 export interface CloneClass {
-  /** sha1 of the normalized token stream, 16 hex characters. */
+  /**
+   * sha1 of the normalized token stream, 16 hex characters — exactly
+   * `fingerprintStream(stream)`, so a consumer can recompute it.
+   *
+   * Units group on `${fingerprint}:${tokenCount}`, not on `fingerprint`
+   * alone, so every member of a class provably agrees on `tokenCount`.
+   */
   fingerprint: string;
+  /** Shared by every member by construction — it is part of the group key. */
   tokenCount: number;
   /** Length is always `>= minInstances`. */
   members: CloneMember[];
@@ -58,6 +65,30 @@ export interface SkippedFile {
   message: string;
 }
 
+/**
+ * Two units that share one 16-hex digest while disagreeing on `tokenCount` —
+ * an OBSERVED digest collision, recorded rather than raised.
+ *
+ * Equal streams hash equally, so a length disagreement under one digest can
+ * only be a collision. Because units group on `${fingerprint}:${tokenCount}`,
+ * such a pair physically cannot land in one class: the scan is unaffected and
+ * no false class forms. This record is what makes the 64-bit truncation
+ * falsifiable — if these ever appear, widen the digest in `tokens.ts`.
+ *
+ * It is a PARTIAL detector, and deliberately so: a collision between two
+ * EQUAL-length streams agrees on `tokenCount` and is invisible here (and to
+ * any token-count check). Zero observed collisions therefore means "no
+ * length-differing collision was seen", not "no collision occurred".
+ */
+export interface FingerprintCollision {
+  /** The digest both units share. */
+  fingerprint: string;
+  /** The first-seen unit and the disagreeing one, in that order. */
+  members: [CloneMember, CloneMember];
+  /** Their token counts, positionally matching `members`. */
+  tokenCounts: [number, number];
+}
+
 /** The clone index over one discovered file set. */
 export interface CloneIndex {
   /** Qualifying classes, rank-descending, capped at `maxClasses`. */
@@ -74,6 +105,16 @@ export interface CloneIndex {
    * discarded here.
    */
   skipped: SkippedFile[];
+  /**
+   * One entry per observed length-differing digest collision, in discovery
+   * order. Empty on every scan measured so far.
+   *
+   * `stats.collisionsObserved` is the count; this is the evidence. A collision
+   * is observed, not raised: grouping is keyed on
+   * `${fingerprint}:${tokenCount}`, so the colliding units cannot share a
+   * class and the rest of the scan is unaffected.
+   */
+  collisions: FingerprintCollision[];
   stats: {
     filesScanned: number;
     /**
@@ -100,6 +141,12 @@ export interface CloneIndex {
     classesSuppressed: number;
     /** Groups dropped by the maxClasses report cap. */
     classesTruncated: number;
+    /**
+     * Length-differing digest collisions observed while grouping. Every
+     * increment has a matching entry in `collisions`. Expected to be 0 — see
+     * {@link FingerprintCollision} for why a 0 is weaker than it looks.
+     */
+    collisionsObserved: number;
   };
 }
 
@@ -371,6 +418,18 @@ export async function fingerprintFile(
  * because at 100% skip the result is indistinguishable from the zero-discovery
  * case this function already refuses.
  *
+ * `EntropyError.code` is NOT a discriminator: `PARSE_ERROR` is shared across
+ * distinct conditions — `'all-files-skipped'` here, and the per-file
+ * `'unparseable'` skips Phase 2 is specified to convert into `AnalysisError`s
+ * — besides being raised by unrelated entropy modules.
+ * Consumers must switch on `details.reason`, never on `code`.
+ *
+ * Grouping is keyed on `${fingerprint}:${tokenCount}`, so two units whose
+ * digests collide while their stream lengths differ cannot form a class
+ * together. Such a pair is recorded on `collisions` and counted in
+ * `stats.collisionsObserved` instead of failing the scan — see
+ * {@link FingerprintCollision}, including what that record cannot see.
+ *
  * The two bars act at different stages, per the amended spec. `minTokens` is a
  * UNIT-level bar applied before grouping, inside {@link fingerprintFile}: a
  * sub-threshold unit is never hashed and lands in `unitsBelowMinTokens`, so it
@@ -415,6 +474,11 @@ export async function buildCloneIndex(
   let unitsFingerprinted = 0;
   let unitsBelowMinTokens = 0;
   const skipped: SkippedFile[] = [];
+  const collisions: FingerprintCollision[] = [];
+  // First unit seen per digest, so a later length disagreement under the same
+  // digest can be reported with BOTH locations rather than just the second.
+  const firstByFingerprint = new Map<string, FingerprintedUnit>();
+  // Keyed on `${fingerprint}:${tokenCount}` — see the grouping note below.
   const groups = new Map<string, FingerprintedUnit[]>();
 
   for (const { abs, rel } of eligible) {
@@ -427,8 +491,21 @@ export async function buildCloneIndex(
     unitsBelowMinTokens += outcome.unitsBelowMinTokens;
     for (const unit of outcome.units) {
       unitsFingerprinted += 1;
-      const bucket = groups.get(unit.fingerprint);
-      if (bucket === undefined) groups.set(unit.fingerprint, [unit]);
+      const first = firstByFingerprint.get(unit.fingerprint);
+      if (first === undefined) {
+        firstByFingerprint.set(unit.fingerprint, unit);
+      } else if (first.tokenCount !== unit.tokenCount) {
+        // Observed, not raised: the composite key below already keeps these
+        // two out of one another's class, so there is nothing to fail over.
+        collisions.push({
+          fingerprint: unit.fingerprint,
+          members: [first.member, unit.member],
+          tokenCounts: [first.tokenCount, unit.tokenCount],
+        });
+      }
+      const key = `${unit.fingerprint}:${unit.tokenCount}`;
+      const bucket = groups.get(key);
+      if (bucket === undefined) groups.set(key, [unit]);
       else bucket.push(unit);
     }
   }
@@ -456,36 +533,24 @@ export async function buildCloneIndex(
   // Every unit that reached grouping already cleared minTokens, so the only
   // remaining bar is minInstances. A group of >= 2 members that fails it is
   // suppressed; a singleton group is not duplication and is counted nowhere.
+  //
+  // Each bucket is keyed on BOTH the digest and the token count, so every
+  // member of a bucket agrees on `tokenCount` by construction — reading it off
+  // `units[0]` is sound without a check, and a length-differing collision
+  // cannot put two unrelated units in one class in the first place. The
+  // previous revision grouped on the digest alone and then returned `Err` on a
+  // disagreement, which discarded every other valid class, the stats and the
+  // `byMember` seam to avoid one spurious member in an advisory-first detector
+  // (D4; the fail-closed #855 gate is the standing precedent against that).
   const qualifying: CloneClass[] = [];
   let classesSuppressed = 0;
-  for (const [fingerprint, units] of groups) {
+  for (const units of groups.values()) {
     if (units.length < 2) continue;
     if (units.length < config.minInstances) {
       classesSuppressed += 1;
       continue;
     }
-    const tokenCount = units[0]!.tokenCount;
-    // Equal digests must mean equal streams, so equal token counts. This is the
-    // falsifiable collision detector the 64-bit truncation in `tokens.ts`
-    // promises: a disagreement here IS the observed collision that would
-    // justify widening the digest. Measured clean over 7,887 units.
-    if (units.some((u) => u.tokenCount !== tokenCount)) {
-      return Err(
-        createEntropyError(
-          'PARSE_ERROR',
-          `Fingerprint collision detected: ${fingerprint} groups units of differing token counts (${[
-            ...new Set(units.map((u) => u.tokenCount)),
-          ].join(
-            ', '
-          )}) at ${units.map((u) => `${u.member.file}:${u.member.startLine}`).join(', ')}.`,
-          { reason: 'fingerprint-collision', file: units[0]!.member.file },
-          [
-            'Widen the digest in duplication/tokens.ts beyond 16 hex characters',
-            'Report this: a 64-bit collision at this scale was estimated at ~1.7e-12',
-          ]
-        )
-      );
-    }
+    const { fingerprint, tokenCount } = units[0]!;
     const members = units
       .map((u) => u.member)
       .sort((a, b) => a.file.localeCompare(b.file) || a.startLine - b.startLine);
@@ -520,6 +585,7 @@ export async function buildCloneIndex(
     classes,
     byMember,
     skipped,
+    collisions,
     stats: {
       filesScanned,
       filesSkipped: skipped.length,
@@ -528,6 +594,7 @@ export async function buildCloneIndex(
       classesReported: classes.length,
       classesSuppressed,
       classesTruncated,
+      collisionsObserved: collisions.length,
     },
   });
 }

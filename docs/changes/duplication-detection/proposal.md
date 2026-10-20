@@ -182,10 +182,17 @@ export interface SkippedFile {
   message: string; // the underlying read, parse, or extraction error
 }
 
+export interface FingerprintCollision {
+  fingerprint: string; // the digest both units share
+  members: [CloneMember, CloneMember]; // first-seen, then the disagreeing unit
+  tokenCounts: [number, number]; // positionally matching `members`
+}
+
 export interface CloneIndex {
   classes: CloneClass[];
   byMember: Map<string, CloneClass>; // `${file}:${startLine}` -> owning class
   skipped: SkippedFile[]; // one entry per filesSkipped increment — the evidence Phase 2 raises
+  collisions: FingerprintCollision[]; // one entry per observed length-differing digest collision
   stats: {
     filesScanned: number;
     filesSkipped: number; // count of `skipped` — see Failure behavior
@@ -194,6 +201,7 @@ export interface CloneIndex {
     classesReported: number;
     classesSuppressed: number; // formed, then dropped for falling below minInstances
     classesTruncated: number; // dropped by the maxClasses report cap
+    collisionsObserved: number; // count of `collisions` — see Failure behavior
   };
 }
 ```
@@ -221,10 +229,20 @@ Following the `Result` / `AnalysisError` convention already used by the sibling 
   returning an index with zero classes. At 100% skip the result is indistinguishable from the
   zero-discovery case below; a partial skip (1 of N) still returns `Ok`, because that is a scan that
   happened.
-- If two units with the same fingerprint disagree on `tokenCount`, the detector shall report that as
-  an error rather than reporting a class. Equal digests must mean equal streams, so a disagreement is
-  the observed digest collision that justifies widening the 16-hex truncation; without this check the
-  module had no mechanism to detect one. Measured clean over 7,887 units.
+- Units group on `${fingerprint}:${tokenCount}`, not on `fingerprint` alone, so two units whose
+  digests collide while their normalized streams differ in length physically cannot form a class
+  together. Such a pair shall be RECORDED — one `CloneIndex.collisions` entry, counted in
+  `stats.collisionsObserved` — and shall not fail the scan: failing would discard every other valid
+  class, the stats and the `byMember` seam to avoid one spurious member in an advisory-first
+  detector (D4), and a deliberate 64-bit collision with attacker-chosen token counts is only ~2^32
+  work, which would make the analyzer's availability the easier target than its accuracy. (An
+  earlier revision grouped on the digest alone and returned `Err` on a token-count disagreement.
+  That check also sat after the `minInstances` bar, so the likeliest shape — a collision between
+  two otherwise-singleton units, forming a 2-member group — never reached it at all.)
+- The record is a PARTIAL detector and is documented as one: a collision between two EQUAL-length
+  streams agrees on `tokenCount`, so it groups normally and is invisible to any such check. Zero
+  observed collisions means "no length-differing collision was seen over the measured scope", not
+  "no collision occurred".
 - If a unit yields fewer than `minTokens` tokens, it shall be excluded from fingerprinting
   **before grouping** and counted in `unitsBelowMinTokens`. Such a unit can never form or join a
   clone class, so it is never counted in `classesSuppressed` — that counter is only for classes
