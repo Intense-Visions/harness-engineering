@@ -75,7 +75,11 @@ describe('core barrel — duplication surface (criterion 11)', () => {
     'MAX_EVIDENCE_ENTRIES',
     'IDENTIFIER_PLACEHOLDER',
     'LITERAL_PLACEHOLDER',
-  ])('resolves %s from the package entry point', (name) => {
+  ])('exposes %s as a named export on the package entry point', (name) => {
+    // What this proves: the name is present on the package's namespace object.
+    // It does NOT prove the binding is usable — the case below does that for
+    // `buildCloneIndex`, and every other case in this file exercises the
+    // objects production built.
     expect(core).toHaveProperty(name);
   });
 
@@ -84,8 +88,11 @@ describe('core barrel — duplication surface (criterion 11)', () => {
     expect(DEFAULT_DUPLICATION_CONFIG.minInstances).toBe(3);
   });
 
-  it('ships DuplicationConfig with exactly the four specified fields', () => {
-    // Asserted over the shipped default, not over a literal this test wrote.
+  it('ships a DEFAULT_DUPLICATION_CONFIG carrying exactly the four specified fields', () => {
+    // Asserted over the shipped default, not over a literal this test wrote —
+    // and titled for what that proves: the shipped OBJECT's keys, not the
+    // interface's. A fifth OPTIONAL field on `DuplicationConfig` would leave
+    // this green, since nothing would have to set it.
     expect(Object.keys(DEFAULT_DUPLICATION_CONFIG).sort()).toEqual([
       'ignorePatterns',
       'maxClasses',
