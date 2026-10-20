@@ -728,7 +728,12 @@ describe('-c selects the project root, not just the config file (#911 class)', (
       {
         rootDir: './fixtureapp',
         docsDir: './fixturedocs',
-        entropy: { entryPoints: ['fixtureapp/main.ts'] },
+        // Relative to `rootDir` (fix-drift resolves entry points against it), so
+        // this names the seeded `fixtureapp/main.ts`. It used to read
+        // `fixtureapp/main.ts`, which resolved to `fixtureapp/fixtureapp/main.ts`
+        // — a file that does not exist — and passed only because configured
+        // entry points were never existence-checked (#2275).
+        entropy: { entryPoints: ['main.ts'] },
       },
       async (root) => {
         await mkdir(path.join(root, 'fixtureapp'), { recursive: true });
