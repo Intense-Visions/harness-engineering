@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/tests/mcp/tools'
-sourceHash: 'aad503709816861581aa11eb033b52451b277362fb46995389c6b1c722f0dbff'
+sourceHash: '0e0392f652caf02c2d295e31cf0e083b8a180b500a8dbe88a9c59140ed4f05f4'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -192,6 +192,7 @@ import { generateCIWorkflow } from '../../../src/persona/generators/ci-workflow'
 import { generateRuntime } from '../../../src/persona/generators/runtime'
 import { listPersonas, loadPersona } from '../../../src/persona/loader'
 import { runPersona } from '../../../src/persona/runner'
+import { ENTROPY_ISSUE_TYPES } from '../../../src/shared/duplication-request'
 import from '../../../src/shared/state-events'
 import { scoreSkill, suggest } from '../../../src/skill/dispatcher'
 import { formatSuggestions, isTier1Skill, suggest } from '../../../src/skill/dispatcher.js'

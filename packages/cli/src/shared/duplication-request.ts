@@ -20,6 +20,50 @@ export interface DuplicationAnalysisErrorLike {
 }
 
 /**
+ * The entropy issue types BOTH surfaces accept, in the order they are
+ * advertised.
+ *
+ * One list, so `harness cleanup -t <type>` and `detect_entropy`'s `type` enum
+ * cannot drift — and, more importantly, so neither surface can accept a value
+ * it does not understand. Measured before this list existed:
+ * `harness cleanup -t duplicaiton` (a one-character typo) printed
+ * "Entropy issues: not checked" and exited 0, `-t bogus --findings-json`
+ * published `{"findings":0,...}` on the #691 contract and exited 0, and
+ * `detect_entropy { type: "duplicaiton" }` returned
+ * `{"mode":"summary","totalIssues":0}` with no error — the JSON-schema enum is
+ * DECORATIVE, the SDK does not enforce it. Every unknown value fell through
+ * `runCleanup`'s switch with every analyzer off, which is the #1760
+ * report-a-pass-over-a-check-that-never-ran failure in a new place.
+ */
+export const ENTROPY_ISSUE_TYPES = [
+  'drift',
+  'dead-code',
+  'patterns',
+  'duplication',
+  'all',
+] as const;
+
+export type EntropyIssueType = (typeof ENTROPY_ISSUE_TYPES)[number];
+
+/** Whether a caller-supplied string is one of {@link ENTROPY_ISSUE_TYPES}. */
+export function isEntropyIssueType(type: string): type is EntropyIssueType {
+  return (ENTROPY_ISSUE_TYPES as readonly string[]).includes(type);
+}
+
+/**
+ * The refusal for a type neither surface understands.
+ *
+ * Shared so both refuse with the same words and the same list.
+ */
+export function describeUnknownIssueType(type: string): string {
+  return (
+    `Unknown issue type "${type}". Allowed: ${ENTROPY_ISSUE_TYPES.join(', ')}. ` +
+    'Refusing to report a pass: an unrecognized type runs NO analyzer, which would ' +
+    'otherwise come back as zero issues and a clean exit (#1760).'
+  );
+}
+
+/**
  * Whether a run should execute the duplication detector, and with what.
  *
  * Shared by BOTH surfaces (`harness cleanup -t duplication` and the

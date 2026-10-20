@@ -105,6 +105,19 @@ describe('harness cleanup -t duplication (spawned CLI)', () => {
     expect(payload.duplication.classesSuppressed).toBe(1);
   });
 
+  it.skipIf(!CLI_BUILT)('refuses an unrecognized -t value instead of exiting 0', () => {
+    // Measured before `.choices`: `-t duplicaiton` printed
+    // "Entropy issues: not checked" and exited 0, and with --findings-json it
+    // published `{"findings":0,"v":1,"check":"cleanup"}` — a green pass on the
+    // #691 contract over a run that executed no analyzer at all.
+    const result = runCLI(['cleanup', '-t', 'duplicaiton', '--findings-json'], projectDir);
+    expect(result.status).not.toBe(0);
+    const output = `${result.stdout}${result.stderr}`;
+    expect(output).toContain('duplicaiton');
+    // No findings line may be published for a run that never happened.
+    expect(result.stdout).not.toContain('"findings"');
+  });
+
   it.skipIf(!CLI_BUILT)('does not run duplication under -t all on an unconfigured project', () => {
     const result = runCLI(['cleanup', '-t', 'all'], projectDir);
     // MUTATION: make `all` unconditional and the section appears here.

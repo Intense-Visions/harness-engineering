@@ -1,5 +1,5 @@
 // packages/cli/src/commands/cleanup.ts
-import { Command } from 'commander';
+import { Command, Option } from 'commander';
 import * as path from 'path';
 import type {
   Result,
@@ -19,9 +19,13 @@ import { CLIError, ExitCode } from '../utils/errors';
 import {
   resolveDuplicationRequest,
   describeDuplicationNotRun,
+  isEntropyIssueType,
+  describeUnknownIssueType,
+  ENTROPY_ISSUE_TYPES,
+  type EntropyIssueType,
 } from '../shared/duplication-request';
 
-type CleanupType = 'drift' | 'dead-code' | 'patterns' | 'duplication' | 'all';
+type CleanupType = EntropyIssueType;
 
 interface CleanupOptions {
   cwd?: string;
@@ -126,7 +130,18 @@ export async function runCleanup(
   options: CleanupOptions
 ): Promise<Result<CleanupResult, CLIError>> {
   const cwd = options.cwd ?? process.cwd();
-  const type = options.type ?? 'all';
+  // Typed as the wide `string` on purpose: the guard below is the only thing
+  // standing between a caller-supplied value and an analyzer switch that
+  // treats anything it does not recognize as "run nothing".
+  const type: string = options.type ?? 'all';
+
+  // Defense in depth behind the command's `.choices`: `runCleanup` is
+  // exported and callable directly, and an unknown type otherwise falls
+  // through the analyzer switch with everything off — zero issues, exit 0,
+  // over nothing examined (#1760).
+  if (!isEntropyIssueType(type)) {
+    return Err(new CLIError(describeUnknownIssueType(type), ExitCode.VALIDATION_FAILED));
+  }
 
   // Load config
   const configResult = resolveConfig(options.configPath);
@@ -387,7 +402,14 @@ const CLEANUP_DESCRIPTION =
 export function createCleanupCommand(): Command {
   const command = new Command('cleanup')
     .description(CLEANUP_DESCRIPTION)
-    .option('-t, --type <type>', 'Issue type: drift, dead-code, patterns, duplication, all', 'all')
+    // `.choices` and not a bare `.option`: an unrecognized value used to run
+    // no analyzer and exit 0 (see `describeUnknownIssueType`). Commander
+    // refuses before the action runs, so no findings line is published either.
+    .addOption(
+      new Option('-t, --type <type>', `Issue type: ${ENTROPY_ISSUE_TYPES.join(', ')}`)
+        .choices([...ENTROPY_ISSUE_TYPES])
+        .default('all')
+    )
     .option(
       '--findings-json',
       'Emit the machine-readable maintenance findings contract ({ findings: N }) as a trailing stdout line (#691)'

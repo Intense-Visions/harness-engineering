@@ -14,6 +14,9 @@ import { loadAnalysisExclude } from '../../config/analysis-schema.js';
 import {
   resolveDuplicationRequest,
   describeDuplicationNotRun,
+  isEntropyIssueType,
+  describeUnknownIssueType,
+  ENTROPY_ISSUE_TYPES,
 } from '../../shared/duplication-request.js';
 
 /**
@@ -116,7 +119,11 @@ export const detectEntropyDefinition = {
       path: { type: 'string', description: 'Path to project root' },
       type: {
         type: 'string',
-        enum: ['drift', 'dead-code', 'patterns', 'duplication', 'all'],
+        // Advertised from the shared list so this enum and the CLI's `-t`
+        // choices cannot drift. The enum is DECORATIVE at runtime — the SDK
+        // does not enforce it — so `handleDetectEntropy` checks membership
+        // itself.
+        enum: [...ENTROPY_ISSUE_TYPES],
         description:
           'Type of entropy to detect (default: all). "duplication" reports clone classes and is advisory — it is never summed into totalIssues; under "all" it runs only when entropy.duplication is configured.',
       },
@@ -332,6 +339,19 @@ export async function handleDetectEntropy(input: {
   try {
     const { EntropyAnalyzer } = await import('@harness-engineering/core');
     const typeFilter = input.type ?? 'all';
+
+    // The JSON-schema `enum` above is advertisement, not enforcement: measured
+    // on this tool, `{ type: "duplicaiton", mode: "summary" }` returned
+    // `{"mode":"summary","totalIssues":0}` with no error, and the only weak
+    // marker (`categories: {}`) is deleted by structural compaction — making
+    // the wire response byte-indistinguishable from a clean full scan.
+    if (!isEntropyIssueType(typeFilter)) {
+      return {
+        content: [{ type: 'text' as const, text: describeUnknownIssueType(typeFilter) }],
+        isError: true,
+      };
+    }
+
     const projectPath = sanitizePath(input.path);
 
     // Load the project's harness config (if present) so drift tuning

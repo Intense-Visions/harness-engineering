@@ -2,25 +2,48 @@ import { describe, it, expect } from 'vitest';
 import {
   resolveDuplicationRequest,
   describeDuplicationNotRun,
+  isEntropyIssueType,
+  describeUnknownIssueType,
+  ENTROPY_ISSUE_TYPES,
 } from '../../src/shared/duplication-request';
 
 describe('resolveDuplicationRequest', () => {
   // The table IS the decision (plan decisions P3/P4). MUTATION: make `all`
   // run on an unconfigured project and row 3 fails; make an explicit
   // request honor `false` as "skip" and row 7 fails.
+  // Object rows with `$`-interpolated titles, not a positional `'%s -> %s'`:
+  // printf placeholders consume args 0 and 1, so the second `%s` rendered the
+  // TYPE where the outcome belongs — "duplication / false -> duplication"
+  // instead of "-> refuse". A title that misreports the outcome actively
+  // misleads whoever reads the failure.
   it.each([
-    ['drift / unconfigured', 'drift', undefined, 'skip'],
-    ['dead-code / configured', 'dead-code', { minTokens: 50 }, 'skip'],
-    ['all / unconfigured', 'all', undefined, 'skip'],
-    ['all / false', 'all', false, 'skip'],
-    ['all / true', 'all', true, 'run'],
-    ['all / object', 'all', { minTokens: 50 }, 'run'],
-    ['duplication / false', 'duplication', false, 'refuse'],
-    ['duplication / unconfigured', 'duplication', undefined, 'run'],
-    ['duplication / true', 'duplication', true, 'run'],
-    ['duplication / object', 'duplication', { maxClasses: 5 }, 'run'],
-  ])('%s -> %s', (_label, type, configured, kind) => {
-    expect(resolveDuplicationRequest(type as string, configured as never).kind).toBe(kind);
+    { label: 'drift / unconfigured', type: 'drift', configured: undefined, kind: 'skip' },
+    {
+      label: 'dead-code / configured',
+      type: 'dead-code',
+      configured: { minTokens: 50 },
+      kind: 'skip',
+    },
+    { label: 'all / unconfigured', type: 'all', configured: undefined, kind: 'skip' },
+    { label: 'all / false', type: 'all', configured: false, kind: 'skip' },
+    { label: 'all / true', type: 'all', configured: true, kind: 'run' },
+    { label: 'all / object', type: 'all', configured: { minTokens: 50 }, kind: 'run' },
+    { label: 'duplication / false', type: 'duplication', configured: false, kind: 'refuse' },
+    {
+      label: 'duplication / unconfigured',
+      type: 'duplication',
+      configured: undefined,
+      kind: 'run',
+    },
+    { label: 'duplication / true', type: 'duplication', configured: true, kind: 'run' },
+    {
+      label: 'duplication / object',
+      type: 'duplication',
+      configured: { maxClasses: 5 },
+      kind: 'run',
+    },
+  ])('$label -> $kind', ({ type, configured, kind }) => {
+    expect(resolveDuplicationRequest(type, configured as never).kind).toBe(kind);
   });
 
   it('passes an object config through verbatim', () => {
@@ -32,6 +55,37 @@ describe('resolveDuplicationRequest', () => {
     const request = resolveDuplicationRequest('duplication', false);
     expect(request.kind === 'refuse' && request.message).toContain('entropy.duplication');
     expect(request.kind === 'refuse' && request.message).toMatch(/Refusing to report/);
+  });
+});
+
+describe('the shared issue-type vocabulary', () => {
+  it('accepts exactly the five advertised types', () => {
+    expect([...ENTROPY_ISSUE_TYPES]).toEqual([
+      'drift',
+      'dead-code',
+      'patterns',
+      'duplication',
+      'all',
+    ]);
+    for (const type of ENTROPY_ISSUE_TYPES) {
+      expect(isEntropyIssueType(type)).toBe(true);
+    }
+  });
+
+  it.each(['duplicaiton', 'bogus', 'Duplication', '', 'dead_code'])(
+    'rejects %o',
+    (type: string) => {
+      // `duplicaiton` is the measured real-world case: a one-character typo in
+      // an 11-character word a human now types.
+      expect(isEntropyIssueType(type)).toBe(false);
+    }
+  );
+
+  it('names the typo, the allowed list and why it will not report a pass', () => {
+    const message = describeUnknownIssueType('duplicaiton');
+    expect(message).toContain('duplicaiton');
+    expect(message).toContain('drift, dead-code, patterns, duplication, all');
+    expect(message).toMatch(/Refusing to report a pass/);
   });
 });
 

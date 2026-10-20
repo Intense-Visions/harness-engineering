@@ -10,6 +10,7 @@ import * as os from 'os';
 import * as path from 'path';
 import { handleDetectEntropy, detectEntropyDefinition } from '../../../src/mcp/tools/entropy';
 import { wrapWithCompaction } from '../../../src/mcp/middleware/compaction';
+import { ENTROPY_ISSUE_TYPES } from '../../../src/shared/duplication-request';
 
 const FIXTURE = path.join(__dirname, '../../fixtures/duplication-cli-project');
 
@@ -230,6 +231,33 @@ describe('detect_entropy type: "duplication"', () => {
     // The analyzer's own suggestions, not a paraphrase.
     expect(text).toContain('Supply graph data for at most one of drift / deadCode');
     expect(text).not.toContain('classesReported');
+  });
+
+  // The JSON-schema `enum` is DECORATIVE — the MCP SDK does not enforce it.
+  // Measured before this guard: `{ type: "duplicaiton", mode: "summary" }`
+  // returned `{"mode":"summary","totalIssues":0}` with no error, and the only
+  // weak marker (`categories: {}`) is deleted by structural compaction, making
+  // the wire response byte-indistinguishable from a clean full scan.
+  it('refuses an unknown type instead of reporting zero issues', async () => {
+    const result = await handleDetectEntropy({
+      path: projectDir,
+      type: 'duplicaiton',
+      mode: 'summary',
+    });
+    // MUTATION: drop the `isEntropyIssueType` guard and this comes back
+    // `{"mode":"summary","totalIssues":0}` with isError unset.
+    expect(result.isError).toBe(true);
+    const text = result.content[0]!.text;
+    expect(text).toContain('Unknown issue type "duplicaiton"');
+    expect(text).toContain('drift, dead-code, patterns, duplication, all');
+    expect(text).not.toContain('totalIssues');
+  });
+
+  it('advertises the same type list the CLI accepts', () => {
+    // One shared list; a drift between the two surfaces fails here.
+    expect(detectEntropyDefinition.inputSchema.properties.type.enum).toEqual([
+      ...ENTROPY_ISSUE_TYPES,
+    ]);
   });
 
   it('still refuses patterns with no rules configured (no regression)', async () => {

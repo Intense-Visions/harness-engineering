@@ -109,6 +109,26 @@ describe('harness cleanup -t duplication — what reaches the analyzer', () => {
     expect(capturedConfigs).toHaveLength(0);
   });
 
+  // An unknown `-t` value was a GREEN PASS on both channels: measured,
+  // `harness cleanup -t duplicaiton` (one transposed character) printed
+  // "Entropy issues: not checked" and exited 0, and `-t bogus --findings-json`
+  // published `{"findings":0,"v":1,"check":"cleanup"}` and exited 0. The value
+  // fell through the analyzer switch with everything off. `runCleanup` already
+  // refuses on two adjacent branches of that switch citing #1760; this is the
+  // third.
+  it('refuses an unrecognized type instead of running no analyzer', async () => {
+    configure({});
+    const result = await runCleanup({ cwd: '/tmp/test', type: 'duplicaiton' as never });
+    // MUTATION: drop the `isEntropyIssueType` guard and this returns ok with
+    // totalIssues 0 — a pass over nothing examined.
+    expect(result.ok).toBe(false);
+    expect(!result.ok && result.error.message).toContain('Unknown issue type "duplicaiton"');
+    expect(!result.ok && result.error.message).toContain('duplication');
+    expect(!result.ok && result.error.exitCode).not.toBe(0);
+    // Refused before anything was constructed or scanned.
+    expect(capturedConfigs).toHaveLength(0);
+  });
+
   it('skips silently under -t all on a disabled detector', async () => {
     configure({ duplication: false });
     const result = await runCleanup({ cwd: '/tmp/test', type: 'all' });
