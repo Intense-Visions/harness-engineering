@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/tests/entropy/detectors'
-sourceHash: 'd5c9bd93b9c987711b9ea2e90150441e93d42ca142915d4ada98ff83edf8caca'
+sourceHash: '67d6b495f09adc48c38a3dc261784a45a42aed697f963645917b5bd8b0e682d7'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -13,6 +13,7 @@ members:
     'dead-code-public-api.test.ts',
     'dead-code.test.ts',
     'drift.test.ts',
+    'duplication.test.ts',
     'patterns.checkers.test.ts',
     'patterns.test.ts',
     'size-budget.test.ts',
@@ -33,10 +34,12 @@ import { GraphComplexityData, detectComplexityViolations } from '../../../src/en
 import { GraphCouplingData, detectCouplingViolations } from '../../../src/entropy/detectors/coupling'
 import { buildReachabilityMap, detectDeadCode } from '../../../src/entropy/detectors/dead-code'
 import { detectDocDrift, findPossibleMatches, levenshteinDistance } from '../../../src/entropy/detectors/drift'
+import { detectDuplication } from '../../../src/entropy/detectors/duplication'
 import { checkConfigPattern, detectPatternViolations } from '../../../src/entropy/detectors/patterns'
 import { detectSizeBudgetViolations, parseSize } from '../../../src/entropy/detectors/size-budget'
 import { buildSnapshot } from '../../../src/entropy/snapshot'
 import { CodebaseSnapshot, ComplexityConfig, ConfigPattern, CouplingConfig, DeadCodeConfig, SizeBudgetConfig, SourceFile } from '../../../src/entropy/types'
+import { findFiles } from '../../../src/shared/fs-utils'
 import { TypeScriptParser } from '../../../src/shared/parsers'
 import { isOk } from '../../../src/shared/result'
 import { mkdtemp, rm, writeFile } from 'fs/promises'
