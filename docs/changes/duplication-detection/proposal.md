@@ -946,10 +946,19 @@ Two corrections to how that truncation was characterized:
 2. **The defect was broader than duplication.** `summary` and `analysisErrors` truncated away
    too, so every detailed consumer of `detect_entropy` was affected, not only the duplication
    one. That is why the fix is the key order and not a duplication-specific carve-out. The
-   residual, named: reordering guarantees the actionable keys are inside the delivered prefix,
-   not that the delivered text parses — on a project whose post-AST-strip payload still
-   exceeds the budget, the prefix is cut mid-value. `compact: false` remains the way to get
-   the whole report.
+   residual, named and MEASURED: reordering guarantees the actionable keys are inside the
+   delivered prefix, not that the delivered text parses — on a project whose post-AST-strip
+   payload still exceeds the budget, the prefix is cut mid-value. At Scope C (96 classes / 382
+   members) the duplication block ALONE serializes to 61,179 bytes ≈ 15,295 estimated tokens,
+   nearly 4x the 4,000-token budget, measured on the CLI's projection (which drops `byMember`,
+   `collisions` and `skipErrors`, so the MCP payload is at least that large). The claim that
+   the reorder makes "100% of the actionable payload survive" therefore holds only while the
+   actionable payload is itself small — true on the fixture, false on this repository.
+   `compact: false` plus the spill locator remains the only way to get a whole report at
+   product scale. (This repository cannot exercise that path through MCP today anyway: it has
+   a knowledge graph, so `detect_entropy type: "duplication"` can only return the
+   snapshot-bypassed refusal — which is why the figure is taken from the CLI projection at the
+   same scope.)
 
 **`filesSkipped` IS observable — the earlier "not observable through either shipped surface"
 was wrong.** `detect_entropy { type: "duplication", compact: false }` returns the full
