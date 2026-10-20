@@ -1,0 +1,70 @@
+---
+'@harness-engineering/cli': major
+---
+
+`harness design-pipeline`: a verifier that could not run no longer reports a pass
+
+**Breaking behaviour change for anything gating on the design-pipeline verdict.**
+`runDesignPipeline` derived `verdict` from the finding severities alone, so
+`context.verifiersFailed` — the record of a verifier that examined nothing —
+could not influence it. The pipeline reported `verdict: 'pass'` over a run in
+which one of its four verifiers saw no part of the design surface, and
+`harness design-pipeline` exits on the verdict (`verdict === 'fail' ? 1 : 0`),
+so that false pass was a gate that could not fail. `run_design_pipeline` (MCP)
+returned the same false verdict.
+
+Same bug class as `harness ci check` #2071, fixed in #2207: a summary field
+computed independently of the thing it summarises.
+
+**What changed.** The verdict is now resolved _from_ the context in a single
+expression, which returns the abstention set it resolved against as
+`context.degradedBy` — a projection of `verifiersFailed`, so the verdict and
+its evidence cannot disagree. This is a stronger property than checking the two
+for agreement: there is nothing to forget to check.
+
+- A non-empty `verifiersFailed` yields `verdict: 'fail'` with `degradedBy`
+  naming each abstaining verifier. Names are not de-duplicated —
+  `detect-drift` runs in both DETECT and the FIX loop, and two abstentions are
+  two facts.
+- An error-severity finding still wins the verdict, and `degradedBy` is still
+  populated alongside it, so a reader can always tell "we could not see part of
+  the surface" from "we found a violation".
+- A genuinely clean run still reports `pass`, and a warn-only run still reports
+  `warn`. Both directions are pinned by test.
+
+`verdict` keeps its three-value domain (`pass | warn | fail`), as the issue
+preferred over widening it: `degradedBy` carries the reason, `verdict` carries
+the non-zero-ness. This mirrors `harness check-design`, whose `valid` is
+`bySeverity.error === 0 && verifiersFailed.length === 0`. `check-design` also
+separates the two non-zero cases by exit code (`hasErrors ? 1 : degraded ? 2 : 0`);
+`harness design-pipeline` exits `1` for both, because its verdict→exit map lives
+in `packages/cli/src/commands/design-pipeline.ts`, outside this change.
+
+**What this means for your pipeline.** A design-pipeline step that is green
+today _because_ a verifier abstained will start failing. That is the defect
+being fixed — the gate was not enforcing anything — but it surfaces in your CI.
+`verifiersFailed[].error` and `degradedBy` name what could not run. #2210 made
+this reachable in five situations (an exclude glob that discarded every
+candidate; an explicit `files` list that resolved to nothing readable; a project
+walk that hit the depth cap; a design surface in a dialect no verifier parses;
+candidates that resolved but could not be opened), plus the FIX loop's final
+re-detect.
+
+`@harness-engineering/cli` is post-1.0 (13.x), so a behavioural break in a
+gate's verdict lands there as a **major**, matching #2207.
+
+**Two more instances of the same class, swept in the same surface:**
+
+- `craftSuggestions` was stored next to `craftFindings` by FILL. It is now
+  counted from that list in REPORT, so the count cannot drift from the list it
+  counts.
+- The AUDIT phase routes verifier findings into named buckets by verifier name.
+  The comment claimed an unknown name was "stashed under `audit-anatomy` by
+  default"; the branch had no `else`, so those findings were dropped while
+  `verifiersRun` recorded the verifier as having contributed. A 5th registered
+  verifier could report any number of violations and the run would still read
+  clean. An unroutable name is now an abstention naming the missing bucket.
+
+`newContext()` also initialised `verdict: 'pass'` — a green reading asserted
+before any verifier had run. It is now fail-closed; REPORT overwrites it on
+every run that reaches Phase 6.

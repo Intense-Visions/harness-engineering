@@ -145,7 +145,10 @@ async function invokeCraftPolish(input: FillInput): Promise<void> {
     });
     if (result.ok) {
       context.craftFindings = [...result.value.findings];
-      context.craftSuggestions = result.value.findings.length;
+      // `craftSuggestions` is deliberately NOT set here: REPORT counts it from
+      // `craftFindings`, so the list has one writer and its count one
+      // derivation. A count maintained beside its own list is the shape that
+      // let the verdict disagree with its evidence (#2273).
       context.verifiersRun.push('design-craft-critique');
     } else {
       context.verifiersFailed.push({

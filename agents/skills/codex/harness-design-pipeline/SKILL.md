@@ -75,6 +75,8 @@ interface DesignPipelineContext {
   verifiersRun: string[];
   verifiersFailed: Array<{ name: string; error: string }>;
   verdict: 'pass' | 'warn' | 'fail';
+  /** Projection of verifiersFailed the verdict was resolved against. */
+  degradedBy: string[];
   summary: { totalFindings; bySeverity; byCode; fixesApplied; iterationsRun; durationMs };
 }
 ```
@@ -100,7 +102,7 @@ The context is passed to sub-skills via `.harness/handoff.json` with a `pipeline
 1. Invoke `runDetectDrift({ path, mode, files? })`.
 2. Populate `context.driftFindings` with all `DRIFT-T*` and `DRIFT-P*` findings.
 3. Record `'detect-drift'` in `context.verifiersRun`.
-4. On failure: push to `context.verifiersFailed` and continue (graceful degradation).
+4. On failure: push to `context.verifiersFailed` and continue (graceful degradation). Graceful degradation means the OTHER verifiers still run — it does **not** mean the run can still report `pass`.
 5. If `design.audit.driftDetection.enabled === false` in config: SKIP this phase entirely.
 
 ### Phase 3: FIX — Convergence-Based Drift Remediation
@@ -151,7 +153,7 @@ Set `context.bootstrapped.{designMd,tokensJson,componentRegistry,brandRules}` pe
 **5b. Invoke design-craft-elevator POLISH (critique phase).**
 
 1. Call `runDesignCraft({ phases: ['critique'] })`.
-2. Populate `context.craftFindings` and `context.craftSuggestions`.
+2. Populate `context.craftFindings` (REPORT counts `craftSuggestions` from it).
 3. Record `'design-craft-critique'` in `context.verifiersRun`.
 
 design-craft suggestions are surfaced in REPORT but do NOT contribute to the `error`/`warn` severity counts — they're ceiling-layer suggestions, not violations.
@@ -163,10 +165,20 @@ Compute verdict:
 | Condition                                                               | Verdict |
 | ----------------------------------------------------------------------- | ------- |
 | Any error-severity finding remains after FIX                            | `fail`  |
+| Any verifier abstained (`verifiersFailed` non-empty → `degradedBy`)     | `fail`  |
 | Any warn-severity finding OR craft suggestion OR bootstrapped any input | `warn`  |
-| Zero findings, zero suggestions, zero bootstrapped                      | `pass`  |
+| Zero findings, zero suggestions, zero bootstrapped, every verifier ran  | `pass`  |
 
-Aggregate `summary.bySeverity` and `summary.byCode` across drift + anatomy + brand findings. (Craft findings use tier, not severity — they're tracked separately.)
+**A verifier that could not run is not a pass.** The verdict is resolved from
+the context in one expression, and `context.degradedBy` is the projection of
+`verifiersFailed` that expression resolved against — so the verdict and its
+evidence cannot disagree. A non-empty `degradedBy` means the `fail` is "part of
+the design surface was never examined", not "a violation was found"; both are
+`fail` because `harness design-pipeline` exits non-zero only on `fail`.
+`harness check-design` draws the same line, with exit code 2 for the degraded
+case.
+
+Aggregate `summary.bySeverity` and `summary.byCode` across drift + anatomy + brand findings. (Craft findings use tier, not severity — they're tracked separately.) `craftSuggestions` is **counted from** `craftFindings` here rather than stored beside it by FILL.
 
 Render human-readable or JSON output.
 
