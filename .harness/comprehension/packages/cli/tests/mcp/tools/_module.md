@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/tests/mcp/tools'
-sourceHash: '512ba7cbfd95c6c8593eb2e74193e049a0fad9c53205c1033a2956ebe292cd5a'
+sourceHash: '4050de1db416a0904a3e28148dac4c37ef7c63d65f221bdaf612b78b002c2886'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -33,6 +33,7 @@ members:
     'docs-publish-cov544.test.ts',
     'docs.test.ts',
     'entropy-config-threading.test.ts',
+    'entropy-duplication.test.ts',
     'entropy-patterns-empty-ruleset.test.ts',
     'entropy.test.ts',
     'event-emitter.test.ts',

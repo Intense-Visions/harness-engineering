@@ -1,10 +1,14 @@
 import { Ok } from '@harness-engineering/core';
-import type { DriftConfig, PatternConfig } from '@harness-engineering/core';
+import type { DriftConfig, PatternConfig, DuplicationConfig } from '@harness-engineering/core';
 import { skipDirGlobs } from '@harness-engineering/graph';
 import { resultToMcpResponse } from '../utils/result-adapter.js';
 import { sanitizePath } from '../utils/sanitize-path.js';
 import { findConfigFile, loadConfig } from '../../config/loader.js';
 import { loadAnalysisExclude } from '../../config/analysis-schema.js';
+import {
+  resolveDuplicationRequest,
+  describeDuplicationNotRun,
+} from '../../shared/duplication-request.js';
 
 /**
  * Load the `entropy` section of the project's harness config, if present.
@@ -53,15 +57,16 @@ async function loadEntropyGraphOptions(projectPath: string) {
 export const detectEntropyDefinition = {
   name: 'detect_entropy',
   description:
-    'Detect documentation drift, dead code, and pattern violations. Optionally auto-fix detected issues.',
+    'Detect documentation drift, dead code, pattern violations, and duplicated code units (clone classes, advisory). Optionally auto-fix detected issues.',
   inputSchema: {
     type: 'object' as const,
     properties: {
       path: { type: 'string', description: 'Path to project root' },
       type: {
         type: 'string',
-        enum: ['drift', 'dead-code', 'patterns', 'all'],
-        description: 'Type of entropy to detect (default: all)',
+        enum: ['drift', 'dead-code', 'patterns', 'duplication', 'all'],
+        description:
+          'Type of entropy to detect (default: all). "duplication" reports clone classes and is advisory — it is never summed into totalIssues; under "all" it runs only when entropy.duplication is configured.',
       },
       autoFix: {
         type: 'boolean',
@@ -203,6 +208,19 @@ export async function handleDetectEntropy(input: {
       };
     }
 
+    // Same opt-in rule as `harness cleanup` — one resolver, two surfaces, so
+    // they cannot drift (plan decisions P3/P4/P14).
+    const duplicationRequest = resolveDuplicationRequest(
+      typeFilter,
+      entropy?.duplication as boolean | Partial<DuplicationConfig> | undefined
+    );
+    if (duplicationRequest.kind === 'refuse') {
+      return {
+        content: [{ type: 'text' as const, text: duplicationRequest.message }],
+        isError: true,
+      };
+    }
+
     // Project-wide analysis.exclude globs apply on top of the entropy-specific
     // excludes (or the built-in defaults when no entropy block is configured).
     const analysisExclude = loadAnalysisExclude(projectPath);
@@ -223,11 +241,34 @@ export async function handleDetectEntropy(input: {
         // becomes an empty rule set that misrepresents "checked" as "passed"
         // (#1792). For `all`, patterns are simply skipped when unconfigured.
         patterns: patternsRequested && hasPatternRules && patternConfig ? patternConfig : false,
+        ...(duplicationRequest.kind === 'run' && { duplication: duplicationRequest.analyze }),
       },
     });
 
     const graphOptions = await loadEntropyGraphOptions(projectPath);
     const result = await analyzer.analyze(graphOptions);
+
+    // `loadEntropyGraphOptions` returns BOTH graph keys whenever a graph
+    // exists, which makes `analyze()` bypass the snapshot — and duplication,
+    // which discovers through `snapshot.files`, then refuses with
+    // `details.reason: 'snapshot-bypassed'` and leaves the report undefined.
+    // For an explicit request that silence would render as "no duplication
+    // found", so name it (spec Phase 3 forward note 3). Under `all` the reason
+    // is already in the payload's `analysisErrors`, and the other categories
+    // still have results worth returning.
+    if (
+      result.ok &&
+      duplicationRequest.kind === 'run' &&
+      !result.value.duplication &&
+      input.type === 'duplication'
+    ) {
+      return {
+        content: [
+          { type: 'text' as const, text: describeDuplicationNotRun(result.value.analysisErrors) },
+        ],
+        isError: true,
+      };
+    }
 
     // Response density control
     if (input.mode === 'summary' && result.ok && !input.autoFix) {

@@ -104,6 +104,7 @@ describe('detect_entropy tool', () => {
         'drift',
         'dead-code',
         'patterns',
+        'duplication',
         'all',
       ]);
     });
