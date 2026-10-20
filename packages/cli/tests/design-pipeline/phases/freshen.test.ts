@@ -25,7 +25,6 @@ describe('runFreshen', () => {
   it('marks all inputs absent on empty project', () => {
     const ctx = newContext();
     runFreshen({ projectRoot: tmpDir, context: ctx });
-    expect(ctx.graphAvailable).toBe(false);
     expect(ctx.inputs.designMdExists).toBe(false);
     expect(ctx.inputs.tokensJsonExists).toBe(false);
     expect(ctx.inputs.componentRegistryExists).toBe(false);
@@ -65,17 +64,10 @@ describe('runFreshen', () => {
     expect(ctx.inputs.tokensJsonExists).toBe(true);
   });
 
-  it('detects a persisted graph (graph.json) for graphAvailable', () => {
+  it('no longer reports graphAvailable: no composed verifier reads the graph', () => {
     writeFile('.harness/graph/graph.json', '{"kind":"schema"}\n');
     const ctx = newContext();
     runFreshen({ projectRoot: tmpDir, context: ctx });
-    expect(ctx.graphAvailable).toBe(true);
-  });
-
-  it('treats an empty .harness/graph directory (no graph.json) as unavailable', () => {
-    fs.mkdirSync(path.join(tmpDir, '.harness', 'graph'), { recursive: true });
-    const ctx = newContext();
-    runFreshen({ projectRoot: tmpDir, context: ctx });
-    expect(ctx.graphAvailable).toBe(false);
+    expect(Object.prototype.hasOwnProperty.call(ctx, 'graphAvailable')).toBe(false);
   });
 });

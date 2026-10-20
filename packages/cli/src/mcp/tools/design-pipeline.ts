@@ -33,7 +33,9 @@ export const designPipelineDefinition = {
       noFill: { type: 'boolean', description: 'Skip FILL phase' },
       ci: {
         type: 'boolean',
-        description: 'Non-interactive: safe fixes only, no prompts',
+        description:
+          'Deprecated, no effect: every run is already non-interactive and applies safe fixes only. ' +
+          'Passing it adds a notice to `warnings` in the result.',
       },
       mode: {
         type: 'string',

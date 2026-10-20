@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/design-pipeline/phases'
-sourceHash: '9eaf69e83a62d737bb6a30e413728a152f42accb6c5ca0bb0687d6fc96a6a9f5'
+sourceHash: '9a13393337d9e6f45c39eb5a6f37aa7d29ee0556135fda01a7a3d87528c408cf'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -42,7 +42,6 @@ import { DesignPipelineContext, Verdict, newContext } from '../context.js'
 import { VerifierRegistry } from '../registry.js'
 import { runDetect } from './detect.js'
 import { FixInput, runFix } from './fix.js'
-import { resolveGraphDir } from '@harness-engineering/graph'
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import { beforeEach, describe, expect, it, vi } from 'vitest'

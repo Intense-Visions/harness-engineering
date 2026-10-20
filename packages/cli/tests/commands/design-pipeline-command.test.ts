@@ -30,7 +30,6 @@ function inputHandedToEngine(): Record<string, unknown> {
 
 function context(overrides: Partial<DesignPipelineContext> = {}): DesignPipelineContext {
   return {
-    graphAvailable: false,
     inputs: {
       designMdExists: false,
       tokensJsonExists: false,
@@ -51,6 +50,7 @@ function context(overrides: Partial<DesignPipelineContext> = {}): DesignPipeline
     craftFindings: overrides.craftFindings ?? [],
     craftSuggestions: overrides.craftSuggestions ?? 0,
     exclusions: overrides.exclusions ?? new Set<string>(),
+    warnings: overrides.warnings ?? [],
     verifiersRun: overrides.verifiersRun ?? [],
     verifiersFailed: overrides.verifiersFailed ?? [],
     verdict: overrides.verdict ?? 'pass',
@@ -307,6 +307,30 @@ describe('design-pipeline command → verdict badge', () => {
       expect((await run([])).stdoutLines).toContain(line);
     });
   }
+});
+
+describe('design-pipeline command → warnings and exclusions in human mode', () => {
+  it('prints every engine warning, so an accepted-but-inert option is never silent', async () => {
+    engineReturns(context({ warnings: ['first notice', 'second notice'] }));
+    const res = await run([]);
+    const out = res.stdoutLines.join('\n');
+    expect(out).toContain('first notice');
+    expect(out).toContain('second notice');
+  });
+
+  it('names the applied exclude globs on the DETECT line', async () => {
+    engineReturns(context({ exclusions: new Set(['src/legacy/**', '**/*.stories.tsx']) }));
+    const res = await run([]);
+    expect(res.stdoutLines).toContain(
+      '  DETECT   drift findings: 0, excluded globs: src/legacy/**, **/*.stories.tsx'
+    );
+  });
+
+  it('keeps the bare DETECT line when no globs were applied', async () => {
+    engineReturns(context());
+    const res = await run([]);
+    expect(res.stdoutLines).toContain('  DETECT   drift findings: 0');
+  });
 });
 
 describe('design-pipeline command → FRESHEN line', () => {

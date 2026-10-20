@@ -58,7 +58,10 @@ export function createDesignPipelineCommand(): Command {
     .option('--fix', 'Enable convergence-based remediation (default: detect + report only)')
     .option('--no-freshen', 'Skip the FRESHEN phase')
     .option('--no-fill', 'Skip the FILL phase (input bootstrap + craft polish)')
-    .option('--ci', 'Non-interactive: safe fixes only, no prompts')
+    .option(
+      '--ci',
+      'Deprecated, no effect: every run is already non-interactive and applies safe fixes only'
+    )
     .option('-f, --files <files...>', 'Optional file/glob scope passed to each verifier')
     .option('-m, --mode <mode>', 'Verifier mode: fast | full', 'fast')
     .option(
@@ -125,7 +128,10 @@ function printPipelineResult(
       ` registry=${result.inputs.componentRegistryExists ? 'yes' : 'no'}` +
       ` brand=${result.inputs.brandRulesExist ? 'yes' : 'no'}`
   );
-  console.log(`  DETECT   drift findings: ${result.driftFindings.length}`);
+  console.log(
+    `  DETECT   drift findings: ${result.driftFindings.length}` +
+      (result.exclusions.size > 0 ? `, excluded globs: ${[...result.exclusions].join(', ')}` : '')
+  );
   console.log(
     `  FIX      iterations: ${result.summary.iterationsRun}, fixes applied: ${result.summary.fixesApplied}`
   );
@@ -152,6 +158,9 @@ function printPipelineResult(
     for (const f of result.verifiersFailed) {
       console.log(`  - ${f.name}: ${f.error}`);
     }
+  }
+  for (const w of result.warnings) {
+    logger.warn(w);
   }
 }
 

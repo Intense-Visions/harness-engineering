@@ -113,6 +113,34 @@ describe('runDesignPipeline (integration)', () => {
     expect(out.verifiersRun).toContain('design-craft-critique');
   });
 
+  it('exclusions carries the exclude globs DETECT applied, and the excluded file is absent', async () => {
+    writeFile(
+      'design-system/tokens.json',
+      JSON.stringify({ color: { brand: { primary: { $type: 'color', $value: '#0066cc' } } } })
+    );
+    writeFile('harness.config.json', JSON.stringify({ design: { exclude: ['src/legacy/**'] } }));
+    writeFile('src/Card.ts', `const c = { color: "#0066cc" };\n`);
+    writeFile('src/legacy/Old.ts', `const d = { color: "#0066cc" };\n`);
+
+    const out = await runDesignPipeline({ path: tmpDir, noFill: true });
+    expect([...out.exclusions]).toEqual(['src/legacy/**']);
+    // Positive control: drift is detected, just not in the excluded file.
+    expect(out.driftFindings.some((f) => f.file.endsWith('Card.ts'))).toBe(true);
+    expect(out.driftFindings.some((f) => f.file.endsWith('Old.ts'))).toBe(false);
+  });
+
+  it('ci: true is a deprecated no-op that is reported on warnings, not silently accepted', async () => {
+    writeFile('src/Card.tsx', `export const Card = () => <div>ok</div>;\n`);
+    const withCi = await runDesignPipeline({ path: tmpDir, noFill: true, ci: true });
+    expect(withCi.warnings).toHaveLength(1);
+    expect(withCi.warnings[0]).toMatch(/deprecated and has no effect/);
+
+    const without = await runDesignPipeline({ path: tmpDir, noFill: true });
+    expect(without.warnings).toEqual([]);
+    // Same verdict either way: the option changes nothing but the notice.
+    expect(withCi.verdict).toBe(without.verdict);
+  });
+
   it('summary.durationMs is recorded', async () => {
     const out = await runDesignPipeline({ path: tmpDir });
     expect(out.summary.durationMs).toBeGreaterThanOrEqual(0);

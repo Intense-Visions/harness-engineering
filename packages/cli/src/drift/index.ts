@@ -55,7 +55,18 @@ import type { Verifier } from '../shared/verifier.js';
 export type DetectDriftOutput = Verifier<
   DriftFinding,
   { rulesApplied: string[] },
-  { mode: DetectDriftMode; tokensLoaded: boolean; registryLoaded: boolean }
+  {
+    mode: DetectDriftMode;
+    tokensLoaded: boolean;
+    registryLoaded: boolean;
+    /**
+     * Exclude globs the file walk actually applied. Empty when an explicit
+     * `files` scope was given, because that path bypasses the walk and its
+     * filter entirely — reporting the configured globs there would claim a
+     * filter that never ran.
+     */
+    excludePatterns: string[];
+  }
 >;
 
 /**
@@ -218,6 +229,9 @@ export async function runDetectDrift(input: DetectDriftInput): Promise<DetectDri
       mode: config.mode,
       tokensLoaded: config.tokens !== null,
       registryLoaded: config.registry !== null,
+      // Same condition collectDesignScanFiles uses to bypass the walk.
+      excludePatterns:
+        input.files !== undefined && input.files.length > 0 ? [] : [...config.excludePatterns],
     },
   };
 }

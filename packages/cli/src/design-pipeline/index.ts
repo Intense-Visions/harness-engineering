@@ -37,8 +37,18 @@ export interface DesignPipelineInput {
   fix?: boolean;
   noFreshen?: boolean;
   noFill?: boolean;
+  /**
+   * @deprecated Accepted for compatibility and changes nothing. Every v1 run is
+   * already non-interactive and FIX applies only safe codemods, which is all
+   * `--ci` ever promised. Passing it records a notice on `warnings` so the
+   * no-op is visible rather than silent.
+   */
   ci?: boolean;
 }
+
+export const CI_OPTION_DEPRECATION =
+  '`ci` / `--ci` is deprecated and has no effect: design-pipeline is always ' +
+  'non-interactive and FIX applies only safe codemods. Drop the option.';
 
 export async function runDesignPipeline(
   input: DesignPipelineInput
@@ -47,6 +57,7 @@ export async function runDesignPipeline(
   const projectRoot = sanitizePath(input.path);
   const mode = input.mode ?? 'fast';
   const context = newContext();
+  if (input.ci === true) context.warnings.push(CI_OPTION_DEPRECATION);
 
   // Build the verifier registry. Registering a 5th verifier here is necessary
   // but NOT sufficient: AUDIT also needs a findings bucket for its name, and

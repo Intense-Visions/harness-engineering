@@ -19,7 +19,6 @@ export type Verdict = 'pass' | 'warn' | 'fail';
 
 export interface DesignPipelineContext {
   // Pipeline state
-  graphAvailable: boolean;
   inputs: {
     designMdExists: boolean;
     tokensJsonExists: boolean;
@@ -47,7 +46,20 @@ export interface DesignPipelineContext {
    * so the count cannot drift from the list it counts (#2273).
    */
   craftSuggestions: number;
+  /**
+   * The exclude globs (`design.exclude` ∪ `analysis.exclude`) the DETECT walk
+   * actually applied, as reported by detect-design-drift itself rather than
+   * re-resolved here, so the report cannot claim a filter the scan did not use.
+   * Empty when the walk applied none: no globs configured, an explicit
+   * `files` scope (which bypasses the walk), or DETECT abstained.
+   */
   exclusions: Set<string>;
+  /**
+   * Non-fatal notices about how the run was invoked — e.g. a deprecated
+   * option that was accepted but changes nothing. They do not affect the
+   * verdict; they exist so an accepted-but-inert input is never silent.
+   */
+  warnings: string[];
 
   // Verifier failures (graceful degradation)
   verifiersRun: string[];
@@ -74,6 +86,11 @@ export interface DesignPipelineContext {
     bySeverity: Record<'error' | 'warn' | 'info', number>;
     byCode: Record<string, number>;
     fixesApplied: number;
+    /**
+     * FIX-loop passes executed: one per align-design-system invocation,
+     * including the pass that converged, made no progress, or failed. 0 only
+     * when FIX did not run (no `--fix`) or there was no drift to fix.
+     */
     iterationsRun: number;
     durationMs: number;
   };
@@ -81,7 +98,6 @@ export interface DesignPipelineContext {
 
 export function newContext(): DesignPipelineContext {
   return {
-    graphAvailable: false,
     inputs: {
       designMdExists: false,
       tokensJsonExists: false,
@@ -100,6 +116,7 @@ export function newContext(): DesignPipelineContext {
     craftFindings: [],
     craftSuggestions: 0,
     exclusions: new Set(),
+    warnings: [],
     verifiersRun: [],
     verifiersFailed: [],
     // Fail-closed. This is the verdict before any verifier has run, so `pass`

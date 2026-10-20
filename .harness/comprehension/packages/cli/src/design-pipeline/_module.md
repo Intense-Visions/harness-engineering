@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/design-pipeline'
-sourceHash: '8a9d9bde0f723ecfac29e2dacf4220a7a7f64666d053e2447cff051a383b0db4'
+sourceHash: '3d861f05ebcdecbd169482b2e17649da2e8ec6c686c163e115e8ec7acf806e0a'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -11,6 +11,7 @@ members: ['context.ts', 'index.ts', 'registry.ts']
 ## Interface Contract
 
 ```ts
+export CI_OPTION_DEPRECATION
 export DesignPipelineContext
 export Verdict
 export runDesignPipeline

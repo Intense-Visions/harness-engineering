@@ -35,6 +35,13 @@ export async function runFix(input: FixInput): Promise<void> {
   let previousCount = context.driftFindings.length;
 
   while (iteration < MAX_ITERATIONS) {
+    // Count the pass when it STARTS, so every exit below — converged, no
+    // progress, align or re-detect failure — reports the passes that ran.
+    // Incrementing only on the progress path reported `iterationsRun: 0`
+    // beside `fixesApplied > 0` for a pass that applied fixes and then hit
+    // the no-progress stop: a summary contradicting its own evidence.
+    iteration++;
+
     // Write pipeline handoff so align reads pre-classified findings
     writePipelineHandoff(projectRoot, context);
 
@@ -71,7 +78,6 @@ export async function runFix(input: FixInput): Promise<void> {
     const newCount = detectResult.findings.length;
     if (newCount >= previousCount) break; // no progress
     previousCount = newCount;
-    iteration++;
   }
   context.summary.iterationsRun = iteration;
 }

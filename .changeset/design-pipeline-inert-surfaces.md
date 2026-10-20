@@ -1,0 +1,10 @@
+---
+'@harness-engineering/cli': minor
+---
+
+`harness design-pipeline` / `run_design_pipeline`: four outputs and options that were accepted or reported but did nothing are now either real or explicitly marked (#2303).
+
+- **`summary.iterationsRun` counts the FIX passes that ran.** It used to increment only when a re-detect found strictly fewer findings, so a pass that applied fixes and then hit the no-progress stop reported `FIX iterations: 0, fixes applied: 1`. It now counts one per align-design-system invocation, including the pass that converged, made no progress, or failed. `fixesApplied > 0` therefore always comes with `iterationsRun >= 1`. **Behaviour change for consumers of the number:** a run that converged on its first pass now reports `1` (was `0`); a run that reached the 5-pass cap still reports `5`.
+- **`exclusions` now carries the exclude globs DETECT applied.** It was initialised empty and written by no phase, so every report said no exclusions were applied even when `design.exclude` / `analysis.exclude` filtered files. detect-design-drift now reports the globs its walk applied on a new `meta.excludePatterns` field (also visible from the `detect_drift` MCP tool), and DETECT copies that rather than re-resolving config. It is empty for an explicit `files` scope, which bypasses the walk. The text report names the globs on the DETECT line.
+- **`--ci` / `ci` is deprecated and has no effect, and now says so.** Every v1 run is already non-interactive and FIX only applies safe codemods, which is everything `--ci` promised, so there was nothing for it to switch. It is still accepted (so existing `--ci --fix` invocations keep working), and passing it adds a notice to a new `warnings: string[]` field on the result, printed as a warning in the text report. The skill no longer recommends it.
+- **`graphAvailable` is removed from the result.** FRESHEN set it from the presence of `.harness/graph/graph.json`, but no composed verifier reads the knowledge graph, so nothing consumed it — and under `--no-freshen` it reported `false` with a graph on disk. **Payload change:** a consumer reading `graphAvailable` now gets `undefined`.

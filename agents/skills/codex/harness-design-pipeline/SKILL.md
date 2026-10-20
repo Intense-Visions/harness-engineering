@@ -41,16 +41,16 @@ This orchestrator delegates to sub-skills — it never reimplements their logic.
 
 ## Flags
 
-| Flag                      | Effect                                                            |
-| ------------------------- | ----------------------------------------------------------------- |
-| `--fix`                   | Enable convergence-based auto-fix (default: detect + report only) |
-| `--no-freshen`            | Skip the FRESHEN phase                                            |
-| `--no-fill`               | Skip the FILL phase (input bootstrap + craft polish)              |
-| `--ci`                    | Non-interactive: safe fixes only, no prompts                      |
-| `--mode <m>`              | Verifier mode (`fast` or `full`); default `fast`                  |
-| `--files <...>`           | Optional file/glob scope passed to each verifier                  |
-| `--design-strictness <s>` | Override `design.strictness`                                      |
-| `--json`                  | Machine-readable output                                           |
+| Flag                      | Effect                                                                                                  |
+| ------------------------- | ------------------------------------------------------------------------------------------------------- |
+| `--fix`                   | Enable convergence-based auto-fix (default: detect + report only)                                       |
+| `--no-freshen`            | Skip the FRESHEN phase                                                                                  |
+| `--no-fill`               | Skip the FILL phase (input bootstrap + craft polish)                                                    |
+| `--ci`                    | Deprecated, no effect (every run is non-interactive, safe-only); passing it adds a notice to `warnings` |
+| `--mode <m>`              | Verifier mode (`fast` or `full`); default `fast`                                                        |
+| `--files <...>`           | Optional file/glob scope passed to each verifier                                                        |
+| `--design-strictness <s>` | Override `design.strictness`                                                                            |
+| `--json`                  | Machine-readable output                                                                                 |
 
 ## Shared Context Object
 
@@ -58,7 +58,6 @@ All phases read from and write to a shared `DesignPipelineContext`:
 
 ```typescript
 interface DesignPipelineContext {
-  graphAvailable: boolean;
   inputs: {
     designMdExists: boolean;
     tokensJsonExists: boolean;
@@ -71,12 +70,16 @@ interface DesignPipelineContext {
   auditFindings: { anatomy: AnatomyFinding[]; brand: BrandFinding[] };
   craftFindings: CraftFinding[];
   craftSuggestions: number;
+  /** Exclude globs the DETECT walk applied (empty for an explicit `files` scope). */
   exclusions: Set<string>;
+  /** Non-fatal notices, e.g. a deprecated option that changed nothing. */
+  warnings: string[];
   verifiersRun: string[];
   verifiersFailed: Array<{ name: string; error: string }>;
   verdict: 'pass' | 'warn' | 'fail';
   /** Projection of verifiersFailed the verdict was resolved against. */
   degradedBy: string[];
+  /** iterationsRun = FIX-loop passes executed (one per align invocation). */
   summary: { totalFindings; bySeverity; byCode; fixesApplied; iterationsRun; durationMs };
 }
 ```
@@ -89,18 +92,17 @@ The context is passed to sub-skills via `.harness/handoff.json` with a `pipeline
 
 **Skip this phase if `--no-freshen` flag is set.**
 
-1. **Check graph existence.** Look for `.harness/graph/` directory; set `context.graphAvailable`.
-2. **Check input file presence:**
+1. **Check input file presence:**
    - `design-system/DESIGN.md` exists?
    - `design-system/tokens.json` exists?
    - `## Component Registry` section present in DESIGN.md?
    - `## Brand Rules` section present in DESIGN.md?
-3. **Set `context.inputs.*` flags.** Bootstrap action is DEFERRED to FILL phase (clean phase responsibilities).
+2. **Set `context.inputs.*` flags.** Bootstrap action is DEFERRED to FILL phase (clean phase responsibilities).
 
 ### Phase 2: DETECT — Find Design Drift
 
 1. Invoke `runDetectDrift({ path, mode, files? })`.
-2. Populate `context.driftFindings` with all `DRIFT-T*` and `DRIFT-P*` findings.
+2. Populate `context.driftFindings` with all `DRIFT-T*` and `DRIFT-P*` findings, and `context.exclusions` with the exclude globs detect-design-drift reports it applied (`meta.excludePatterns`).
 3. Record `'detect-drift'` in `context.verifiersRun`.
 4. On failure: push to `context.verifiersFailed` and continue (graceful degradation). Graceful degradation means the OTHER verifiers still run — it does **not** mean the run can still report `pass`.
 5. If `design.audit.driftDetection.enabled === false` in config: SKIP this phase entirely.
@@ -116,6 +118,7 @@ previousCount = context.driftFindings.length
 maxIterations = 5
 
 while iteration < maxIterations:
+  0. iteration++            (counted when the pass starts, so every stop reports it)
   1. Write pipeline.driftFindings to handoff.json
   2. Invoke align-design-system in pipeline mode
   3. Append outcomes to context.fixesApplied
@@ -124,8 +127,9 @@ while iteration < maxIterations:
   6. newCount = remaining findings
   7. if newCount >= previousCount: STOP (no progress)
   8. previousCount = newCount
-  9. iteration++
 ```
+
+`summary.iterationsRun` is the number of passes that ran, including the one that converged, made no progress, or failed — so `fixesApplied > 0` always comes with `iterationsRun >= 1`.
 
 Each align run mutates source files via its safe codemods (T001/T002/T003 only). Probably-safe / unsafe / failed outcomes are recorded but never auto-applied (align's pre-flight classifier is the gate).
 
@@ -184,7 +188,7 @@ Render human-readable or JSON output.
 
 ## Harness Integration
 
-- **`harness design-pipeline`** — CLI entry point. Recommended for CI usage with `--ci --fix`.
+- **`harness design-pipeline`** — CLI entry point. Recommended for CI usage with `--fix`.
 - **`mcp__harness__run_design_pipeline`** — MCP tool. Same input/output. Consumed by agents needing the full design health check.
 - **`harness check-design`** — Single-pass verifier. The orchestrator INVOKES check-design's underlying verifiers (anatomy, drift, brand) but expands them into a convergence-loop pipeline. Choose check-design for one-shot verification; choose this orchestrator for the full pipeline with fixes.
 - **`harness validate`** — Stays single-pass (and fast). The orchestrator is opt-in and heavier — different contract.
@@ -276,7 +280,7 @@ Summary: 0 total findings (0 error, 0 warn, 0 info) in 89ms
 
 - **No new verifier logic.** Iron Law. Delegate to sub-skills exclusively.
 - **No graph schema changes.** Findings persist through the existing `DesignConstraintAdapter.recordFindings()` path.
-- **No interactive prompts in v1.** `--fix` applies safe codemods silently; probably-safe / unsafe surface as suggestions only. `--ci` is the default behavior in v1; v1.x adds `--interactive` for terminal sessions.
+- **No interactive prompts in v1.** `--fix` applies safe codemods silently; probably-safe / unsafe surface as suggestions only. Every v1 run is non-interactive, so `--ci` is accepted but deprecated and has no effect; v1.x adds `--interactive` for terminal sessions.
 - **No standalone `harness validate` invocation.** validate stays single-pass; the orchestrator is opt-in.
 - **No DESIGN.md content generation.** Bootstrap writes stubs with TODO comments — sample content rots faster than skeletons.
 
@@ -287,7 +291,7 @@ Summary: 0 total findings (0 error, 0 warn, 0 info) in 89ms
 - **When FILL bootstraps a file you didn't want bootstrapped:** delete the stub; the orchestrator only writes when the file is absent. Or run with `--no-fill` to suppress the entire phase.
 - **When verdict is `fail` but you want to merge anyway:** the orchestrator exits with code 1; bypass via CI config (treating design-pipeline as advisory not blocking). Not recommended — error-severity findings represent declared violations.
 - **When verdict is `fail` with zero error-severity findings:** the run is _degraded_, not violating — `degradedBy` names each verifier that abstained and `verifiersFailed[].error` says why. A verifier that could not examine its part of the design surface did not pass it, so the verdict fails rather than reporting a pass over unexamined code. Fix the cause the error names. A common one is the craft critique failing because a backend was **selected but cannot serve it**: `HARNESS_CRAFT_LLM` or `craft.llm.backend` names an entry missing from `agent.backends`, the entry has an unsupported type or is incomplete (no `model`, `endpoint` or API key), or the configured backend is unreachable at call time (an outage, a rate limit, a network error). With **no** LLM configuration at all the critique runs in-session and does not abstain, so that is not a reason to change flags. Craft is an advisory ceiling layer; if you want an unreliable configured backend never to fail CI, run with `--no-fill`, which skips the FILL phase so the critique cannot abstain. That turns craft off rather than making it advisory — no craft suggestions are produced — and it also skips input bootstrap, so a project with no design system reports `pass` instead of `warn`.
-- **When `--ci` mode is too conservative:** v1's `--ci` only applies align's `safe-codemod`-classified fixes. Use v1.x's `--interactive` (or the standalone `harness align-design-system --dry-run`) to review and apply probably-safe fixes manually.
+- **When safe-only fixing is too conservative:** v1 only applies align's `safe-codemod`-classified fixes, with or without `--ci`. Use v1.x's `--interactive` (or the standalone `harness align-design-system --dry-run`) to review and apply probably-safe fixes manually.
 
 ## Status
 

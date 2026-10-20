@@ -1223,7 +1223,7 @@ Run the design-pipeline orchestrator: FRESHEN -> DETECT -> FIX -> AUDIT -> FILL 
 - `fix` (boolean, optional) — Enable convergence-based remediation
 - `noFreshen` (boolean, optional) — Skip FRESHEN phase
 - `noFill` (boolean, optional) — Skip FILL phase
-- `ci` (boolean, optional) — Non-interactive: safe fixes only, no prompts
+- `ci` (boolean, optional) — Deprecated, no effect: every run is already non-interactive and applies safe fixes only. Passing it adds a notice to `warnings` in the result.
 - `mode` (string, optional) — Verifier mode passed to each composed verifier
 - `files` (array, optional) — Optional file/glob scope
 - `designStrictness` (string, optional) — Override design.strictness
