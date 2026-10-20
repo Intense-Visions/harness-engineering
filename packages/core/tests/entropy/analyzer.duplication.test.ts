@@ -281,12 +281,21 @@ describe('EntropyAnalyzer duplication invariants', () => {
   it('never hands the detector a file the snapshot parser rejected, so an analyzer-level skip cannot be forced', async () => {
     // Planning decision P1's recorded consequence, asserted as a POSITIVE fact
     // rather than hedged around: `snapshot.files` holds only what the
-    // snapshot's own parser accepted, and `analyze()` rebuilds the snapshot
-    // immediately before calling the detector — so an unparseable file is gone
-    // before the detector exists. That is why criterion 12's per-file contract
-    // is proven at the DETECTOR level (duplication.test.ts), where it can be
-    // forced, and why the case above stubs the detector to reach the
-    // analyzer's tagging.
+    // snapshot's own parser accepted, so an unparseable file is gone before
+    // the detector sees anything.
+    //
+    // The structural reason an analyzer-level skip cannot be FORCED is the
+    // missing seam, and two earlier statements of it were wrong. `analyze()`
+    // does not "unconditionally rebuild the snapshot" — it has two branches,
+    // and the graph-fed one replaces the snapshot instead of building it (see
+    // the snapshot-bypass case above). Nor is it that there is "no public
+    // `buildSnapshot()`": `entropy/index.ts:11` exports it. The actual reason
+    // is that `EntropyAnalyzer.snapshot` is PRIVATE and `analyze()` assigns it
+    // on every call, down either branch — so a caller has nowhere to inject a
+    // snapshot carrying a file the snapshot parser rejected. That is why
+    // criterion 12's per-file contract is proven at the DETECTOR level
+    // (duplication.test.ts), where a path can be handed in directly, and why
+    // the case above stubs the detector to reach the analyzer's tagging loop.
     const { mkdtemp, writeFile, mkdir, rm } = await import('node:fs/promises');
     const { tmpdir } = await import('node:os');
     const root = await mkdtemp(join(tmpdir(), 'dup-analyzer-'));
