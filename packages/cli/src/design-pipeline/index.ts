@@ -4,9 +4,14 @@
  * and design-craft-elevator into a sequential pipeline with
  * convergence-based remediation.
  *
- * Mirrors harness-docs-pipeline in shape. Consumes the just-extracted
- * Verifier<F> interface generically so a 5th rule-based verifier
- * composes for free (zero orchestrator changes).
+ * Mirrors harness-docs-pipeline in shape. AUDIT invokes every registered
+ * Verifier<F> through one generic loop, but it routes each verifier's
+ * findings into a NAMED bucket, so a 5th rule-based verifier is not free:
+ * it needs a registration below, a bucket (DesignPipelineContext.auditFindings
+ * + a routing branch in phases/audit.ts), and a count in phases/report.ts.
+ * A registered verifier with no bucket is recorded as an abstention, which
+ * fails the verdict (#2273) — loud by design, rather than its findings being
+ * silently dropped.
  *
  * Source: docs/changes/design-pipeline/orchestrator/proposal.md
  *   (Technical Design → Module layout).
@@ -43,8 +48,10 @@ export async function runDesignPipeline(
   const mode = input.mode ?? 'fast';
   const context = newContext();
 
-  // Build the verifier registry. Adding a 5th verifier here is the only
-  // orchestrator change required to compose a new rule-based audit.
+  // Build the verifier registry. Registering a 5th verifier here is necessary
+  // but NOT sufficient: AUDIT also needs a findings bucket for its name, and
+  // REPORT must count that bucket, or every run fails with the verifier named
+  // in `degradedBy` (see the header comment and phases/audit.ts).
   // design-craft-elevator is NOT registered — different output shape;
   // dispatched in FILL phase.
   const registry = new VerifierRegistry();

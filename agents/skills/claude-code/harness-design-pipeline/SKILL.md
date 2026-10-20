@@ -1,6 +1,6 @@
 # Harness Design Pipeline
 
-> Orchestrator composing all 6 design-pipeline sub-projects into a single sequential pipeline with convergence-based remediation: FRESHEN → DETECT → FIX → AUDIT → FILL → REPORT. Produces a unified `pass` / `warn` / `fail` verdict and a per-phase report. Mirrors harness-docs-pipeline in shape; consumes the formal verifier interface generically so a 5th rule-based verifier composes for free.
+> Orchestrator composing all 6 design-pipeline sub-projects into a single sequential pipeline with convergence-based remediation: FRESHEN → DETECT → FIX → AUDIT → FILL → REPORT. Produces a unified `pass` / `warn` / `fail` verdict and a per-phase report. Mirrors harness-docs-pipeline in shape; invokes every registered verifier through the formal verifier interface, and routes each one's findings into a named bucket that REPORT counts toward the verdict.
 
 ## When to Use
 
@@ -18,8 +18,8 @@
 <!-- Capability seam: this skill participates in a real extension point whose three roles are named and concrete. A seam with only one role filled is accidental single-implementation lock-in. See harness-skill-authoring Phase 1C. -->
 
 - **Defines (Service Definition):** the composed-verifier seam — the `Verifier<F, Cat, Meta>` interface (`packages/cli/src/shared/verifier.ts`) driven generically by `VerifierRegistry` (`packages/cli/src/design-pipeline/registry.ts`). This orchestrator consumes the interface generically and never reimplements a verifier.
-- **Provides (Provider):** `detect-design-drift`, `audit-component-anatomy`, and `audit-brand-compliance` (each satisfies `Verifier<F>`, so a 5th composes with a single `registry.register(...)` call). `harness-design-craft` is dispatched in the FILL phase with a different output shape and is deliberately **not** registered as a verifier.
-- **Consumes (Consumer):** **this skill** — `harness-design-pipeline` (and `harness check-design`) iterate the registry uniformly, so adding a verifier costs zero orchestrator change.
+- **Provides (Provider):** `detect-design-drift`, `audit-component-anatomy`, and `audit-brand-compliance` (each satisfies `Verifier<F>`). A 5th needs a `registry.register(...)` call **and** a findings bucket — a field on `DesignPipelineContext.auditFindings`, a routing branch in `phases/audit.ts`, and a count in `phases/report.ts`. Registered without a bucket, it is recorded as an abstention and every run's verdict is `fail`. `harness-design-craft` is dispatched in the FILL phase with a different output shape and is deliberately **not** registered as a verifier.
+- **Consumes (Consumer):** **this skill** — `harness-design-pipeline` (and `harness check-design`) iterate the registry uniformly, so _invoking_ a new verifier costs no orchestrator change; _collecting_ its findings into the verdict costs one named bucket (see Provides).
 
 ## Relationship to Sub-Skills
 
@@ -135,7 +135,7 @@ Each align run mutates source files via its safe codemods (T001/T002/T003 only).
    - `audit-anatomy` runner → populate `context.auditFindings.anatomy`
    - `audit-brand` runner → populate `context.auditFindings.brand`
 2. Each verifier's failure is captured in `context.verifiersFailed` without aborting the loop.
-3. **Iron Law:** the orchestrator does NOT branch on verifier name inside the audit logic. Adding a 5th verifier means registering it; the loop body stays unchanged.
+3. **Iron Law:** the orchestrator does NOT import per-verifier rule logic — every verifier is invoked through its registered runner, and the loop that invokes them stays generic. Findings collection is the one place AUDIT keys on verifier name: each verifier's findings land in a named bucket. So adding a 5th verifier means registering it **and** giving it a bucket (a field on `DesignPipelineContext.auditFindings`, a routing branch in `phases/audit.ts`, and a count in `phases/report.ts`). A registered verifier with no bucket is recorded in `verifiersFailed` and fails the verdict — that is deliberate: dropping its findings while reporting it as run would be a silent pass.
 
 ### Phase 5: FILL — Bootstrap + Ceiling Polish
 
@@ -194,7 +194,7 @@ Render human-readable or JSON output.
 
 See `docs/changes/design-pipeline/orchestrator/proposal.md` for the full 34 success criteria. Highlights:
 
-- Generic Verifier registry: adding a 5th verifier requires only a `register()` call
+- Generic Verifier registry: every registered verifier is invoked through one loop; a 5th verifier needs a `register()` call plus a named findings bucket counted in REPORT, and fails the verdict loudly without one
 - Iron Law compliance: orchestrator imports NO drift/fix/audit logic, only sub-skill entry points
 - Convergence loop bounded at 5 iterations + plateau detection
 - Verdict: `pass`/`warn`/`fail` per documented rules
@@ -205,13 +205,13 @@ See `docs/changes/design-pipeline/orchestrator/proposal.md` for the full 34 succ
 
 These are common rationalizations that sound reasonable but lead to incorrect results. When you catch yourself thinking any of these, stop and follow the documented process instead.
 
-| Rationalization                                                                                                              | Why It Is Wrong                                                                                                                                                                                                                                       |
-| ---------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| "Looping detect → fix → detect is slow — I'll apply every fix in one pass and skip the re-detect."                           | Each align pass fixes only safe codemods, and re-running detect is how the loop measures progress, detects plateau (`newCount >= previousCount`), and catches fix oscillation. Collapsing the loop hides non-convergence and leaves drift unmeasured. |
-| "Detecting this drift inline is just a regex — I'll compute it in the orchestrator instead of invoking detect-design-drift." | Iron Law: the pipeline delegates, never reimplements. Inline detect/fix/audit logic diverges from the sub-skill's rules and defeats the whole composition contract. Invoke `runDetectDrift`.                                                          |
-| "align classified this as a suggestion, but it looks safe to me — I'll auto-apply it from the orchestrator."                 | Safe fixes are silent, unsafe fixes surface. Overriding align's pre-flight classifier from the orchestrator is explicitly forbidden; `suggestion` / `skipped-unsafe` / `failed` outcomes surface in the report, never as writes.                      |
-| "Only one warn-severity finding remains — I'll report `pass` so CI stays green."                                             | The verdict table is fixed: any warn-severity finding OR craft suggestion OR bootstrap yields `warn`, never `pass`. Downgrading the verdict hides declared violations from the humans relying on it.                                                  |
-| "I'm adding a 5th verifier — I'll branch on its name inside the audit loop to wire it in."                                   | The Iron Law requires the audit loop stay verifier-agnostic; adding a verifier is a `register()` call. Branching on verifier name inside the loop breaks the generic registry and the "5th verifier composes for free" guarantee.                     |
+| Rationalization                                                                                                              | Why It Is Wrong                                                                                                                                                                                                                                                                                                                                                                     |
+| ---------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| "Looping detect → fix → detect is slow — I'll apply every fix in one pass and skip the re-detect."                           | Each align pass fixes only safe codemods, and re-running detect is how the loop measures progress, detects plateau (`newCount >= previousCount`), and catches fix oscillation. Collapsing the loop hides non-convergence and leaves drift unmeasured.                                                                                                                               |
+| "Detecting this drift inline is just a regex — I'll compute it in the orchestrator instead of invoking detect-design-drift." | Iron Law: the pipeline delegates, never reimplements. Inline detect/fix/audit logic diverges from the sub-skill's rules and defeats the whole composition contract. Invoke `runDetectDrift`.                                                                                                                                                                                        |
+| "align classified this as a suggestion, but it looks safe to me — I'll auto-apply it from the orchestrator."                 | Safe fixes are silent, unsafe fixes surface. Overriding align's pre-flight classifier from the orchestrator is explicitly forbidden; `suggestion` / `skipped-unsafe` / `failed` outcomes surface in the report, never as writes.                                                                                                                                                    |
+| "Only one warn-severity finding remains — I'll report `pass` so CI stays green."                                             | The verdict table is fixed: any warn-severity finding OR craft suggestion OR bootstrap yields `warn`, never `pass`. Downgrading the verdict hides declared violations from the humans relying on it.                                                                                                                                                                                |
+| "I'm adding a 5th verifier — `register()` is all it takes, so I'll skip the findings bucket."                                | Registration makes the verifier _run_; it does not make its findings _count_. Without a bucket in `auditFindings`, a routing branch in `phases/audit.ts` and a count in `phases/report.ts`, AUDIT records the verifier as abstained and every run fails. Add the bucket; do not put rule logic in the orchestrator, and do not add a catch-all that drops findings it cannot route. |
 
 ## Examples
 
@@ -286,6 +286,7 @@ Summary: 0 total findings (0 error, 0 warn, 0 info) in 89ms
 - **When a verifier consistently fails:** `context.verifiersFailed[].error` carries the message. Run the verifier standalone (e.g. `harness skill run audit-brand-compliance`) to reproduce — orchestrator just propagates the failure.
 - **When FILL bootstraps a file you didn't want bootstrapped:** delete the stub; the orchestrator only writes when the file is absent. Or run with `--no-fill` to suppress the entire phase.
 - **When verdict is `fail` but you want to merge anyway:** the orchestrator exits with code 1; bypass via CI config (treating design-pipeline as advisory not blocking). Not recommended — error-severity findings represent declared violations.
+- **When verdict is `fail` with zero error-severity findings:** the run is _degraded_, not violating — `degradedBy` names each verifier that abstained and `verifiersFailed[].error` says why. A verifier that could not examine its part of the design surface did not pass it, so the verdict fails rather than reporting a pass over unexamined code. Fix the cause the error names. A common one is the craft critique failing (no LLM backend configured, an outage, a rate limit): craft is an advisory ceiling layer, so if you want it to stay advisory in CI, run with `--no-fill`, which skips the craft critique (and input bootstrap) entirely so it cannot abstain.
 - **When `--ci` mode is too conservative:** v1's `--ci` only applies align's `safe-codemod`-classified fixes. Use v1.x's `--interactive` (or the standalone `harness align-design-system --dry-run`) to review and apply probably-safe fixes manually.
 
 ## Status

@@ -194,8 +194,10 @@ describe('newContext (#2273)', () => {
     // The initial verdict is an assertion made before any verifier has run.
     // `pass` there is the same failure mode one step earlier: a green reading
     // over zero evidence. REPORT overwrites it on every real run, so the
-    // default only has to be fail-closed.
-    expect(newContext().verdict).not.toBe('pass');
+    // default only has to be fail-closed. Asserted as exactly `fail`, not
+    // `not.toBe('pass')`: `warn` also exits 0, so a `warn` default would
+    // be just as green and survive the weaker assertion.
+    expect(newContext().verdict).toBe('fail');
     expect(newContext().degradedBy).toEqual([]);
   });
 });

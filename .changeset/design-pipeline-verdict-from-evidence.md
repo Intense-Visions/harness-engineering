@@ -44,11 +44,31 @@ in `packages/cli/src/commands/design-pipeline.ts`, outside this change.
 today _because_ a verifier abstained will start failing. That is the defect
 being fixed — the gate was not enforcing anything — but it surfaces in your CI.
 `verifiersFailed[].error` and `degradedBy` name what could not run. #2210 made
-this reachable in five situations (an exclude glob that discarded every
-candidate; an explicit `files` list that resolved to nothing readable; a project
-walk that hit the depth cap; a design surface in a dialect no verifier parses;
-candidates that resolved but could not be opened), plus the FIX loop's final
-re-detect.
+an abstention reachable in five situations (an exclude glob that discarded
+every candidate; an explicit `files` list that resolved to nothing readable; a
+project walk that hit the depth cap; a design surface in a dialect no verifier
+parses; candidates that resolved but could not be opened), plus the FIX loop's
+final re-detect. Every other recorded abstention now fails the gate too, and
+two of them are the ones you are most likely to hit first:
+
+- **The design-craft critique failing** (FILL phase). With an LLM backend
+  configured, an outage, a missing or unknown backend, a rate limit or a network
+  error makes the critique abstain, and the run now reports `fail` (exit `1`)
+  with `degradedBy: ['design-craft-critique']` and zero findings. Measured on a
+  fixture that otherwise passes:
+  `HARNESS_CRAFT_LLM=nonexistent-backend harness design-pipeline --json` →
+  exit `1`, `verdict: 'fail'`, `bySeverity {error:0, warn:0, info:0}`. On the
+  previous release the same run was `pass`, exit `0`.
+- **`align-design-system` throwing** inside the `--fix` loop (FIX phase).
+
+Craft is documented as an advisory ceiling layer. **If you want it to stay
+advisory in CI, run with `--no-fill`** (MCP: `noFill: true`), which skips the
+FILL phase — the craft critique and input bootstrap — so the critique cannot
+abstain. Measured on the same fixture with the same unreachable backend:
+`HARNESS_CRAFT_LLM=nonexistent-backend harness design-pipeline --json --no-fill`
+→ exit `0`, `verdict: 'pass'`, `design-craft-critique` absent from both
+`verifiersRun` and `verifiersFailed`. Note that `--no-fill` also skips
+bootstrapping missing design inputs.
 
 `@harness-engineering/cli` is post-1.0 (13.x), so a behavioural break in a
 gate's verdict lands there as a **major**, matching #2207.
@@ -64,6 +84,12 @@ gate's verdict lands there as a **major**, matching #2207.
   `verifiersRun` recorded the verifier as having contributed. A 5th registered
   verifier could report any number of violations and the run would still read
   clean. An unroutable name is now an abstention naming the missing bucket.
+  **If you register your own verifier**, that means `register()` alone now
+  fails every run: it also needs a field on `DesignPipelineContext.auditFindings`,
+  a routing branch in `phases/audit.ts` and a count in `phases/report.ts`. The
+  code comments and the `harness-design-pipeline` skill previously said a 5th
+  verifier "composes for free" with a `register()` call; that was never true
+  (its findings were dropped) and has been corrected to state what is required.
 
 `newContext()` also initialised `verdict: 'pass'` — a green reading asserted
 before any verifier had run. It is now fail-closed; REPORT overwrites it on

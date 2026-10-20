@@ -39,7 +39,11 @@ export async function runAudit(input: AuditInput): Promise<void> {
         ...(designStrictness !== undefined && { designStrictness }),
       });
       // Store findings under the verifier-named bucket. v1 maps two known
-      // names.
+      // names. This name branch is the documented contract, not an Iron Law
+      // violation: the Iron Law forbids importing per-verifier RULE logic, and
+      // the registry makes invocation generic, but findings collection is
+      // per-name. A new verifier needs a bucket here, a field on
+      // `auditFindings`, and a count in REPORT.
       //
       // A name with no bucket is an ABSTENTION, not a success. The comment
       // that used to sit here claimed unknown names were "stashed under
@@ -61,8 +65,10 @@ export async function runAudit(input: AuditInput): Promise<void> {
           error:
             `Verifier '${verifier.name}' ran and returned ${result.findings.length} finding(s), ` +
             'but the AUDIT phase has no findings bucket for that name, so they were not ' +
-            'collected. Add a bucket in packages/cli/src/design-pipeline/phases/audit.ts ' +
-            '(and to DesignPipelineContext.auditFindings) when registering a new verifier.',
+            'collected. Registering a verifier is not enough on its own: add a findings ' +
+            'bucket to DesignPipelineContext.auditFindings (context.ts), a routing branch ' +
+            'for it in packages/cli/src/design-pipeline/phases/audit.ts, and count that ' +
+            'bucket in phases/report.ts so its findings reach the verdict.',
         });
         continue;
       }
