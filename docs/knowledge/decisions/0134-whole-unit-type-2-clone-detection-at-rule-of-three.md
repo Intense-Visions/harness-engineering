@@ -73,10 +73,24 @@ add, and a ratchet with no tolerance is one bad merge away from blocking the rep
    `DuplicationReport.stats` carries **no `errorCount` and no `warningCount`**
    (`packages/core/src/entropy/types/duplication.ts`). Every sibling entropy report carries those
    two fields, and `EntropyAnalyzer` sums them into `EntropyReport.summary.errors` and
-   `.warnings`. The duplication report's omission is the enforcement mechanism: there is no field
-   for a future edit to add into either sum, so duplication structurally cannot raise an error or
-   warning count. That is a different kind of guarantee than a convention or a comment — it fails
-   at the type level rather than in review.
+   `.warnings`. That omission is the enforcement mechanism, and it enforces in **two layers**,
+   neither of which is sufficient alone:
+   - **The type blocks the realistic accident.** The way severity would creep in is by copying a
+     sibling detector's line — `summary.errors += duplicationReport.stats.errorCount` — and that
+     does not compile, because the field does not exist. Raising severity therefore requires
+     adding a field to a public type: visible, reviewable, and impossible to do by pattern-match.
+   - **A test catches a hand-written sum.** The type does NOT make it impossible, and an earlier
+     draft of this ADR overstated it by saying "there is no field for a future edit to add into
+     either sum ... it fails at the type level rather than in review". `stats.violationCount` and
+     `stats.classesReported` are both numbers on that same object and compile into either sum
+     perfectly well — two mutants during Phase 2's review did exactly that, compiled clean, and
+     died at RUNTIME against `counts clone classes in totalIssues and in neither errors nor
+warnings` in `packages/core/tests/entropy/analyzer.duplication.test.ts`, which runs the
+     analyzer with duplication on and off and asserts `summary.errors` and `summary.warnings` are
+     unchanged while `totalIssues` moves by exactly `classesReported`.
+
+   The two-layer version is the stronger claim, and the honest one: the type rules out the
+   plausible copy-paste, the test rules out the deliberate hand-written sum.
 
    Clone classes **do** count in `summary.totalIssues`. Advisory does not mean invisible: a
    summary reporting zero issues beside a scan that found 98 clone classes would be the
@@ -108,6 +122,20 @@ add, and a ratchet with no tolerance is one bad merge away from blocking the rep
   non-test sources (2,153 files). Neither is a regression against the other; the scopes differ.
   No test asserts either number (spec criterion 10), precisely so that a scope change cannot
   present itself as a behavior change.
+- **Whole-unit granularity is only cheap once the token walk is linear.** D2 claims the
+  granularity is affordable, and as first implemented it was not: `normalizeTokens` rescanned a
+  file's entire token array once per unit, so the per-file cost was O(units x tokens). Phase 2
+  replaced the rescan with a binary search over the range-sorted token array (commit `300e92d6d`,
+  `packages/core/src/duplication/tokens.ts`). Measured with scope and denominator attached,
+  because the figure differs 8x by scope: at the detector's own scope (this repository's non-test
+  sources, 2,153 eligible files, 17,064 units) 214,130,152 token visits became 1,976,826 — 108x
+  fewer, from 140.9x the token count down to 1.30x, counting tokens in unit-bearing files. At the
+  spec's `packages/`-only scope the same change is 26,055,026 -> 1,625,558 (16x). The pre-fix cost
+  was dominated by single pathological files — two vendored Vite dependency pre-bundles under
+  `docs/.vitepress/cache/` were 81.7% of it at the detector's scope — which is exactly why a
+  granularity decision cannot be defended with an unscoped number. The guard against reverting it
+  is a deterministic token-visit bound, not a wall clock (see the spec's Verification notes for
+  that accepted gap).
 - **Advisory-first defers a decision rather than removing it.** The per-PR find rate is unknown
   until the detector runs in anger — the 60 classes are a one-time backlog and tell us nothing
   about the steady state. When a ratchet is proposed, D4 is the record that it must be argued, and
@@ -130,7 +158,13 @@ add, and a ratchet with no tolerance is one bad merge away from blocking the rep
 - `packages/core/src/duplication/index.ts` — `DEFAULT_DUPLICATION_CONFIG` (`minInstances: 3`,
   `minTokens: 40`), the two `Err` refusals, and the `CloneClass` / `CloneIndex` surface.
 - `packages/core/src/duplication/tokens.ts` — Type-2 normalization (identifiers to `I`, literals
-  to `L`), which is what makes the 16 JSON-response copies cluster despite three different names.
+  to `L`), which is what makes the 16 JSON-response copies cluster despite three different names;
+  also the binary-searched range walk that makes whole-unit granularity affordable, with its
+  measurements by scope and denominator.
+- `packages/core/tests/entropy/analyzer.duplication.test.ts` — the D4 runtime test, the second of
+  the two layers above.
+- `docs/changes/duplication-detection/proposal.md`, Verification notes — criterion 6's accepted
+  wall-clock gap and the transience of the Scope-B evidence figures.
 - `packages/core/src/entropy/types/duplication.ts` — `DuplicationReport`, and the deliberate
   absence of `errorCount` / `warningCount` that implements D4.
 - `packages/core/src/entropy/analyzer.ts` — the summary arithmetic: `classesReported` into

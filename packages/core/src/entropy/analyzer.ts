@@ -259,9 +259,17 @@ export class EntropyAnalyzer {
     const sizeBudgetWarnings = sizeBudgetReport?.stats.warningCount || 0;
     // Advisory-only (spec decision D4): clone classes are counted in
     // totalIssues so the summary cannot report a clean run over a scan that
-    // reported classes, and are added to NEITHER `errors` NOR `warnings`. The
-    // DuplicationReport carries no errorCount and no warningCount for exactly
-    // this reason, so there is nothing here to add by accident.
+    // reported classes, and are added to NEITHER `errors` NOR `warnings`.
+    //
+    // The DuplicationReport's missing errorCount / warningCount blocks the
+    // realistic accident — copying a sibling's
+    // `+= report.stats.errorCount` line does not compile — but it does NOT
+    // make this impossible, and claiming it did was an overstatement worth
+    // correcting here. `stats.violationCount` and `stats.classesReported` are
+    // numbers on the same object and compile into either sum fine; adding
+    // `violationCount` to `errors` below typechecks clean and fails the D4
+    // test in `tests/entropy/analyzer.duplication.test.ts` at runtime
+    // (verified). The type and that test are two layers, not one.
     const duplicationIssues = duplicationReport?.stats.classesReported || 0;
 
     const totalIssues =

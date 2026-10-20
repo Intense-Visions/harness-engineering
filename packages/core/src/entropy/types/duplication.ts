@@ -44,9 +44,17 @@ export interface DuplicationReport {
    *
    * There is deliberately NO `errorCount` and NO `warningCount`: the
    * detector is advisory-first (spec decision D4, never fail-closed), and
-   * their ABSENCE is the mechanism that keeps duplication out of
-   * `EntropyReport.summary.errors` and `.warnings` — not a convention a
-   * future edit can forget.
+   * their absence is the FIRST of two layers keeping duplication out of
+   * `EntropyReport.summary.errors` and `.warnings`. It rules out the
+   * realistic accident — a sibling's `+= stats.errorCount` line, copied,
+   * does not compile — but not every accident: `violationCount` below is a
+   * number on this same object and adds into either sum perfectly well
+   * (verified: it typechecks and fails the D4 test at runtime). The second
+   * layer is that test, `counts clone classes in totalIssues and in neither
+   * errors nor warnings (D4)` in
+   * `tests/entropy/analyzer.duplication.test.ts`. Raising severity therefore
+   * takes a type change or a test change, not a forgotten convention — which
+   * is the real claim, and stronger than the one-layer version it replaces.
    */
   stats: CloneIndex['stats'] & {
     /** Always `classesReported`. The field siblings expose under this name. */

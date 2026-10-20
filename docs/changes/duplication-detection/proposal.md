@@ -526,8 +526,8 @@ the planner must emit it as `[checkpoint:human-verify]`, because its outcome dec
 exclusions need tightening before the detector leaves experimental status.
 Verifiable alone: `harness cleanup -t duplication` runs end to end; criteria 1 and 2.
 
-**Two decisions Phase 2 hands forward, both of which Phase 3 must make consciously rather than
-inherit:**
+**Four things Phase 2 hands forward — the first two are decisions Phase 3 must make consciously
+rather than inherit; the last two are properties it must not ship without checking:**
 
 1. **Whether `harness cleanup -t duplication` may exit non-zero — a D4 question, not a CLI
    question.** Phase 2 counts clone classes in `EntropyReport.summary.totalIssues` (so a summary
@@ -554,6 +554,48 @@ duplication` exits non-zero on advisory-only findings — **violating D4 ("advis
    would move the class counts Phase 1 and Phase 2 recorded as evidence. Phase 3's audit should
    expect to find these two and decide the exclusion then.
 
+   **Audit instruction:** before recording any precision verdict, run
+   `git ls-files docs/.vitepress/cache | wc -l` and record the result beside it. That directory is
+   TRACKED today (9 files, 2.2 MB, `git check-ignore` exits 1), which is why the recorded figures
+   reproduce on a clean checkout — but a docs dev server regenerating or clearing it moves the
+   class, member and fingerprint counts without any code changing. An audit that does not say
+   which state it ran in is not reproducible. See Verification notes.
+
+3. **Phase 3 owns the config surface, and that surface is what made two defects reachable.**
+   Exposing `analyze.duplication` through `harness cleanup -t duplication` and the
+   `detect_entropy` MCP enum is precisely what turns an in-repo type into an operator-supplied
+   value parsed from **untyped `harness.config.json`**. Two defects found in Phase 2's review were
+   reachable only through that surface and are fixed in core, but the surface is Phase 3's:
+   - A non-string `duplication.ignorePatterns` entry made `minimatch` throw out of a loop that no
+     `try` covered, through `detectDuplication` and through `EntropyAnalyzer.analyze()`, taking
+     the entire entropy run down — drift, dead code, patterns, complexity, coupling and size
+     budget with it. `buildCloneIndex` now returns `Err INVALID_CONFIG` with
+     `details.reason: 'invalid-ignore-pattern'`. Phase 3 must still validate what it threads from
+     JSON rather than assume the type: `minTokens`, `minInstances` and `maxClasses` are numbers in
+     the type and strings in a hand-edited config, and none of them is validated anywhere today.
+   - Supplying both graph drift and graph dead-code data makes `analyze()` bypass the snapshot
+     (`files: []`), which tripped duplication's zero-discovery refusal and blamed
+     `EntropyConfig.include`. `loadEntropyGraphOptions` in `packages/cli/src/mcp/tools/entropy.ts`
+     returns both keys whenever a graph exists, so this is the live MCP path. Duplication now
+     reports `details.reason: 'snapshot-bypassed'` and does not run. Phase 3 should surface that
+     reason rather than swallow it — "duplication did not run" must not render as "no duplication
+     found".
+
+   **And Phase 3's verification must re-test WIRED at the product level.** Phase 2's VERIFY
+   recorded that no production call site sets `analyze.duplication` today: the detector is wired
+   to the analyzer, which is not the same as being reachable by a user. Phase 1's lesson was that
+   export != wiring; this is the same lesson one layer out. "Wired" for Phase 3 means a real
+   `harness cleanup -t duplication` invocation and a real `detect_entropy` call produce
+   duplication findings, traced from the entry point.
+
+4. **`DuplicationReport.byMember` is a `Map` on a report that `detect_entropy` JSON-stringifies,
+   so it serializes to `{}`.** Not a new hazard — `snapshot.exportMap.byFile` is already a `Map`
+   on the same report and already serializes away — but Phase 3 owns the serialization surface and
+   should not ship a `byMember` nobody can read. The options are to omit it from the serialized
+   payload (honest: it is an in-process index, and `CloneClass.members` already carries every
+   member), or to convert it to an array of entries at the boundary. Either is a decision; shipping
+   `{}` is not.
+
 ### Phase 4: partial-extraction signal
 
 <!-- complexity: low -->
@@ -579,3 +621,76 @@ Verifiable alone: criteria 4 and 5.
 - Sub-unit / CPD tier (to be justified by what this ships fails to catch).
 - `design-time-reuse-discovery` — surface existing implementations of what a spec proposes, at spec
   time, giving `harness-brainstorming` step 4 the mechanical backing it currently lacks.
+
+## Verification notes
+
+Where each phase's verification evidence and accepted gaps are recorded. Criterion 2's top-20
+audit verdicts land here when Phase 3 performs them (see Phase 3's audit instruction above).
+
+### Phase 2 — ACCEPTED GAP: criterion 6's wall-clock bar has no automated guard
+
+Criterion 6 is an absolute wall-clock bar — `detectDuplication` under 10 seconds over this
+repository's non-test sources. It is **met**, and it is **unguarded**. That combination is
+recorded here deliberately rather than left as a silent omission.
+
+**Measured met, at both scopes, by three independent runs:**
+
+| Scope                                                                     | Measured                                                                       | Bar       |
+| ------------------------------------------------------------------------- | ------------------------------------------------------------------------------ | --------- |
+| B — criterion 6's own scope (repo non-test sources, 2,153 eligible files) | 1,997 / 2,053 / 2,327 ms (execution); 2,449-3,047 ms (re-measured post-review) | 10,000 ms |
+| A — the Evidence section's scope (`packages/` only, 2,065 files)          | 1,729 / 1,746 / 1,770 ms (execution); 2,088-2,253 ms (re-measured post-review) | 10,000 ms |
+
+**What IS guarded.** `tests/entropy/detectors/duplication.perf.test.ts` asserts a deterministic
+token-visit bound instead of a duration, so it cannot flake. It is mutation-verified: reverting
+the binary search in `normalizeTokens` costs 496,800 visits against a 6,480 bound (exactly
+120 units x 4,140 tokens) while all token-equivalence tests still pass. That guards a
+**reversion of the binary search** — the one regression anybody has a concrete reason to expect.
+
+**What is NOT guarded.** The literal `<10s` bar. A 4x slowdown from a slower parser release, a
+materially larger repository, or an added pass over the token stream would be caught by nothing
+in CI. Nothing would go red; the criterion would simply stop being true. The visit bound is a
+proxy for one cause, not for the property.
+
+**Why the bar is not asserted.** The same code measured 3.0 s and then 8-9 s on this machine
+minutes apart under a load average of 39, and a reference implementation timed in the same
+process slowed by the identical factor — load, not regression. The post-review re-measurement
+above moved 25% on an idle machine for the same reason. A 10 s bar over a ~2.5 s run leaves
+~4x headroom, and a 3x machine swing eats most of it, so a timing assertion would go red when
+the machine is busy and green when a real regression lands on a quiet one. If criterion 6 ever
+needs a real guard, the honest form is a tracked measurement with a trend, not an assertion.
+
+### Phase 2 — the Scope-B evidence figures depend on a TRANSIENT directory
+
+Scope B's figures (98 classes, 388 members, 9,708 units fingerprinted at Phase 2's HEAD;
+9,710 after the post-review batch added two units to `duplication/index.ts`) include
+`docs/.vitepress/cache/deps_temp_*`. That directory is **tracked in git today** — 9 files,
+2.2 MB, `git check-ignore` exits 1 — so the figures reproduce on a clean checkout. But it is a
+Vite dependency pre-bundle cache: a docs dev server regenerating or clearing it moves the class,
+member and fingerprint counts with no code change at all.
+
+No test breaks when that happens, by design — criterion 10 forbids asserting this repository's
+class count. The exposure is that this spec and ADR 0134 pin **evidence** to a cache directory's
+contents. Two of the 98 classes are composed of that cache's files (Phase 3 forward note 2), and
+two of its bundles accounted for 81.7% of the pre-optimization token-visit cost.
+
+### Phase 2 — cost figures carry a scope AND a denominator
+
+Recorded because this one figure was wrong in three places at once, in two different ways.
+
+The pre-optimization per-file cost was quoted as "26.0M token visits against 1.40M tokens —
+18.6x". Both halves were measured correctly and both were mislabelled:
+
+- **Scope.** 26.0M is Scope A (`packages/` only). At the detector's own scope the same method
+  measures 214,130,152 visits — an 8x understatement, because the quadratic term is dominated by
+  whichever pathological file is in scope (two `docs/.vitepress/cache/` bundles are 43.6% and
+  38.1% of Scope B's pre-fix cost; `orchestrator/src/orchestrator.ts` is 19.2% of Scope A's).
+- **Denominator.** "1.40M tokens" counts all eligible files; Phase 2's notes counted 1,315,964,
+  which is the tokens in files yielding at least one unit. Both are right, 6% apart, and the gap
+  is the 507 eligible files that parse but contain no extractable unit. All-files gives 18.6x pre
+  / 1.16x post at Scope A; unit-bearing files gives 19.8x / 1.23x. Post-review re-measurement at
+  HEAD: Scope A 1,400,920 vs 1,316,878 tokens, 26,055,026 -> 1,625,558 visits; Scope B
+  1,605,885 vs 1,519,596 tokens, 214,130,152 -> 1,976,826 visits (108x).
+
+Both module comments now state scope and denominator on every figure. The standing rule for this
+change: a count without its discovery scope is not a measurement, and a ratio without its
+denominator is not one either.
