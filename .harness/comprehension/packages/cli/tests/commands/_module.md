@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/tests/commands'
-sourceHash: 'cc3b37ebb44ed50648e5854ac2fdbb89b35561c16aeb0a81ef48393ee570d107'
+sourceHash: '884643d8377ae1b68242d0ee377434048fcad7986668b231cefd7011b3d01097'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -56,6 +56,7 @@ members:
     'code-craft-cov544.test.ts',
     'compound-scan-candidates.test.ts',
     'comprehend-cov544.test.ts',
+    'config-implied-root.test.ts',
     'copy-craft-command.test.ts',
     'copy-craft-cov544.test.ts',
     'craft-command-harness-cohort-b.ts',
@@ -257,6 +258,7 @@ import { createCheckPerfCommand, runCheckPerf } from '../../src/commands/check-p
 import { createCheckPhaseGateCommand, runCheckPhaseGate } from '../../src/commands/check-phase-gate'
 import { createCheckSecurityCommand, runCheckSecurity } from '../../src/commands/check-security'
 import { createCheckVocabularyCommand, runCheckVocabulary } from '../../src/commands/check-vocabulary'
+import from '../../src/commands/ci/check'
 import { createCleanupCommand, runCleanup } from '../../src/commands/cleanup'
 import { createCleanupSessionsCommand, runCleanupAll, runCleanupSessions } from '../../src/commands/cleanup-sessions'
 import { createCliErgonomicsCraftCommand } from '../../src/commands/cli-ergonomics-craft'
@@ -331,6 +333,7 @@ import { createRecommendCommand, runRecommend } from '../../src/commands/recomme
 import { createRehearseCommand } from '../../src/commands/rehearse'
 import { GIT_MAX_BUFFER_BYTES, assertKnownRunner, buildDegradedResult, buildDiffInfo, buildReviewBody, createReviewCiCommand, defaultRunGit, emitReviewCi, resolveDiffRange, runReviewCi } from '../../src/commands/review-ci'
 import { createLocalInvoke } from '../../src/commands/review-ci-local-adapter'
+import from '../../src/commands/roadmap'
 import { referencesTargetPr, runRollbackEvaluate, runRollbackSweepCommand, summarizeSweepReport } from '../../src/commands/rollback'
 import { createScanConfigCommand, runScanConfig } from '../../src/commands/scan-config'
 import { createSearchCommand } from '../../src/commands/search'
@@ -381,7 +384,7 @@ import { committedSemanticAllowed } from '../../src/comprehension/policy'
 import { explainInactiveRefreshGate, resolveRefreshJobGate } from '../../src/comprehension/refresh-gate'
 import { detectCommittedSemanticOnBranch, detectSemanticRegressions, readSemanticMapAtRef } from '../../src/comprehension/regression'
 import { withDependencyRules } from '../../src/config/arch-dependency-rules'
-import { resolveConfig } from '../../src/config/loader'
+import { resolveConfig, resolveProject } from '../../src/config/loader'
 import { HarnessConfig } from '../../src/config/schema'
 import { CopyCraftInput, CopyCraftOutput } from '../../src/copy-craft/index.js'
 import { DesignPipelineContext, runDesignPipeline } from '../../src/design-pipeline/index.js'
@@ -430,6 +433,7 @@ import { CLIError, ExitCode } from '../../src/utils/errors'
 import { markSetupComplete } from '../../src/utils/first-run'
 import { CLI_VERSION } from '../../src/version'
 import { VocabularyRule, formatViolations, scanFiles, scanText } from '../../src/vocabulary/scanner'
+import { resolveProjectFrom } from '../helpers/resolve-project-mock'
 import { ConsoleCapture, captureConsole, runToExit, stubProcessExit } from './cli-command-harness'
 import { CraftCommandRun, DEFAULT_CWD, runCraftCommand } from './craft-command-harness-cohort-b'
 import { llmCalls, runCraftCommand } from './craft-command-harness.js'
@@ -445,6 +449,7 @@ import { execFileSync, execSync } from 'child_process'
 import { Command } from 'commander'
 import * as fs from 'fs'
 import * as fs from 'fs/promises'
+import from 'glob'
 import { execFile, execFileSync, execSync, spawnSync } from 'node:child_process'
 import * as fs, * as fsSync, * as nodeFs, fs, { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
 import * as fs, { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'

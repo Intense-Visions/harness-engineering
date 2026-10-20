@@ -4,7 +4,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import type { Result } from '@harness-engineering/core';
 import { Ok, Err } from '@harness-engineering/core';
-import { resolveConfig } from '../config/loader';
+import { resolveConfig, resolveProject } from '../config/loader';
 import { logger } from '../output/logger';
 import { CLIError, ExitCode } from '../utils/errors';
 
@@ -52,7 +52,20 @@ export async function runAdd(
   name: string,
   options: AddOptions
 ): Promise<Result<AddResult, CLIError>> {
-  const cwd = options.cwd ?? process.cwd();
+  // Root the scan on the project that owns the config, not `process.cwd()`:
+  // `-c` used to select the config file while the scan stayed on the current
+  // directory, so pointing it at another project measured THIS tree. Same
+  // split `check-arch` was fixed out of under #911 (9f322084c).
+  // `add` WRITES scaffolding, so the implied root decides which project gets
+  // the new files. Resolution is best-effort here because `add` deliberately
+  // works without a config (see below), in which case the current directory
+  // remains the target.
+  const cwd =
+    options.cwd ??
+    (() => {
+      const p = resolveProject(options.configPath);
+      return p.ok ? p.value.root : process.cwd();
+    })();
 
   // Validate name to prevent path traversal and invalid characters
   const NAME_PATTERN = /^[a-zA-Z][a-zA-Z0-9_-]*$/;

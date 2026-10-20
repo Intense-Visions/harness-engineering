@@ -19,7 +19,7 @@ import type { Result } from '@harness-engineering/core';
 import { Ok } from '@harness-engineering/core';
 import { DesignConstraintAdapter, GraphStore } from '@harness-engineering/graph';
 import type { CraftFindingRecord } from '@harness-engineering/graph';
-import { resolveConfig } from '../config/loader';
+import { resolveProject } from '../config/loader';
 import { OutputFormatter, OutputMode } from '../output/formatter';
 import type { OutputModeType } from '../output/formatter';
 import { resolveOutputMode } from '../utils/output';
@@ -87,14 +87,17 @@ export async function runCheckDesign(
   options: CheckDesignOptions
 ): Promise<Result<CheckDesignResult, CLIError>> {
   const startedAt = Date.now();
-  const cwd = options.cwd ?? process.cwd();
   const mode: Mode = options.mode ?? 'full';
 
-  const configResult = resolveConfig(options.configPath);
-  if (!configResult.ok) {
-    return configResult;
+  // Root the scan on the project that owns the config, not `process.cwd()`:
+  // `-c` used to select the config file while the scan stayed on the current
+  // directory, so pointing it at another project measured THIS tree. Same
+  // split `check-arch` was fixed out of under #911 (9f322084c).
+  const projectResult = resolveProject(options.configPath, options.cwd);
+  if (!projectResult.ok) {
+    return projectResult;
   }
-  const config = configResult.value;
+  const { config, root: cwd } = projectResult.value;
 
   // Per-verifier opt-out, honouring the SAME config keys `harness validate`
   // already reads (`validate.ts:527/585/635`). This command read none of them:

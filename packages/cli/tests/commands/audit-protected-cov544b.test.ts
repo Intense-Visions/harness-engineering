@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterAll } from 'vitest';
+import { resolveProjectFrom } from '../helpers/resolve-project-mock';
 import { Command } from 'commander';
 
 const mockGlobResult: string[] = [];
@@ -23,12 +24,18 @@ vi.mock('fs', async (importOriginal) => {
   };
 });
 
-vi.mock('../../src/config/loader', () => ({
-  resolveConfig: vi.fn().mockReturnValue({
-    ok: true,
-    value: { version: 1, rootDir: '.', docsDir: './docs' },
-  }),
-}));
+vi.mock('../../src/config/loader', () => {
+  const mock = {
+    resolveConfig: vi.fn().mockReturnValue({
+      ok: true,
+      value: { version: 1, rootDir: '.', docsDir: './docs' },
+    }),
+  };
+  // `resolveProject` is the one shape commands use for "the config AND the
+  // project root it implies" (#911 class). Derive it from the config double
+  // above rather than restating the config literal.
+  return { ...mock, resolveProject: resolveProjectFrom(mock.resolveConfig) };
+});
 
 import { createAuditProtectedCommand } from '../../src/commands/audit-protected';
 import { resolveConfig } from '../../src/config/loader';

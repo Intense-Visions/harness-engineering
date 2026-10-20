@@ -21,7 +21,7 @@ import {
   createNodeRoadmapIO,
 } from '@harness-engineering/core';
 import { execFileSync } from 'node:child_process';
-import { resolveConfig } from '../config/loader';
+import { resolveProject } from '../config/loader';
 import { OutputFormatter, OutputMode, type OutputModeType } from '../output/formatter';
 import { logger } from '../output/logger';
 import { CLIError, ExitCode, type ExitCodeType } from '../utils/errors';
@@ -168,17 +168,16 @@ interface ValidateResult {
 export async function runValidate(
   options: ValidateOptions
 ): Promise<Result<ValidateResult, CLIError>> {
-  // Load config
-  const configResult = resolveConfig(options.configPath);
-  if (!configResult.ok) {
-    return configResult;
+  // One shape for "the config AND the project root it implies". This used to
+  // honour an explicit `-c` but fall back to `process.cwd()` when the config was
+  // DISCOVERED, so running from a subdirectory validated the subdirectory
+  // against the repo-root config. `resolveProject` roots on the found config
+  // either way.
+  const projectResult = resolveProject(options.configPath, options.cwd);
+  if (!projectResult.ok) {
+    return projectResult;
   }
-  const config = configResult.value;
-
-  // Derive cwd from config file location if not explicitly provided
-  const cwd =
-    options.cwd ??
-    (options.configPath ? path.dirname(path.resolve(options.configPath)) : process.cwd());
+  const { config, root: cwd } = projectResult.value;
 
   const result: ValidateResult = {
     valid: true,
@@ -766,9 +765,13 @@ function resolveValidateMode(globalOpts: Record<string, unknown>): OutputModeTyp
   return OutputMode.TEXT;
 }
 
-async function printCrossCheckWarnings(mode: OutputModeType): Promise<void> {
+async function printCrossCheckWarnings(mode: OutputModeType, configPath?: string): Promise<void> {
   const { runCrossCheck } = await import('./validate-cross-check');
-  const cwd = process.cwd();
+  // Same root the validation itself ran against, not `process.cwd()` — this
+  // display path re-derived its own root and so could report cross-check
+  // warnings for a different tree than the verdict above it (#911's class).
+  const project = resolveProject(configPath);
+  const cwd = project.ok ? project.value.root : process.cwd();
   const crossResult = await runCrossCheck({
     specsDir: path.join(cwd, 'docs', 'specs'),
     plansDir: path.join(cwd, 'docs', 'plans'),
@@ -849,7 +852,11 @@ async function runValidateAction(
     process.exit(result.error.exitCode);
   }
 
-  if (opts.crossCheck) await printCrossCheckWarnings(mode);
+  if (opts.crossCheck)
+    await printCrossCheckWarnings(
+      mode,
+      typeof globalOpts.config === 'string' ? globalOpts.config : undefined
+    );
   emitValidateOutput(result.value, mode, formatter);
   process.exit(resolveValidateExitCode(result.value));
 }

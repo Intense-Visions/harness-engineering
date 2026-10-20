@@ -7,7 +7,7 @@ import type {
   ConstraintStage,
 } from '@harness-engineering/core';
 import { runCIChecks } from '@harness-engineering/core';
-import { resolveConfig } from '../../config/loader';
+import { resolveProject } from '../../config/loader';
 import { OutputMode } from '../../output/formatter';
 import { resolveOutputMode } from '../../utils/output';
 import { logger } from '../../output/logger';
@@ -27,18 +27,24 @@ const VALID_CHECKS: CICheckName[] = [
 
 export async function runCICheck(options: {
   configPath?: string;
+  cwd?: string;
   skip?: CICheckName[];
   failOn?: CIFailOnSeverity;
   stage?: ConstraintStage;
 }): Promise<Result<CICheckReport, CLIError>> {
-  const configResult = resolveConfig(options.configPath);
-  if (!configResult.ok) {
-    return configResult;
+  // Root every composed check on the project that owns the config, not
+  // `process.cwd()`: `-c` used to select the config file while `projectRoot`
+  // stayed on the current directory, so pointing it at another project ran the
+  // whole CI check suite against THIS tree. Same split `check-arch` was fixed
+  // out of under #911 (9f322084c).
+  const projectResult = resolveProject(options.configPath, options.cwd);
+  if (!projectResult.ok) {
+    return projectResult;
   }
 
   const input: Parameters<typeof runCIChecks>[0] = {
-    projectRoot: process.cwd(),
-    config: configResult.value as unknown as Record<string, unknown>,
+    projectRoot: projectResult.value.root,
+    config: projectResult.value.config as unknown as Record<string, unknown>,
   };
   if (options.skip) input.skip = options.skip;
   if (options.failOn) input.failOn = options.failOn;

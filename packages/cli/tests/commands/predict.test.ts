@@ -1,4 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import * as path from 'node:path';
+import { resolveProjectFrom } from '../helpers/resolve-project-mock';
 import { Command } from 'commander';
 import { createPredictCommand, runPredict } from '../../src/commands/predict';
 
@@ -22,9 +24,15 @@ vi.mock('@harness-engineering/core', () => {
   };
 });
 
-vi.mock('../../src/config/loader', () => ({
-  resolveConfig: vi.fn(),
-}));
+vi.mock('../../src/config/loader', () => {
+  const mock = {
+    resolveConfig: vi.fn(),
+  };
+  // `resolveProject` is the one shape commands use for "the config AND the
+  // project root it implies" (#911 class). Derive it from the config double
+  // above rather than restating the config literal.
+  return { ...mock, resolveProject: resolveProjectFrom(mock.resolveConfig) };
+});
 
 const mockPredictionResult = {
   snapshotsUsed: 5,
@@ -232,7 +240,7 @@ describe('predict command', () => {
       expect(mockPredict).toHaveBeenCalledWith(expect.objectContaining({ includeRoadmap: true }));
     });
 
-    it('uses process.cwd() when cwd not specified', async () => {
+    it('falls back to the current directory with neither cwd nor a config path', async () => {
       const { resolveConfig } = await import('../../src/config/loader');
       const core = await import('@harness-engineering/core');
 
@@ -242,13 +250,36 @@ describe('predict command', () => {
       expect(core.TimelineManager).toHaveBeenCalledWith('/tmp/fake-project');
     });
 
-    it('uses provided configPath', async () => {
+    /**
+     * `-c` must select the PROJECT, not just the config file. `predict` used to
+     * read the config from `-c` and then root `TimelineManager` /
+     * `SpecImpactEstimator` / `PredictionEngine` on `process.cwd()`, so it
+     * predicted against one project's timeline using another's config (the #911
+     * class; `check-arch` was fixed into this shape in 9f322084c).
+     *
+     * `process.cwd()` is stubbed to `/tmp/fake-project` for this suite, so the
+     * config's own directory and the current directory are necessarily
+     * different strings — that difference is what makes this assertion able to
+     * fail.
+     */
+    it('roots the engines on the configPath project, not process.cwd()', async () => {
       const { resolveConfig } = await import('../../src/config/loader');
+      const core = await import('@harness-engineering/core');
 
       vi.mocked(resolveConfig).mockReturnValue({ ok: true, value: {} } as any);
 
-      await runPredict({ configPath: '/custom/config.json' });
-      expect(resolveConfig).toHaveBeenCalledWith('/custom/config.json');
+      // Build both sides with the same `path.resolve` the implementation uses,
+      // so this holds on win32 too (a bare `\custom\project` resolves against
+      // the current drive, which a POSIX literal would not match).
+      const configPath = path.resolve(path.sep, 'custom', 'project', 'harness.config.json');
+      const expectedRoot = path.dirname(configPath);
+
+      await runPredict({ configPath });
+
+      expect(resolveConfig).toHaveBeenCalledWith(configPath);
+      expect(core.TimelineManager).toHaveBeenCalledWith(expectedRoot);
+      expect(core.SpecImpactEstimator).toHaveBeenCalledWith(expectedRoot);
+      expect(core.TimelineManager).not.toHaveBeenCalledWith('/tmp/fake-project');
     });
   });
 

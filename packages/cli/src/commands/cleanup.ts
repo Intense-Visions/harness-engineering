@@ -4,7 +4,7 @@ import * as path from 'path';
 import type { Result, EntropyConfig, DriftConfig, PatternConfig } from '@harness-engineering/core';
 import { Ok, Err, EntropyAnalyzer } from '@harness-engineering/core';
 import { formatFindingsContract } from '@harness-engineering/types';
-import { resolveConfig } from '../config/loader';
+import { resolveProject } from '../config/loader';
 import { OutputFormatter, OutputMode } from '../output/formatter';
 import { resolveOutputMode } from '../utils/output';
 import { logger } from '../output/logger';
@@ -34,15 +34,17 @@ interface CleanupResult {
 export async function runCleanup(
   options: CleanupOptions
 ): Promise<Result<CleanupResult, CLIError>> {
-  const cwd = options.cwd ?? process.cwd();
   const type = options.type ?? 'all';
 
-  // Load config
-  const configResult = resolveConfig(options.configPath);
-  if (!configResult.ok) {
-    return Err(configResult.error);
+  // Root the scan on the project that owns the config, not `process.cwd()`:
+  // `-c` used to select the config file while the scan stayed on the current
+  // directory, so pointing it at another project measured THIS tree. Same
+  // split `check-arch` was fixed out of under #911 (9f322084c).
+  const projectResult = resolveProject(options.configPath, options.cwd);
+  if (!projectResult.ok) {
+    return Err(projectResult.error);
   }
-  const config = configResult.value;
+  const { config, root: cwd } = projectResult.value;
 
   const result: CleanupResult = {
     driftIssues: [],

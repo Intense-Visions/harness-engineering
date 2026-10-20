@@ -12,7 +12,7 @@ import {
   applyFixes,
   generateSuggestions,
 } from '@harness-engineering/core';
-import { resolveConfig } from '../config/loader';
+import { resolveProject } from '../config/loader';
 import { OutputFormatter, OutputMode, type OutputModeType } from '../output/formatter';
 import { resolveOutputMode } from '../utils/output';
 import { logger } from '../output/logger';
@@ -43,16 +43,20 @@ interface FixDriftResult {
 export async function runFixDrift(
   options: FixDriftOptions
 ): Promise<Result<FixDriftResult, CLIError>> {
-  const cwd = options.cwd ?? process.cwd();
   // Default to dry-run mode
   const dryRun = options.dryRun !== false;
 
-  // Load config
-  const configResult = resolveConfig(options.configPath);
-  if (!configResult.ok) {
-    return Err(configResult.error);
+  // Root the scan on the project that owns the config, not `process.cwd()`:
+  // `-c` used to select the config file while the scan stayed on the current
+  // directory, so pointing it at another project measured THIS tree. Same
+  // split `check-arch` was fixed out of under #911 (9f322084c).
+  // This command REWRITES docs, so measuring the wrong tree is not just a bad
+  // number — it edits files in a project the caller did not name.
+  const projectResult = resolveProject(options.configPath, options.cwd);
+  if (!projectResult.ok) {
+    return Err(projectResult.error);
   }
-  const config = configResult.value;
+  const { config, root: cwd } = projectResult.value;
 
   const rootDir = path.resolve(cwd, config.rootDir);
   const docsDir = path.resolve(cwd, config.docsDir);

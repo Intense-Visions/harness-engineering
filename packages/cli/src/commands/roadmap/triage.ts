@@ -35,7 +35,7 @@ import type {
   RatchetOutcome,
 } from '@harness-engineering/intelligence';
 import { loadGraphStore } from '../../mcp/utils/graph-loader';
-import { resolveConfig } from '../../config/loader';
+import { resolveConfig, resolveProject } from '../../config/loader';
 import { logger } from '../../output/logger';
 import { resolveTriageProvider, type TriageProviderConfig } from './triage-provider.js';
 import { resolvePreferredLocalModel } from './triage-pool.js';
@@ -693,8 +693,10 @@ export function createTriageApproveCommand(): Command {
     )
     .option('--approve-all', 'Approve every READY candidate (still subject to the category gate).')
     .action(async (opts: { approve?: string; approveAll?: boolean }, cmd: Command) => {
-      const cwd = process.cwd();
       const globalOpts = cmd.optsWithGlobals() as { config?: string; json?: boolean };
+      // Same #911 split as the report action above: the gate came from `-c`, the
+      // roadmap it mutated came from `process.cwd()`.
+      const cwd = resolveProjectRoot(globalOpts.config);
       const res = await runApproveCommand(cwd, {
         ...opts,
         ...(globalOpts.config !== undefined ? { config: globalOpts.config } : {}),
@@ -766,10 +768,16 @@ async function runTriageCommandAction(
   opts: { brainstorm?: boolean; only?: string; limit?: number; offline?: boolean },
   cmd: Command
 ): Promise<void> {
-  const cwd = process.cwd();
   // Global `-c, --config` / `--json` live on the root program (commander global-option
   // semantics), so read them via optsWithGlobals rather than the subcommand's own copy.
   const globalOpts = cmd.optsWithGlobals() as { config?: string; json?: boolean };
+
+  // Root on the project that owns the config, not `process.cwd()`. `-c` used to
+  // select the config file (the `roadmap.autoTriage.enabled` gate) while the
+  // roadmap, graph and precedent reads stayed on the current directory — so it
+  // took one project's gate and triaged another project's rows. Same split
+  // `check-arch` was fixed out of under #911 (9f322084c).
+  const cwd = resolveProjectRoot(globalOpts.config);
 
   // 1. Gate on roadmap.autoTriage.enabled (default OFF ⇒ inert, SC8/SC-S1) + parse the roadmap.
   const parsed = gateAndParseRoadmap(cwd, globalOpts.config);
@@ -820,6 +828,15 @@ async function runTriageCommandAction(
     () => renderJson(rows),
     () => renderHuman(rows)
   );
+}
+
+/**
+ * Project root implied by the global `-c/--config`, falling back to the current
+ * directory when no config resolves. One spelling for both triage actions.
+ */
+function resolveProjectRoot(configPath?: string): string {
+  const project = resolveProject(configPath);
+  return project.ok ? project.value.root : process.cwd();
 }
 
 /**

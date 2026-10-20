@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/commands'
-sourceHash: 'df47ec4c70a03664ecf8e57d02450630b0abc4cd14a2f10de8360cb06674f761'
+sourceHash: '487ef36f9714620439e22c696db0fa6d0d4f69d7f98542b1e702a05f33274767'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -358,6 +358,7 @@ export runCheckVocabulary
 export runCleanup
 export runCleanupAll
 export runCleanupSessions
+export runComprehendAction
 export runCrossCheck
 export runCursorToolPicker
 export runDoctor
@@ -433,7 +434,7 @@ import { RefReadDeps, RegressionContext, SemanticState, defaultRefReadDeps, dete
 import { createStaticExtractor } from '../comprehension/static-extractor'
 import { loadAnalysisExclude, loadDesignExclude } from '../config/analysis-schema.js'
 import { withDependencyRules } from '../config/arch-dependency-rules'
-import { findConfigFile, loadConfig, resolveConfig } from '../config/loader'
+import { findConfigFile, resolveConfig, resolveProject } from '../config/loader'
 import { BranchingConfigSchema, ComprehensionConfig, HarnessConfig, VocabularyConfigSchema, loadDepsExclude } from '../config/schema'
 import { CopyCraftInput, CopyCraftOutput, CopySurface, runCopyCraft } from '../copy-craft/index.js'
 import { CraftFinding } from '../design-craft/findings/schema'
@@ -662,7 +663,7 @@ import * as fs, fs, { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirS
 import from 'node:fs/promises'
 import { createRequire } from 'node:module'
 import * as os, os, { tmpdir } from 'node:os'
-import * as path, path, { dirname, join, relative, resolve } from 'node:path'
+import * as nodePath, * as path, path, { dirname, join, relative, resolve } from 'node:path'
 import readline from 'node:readline'
 import { setTimeout } from 'node:timers'
 import { fileURLToPath } from 'node:url'

@@ -189,23 +189,27 @@ describe('check-docs command', () => {
     });
 
     /**
-     * The failure exit. Before this test, every `mockExit` assertion in this
-     * file asserted 0 and nothing anywhere asserted 1: mutating the final
-     * `process.exit(result.value.valid ? SUCCESS : VALIDATION_FAILED)` to a bare
-     * `process.exit(ExitCode.SUCCESS)` left this file 14/14 green. Of the six
-     * conditional `check-*` exits probed, `check-docs` was the only survivor —
-     * the other five are pinned by their `*-cov544*.test.ts` siblings.
+     * Exit-code mapping over a real scan, run from the REAL `process.cwd()`.
      *
-     * NOTE on the fixture: the `scannedNothing` case next door (#1146) cannot
-     * pin this line, because it returns at the EARLIER
-     * `process.exit(ExitCode.ZERO_DENOMINATOR)` and never reaches it. Reaching
-     * the `valid` exit needs a scan that read something and still fell short —
-     * one source file, no docs page linking it, default 80% floor. The
-     * abstention's own exit 3 is pinned separately below.
+     * This block used to install a `vi.spyOn(process, 'cwd')` pointing at the
+     * fixture, because the action handler called `runCheckDocs` without a `cwd`
+     * and `runCheckDocs` fell back to `process.cwd()` — so `-c` chose the
+     * config file while the scan measured the current directory. The spy was
+     * papering over that defect (the production bug `check-arch` was fixed out
+     * of under #911 / 9f322084c). `runCheckDocs` now roots on the project that
+     * owns the config, so the spy is gone and these cases prove the root is
+     * honoured rather than assuming it.
+     *
+     * The failure exit matters on its own: before #2282 every `mockExit`
+     * assertion in this file asserted 0 and nothing anywhere asserted 1, so
+     * mutating the final `process.exit(result.value.valid ? SUCCESS :
+     * VALIDATION_FAILED)` to a bare `process.exit(ExitCode.SUCCESS)` left the
+     * file green. Reaching the `valid` exit needs a scan that read something and
+     * still fell short — one source file, no docs page linking it, default 80%
+     * floor.
      */
     describe('exit-code mapping over a real scan', () => {
       let root: string;
-      let mockCwd: ReturnType<typeof vi.spyOn>;
 
       beforeEach(async () => {
         root = await mkdtemp(path.join(tmpdir(), 'harness-checkdocs-exit-'));
@@ -215,25 +219,9 @@ describe('check-docs command', () => {
           path.join(root, 'harness.config.json'),
           JSON.stringify({ version: 1, name: 'uncovered', rootDir: '.', docsDir: './docs' })
         );
-        // The action handler calls `runCheckDocs` WITHOUT a `cwd`
-        // (`check-docs.ts` action -> `runCheckDocs`, which does
-        // `options.cwd ?? process.cwd()`), so the scan root is `process.cwd()`
-        // and `-c` only selects the config file — the same split `check-arch`
-        // fixed in #911, still present here. Pointing `process.cwd()` at the
-        // fixture is the only way to make the handler read this tree.
-        //
-        // The spy is load-bearing for the 0 and 3 cases SPECIFICALLY. Measured
-        // with it neutered against unmutated source: `Tests 2 failed | 15 passed
-        // (17)` — the SUCCESS(0) and ZERO_DENOMINATOR(3) cases fail, while
-        // `exits VALIDATION_FAILED (1)` still passes, because `packages/cli`
-        // itself sits below the 80% floor and so reaches exit 1 against the
-        // wrong directory anyway. So for the exit-1 case the spy buys honesty
-        // about WHAT was measured, not the assertion's ability to fail.
-        mockCwd = vi.spyOn(process, 'cwd').mockReturnValue(root);
       });
 
       afterEach(async () => {
-        mockCwd.mockRestore();
         await rm(root, { recursive: true, force: true });
       });
 
@@ -296,6 +284,68 @@ describe('check-docs command', () => {
         ]);
 
         expect(mockExit).toHaveBeenCalledWith(3);
+      });
+
+      /**
+       * `-c` must select the project root, not just the config FILE (#911's class,
+       * fixed for `check-arch` in 9f322084c and reported for `check-docs` while
+       * reviewing #2282).
+       *
+       * This runs from the REAL `process.cwd()` — vitest's cwd for this package is
+       * `packages/cli` — and points `-c` at a tmpdir fixture. No `process.cwd`
+       * spy: the whole point is that none is needed.
+       *
+       * FIXTURE CHOICE. The wrong answer must be arithmetically unreachable from
+       * the right one, because an exit code alone is not a discriminator here:
+       * `packages/cli` itself sits below the 80% floor, so a scan of the WRONG
+       * directory also exits 1 (measured in #2282). So this asserts the
+       * denominator and the numerator, not the verdict:
+       *
+       *   right answer (the fixture) -> scanned 1, documented 1, 100%
+       *   wrong answer (packages/cli) -> scanned in the thousands, well under 80%
+       *
+       * `scanned: 1` is the load-bearing assertion. No real package tree has one
+       * source file, so it cannot be satisfied by coincidence, and it is also
+       * immune to the #1146 abstention masking the result (scanned 0).
+       */
+      it('measures the project implied by -c, not process.cwd()', async () => {
+        await writeFile(path.join(root, 'src/thing.ts'), 'export const thing = 1;\n');
+        await writeFile(
+          path.join(root, 'docs/readme.md'),
+          // Coverage is LINK-based: a markdown link to the basename is what marks
+          // a source file documented.
+          '# Docs\n\nSee [the thing](../src/thing.ts).\n'
+        );
+
+        // Guard the premise: if the test process ever ran from the fixture, this
+        // assertion would be vacuous.
+        expect(process.cwd()).not.toBe(root);
+
+        const program = makeProgram();
+        await safeParseAsync(program, [
+          'node',
+          'test',
+          '--json',
+          '-c',
+          path.join(root, 'harness.config.json'),
+          'check-docs',
+        ]);
+
+        const jsonCall = mockConsoleLog.mock.calls.find(
+          (c) => typeof c[0] === 'string' && c[0].includes('coveragePercent')
+        );
+        expect(jsonCall).toBeDefined();
+        const payload = JSON.parse(jsonCall![0] as string) as {
+          scanned: number;
+          coveragePercent: number;
+          documented: string[];
+          undocumented: string[];
+        };
+
+        expect(payload.scanned).toBe(1);
+        expect(payload.documented).toEqual(['src/thing.ts']);
+        expect(payload.undocumented).toEqual([]);
+        expect(payload.coveragePercent).toBe(100);
       });
     });
 
