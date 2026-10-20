@@ -161,12 +161,19 @@ export interface CloneClass {
   sharedImport?: string; // set only when signal === 'partial-extraction'
 }
 
+export interface SkippedFile {
+  file: string; // repo-relative, posix-normalized
+  reason: 'unreadable' | 'unparseable';
+  message: string; // the underlying read or parse error
+}
+
 export interface CloneIndex {
   classes: CloneClass[];
   byMember: Map<string, CloneClass>; // `${file}:${startLine}` -> owning class
+  skipped: SkippedFile[]; // one entry per filesSkipped increment — the evidence Phase 2 raises
   stats: {
     filesScanned: number;
-    filesSkipped: number; // unreadable or unparseable — see Failure behavior
+    filesSkipped: number; // count of `skipped` — see Failure behavior
     unitsFingerprinted: number;
     unitsBelowMinTokens: number; // excluded BEFORE grouping — never fingerprinted
     classesReported: number;
@@ -188,10 +195,20 @@ carries.
 
 Following the `Result` / `AnalysisError` convention already used by the sibling detectors:
 
-- If a source file cannot be read, the detector shall skip that file, increment `filesSkipped`, and
-  continue.
-- If a source file fails to parse, the detector shall skip that file, increment `filesSkipped`, and
-  record an `AnalysisError` with `analyzer: 'duplication'` — it shall not fail the entropy run.
+- If a source file cannot be read, the detector shall skip that file, increment `filesSkipped`,
+  record a `SkippedFile` entry on `CloneIndex.skipped`, and continue.
+- If a source file fails to parse, the detector shall skip that file, increment `filesSkipped`,
+  record a `SkippedFile` entry, and record an `AnalysisError` with `analyzer: 'duplication'` — it shall not fail the entropy run. The
+  reason and message are carried on the index rather than collapsed into a count, because Phase 2
+  cannot raise a per-file `AnalysisError` from a bare counter.
+- If EVERY eligible file is skipped, the detector shall report that explicitly rather than
+  returning an index with zero classes. At 100% skip the result is indistinguishable from the
+  zero-discovery case below; a partial skip (1 of N) still returns `Ok`, because that is a scan that
+  happened.
+- If two units with the same fingerprint disagree on `tokenCount`, the detector shall report that as
+  an error rather than reporting a class. Equal digests must mean equal streams, so a disagreement is
+  the observed digest collision that justifies widening the 16-hex truncation; without this check the
+  module had no mechanism to detect one. Measured clean over 7,887 units.
 - If a unit yields fewer than `minTokens` tokens, it shall be excluded from fingerprinting
   **before grouping** and counted in `unitsBelowMinTokens`. Such a unit can never form or join a
   clone class, so it is never counted in `classesSuppressed` — that counter is only for classes

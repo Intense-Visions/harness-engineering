@@ -474,6 +474,9 @@ describe('buildCloneIndex', () => {
       if (!result.ok) throw new Error('expected ok');
       expect(result.value.stats.filesSkipped).toBe(1);
       expect(result.value.stats.classesReported).toBe(1);
+      expect(result.value.skipped.map((entry) => [entry.file, entry.reason])).toEqual([
+        ['src/absent.ts', 'unreadable'],
+      ]);
     } finally {
       await rm(root, { recursive: true, force: true });
     }

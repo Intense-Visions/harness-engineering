@@ -36,6 +36,7 @@ describe('core barrel — duplication surface (criterion 11)', () => {
     const index: CloneIndex = {
       classes: [cls],
       byMember: new Map([[`${member.file}:${member.startLine}`, cls]]),
+      skipped: [],
       stats: {
         filesScanned: 1,
         filesSkipped: 0,

@@ -49,15 +49,37 @@ export interface CloneClass {
   sharedImport?: string;
 }
 
+/** One file that was eligible but produced no units, and why. */
+export interface SkippedFile {
+  /** Repo-relative, POSIX-normalized path. */
+  file: string;
+  reason: FileSkipReason;
+  /** The underlying read or parse error message. */
+  message: string;
+}
+
 /** The clone index over one discovered file set. */
 export interface CloneIndex {
   /** Qualifying classes, rank-descending, capped at `maxClasses`. */
   classes: CloneClass[];
   /** `${file}:${startLine}` -> owning class. The seam for code-craft (Phase 5). */
   byMember: Map<string, CloneClass>;
+  /**
+   * One entry per file counted in `stats.filesSkipped`, in discovery order.
+   *
+   * `stats.filesSkipped` is the count; this is the evidence. Phase 2's detector
+   * is specified to convert each skip into an `AnalysisError` with
+   * `analyzer: 'duplication'`, which it cannot do from a bare count — the
+   * reason and message were computed in {@link fingerprintFile} and then
+   * discarded here.
+   */
+  skipped: SkippedFile[];
   stats: {
     filesScanned: number;
-    /** Unreadable or unparseable — see the spec's Failure behavior section. */
+    /**
+     * Unreadable or unparseable — see the spec's Failure behavior section.
+     * Every increment has a matching entry in `skipped`.
+     */
     filesSkipped: number;
     /** Units that cleared `minTokens` and were hashed into a group. */
     unitsFingerprinted: number;
@@ -206,6 +228,13 @@ export interface FingerprintedUnit {
   member: CloneMember;
 }
 
+/** A compact `reason x count` summary for the all-files-skipped error message. */
+function summarizeSkips(skipped: readonly SkippedFile[]): string {
+  const counts = new Map<string, number>();
+  for (const entry of skipped) counts.set(entry.reason, (counts.get(entry.reason) ?? 0) + 1);
+  return [...counts].map(([reason, count]) => `${count} ${reason}`).join(', ');
+}
+
 /** Why a file produced no units. */
 export type FileSkipReason = 'unreadable' | 'unparseable';
 
@@ -236,9 +265,11 @@ export type FingerprintFileResult =
  * every unit; the hash does not.
  *
  * Never throws: an unreadable or unparseable file resolves to
- * `{ status: 'skipped' }` so the caller can increment `filesSkipped` and
- * continue. Phase 2's detector converts a skip into an `AnalysisError` with
- * `analyzer: 'duplication'`; the entropy types live there, not here.
+ * `{ status: 'skipped' }` so the caller can record it in `CloneIndex.skipped`,
+ * increment `filesSkipped`, and continue. Phase 2's detector converts each
+ * recorded skip into an `AnalysisError` with `analyzer: 'duplication'`; the
+ * entropy types live there, not here, which is why the reason and message are
+ * carried on the index rather than collapsed into a count.
  *
  * @param absPath - Absolute path to read.
  * @param relPath - Repo-relative POSIX path recorded on each `CloneMember`.
@@ -303,8 +334,15 @@ export async function fingerprintFile(
  *
  * Discovery is the caller's: `files` is a list of absolute paths, so nothing
  * here assumes any repository layout (success criterion 15). Ineligible paths
- * (unsupported extension, or matched by `ignorePatterns`) are dropped before
- * any read and are counted in neither `filesScanned` nor `filesSkipped`.
+ * (unsupported extension, outside `rootDir`, or matched by `ignorePatterns`)
+ * are dropped before any read and are counted in neither `filesScanned` nor
+ * `filesSkipped`.
+ *
+ * A file that was eligible but failed resolves to a {@link SkippedFile} entry
+ * on `skipped`, carrying the reason and the underlying message. A partial skip
+ * returns `Ok`; a run where EVERY eligible file was skipped returns `Err`,
+ * because at 100% skip the result is indistinguishable from the zero-discovery
+ * case this function already refuses.
  *
  * The two bars act at different stages, per the amended spec. `minTokens` is a
  * UNIT-level bar applied before grouping, inside {@link fingerprintFile}: a
@@ -347,15 +385,15 @@ export async function buildCloneIndex(
   }
 
   let filesScanned = 0;
-  let filesSkipped = 0;
   let unitsFingerprinted = 0;
   let unitsBelowMinTokens = 0;
+  const skipped: SkippedFile[] = [];
   const groups = new Map<string, FingerprintedUnit[]>();
 
   for (const { abs, rel } of eligible) {
     const outcome = await fingerprintFile(abs, rel, config.minTokens);
     if (outcome.status === 'skipped') {
-      filesSkipped += 1;
+      skipped.push({ file: rel, reason: outcome.reason, message: outcome.message });
       continue;
     }
     filesScanned += 1;
@@ -366,6 +404,26 @@ export async function buildCloneIndex(
       if (bucket === undefined) groups.set(unit.fingerprint, [unit]);
       else bucket.push(unit);
     }
+  }
+
+  // A run where every eligible file failed is not a scan that found nothing:
+  // it is a scan that did not happen. At 100% skip the result is
+  // indistinguishable from the zero-discovery case the guard above exists to
+  // refuse, so it gets the same treatment. A partial skip (1 of N) still
+  // returns Ok with the skips recorded — that IS a scan that happened.
+  if (filesScanned === 0) {
+    return Err(
+      createEntropyError(
+        'PARSE_ERROR',
+        `Refusing to report a pass over zero readable source files: all ${skipped.length} eligible file(s) under ${rootDir} were skipped (${summarizeSkips(skipped)}).`,
+        { reason: 'all-files-skipped', file: rootDir, issues: skipped },
+        [
+          'Check file permissions on the discovered source files',
+          'Check that the discovered files are valid TS/JS that the parser accepts',
+          `First failure: ${skipped[0]!.file} — ${skipped[0]!.message}`,
+        ]
+      )
+    );
   }
 
   // Every unit that reached grouping already cleared minTokens, so the only
@@ -380,6 +438,27 @@ export async function buildCloneIndex(
       continue;
     }
     const tokenCount = units[0]!.tokenCount;
+    // Equal digests must mean equal streams, so equal token counts. This is the
+    // falsifiable collision detector the 64-bit truncation in `tokens.ts`
+    // promises: a disagreement here IS the observed collision that would
+    // justify widening the digest. Measured clean over 7,887 units.
+    if (units.some((u) => u.tokenCount !== tokenCount)) {
+      return Err(
+        createEntropyError(
+          'PARSE_ERROR',
+          `Fingerprint collision detected: ${fingerprint} groups units of differing token counts (${[
+            ...new Set(units.map((u) => u.tokenCount)),
+          ].join(
+            ', '
+          )}) at ${units.map((u) => `${u.member.file}:${u.member.startLine}`).join(', ')}.`,
+          { reason: 'fingerprint-collision', file: units[0]!.member.file },
+          [
+            'Widen the digest in duplication/tokens.ts beyond 16 hex characters',
+            'Report this: a 64-bit collision at this scale was estimated at ~1.7e-12',
+          ]
+        )
+      );
+    }
     const members = units
       .map((u) => u.member)
       .sort((a, b) => a.file.localeCompare(b.file) || a.startLine - b.startLine);
@@ -413,9 +492,10 @@ export async function buildCloneIndex(
   return Ok({
     classes,
     byMember,
+    skipped,
     stats: {
       filesScanned,
-      filesSkipped,
+      filesSkipped: skipped.length,
       unitsFingerprinted,
       unitsBelowMinTokens,
       classesReported: classes.length,

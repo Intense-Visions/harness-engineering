@@ -100,17 +100,70 @@ describe('zero-discovery guard', () => {
     expect(result.error.message).toMatch(/zero source files/i);
   });
 
-  it('does NOT return Err when files are eligible but all fail to read', async () => {
-    // An eligible-but-unreadable set is a scan that happened and found
-    // nothing — distinct from a scan that never happened.
+  it('returns Err when every eligible file is skipped', async () => {
+    // At 100% skip, `classes: []` is indistinguishable from the zero-discovery
+    // case the guard above refuses: nothing was actually read, so reporting a
+    // clean pass would be a lie.
     const result = await buildCloneIndex([join(root, 'src', 'absent.ts')], {
       rootDir: root,
       ignorePatterns: [],
     });
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.error.code).toBe('PARSE_ERROR');
+    expect(result.error.details.reason).toBe('all-files-skipped');
+    expect(result.error.message).toMatch(/zero readable source files/i);
+    expect(result.error.message).toMatch(/1 unreadable/);
+    expect(result.error.suggestions.length).toBeGreaterThan(0);
+  });
+
+  it('returns Err when every eligible file is unparseable, not Ok with zero classes', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'dup-allbroken-'));
+    try {
+      await mkdir(join(dir, 'src'), { recursive: true });
+      for (const name of ['a.ts', 'b.ts', 'c.ts']) {
+        await writeFile(join(dir, 'src', name), `export function broken( {\n`, 'utf8');
+      }
+      const result = await buildCloneIndex(
+        ['a.ts', 'b.ts', 'c.ts'].map((n) => join(dir, 'src', n)),
+        { rootDir: dir, ignorePatterns: [] }
+      );
+      expect(result.ok).toBe(false);
+      if (result.ok) return;
+      expect(result.error.details.reason).toBe('all-files-skipped');
+      expect(result.error.message).toMatch(/3 unparseable/);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('still returns Ok for a partial skip, recording the skip as evidence', async () => {
+    // 1-of-N is a scan that happened: it read real files and can report on them.
+    const result = await buildCloneIndex(
+      [join(root, 'src', 'good.ts'), join(root, 'src', 'absent.ts')],
+      { rootDir: root, ignorePatterns: [] }
+    );
     expect(result.ok).toBe(true);
     if (!result.ok) return;
+    expect(result.value.stats.filesScanned).toBe(1);
     expect(result.value.stats.filesSkipped).toBe(1);
-    expect(result.value.stats.filesScanned).toBe(0);
-    expect(result.value.classes).toEqual([]);
+    expect(result.value.skipped).toEqual([
+      { file: 'src/absent.ts', reason: 'unreadable', message: expect.any(String) },
+    ]);
+    expect(result.value.skipped[0]!.message.length).toBeGreaterThan(0);
+  });
+
+  it('records a parse failure on skipped with its reason and message', async () => {
+    const result = await buildCloneIndex(
+      [join(root, 'src', 'good.ts'), join(root, 'src', 'broken.ts')],
+      { rootDir: root, ignorePatterns: [] }
+    );
+    if (!result.ok) throw new Error('expected ok');
+    expect(result.value.skipped.map((entry) => [entry.file, entry.reason])).toEqual([
+      ['src/broken.ts', 'unparseable'],
+    ]);
+    // The evidence Phase 2 needs to raise an AnalysisError, not a bare count.
+    expect(result.value.skipped[0]!.message.length).toBeGreaterThan(0);
+    expect(result.value.stats.filesSkipped).toBe(result.value.skipped.length);
   });
 });
