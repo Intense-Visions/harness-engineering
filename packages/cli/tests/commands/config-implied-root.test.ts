@@ -626,14 +626,29 @@ describe('-c selects the project root, not just the config file (#911 class)', (
    *
    * FIXTURE-VALUE CHOICE, shared by all five. Each one asserts an ABSOLUTE
    * PATH, a git object, or a config field that exists ONLY in the tmpdir, so
-   * the wrong root cannot produce it. Every assertion is POSITIVE (the thing
-   * that exists at the fixture path), never an absence — the review that
-   * defeated the earlier `roadmap triage` case did it by planting the file
-   * whose absence that test depended on. Three of the five also use a
-   * `rootDir` of `./fixtureapp`, which does not exist in `packages/cli`; that
-   * is a SAFETY property, not the discriminator (it keeps a reverted
-   * `fix-drift` from rewriting this repo), and each case's discriminator is
-   * stated in its own comment.
+   * the wrong root cannot produce it.
+   *
+   * Every DISCRIMINATING assertion is positive — the thing that exists at the
+   * fixture path — because the review that defeated the earlier `roadmap
+   * triage` case did it by planting the file whose absence that test depended
+   * on. Precisely two assertions below are absences and NEITHER is a
+   * discriminator: the `.entropy-backups` hygiene check in `fix-drift` (which
+   * compares against the pre-run state, not against `false`) and
+   * `inv.unbounded` in `release-inventory` (implied by the positive
+   * `lastRelease` assertion on the line above it). There are no conditional
+   * (`if (x) expect(...)`) assertions anywhere, and no loop runs without its
+   * denominator being asserted non-zero first.
+   *
+   * The four cases whose discriminator is an absolute path cannot be defeated
+   * by planting, because the asserted value names the tmpdir. The fifth
+   * (`check-operational-drift`) can, for a reason intrinsic to that command's
+   * return shape — see its own note; do not read the robustness of the other
+   * four onto it.
+   *
+   * Three of the five also use a `rootDir` of `./fixtureapp`, which does not
+   * exist in `packages/cli`; that is a SAFETY property, not the discriminator
+   * (it keeps a reverted `fix-drift` from rewriting this repo), and each
+   * case's discriminator is stated in its own comment.
    *
    * Paths are compared through {@link toPosix} because the globbers return
    * forward slashes while `path.join` does not on win32.
@@ -674,6 +689,8 @@ describe('-c selects the project root, not just the config file (#911 class)', (
       },
       async (configPath, root) => {
         const { runFixDrift } = await import('../../src/commands/fix-drift');
+        const backupDir = path.join(process.cwd(), '.entropy-backups');
+        const backupDirExistedBefore = existsSync(backupDir);
         const result = await runFixDrift({ configPath, dryRun: false });
         expect(result.ok).toBe(true);
         if (!result.ok) return;
@@ -691,12 +708,19 @@ describe('-c selects the project root, not just the config file (#911 class)', (
         expect(result.value.fixes[0]?.applied).toBe(true);
         expect(toPosix(result.value.fixes[0]?.file ?? '')).toBe(toPosix(target));
         // Every suggestion is inside the fixture too — no path from any other
-        // tree leaked into the report.
+        // tree leaked into the report. Guard the denominator first: an empty
+        // `suggestions` would make the loop run zero assertions and pass
+        // vacuously, which is the shape this file exists to avoid.
+        expect(result.value.suggestions.length).toBeGreaterThan(0);
         for (const s of result.value.suggestions) {
           expect(toPosix(s.file).startsWith(toPosix(root))).toBe(true);
         }
-        // And nothing was backed up into the caller's tree (see above).
-        expect(existsSync(path.join(process.cwd(), '.entropy-backups'))).toBe(false);
+        // Hygiene only, NOT a discriminator: prove this test did not itself
+        // litter `.entropy-backups` into the caller's tree (see the note
+        // above). Compared against the pre-run state rather than against
+        // `false`, so a directory some other process left behind cannot red
+        // this case for a reason that has nothing to do with the root.
+        expect(existsSync(backupDir)).toBe(backupDirExistedBefore);
       }
     );
   });
@@ -882,11 +906,26 @@ describe('-c selects the project root, not just the config file (#911 class)', (
    *
    * Discriminator: the surface of the single finding names
    * `fixtureOnlyThresholds.watched`, a field that exists only in the fixture's
-   * config. Two threshold paths are watched and the fixture differs from the
-   * base on exactly one of them, so the right answer is a specific named field
-   * rather than "something changed".
+   * `zorblax-fixture-only.json`. Two threshold paths are watched and the
+   * fixture differs from the base on exactly one of them, so the right answer
+   * is a specific named field rather than "something changed".
+   *
+   * WEAKEST OF THE FIVE, stated plainly. `CheckOperationalDriftResult` carries
+   * no absolute path — `surface` is repo-RELATIVE — so unlike the other four
+   * this discriminator cannot encode the fixture root, and it is therefore
+   * content-based: any tree holding a `zorblax-fixture-only.json` with
+   * `alsoWatched: 1` and `watched !== 7` satisfies it. A review defeated the
+   * earlier version of this case with an 84-byte plant at
+   * `packages/cli/harness.config.json`, which is a plausible filename. The
+   * watched file is therefore named `zorblax-fixture-only.json`: the plant that
+   * would still defeat it has to be an obviously synthetic, non-schema file at a
+   * path nothing in this repo uses. That raises the bar; it does not remove the
+   * ceiling, and the ceiling is a property of the command's return shape rather
+   * than of this test.
    */
   it('check-operational-drift diffs the config of the -c project', async () => {
+    // Deliberately NOT `harness.config.json`: see the note above.
+    const POLICY_FILE = 'zorblax-fixture-only.json';
     const baseConfig = JSON.stringify({
       fixtureOnlyThresholds: { watched: 7, alsoWatched: 1 },
     });
@@ -894,31 +933,32 @@ describe('-c selects the project root, not just the config file (#911 class)', (
       {
         rootDir: './fixtureapp',
         docsDir: './fixturedocs',
-        // Not a schema key, by design: the HEAD side of this diff is read from
-        // the RAW config file (`readJsonFromDisk`), never from the parsed
-        // config, so the loader's one advisory `ignored unknown key` line is
-        // immaterial — and a key the schema does not know is a key no other
-        // tree in this repo can be carrying.
-        fixtureOnlyThresholds: { watched: 42, alsoWatched: 1 },
         operationalPolicy: {
           watchedPaths: [],
-          configFile: 'harness.config.json',
+          configFile: POLICY_FILE,
           configThresholdPaths: [
             'fixtureOnlyThresholds.watched',
             'fixtureOnlyThresholds.alsoWatched',
           ],
         },
       },
-      async () => {},
+      async (root) => {
+        // The watched file is its own artifact, not harness.config.json, so the
+        // thresholds never go near the config schema (no `ignored unknown key`
+        // advisory) and the file the command must read is one only this fixture
+        // has any reason to contain.
+        await writeFile(
+          path.join(root, POLICY_FILE),
+          JSON.stringify({ fixtureOnlyThresholds: { watched: 42, alsoWatched: 1 } })
+        );
+      },
       async (configPath) => {
         const { runCheckOperationalDrift } =
           await import('../../src/commands/check-operational-drift');
         const runGit = (args: string[]): string => {
-          if (args[0] === 'diff') return 'harness.config.json';
+          if (args[0] === 'diff') return POLICY_FILE;
           if (args[0] === 'ls-files') return '';
-          if (args[0] === 'show' && args[1] === 'FIXTUREBASE:harness.config.json') {
-            return baseConfig;
-          }
+          if (args[0] === 'show' && args[1] === `FIXTUREBASE:${POLICY_FILE}`) return baseConfig;
           throw new Error(`unexpected git invocation: ${args.join(' ')}`);
         };
         const result = await runCheckOperationalDrift({
@@ -933,9 +973,8 @@ describe('-c selects the project root, not just the config file (#911 class)', (
         // wrong root produces has a different surface and detail.
         expect(result.value.operationalChanges).toEqual([
           {
-            surface: 'harness.config.json:fixtureOnlyThresholds.watched',
-            detail:
-              'threshold/policy field "fixtureOnlyThresholds.watched" changed in harness.config.json',
+            surface: `${POLICY_FILE}:fixtureOnlyThresholds.watched`,
+            detail: `threshold/policy field "fixtureOnlyThresholds.watched" changed in ${POLICY_FILE}`,
           },
         ]);
         expect(result.value.flagged).toBe(true);
