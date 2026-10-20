@@ -8,6 +8,7 @@ import {
   isEligibleFile,
   buildCloneIndex,
 } from '../../src/duplication/index';
+import type { DuplicationConfig } from '../../src/duplication/index';
 
 describe('resolveDuplicationConfig', () => {
   it('applies the Rule-of-Three defaults', () => {
@@ -38,10 +39,36 @@ describe('resolveDuplicationConfig', () => {
     expect(a.ignorePatterns).not.toBe(b.ignorePatterns);
     expect(a.ignorePatterns).not.toBe(DEFAULT_DUPLICATION_CONFIG.ignorePatterns);
     const before = DEFAULT_DUPLICATION_CONFIG.ignorePatterns.length;
-    a.ignorePatterns.push('**/leaked/**');
+    // The resolved config is deliberately mutable; the cast is only because
+    // `DuplicationConfig.ignorePatterns` is typed `readonly string[]`.
+    (a.ignorePatterns as string[]).push('**/leaked/**');
     expect(b.ignorePatterns).not.toContain('**/leaked/**');
     expect(DEFAULT_DUPLICATION_CONFIG.ignorePatterns).toHaveLength(before);
     expect(resolveDuplicationConfig().ignorePatterns).not.toContain('**/leaked/**');
+  });
+
+  it('freezes the EXPORTED default so a mutation cannot leak into a later resolve', () => {
+    // The half the case above did not pin. Reproduced before the fix:
+    // Object.isFrozen(DEFAULT_DUPLICATION_CONFIG) === false, the push
+    // SUCCEEDED, and resolveDuplicationConfig() then contained the pattern —
+    // Object.freeze had been applied to a module-private const no caller could
+    // reach, while the export carried a mutable copy.
+    expect(Object.isFrozen(DEFAULT_DUPLICATION_CONFIG)).toBe(true);
+    expect(Object.isFrozen(DEFAULT_DUPLICATION_CONFIG.ignorePatterns)).toBe(true);
+
+    expect(() =>
+      (DEFAULT_DUPLICATION_CONFIG.ignorePatterns as string[]).push('**/POISON/**')
+    ).toThrow(TypeError);
+    expect(() => {
+      (DEFAULT_DUPLICATION_CONFIG as DuplicationConfig).minTokens = 1;
+    }).toThrow(TypeError);
+
+    expect(DEFAULT_DUPLICATION_CONFIG.ignorePatterns).not.toContain('**/POISON/**');
+    expect(DEFAULT_DUPLICATION_CONFIG.minTokens).toBe(40);
+    const after = resolveDuplicationConfig();
+    expect(after.ignorePatterns).not.toContain('**/POISON/**');
+    expect(after.minTokens).toBe(40);
+    expect(isEligibleFile('src/POISON/a.ts', after.ignorePatterns)).toBe(true);
   });
 });
 

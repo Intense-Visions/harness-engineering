@@ -265,10 +265,16 @@ Following the `Result` / `AnalysisError` convention already used by the sibling 
 export interface DuplicationConfig {
   minTokens: number; // default 40
   minInstances: number; // default 3 (Rule of Three)
-  ignorePatterns: string[]; // default: tests, fixtures, generated files, build output
+  ignorePatterns: readonly string[]; // default: tests, fixtures, generated, build output
+  // minimatch with { dot: true, nocase: true } — NOT the regex language
+  // DriftConfig.ignorePatterns uses. See the field's JSDoc.
   maxClasses: number; // default 100 (report cap)
 }
 ```
+
+`DEFAULT_DUPLICATION_CONFIG` is deep-frozen (the object and its `ignorePatterns` array), since it
+is a process-wide singleton on a public API; `resolveDuplicationConfig` returns a fresh mutable
+config with its own array, so a consumer tunes only its own copy.
 
 The defaults deliberately do **not** ignore `index.*`. A true barrel is pure re-exports, so it
 yields no units and cannot produce a false positive — ignoring it buys nothing — while in this repo

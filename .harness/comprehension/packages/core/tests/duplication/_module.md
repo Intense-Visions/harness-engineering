@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/tests/duplication'
-sourceHash: '643a43a9ae9b8c0d7c68fe25ac1dfa0e767b87b3010311cd6e7c07971578ad4a'
+sourceHash: 'd299b214db66654edd24aeca89ecb62b7fa76d91e04b53e4d3617324ef41b3e0'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -27,7 +27,7 @@ members:
 ## Dependency Slice
 
 ```
-import { DEFAULT_DUPLICATION_CONFIG, buildCloneIndex, fingerprintFile, isEligibleFile, resolveDuplicationConfig } from '../../src/duplication/index'
+import { DEFAULT_DUPLICATION_CONFIG, DuplicationConfig, buildCloneIndex, fingerprintFile, isEligibleFile, resolveDuplicationConfig } from '../../src/duplication/index'
 import { fingerprintStream, normalizeTokens } from '../../src/duplication/tokens'
 import { MissingNodeLocationError, extractUnits } from '../../src/duplication/units'
 import { findFiles } from '../../src/shared/fs-utils'

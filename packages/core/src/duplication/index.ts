@@ -156,8 +156,22 @@ export interface DuplicationConfig {
   minTokens: number;
   /** Minimum members for a class to be reported. Default 3 (Rule of Three). */
   minInstances: number;
-  /** Globs matched against the repo-relative path; matches are never read. */
-  ignorePatterns: string[];
+  /**
+   * Globs matched against the repo-relative POSIX path; matches are never read.
+   *
+   * The pattern language is **minimatch**, with `dot: true` (so a dotfile path
+   * is matched by `**`) and `nocase: true`. This is deliberately worth naming:
+   * once Phase 2 wires `analyze.duplication` into `EntropyConfig`, one config
+   * file can carry three same-named `ignorePatterns` fields in TWO languages —
+   * `DriftConfig.ignorePatterns` is compiled with `new RegExp(p)`
+   * (`entropy/detectors/drift.ts`), `DeadCodeConfig.ignorePatterns` exists as
+   * well, and `entropy/detectors/patterns.ts` uses minimatch WITHOUT `dot`.
+   * A regex written for drift will not behave as a glob here.
+   *
+   * `readonly`, because {@link DEFAULT_DUPLICATION_CONFIG} is frozen and
+   * nothing in this module mutates the array — `isEligibleFile` only reads it.
+   */
+  ignorePatterns: readonly string[];
   /** Report cap; the top `maxClasses` by rank survive. Default 100. */
   maxClasses: number;
 }
@@ -182,9 +196,15 @@ const SUPPORTED_EXTENSIONS = ['.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs'] as c
  * this spec's own Evidence section, and this module's own 392-line `index.ts`
  * excluded itself.
  *
- * Frozen because `DEFAULT_DUPLICATION_CONFIG` hands this exact array out on a
- * public API and {@link resolveDuplicationConfig} shallow-spreads, so every
- * resolved config would otherwise share one mutable instance process-wide.
+ * Frozen, and aliased straight onto `DEFAULT_DUPLICATION_CONFIG` rather than
+ * copied onto it. The previous revision froze only this module-private const
+ * and spread a MUTABLE copy onto the export, which put the freeze somewhere no
+ * caller could reach: `Object.isFrozen(DEFAULT_DUPLICATION_CONFIG)` was
+ * `false`, pushing onto its `ignorePatterns` succeeded and leaked into every
+ * later {@link resolveDuplicationConfig}, and `minTokens = 1` stuck
+ * process-wide. With both the object and this array frozen, the alias is safe:
+ * no binding can mutate it, and `resolveDuplicationConfig` still hands every
+ * caller its own copy.
  */
 const DEFAULT_IGNORE_PATTERNS = Object.freeze([
   '**/*.test.ts',
@@ -209,15 +229,20 @@ const DEFAULT_IGNORE_PATTERNS = Object.freeze([
   '**/coverage/**',
 ]) as readonly string[];
 
-/** The shipped defaults: Rule of Three above a 40-token floor, capped at 100. */
-export const DEFAULT_DUPLICATION_CONFIG: DuplicationConfig = {
+/**
+ * The shipped defaults: Rule of Three above a 40-token floor, capped at 100.
+ *
+ * Frozen, including `ignorePatterns`, because this is a process-wide singleton
+ * on a public API: one consumer's `.push()` or `minTokens = 1` would otherwise
+ * reach every later caller through the spread in
+ * {@link resolveDuplicationConfig}.
+ */
+export const DEFAULT_DUPLICATION_CONFIG: Readonly<DuplicationConfig> = Object.freeze({
   minTokens: 40,
   minInstances: 3,
-  // Spread, not aliased: the frozen source array must not become the one
-  // instance every resolved config shares.
-  ignorePatterns: [...DEFAULT_IGNORE_PATTERNS],
+  ignorePatterns: DEFAULT_IGNORE_PATTERNS,
   maxClasses: 100,
-};
+});
 
 /** Options accepted by {@link buildCloneIndex}. */
 export interface BuildCloneIndexOptions extends Partial<DuplicationConfig> {
@@ -229,14 +254,21 @@ export interface BuildCloneIndexOptions extends Partial<DuplicationConfig> {
   rootDir?: string;
 }
 
-/** Merge partial options over the defaults. */
+/**
+ * Merge partial options over the defaults.
+ *
+ * The returned config is a fresh MUTABLE object with a fresh `ignorePatterns`
+ * array, so a consumer may adjust its own copy; the frozen
+ * {@link DEFAULT_DUPLICATION_CONFIG} is unreachable from it.
+ */
 export function resolveDuplicationConfig(
   overrides: Partial<DuplicationConfig> = {}
 ): DuplicationConfig {
   const merged = { ...DEFAULT_DUPLICATION_CONFIG, ...overrides };
-  // Copy the array too: a shallow spread would alias the defaults' own
-  // instance into every resolved config, so one consumer `.push()` would leak
-  // into every later caller.
+  // Copy the array too. A shallow spread aliases whichever array it came from:
+  // the frozen defaults' (where a consumer's `.push()` now throws instead of
+  // leaking) or the caller's own (where a later mutation of theirs would
+  // silently retune a config this function already returned).
   return { ...merged, ignorePatterns: [...merged.ignorePatterns] };
 }
 
