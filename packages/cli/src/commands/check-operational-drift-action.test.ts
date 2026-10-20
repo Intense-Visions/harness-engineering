@@ -38,15 +38,20 @@ function resolveProjectFrom(
     if (!loaded || loaded.ok !== true) {
       return loaded ?? { ok: false, error: new Error('resolveConfig mock returned nothing') };
     }
-    const resolvedConfigPath = configPath
-      ? nodePath.resolve(configPath)
-      : nodePath.join(process.cwd(), 'harness.config.json');
+    // Derive the root WITHOUT a join -> dirname round trip through the cwd.
+    // `nodePath.join('/tmp/x', 'f')` + `dirname` returns `\tmp\x` on win32, so a
+    // suite that stubs `process.cwd()` with a POSIX literal would see its own
+    // separators rewritten and fail on Windows only.
+    const root =
+      cwdOverride ?? (configPath ? nodePath.dirname(nodePath.resolve(configPath)) : process.cwd());
     return {
       ok: true,
       value: {
         config: loaded.value,
-        configPath: resolvedConfigPath,
-        root: cwdOverride ?? nodePath.dirname(resolvedConfigPath),
+        configPath: configPath
+          ? nodePath.resolve(configPath)
+          : nodePath.join(root, 'harness.config.json'),
+        root,
       },
     };
   };
