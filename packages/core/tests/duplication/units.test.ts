@@ -29,14 +29,65 @@ describe('extractUnits', () => {
     expect(units.map((u) => `${u.kind}:${u.name}`)).toEqual(['class:Box', 'method:tally']);
   });
 
-  it('still extracts a class-field arrow function as its own unit', () => {
-    const units = unitsOf(`class Box {\n  handler = (x: number) => x + 1;\n}\n`);
-    expect(units.map((u) => u.kind)).toEqual(['class', 'function']);
+  it('names an arrow function from its variable binding one hop up', () => {
+    // `const sendJSON = (res, status, body) => {…}` is not anonymous to anyone
+    // reading it; reporting `<anon>` cost 17 of 192 members in this repo.
+    const units = unitsOf(`const f = (a: number) => a + 1;\n`);
+    expect(units.map((u) => `${u.kind}:${u.name}`)).toEqual(['function:f']);
   });
 
-  it('names a function expression or arrow function <anon>', () => {
-    const units = unitsOf(`const f = (a: number) => a + 1;\n`);
-    expect(units.map((u) => `${u.kind}:${u.name}`)).toEqual(['function:<anon>']);
+  it('names a function expression from its variable binding one hop up', () => {
+    const units = unitsOf(`const g = function (a: number) {\n  return a;\n};\n`);
+    expect(units.map((u) => `${u.kind}:${u.name}`)).toEqual(['function:g']);
+  });
+
+  it('names an object-literal method and a string-keyed function from the property key', () => {
+    const units = unitsOf(
+      `const api = {\n  send(a: number) {\n    return a;\n  },\n` +
+        `  'send-json': function (b: number) {\n    return b;\n  },\n` +
+        `  later: (c: number) => c,\n};\n`
+    );
+    expect(units.map((u) => `${u.kind}:${u.name}`)).toEqual([
+      'function:send',
+      'function:send-json',
+      'function:later',
+    ]);
+  });
+
+  it('names a class-field arrow from its property definition', () => {
+    const units = unitsOf(`class Box {\n  handler = (x: number) => x + 1;\n}\n`);
+    expect(units.map((u) => `${u.kind}:${u.name}`)).toEqual(['class:Box', 'function:handler']);
+  });
+
+  it('keeps <anon> for a computed key, a bare argument, and a default export', () => {
+    const key = unitsOf(`const k = 'x';\nconst o = { [k]: (a: number) => a };\n`);
+    expect(key.map((u) => u.name)).toEqual(['<anon>']);
+    const arg = unitsOf(`run((a: number) => a + 1);\n`);
+    expect(arg.map((u) => u.name)).toEqual(['<anon>']);
+    const def = unitsOf(`export default function (a: number) {\n  return a;\n}\n`);
+    expect(def.map((u) => u.name)).toEqual(['<anon>']);
+  });
+
+  it('does not name a unit from a binding it is not the value of', () => {
+    // The arrow is the parameter's DEFAULT, not the declarator's init, so the
+    // `outer` binding must not claim it.
+    const units = unitsOf(`const outer = function (cb = (a: number) => a) {\n  return cb;\n};\n`);
+    expect(units.map((u) => `${u.kind}:${u.name}`)).toEqual(['function:outer', 'function:<anon>']);
+  });
+
+  it('extracts a class expression as a class, symmetrically with a declaration', () => {
+    const expr = unitsOf(`const K = class {\n  m() {\n    return 1;\n  }\n};\n`);
+    expect(expr.map((u) => `${u.kind}:${u.name}`)).toEqual(['class:K', 'method:m']);
+    const decl = unitsOf(`class K {\n  m() {\n    return 1;\n  }\n}\n`);
+    expect(decl.map((u) => `${u.kind}:${u.name}`)).toEqual(['class:K', 'method:m']);
+  });
+
+  it('includes a decorator in the class unit range, so startLine is the decorator line', () => {
+    const src = `@dec\nclass A {\n  m() {\n    return 1;\n  }\n}\n`;
+    const [unit] = unitsOf(src);
+    expect(unit!.kind).toBe('class');
+    expect(unit!.startLine).toBe(1);
+    expect(src.slice(unit!.range[0], unit!.range[1]).startsWith('@dec')).toBe(true);
   });
 
   it('extracts nested units (an inner arrow inside a function)', () => {

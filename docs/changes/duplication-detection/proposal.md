@@ -137,8 +137,20 @@ rate is unknown until the detector runs in anger. D4's advisory-first posture is
 - **`tokens.ts`** — `normalizeTokens(tokens, range): string[]`. `Identifier` / `PrivateIdentifier`
   → `I`; `String` / `Numeric` / `Template` → `L`; `Keyword` / `Punctuator` kept verbatim.
 - **`units.ts`** — `extractUnits(ast): DupUnit[]` over ESTree `FunctionDeclaration`,
-  `FunctionExpression`, `ArrowFunctionExpression`, `MethodDefinition`, `ClassDeclaration`;
-  records `{ kind, name, startLine, endLine, range }`, with `name: '<anon>'` when absent.
+  `FunctionExpression`, `ArrowFunctionExpression`, `MethodDefinition`, `ClassDeclaration`, and
+  `ClassExpression`; records `{ kind, name, startLine, endLine, range }`, with `name: '<anon>'` when
+  no name is reachable. `ClassExpression` is included for symmetry — `const K = class { m() {} }`
+  otherwise reported only its method. `StaticBlock` is excluded: it has no name and no call site, so
+  it is not a unit anyone can extract. Naming looks one hop up when the node itself carries no `id`
+  or `key` — `VariableDeclarator.id`, `Property.key`, `PropertyDefinition.key` — so
+  `const sendJSON = (res, status, body) => {…}` reports `sendJSON` rather than `<anon>`; measured
+  over this repo's package sources that named 643 of 13,407 units (anonymous units fell from 36.0% to
+  31.2%). A callback argument (`scan(bundle, (line) => …)`) has no name one hop up and stays
+  `<anon>`. A decorator is INSIDE the unit range, so `@dec class A` reports the decorator's line as
+  `startLine` and the decorator's tokens count toward `minTokens`.
+- `extractUnits` requires an AST parsed with `{ loc: true, range: true }` and raises
+  `MissingNodeLocationError` otherwise; it is a public export, so the precondition is enforced rather
+  than assumed of the internal caller.
 - **`index.ts`** — `buildCloneIndex(files, config): Result<CloneIndex, EntropyError>`.
 
 ```ts
