@@ -214,10 +214,18 @@ Following the `Result` / `AnalysisError` convention already used by the sibling 
 export interface DuplicationConfig {
   minTokens: number; // default 40
   minInstances: number; // default 3 (Rule of Three)
-  ignorePatterns: string[]; // default: tests, fixtures, generated files, barrels
+  ignorePatterns: string[]; // default: tests, fixtures, generated files, build output
   maxClasses: number; // default 100 (report cap)
 }
 ```
+
+The defaults deliberately do **not** ignore `index.*`. A true barrel is pure re-exports, so it
+yields no units and cannot produce a false positive — ignoring it buys nothing — while in this repo
+`index.ts` is routinely a package's main implementation module. Measured over the package sources:
+ignoring it dropped the reported classes from 58 to 48, suppressing 10 classes composed entirely of
+`index.*` files, `sumCosts` x10 among them — the first named item in the Evidence section above.
+`node_modules`, `dist`, `build`, and `coverage` are ignored instead, since those are copies of
+source by construction.
 
 Wired as `EntropyConfig.analyze.duplication?: boolean | Partial<DuplicationConfig>`, alongside the
 existing six analyzers in `packages/core/src/entropy/types/config.ts`.

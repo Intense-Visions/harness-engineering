@@ -101,8 +101,23 @@ export interface DuplicationConfig {
  */
 const SUPPORTED_EXTENSIONS = ['.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs'] as const;
 
-/** Default exclusions: tests, fixtures, generated files, declarations, barrels. */
-const DEFAULT_IGNORE_PATTERNS: string[] = [
+/**
+ * Default exclusions: tests, fixtures, generated files, and build output.
+ *
+ * `index.*` is deliberately NOT excluded. An earlier revision ignored it as a
+ * "barrel", which was wrong twice over: a true barrel is pure re-exports, so it
+ * yields no units and cannot produce a false positive — the glob bought
+ * nothing — while in practice `index.ts` is routinely a package's main
+ * implementation module. Measured over this repo's package sources: the globs suppressed
+ * 10 of 58 classes (17%), including `sumCosts` x10, the first named item in
+ * this spec's own Evidence section, and this module's own 392-line `index.ts`
+ * excluded itself.
+ *
+ * Frozen because `DEFAULT_DUPLICATION_CONFIG` hands this exact array out on a
+ * public API and {@link resolveDuplicationConfig} shallow-spreads, so every
+ * resolved config would otherwise share one mutable instance process-wide.
+ */
+const DEFAULT_IGNORE_PATTERNS = Object.freeze([
   '**/*.test.ts',
   '**/*.test.tsx',
   '**/*.test.js',
@@ -119,17 +134,19 @@ const DEFAULT_IGNORE_PATTERNS: string[] = [
   '**/__fixtures__/**',
   '**/generated/**',
   '**/*.generated.ts',
-  '**/index.ts',
-  '**/index.js',
-  '**/index.mjs',
-  '**/index.cjs',
-];
+  '**/node_modules/**',
+  '**/dist/**',
+  '**/build/**',
+  '**/coverage/**',
+]) as readonly string[];
 
 /** The shipped defaults: Rule of Three above a 40-token floor, capped at 100. */
 export const DEFAULT_DUPLICATION_CONFIG: DuplicationConfig = {
   minTokens: 40,
   minInstances: 3,
-  ignorePatterns: DEFAULT_IGNORE_PATTERNS,
+  // Spread, not aliased: the frozen source array must not become the one
+  // instance every resolved config shares.
+  ignorePatterns: [...DEFAULT_IGNORE_PATTERNS],
   maxClasses: 100,
 };
 
@@ -147,7 +164,11 @@ export interface BuildCloneIndexOptions extends Partial<DuplicationConfig> {
 export function resolveDuplicationConfig(
   overrides: Partial<DuplicationConfig> = {}
 ): DuplicationConfig {
-  return { ...DEFAULT_DUPLICATION_CONFIG, ...overrides };
+  const merged = { ...DEFAULT_DUPLICATION_CONFIG, ...overrides };
+  // Copy the array too: a shallow spread would alias the defaults' own
+  // instance into every resolved config, so one consumer `.push()` would leak
+  // into every later caller.
+  return { ...merged, ignorePatterns: [...merged.ignorePatterns] };
 }
 
 /**

@@ -29,6 +29,20 @@ describe('resolveDuplicationConfig', () => {
   it('honours an explicitly empty ignorePatterns rather than falling back to defaults', () => {
     expect(resolveDuplicationConfig({ ignorePatterns: [] }).ignorePatterns).toEqual([]);
   });
+
+  it('does not share one ignorePatterns array across resolved configs', () => {
+    // DEFAULT_DUPLICATION_CONFIG is a public export, so a consumer mutating a
+    // resolved config must not reach the defaults or any other caller.
+    const a = resolveDuplicationConfig();
+    const b = resolveDuplicationConfig();
+    expect(a.ignorePatterns).not.toBe(b.ignorePatterns);
+    expect(a.ignorePatterns).not.toBe(DEFAULT_DUPLICATION_CONFIG.ignorePatterns);
+    const before = DEFAULT_DUPLICATION_CONFIG.ignorePatterns.length;
+    a.ignorePatterns.push('**/leaked/**');
+    expect(b.ignorePatterns).not.toContain('**/leaked/**');
+    expect(DEFAULT_DUPLICATION_CONFIG.ignorePatterns).toHaveLength(before);
+    expect(resolveDuplicationConfig().ignorePatterns).not.toContain('**/leaked/**');
+  });
 });
 
 describe('isEligibleFile', () => {
@@ -49,12 +63,38 @@ describe('isEligibleFile', () => {
     expect(isEligibleFile('src/generated/gen.ts', ['**/generated/**'])).toBe(false);
   });
 
-  it('rejects test, fixture, and barrel files under the defaults', () => {
+  it('rejects test and fixture files under the defaults', () => {
     const ignore = DEFAULT_DUPLICATION_CONFIG.ignorePatterns;
     expect(isEligibleFile('src/a.test.ts', ignore)).toBe(false);
     expect(isEligibleFile('tests/fixtures/x/src/a.ts', ignore)).toBe(false);
-    expect(isEligibleFile('src/index.ts', ignore)).toBe(false);
     expect(isEligibleFile('src/service.ts', ignore)).toBe(true);
+  });
+
+  it.each([
+    'src/index.ts',
+    'packages/cli/src/api-craft/index.ts',
+    'src/index.js',
+    'src/index.mjs',
+    'src/index.cjs',
+  ])(
+    'accepts %s under the defaults — index.* is an implementation module, not a barrel',
+    (file) => {
+      // A true barrel is pure re-exports and yields no units at all, so ignoring
+      // it bought nothing; in this repo the glob instead suppressed 10 of 58
+      // classes, `sumCosts` x10 among them.
+      expect(isEligibleFile(file, DEFAULT_DUPLICATION_CONFIG.ignorePatterns)).toBe(true);
+    }
+  );
+
+  it.each([
+    'node_modules/pkg/a.js',
+    'packages/core/node_modules/pkg/a.js',
+    'dist/a.js',
+    'packages/core/dist/index.js',
+    'build/a.js',
+    'coverage/a.js',
+  ])('rejects build output and installed dependencies under the defaults (%s)', (file) => {
+    expect(isEligibleFile(file, DEFAULT_DUPLICATION_CONFIG.ignorePatterns)).toBe(false);
   });
 });
 
