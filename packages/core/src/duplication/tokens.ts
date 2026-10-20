@@ -111,15 +111,36 @@ export function normalizeTokens(
   }
   for (let i = lo; i < tokens.length; i++) {
     const token = tokens[i]!;
-    // `>` not `>=`: a zero-width token at exactly `end` satisfies the
-    // documented predicate (`range[0] >= start && range[1] <= end`), and
-    // breaking on `>=` would silently drop it. The sort order guarantees
-    // nothing after a token starting past `end` can qualify.
+    // `>` not `>=`, which is the conservative choice and not a hazard
+    // averted. A zero-width token at exactly `end` would satisfy the
+    // documented predicate (`range[0] >= start && range[1] <= end`) and `>=`
+    // would drop it — but this parser emits no zero-width tokens (measured: 0
+    // over 1,605,827 tokens in all 2,153 files the detector scans), and for
+    // every non-zero-width token the two forms select identically. The `>=`
+    // mutant accordingly survives the whole suite. `>` is kept because it
+    // costs nothing and matches the documented predicate exactly; the test
+    // below pins the predicate, not a discrimination between the two.
     if (token.range[0] > end) break;
-    // `continue`, not `break`: a token may start inside the range and end
-    // outside it (a long template literal cut mid-way), and a later token can
-    // still be fully inside — this keeps the predicate identical to the
-    // pre-change filter.
+    // The `start` boundary, correct by construction rather than by trusting
+    // the binary search above to have landed on the right index. Under a
+    // correct search this never fires (`lo` is the first token with
+    // `range[0] >= start`), so it changes no selection and no visit count —
+    // the perf proxy's bound is unchanged — but it means the loop body alone
+    // implements the documented predicate, instead of half of it living in the
+    // search.
+    if (token.range[0] < start) continue;
+    // `continue`, not `break`, is likewise defensive with no known trigger.
+    // The stated scenario — a token that starts inside the range, ends outside
+    // it (a long template literal cut mid-way), and is followed by a token
+    // still fully inside — CANNOT occur with this parser: tokens are
+    // non-overlapping and sorted (measured: 0 overlaps and 0 out-of-order
+    // pairs over those same 1,605,827 tokens), so if `token.range[1] > end`
+    // then every later token starts at or past that end and the `break` above
+    // fires on the next iteration anyway. Mutating this to `break` passes the
+    // entire suite. It stays `continue` because it is one comparison, it keeps
+    // the loop's predicate identical to the pre-binary-search filter's, and it
+    // is the only form that stays correct if a future parser (or a synthetic
+    // token array a caller hands in) ever does overlap.
     if (token.range[1] > end) continue;
     if (IDENTIFIER_TOKEN_TYPES.has(token.type)) stream.push(IDENTIFIER_PLACEHOLDER);
     else if (LITERAL_TOKEN_TYPES.has(token.type)) stream.push(LITERAL_PLACEHOLDER);

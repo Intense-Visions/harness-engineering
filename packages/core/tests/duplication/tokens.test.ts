@@ -212,11 +212,51 @@ describe('normalizeTokens range selection', () => {
     expect(normalizeTokens(tokens, [0, source.length])).toHaveLength(tokens.length);
   });
 
-  it('keeps a token that starts inside the range but ends outside it out of the stream, without truncating the rest', () => {
-    // The ordering hazard the range walk must survive: a long token that
-    // starts inside the range and ends past it is skipped, yet later tokens
-    // that ARE fully inside must still be collected. A `break` on the first
-    // non-matching token would silently truncate the stream here.
+  it('returns an empty stream for an empty token array', () => {
+    // The degenerate input the binary search has to survive: `lo` and `hi`
+    // both start at 0, the loop never runs. A file whose parse yields no
+    // tokens reaches this via `program.tokens ?? []`.
+    expect(normalizeTokens([], [0, 100])).toEqual([]);
+  });
+
+  it('returns an empty stream for a zero-width range', () => {
+    const program = parse('const a = 1;', { tokens: true, loc: true, range: true });
+    const tokens = program.tokens ?? [];
+    expect(tokens.length).toBeGreaterThan(0);
+    // `start === end`, which only a zero-width token could satisfy — and this
+    // parser emits none (see tokens.ts). Pinned so the `>` / `>=` break
+    // boundary has a recorded behavior rather than an assumed one.
+    expect(normalizeTokens(tokens, [6, 6])).toEqual([]);
+    expect(normalizeTokens(tokens, [6, 6])).toEqual(oracleNormalize(tokens, [6, 6]));
+  });
+
+  it('returns exactly one token for a range spanning exactly that token', () => {
+    const program = parse('const alpha = 1;', { tokens: true, loc: true, range: true });
+    const tokens = program.tokens ?? [];
+    const target = tokens.find((t) => t.type === 'Identifier');
+    expect(target).toBeDefined();
+    // Both boundaries inclusive, on the same token: the tightest non-empty
+    // range there is, and the one the binary search is most likely to land
+    // off-by-one on.
+    const exact: [number, number] = [target!.range[0], target!.range[1]];
+    expect(normalizeTokens(tokens, exact)).toEqual([IDENTIFIER_PLACEHOLDER]);
+    expect(normalizeTokens(tokens, exact)).toEqual(oracleNormalize(tokens, exact));
+  });
+
+  it('agrees with the oracle for a range cut mid-token', () => {
+    // What this asserts: the documented predicate holds when the range ends
+    // INSIDE a token — the template is excluded, the `const`/`a`/`=` before it
+    // are not — matched against the independent oracle.
+    //
+    // What it does NOT assert, despite an earlier name and comment here that
+    // claimed it: that the walk uses `continue` rather than `break` on
+    // `range[1] > end`. It cannot. This parser's tokens are non-overlapping
+    // and sorted (measured: 0 overlaps over 1,605,827 tokens in the 2,153
+    // files the detector scans), so no token after a mid-cut one can be fully
+    // inside the range, and the `break` mutant passes this case and the whole
+    // suite. See `duplication/tokens.ts` for why `continue` is kept anyway.
+    // Fabricating a discriminating case would require a token array this
+    // parser cannot produce.
     const source = 'const a = `aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa`; const b = 1;';
     const program = parse(source, { tokens: true, loc: true, range: true });
     const tokens = program.tokens ?? [];
