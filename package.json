@@ -53,7 +53,7 @@
     "check:changesets": "BASE_REF=origin/main node scripts/check-changesets.mjs",
     "check:audit-exceptions": "node scripts/audit-exceptions.mjs",
     "version": "changeset version && node scripts/sync-plugin-pin.mjs",
-    "release": "pnpm build && changeset publish",
+    "release": "pnpm build && node scripts/release-publish.mjs",
     "prepare": "husky"
   },
   "devDependencies": {

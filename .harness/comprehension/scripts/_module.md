@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'scripts'
-sourceHash: '9f1889b7f8fa6d58cee1169a99bd11d4ac429fabd330a8c63d8699808651449f'
+sourceHash: 'f53c7fcb845da377facfefc20f769a8f41c047d05228fa03998270cd48a407d3'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -24,6 +24,7 @@ members:
     'generate-tool-catalog.mjs',
     'main-health-check.mjs',
     'refresh-model-candidates.mjs',
+    'release-publish.mjs',
     'summarize-test-failures.mjs',
     'sync-lockfile.mjs',
     'sync-plugin-pin.mjs',
@@ -36,9 +37,13 @@ members:
 ```ts
 export ALARM_LABEL
 export ALARM_MARKER
+export DEFAULT_VERIFY_INTERVAL_MS
+export DEFAULT_VERIFY_TIMEOUT_MS
 export EXIT
 export MANIFEST_PATHS
+export REGISTRY_BASE
 export baseUrl
+export classifyPublish
 export decideAction
 export deliverAlarm
 export evaluateCoverage
@@ -56,18 +61,24 @@ export mergeBenchmarkBaselines
 export mergeCoverageBaselines
 export pageFiles
 export parseChangesetFrontmatter
+export parsePublishOutput
 export parseTargetFiles
 export prepushTestOptions
 export pruneCoverageSummaries
 export readCliVersion
 export reconcile
+export registryUrl
 export renderIssueBody
 export renderSummary
+export runRelease
 export selectDecisiveRuns
 export slugForFile
+export specKey
+export stripAnsi
 export syncManifestContent
 export syncPluginPins
 export toleranceFor
+export waitForVisibility
 ```
 
 ## Dependency Slice
@@ -76,9 +87,10 @@ export toleranceFor
 import { assertBaselineOnly } from './lib/baseline-diff-guard.mjs'
 import { assertDiffScope } from './lib/diff-scope-guard.mjs'
 import { STANDARD_HOOKS, getConfig } from './lib/plugin-config.mjs'
-import { execFileSync, execSync } from 'node:child_process'
+import { execFileSync, execSync, spawn, spawnSync } from 'node:child_process'
 import { appendFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, renameSync, rmSync, statSync, unlinkSync, writeFileSync } from 'node:fs'
 import { rm } from 'node:fs/promises'
+import { createRequire } from 'node:module'
 import { tmpdir } from 'node:os'
 import path, { basename, dirname, extname, join, relative, resolve, sep } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
