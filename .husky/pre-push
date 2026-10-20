@@ -5,6 +5,32 @@ export PATH="$PATH:/opt/homebrew/bin"
 # (husky v10 deprecates the current wrapper). POSIX-only — no bashisms below.
 set -e
 
+# TAG-ONLY PUSH: nothing below can apply, so skip the gauntlet.
+#
+# git feeds pre-push one line per ref on STDIN:
+#   <local ref> <local sha1> <remote ref> <remote sha1>
+# A `git push origin <tag>` names only `refs/tags/...`. Such a push introduces
+# no commit and changes no file, so every gate below (changeset presence,
+# prettier, typecheck, coverage, generated-doc freshness) would be grading the
+# checkout's UNRELATED working state. That is not hypothetical: it blocked a
+# release tag push during the v13.0.0 release from a checkout whose unrelated
+# state was stale (#2289).
+#
+# Fail-safe by construction — the skip needs at least one ref AND every ref to
+# live under refs/tags/. Empty stdin, a branch ref, or a mixed push all fall
+# through to the full gauntlet, so a normal push is never weakened. Read before
+# anything else so no gate can consume stdin first. POSIX-only (dash-safe).
+HARNESS_PUSH_REFS=$(cat)
+if [ -n "$HARNESS_PUSH_REFS" ]; then
+  HARNESS_NON_TAG_REFS=$(printf '%s\n' "$HARNESS_PUSH_REFS" \
+    | awk 'NF && $3 !~ /^refs\/tags\// { print $3 }')
+  if [ -z "$HARNESS_NON_TAG_REFS" ]; then
+    echo "pre-push: tag-only push ($(printf '%s\n' "$HARNESS_PUSH_REFS" \
+      | awk 'NF { printf "%s ", $3 }'))— no file content changes, skipping the validation gauntlet."
+    exit 0
+  fi
+fi
+
 # Ensure the gates below run under the repo's pinned Node toolchain. The ambient
 # `node` on a contributor's PATH may differ from the pin (.nvmrc / engines);
 # native modules like better-sqlite3 are built against the pin and otherwise
