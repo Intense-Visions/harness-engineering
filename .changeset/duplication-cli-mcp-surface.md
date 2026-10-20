@@ -1,5 +1,6 @@
 ---
 '@harness-engineering/cli': minor
+'@harness-engineering/dashboard': patch
 ---
 
 Duplication detection reaches the operator: `harness cleanup -t duplication` and the
@@ -53,3 +54,10 @@ same "never report a pass over a check that never ran" rule:
   BEFORE `snapshot`, and omits each file's `ast`. Response compaction truncates by prefix, and
   the snapshot was 98% of the payload, so everything a caller could act on was being truncated
   away. Pass `compact: false` for the untruncated report, ASTs excluded.
+
+The `@harness-engineering/dashboard` entry is a COMMENT-ONLY change, listed because the
+changeset gate requires coverage for every touched publishable package. `gatherHealth` threads
+a caller-supplied `analyze` into the entropy analyzer and returns `summary.totalIssues` — the
+aggregate clone classes ARE summed into — so it is the one remaining place a future caller
+could route advisory duplication into a gating number. Named in a comment; deliberately not
+closed, since all three callers pass only `projectPath`.
