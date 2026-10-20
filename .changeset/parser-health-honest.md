@@ -46,6 +46,17 @@ only parser that emits that code (`TreeSitterParser` reports a missing grammar
 as `SYNTAX_ERROR`), and only for a global condition, so no per-file skip
 behaviour changes.
 
+**The static comprehension extractor fails closed on `PARSER_UNAVAILABLE`.**
+Resolving estree lazily turned a load-time crash into a per-file error, and
+`createStaticExtractor` skipped every member that failed to parse — so with the
+parser gone it returned an empty interface contract and dependency slice, and
+`harness comprehend` (including the pre-commit hook) would write and stage units
+claiming the module exports and imports nothing. It now rejects with a
+`PARSER_UNAVAILABLE`-coded error and no unit is written; a syntax error in one
+member is still skipped. `check-arch`'s circular-dependency measurement now
+carries the graph-build cause in `metadata.error` instead of a bare
+`'Failed to build dependency graph'`.
+
 **The abstention now carries the parser's own diagnosis.** `reason` was the bare
 string `'Parser unavailable'`, which `check-deps` and the MCP tool print
 verbatim — it told an operator something was wrong but never what. It is now
@@ -55,5 +66,9 @@ consumers and their tests match on.
 **No behaviour change on a working install.** On this repository `health()`
 returns `available: true` with version `8.59.2`, from both built formats, so
 every consumer is byte-identical. The changes are visible only when the parser
-genuinely is unavailable — and in that state the previous behaviour was a
-module-load crash or a clean report over nothing, not a correct result.
+genuinely is unavailable. In that state the previous behaviour was a
+module-load crash; for most consumers it is now a named error or abstention.
+**Known gap:** the entropy snapshot (`harness cleanup`, `detect_entropy`) still
+skips every unparseable file and substitutes an empty graph, so with the parser
+gone `cleanup` reports zero issues at exit 0 where it previously crashed. That
+half is being fixed in this same change.
