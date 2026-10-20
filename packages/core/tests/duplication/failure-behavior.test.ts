@@ -72,6 +72,40 @@ describe('fingerprintFile', () => {
     }
   });
 
+  it('parses JSX in .js, .mjs and .cjs rather than skipping it as unparseable', async () => {
+    // Adopter portability, not a repo need. `SUPPORTED_EXTENSIONS` admits
+    // `.js`/`.mjs`/`.cjs`, and in a CRA- or Next-style project JSX in `.js` is
+    // the DEFAULT. With `jsx: false` every such component threw
+    // `TSError: '>' expected`, so every one was skipped as `unparseable` with
+    // the advice "check the file is valid TypeScript/JavaScript for its
+    // extension" — the file is valid for its ecosystem; our parser flag was
+    // wrong. A `src/` of such files then tripped the all-files-skipped `Err`
+    // and the detector refused to run at all.
+    const dir = await mkdtemp(join(tmpdir(), 'dup-jsx-js-'));
+    try {
+      const body = `export function View(props) {\n  return <div className="a">{props.hi}</div>;\n}\n`;
+      for (const ext of ['js', 'mjs', 'cjs'] as const) {
+        const file = join(dir, `view.${ext}`);
+        await writeFile(file, body, 'utf8');
+        const result = await fingerprintFile(file, `src/view.${ext}`);
+        expect(result.status, `src/view.${ext}`).toBe('scanned');
+        if (result.status !== 'scanned') continue;
+        // Scanned AND fingerprinted: a parse that produced no unit would be a
+        // vacuous pass.
+        expect(result.units.map((u) => u.member.unit)).toEqual(['View']);
+      }
+      // Case-insensitively, for the same reason `isEligibleFile` lowercases:
+      // `View.JS` exists on macOS and Windows filesystems, and it was eligible
+      // while parsing without the flag.
+      const upper = join(dir, 'Upper.JSX');
+      await writeFile(upper, body, 'utf8');
+      const result = await fingerprintFile(upper, 'src/Upper.JSX');
+      expect(result.status).toBe('scanned');
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
   it('excludes a sub-minTokens unit from fingerprinting instead of emitting it', async () => {
     // The amended spec applies minTokens BEFORE grouping: a unit under the bar
     // is never hashed, so it cannot form or join a clone class.

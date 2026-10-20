@@ -238,6 +238,44 @@ export interface DuplicationConfig {
 const SUPPORTED_EXTENSIONS = ['.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs'] as const;
 
 /**
+ * Extensions parsed with `jsx: true`: every supported one EXCEPT `.ts`.
+ *
+ * `.ts` is excluded because TypeScript itself forbids JSX there (`<T>x` is a
+ * type assertion in `.ts`, which is why `.tsx` exists), so enabling the flag
+ * would break real files.
+ *
+ * `.js` / `.mjs` / `.cjs` are included for adopter portability, which is the
+ * whole reason this list exists instead of a two-extension check. In a CRA- or
+ * Next-style project JSX in `.js` is the DEFAULT, and with `jsx: false` such a
+ * component throws `TSError: '>' expected` — measured — so every component
+ * file was skipped as `unparseable` and told to "check the file is valid
+ * TypeScript/JavaScript for its extension". It is valid for its ecosystem; the
+ * parser flag was wrong. A `src/` of such files tripped the
+ * all-files-skipped `Err` and the detector refused to run at all.
+ *
+ * Measured free before enabling, because `jsx: true` changes how `<` is
+ * parsed: over every `.js` / `.mjs` / `.cjs` file this detector scans in this
+ * repository — 73 at the entropy detector's scope, 20 at the spec's
+ * `packages/`-only scope, including the vendored Vite dependency pre-bundles —
+ * parsing with the flag on yields BYTE-IDENTICAL unit fingerprints, token
+ * counts and unit names, with no file newly failing to parse and none newly
+ * parsing. The reported class counts are unchanged at both scopes (98 and 58).
+ * This is safe because JSX is only attempted where an expression may START;
+ * `a < b` keeps `<` in binary-operator position.
+ *
+ * Matched case-insensitively, like {@link SUPPORTED_EXTENSIONS}: `View.JSX` is
+ * eligible on a case-insensitive filesystem, and a case-sensitive check parsed
+ * it WITHOUT the flag — the same split-brain the extension check already fixed.
+ */
+const JSX_CAPABLE_EXTENSIONS = ['.tsx', '.jsx', '.js', '.mjs', '.cjs'] as const;
+
+/** True when `relPath`'s extension should be parsed with `jsx: true`. */
+function isJsxCapable(relPath: string): boolean {
+  const lower = relPath.toLowerCase();
+  return JSX_CAPABLE_EXTENSIONS.some((ext) => lower.endsWith(ext));
+}
+
+/**
  * Default exclusions: tests, fixtures, generated files, and build output.
  *
  * `index.*` is deliberately NOT excluded. An earlier revision ignored it as a
@@ -614,7 +652,7 @@ export async function fingerprintFile(
       tokens: true,
       loc: true,
       range: true,
-      jsx: relPath.endsWith('.tsx') || relPath.endsWith('.jsx'),
+      jsx: isJsxCapable(relPath),
       errorOnUnknownASTType: false,
     });
   } catch (e) {
