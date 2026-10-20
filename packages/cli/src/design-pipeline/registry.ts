@@ -1,7 +1,11 @@
 /**
  * Generic VerifierRegistry — orchestrator iterates registered verifiers
- * via the just-extracted Verifier<F> interface. Adding a 5th verifier
- * requires only a registration call; zero orchestrator changes.
+ * via the just-extracted Verifier<F> interface. The registry makes
+ * INVOCATION generic; it does not make findings collection generic. A 5th
+ * verifier needs a registration call AND a findings bucket in
+ * phases/audit.ts (+ DesignPipelineContext.auditFindings) AND a count in
+ * phases/report.ts. Registered without a bucket, it is recorded as an
+ * abstention and the pipeline verdict is `fail` on every run (#2273).
  *
  * Source: docs/changes/design-pipeline/orchestrator/proposal.md
  *   (Technical Design → Verifier registry).
