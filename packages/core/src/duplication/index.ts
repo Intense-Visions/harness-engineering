@@ -706,18 +706,49 @@ export async function fingerprintFile(
  * no member-against-member comparison, so nothing here is quadratic in the
  * number of units across the repository.
  *
- * Per FILE, however, the cost is O(units x tokens), not linear in tokens:
+ * Per FILE the cost is linear in that file's tokens, NOT O(units x tokens):
  * {@link fingerprintFile} calls `normalizeTokens(tokens, unit.range)` once per
- * unit and each call rescans that file's ENTIRE token array. Measured over
- * the measured scope (see {@link FingerprintCollision}), that is 26.0M token
- * visits against 1.40M tokens — 18.6x, re-measured unchanged at HEAD —
- * concentrated in the largest files: the worst,
- * `orchestrator/src/orchestrator.ts`, has 221 units over 22,648 tokens, so
- * 5,005,208 visits by itself.
+ * unit, and that function binary-searches `program.tokens` (range-sorted) for
+ * the unit's window instead of rescanning the file's whole token array. A
+ * token inside a nested unit is still read once per enclosing unit, so the
+ * honest claim is linear in the source times nesting depth — which is what the
+ * measured ~1.2x below is, not a bare 1.0x.
  *
- * `program.tokens` is range-sorted, so a binary search for each unit's range
- * would make this linear. That optimization is deliberately deferred to Phase
- * 2, where the `<10s` success criterion lives and can measure it.
+ * Every figure here carries its SCOPE and its DENOMINATOR. This module's cost
+ * was understated 8x in three places by omitting the first, and by 6% by
+ * leaving the second implicit, so both are now stated rather than assumed.
+ * Re-measured at this change's HEAD:
+ *
+ *   - At THIS DETECTOR's scope (the repository's non-test sources: 2,153
+ *     eligible files, 17,064 units, 1,605,885 tokens): 1,976,826 token visits,
+ *     1.23x the token count — down from 214,130,152 visits (133.3x) when every
+ *     unit rescanned its file. A 108x reduction.
+ *   - At the spec Evidence section's scope (`packages/` only: 2,065 files,
+ *     13,402 units, 1,400,920 tokens): 1,625,558 visits, 1.16x — down from
+ *     26,055,026 (18.6x). A 16x reduction.
+ *
+ * Those two pre-fix figures differ 8x for the same code because the quadratic
+ * term was dominated by whichever single pathological file was in scope. At the
+ * detector's scope, two vendored Vite dependency pre-bundles under
+ * `docs/.vitepress/cache/` cost 93,413,136 visits (43.6% of the scope) and
+ * 81,613,016 (38.1%) by themselves — 81.7% of the entire pre-fix cost between
+ * two files. At `packages/` scope the worst file is
+ * `orchestrator/src/orchestrator.ts`: 221 units over 22,648 tokens = 5,005,208
+ * visits, 19.2%.
+ *
+ * The denominator: the ratios above divide by the tokens in ALL eligible
+ * files, since every one of them is parsed. Dividing instead by the tokens in
+ * only the files that yielded at least one unit (1,519,596 over 1,646 files at
+ * the detector's scope; 1,316,878 over 1,577 at `packages/`) gives 140.9x pre
+ * and 1.30x post, and 19.8x pre and 1.23x post, respectively. Same
+ * measurements, different question — Phase 2's notes used the second
+ * denominator while this JSDoc used the first, and neither said so.
+ *
+ * The guard against a reversion is deterministic and lives in
+ * `tests/entropy/detectors/duplication.perf.test.ts`: a token-visit bound,
+ * which the reverted implementation blows by two orders of magnitude (496,800
+ * visits against a 6,480 bound). There is deliberately no wall-clock
+ * assertion; that accepted gap is recorded in the spec's verification notes.
  *
  * Discovery is the caller's: `files` is a list of absolute paths, so nothing
  * here assumes any repository layout (success criterion 15). Ineligible paths

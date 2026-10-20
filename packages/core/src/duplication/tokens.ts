@@ -76,23 +76,29 @@ export function normalizeTokens(
   // array once per unit.
   //
   // Measured in token VISITS (a deterministic count, unlike a wall clock), at
-  // the two scopes that matter and with each one named, because the figure
-  // differs by 7x between them:
+  // the two scopes that matter, with each scope AND each denominator named —
+  // the figure differs 8x between the scopes, and 6% between the two
+  // denominators, so an unlabelled number here is how this cost came to be
+  // understated in three places at once. Tokens below are counted over the
+  // files that yielded at least one unit, which is the set that can contribute
+  // visits at all; {@link buildCloneIndex}'s JSDoc carries the same
+  // measurements over ALL eligible files.
   //
-  //   - the spec's measured scope (`packages/` only, 2,064 eligible files,
-  //     1,315,964 tokens / 13,394 units): the per-unit rescan costs
-  //     26,037,113 visits, 19.8x the token count, of which
-  //     `packages/orchestrator/src/orchestrator.ts` is 5,005,208 by itself
-  //     (221 units x 22,648 tokens).
+  //   - the spec's measured scope (`packages/` only, 2,065 eligible files,
+  //     1,316,878 tokens in 1,577 unit-bearing files / 13,402 units): the
+  //     per-unit rescan costs 26,055,026 visits, 19.8x the token count, of
+  //     which `packages/orchestrator/src/orchestrator.ts` is 5,005,208 by
+  //     itself (221 units x 22,648 tokens, 19.2% of the scope).
   //   - this repository's non-test sources, which is what the entropy detector
-  //     actually scans (2,152 eligible files, 1,518,682 tokens / 17,056
-  //     units): the rescan costs 214,112,239 visits, 141.0x the token count.
-  //     One vendored Vite dependency pre-bundle under `docs/.vitepress/cache/`
-  //     (1,509 units over 61,904 tokens) contributes 93,413,136 of those by
-  //     itself, which is the point: the quadratic term is dominated by
-  //     whichever single pathological file happens to be in scope.
+  //     actually scans (2,153 eligible files, 1,519,596 tokens in 1,646
+  //     unit-bearing files / 17,064 units): the rescan costs 214,130,152
+  //     visits, 140.9x the token count. TWO vendored Vite dependency
+  //     pre-bundles under `docs/.vitepress/cache/` contribute 93,413,136
+  //     (43.6%) and 81,613,016 (38.1%) of those by themselves — 81.7% between
+  //     them, which is the point: the quadratic term is dominated by whichever
+  //     pathological files happen to be in scope.
   //
-  // After this change the same scan costs 1,975,735 visits — 1.30x the token
+  // After this change the same scan costs 1,976,826 visits — 1.30x the token
   // count, i.e. linear in the source rather than in units x tokens — a 108x
   // reduction. In wall-clock terms 20 full passes over the orchestrator file
   // went from 197.9 ms to 12.9 ms (15.3x).
