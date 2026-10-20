@@ -7,9 +7,17 @@ import type { PatternReport } from './pattern';
 import type { ComplexityReport } from './complexity';
 import type { CouplingReport } from './coupling';
 import type { SizeBudgetReport } from './size-budget';
+import type { DuplicationReport } from './duplication';
 
 export interface AnalysisError {
-  analyzer: 'drift' | 'deadCode' | 'patterns' | 'complexity' | 'coupling' | 'sizeBudget';
+  analyzer:
+    | 'drift'
+    | 'deadCode'
+    | 'patterns'
+    | 'complexity'
+    | 'coupling'
+    | 'sizeBudget'
+    | 'duplication';
   error: EntropyError;
 }
 
@@ -21,6 +29,7 @@ export interface EntropyReport {
   complexity?: ComplexityReport;
   coupling?: CouplingReport;
   sizeBudget?: SizeBudgetReport;
+  duplication?: DuplicationReport;
   analysisErrors: AnalysisError[];
   summary: {
     totalIssues: number;
