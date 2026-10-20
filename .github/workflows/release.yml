@@ -69,6 +69,19 @@ jobs:
         id: changesets
         uses: changesets/action@v1
         with:
+          # `pnpm release` runs scripts/release-publish.mjs, NOT a bare
+          # `changeset publish`. That script publishes with `--no-git-tag`,
+          # polls the registry until every version it claims to have published
+          # answers HTTP 200, and only then creates the tags and prints the
+          # `New tag:` lines this action scrapes. Reason (#2289): the action
+          # pushes a tag and cuts a GitHub Release for every `New tag:` line it
+          # finds in stdout BEFORE it looks at the publish command's exit code,
+          # so a version still inside npm's ~8-10 minute visibility window got a
+          # permanent tag while the registry answered 404 for it. The same script
+          # treats `E409 Cannot publish over previously staged version` as this
+          # pipeline colliding with its own in-flight publish rather than as a
+          # release failure. Keep the script in the loop — reverting this input
+          # to `changeset publish` restores both defects.
           publish: pnpm release
           # `pnpm run version` — the `run` is REQUIRED and not stylistic.
           #

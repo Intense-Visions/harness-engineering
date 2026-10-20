@@ -25,6 +25,8 @@
  */
 import { describe, it, expect, vi } from 'vitest';
 import { mkdtemp, mkdir, rm, writeFile, readFile } from 'node:fs/promises';
+import { existsSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import * as path from 'node:path';
 import { Command } from 'commander';
@@ -57,6 +59,13 @@ async function withProject(
     await rm(root, { recursive: true, force: true });
   }
 }
+
+/**
+ * Compare absolute paths platform-neutrally: the globbers behind the entropy
+ * and design scanners return forward slashes, while `path.join` uses `\\` on
+ * win32, so a raw equality on a joined path fails only on Windows CI.
+ */
+const toPosix = (p: string): string => p.replaceAll('\\', '/');
 
 describe('-c selects the project root, not just the config file (#911 class)', () => {
   describe('resolveProject', () => {
@@ -602,6 +611,373 @@ describe('-c selects the project root, not just the config file (#911 class)', (
         } finally {
           if (saved !== undefined) process.env['HARNESS_PROJECT_ROOT'] = saved;
         }
+      }
+    );
+  });
+
+  /**
+   * The five cases below close #2287. #2285 fixed nineteen commands; eleven of
+   * them are pinned by the cases above (`check-docs`, the twelfth, is pinned in
+   * its own suite), and these five were not — measured, not assumed: applying
+   * `options.cwd ?? process.cwd()` to all five sites at once left the whole
+   * `packages/cli` suite green. Re-measured on this base: 8953 passed / 2
+   * skipped before, and with the five mutations applied together the only
+   * failures are these five cases.
+   *
+   * FIXTURE-VALUE CHOICE, shared by all five. Each one asserts an ABSOLUTE
+   * PATH, a git object, or a config field that exists ONLY in the tmpdir, so
+   * the wrong root cannot produce it.
+   *
+   * Every DISCRIMINATING assertion is positive — the thing that exists at the
+   * fixture path — because the review that defeated the earlier `roadmap
+   * triage` case did it by planting the file whose absence that test depended
+   * on. Precisely two assertions below are absences and NEITHER is a
+   * discriminator: the `.entropy-backups` hygiene check in `fix-drift` (which
+   * compares against the pre-run state, not against `false`) and
+   * `inv.unbounded` in `release-inventory` (implied by the positive
+   * `lastRelease` assertion on the line above it). There are no conditional
+   * (`if (x) expect(...)`) assertions anywhere, and no loop runs without its
+   * denominator being asserted non-zero first.
+   *
+   * The four cases whose discriminator is an absolute path cannot be defeated
+   * by planting, because the asserted value names the tmpdir. The fifth
+   * (`check-operational-drift`) can, for a reason intrinsic to that command's
+   * return shape — see its own note; do not read the robustness of the other
+   * four onto it.
+   *
+   * Three of the five also use a `rootDir` of `./fixtureapp`, which does not
+   * exist in `packages/cli`; that is a SAFETY property, not the discriminator
+   * (it keeps a reverted `fix-drift` from rewriting this repo), and each
+   * case's discriminator is stated in its own comment.
+   *
+   * Paths are compared through {@link toPosix} because the globbers return
+   * forward slashes while `path.join` does not on win32.
+   */
+
+  /**
+   * `fix-drift` — the one that matters most of the five, because it WRITES.
+   * The root decides which tree gets rewritten, and reverting the sibling
+   * `add`/`comprehend` fixes during #2285's development created files inside
+   * this repo on four separate occasions.
+   *
+   * Discriminator: WHERE THE WRITE LANDED. The fixture's single source file
+   * has one unused import, which `fix-drift --no-dry-run` removes; the test
+   * asserts the rewritten file content at the fixture path AND the one applied
+   * fix naming that path. Both are positive, and `fixes` is non-empty, so a
+   * zero-denominator abstention (#1146) cannot satisfy it.
+   *
+   * The fixture yields exactly ONE `delete-lines` fix and no `delete-file`
+   * fix, deliberately: `applyFixes` backs a deleted file up to
+   * `.entropy-backups` resolved against `process.cwd()` rather than the
+   * project root, so a `delete-file` fix escapes into the caller's tree even
+   * when the root IS correct. That is a live residual defect, out of scope
+   * here, and the fixture is shaped to not trip it (asserted below).
+   */
+  it('fix-drift rewrites the -c project, and writes only there', async () => {
+    await withProject(
+      {
+        rootDir: './fixtureapp',
+        docsDir: './fixturedocs',
+        entropy: { entryPoints: ['fixtureapp/main.ts'] },
+      },
+      async (root) => {
+        await mkdir(path.join(root, 'fixtureapp'), { recursive: true });
+        await writeFile(
+          path.join(root, 'fixtureapp/main.ts'),
+          "import { readFileSync } from 'node:fs';\nexport const main = (): number => 1;\n"
+        );
+      },
+      async (configPath, root) => {
+        const { runFixDrift } = await import('../../src/commands/fix-drift');
+        const backupDir = path.join(process.cwd(), '.entropy-backups');
+        const backupDirExistedBefore = existsSync(backupDir);
+        const result = await runFixDrift({ configPath, dryRun: false });
+        expect(result.ok).toBe(true);
+        if (!result.ok) return;
+
+        const target = path.join(root, 'fixtureapp', 'main.ts');
+        // POSITIVE: the write landed at the fixture path, and the rewritten
+        // body is still there (so this is "the import line was removed", not
+        // "the file vanished").
+        await expect(readFile(target, 'utf-8')).resolves.toBe(
+          'export const main = (): number => 1;\n'
+        );
+        // POSITIVE: exactly one fix, applied, naming the fixture's file.
+        expect(result.value.fixes).toHaveLength(1);
+        expect(result.value.fixes[0]?.action).toBe('delete-lines');
+        expect(result.value.fixes[0]?.applied).toBe(true);
+        expect(toPosix(result.value.fixes[0]?.file ?? '')).toBe(toPosix(target));
+        // Every suggestion is inside the fixture too — no path from any other
+        // tree leaked into the report. Guard the denominator first: an empty
+        // `suggestions` would make the loop run zero assertions and pass
+        // vacuously, which is the shape this file exists to avoid.
+        expect(result.value.suggestions.length).toBeGreaterThan(0);
+        for (const s of result.value.suggestions) {
+          expect(toPosix(s.file).startsWith(toPosix(root))).toBe(true);
+        }
+        // Hygiene only, NOT a discriminator: prove this test did not itself
+        // litter `.entropy-backups` into the caller's tree (see the note
+        // above). Compared against the pre-run state rather than against
+        // `false`, so a directory some other process left behind cannot red
+        // this case for a reason that has nothing to do with the root.
+        expect(existsSync(backupDir)).toBe(backupDirExistedBefore);
+      }
+    );
+  });
+
+  /**
+   * `cleanup` reports entropy findings, so the root decides which tree is
+   * diagnosed.
+   *
+   * Discriminator: a pattern violation whose `file` is the fixture's ABSOLUTE
+   * path, plus the violation COUNT. `-t patterns` with one configured
+   * `must-export` rule flags every source file missing the export, so the
+   * count is the project's scanned-file count: 1 for this fixture, 763 for
+   * `packages/cli` — right and wrong answers differ by three orders of
+   * magnitude and NEITHER IS ZERO, so no #1146 abstention can produce either.
+   */
+  it('cleanup reports the entropy findings of the -c project', async () => {
+    await withProject(
+      {
+        // `.`, not `./fixtureapp`: this one deliberately lets the WRONG root be
+        // a real, populated tree, so the revert probe fails on the count (1 vs
+        // 763) rather than on the scan erroring out. The fixture root still
+        // holds exactly one `.ts` file.
+        rootDir: '.',
+        docsDir: './fixturedocs',
+        entropy: {
+          // Explicit, because a one-file tmpdir has no language manifest for
+          // `resolveEntryPoints` to discover and the analyzer refuses to run
+          // without one. `resolveEntryPoints` only resolves the path (it never
+          // stats it), so this stays inert under the revert probe — the wrong
+          // root's file walk, not this list, is what produces 763 violations.
+          entryPoints: ['fixtureapp/main.ts'],
+          patterns: {
+            patterns: [
+              {
+                name: 'fixture-must-export',
+                description: 'Fixture-only rule for the -c project-root test.',
+                severity: 'error',
+                files: ['**/*.ts'],
+                rule: { type: 'must-export', names: ['zorblaxOnly'] },
+              },
+            ],
+          },
+        },
+      },
+      async (root) => {
+        await mkdir(path.join(root, 'fixtureapp'), { recursive: true });
+        await writeFile(path.join(root, 'fixtureapp/main.ts'), 'export const main = 1;\n');
+      },
+      async (configPath, root) => {
+        const { runCleanup } = await import('../../src/commands/cleanup');
+        const result = await runCleanup({ configPath, type: 'patterns' });
+        expect(result.ok).toBe(true);
+        if (!result.ok) return;
+
+        expect(result.value.patternViolations).toHaveLength(1);
+        expect(result.value.patternViolations[0]?.pattern).toBe('fixture-must-export');
+        expect(toPosix(result.value.patternViolations[0]?.file ?? '')).toBe(
+          toPosix(path.join(root, 'fixtureapp', 'main.ts'))
+        );
+        expect(result.value.totalIssues).toBe(1);
+      }
+    );
+  });
+
+  /**
+   * `release-inventory` reads BOTH git (tags, unreleased commits) and the
+   * filesystem (`.changeset/`) through ports rooted on the resolved project,
+   * so the root decides which repository is inventoried. Neither port is
+   * stubbed here, on purpose: injecting them would bypass the very `cwd` the
+   * fix threads.
+   *
+   * Discriminator: a real git repository is initialised INSIDE the fixture
+   * with a tag, a commit subject and a changeset filename that exist nowhere
+   * else. Every assertion is a positive match on one of those names. This
+   * repo has zero `v*` tags, so the wrong root reports `unbounded` with no
+   * last release at all.
+   */
+  it('release-inventory inventories the -c project', async () => {
+    await withProject(
+      { rootDir: '.', docsDir: './docs' },
+      async (root) => {
+        await mkdir(path.join(root, '.changeset'), { recursive: true });
+        // Named `gitExec`, not `git`: a call spelled `git(` makes the literal
+        // `it(` a substring, which a duplicate-test-name audit over
+        // `grep -oE "it\\('[^']*'"` reads as an extra test name. The audit is
+        // right to be loose; the fixture helper can simply not collide.
+        const gitExec = (...args: string[]): void => {
+          execFileSync('git', args, {
+            cwd: root,
+            encoding: 'utf-8',
+            stdio: ['pipe', 'pipe', 'pipe'],
+          });
+        };
+        gitExec('init', '-q', '-b', 'main');
+        gitExec('config', 'user.email', 'fixture@example.invalid');
+        gitExec('config', 'user.name', 'Fixture');
+        gitExec('config', 'commit.gpgsign', 'false');
+        await writeFile(path.join(root, 'README.md'), '# fixture\n');
+        gitExec('add', '-A');
+        gitExec('commit', '-q', '-m', 'fixture: released commit');
+        gitExec('tag', 'v9.9.9-fixture');
+        await writeFile(
+          path.join(root, '.changeset/zorblax-fixture-only.md'),
+          "---\n'@fixture/pkg': minor\n---\n\nA changeset that exists only in the tmpdir fixture.\n"
+        );
+        gitExec('add', '-A');
+        gitExec('commit', '-q', '-m', 'fixture: unreleased commit');
+      },
+      async (configPath) => {
+        const { runReleaseInventory } = await import('../../src/commands/release-inventory');
+        const result = await runReleaseInventory({ configPath });
+        expect(result.ok).toBe(true);
+        if (!result.ok) return;
+        const inv = result.value.inventory;
+
+        // POSITIVE: the fixture repo's own tag, commit and changeset.
+        expect(inv.lastRelease?.name).toBe('v9.9.9-fixture');
+        expect(inv.unbounded).toBe(false);
+        expect(inv.unreleasedCommits.map((c) => c.subject)).toEqual(['fixture: unreleased commit']);
+        expect(inv.pendingChangesets.map((c) => c.file)).toEqual([
+          '.changeset/zorblax-fixture-only.md',
+        ]);
+        expect(inv.pendingChangesets[0]?.bumps).toEqual([
+          { package: '@fixture/pkg', level: 'minor' },
+        ]);
+      }
+    );
+  });
+
+  /**
+   * `check-design` composes four verifiers, each handed the resolved root as
+   * its scan path, so the root decides which tree is audited.
+   *
+   * Discriminator: a `DRIFT-T001` token-bypass finding whose `file` is the
+   * fixture's ABSOLUTE path, produced by a hardcoded hex colour absent from
+   * the fixture's own `design-system/tokens.json`. `packages/cli` has no
+   * tokens file, so the wrong root loads no token set and the token-bypass
+   * rule cannot fire there at all.
+   */
+  it('check-design audits the -c project', async () => {
+    await withProject(
+      { rootDir: './fixtureapp', docsDir: './fixturedocs' },
+      async (root) => {
+        await mkdir(path.join(root, 'fixtureapp'), { recursive: true });
+        await mkdir(path.join(root, 'design-system'), { recursive: true });
+        await writeFile(
+          path.join(root, 'design-system/tokens.json'),
+          JSON.stringify({ color: { brand: { $type: 'color', $value: '#112233' } } })
+        );
+        await writeFile(
+          path.join(root, 'fixtureapp/zorblax-card.tsx'),
+          "export const ZorblaxCard = () => <div style={{ color: '#ff00aa' }}>hi</div>;\n"
+        );
+      },
+      async (configPath, root) => {
+        const { runCheckDesign } = await import('../../src/commands/check-design');
+        const result = await runCheckDesign({ configPath, mode: 'fast' });
+        expect(result.ok).toBe(true);
+        if (!result.ok) return;
+
+        const drift = result.value.findingsByVerifier.drift;
+        expect(drift).toHaveLength(1);
+        expect(drift[0]?.code).toBe('DRIFT-T001');
+        expect(drift[0]?.message).toContain('#ff00aa');
+        expect(toPosix(drift[0]?.file ?? '')).toBe(
+          toPosix(path.join(root, 'fixtureapp', 'zorblax-card.tsx'))
+        );
+        expect(result.value.summary.byCode['DRIFT-T001']).toBe(1);
+        expect(result.value.summary.totalFindings).toBe(1);
+      }
+    );
+  });
+
+  /**
+   * `check-operational-drift` reads the HEAD side of its threshold diff off
+   * disk at the resolved root (`readJsonFromDisk(cwd, policy.configFile)`),
+   * while the base side comes from git. The root therefore decides whose
+   * config thresholds are compared.
+   *
+   * Git is stubbed through the command's own `runGit` seam so the diff is
+   * deterministic and no real repository is consulted; the `cwd` under test is
+   * untouched by that stub.
+   *
+   * Discriminator: the surface of the single finding names
+   * `fixtureOnlyThresholds.watched`, a field that exists only in the fixture's
+   * `zorblax-fixture-only.json`. Two threshold paths are watched and the
+   * fixture differs from the base on exactly one of them, so the right answer
+   * is a specific named field rather than "something changed".
+   *
+   * WEAKEST OF THE FIVE, stated plainly. `CheckOperationalDriftResult` carries
+   * no absolute path — `surface` is repo-RELATIVE — so unlike the other four
+   * this discriminator cannot encode the fixture root, and it is therefore
+   * content-based: any tree holding a `zorblax-fixture-only.json` with
+   * `alsoWatched: 1` and `watched !== 7` satisfies it. A review defeated the
+   * earlier version of this case with an 84-byte plant at
+   * `packages/cli/harness.config.json`, which is a plausible filename. The
+   * watched file is therefore named `zorblax-fixture-only.json`: the plant that
+   * would still defeat it has to be an obviously synthetic, non-schema file at a
+   * path nothing in this repo uses. That raises the bar; it does not remove the
+   * ceiling, and the ceiling is a property of the command's return shape rather
+   * than of this test.
+   */
+  it('check-operational-drift diffs the config of the -c project', async () => {
+    // Deliberately NOT `harness.config.json`: see the note above.
+    const POLICY_FILE = 'zorblax-fixture-only.json';
+    const baseConfig = JSON.stringify({
+      fixtureOnlyThresholds: { watched: 7, alsoWatched: 1 },
+    });
+    await withProject(
+      {
+        rootDir: './fixtureapp',
+        docsDir: './fixturedocs',
+        operationalPolicy: {
+          watchedPaths: [],
+          configFile: POLICY_FILE,
+          configThresholdPaths: [
+            'fixtureOnlyThresholds.watched',
+            'fixtureOnlyThresholds.alsoWatched',
+          ],
+        },
+      },
+      async (root) => {
+        // The watched file is its own artifact, not harness.config.json, so the
+        // thresholds never go near the config schema (no `ignored unknown key`
+        // advisory) and the file the command must read is one only this fixture
+        // has any reason to contain.
+        await writeFile(
+          path.join(root, POLICY_FILE),
+          JSON.stringify({ fixtureOnlyThresholds: { watched: 42, alsoWatched: 1 } })
+        );
+      },
+      async (configPath) => {
+        const { runCheckOperationalDrift } =
+          await import('../../src/commands/check-operational-drift');
+        const runGit = (args: string[]): string => {
+          if (args[0] === 'diff') return POLICY_FILE;
+          if (args[0] === 'ls-files') return '';
+          if (args[0] === 'show' && args[1] === `FIXTUREBASE:${POLICY_FILE}`) return baseConfig;
+          throw new Error(`unexpected git invocation: ${args.join(' ')}`);
+        };
+        const result = await runCheckOperationalDrift({
+          configPath,
+          base: 'FIXTUREBASE',
+          runGit,
+        });
+        expect(result.ok).toBe(true);
+        if (!result.ok) return;
+
+        // POSITIVE: the one changed field, named. The undiffable fallback a
+        // wrong root produces has a different surface and detail.
+        expect(result.value.operationalChanges).toEqual([
+          {
+            surface: `${POLICY_FILE}:fixtureOnlyThresholds.watched`,
+            detail: `threshold/policy field "fixtureOnlyThresholds.watched" changed in ${POLICY_FILE}`,
+          },
+        ]);
+        expect(result.value.flagged).toBe(true);
       }
     );
   });
