@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'tests/scripts'
-sourceHash: '3f172b59e427a2f55aaad7d264a79345b7f2eb083d526cd11acca4e74c426d63'
+sourceHash: '30a1bf63a52912916c5616a0e7cd252385682572d118d087c07079c95433dd11'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -17,6 +17,8 @@ members:
     'main-health-check.test.mjs',
     'plugin-antigravity-target.test.mjs',
     'plugin-pin-sync.test.mjs',
+    'prepush-tag-only.test.mjs',
+    'release-publish.test.mjs',
     'workflow-merge-race.test.mjs',
     'workflow-token-permissions.test.mjs',
   ]
@@ -38,10 +40,11 @@ import { evaluateCoverage, mergeCoverageBaselines, pruneCoverageSummaries, toler
 import { baseUrl, pageFiles, parseTargetFiles, slugForFile } from '../../scripts/design-capture.mjs'
 import { getConfig } from '../../scripts/lib/plugin-config.mjs'
 import { ALARM_LABEL, ALARM_MARKER, EXIT, decideAction, deliverAlarm, evaluateHealth, fetchRuns, findOpenAlarmIssue, renderIssueBody, renderSummary, selectDecisiveRuns } from '../../scripts/main-health-check.mjs'
+import { classifyPublish, parsePublishOutput, registryUrl, runRelease, waitForVisibility } from '../../scripts/release-publish.mjs'
 import { MANIFEST_PATHS, findPinnedVersion, readCliVersion, syncManifestContent } from '../../scripts/sync-plugin-pin.mjs'
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
-import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
+import { chmodSync, copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path, { dirname, join, resolve } from 'node:path'
 import { test } from 'node:test'
