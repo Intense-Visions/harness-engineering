@@ -62,15 +62,15 @@ const UNIT_KINDS: Record<string, CloneUnitKind> = {
 };
 
 /**
- * Parent node types that name an otherwise-anonymous unit, and the key holding
- * that name. A declaration-less unit is overwhelmingly a named binding one hop
- * up — `const sendJSON = (res, status, body) => {…}` is not anonymous to any
- * human reading it.
+ * Parent node types that name an otherwise-anonymous unit: `nameKey` holds the
+ * name, `valueKey` holds the node being named. A declaration-less unit is
+ * overwhelmingly a named binding one hop up — `const sendJSON = (res, status,
+ * body) => {…}` is not anonymous to any human reading it.
  */
-const NAMING_PARENTS: Record<string, 'id' | 'key'> = {
-  VariableDeclarator: 'id',
-  Property: 'key',
-  PropertyDefinition: 'key',
+const NAMING_PARENTS: Record<string, { nameKey: 'id' | 'key'; valueKey: 'init' | 'value' }> = {
+  VariableDeclarator: { nameKey: 'id', valueKey: 'init' },
+  Property: { nameKey: 'key', valueKey: 'value' },
+  PropertyDefinition: { nameKey: 'key', valueKey: 'value' },
 };
 
 /** The identifier or string-literal name carried by a node, if any. */
@@ -85,32 +85,34 @@ function nameOf(node: unknown): string | undefined {
   return undefined;
 }
 
+/** The name a naming parent lends to the node it carries, if any. */
+function nameFromParent(node: object, parent: unknown): string | undefined {
+  if (parent === null || typeof parent !== 'object') return undefined;
+  const record = parent as Record<string, unknown>;
+  const type = record['type'];
+  if (typeof type !== 'string') return undefined;
+  const naming = NAMING_PARENTS[type];
+  if (naming === undefined) return undefined;
+  // A computed key (`{ [k]: () => {…} }`) names the lookup, not the unit.
+  if (record['computed'] === true) return undefined;
+  // The unit must be the parent's VALUE, not, say, a parameter default of it.
+  if (record[naming.valueKey] !== node) return undefined;
+  return nameOf(record[naming.nameKey]);
+}
+
 /**
  * The declared name of a unit node, or `'<anon>'`.
  *
  * Consults `node.id` / `node.key` first, then the naming parent. Without the
- * parent hop, 17 of 192 reported members in this repo (8.9%) read `<anon>`,
- * including every member of the rank-525 class in
- * `packages/core/src/review/agents/typescript-strict-agent.ts` that the spec's
- * Evidence section cites by name. `CloneMember.unit` is the human-facing field
- * and the one `code-craft` binds against, so `<anon>` is a real cost.
+ * parent hop, 36.0% of this repo's units reported `<anon>`; with it, 31.2%.
+ * `CloneMember.unit` is the human-facing field and the one `code-craft` binds
+ * against, so `<anon>` is a real cost. A callback argument
+ * (`scan(bundle, (line) => …)`) has no name one hop up and stays `<anon>`.
  */
 function unitName(node: Record<string, unknown>, parent: unknown): string {
   const own = nameOf(node['id']) ?? nameOf(node['key']);
   if (own !== undefined) return own;
-
-  if (parent === null || typeof parent !== 'object') return '<anon>';
-  const parentRecord = parent as Record<string, unknown>;
-  const parentType = parentRecord['type'];
-  if (typeof parentType !== 'string') return '<anon>';
-  const namingKey = NAMING_PARENTS[parentType];
-  if (namingKey === undefined) return '<anon>';
-  // A computed key (`{ [k]: () => {…} }`) names the lookup, not the unit.
-  if (namingKey === 'key' && parentRecord['computed'] === true) return '<anon>';
-  // The unit must be the parent's VALUE, not, say, its own default initializer.
-  const carried = namingKey === 'id' ? parentRecord['init'] : parentRecord['value'];
-  if (carried !== node) return '<anon>';
-  return nameOf(parentRecord[namingKey]) ?? '<anon>';
+  return nameFromParent(node, parent) ?? '<anon>';
 }
 
 /**
