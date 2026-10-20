@@ -1,5 +1,10 @@
 import { Ok } from '@harness-engineering/core';
-import type { DriftConfig, PatternConfig, DuplicationConfig } from '@harness-engineering/core';
+import type {
+  DriftConfig,
+  PatternConfig,
+  DuplicationConfig,
+  EntropyReport,
+} from '@harness-engineering/core';
 import { skipDirGlobs } from '@harness-engineering/graph';
 import { resultToMcpResponse } from '../utils/result-adapter.js';
 import { sanitizePath } from '../utils/sanitize-path.js';
@@ -135,6 +140,33 @@ function summarizePatterns(patterns: any): { issueCount: number; topIssues: stri
   return { issueCount: patternIssues.length, topIssues: patternIssues.slice(0, 3) };
 }
 
+/**
+ * The advisory duplication block for summary mode.
+ *
+ * Reported ALONGSIDE `totalIssues`, never inside it. The CLI keeps clone
+ * classes out of its exit-code arithmetic (D4 / ADR 0134) and `totalIssues` is
+ * the one number an agent reads as "is this clean", so D4 has to hold on both
+ * surfaces or it holds on neither.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function summarizeDuplication(duplication: any) {
+  return {
+    classesReported: duplication.stats.classesReported,
+    classesSuppressed: duplication.stats.classesSuppressed,
+    classesTruncated: duplication.stats.classesTruncated,
+    membersReported: duplication.classes.reduce(
+      (sum: number, cls: { members: unknown[] }) => sum + cls.members.length,
+      0
+    ),
+    topClasses: duplication.classes
+      .slice(0, 3)
+      .map(
+        (cls: { members: Array<{ unit: string; file: string }>; tokenCount: number }) =>
+          `${cls.members.length}x ${cls.tokenCount} tokens: ${cls.members[0]?.unit ?? '<anon>'} (${cls.members[0]?.file ?? '?'})`
+      ),
+  };
+}
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function buildSummaryResponse(report: any) {
   const summary: Record<string, { issueCount: number; topIssues: string[] }> = {};
@@ -144,13 +176,55 @@ function buildSummaryResponse(report: any) {
   if (report.patterns) summary['patterns'] = summarizePatterns(report.patterns);
 
   const totalIssues = Object.values(summary).reduce((s, c) => s + c.issueCount, 0);
+
+  const duplication = report.duplication ? summarizeDuplication(report.duplication) : undefined;
+
+  // The payload is hoisted rather than inlined into the content wrapper: the
+  // nested `advisory` literal took `buildSummaryResponse` to nestingDepth 5,
+  // one past the arch threshold.
+  const payload = {
+    mode: 'summary',
+    totalIssues,
+    categories: summary,
+    ...(duplication && { advisory: { duplication } }),
+  };
   return {
-    content: [
-      {
-        type: 'text' as const,
-        text: JSON.stringify({ mode: 'summary', totalIssues, categories: summary }),
-      },
-    ],
+    content: [{ type: 'text' as const, text: JSON.stringify(payload) }],
+  };
+}
+
+/**
+ * Project an `EntropyReport` into something `JSON.stringify` renders
+ * faithfully.
+ *
+ * `DuplicationReport.byMember` is a `Map`, and `JSON.stringify` renders a Map
+ * as `{}` — so the detailed response carried `byMember: {}`, which reads as an
+ * empty index rather than an unserializable one (spec Phase 3 forward note 4;
+ * measured on this tool before the change). It is OMITTED instead: it is an
+ * in-process O(1) seam for `code-craft`, and `classes[].members` already
+ * carries every member it indexes, so an entries array would duplicate data
+ * already in the payload. The key's ABSENCE is the honest signal; `{}` is not.
+ *
+ * `skipErrors[].details.originalError` is an `Error`, which stringifies to
+ * `{}` for the same reason; it is dropped here too, since `message`,
+ * `errorName` and `details.reason` carry everything a reader can act on.
+ *
+ * NOT fixed here: `report.snapshot.exportMap.byFile` is also a `Map` and also
+ * serializes away. It predates this change on a report this tool has always
+ * returned — named, not silently inherited.
+ */
+function toJsonSafeReport(report: EntropyReport): unknown {
+  if (!report.duplication) return report;
+  const { byMember: _byMember, skipErrors, ...duplication } = report.duplication;
+  return {
+    ...report,
+    duplication: {
+      ...duplication,
+      skipErrors: skipErrors.map((error) => {
+        const { originalError: _originalError, ...details } = error.details;
+        return { ...error, details };
+      }),
+    },
   };
 }
 
@@ -276,7 +350,9 @@ export async function handleDetectEntropy(input: {
     }
 
     if (!input.autoFix) {
-      return resultToMcpResponse(result);
+      return result.ok
+        ? resultToMcpResponse(Ok(toJsonSafeReport(result.value)))
+        : resultToMcpResponse(result);
     }
 
     // autoFix mode: run fixes after analysis
@@ -296,7 +372,10 @@ export async function handleDetectEntropy(input: {
     if (input.dryRun) {
       return {
         content: [
-          { type: 'text' as const, text: JSON.stringify({ analysis: report, fixes, suggestions }) },
+          {
+            type: 'text' as const,
+            text: JSON.stringify({ analysis: toJsonSafeReport(report), fixes, suggestions }),
+          },
         ],
       };
     }
@@ -308,13 +387,19 @@ export async function handleDetectEntropy(input: {
         content: [
           {
             type: 'text' as const,
-            text: JSON.stringify({ analysis: report, ...applied.value, suggestions }),
+            text: JSON.stringify({
+              analysis: toJsonSafeReport(report),
+              ...applied.value,
+              suggestions,
+            }),
           },
         ],
       };
     }
 
-    return resultToMcpResponse(Ok({ analysis: report, fixes: [], applied: 0, suggestions }));
+    return resultToMcpResponse(
+      Ok({ analysis: toJsonSafeReport(report), fixes: [], applied: 0, suggestions })
+    );
   } catch (error) {
     return {
       content: [
