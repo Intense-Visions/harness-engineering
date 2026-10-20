@@ -38,14 +38,39 @@ export async function runAudit(input: AuditInput): Promise<void> {
         ...(files !== undefined && { files }),
         ...(designStrictness !== undefined && { designStrictness }),
       });
-      // Store findings under verifier-named bucket. v1 maps two known
-      // names; unknown verifier names are stashed under audit-anatomy
-      // by default (the most likely shape match) — additive future
-      // verifiers should declare their bucket explicitly.
+      // Store findings under the verifier-named bucket. v1 maps two known
+      // names. This name branch is the documented contract, not an Iron Law
+      // violation: the Iron Law forbids importing per-verifier RULE logic, and
+      // the registry makes invocation generic, but findings collection is
+      // per-name. A new verifier needs a bucket here, a field on
+      // `auditFindings`, and a count in REPORT.
+      //
+      // A name with no bucket is an ABSTENTION, not a success. The comment
+      // that used to sit here claimed unknown names were "stashed under
+      // audit-anatomy by default", but the branch below had no `else`: the
+      // findings were dropped on the floor while `verifiersRun` recorded the
+      // verifier as having contributed, so a 5th registered verifier could
+      // report thousands of violations and the run would still read clean.
+      // Same bug class as the verdict in #2273 — a summary field (here
+      // `verifiersRun`) computed independently of whether any evidence was
+      // actually absorbed. Recording it on `verifiersFailed` makes the
+      // omission loud, and REPORT then refuses to call the run a pass.
       if (verifier.name === 'audit-anatomy') {
         context.auditFindings.anatomy = result.findings as AnatomyFinding[];
       } else if (verifier.name === 'audit-brand') {
         context.auditFindings.brand = result.findings as BrandFinding[];
+      } else {
+        context.verifiersFailed.push({
+          name: verifier.name,
+          error:
+            `Verifier '${verifier.name}' ran and returned ${result.findings.length} finding(s), ` +
+            'but the AUDIT phase has no findings bucket for that name, so they were not ' +
+            'collected. Registering a verifier is not enough on its own: add a findings ' +
+            'bucket to DesignPipelineContext.auditFindings (context.ts), a routing branch ' +
+            'for it in packages/cli/src/design-pipeline/phases/audit.ts, and count that ' +
+            'bucket in phases/report.ts so its findings reach the verdict.',
+        });
+        continue;
       }
       context.verifiersRun.push(verifier.name);
     } catch (err) {

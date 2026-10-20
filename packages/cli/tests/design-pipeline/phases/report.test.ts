@@ -3,6 +3,7 @@ import { runReport } from '../../../src/design-pipeline/phases/report';
 import { newContext } from '../../../src/design-pipeline/context';
 import type { DriftFinding } from '../../../src/drift/findings/finding';
 import type { BrandFinding } from '../../../src/brand/findings/finding';
+import type { CraftFinding } from '../../../src/design-craft/findings/schema';
 
 function drift(severity: 'error' | 'warn' | 'info', code: string): DriftFinding {
   return {
@@ -30,6 +31,19 @@ function brand(severity: 'error' | 'warn' | 'info', code: string): BrandFinding 
   };
 }
 
+function craft(code: string): CraftFinding {
+  return {
+    code,
+    phase: 'critique',
+    tier: 'polish',
+    impact: 'medium',
+    confidence: 'high',
+    target: { file: 'a.tsx' },
+    message: 'msg',
+    cite: { rubricOrPatternId: 'rubric-x', source: 'src' },
+  } as CraftFinding;
+}
+
 describe('runReport', () => {
   it('verdict=pass when zero findings + no suggestions + no bootstrap', () => {
     const ctx = newContext();
@@ -48,9 +62,23 @@ describe('runReport', () => {
 
   it('verdict=warn when only craft suggestions present', () => {
     const ctx = newContext();
-    ctx.craftSuggestions = 3;
+    // craftSuggestions is now COUNTED from craftFindings in REPORT rather than
+    // stored alongside it by FILL (#2273), so the fixture supplies the findings
+    // and the count is derived.
+    ctx.craftFindings.push(craft('CRAFT-C001'), craft('CRAFT-C002'), craft('CRAFT-C003'));
     runReport({ context: ctx });
+    expect(ctx.craftSuggestions).toBe(3);
     expect(ctx.verdict).toBe('warn');
+  });
+
+  it('craftSuggestions is derived from craftFindings, not from a stale stored count', () => {
+    const ctx = newContext();
+    // A stored count that disagrees with its own list is the shape #2273 is
+    // about. REPORT recounts, so the list wins.
+    ctx.craftSuggestions = 99;
+    runReport({ context: ctx });
+    expect(ctx.craftSuggestions).toBe(0);
+    expect(ctx.verdict).toBe('pass');
   });
 
   it('verdict=warn when bootstrap occurred (even with no findings)', () => {
