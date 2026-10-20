@@ -789,9 +789,15 @@ export async function buildCloneIndex(
     });
   }
 
-  // Rank-descending, with fingerprint as a deterministic tiebreak so the
-  // reported order never depends on filesystem or input ordering.
-  qualifying.sort((a, b) => b.rank - a.rank || a.fingerprint.localeCompare(b.fingerprint));
+  // Rank-descending, with fingerprint and then tokenCount as deterministic
+  // tiebreaks so the reported order never depends on filesystem or input
+  // ordering. `fingerprint` alone no longer identifies a class: two classes can
+  // share a digest and differ in `tokenCount` (that IS an observed collision),
+  // and their ranks can still tie — 10 tokens x 6 members equals 20 x 3.
+  qualifying.sort(
+    (a, b) =>
+      b.rank - a.rank || a.fingerprint.localeCompare(b.fingerprint) || a.tokenCount - b.tokenCount
+  );
   const classes = qualifying.slice(0, config.maxClasses);
   const classesTruncated = qualifying.length - classes.length;
 
