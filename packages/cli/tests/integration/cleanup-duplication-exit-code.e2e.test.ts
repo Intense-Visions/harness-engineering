@@ -10,20 +10,30 @@
 // absent from both — `process.exit(totalIssues === 0 ? ...)` and the #691
 // `--findings-json` maintenance contract.
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { spawnSync } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
+// The SHARED tier vocabulary (ADR 0111), not a locally invented
+// dist-existence predicate. ADR 0111 exists precisely because gated suites
+// kept inventing their own gate, which makes them invisible to the
+// grep-based reachability assertions that stop a silently-skipped suite from
+// reading as a pass (`.github/workflows/main-health.yml`: "a silently-skipped
+// suite must not read as a pass"). `runHarness` also spawns via
+// `process.execPath` instead of a bare `node`, which is the win32-safe form.
+//
+// The gate is deliberately NOT made to fail loudly: ADR 0111 already decided
+// that trade — a contributor who runs vitest before `build` must not get a
+// red suite. The mitigation is the CI-side reachability assertion, which this
+// suite is now covered by ("Assert gated CLI suites are reachable").
+//
+// Trade accepted: `HAS_HARNESS_BIN` resolves `dist/bin/harness.js` against
+// `process.cwd()`, so this suite is only reachable when vitest runs from
+// `packages/cli` — which is how CI and the documented local command run it.
+import { runHarness, skipUnlessBin } from '../e2e/support';
 
-const CLI_PATH = path.join(__dirname, '../../dist/bin/harness.js');
-const CLI_BUILT = fs.existsSync(CLI_PATH);
 const FIXTURE = path.join(__dirname, '../fixtures/duplication-cli-project');
 
-function runCLI(args: string[], cwd: string) {
-  return spawnSync('node', [CLI_PATH, ...args], { cwd, encoding: 'utf-8' });
-}
-
-describe('harness cleanup -t duplication (spawned CLI)', () => {
+describe.skipIf(skipUnlessBin)('harness cleanup -t duplication (spawned CLI)', () => {
   let projectDir: string;
 
   beforeEach(() => {
@@ -35,6 +45,10 @@ describe('harness cleanup -t duplication (spawned CLI)', () => {
     fs.rmSync(projectDir, { recursive: true, force: true });
   });
 
+  function runCLI(args: string[], cwd: string) {
+    return runHarness(args, { cwd });
+  }
+
   function writeConfig(entropy: Record<string, unknown>): void {
     const configPath = path.join(projectDir, 'harness.config.json');
     const config = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
@@ -42,7 +56,7 @@ describe('harness cleanup -t duplication (spawned CLI)', () => {
     fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
   }
 
-  it.skipIf(!CLI_BUILT)('exits 0 while reporting a clone class', () => {
+  it('exits 0 while reporting a clone class', () => {
     const result = runCLI(['cleanup', '-t', 'duplication', '--json'], projectDir);
     // MUTATION: add duplication to `totalIssues` and this becomes 1
     // (ExitCode.VALIDATION_FAILED). This is forward note 1's regression test.
@@ -61,7 +75,7 @@ describe('harness cleanup -t duplication (spawned CLI)', () => {
     });
   });
 
-  it.skipIf(!CLI_BUILT)('publishes findings: 0 on the --findings-json contract', () => {
+  it('publishes findings: 0 on the --findings-json contract', () => {
     const result = runCLI(['cleanup', '-t', 'duplication', '--findings-json'], projectDir);
     expect(result.status).toBe(0);
     const lines = result.stdout.trim().split('\n');
@@ -73,7 +87,7 @@ describe('harness cleanup -t duplication (spawned CLI)', () => {
     });
   });
 
-  it.skipIf(!CLI_BUILT)('prints the advisory section and no green-ticked zero', () => {
+  it('prints the advisory section and no green-ticked zero', () => {
     const result = runCLI(['cleanup', '-t', 'duplication'], projectDir);
     expect(result.status).toBe(0);
     expect(result.stdout).toContain('Duplication (advisory');
@@ -83,7 +97,7 @@ describe('harness cleanup -t duplication (spawned CLI)', () => {
     expect(result.stdout).toContain('Entropy issues: not checked');
   });
 
-  it.skipIf(!CLI_BUILT)('refuses an explicit request when the detector is disabled', () => {
+  it('refuses an explicit request when the detector is disabled', () => {
     writeConfig({ duplication: false });
     const result = runCLI(['cleanup', '-t', 'duplication'], projectDir);
     expect(result.status).not.toBe(0);
@@ -92,7 +106,7 @@ describe('harness cleanup -t duplication (spawned CLI)', () => {
     expect(`${result.stdout}${result.stderr}`).not.toContain('Duplication (advisory');
   });
 
-  it.skipIf(!CLI_BUILT)('honors a configured override end to end', () => {
+  it('honors a configured override end to end', () => {
     // The WIRED proof for the config surface: before the schema entry,
     // `entropy.duplication` was stripped with an "ignored unknown key"
     // warning and could not reach the detector at all.
@@ -105,7 +119,7 @@ describe('harness cleanup -t duplication (spawned CLI)', () => {
     expect(payload.duplication.classesSuppressed).toBe(1);
   });
 
-  it.skipIf(!CLI_BUILT)('refuses an unrecognized -t value instead of exiting 0', () => {
+  it('refuses an unrecognized -t value instead of exiting 0', () => {
     // Measured before `.choices`: `-t duplicaiton` printed
     // "Entropy issues: not checked" and exited 0, and with --findings-json it
     // published `{"findings":0,"v":1,"check":"cleanup"}` — a green pass on the
@@ -118,7 +132,7 @@ describe('harness cleanup -t duplication (spawned CLI)', () => {
     expect(result.stdout).not.toContain('"findings"');
   });
 
-  it.skipIf(!CLI_BUILT)('does not run duplication under -t all on an unconfigured project', () => {
+  it('does not run duplication under -t all on an unconfigured project', () => {
     const result = runCLI(['cleanup', '-t', 'all'], projectDir);
     // MUTATION: make `all` unconditional and the section appears here.
     expect(result.stdout).not.toContain('Duplication (advisory');

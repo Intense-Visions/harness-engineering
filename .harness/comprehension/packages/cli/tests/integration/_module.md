@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/tests/integration'
-sourceHash: '8890ad7dadfec630bf8128fde8089b2f49bf4f63e3625a71fa0edda2aa14fa13'
+sourceHash: '67db2e5c24b2a21334ab77810c00cd7627cdaf99b4116e828307a0e5868d42c4'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -44,6 +44,7 @@ import { RecommendationResult } from '../../src/skill/recommendation-types'
 import { SkillSource, normalizeSkills } from '../../src/slash-commands/normalize'
 import { TemplateEngine } from '../../src/templates/engine'
 import { resolveTemplatesDir } from '../../src/utils/paths'
+import { runHarness, skipUnlessBin } from '../e2e/support'
 import { scaffoldInitFixture } from './_helpers/init-fixture'
 import { ALLOWED_FIELD_KEYS, PII_FIELD_DENYLIST, clearPulseAdapters, parseRoadmap, registerMockAdapter, registerPulseAdapter } from '@harness-engineering/core'
 import { PulseAdapter, SanitizedResult } from '@harness-engineering/types'
