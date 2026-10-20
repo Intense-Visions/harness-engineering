@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/src/entropy'
-sourceHash: 'c90b4e7b540ceebfdd9b3ecea7a1282769ff405628e7b911f6b595f2842b8c91'
+sourceHash: '04c9db298eb3e479b0e624d0a8ee5412b21dc3b2e08ddb1018664f1877328754'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -121,13 +121,14 @@ import { detectComplexityViolations } from './detectors/complexity'
 import { detectCouplingViolations } from './detectors/coupling'
 import { detectDeadCode } from './detectors/dead-code'
 import { detectDocDrift } from './detectors/drift'
+import { detectDuplication } from './detectors/duplication'
 import { detectPatternViolations } from './detectors/patterns'
 import { detectSizeBudgetViolations } from './detectors/size-budget'
 import { resolveEntryPoints } from './entry-points'
 import { generateSuggestions } from './fixers/suggestions'
 import { loadPathAliases } from './path-aliases'
 import { buildSnapshot } from './snapshot'
-import { AnalysisError, CodeBlock, CodeReference, CodebaseSnapshot, ComplexityReport, CouplingReport, DeadCodeReport, DocumentationFile, DriftConfig, DriftReport, EntropyConfig, EntropyError, EntropyReport, ExportMap, InlineReference, InternalSymbol, JSDocComment, PatternConfig, PatternReport, SizeBudgetReport, SourceFile, SuggestionReport, TestImportSource } from './types'
+import { AnalysisError, CodeBlock, CodeReference, CodebaseSnapshot, ComplexityReport, CouplingReport, DeadCodeReport, DocumentationFile, DriftConfig, DriftReport, DuplicationReport, EntropyConfig, EntropyError, EntropyReport, ExportMap, InlineReference, InternalSymbol, JSDocComment, PatternConfig, PatternReport, SizeBudgetReport, SourceFile, SuggestionReport, TestImportSource } from './types'
 import { skipDirGlobs } from '@harness-engineering/graph'
 import * as fs from 'fs'
 import { minimatch } from 'minimatch'

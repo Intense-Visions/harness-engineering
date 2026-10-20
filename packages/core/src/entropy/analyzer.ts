@@ -13,6 +13,7 @@ import type {
   ComplexityReport,
   CouplingReport,
   SizeBudgetReport,
+  DuplicationReport,
   SuggestionReport,
   AnalysisError,
 } from './types';
@@ -23,6 +24,7 @@ import { detectPatternViolations } from './detectors/patterns';
 import { detectComplexityViolations } from './detectors/complexity';
 import { detectCouplingViolations } from './detectors/coupling';
 import { detectSizeBudgetViolations } from './detectors/size-budget';
+import { detectDuplication } from './detectors/duplication';
 import { generateSuggestions } from './fixers/suggestions';
 /**
  * Main entropy analysis orchestrator
@@ -186,6 +188,27 @@ export class EntropyAnalyzer {
       }
     }
 
+    // Duplication detection
+    let duplicationReport: DuplicationReport | undefined;
+    if (this.config.analyze.duplication) {
+      const duplicationConfig =
+        typeof this.config.analyze.duplication === 'object' ? this.config.analyze.duplication : {};
+      const result = await detectDuplication(this.snapshot, duplicationConfig);
+      if (result.ok) {
+        duplicationReport = result.value;
+        // A per-file skip is a finding ABOUT the scan, not a failure OF it:
+        // the run succeeded with gaps, so each skip is surfaced as an
+        // AnalysisError while the report is still published. The detector
+        // hands back bare EntropyErrors; the `analyzer` tag is applied here,
+        // in the one place that owns `analysisErrors`.
+        for (const error of result.value.skipErrors) {
+          analysisErrors.push({ analyzer: 'duplication', error });
+        }
+      } else {
+        analysisErrors.push({ analyzer: 'duplication', error: result.error });
+      }
+    }
+
     // Calculate summary
     const driftIssues = driftReport?.drifts.length || 0;
     const deadCodeIssues =
@@ -203,6 +226,12 @@ export class EntropyAnalyzer {
     const complexityWarnings = complexityReport?.stats.warningCount || 0;
     const couplingWarnings = couplingReport?.stats.warningCount || 0;
     const sizeBudgetWarnings = sizeBudgetReport?.stats.warningCount || 0;
+    // Advisory-only (spec decision D4): clone classes are counted in
+    // totalIssues so the summary cannot report a clean run over a scan that
+    // reported classes, and are added to NEITHER `errors` NOR `warnings`. The
+    // DuplicationReport carries no errorCount and no warningCount for exactly
+    // this reason, so there is nothing here to add by accident.
+    const duplicationIssues = duplicationReport?.stats.classesReported || 0;
 
     const totalIssues =
       driftIssues +
@@ -210,7 +239,8 @@ export class EntropyAnalyzer {
       patternIssues +
       complexityIssues +
       couplingIssues +
-      sizeBudgetIssues;
+      sizeBudgetIssues +
+      duplicationIssues;
 
     // Calculate fixable count
     const fixableCount =
@@ -258,6 +288,9 @@ export class EntropyAnalyzer {
     }
     if (sizeBudgetReport) {
       report.sizeBudget = sizeBudgetReport;
+    }
+    if (duplicationReport) {
+      report.duplication = duplicationReport;
     }
 
     this.report = report;
