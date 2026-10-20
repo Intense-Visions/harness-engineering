@@ -181,6 +181,11 @@ function flushTelemetryBackground(cwd: string): void {
       stdio: ['pipe', 'ignore', 'ignore'],
       detached: true,
     });
+    // Fire-and-forget: if the reporter dies before reading stdin the write fails
+    // with EPIPE asynchronously, which the surrounding try/catch cannot see and
+    // which would otherwise crash the CLI as an unhandled error (#2298).
+    // Telemetry has no outcome to report, so every stdin error is ignored.
+    child.stdin?.on('error', () => {});
     child.stdin?.write('{}');
     child.stdin?.end();
     child.unref();

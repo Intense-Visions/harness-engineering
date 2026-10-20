@@ -5,7 +5,7 @@ import { OciServerlessBackend } from '../../../src/agent/backends/serverless.js'
 // --- Fake child-process plumbing ----------------------------------------
 
 interface FakeChild extends EventEmitter {
-  stdin: PassThrough | { write: (chunk: string) => void; end: () => void };
+  stdin: PassThrough | { write: (chunk: string) => void; end: () => void; on: () => void };
   stdout: PassThrough;
   stderr: PassThrough;
   exitCode: number | null;
@@ -390,6 +390,7 @@ describe('OciServerlessBackend — runTurn stdin failure', () => {
             throw new Error('EPIPE on stdin');
           },
           end: () => undefined,
+          on: () => undefined,
         };
       } else {
         setTimeout(() => {

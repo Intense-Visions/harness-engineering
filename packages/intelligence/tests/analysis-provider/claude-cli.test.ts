@@ -13,7 +13,7 @@ function makeFakeChild() {
   };
   child.stdout = stdout;
   child.stderr = stderr;
-  child.stdin = { end: vi.fn() } as unknown as typeof child.stdin;
+  child.stdin = { end: vi.fn(), on: vi.fn() } as unknown as typeof child.stdin;
   return child;
 }
 
