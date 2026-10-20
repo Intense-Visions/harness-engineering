@@ -80,9 +80,11 @@ const PROCESSING_PHRASES = [
   'Engineering a solution…',
 ];
 
-/** The longest possible rotation delay: 4500 + random * 2000. */
-const MAX_PHRASE_DELAY_MS = 6500;
-/** The shortest possible rotation delay. */
+/**
+ * The shortest possible rotation delay. The period is `4500 + Math.random() *
+ * 2000`, so the delay is bounded by [4500, 6500); the pinned draws below fix it
+ * at this lower bound, which is the only value any test here advances by.
+ */
 const MIN_PHRASE_DELAY_MS = 4500;
 
 /**
@@ -200,11 +202,26 @@ describe('StreamingIndicator phrase rotation', () => {
     expect(phraseNodes(container)).toHaveLength(1);
   });
 
-  it('stops rotating after unmount', () => {
-    const { container, unmount } = render(<StreamingIndicator />);
-    expect(phraseNodes(container)).toHaveLength(1);
+  it('clears its intervals on unmount', () => {
+    // Asserts the TIMER, not the DOM. The previous version of this test checked
+    // `phraseNodes(container)).toHaveLength(0)` after `unmount()`, which is true
+    // whether or not the interval is still firing — React removes the nodes
+    // either way. Measured twice independently: deleting
+    // `return () => clearInterval(interval);` from the rotation effect left this
+    // file 6/6, `blocks/` 203/203 and the whole of `tests/client` 1045/1045
+    // green. A leaked interval on a component rendered on every assistant turn
+    // keeps calling `setPhraseIndex` on an unmounted tree forever.
+    //
+    // The component owns TWO intervals (phrase rotation and the elapsed timer),
+    // so the count covers both cleanups.
+    const { unmount } = render(<StreamingIndicator />);
+
+    // Positive control: without this, `toBe(0)` below would also pass against a
+    // component that never scheduled anything at all.
+    expect(vi.getTimerCount()).toBe(2);
+
     unmount();
-    advance(MAX_PHRASE_DELAY_MS * 3);
-    expect(phraseNodes(container)).toHaveLength(0);
+
+    expect(vi.getTimerCount()).toBe(0);
   });
 });

@@ -376,7 +376,10 @@ describe('check-arch command', () => {
       expect(passing.ok).toBe(true);
       if (passing.ok) {
         expect(passing.value.passed).toBe(true);
-        // Exit code 0 is determined by passed=true in the action handler
+        // `passed` is only half the mapping — the exit code itself is asserted
+        // over the real command in "maps a failing check to exit 1 ..." and
+        // "maps a passing check to exit 0 ..." in the `action handler` describe
+        // below. This test deliberately does not observe `process.exit`.
       }
     });
   });
@@ -441,6 +444,107 @@ describe('check-arch command', () => {
       ]);
 
       expect(mockConsoleLog).toHaveBeenCalledWith(expect.stringContaining('error'));
+    });
+
+    /**
+     * The exit-code mapping the sibling `runCheckArch` test is NAMED for but
+     * never observes: that test asserts `passed`, and its `1=regression` arm
+     * had no assertion at all.
+     *
+     * Both mutations were measured at the SAME scope — the whole `packages/cli`
+     * suite with only the two tests below removed — because a mutation that
+     * survives is green at the package, and a narrower figure cannot be checked
+     * against anything. To reproduce: delete the two tests below, apply one
+     * mutation, run `npx vitest run` from `packages/cli`.
+     *   - `process.exit(value.passed ? SUCCESS : VALIDATION_FAILED)` replaced by
+     *     `process.exit(ExitCode.SUCCESS)`: 755 files / 8937 tests, all green.
+     *   - `valid: value.passed` in `printArchResult` replaced by `valid: true`:
+     *     755 files / 8937 tests, all green.
+     *
+     * An earlier version of this comment cited "3 files / 58 tests" for the
+     * second mutation. No scope in this repo yields that — `vitest run
+     * tests/commands/check-arch` is 2 files / 54 tests, `vitest run arch` is
+     * 8 files / 94 tests, and `printArchResult` is named by this file alone —
+     * so the number could not be re-derived and has been replaced by the
+     * measurement above.
+     *
+     * Same defect class as #2071 — a regressing gate reporting a pass — and
+     * `arch` is not in `.husky/pre-commit`'s skip list, so it gates every commit.
+     *
+     * The fixture plants one error-severity forbidden import, which is a
+     * threshold violation and therefore fails the gate with no baseline present
+     * (threshold-only mode). The clean twin below is what keeps the pair
+     * falsifiable in both directions.
+     */
+    function failingFixture(clean: boolean): string {
+      const root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'check-arch-exit-')));
+      fs.writeFileSync(
+        path.join(root, 'harness.config.json'),
+        JSON.stringify({
+          version: 1,
+          architecture: { enabled: true },
+          forbiddenImports: [
+            {
+              from: 'src/domain/**',
+              disallow: ['node:child_process'],
+              message: 'domain must stay pure',
+            },
+          ],
+        })
+      );
+      fs.mkdirSync(path.join(root, 'src', 'domain'), { recursive: true });
+      fs.writeFileSync(
+        path.join(root, 'src/domain/model.ts'),
+        clean
+          ? "import { join } from 'node:path';\nexport const model = join;\n"
+          : "import { exec } from 'node:child_process';\nexport const model = exec;\n"
+      );
+      return root;
+    }
+
+    it(
+      'maps a failing check to exit 1 and reports it as invalid',
+      { timeout: 60_000 },
+      async () => {
+        const root = failingFixture(false);
+        try {
+          const program = makeProgram();
+          await safeParseAsync(program, [
+            'node',
+            'test',
+            '-c',
+            path.join(root, 'harness.config.json'),
+            'check-arch',
+          ]);
+
+          expect(mockExit).toHaveBeenCalledWith(1);
+          // `valid: value.passed` is what turns the verdict into the human-visible
+          // headline; `valid: true` would print "validation passed" over the same
+          // issue list.
+          expect(mockConsoleLog).toHaveBeenCalledWith(expect.stringContaining('Validation failed'));
+        } finally {
+          fs.rmSync(root, { recursive: true, force: true });
+        }
+      }
+    );
+
+    it('maps a passing check to exit 0 and reports it as valid', { timeout: 60_000 }, async () => {
+      const root = failingFixture(true);
+      try {
+        const program = makeProgram();
+        await safeParseAsync(program, [
+          'node',
+          'test',
+          '-c',
+          path.join(root, 'harness.config.json'),
+          'check-arch',
+        ]);
+
+        expect(mockExit).toHaveBeenCalledWith(0);
+        expect(mockConsoleLog).toHaveBeenCalledWith(expect.stringContaining('validation passed'));
+      } finally {
+        fs.rmSync(root, { recursive: true, force: true });
+      }
     });
 
     it('handles --update-baseline and exits with SUCCESS', { timeout: 60_000 }, async () => {

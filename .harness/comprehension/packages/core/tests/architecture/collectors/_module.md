@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/tests/architecture/collectors'
-sourceHash: 'af59c5404ac1639d1df6e60c439631644cb1e06a34b7c83fa660b7490b1411e7'
+sourceHash: 'f3d90b23058446e813763f3792249538185aa131c804b31427b6e401ec6bc7e6'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent

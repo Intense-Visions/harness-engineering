@@ -212,10 +212,12 @@ describe('runCIChecks', () => {
 
     expect(result.ok).toBe(true);
     if (!result.ok) return;
-    // Doc coverage gaps produce warnings
-    if (result.value.summary.warnings > 0) {
-      expect(result.value.exitCode).toBe(1);
-    }
+    // Doc coverage gaps produce warnings. Asserting the warning count FIRST is
+    // the point: the exit-code assertion used to sit inside
+    // `if (result.value.summary.warnings > 0)`, so it would have gone silent —
+    // not red — the moment the mock stopped producing a warning.
+    expect(result.value.summary.warnings).toBeGreaterThan(0);
+    expect(result.value.exitCode).toBe(1);
   });
 
   it('includes timestamp and project name', async () => {

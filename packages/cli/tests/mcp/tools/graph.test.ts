@@ -189,7 +189,7 @@ describe('handleQueryGraph', () => {
     expect(data.pagination).toBeDefined();
     expect(data.pagination.offset).toBe(0);
     expect(data.pagination.limit).toBe(50);
-    expect(data.pagination.total).toBe(data.pagination.total); // sanity
+    expect(data.pagination.total).toBeGreaterThan(0);
     expect(typeof data.pagination.hasMore).toBe('boolean');
   });
 
