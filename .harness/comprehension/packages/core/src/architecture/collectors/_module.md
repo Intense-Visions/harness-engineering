@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/src/architecture/collectors'
-sourceHash: '4e0c1dbbad82e844122c6817cd7596d6fd059018fde9b84b4a5e2923ab6214ae'
+sourceHash: '29a3a01305b1fe6a2986c0a32324b8946cf8a581adef74d26cbb15d6535330b4'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -39,11 +39,12 @@ export violationId
 
 ```
 import { detectCircularDeps } from '../../constraints/circular-deps'
-import { buildDependencyGraph, validateDependencies } from '../../constraints/dependencies'
+import { buildDependencyGraph, buildDependencyGraphFromParsed, validateDependencies } from '../../constraints/dependencies'
 import { defineLayer } from '../../constraints/layers'
 import { DependencyValidation, DependencyViolation, Layer } from '../../constraints/types'
 import { detectComplexityViolations } from '../../entropy/detectors/complexity'
 import { detectCouplingViolations } from '../../entropy/detectors/coupling'
+import { buildExportMap, parseSourceFiles } from '../../entropy/snapshot'
 import { CodebaseSnapshot } from '../../entropy/types'
 import { findFiles, relativePosix } from '../../shared/fs-utils'
 import { Import } from '../../shared/parsers'
