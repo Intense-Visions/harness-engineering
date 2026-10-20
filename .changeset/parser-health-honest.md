@@ -57,6 +57,19 @@ member is still skipped. `check-arch`'s circular-dependency measurement now
 carries the graph-build cause in `metadata.error` instead of a bare
 `'Failed to build dependency graph'`.
 
+**The entropy snapshot fails closed on `PARSER_UNAVAILABLE` too.**
+`parseSourceFiles` now returns a `Result`: a syntax error in one file is still
+skipped, but a parser that cannot run fails the call with
+`SNAPSHOT_BUILD_FAILED` (`details.reason: 'PARSER_UNAVAILABLE'`), so
+`buildSnapshot` — and `harness cleanup` / `detect_entropy` — error instead of
+reporting zero dead code over files they never read. `buildSnapshot` now builds
+its dependency graph from the files it already parsed
+(`buildDependencyGraphFromParsed`) instead of re-parsing every file and
+replacing a failed graph build with an empty graph; nodes and edges are
+unchanged. `check-arch`'s coupling and forbidden-imports collectors abstain with the
+parser's cause in `metadata.error` rather than with an unexplained
+`filesAnalyzed: 0`.
+
 **The abstention now carries the parser's own diagnosis.** `reason` was the bare
 string `'Parser unavailable'`, which `check-deps` and the MCP tool print
 verbatim — it told an operator something was wrong but never what. It is now
@@ -67,8 +80,4 @@ consumers and their tests match on.
 returns `available: true` with version `8.59.2`, from both built formats, so
 every consumer is byte-identical. The changes are visible only when the parser
 genuinely is unavailable. In that state the previous behaviour was a
-module-load crash; for most consumers it is now a named error or abstention.
-**Known gap:** the entropy snapshot (`harness cleanup`, `detect_entropy`) still
-skips every unparseable file and substitutes an empty graph, so with the parser
-gone `cleanup` reports zero issues at exit 0 where it previously crashed. That
-half is being fixed in this same change.
+module-load crash; it is now a named error or abstention on every consumer.

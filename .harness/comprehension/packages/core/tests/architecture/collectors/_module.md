@@ -1,13 +1,14 @@
 ---
 schemaVersion: 1
 module: 'packages/core/tests/architecture/collectors'
-sourceHash: 'cc5ac4c1249e74a2af5b48995cce7ca83b7c51c3078abcd714602510cf600a58'
+sourceHash: 'b9d67dfc26b1f70dfebfb1bd7cf465aa66020b8d1a32e63a9be8031e1e29f3ff'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
 members:
   [
     'circular-deps.test.ts',
+    'collectors-parser-unavailable.test.ts',
     'complexity.test.ts',
     'constraint-rule-id.test.ts',
     'coupling.test.ts',
@@ -48,8 +49,9 @@ import { detectCouplingViolations } from '../../../src/entropy/detectors/couplin
 import from '../../../src/shared/fs-utils'
 import { mkdir, mkdtemp, rm, writeFile } from 'fs/promises'
 import * as fs from 'node:fs'
+import * as fsp from 'node:fs/promises'
 import * as os from 'node:os'
-import * as path from 'node:path'
+import * as path, { join } from 'node:path'
 import { tmpdir } from 'os'
 import { join } from 'path'
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'

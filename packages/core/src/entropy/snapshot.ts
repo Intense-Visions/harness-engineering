@@ -19,7 +19,7 @@ import { getDefaultRegistry } from '../shared/parsers';
 import { skipDirGlobs } from '@harness-engineering/graph';
 import { createEntropyError } from '../shared/errors';
 import { readFileContent, findFiles, relativePosix } from '../shared/fs-utils';
-import { buildDependencyGraph } from '../constraints/dependencies';
+import { buildDependencyGraphFromParsed } from '../constraints/dependencies';
 import { resolve } from 'path';
 import { minimatch } from 'minimatch';
 import { resolveEntryPoints } from './entry-points';
@@ -334,18 +334,29 @@ function extractAllCodeReferences(docs: DocumentationFile[]): CodeReference[] {
  * Files the registry has no parser for, and files that fail to parse, are
  * skipped — so the returned length is the number of files genuinely analysed and
  * is safe to report as a denominator.
+ *
+ * The one parse failure that is NOT skipped is `PARSER_UNAVAILABLE`: the parser
+ * itself cannot run, so every file would be skipped and the caller would get an
+ * empty file set that detectors read as "nothing dead, nothing coupled". That
+ * fails the whole call instead (#2267). A syntax error in one file is still
+ * skipped.
  */
 export async function parseSourceFiles(
   filePaths: string[],
   parserForFile: (filePath: string) => LanguageParser | null
-): Promise<SourceFile[]> {
+): Promise<Result<SourceFile[], EntropyError>> {
   const files: SourceFile[] = [];
   for (const filePath of filePaths) {
     const fileParser = parserForFile(filePath);
     if (!fileParser) continue;
 
     const parseResult = await fileParser.parseFile(filePath);
-    if (!parseResult.ok) continue;
+    if (!parseResult.ok) {
+      if (parseResult.error.code === 'PARSER_UNAVAILABLE') {
+        return Err(snapshotParserUnavailable(fileParser.name, filePath, parseResult.error));
+      }
+      continue;
+    }
 
     const importsResult = fileParser.extractImports(parseResult.value);
     const exportsResult = fileParser.extractExports(parseResult.value);
@@ -359,7 +370,21 @@ export async function parseSourceFiles(
       jsDocComments: extractJSDocComments(parseResult.value),
     });
   }
-  return files;
+  return Ok(files);
+}
+
+/** The error {@link parseSourceFiles} fails with when the parser cannot run at all. */
+function snapshotParserUnavailable(
+  parserName: string,
+  file: string,
+  cause: { message: string; suggestions?: string[] }
+): EntropyError {
+  return createEntropyError(
+    'SNAPSHOT_BUILD_FAILED',
+    `Cannot build a codebase snapshot: the ${parserName} parser is unavailable: ${cause.message}`,
+    { file, reason: 'PARSER_UNAVAILABLE' },
+    cause.suggestions ?? []
+  );
 }
 
 /**
@@ -418,8 +443,10 @@ export async function buildSnapshot(
     return TEST_FILE_RE.test(rel) && !nonTestExcludes.some((p) => minimatch(rel, p));
   });
 
-  // Parse source files
-  const files = await parseSourceFiles(sourceFilePaths, parserForFile);
+  // Parse source files. Fails closed when the parser cannot run at all (#2267).
+  const filesResult = await parseSourceFiles(sourceFilePaths, parserForFile);
+  if (!filesResult.ok) return Err(filesResult.error);
+  const files = filesResult.value;
 
   // Parse test files for their import edges only (no exports/symbols — test
   // files are never classified, they only keep their import targets alive).
@@ -437,9 +464,13 @@ export async function buildSnapshot(
     testImports.push({ path: filePath, imports: importsResult.value });
   }
 
-  // Build dependency graph — pass the registry directly so it can dispatch per file
-  const graphResult = await buildDependencyGraph(sourceFilePaths, singleParser ?? registry);
-  const dependencyGraph = graphResult.ok ? graphResult.value : { nodes: [], edges: [] };
+  // Build the dependency graph from the files ALREADY parsed above. This used to
+  // call `buildDependencyGraph`, which re-parsed every source file and whose
+  // error was replaced with an empty graph here — a second place a parser
+  // that cannot run became "no edges" (#2267). Same nodes, same edges: both
+  // paths skip files with no parser and files that do not parse, and resolve
+  // imports with the same `resolveImportPath` call.
+  const dependencyGraph = await buildDependencyGraphFromParsed(sourceFilePaths, files);
 
   // Find and parse documentation
   const docPatterns = config.docPaths || ['docs/**/*.md', 'README.md', '**/README.md'];
