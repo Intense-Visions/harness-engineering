@@ -831,11 +831,6 @@ async function runTriageCommandAction(
 }
 
 /**
- * Gate on `roadmap.autoTriage.enabled` (default off ⇒ inert) and parse the roadmap aggregate.
- * Returns the parsed `Roadmap` when enabled + present + valid, else `null` after emitting the
- * appropriate legible message and setting `process.exitCode` on the error paths. Read-only.
- */
-/**
  * Project root implied by the global `-c/--config`, falling back to the current
  * directory when no config resolves. One spelling for both triage actions.
  */
@@ -844,6 +839,11 @@ function resolveProjectRoot(configPath?: string): string {
   return project.ok ? project.value.root : process.cwd();
 }
 
+/**
+ * Gate on `roadmap.autoTriage.enabled` (default off ⇒ inert) and parse the roadmap aggregate.
+ * Returns the parsed `Roadmap` when enabled + present + valid, else `null` after emitting the
+ * appropriate legible message and setting `process.exitCode` on the error paths. Read-only.
+ */
 function gateAndParseRoadmap(cwd: string, configPath?: string): Roadmap | null {
   const configResult = resolveConfig(configPath);
   const enabled = configResult.ok && configResult.value.roadmap?.autoTriage?.enabled === true;
