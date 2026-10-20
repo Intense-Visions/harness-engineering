@@ -108,9 +108,14 @@ function nameFromParent(node: object, parent: unknown): string | undefined {
  * `CloneMember.unit` is the human-facing field and the one `code-craft` binds
  * against, so `<anon>` is a real cost. A callback argument
  * (`scan(bundle, (line) => …)`) has no name one hop up and stays `<anon>`.
+ *
+ * A COMPUTED key names the lookup, not the unit, on this path exactly as it
+ * does in {@link nameFromParent}: `class A { [k]() {} }` reported the method
+ * as `k`, since the guard had been added one path and not the other.
  */
 function unitName(node: Record<string, unknown>, parent: unknown): string {
-  const own = nameOf(node['id']) ?? nameOf(node['key']);
+  const ownKey = node['computed'] === true ? undefined : nameOf(node['key']);
+  const own = nameOf(node['id']) ?? ownKey;
   if (own !== undefined) return own;
   return nameFromParent(node, parent) ?? '<anon>';
 }

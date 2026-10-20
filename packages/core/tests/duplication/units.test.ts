@@ -62,6 +62,15 @@ describe('extractUnits', () => {
   it('keeps <anon> for a computed key, a bare argument, and a default export', () => {
     const key = unitsOf(`const k = 'x';\nconst o = { [k]: (a: number) => a };\n`);
     expect(key.map((u) => u.name)).toEqual(['<anon>']);
+    // The unit's OWN computed key, not a parent's: `[k]()` was reported as `k`
+    // because the guard existed on the parent path only.
+    const method = unitsOf(`const k = 'x';\nclass A {\n  [k]() {\n    return 1;\n  }\n}\n`);
+    expect(method.map((x) => `${x.kind}:${x.name}`)).toEqual(['class:A', 'method:<anon>']);
+    const field = unitsOf(`const k = 'x';\nclass B {\n  [k] = (a: number) => a;\n}\n`);
+    expect(field.map((x) => `${x.kind}:${x.name}`)).toEqual(['class:B', 'function:<anon>']);
+    // A quoted (non-computed) key still names its method.
+    const quoted = unitsOf(`class C {\n  'm'() {\n    return 1;\n  }\n}\n`);
+    expect(quoted.map((x) => `${x.kind}:${x.name}`)).toEqual(['class:C', 'method:m']);
     const arg = unitsOf(`run((a: number) => a + 1);\n`);
     expect(arg.map((u) => u.name)).toEqual(['<anon>']);
     const def = unitsOf(`export default function (a: number) {\n  return a;\n}\n`);
