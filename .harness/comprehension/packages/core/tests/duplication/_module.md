@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/tests/duplication'
-sourceHash: 'bdc64afb2d83244020cc01da87add86c6bbc6b7ad141d8bff38cfe5237884dad'
+sourceHash: '45b8f990d405be21efd1a88d1cc94b497e4e89ce1a900003014b5884833695a2'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -29,7 +29,7 @@ members:
 
 ```
 import { DEFAULT_DUPLICATION_CONFIG, DuplicationConfig, MAX_EVIDENCE_ENTRIES, buildCloneIndex, fingerprintFile, isEligibleFile, resolveDuplicationConfig } from '../../src/duplication/index'
-import { fingerprintStream, normalizeTokens } from '../../src/duplication/tokens'
+import { IDENTIFIER_PLACEHOLDER, LITERAL_PLACEHOLDER, fingerprintStream, normalizeTokens } from '../../src/duplication/tokens'
 import { MissingNodeLocationError, extractUnits } from '../../src/duplication/units'
 import { findFiles } from '../../src/shared/fs-utils'
 import * as core, { CloneClass, CloneIndex, CloneMember, CloneUnitKind, DEFAULT_DUPLICATION_CONFIG, DuplicationConfig, SkippedFile, buildCloneIndex } from '@harness-engineering/core'

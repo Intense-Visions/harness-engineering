@@ -1,6 +1,12 @@
 import { describe, it, expect } from 'vitest';
 import { parse } from '@typescript-eslint/typescript-estree';
-import { normalizeTokens, fingerprintStream } from '../../src/duplication/tokens';
+import {
+  normalizeTokens,
+  fingerprintStream,
+  IDENTIFIER_PLACEHOLDER,
+  LITERAL_PLACEHOLDER,
+} from '../../src/duplication/tokens';
+import { extractUnits } from '../../src/duplication/units';
 
 function tokensOf(src: string) {
   return parse(src, { tokens: true, loc: true, range: true }).tokens ?? [];
@@ -144,5 +150,125 @@ describe('D1 Type-2 equivalence (verified substrate)', () => {
     expect(fingerprintSource(changed)).not.toBe(
       fingerprintSource(shape('sumAlpha', 'items', 'total', 'item'))
     );
+  });
+});
+
+/**
+ * The token types the normalizer collapses to `L`. Spelled out here rather
+ * than imported so the oracle below is an INDEPENDENT statement of the
+ * contract: importing the production set would make the test agree with the
+ * implementation by construction.
+ */
+const ORACLE_LITERAL_TYPES = ['String', 'Numeric', 'Template', 'RegularExpression', 'JSXText'];
+
+function oracleNormalize(
+  tokens: readonly { type: string; value: string; range: readonly [number, number] }[],
+  range: readonly [number, number]
+): string[] {
+  const [start, end] = range;
+  return tokens
+    .filter((t) => t.range[0] >= start && t.range[1] <= end)
+    .map((t) => {
+      if (t.type === 'Identifier' || t.type === 'PrivateIdentifier') return IDENTIFIER_PLACEHOLDER;
+      if (ORACLE_LITERAL_TYPES.includes(t.type)) return LITERAL_PLACEHOLDER;
+      return t.value;
+    });
+}
+
+describe('normalizeTokens range selection', () => {
+  it('selects exactly the tokens fully inside the range, in source order', () => {
+    // A hand-checked oracle independent of the implementation: filter the same
+    // token array by the same predicate the contract states. Nested units are
+    // the load-bearing part — the outer unit's range strictly contains the
+    // inner one's, so a range lookup that stops at the first non-matching
+    // token would diverge here.
+    const source = [
+      'export function outer(alpha: number): number {',
+      '  const beta = alpha + 1;',
+      '  function inner(gamma: number): number {',
+      '    return gamma * 2;',
+      '  }',
+      '  return inner(beta);',
+      '}',
+    ].join('\n');
+    const program = parse(source, { tokens: true, loc: true, range: true });
+    const tokens = program.tokens ?? [];
+    const units = extractUnits(program);
+    expect(units.length).toBeGreaterThan(1);
+    for (const unit of units) {
+      expect(normalizeTokens(tokens, unit.range)).toEqual(oracleNormalize(tokens, unit.range));
+    }
+  });
+
+  it('returns an empty stream for a range that contains no whole token', () => {
+    const program = parse('const a = 1;', { tokens: true, loc: true, range: true });
+    expect(normalizeTokens(program.tokens ?? [], [1, 2])).toEqual([]);
+  });
+
+  it('returns the whole file for a range spanning it', () => {
+    const source = 'export function f(a: number): number {\n  return a + 1;\n}\n';
+    const program = parse(source, { tokens: true, loc: true, range: true });
+    const tokens = program.tokens ?? [];
+    expect(normalizeTokens(tokens, [0, source.length])).toHaveLength(tokens.length);
+  });
+
+  it('keeps a token that starts inside the range but ends outside it out of the stream, without truncating the rest', () => {
+    // The ordering hazard the range walk must survive: a long token that
+    // starts inside the range and ends past it is skipped, yet later tokens
+    // that ARE fully inside must still be collected. A `break` on the first
+    // non-matching token would silently truncate the stream here.
+    const source = 'const a = `aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa`; const b = 1;';
+    const program = parse(source, { tokens: true, loc: true, range: true });
+    const tokens = program.tokens ?? [];
+    const template = tokens.find((t) => t.type === 'Template');
+    expect(template).toBeDefined();
+    // A range ending mid-template: the template is excluded, `const`/`a`/`=`
+    // before it are not.
+    const cut: [number, number] = [0, template!.range[0] + 5];
+    const stream = normalizeTokens(tokens, cut);
+    expect(stream).toEqual(oracleNormalize(tokens, cut));
+    expect(stream).toEqual(['const', IDENTIFIER_PLACEHOLDER, '=']);
+  });
+
+  it('agrees with the oracle over every unit of every nesting shape in a dense file', () => {
+    // Breadth, not depth: classes, methods, arrows, object methods, nested
+    // closures and an IIFE, so the equivalence property covers the unit shapes
+    // `extractUnits` actually emits rather than one hand-picked case.
+    const source = [
+      'export class Holder {',
+      '  private total = 0;',
+      '  add(value: number): number {',
+      '    const scaled = value * 2;',
+      '    const apply = (extra: number) => {',
+      '      const inner = () => extra + scaled;',
+      '      return inner() + this.total;',
+      '    };',
+      '    return apply(1);',
+      '  }',
+      '  static make(): Holder {',
+      '    return new Holder();',
+      '  }',
+      '}',
+      'export const bag = {',
+      '  run(items: readonly number[]): number {',
+      '    return items.map((item) => item + 1).reduce((carry, next) => carry + next, 0);',
+      '  },',
+      '};',
+      'export const boot = (() => {',
+      '  function helper(flag: boolean): string {',
+      "    return flag ? 'yes' : 'no';",
+      '  }',
+      '  return helper;',
+      '})();',
+    ].join('\n');
+    const program = parse(source, { tokens: true, loc: true, range: true });
+    const tokens = program.tokens ?? [];
+    const units = extractUnits(program);
+    // Pin the denominator: an empty `units` would make the loop below a
+    // vacuous pass.
+    expect(units.length).toBeGreaterThanOrEqual(8);
+    for (const unit of units) {
+      expect(normalizeTokens(tokens, unit.range)).toEqual(oracleNormalize(tokens, unit.range));
+    }
   });
 });
