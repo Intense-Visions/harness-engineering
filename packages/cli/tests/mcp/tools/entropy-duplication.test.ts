@@ -9,6 +9,7 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import { handleDetectEntropy, detectEntropyDefinition } from '../../../src/mcp/tools/entropy';
+import { wrapWithCompaction } from '../../../src/mcp/middleware/compaction';
 
 const FIXTURE = path.join(__dirname, '../../fixtures/duplication-cli-project');
 
@@ -97,6 +98,70 @@ describe('detect_entropy type: "duplication"', () => {
     // parity test for the MCP surface. `totalIssues` is the one number an
     // agent reads as "is this clean".
     expect(payload.totalIssues).toBe(0);
+  });
+
+  // WIRE LEVEL. Every other row in this file calls `handleDetectEntropy`
+  // directly — BELOW the compaction middleware every registered tool handler
+  // is wrapped in (`mcp/middleware/compaction.ts:205`, applied in
+  // `mcp/server.ts`). That is why the defect this row pins was invisible:
+  // measured on this fixture before the key reorder, the DELIVERED text was
+  // 16,261 bytes of pure AST, `JSON.parse` threw at position 15954, and
+  // `"duplication"` (byte 50,409 of a 51,333-byte payload) never made it onto
+  // the wire at all. Asserting through the wrapper is the only way to see what
+  // a real MCP client receives.
+  it('delivers a parseable payload WITH duplication through the compaction middleware', async () => {
+    const wrapped = wrapWithCompaction(
+      'detect_entropy',
+      (input) => handleDetectEntropy(input as Parameters<typeof handleDetectEntropy>[0]),
+      { projectRoot: projectDir }
+    );
+    const result = await wrapped({ path: projectDir, type: 'duplication' });
+    const delivered = result.content[0]!.text;
+
+    // The middleware prepends a `<!-- packed: ... -->` provenance header; the
+    // JSON body is everything after it.
+    expect(delivered).toMatch(/^<!-- packed: /);
+    const body = delivered.slice(delivered.indexOf('\n') + 1);
+
+    // MUTATION: keep `ast` on the snapshot files and the payload is 5x the
+    // 4,000-token budget — this parse throws (measured: at position 15954).
+    const payload = JSON.parse(body);
+    expect(payload.duplication.stats.classesReported).toBe(1);
+    expect(payload.summary).toBeDefined();
+    // `analysisErrors` is `[]` on a clean run and the structural pass drops
+    // empty arrays (`structural.ts:22`), so on the wire an empty error list and
+    // an absent one look alike. Pinned as the wire truth, not endorsed: when
+    // the detector DOES fail the entry is present and now arrives inside the
+    // budget, which is the case that matters.
+    expect('analysisErrors' in payload).toBe(false);
+
+    // `classes` holds exactly one class here, and the structural pass
+    // COLLAPSES single-element arrays to the bare element
+    // (`core/src/compaction/strategies/structural.ts:28`, documented at `:58`)
+    // — so on the wire `classes` is the class object, not an array of one.
+    // Pinned deliberately: this is the shape a real client parses, and the
+    // single-element case is the common one. See the note on
+    // `summarizeDuplication`.
+    expect(Array.isArray(payload.duplication.classes)).toBe(false);
+    expect(payload.duplication.classes.members).toHaveLength(3);
+    expect(payload.duplication.classes.tokenCount).toBe(83);
+
+    expect(delivered).not.toContain('[truncated');
+    expect('ast' in payload.snapshot.files[0]).toBe(false);
+    expect(payload.snapshot.files[0].path).toBeDefined();
+    expect(payload.snapshot.files[0].exports).toBeDefined();
+
+    // KEY ORDER is the other half of the fix, and it is NOT redundant with the
+    // AST strip: 5 fixture files fit the budget without their ASTs, but a real
+    // project's snapshot does not (this package's own snapshot is ~2,100
+    // files), and truncation cuts by PREFIX. Asserted directly on the
+    // delivered bytes because on this fixture nothing is truncated, so order
+    // has no observable effect here — only on the payload that needs it.
+    // MUTATION: put `snapshot` back first in `toJsonSafeReport` (its
+    // declaration order in `EntropyReport`) and these three fail.
+    expect(body.indexOf('"summary"')).toBeLessThan(body.indexOf('"snapshot"'));
+    expect(body.indexOf('"duplication"')).toBeLessThan(body.indexOf('"snapshot"'));
+    expect(body.indexOf('"summary"')).toBeLessThan(body.indexOf('"duplication"'));
   });
 
   it('omits the advisory block in summary mode when duplication did not run', async () => {

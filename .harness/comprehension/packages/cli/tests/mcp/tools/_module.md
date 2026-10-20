@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/tests/mcp/tools'
-sourceHash: 'd445ebd2e08b1ff436ba4c56d945a86627c6c41dc6628b394d0d27c863b67a66'
+sourceHash: 'be141a39c4091c780c8f6601dabb81a80774907af5159148143f83b419d5680b'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -121,6 +121,7 @@ import { extractLevel } from '../../../../core/src/context/section-parser'
 import { findConfigFile, loadConfig } from '../../../src/config/loader'
 import { MockLlmProvider } from '../../../src/design-craft/llm/provider.js'
 import { resolveDocsPublishConnector } from '../../../src/docs-publish/index'
+import { wrapWithCompaction } from '../../../src/mcp/middleware/compaction'
 import { acceptanceEvalDefinition, handleAcceptanceEval, resolveTestContent } from '../../../src/mcp/tools/acceptance-eval.js'
 import { handleManageAdr, manageAdrDefinition } from '../../../src/mcp/tools/adr'
 import { allocateNextNumber, listAdrs, resolveWorktreeRoot } from '../../../src/mcp/tools/adr-store'

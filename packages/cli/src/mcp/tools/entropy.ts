@@ -194,7 +194,7 @@ function buildSummaryResponse(report: any) {
 }
 
 /**
- * Project an `EntropyReport` into something `JSON.stringify` renders
+ * Project a `DuplicationReport` into something `JSON.stringify` renders
  * faithfully.
  *
  * `DuplicationReport.byMember` is a `Map`, and `JSON.stringify` renders a Map
@@ -213,18 +213,64 @@ function buildSummaryResponse(report: any) {
  * serializes away. It predates this change on a report this tool has always
  * returned — named, not silently inherited.
  */
-function toJsonSafeReport(report: EntropyReport): unknown {
-  if (!report.duplication) return report;
-  const { byMember: _byMember, skipErrors, ...duplication } = report.duplication;
+function toJsonSafeDuplication(duplication: NonNullable<EntropyReport['duplication']>): unknown {
+  const { byMember: _byMember, skipErrors, ...rest } = duplication;
   return {
-    ...report,
-    duplication: {
-      ...duplication,
-      skipErrors: skipErrors.map((error) => {
-        const { originalError: _originalError, ...details } = error.details;
-        return { ...error, details };
-      }),
-    },
+    ...rest,
+    skipErrors: skipErrors.map((error) => {
+      const { originalError: _originalError, ...details } = error.details;
+      return { ...error, details };
+    }),
+  };
+}
+
+/**
+ * The snapshot minus every file's AST.
+ *
+ * `SourceFile.ast` is the full typescript-eslint `Program` for the file — an
+ * in-process parse tree the analyzers consume and no MCP caller can act on
+ * (the same honesty rule that drops `byMember`: a key that cannot be used is
+ * not worth a byte). Measured on this package's `duplication-cli-project`
+ * fixture (5 files, absolute temp paths): the ASTs were 41,289 of 51,333
+ * payload bytes — 80.4%. `path`, `imports`, `exports`, `internalSymbols` and
+ * `jsDocComments` are kept; a reader can act on all five.
+ */
+function withoutFileAsts(snapshot: EntropyReport['snapshot']): unknown {
+  return {
+    ...snapshot,
+    files: snapshot.files.map(({ ast: _ast, ...file }) => file),
+  };
+}
+
+/**
+ * The key order, and why it is load-bearing.
+ *
+ * `JSON.stringify` emits keys in insertion order, and the compaction
+ * middleware truncates the serialized response by PREFIX against a
+ * 4,000-token budget (`mcp/middleware/compaction.ts:191`,
+ * `core/src/compaction/strategies/truncation.ts`). `EntropyReport` declares
+ * `snapshot` FIRST (`core/src/entropy/types/report.ts:25`), and on the
+ * fixture the snapshot was 98.3% of the payload while everything a caller
+ * acts on — `summary`, `analysisErrors`, `duplication`, `timestamp`,
+ * `duration` — was 1.7% sitting past byte 50,409. All of it truncated away;
+ * the delivered text was pure AST and not even `JSON.parse`-able.
+ *
+ * Emitting the actionable keys first fixes that for EVERY detailed consumer
+ * of this tool without the generic middleware learning anything about
+ * entropy payloads. Note the residual: reordering guarantees the actionable
+ * keys are *inside* the delivered prefix, not that the delivered text parses
+ * — on a project whose post-AST-strip payload still exceeds the budget the
+ * prefix is cut mid-value. `compact: false` remains the way to get the whole
+ * report.
+ */
+function toJsonSafeReport(report: EntropyReport): unknown {
+  const { snapshot, summary, analysisErrors, duplication, ...rest } = report;
+  return {
+    summary,
+    analysisErrors,
+    ...(duplication && { duplication: toJsonSafeDuplication(duplication) }),
+    ...rest,
+    snapshot: withoutFileAsts(snapshot),
   };
 }
 
