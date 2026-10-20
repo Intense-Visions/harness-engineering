@@ -32,8 +32,10 @@ vi.mock('@harness-engineering/core', async (importOriginal) => {
 
 vi.mock('../../src/config/loader', () => ({ resolveConfig: vi.fn() }));
 
-import { runCleanup } from '../../src/commands/cleanup';
+import { runCleanup, printCleanupResult } from '../../src/commands/cleanup';
+import { OutputFormatter, OutputMode } from '../../src/output/formatter';
 import { resolveConfig } from '../../src/config/loader';
+import { logger } from '../../src/output/logger';
 
 /** A report with nothing in it: no detector produced anything. */
 const emptyReport = {
@@ -112,5 +114,189 @@ describe('harness cleanup -t duplication — what reaches the analyzer', () => {
     const result = await runCleanup({ cwd: '/tmp/test', type: 'all' });
     expect(result.ok).toBe(true);
     expect('duplication' in capturedConfigs[0]!.analyze).toBe(false);
+  });
+});
+
+/** A `DuplicationReport` shaped like the real one, with 2 classes. */
+function duplicationReport() {
+  return {
+    classes: [
+      {
+        fingerprint: 'aaaa1111',
+        tokenCount: 120,
+        rank: 360,
+        members: [
+          { file: 'src/a.ts', unit: 'alpha', kind: 'function', startLine: 3, endLine: 20 },
+          { file: 'src/b.ts', unit: 'beta', kind: 'function', startLine: 5, endLine: 22 },
+          { file: 'src/c.ts', unit: 'gamma', kind: 'function', startLine: 7, endLine: 24 },
+        ],
+      },
+      {
+        fingerprint: 'bbbb2222',
+        tokenCount: 48,
+        rank: 192,
+        members: [
+          { file: 'src/d.ts', unit: 'delta', kind: 'method', startLine: 1, endLine: 9 },
+          { file: 'src/e.ts', unit: 'epsilon', kind: 'method', startLine: 2, endLine: 10 },
+          { file: 'src/f.ts', unit: 'zeta', kind: 'method', startLine: 3, endLine: 11 },
+          { file: 'src/g.ts', unit: 'eta', kind: 'method', startLine: 4, endLine: 12 },
+        ],
+      },
+    ],
+    byMember: new Map(),
+    collisions: [],
+    skipErrors: [],
+    stats: {
+      filesScanned: 11,
+      classesReported: 2,
+      classesSuppressed: 5,
+      classesTruncated: 3,
+    },
+  };
+}
+
+const notRunError = {
+  analyzer: 'duplication',
+  error: {
+    code: 'INVALID_CONFIG',
+    message: 'Duplication analysis did not run: the snapshot was bypassed.',
+    details: { reason: 'snapshot-bypassed' },
+    suggestions: ['Supply graph data for at most one of drift / deadCode'],
+  },
+};
+
+describe('harness cleanup -t duplication — what comes back out', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    capturedConfigs.length = 0;
+  });
+
+  it('reports the classes advisorially and keeps them OUT of totalIssues', async () => {
+    configure({ duplication: true });
+    analyzeResultHolder.current = {
+      ok: true,
+      value: {
+        drift: {
+          drifts: [
+            {
+              docFile: 'docs/api.md',
+              line: 12,
+              type: 'api-signature',
+              issue: 'outdated',
+              details: 'stale',
+            },
+          ],
+        },
+        duplication: duplicationReport(),
+        analysisErrors: [],
+      },
+    };
+    const result = await runCleanup({ cwd: '/tmp/test', type: 'all' });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+
+    expect(result.value.duplication?.classes).toHaveLength(2);
+    expect(result.value.duplication?.classes[0]).toEqual({
+      fingerprint: 'aaaa1111',
+      tokenCount: 120,
+      memberCount: 3,
+      rank: 360,
+      members: [
+        { file: 'src/a.ts', unit: 'alpha', kind: 'function', startLine: 3, endLine: 20 },
+        { file: 'src/b.ts', unit: 'beta', kind: 'function', startLine: 5, endLine: 22 },
+        { file: 'src/c.ts', unit: 'gamma', kind: 'function', startLine: 7, endLine: 24 },
+      ],
+    });
+    expect(result.value.duplication?.classes[1]?.memberCount).toBe(4);
+    // Rank order is preserved as handed in.
+    expect(result.value.duplication?.classes.map((c) => c.rank)).toEqual([360, 192]);
+    // The cap's dropped count is not lost.
+    expect(result.value.duplication?.classesTruncated).toBe(3);
+    expect(result.value.duplication?.classesSuppressed).toBe(5);
+    expect(result.value.duplication?.filesScanned).toBe(11);
+
+    // THE EXIT-CODE TEST'S UNIT-LEVEL TWIN. MUTATION: add
+    // `duplication.classes.length` to the totalIssues sum and this fails at 3.
+    expect(result.value.totalIssues).toBe(1);
+
+    expect(result.value.ran).toEqual({
+      drift: true,
+      deadCode: false,
+      patterns: false,
+      duplication: true,
+    });
+  });
+
+  it("errors with the analyzer's own reason when an explicit request did not run", async () => {
+    configure({ duplication: true });
+    analyzeResultHolder.current = {
+      ok: true,
+      value: { analysisErrors: [notRunError] },
+    };
+    const result = await runCleanup({ cwd: '/tmp/test', type: 'duplication' });
+    // MUTATION: delete the did-not-run branch and the command reports
+    // `duplication: undefined` as if the scan were clean.
+    expect(result.ok).toBe(false);
+    expect(!result.ok && result.error.message).toContain('snapshot was bypassed');
+    expect(!result.ok && result.error.message).toContain('Supply graph data for at most one');
+    expect(!result.ok && result.error.message).not.toMatch(/no duplication/i);
+  });
+
+  it('warns but continues when -t all could not run the detector', async () => {
+    const warn = vi.spyOn(logger, 'warn').mockImplementation(() => {});
+    configure({ duplication: true });
+    analyzeResultHolder.current = {
+      ok: true,
+      value: { analysisErrors: [notRunError] },
+    };
+    const result = await runCleanup({ cwd: '/tmp/test', type: 'all' });
+    expect(result.ok).toBe(true);
+    expect(result.ok && result.value.duplication).toBeUndefined();
+    expect(result.ok && result.value.ran.duplication).toBe(false);
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('snapshot was bypassed'));
+    warn.mockRestore();
+  });
+
+  it('does not green-tick "Entropy issues: 0" when no gating analyzer ran', () => {
+    const lines: string[] = [];
+    const log = vi.spyOn(console, 'log').mockImplementation((...args: unknown[]) => {
+      lines.push(args.map(String).join(' '));
+    });
+    printCleanupResult(
+      {
+        driftIssues: [],
+        deadCode: [],
+        patternViolations: [],
+        totalIssues: 0,
+        ran: { drift: false, deadCode: false, patterns: false, duplication: true },
+        duplication: {
+          classes: [
+            {
+              fingerprint: 'aaaa1111',
+              tokenCount: 120,
+              memberCount: 3,
+              rank: 360,
+              members: [
+                { file: 'src/a.ts', unit: 'alpha', kind: 'function', startLine: 3, endLine: 20 },
+              ],
+            },
+          ],
+          filesScanned: 11,
+          classesReported: 1,
+          classesSuppressed: 5,
+          classesTruncated: 3,
+        },
+      },
+      new OutputFormatter(OutputMode.NORMAL)
+    );
+    log.mockRestore();
+    const output = lines.join('\n');
+    // MUTATION: keep the unconditional formatSummary call and this fails —
+    // the run would print a pass over three checks that never executed.
+    expect(output).toContain('not checked');
+    expect(output).not.toMatch(/Entropy issues:\s*\u001b?\[?[0-9;]*m?0/);
+    expect(output).toContain('Duplication (advisory');
+    expect(output).toContain('3 dropped by the maxClasses cap');
+    expect(output).toContain('3x 120 tokens: alpha (src/a.ts:3)');
   });
 });

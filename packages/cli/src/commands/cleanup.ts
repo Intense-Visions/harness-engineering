@@ -7,6 +7,7 @@ import type {
   DriftConfig,
   PatternConfig,
   DuplicationConfig,
+  DuplicationReport,
 } from '@harness-engineering/core';
 import { Ok, Err, EntropyAnalyzer } from '@harness-engineering/core';
 import { formatFindingsContract } from '@harness-engineering/types';
@@ -15,7 +16,10 @@ import { OutputFormatter, OutputMode } from '../output/formatter';
 import { resolveOutputMode } from '../utils/output';
 import { logger } from '../output/logger';
 import { CLIError, ExitCode } from '../utils/errors';
-import { resolveDuplicationRequest } from '../shared/duplication-request';
+import {
+  resolveDuplicationRequest,
+  describeDuplicationNotRun,
+} from '../shared/duplication-request';
 
 type CleanupType = 'drift' | 'dead-code' | 'patterns' | 'duplication' | 'all';
 
@@ -35,7 +39,87 @@ interface CleanupResult {
   driftIssues: Array<{ file: string; line: number; type: string; issue: string }>;
   deadCode: Array<{ file: string; symbol?: string }>;
   patternViolations: Array<{ file: string; pattern: string; message: string }>;
+  /**
+   * The GATING count: drift + dead code + pattern violations.
+   *
+   * `createCleanupCommand` gates `process.exit` on this field and
+   * `--findings-json` publishes it, so anything summed here becomes a build
+   * failure somewhere. Clone classes are deliberately absent: spec decision
+   * D4 / ADR 0134 (advisory first, never fail-closed). Adding
+   * `duplication.classes.length` here would make
+   * `harness cleanup -t duplication` exit non-zero on advisory findings — the
+   * #855 fail-closed accident in a new place, decided by nobody.
+   */
   totalIssues: number;
+  /**
+   * Which analyzers actually produced a report.
+   *
+   * Without it a zero cannot be told apart from a check that never ran:
+   * `-t duplication` runs NO drift, dead-code or pattern analyzer, so
+   * `totalIssues` is 0 by omission and the usual green-ticked
+   * "Entropy issues: 0" would green-tick three checks that never happened —
+   * the #1760 failure class one layer out. Derived from report presence, so
+   * it cannot drift from what executed.
+   */
+  ran: { drift: boolean; deadCode: boolean; patterns: boolean; duplication: boolean };
+  /**
+   * ADVISORY clone classes, rank-descending, as reported by
+   * `EntropyReport.duplication`.
+   *
+   * `undefined` means the detector did not run; an empty `classes` array
+   * means it ran and found nothing. The two must not render alike.
+   *
+   * NEVER counted in `totalIssues` — see that field.
+   */
+  duplication?: {
+    classes: Array<{
+      fingerprint: string;
+      tokenCount: number;
+      memberCount: number;
+      rank: number;
+      members: Array<{
+        file: string;
+        unit: string;
+        kind: string;
+        startLine: number;
+        endLine: number;
+      }>;
+    }>;
+    filesScanned: number;
+    classesReported: number;
+    classesSuppressed: number;
+    classesTruncated: number;
+  };
+}
+
+/**
+ * Narrow `DuplicationReport` to the advisory block the command publishes.
+ *
+ * Drops `byMember` (a `Map`, which `JSON.stringify` renders as `{}`) and
+ * `collisions` / `skipErrors`; keeps every counter an operator acts on.
+ */
+function projectDuplication(
+  duplication: DuplicationReport
+): NonNullable<CleanupResult['duplication']> {
+  return {
+    classes: duplication.classes.map((cls) => ({
+      fingerprint: cls.fingerprint,
+      tokenCount: cls.tokenCount,
+      memberCount: cls.members.length,
+      rank: cls.rank,
+      members: cls.members.map((member) => ({
+        file: member.file,
+        unit: member.unit,
+        kind: member.kind,
+        startLine: member.startLine,
+        endLine: member.endLine,
+      })),
+    })),
+    filesScanned: duplication.stats.filesScanned,
+    classesReported: duplication.stats.classesReported,
+    classesSuppressed: duplication.stats.classesSuppressed,
+    classesTruncated: duplication.stats.classesTruncated,
+  };
 }
 
 export async function runCleanup(
@@ -56,6 +140,7 @@ export async function runCleanup(
     deadCode: [],
     patternViolations: [],
     totalIssues: 0,
+    ran: { drift: false, deadCode: false, patterns: false, duplication: false },
   };
 
   const rootDir = path.resolve(cwd, config.rootDir);
@@ -174,52 +259,134 @@ export async function runCleanup(
     }));
   }
 
+  if (report.duplication) {
+    result.duplication = projectDuplication(report.duplication);
+  } else if (duplicationRequest.kind === 'run') {
+    // "Did not run" must not render as "found nothing" (spec Phase 3 forward
+    // note 3). The analyzer leaves the report undefined and records WHY —
+    // `snapshot-bypassed` on a graph-fed run, `zero-files-discovered` or
+    // `invalid-ignore-pattern` on a config problem. Erroring here is not a D4
+    // violation: D4 forbids failing on FINDINGS, not on a detector that could
+    // not execute.
+    const explanation = describeDuplicationNotRun(report.analysisErrors);
+    if (type === 'duplication') {
+      return Err(new CLIError(explanation, ExitCode.ERROR));
+    }
+    logger.warn(explanation);
+  }
+
+  result.ran = {
+    drift: Boolean(report.drift),
+    deadCode: Boolean(report.deadCode),
+    patterns: Boolean(report.patterns),
+    duplication: Boolean(report.duplication),
+  };
+
   result.totalIssues =
     result.driftIssues.length + result.deadCode.length + result.patternViolations.length;
 
   return Ok(result);
 }
 
-function printCleanupResult(value: CleanupResult, formatter: OutputFormatter): void {
+/**
+ * The "Entropy issues" headline — or an honest refusal to print one.
+ *
+ * `totalIssues` counts drift + dead code + patterns, so a run that executed
+ * none of them (`-t duplication`) has a 0 that means "not measured". Printing
+ * the green-ticked summary there would report a pass over three checks that
+ * never ran — #1760 one layer out.
+ */
+function printEntropyIssueCount(value: CleanupResult, formatter: OutputFormatter): void {
+  const gatingRan = value.ran.drift || value.ran.deadCode || value.ran.patterns;
+  if (!gatingRan) {
+    console.log('Entropy issues: not checked (no doc-drift, dead-code or pattern analyzer ran)');
+    return;
+  }
   console.log(
     formatter.formatSummary('Entropy issues', value.totalIssues.toString(), value.totalIssues === 0)
   );
+}
 
-  if (value.driftIssues.length > 0) {
-    console.log('\nDocumentation drift:');
-    for (const issue of value.driftIssues) {
-      console.log(`  - ${issue.file}: ${issue.issue}`);
-    }
-  }
-
-  if (value.deadCode.length > 0) {
-    console.log('\nDead code:');
-    for (const item of value.deadCode.slice(0, 10)) {
-      console.log(`  - ${item.file}${item.symbol ? `: ${item.symbol}` : ''}`);
-    }
-    if (value.deadCode.length > 10) {
-      console.log(`  ... and ${value.deadCode.length - 10} more`);
-    }
-  }
-
-  if (value.patternViolations.length > 0) {
-    console.log('\nPattern violations:');
-    for (const violation of value.patternViolations.slice(0, 10)) {
-      console.log(`  - ${violation.file} [${violation.pattern}]: ${violation.message}`);
-    }
-    if (value.patternViolations.length > 10) {
-      console.log(`  ... and ${value.patternViolations.length - 10} more`);
-    }
+/** The doc-drift section. One printer per section keeps each branch count small. */
+function printDriftSection(driftIssues: CleanupResult['driftIssues']): void {
+  if (driftIssues.length === 0) return;
+  console.log('\nDocumentation drift:');
+  for (const issue of driftIssues) {
+    console.log(`  - ${issue.file}: ${issue.issue}`);
   }
 }
 
+/** The dead-code section, capped at 10 entries. */
+function printDeadCodeSection(deadCode: CleanupResult['deadCode']): void {
+  if (deadCode.length === 0) return;
+  console.log('\nDead code:');
+  for (const item of deadCode.slice(0, 10)) {
+    console.log(`  - ${item.file}${item.symbol ? `: ${item.symbol}` : ''}`);
+  }
+  if (deadCode.length > 10) {
+    console.log(`  ... and ${deadCode.length - 10} more`);
+  }
+}
+
+/** The pattern-violation section, capped at 10 entries. */
+function printPatternSection(patternViolations: CleanupResult['patternViolations']): void {
+  if (patternViolations.length === 0) return;
+  console.log('\nPattern violations:');
+  for (const violation of patternViolations.slice(0, 10)) {
+    console.log(`  - ${violation.file} [${violation.pattern}]: ${violation.message}`);
+  }
+  if (patternViolations.length > 10) {
+    console.log(`  ... and ${patternViolations.length - 10} more`);
+  }
+}
+
+/** The advisory clone-class section, kept out of `printCleanupResult`'s branch count. */
+function printDuplicationSection(duplication: NonNullable<CleanupResult['duplication']>): void {
+  console.log(
+    '\nDuplication (advisory — excluded from "Entropy issues", from the exit code and from --findings-json):'
+  );
+  console.log(
+    `  ${duplication.classesReported} clone class(es) over ${duplication.filesScanned} scanned file(s); ` +
+      `${duplication.classesSuppressed} below the minInstances bar` +
+      (duplication.classesTruncated > 0
+        ? `; ${duplication.classesTruncated} dropped by the maxClasses cap`
+        : '')
+  );
+  for (const cls of duplication.classes.slice(0, 10)) {
+    const first = cls.members[0];
+    console.log(
+      `  - ${cls.memberCount}x ${cls.tokenCount} tokens: ` +
+        (first ? `${first.unit} (${first.file}:${first.startLine})` : '(no members)')
+    );
+  }
+  if (duplication.classes.length > 10) {
+    console.log(`  ... and ${duplication.classes.length - 10} more`);
+  }
+}
+
+/**
+ * Exported for `tests/commands/cleanup-duplication.test.ts`, which asserts
+ * that a run with no gating analyzer does NOT print a green-ticked
+ * "Entropy issues: 0". The command action is the only other caller.
+ */
+export function printCleanupResult(value: CleanupResult, formatter: OutputFormatter): void {
+  printEntropyIssueCount(value, formatter);
+  printDriftSection(value.driftIssues);
+  printDeadCodeSection(value.deadCode);
+  printPatternSection(value.patternViolations);
+  if (value.duplication) {
+    printDuplicationSection(value.duplication);
+  }
+}
+
+const CLEANUP_DESCRIPTION =
+  'Detect entropy issues (doc drift, dead code, patterns, duplication). Duplication is ' +
+  'advisory — it never affects the exit code — and under --type all it runs only when ' +
+  'entropy.duplication is configured in harness.config.json.';
+
 export function createCleanupCommand(): Command {
   const command = new Command('cleanup')
-    .description(
-      'Detect entropy issues (doc drift, dead code, patterns, duplication). Duplication is ' +
-        'advisory — it never affects the exit code — and under --type all it runs only when ' +
-        'entropy.duplication is configured in harness.config.json.'
-    )
+    .description(CLEANUP_DESCRIPTION)
     .option('-t, --type <type>', 'Issue type: drift, dead-code, patterns, duplication, all', 'all')
     .option(
       '--findings-json',
@@ -253,7 +420,10 @@ export function createCleanupCommand(): Command {
         printCleanupResult(result.value, formatter);
       }
 
-      // #691: findings = total entropy issues (drift + dead code + patterns).
+      // #691: findings = total GATING entropy issues (drift + dead code +
+      // patterns). Clone classes are advisory (D4 / ADR 0134) and excluded:
+      // a consumer gating on `findings > 0` would otherwise fail a build on
+      // duplication, which is the exit-code hazard by another route.
       if (opts.findingsJson) {
         console.log(formatFindingsContract(result.value.totalIssues, 'cleanup'));
       }

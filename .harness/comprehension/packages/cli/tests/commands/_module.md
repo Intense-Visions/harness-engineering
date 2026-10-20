@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/tests/commands'
-sourceHash: 'ca5b0482135e066f47acd484cde8692dffb5425cdad33c6a5fdede810c9c4e3e'
+sourceHash: '5966e9012aa1223d4a046ca222f81998f13924c92ac76a0e426fd9e256863c34'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -255,7 +255,7 @@ import { createCheckPerfCommand, runCheckPerf } from '../../src/commands/check-p
 import { createCheckPhaseGateCommand, runCheckPhaseGate } from '../../src/commands/check-phase-gate'
 import { createCheckSecurityCommand, runCheckSecurity } from '../../src/commands/check-security'
 import { createCheckVocabularyCommand, runCheckVocabulary } from '../../src/commands/check-vocabulary'
-import { createCleanupCommand, runCleanup } from '../../src/commands/cleanup'
+import { createCleanupCommand, printCleanupResult, runCleanup } from '../../src/commands/cleanup'
 import { createCleanupSessionsCommand, runCleanupAll, runCleanupSessions } from '../../src/commands/cleanup-sessions'
 import { createCliErgonomicsCraftCommand } from '../../src/commands/cli-ergonomics-craft'
 import { createCodeCraftCommand } from '../../src/commands/code-craft'
@@ -404,6 +404,7 @@ import { runInstructionDensityAudit } from '../../src/mcp/tools/instruction-dens
 import { resolveAnalysisProvider } from '../../src/mcp/utils/analysis-provider'
 import from '../../src/mcp/utils/graph-loader'
 import { NamingCraftInput, NamingCraftOutput } from '../../src/naming-craft/index.js'
+import { OutputFormatter, OutputMode } from '../../src/output/formatter'
 import { logger } from '../../src/output/logger'
 import { prompt } from '../../src/output/prompt'
 import { loadPersona } from '../../src/persona/loader'
