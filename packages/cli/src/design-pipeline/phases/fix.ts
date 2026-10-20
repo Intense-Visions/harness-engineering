@@ -26,6 +26,13 @@ export interface FixInput {
   designStrictness?: 'strict' | 'standard' | 'permissive';
 }
 
+/**
+ * `summary.iterationsRun` counts passes when they START, so every exit —
+ * converged, no progress, align or re-detect failure — reports the passes that
+ * ran. Incrementing only on the progress path reported `iterationsRun: 0`
+ * beside `fixesApplied > 0` for a pass that applied fixes and then hit the
+ * no-progress stop: a summary contradicting its own evidence.
+ */
 export async function runFix(input: FixInput): Promise<void> {
   const { projectRoot, context, mode, files, designStrictness } = input;
 
@@ -35,12 +42,7 @@ export async function runFix(input: FixInput): Promise<void> {
   let previousCount = context.driftFindings.length;
 
   while (iteration < MAX_ITERATIONS) {
-    // Count the pass when it STARTS, so every exit below — converged, no
-    // progress, align or re-detect failure — reports the passes that ran.
-    // Incrementing only on the progress path reported `iterationsRun: 0`
-    // beside `fixesApplied > 0` for a pass that applied fixes and then hit
-    // the no-progress stop: a summary contradicting its own evidence.
-    iteration++;
+    iteration++; // counted at pass START — see the note above runFix
 
     // Write pipeline handoff so align reads pre-classified findings
     writePipelineHandoff(projectRoot, context);
