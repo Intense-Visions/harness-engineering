@@ -90,6 +90,20 @@ interface CleanupResult {
       }>;
     }>;
     filesScanned: number;
+    /**
+     * Files the detector could not read, parse or extract from.
+     *
+     * Carried because a scan with skips is INCOMPLETE and the operator is the
+     * only one who can tell whether that matters. `packages/core`'s own
+     * detector records (`duplication/index.ts:152`) that an ineligible file
+     * "used to be counted NOWHERE — neither `filesScanned` nor `filesSkipped`
+     * — so an operator could not tell that a scan had silently dropped
+     * files", and that invisibility is how an ignore glob hid 10 of 58
+     * classes. Dropping the counter one layer out re-creates exactly that
+     * blindness. Core still refuses when ALL files are skipped, so total
+     * failure stays loud; PARTIAL skips are what this makes visible.
+     */
+    filesSkipped: number;
     classesReported: number;
     classesSuppressed: number;
     classesTruncated: number;
@@ -99,8 +113,24 @@ interface CleanupResult {
 /**
  * Narrow `DuplicationReport` to the advisory block the command publishes.
  *
- * Drops `byMember` (a `Map`, which `JSON.stringify` renders as `{}`) and
- * `collisions` / `skipErrors`; keeps every counter an operator acts on.
+ * KEPT: the clone classes with their members, plus `filesScanned`,
+ * `filesSkipped`, `classesReported`, `classesSuppressed` and
+ * `classesTruncated`.
+ *
+ * DROPPED, and this is a real loss, not a complete projection:
+ * - `byMember` — a `Map`, which `JSON.stringify` renders as `{}`, and an
+ *   in-process index whose every entry is already in `classes[].members`.
+ * - `collisions` and `skipErrors` — the per-item evidence arrays. The
+ *   collision data is reachable through `classes[].members`; the skip
+ *   evidence is NOT, so a reader learns THAT files were skipped from
+ *   `filesSkipped` and not WHICH.
+ * - `filesIgnored`, `skippedTruncated`, `unitsFingerprinted`,
+ *   `unitsBelowMinTokens`, `collisionsObserved`, `collisionsTruncated`,
+ *   `violationCount`, `infoCount` — tuning and provenance counters, omitted
+ *   to keep the advisory block an operator-sized summary.
+ *
+ * The full 13-key `stats` block and both evidence arrays are available on the
+ * MCP surface: `detect_entropy { type: "duplication", compact: false }`.
  */
 function projectDuplication(
   duplication: DuplicationReport
@@ -120,6 +150,7 @@ function projectDuplication(
       })),
     })),
     filesScanned: duplication.stats.filesScanned,
+    filesSkipped: duplication.stats.filesSkipped,
     classesReported: duplication.stats.classesReported,
     classesSuppressed: duplication.stats.classesSuppressed,
     classesTruncated: duplication.stats.classesTruncated,
@@ -365,7 +396,10 @@ function printDuplicationSection(duplication: NonNullable<CleanupResult['duplica
       `${duplication.classesSuppressed} below the minInstances bar` +
       (duplication.classesTruncated > 0
         ? `; ${duplication.classesTruncated} dropped by the maxClasses cap`
-        : '')
+        : '') +
+      // A partial skip makes the scan INCOMPLETE, and this line is the only
+      // place the CLI can say so — see `CleanupResult.duplication.filesSkipped`.
+      (duplication.filesSkipped > 0 ? `; ${duplication.filesSkipped} file(s) skipped` : '')
   );
   for (const cls of duplication.classes.slice(0, 10)) {
     const first = cls.members[0];

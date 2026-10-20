@@ -33,6 +33,28 @@ vi.mock('@harness-engineering/core', async (importOriginal) => {
 vi.mock('../../src/config/loader', () => ({ resolveConfig: vi.fn() }));
 
 import { runCleanup, printCleanupResult } from '../../src/commands/cleanup';
+
+/** The advisory duplication block `printCleanupResult` renders. */
+type DuplicationBlock = {
+  classes: Array<{
+    fingerprint: string;
+    tokenCount: number;
+    memberCount: number;
+    rank: number;
+    members: Array<{
+      file: string;
+      unit: string;
+      kind: string;
+      startLine: number;
+      endLine: number;
+    }>;
+  }>;
+  filesScanned: number;
+  filesSkipped: number;
+  classesReported: number;
+  classesSuppressed: number;
+  classesTruncated: number;
+};
 import { OutputFormatter, OutputMode } from '../../src/output/formatter';
 import { resolveConfig } from '../../src/config/loader';
 import { logger } from '../../src/output/logger';
@@ -166,11 +188,24 @@ function duplicationReport() {
     byMember: new Map(),
     collisions: [],
     skipErrors: [],
+    // The REAL 13-key `stats` block (`CloneIndex['stats']` plus
+    // `violationCount` / `infoCount`), not the four keys the projection
+    // happens to keep — a mock that carries only what the code reads cannot
+    // show what the code drops.
     stats: {
       filesScanned: 11,
+      filesIgnored: 4,
+      filesSkipped: 2,
+      skippedTruncated: 0,
+      unitsFingerprinted: 30,
+      unitsBelowMinTokens: 12,
       classesReported: 2,
       classesSuppressed: 5,
       classesTruncated: 3,
+      collisionsObserved: 0,
+      collisionsTruncated: 0,
+      violationCount: 0,
+      infoCount: 2,
     },
   };
 }
@@ -234,6 +269,12 @@ describe('harness cleanup -t duplication — what comes back out', () => {
     expect(result.value.duplication?.classesTruncated).toBe(3);
     expect(result.value.duplication?.classesSuppressed).toBe(5);
     expect(result.value.duplication?.filesScanned).toBe(11);
+    // A scan with skips is INCOMPLETE and the operator is the only one who can
+    // judge whether that matters. MUTATION: drop `filesSkipped` from
+    // `projectDuplication` and this fails — re-creating the exact blindness
+    // `core/src/duplication/index.ts:152` records as the defect those counters
+    // were added to fix.
+    expect(result.value.duplication?.filesSkipped).toBe(2);
 
     // THE EXIT-CODE TEST'S UNIT-LEVEL TWIN. MUTATION: add
     // `duplication.classes.length` to the totalIssues sum and this fails at 3.
@@ -277,7 +318,8 @@ describe('harness cleanup -t duplication — what comes back out', () => {
     warn.mockRestore();
   });
 
-  it('does not green-tick "Entropy issues: 0" when no gating analyzer ran', () => {
+  /** Capture what `printCleanupResult` writes for one advisory result. */
+  function printed(duplication: Partial<DuplicationBlock> = {}): string {
     const lines: string[] = [];
     const log = vi.spyOn(console, 'log').mockImplementation((...args: unknown[]) => {
       lines.push(args.map(String).join(' '));
@@ -302,15 +344,21 @@ describe('harness cleanup -t duplication — what comes back out', () => {
             },
           ],
           filesScanned: 11,
+          filesSkipped: 0,
           classesReported: 1,
           classesSuppressed: 5,
           classesTruncated: 3,
+          ...duplication,
         },
       },
       new OutputFormatter(OutputMode.NORMAL)
     );
     log.mockRestore();
-    const output = lines.join('\n');
+    return lines.join('\n');
+  }
+
+  it('does not green-tick "Entropy issues: 0" when no gating analyzer ran', () => {
+    const output = printed();
     // MUTATION: keep the unconditional formatSummary call and this fails —
     // the run would print a pass over three checks that never executed.
     expect(output).toContain('not checked');
@@ -318,5 +366,13 @@ describe('harness cleanup -t duplication — what comes back out', () => {
     expect(output).toContain('Duplication (advisory');
     expect(output).toContain('3 dropped by the maxClasses cap');
     expect(output).toContain('3x 120 tokens: alpha (src/a.ts:3)');
+    // Nothing was skipped: the advisory line must not imply otherwise.
+    expect(output).not.toContain('skipped');
+  });
+
+  it('says so on the advisory line when files were skipped', () => {
+    // MUTATION: drop the `filesSkipped > 0` clause and a partial scan prints
+    // identically to a complete one.
+    expect(printed({ filesSkipped: 2 })).toContain('2 file(s) skipped');
   });
 });
