@@ -4,28 +4,40 @@ import type { TSESTree } from '@typescript-eslint/typescript-estree';
 /**
  * Type-2 clone normalization (spec decision D1).
  *
- * `Identifier` / `PrivateIdentifier` / `JSXIdentifier` collapse to `I`;
- * `String` / `Numeric` / `Template` / `RegularExpression` / `JSXText` collapse
- * to `L`; every other token (`Keyword`, `Punctuator`, `Boolean`, `Null`) is
- * kept verbatim. Collapsing identifiers is load-bearing, not incidental: the
- * 16 orchestrator JSON-response copies span three different function names
+ * `Identifier` / `PrivateIdentifier` collapse to `I`; `String` / `Numeric` /
+ * `Template` / `RegularExpression` / `JSXText` collapse to `L`; every other
+ * token (`Keyword`, `Punctuator`, `Boolean`, `Null`, `JSXIdentifier`) is kept
+ * verbatim. Collapsing identifiers is load-bearing, not incidental: the 16
+ * orchestrator JSON-response copies span three different function names
  * (`sendJSON`, `sendJson`, `jsonResponse`) and cluster only once names
  * normalize away.
+ *
+ * `JSXIdentifier` is deliberately NOT collapsed. It covers element and
+ * attribute names only — an identifier inside an expression container is a
+ * plain `Identifier` token and still normalizes — and a tag name is structural,
+ * closer to a keyword than to a variable name: `<input>` versus `<button>` is
+ * different behavior, not a rename. Collapsing it made
+ * `() => <div className="x">hi</div>` and `() => <span className="x">hi</span>`
+ * share the fingerprint `213c70b88dc1f373`. `.tsx` is in
+ * `SUPPORTED_EXTENSIONS` and real `.tsx` classes are reported, so this is live,
+ * not hypothetical.
+ *
+ * `Boolean` and `Null` are kept verbatim even though D1 says "literals to L":
+ * a flag flip usually IS different logic, so `if (x === true)` and
+ * `if (x === null)` should not alias.
  *
  * `Block` / `Line` comment tokens never appear here — typescript-estree keeps
  * comments in a separate `comments` array, so the stream is comment-free by
  * construction.
  */
-const IDENTIFIER_TOKEN_TYPES = new Set<string>([
-  'Identifier',
-  'PrivateIdentifier',
-  'JSXIdentifier',
-]);
+const IDENTIFIER_TOKEN_TYPES = new Set<string>(['Identifier', 'PrivateIdentifier']);
 const LITERAL_TOKEN_TYPES = new Set<string>([
   'String',
   'Numeric',
   'Template',
   'RegularExpression',
+  // Both JSX element text (`hi`) and a JSX attribute's string value (`"x"`),
+  // which typescript-estree also tokenizes as JSXText.
   'JSXText',
 ]);
 

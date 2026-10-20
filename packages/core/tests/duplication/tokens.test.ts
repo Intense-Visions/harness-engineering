@@ -40,6 +40,51 @@ describe('normalizeTokens', () => {
   });
 });
 
+describe('normalizeTokens — JSX (D1)', () => {
+  const jsxTokens = (src: string) =>
+    parse(src, { tokens: true, loc: true, range: true, jsx: true }).tokens ?? [];
+  const jsxFingerprint = (src: string) =>
+    fingerprintStream(normalizeTokens(jsxTokens(src), [0, src.length]));
+
+  it('keeps element and attribute names verbatim while collapsing JSX text', () => {
+    const src = `const A = () => <div className="x">hi</div>;`;
+    expect(normalizeTokens(jsxTokens(src), [0, src.length]).join(' ')).toBe(
+      'const I = ( ) => < div className = L > L < / div > ;'
+    );
+  });
+
+  it('fingerprints different elements differently — a tag name is structural, not a rename', () => {
+    // Collapsing JSXIdentifier to I made these two share 213c70b88dc1f373:
+    // `<input>` versus `<button>` is different behavior, not a renaming.
+    expect(jsxFingerprint(`const A = () => <div className="x">hi</div>;`)).not.toBe(
+      jsxFingerprint(`const B = () => <span className="x">hi</span>;`)
+    );
+    expect(jsxFingerprint(`const A = () => <input value="x" />;`)).not.toBe(
+      jsxFingerprint(`const B = () => <button value="x" />;`)
+    );
+  });
+
+  it('fingerprints different attribute names differently', () => {
+    expect(jsxFingerprint(`const A = () => <div className="x">hi</div>;`)).not.toBe(
+      jsxFingerprint(`const B = () => <div onClick="x">hi</div>;`)
+    );
+  });
+
+  it('collapses JSX text and attribute string values to L', () => {
+    const a = jsxFingerprint(`const A = () => <div className="x">hi</div>;`);
+    expect(jsxFingerprint(`const B = () => <div className="x">bye</div>;`)).toBe(a);
+    expect(jsxFingerprint(`const C = () => <div className="y">hi</div>;`)).toBe(a);
+  });
+
+  it('still collapses an identifier inside an expression container', () => {
+    // JSXIdentifier covers element and attribute names only; a referenced
+    // variable is a plain Identifier token and must still normalize.
+    expect(jsxFingerprint(`const A = ({ userName }) => <div id={userName}>hi</div>;`)).toBe(
+      jsxFingerprint(`const B = ({ other }) => <div id={other}>hi</div>;`)
+    );
+  });
+});
+
 describe('fingerprintStream', () => {
   it('is a 16-character lowercase hex digest', () => {
     expect(fingerprintStream(['const', 'I', '=', 'L', ';'])).toMatch(/^[0-9a-f]{16}$/);
