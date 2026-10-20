@@ -89,6 +89,64 @@ describe('fingerprintFile', () => {
   });
 });
 
+describe('malformed ignorePatterns', () => {
+  // `ignorePatterns` is typed `readonly string[]`, but the config reaches
+  // `buildCloneIndex` from `EntropyConfig.analyze.duplication`, which an
+  // adopter fills in from untyped `harness.config.json`. `minimatch` throws
+  // `TypeError: invalid pattern` on every non-string, and the eligibility loop
+  // is the one loop in the module outside a `try` — so before this guard, one
+  // bad glob escaped `detectDuplication` AND `EntropyAnalyzer.analyze()` and
+  // took the whole entropy run (drift, dead code, patterns, complexity,
+  // coupling, size budget) down with it. The casts below are the point: they
+  // reproduce what untyped JSON can deliver.
+
+  it('returns Err naming the offending index for a null pattern, instead of throwing', async () => {
+    const result = await buildCloneIndex([join(root, 'src', 'good.ts')], {
+      rootDir: root,
+      ignorePatterns: [null] as unknown as string[],
+    });
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.error.code).toBe('INVALID_CONFIG');
+    expect(result.error.details.reason).toBe('invalid-ignore-pattern');
+    // The index is what makes the message actionable in a config with 8 globs.
+    expect(result.error.message).toContain('duplication.ignorePatterns[0]');
+    expect(result.error.message).toContain('null');
+    expect(result.error.suggestions.length).toBeGreaterThan(0);
+  });
+
+  it('returns Err for a non-string pattern at its real index, not the first', async () => {
+    const result = await buildCloneIndex([join(root, 'src', 'good.ts')], {
+      rootDir: root,
+      ignorePatterns: ['**/dist/**', 42] as unknown as string[],
+    });
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.error.details.reason).toBe('invalid-ignore-pattern');
+    expect(result.error.message).toContain('duplication.ignorePatterns[1]');
+    expect(result.error.message).toContain('42');
+  });
+
+  it('treats an empty-string pattern as inert rather than refusing the scan', async () => {
+    // Measured, not assumed: `minimatch(path, '')` is `false` for every path,
+    // so an empty entry excludes nothing and cannot hide a file. Refusing it
+    // would be fail-closed behavior over an inert typo (spec decision D4).
+    const result = await buildCloneIndex([join(root, 'src', 'good.ts')], {
+      rootDir: root,
+      ignorePatterns: [''],
+      // `good.ts` is a 2-line function, under the shipped 40-token floor;
+      // without this the unit lands in `unitsBelowMinTokens` and the
+      // assertion below would be vacuous for the wrong reason.
+      minTokens: 0,
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.value.stats.filesScanned).toBe(1);
+    expect(result.value.stats.filesIgnored).toBe(0);
+    expect(result.value.stats.unitsFingerprinted).toBeGreaterThan(0);
+  });
+});
+
 describe('zero-discovery guard', () => {
   it('returns Err for an empty file list rather than an empty index', async () => {
     const result = await buildCloneIndex([], { rootDir: root });

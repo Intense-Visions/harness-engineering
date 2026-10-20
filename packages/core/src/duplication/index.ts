@@ -333,6 +333,14 @@ export interface BuildCloneIndexOptions extends Partial<DuplicationConfig> {
  * The returned config is a fresh MUTABLE object with a fresh `ignorePatterns`
  * array, so a consumer may adjust its own copy; the frozen
  * {@link DEFAULT_DUPLICATION_CONFIG} is unreachable from it.
+ *
+ * This is a MERGE, not a validator, and it cannot become one: it returns a
+ * `DuplicationConfig`, not a `Result`, so the only ways to reject a bad value
+ * here are to throw (which is what this module refuses to do) or to drop it
+ * silently (which would mean an exclusion the operator asked for never
+ * happens, and the files they excluded get reported). Validation therefore
+ * lives at the {@link buildCloneIndex} boundary, which has a `Result` to
+ * return — see {@link findInvalidIgnorePattern}.
  */
 export function resolveDuplicationConfig(
   overrides: Partial<DuplicationConfig> = {}
@@ -343,6 +351,70 @@ export function resolveDuplicationConfig(
   // leaking) or the caller's own (where a later mutation of theirs would
   // silently retune a config this function already returned).
   return { ...merged, ignorePatterns: [...merged.ignorePatterns] };
+}
+
+/**
+ * The first `ignorePatterns` entry `minimatch` cannot accept, with its index.
+ *
+ * `minimatch` THROWS `TypeError: invalid pattern` on any non-string —
+ * measured here for `null`, `undefined`, `42`, `{}` and `[]` — and the
+ * eligibility loop in {@link buildCloneIndex} is the one loop in this module
+ * that sits outside every `try`. `DuplicationConfig.ignorePatterns` is typed
+ * `readonly string[]`, but the config reaches this module from
+ * `EntropyConfig.analyze.duplication`, which an adopter populates from
+ * UNTYPED `harness.config.json`, so the type is not a guarantee at runtime.
+ *
+ * Why that mattered enough to validate rather than document: a throw out of
+ * `buildCloneIndex` escapes `detectDuplication` and `EntropyAnalyzer.analyze`
+ * (which holds no `try` of its own), so one malformed glob took down drift,
+ * dead-code, patterns, complexity, coupling and size-budget with it. That is
+ * fail-closed behavior from the detector whose headline decision (spec D4) is
+ * that it never fails closed. Returning `Err` degrades duplication alone: the
+ * analyzer records it as an `AnalysisError` and every sibling still reports.
+ *
+ * An EMPTY string is deliberately NOT rejected. Measured: `minimatch(path,
+ * '')` returns `false` for every path, so an empty pattern excludes nothing
+ * and cannot hide a file — refusing to scan over one would be fail-closed
+ * behavior on an inert typo. `tests/duplication/failure-behavior.test.ts`
+ * pins that it neither throws nor empties the index.
+ *
+ * `EntropyConfig.exclude` carries the same hazard into `buildSnapshot`
+ * (`entropy/snapshot.ts` matches it with no type guard and outside any
+ * `try`). That one is pre-existing and out of this change's scope; it is named
+ * here so the asymmetry is a known gap rather than an accident. Duplication no
+ * longer shares it.
+ */
+function findInvalidIgnorePattern(
+  patterns: readonly string[]
+): { index: number; value: unknown } | undefined {
+  for (let index = 0; index < patterns.length; index++) {
+    const value: unknown = patterns[index];
+    if (typeof value !== 'string') return { index, value };
+  }
+  return undefined;
+}
+
+/**
+ * Render a rejected pattern for an error message.
+ *
+ * `JSON.stringify` returns `undefined` for `undefined`, a function and a
+ * symbol, and throws on a `BigInt` or a circular object, so each of those is
+ * handled before it — the message must name what it rejected, and
+ * `String(value)` on an `unknown` is both lint-rejected and liable to print
+ * `[object Object]`.
+ */
+function describePattern(value: unknown): string {
+  if (value === undefined) return 'undefined';
+  if (typeof value === 'function') return 'a function';
+  if (typeof value === 'symbol') return value.toString();
+  if (typeof value === 'bigint') return `${value}n`;
+  try {
+    const json = JSON.stringify(value);
+    if (json !== undefined) return json;
+  } catch {
+    // Circular, or a BigInt nested inside: fall through to the type tag.
+  }
+  return Object.prototype.toString.call(value);
 }
 
 /**
@@ -621,6 +693,14 @@ export async function fingerprintFile(
  * because at 100% skip the result is indistinguishable from the zero-discovery
  * case this function already refuses.
  *
+ * A malformed `ignorePatterns` entry returns `Err` with
+ * `details.reason: 'invalid-ignore-pattern'`, naming the offending index. That
+ * is the third `Err` and the reason this function — not
+ * `resolveDuplicationConfig` — is the validating boundary: `minimatch` throws
+ * on a non-string pattern and nothing between here and
+ * `EntropyAnalyzer.analyze()` catches it. See
+ * {@link findInvalidIgnorePattern}.
+ *
  * `EntropyError.code` is NOT a discriminator: `PARSE_ERROR` is shared across
  * distinct conditions — `'all-files-skipped'` here, and the per-file
  * `'unparseable'` / `'internal-error'` skips Phase 2 is specified to convert
@@ -652,14 +732,54 @@ export async function buildCloneIndex(
   const { rootDir = process.cwd(), ...overrides } = options;
   const config = resolveDuplicationConfig(overrides);
 
+  // Validate BEFORE the eligibility loop, not inside it: a `minimatch` throw
+  // on the first file would otherwise escape this function entirely. See
+  // {@link findInvalidIgnorePattern} for why that is a D4 violation and not
+  // just an ugly stack trace.
+  const invalid = findInvalidIgnorePattern(config.ignorePatterns);
+  if (invalid) {
+    return Err(
+      createEntropyError(
+        'INVALID_CONFIG',
+        `duplication.ignorePatterns[${invalid.index}] is ${describePattern(invalid.value)}, not a glob string; minimatch rejects every non-string pattern.`,
+        { reason: 'invalid-ignore-pattern' },
+        [
+          `Remove or quote duplication.ignorePatterns[${invalid.index}] — every entry must be a minimatch glob string, e.g. "**/generated/**"`,
+          'A null or numeric entry usually comes from hand-edited harness.config.json, where the readonly string[] type is not enforced',
+        ]
+      )
+    );
+  }
+
   const eligible: Array<{ abs: string; rel: string }> = [];
   let filesIgnored = 0;
-  for (const abs of files) {
-    const rel = relativePosix(rootDir, abs);
-    if (isEligibleFile(rel, config.ignorePatterns)) eligible.push({ abs, rel });
-    // Counted, not merely dropped: a silent drop is indistinguishable from a
-    // file that was read and held no duplication.
-    else filesIgnored += 1;
+  try {
+    for (const abs of files) {
+      const rel = relativePosix(rootDir, abs);
+      if (isEligibleFile(rel, config.ignorePatterns)) eligible.push({ abs, rel });
+      // Counted, not merely dropped: a silent drop is indistinguishable from a
+      // file that was read and held no duplication.
+      else filesIgnored += 1;
+    }
+  } catch (e) {
+    // Belt and braces. The type check above covers the one throw cause
+    // measured out of `minimatch`, but this loop is the module's only
+    // unguarded one and `minimatch` is third-party: a future version (or a
+    // pathological but well-typed pattern) rejecting something else must
+    // still degrade to `Err` rather than take the whole entropy run down.
+    // No pattern is named here because the thrower is not knowable from
+    // `.some()` — honest advice beats a guessed index.
+    return Err(
+      createEntropyError(
+        'INVALID_CONFIG',
+        `duplication discovery failed while matching ${config.ignorePatterns.length} ignore pattern(s): ${(e as Error).message}`,
+        { reason: 'invalid-ignore-pattern', originalError: e as Error },
+        [
+          'Check every duplication.ignorePatterns entry is a valid minimatch glob',
+          'Bisect by running with duplication.ignorePatterns: [] and re-adding patterns',
+        ]
+      )
+    );
   }
 
   if (eligible.length === 0) {

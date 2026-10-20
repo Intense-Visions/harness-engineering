@@ -172,6 +172,30 @@ describe('EntropyAnalyzer duplication invariants', () => {
     expect(errors[0]!.error.details.reason).toBe('zero-files-discovered');
   });
 
+  it('degrades duplication alone on a malformed ignorePattern, leaving the run and its siblings intact', async () => {
+    // The whole point of making `buildCloneIndex` validate: `minimatch` throws
+    // on a non-string pattern, the eligibility loop sits outside every `try`,
+    // and `analyze()` holds none of its own — so one bad glob in
+    // `harness.config.json` used to reject this promise and take drift,
+    // deadCode, patterns, complexity, coupling and sizeBudget with it. A
+    // detector whose headline decision is "never fail closed" (D4) must
+    // degrade to one AnalysisError instead.
+    const result = await analyzerFor({
+      drift: true,
+      duplication: { ignorePatterns: [null] as unknown as string[] },
+    }).analyze();
+    // Load-bearing: this is an assertion that the promise RESOLVED at all.
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.value.duplication).toBeUndefined();
+    expect(result.value.drift).toBeDefined();
+    const errors = result.value.analysisErrors.filter((e) => e.analyzer === 'duplication');
+    expect(errors).toHaveLength(1);
+    expect(errors[0]!.error.code).toBe('INVALID_CONFIG');
+    expect(errors[0]!.error.details.reason).toBe('invalid-ignore-pattern');
+    expect(errors[0]!.error.message).toContain('duplication.ignorePatterns[0]');
+  });
+
   it('surfaces every detector skipError as an AnalysisError tagged `duplication`, report still published (criterion 12)', async () => {
     // The analyzer's own responsibility here is the splice loop: take the bare
     // EntropyErrors the detector hands back, tag each `analyzer: 'duplication'`,
