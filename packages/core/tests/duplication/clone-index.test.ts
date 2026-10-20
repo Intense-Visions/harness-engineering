@@ -391,6 +391,10 @@ describe('buildCloneIndex', () => {
       );
       if (!result.ok) throw new Error('expected ok');
       const index = result.value;
+      // Pin the denominator: `Ok` with `classes: []` is reachable, and the loop
+      // below would then pass without executing a single assertion.
+      expect(index.classes).toHaveLength(1);
+      expect(index.byMember.size).toBe(3);
       for (const cls of index.classes) {
         for (const member of cls.members) {
           expect(index.byMember.get(`${member.file}:${member.startLine}`)).toBe(cls);

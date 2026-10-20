@@ -143,6 +143,9 @@ describe('buildCloneIndex over the planted-clones fixture (criterion 15)', () =>
     const files = await discover(PLANTED_ROOT);
     const result = await buildCloneIndex(files, { rootDir: PLANTED_ROOT, ignorePatterns: [] });
     if (!result.ok) throw new Error('expected ok');
+    // `Ok` with `classes: []` is a deliberate reachable state, so the loop
+    // below would otherwise pass with zero assertions executed.
+    expect(result.value.classes).toHaveLength(2);
     for (const cls of result.value.classes) {
       for (const member of cls.members) {
         expect(member.file).not.toContain('\\');
@@ -156,6 +159,7 @@ describe('buildCloneIndex over the planted-clones fixture (criterion 15)', () =>
     const files = await discover(PLANTED_ROOT);
     const result = await buildCloneIndex(files, { rootDir: PLANTED_ROOT, ignorePatterns: [] });
     if (!result.ok) throw new Error('expected ok');
+    expect(result.value.classes).toHaveLength(2);
     for (const cls of result.value.classes) {
       expect(cls.signal).toBe('duplicate');
       expect(cls.sharedImport).toBeUndefined();

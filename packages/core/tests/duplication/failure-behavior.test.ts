@@ -47,14 +47,21 @@ describe('fingerprintFile', () => {
   });
 
   it('parses .tsx with the jsx option enabled', async () => {
-    const tsx = join(root, 'src', 'view.tsx');
-    await writeFile(
-      tsx,
-      `export function View() {\n  return <div className="a">hi</div>;\n}\n`,
-      'utf8'
-    );
-    const result = await fingerprintFile(tsx, 'src/view.tsx');
-    expect(result.status).toBe('scanned');
+    // Its own temp root: writing into the shared `root` left a file behind for
+    // every later test, one `findFiles`-based test away from order dependence.
+    const dir = await mkdtemp(join(tmpdir(), 'dup-tsx-'));
+    try {
+      const tsx = join(dir, 'view.tsx');
+      await writeFile(
+        tsx,
+        `export function View() {\n  return <div className="a">hi</div>;\n}\n`,
+        'utf8'
+      );
+      const result = await fingerprintFile(tsx, 'src/view.tsx');
+      expect(result.status).toBe('scanned');
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
   });
 
   it('excludes a sub-minTokens unit from fingerprinting instead of emitting it', async () => {
