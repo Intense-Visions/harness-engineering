@@ -1790,7 +1790,10 @@ five override cases.
      | `minTokens: 10`                       | D (261), A (249), C (48)  | `units 12, below 0, suppressed 1`           |
      | `maxClasses: 1`                       | D only                    | `reported 1, suppressed 1, truncated 1`     |
 
-5. Run the full duplication suite — **163 + 1 = 164 tests must pass**:
+5. Run the full duplication suite. The pre-task baseline is **163 tests across 9 files**; this
+   task adds exactly one case, so **164** if it runs before Task 8 and **167** if Task 8's three
+   `tokens.test.ts` cases already landed. Recount rather than predict — the gate is that nothing
+   went from passing to failing and that `acceptance.test.ts` is fully green:
 
    ```
    cd packages/core && npx vitest run tests/duplication
