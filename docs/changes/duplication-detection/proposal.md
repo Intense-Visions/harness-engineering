@@ -788,11 +788,40 @@ be conflated.
 
 The plan recorded an ASSUMPTION that excluding the three non-canonical mirror trees leaves 58
 classes / 230 members. Because no class spans the skills boundary, that follows from this run:
-the 58 non-mirror classes / 230 members are exactly the complement of the 38. Digest over
-`(fingerprint, memberCount)` of that subset: `0d538cfc9c99c0c2`. That is NOT comparable to the
-Scope A whole-index digest `7e0f1622fb75abbc` recorded above — a different formula over a
-different object — so **set identity with Scope A remains unproven and is recorded as
-unproven**.
+the 58 non-mirror classes / 230 members are exactly the complement of the 38.
+
+**Set identity with Scope A is PROVEN** (corrected in the review-fix batch; it was first
+recorded as unproven, on a subset digest computed with a different formula). The formula is
+recorded here so the figure is reproducible rather than merely asserted:
+
+```
+digest(classes) = sha1( sorted( `${fingerprint}:${memberCount}` ).join(',') ).slice(0, 16)
+```
+
+Applied to a fresh Scope C run at HEAD `a3de61b21` — reproduced from `git archive` into a
+clean tree so the review-fix batch's own source changes could not move the index — it
+re-measures 96 classes / 382 members / 2,144 scanned / 162 suppressed / 0 truncated / 0
+skipped, partitions into 38 skills-touching + 58 non-skills classes (152 + 230 members), and
+yields:
+
+| subset                         | digest             |
+| ------------------------------ | ------------------ |
+| all 96 classes (Scope C)       | `82238daa001b8e1a` |
+| the 58 non-mirror classes      | `7e0f1622fb75abbc` |
+| the 38 platform-mirror classes | `8f51cf3b34d3c412` |
+
+`7e0f1622fb75abbc` is byte-for-byte the Scope A whole-index digest recorded in the **Phase 2
+gate-fix handoff** (`.harness/sessions/.../handoff.phase-2-gate-fix.json`, "scope A
+7e0f1622fb75abbc (2,065 / 8,170 / 58 / 230 / 161)") — NOT "recorded above" in this document,
+as an earlier revision of this section claimed; it never appeared here. Equal digests over
+`(fingerprint, memberCount)` with equal cardinality is set identity for this index, so Scope
+C's non-mirror complement and Scope A's whole index are the same 58 classes.
+
+The previously recorded subset digest `0d538cfc9c99c0c2` is **irreproducible** — 14
+serialization variants across two algorithms failed to reproduce it — and is superseded by
+the table above. The partition predicate used here is "any member file path contains
+`agents/skills/`", which is unambiguous because zero classes span that boundary and all 38
+come from one skill (`harness-branch-buster`).
 
 ### Phase 3 — Scope C: the product scope is a THIRD scope
 
@@ -888,6 +917,84 @@ guard working on real data rather than on a fixture, and it is why "did not run"
 render as "found nothing". The CLI path passes no graph data and is unaffected (96 classes).
 Making `loadEntropyGraphOptions` conditional on the requested type is a **follow-up**, not
 Phase 3's scope.
+
+### Phase 3 — the review-fix batch, and six corrections to this record
+
+Applied after VERIFY passed at all three tiers and REVIEW returned REQUEST CHANGES (0
+critical, 6 important, 4 suggestions; 11 mutants planted, 2 surviving). Both reviewers
+corrected the record in several places, and so does this section — including a claim of the
+operator's own.
+
+**The `detect_entropy` detailed payload delivered nothing actionable.** Measured on the
+`duplication-cli-project` fixture: 51,333 payload bytes of which `snapshot` was 50,460
+(98.3%) and `snapshot.files[].ast` alone 41,289 (80.4%), while everything a caller acts on
+(`summary` + `analysisErrors` + `timestamp` + `duration` + `duplication`) was 865 bytes
+(1.7%), beginning at byte 50,409. The compaction middleware truncates by PREFIX at a
+4,000-token budget, so the delivered 16,261 bytes were pure AST. Absolute byte totals are
+path-length-sensitive (absolute fixture paths are embedded in the payload), and so, slightly,
+are the shares — publish the shares, and name the fixture. Fixed inside `toJsonSafeReport` by
+emitting the actionable keys BEFORE `snapshot` and dropping the per-file ASTs; NOT by making
+the generic compaction middleware payload-aware.
+
+Two corrections to how that truncation was characterized:
+
+1. **It is not a silent absence.** The response carries
+   `[truncated — prioritized truncation applied]` and a `[harness spill] ... locator:` line
+   that preserves the full payload on disk. The delivered text is UNPARSEABLE (`JSON.parse`
+   threw at position 15954), not misleadingly empty — a reader gets an error, not a false
+   clean.
+2. **The defect was broader than duplication.** `summary` and `analysisErrors` truncated away
+   too, so every detailed consumer of `detect_entropy` was affected, not only the duplication
+   one. That is why the fix is the key order and not a duplication-specific carve-out. The
+   residual, named: reordering guarantees the actionable keys are inside the delivered prefix,
+   not that the delivered text parses — on a project whose post-AST-strip payload still
+   exceeds the budget, the prefix is cut mid-value. `compact: false` remains the way to get
+   the whole report.
+
+**`filesSkipped` IS observable — the earlier "not observable through either shipped surface"
+was wrong.** `detect_entropy { type: "duplication", compact: false }` returns the full
+parseable report with all 13 `stats` keys, and the spill file preserves it. As of this batch
+it is observable in three more places: the CLI's `--json` (`duplication.filesSkipped`), the
+CLI's printed advisory line (`; N file(s) skipped`, only when non-zero), and MCP detailed mode
+at the DEFAULT compaction setting whenever the duplication block fits the budget — which the
+key reorder is what makes true. It remains UNOBSERVABLE in MCP **summary** mode, whose
+`advisory.duplication` carries `classesReported` / `classesSuppressed` / `classesTruncated` /
+`membersReported` / `topClasses` and no skip counter. Recorded as the remaining gap, not
+closed here.
+
+**The two surfaces had opposite config-failure policies, and this phase created the trap.**
+`cleanup.ts` goes through `resolveConfig` and exits 2 on an invalid config; the MCP tool's
+`loadEntropyConfig` did `if (!loaded.ok) return undefined`, silently discarding the WHOLE
+`entropy` block — `entryPoints` and `excludePatterns` included — and scanning on built-in
+defaults. Proven on identical input (`entropy.duplication: { minInstances: 1 }`, the exact
+mistake the new bound exists to catch). The silent fallback is pre-existing, but a validation
+error inside `entropy.duplication` was IMPOSSIBLE before this phase (zod stripped the key), so
+the phase is what made it reachable. The MCP surface now refuses, naming the field.
+
+**An unknown `-t` / `type` value was a green pass on both surfaces**, including the #691
+contract (`harness cleanup -t bogus --findings-json` → `{"findings":0,...}`, exit 0) and the
+MCP wire (the JSON-schema `enum` is advertisement; the SDK does not enforce it). One shared
+`ENTROPY_ISSUE_TYPES` list now backs the CLI's `.choices`, the MCP enum and a membership check
+on both.
+
+**The `skipIf(!CLI_BUILT)` guard DOES have precedent in this repo** — correcting a false
+non-existence claim made to the reviewer. `packages/cli/tests/e2e/support/tiers.ts:34` exports
+`skipUnlessBin` (from `HAS_HARNESS_BIN`) as the ADR 0111 vocabulary created so gated tests stop
+inventing their own predicate and stay greppable; `tests/comprehension/comprehend-smoke.e2e.test.ts`
+uses the same dist-existence pattern at 6 sites; and `.github/workflows/main-health.yml` states
+verbatim that "a silently-skipped suite must not read as a pass", with a grep-based reachability
+assertion. The guard is therefore ADR-sanctioned and is NOT made to fail loudly (ADR 0111
+already rejected that trade — it breaks a contributor who runs vitest before `build`). What
+this phase got wrong was keeping the guard and dropping the mitigation: the D4 suite now gates
+on the shared predicate and `main-health.yml` gained a sibling assertion covering gated suites
+outside `tests/e2e/`.
+
+**Mutation coverage.** Two surviving mutants closed and re-verified by re-planting: M14 (the
+MCP did-not-run guard — deleting the whole branch had left 49/49 green, because the fixture has
+no `.harness/graph` so `snapshot-bypassed` never fired, while on any graph-bearing project that
+refusal is the ONLY outcome the surface can produce) and M6 (the
+`skipErrors[].details.originalError` strip — the fixture yields `skipErrors: []`, so the
+`.map()` never executed).
 
 ### Phase 3 — deferred, with owners
 

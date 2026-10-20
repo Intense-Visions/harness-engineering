@@ -32,3 +32,24 @@ reported with the analyzer's own reason instead of an empty result.
 `detect_entropy`'s payload no longer carries `duplication.byMember`: it is a `Map`, which
 `JSON.stringify` rendered as `{}` — indistinguishable from an empty index. Its contents are
 already in `classes[].members`.
+
+Four further refusals and one payload change came out of the review of this work, all on the
+same "never report a pass over a check that never ran" rule:
+
+- An unrecognized `-t <type>` / `type` value is refused on both surfaces. It previously ran NO
+  analyzer and still exited 0 — and published `{"findings":0}` on the `--findings-json`
+  contract — so `harness cleanup -t duplicaiton` looked like a clean project.
+- `detect_entropy` refuses when `harness.config.json` fails validation instead of silently
+  analyzing on built-in defaults. zod rejects the document whole, so the fallback was
+  discarding the project's `entryPoints` and `excludePatterns` and scanning a different scope
+  than the configured one. `harness cleanup` already exited 2 on the same input.
+- `harness cleanup -t duplication --quiet` now prints the advisory section. The quiet gate was
+  keyed on `totalIssues`, which deliberately excludes duplication, so the channel was
+  suppressed entirely.
+- `CleanupResult.duplication` carries `filesSkipped`, and the printed advisory line says
+  `; N file(s) skipped` when non-zero. A partial skip makes a scan incomplete, and the CLI had
+  no way to say so.
+- `detect_entropy`'s detailed payload emits `summary`, `analysisErrors` and `duplication`
+  BEFORE `snapshot`, and omits each file's `ast`. Response compaction truncates by prefix, and
+  the snapshot was 98% of the payload, so everything a caller could act on was being truncated
+  away. Pass `compact: false` for the untruncated report, ASTs excluded.
