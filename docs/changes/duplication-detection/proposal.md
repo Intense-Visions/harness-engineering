@@ -163,8 +163,8 @@ export interface CloneClass {
 
 export interface SkippedFile {
   file: string; // repo-relative, posix-normalized
-  reason: 'unreadable' | 'unparseable';
-  message: string; // the underlying read or parse error
+  reason: 'unreadable' | 'unparseable' | 'unextractable';
+  message: string; // the underlying read, parse, or extraction error
 }
 
 export interface CloneIndex {
@@ -197,8 +197,9 @@ Following the `Result` / `AnalysisError` convention already used by the sibling 
 
 - If a source file cannot be read, the detector shall skip that file, increment `filesSkipped`,
   record a `SkippedFile` entry on `CloneIndex.skipped`, and continue.
-- If a source file fails to parse, the detector shall skip that file, increment `filesSkipped`,
-  record a `SkippedFile` entry, and record an `AnalysisError` with `analyzer: 'duplication'` — it shall not fail the entropy run. The
+- If a source file fails to parse, or its units cannot be extracted, normalized, or fingerprinted,
+  the detector shall skip that file, increment `filesSkipped`, record a `SkippedFile` entry, and
+  record an `AnalysisError` with `analyzer: 'duplication'` — it shall not fail the entropy run. The
   reason and message are carried on the index rather than collapsed into a count, because Phase 2
   cannot raise a per-file `AnalysisError` from a bare counter.
 - If EVERY eligible file is skipped, the detector shall report that explicitly rather than

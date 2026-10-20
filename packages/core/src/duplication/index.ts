@@ -11,7 +11,7 @@ import { extractUnits as extractUnitsImpl } from './units';
 import { normalizeTokens as normalize, fingerprintStream as digest } from './tokens';
 
 export type { CloneUnitKind, DupUnit } from './units';
-export { extractUnits } from './units';
+export { extractUnits, MissingNodeLocationError } from './units';
 export {
   normalizeTokens,
   fingerprintStream,
@@ -54,7 +54,7 @@ export interface SkippedFile {
   /** Repo-relative, POSIX-normalized path. */
   file: string;
   reason: FileSkipReason;
-  /** The underlying read or parse error message. */
+  /** The underlying read, parse, or extraction error message. */
   message: string;
 }
 
@@ -77,8 +77,8 @@ export interface CloneIndex {
   stats: {
     filesScanned: number;
     /**
-     * Unreadable or unparseable — see the spec's Failure behavior section.
-     * Every increment has a matching entry in `skipped`.
+     * Unreadable, unparseable, or unextractable — see the spec's Failure
+     * behavior section. Every increment has a matching entry in `skipped`.
      */
     filesSkipped: number;
     /** Units that cleared `minTokens` and were hashed into a group. */
@@ -235,8 +235,16 @@ function summarizeSkips(skipped: readonly SkippedFile[]): string {
   return [...counts].map(([reason, count]) => `${count} ${reason}`).join(', ');
 }
 
-/** Why a file produced no units. */
-export type FileSkipReason = 'unreadable' | 'unparseable';
+/**
+ * Why a file produced no units.
+ *
+ * `unextractable` covers the stages after a successful parse — unit
+ * extraction, normalization, and digest. They used to sit OUTSIDE the
+ * `try`, so the documented "never throws" contract held only by accident:
+ * `extractUnits` throws {@link MissingNodeLocationError} on an AST without
+ * `loc`, and nothing bounded a normalizer or hash failure either.
+ */
+export type FileSkipReason = 'unreadable' | 'unparseable' | 'unextractable';
 
 /** Outcome of fingerprinting one file. */
 export type FingerprintFileResult =
@@ -264,7 +272,7 @@ export type FingerprintFileResult =
  * token count is only knowable after normalization, so normalization runs for
  * every unit; the hash does not.
  *
- * Never throws: an unreadable or unparseable file resolves to
+ * Never throws: an unreadable, unparseable, or unextractable file resolves to
  * `{ status: 'skipped' }` so the caller can record it in `CloneIndex.skipped`,
  * increment `filesSkipped`, and continue. Phase 2's detector converts each
  * recorded skip into an `AnalysisError` with `analyzer: 'duplication'`; the
@@ -301,26 +309,33 @@ export async function fingerprintFile(
     return { status: 'skipped', reason: 'unparseable', message: (e as Error).message };
   }
 
+  // Extraction, normalization, and digest are inside a try of their own: the
+  // "never throws" contract above covers the whole function, and only `parse`
+  // used to be guarded.
   const tokens = program.tokens ?? [];
   const units: FingerprintedUnit[] = [];
   let unitsBelowMinTokens = 0;
-  for (const unit of extractUnitsImpl(program)) {
-    const stream = normalize(tokens, unit.range);
-    if (stream.length < minTokens) {
-      unitsBelowMinTokens += 1;
-      continue;
+  try {
+    for (const unit of extractUnitsImpl(program)) {
+      const stream = normalize(tokens, unit.range);
+      if (stream.length < minTokens) {
+        unitsBelowMinTokens += 1;
+        continue;
+      }
+      units.push({
+        fingerprint: digest(stream),
+        tokenCount: stream.length,
+        member: {
+          file: relPath,
+          unit: unit.name,
+          kind: unit.kind,
+          startLine: unit.startLine,
+          endLine: unit.endLine,
+        },
+      });
     }
-    units.push({
-      fingerprint: digest(stream),
-      tokenCount: stream.length,
-      member: {
-        file: relPath,
-        unit: unit.name,
-        kind: unit.kind,
-        startLine: unit.startLine,
-        endLine: unit.endLine,
-      },
-    });
+  } catch (e) {
+    return { status: 'skipped', reason: 'unextractable', message: (e as Error).message };
   }
   return { status: 'scanned', units, unitsBelowMinTokens };
 }

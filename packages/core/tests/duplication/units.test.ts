@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { parse } from '@typescript-eslint/typescript-estree';
-import { extractUnits } from '../../src/duplication/units';
+import { extractUnits, MissingNodeLocationError } from '../../src/duplication/units';
 
 function unitsOf(src: string) {
   return extractUnits(parse(src, { tokens: true, loc: true, range: true }));
@@ -87,6 +87,35 @@ describe('extractUnits — traversal safety', () => {
 
     expect(() => extractUnits(ast)).not.toThrow();
     expect(extractUnits(ast).map((u) => `${u.kind}:${u.name}`)).toEqual(withoutParents);
+  });
+
+  it('throws a typed error on an AST parsed without loc instead of reading undefined', () => {
+    // extractUnits is a public export with no enforced precondition: before the
+    // guard this was `TypeError: Cannot read properties of undefined (reading
+    // 'start')` from inside toUnit, and the contract held only because the one
+    // internal caller happened to pass `loc: true`.
+    const ast = parse('function f(a) { return a; }', { tokens: true, range: true, loc: false });
+    expect(() => extractUnits(ast)).toThrow(MissingNodeLocationError);
+    expect(() => extractUnits(ast)).toThrow(/parsed with \{ loc: true, range: true \}/);
+    try {
+      extractUnits(ast);
+      expect.unreachable('expected MissingNodeLocationError');
+    } catch (e) {
+      expect(e).toBeInstanceOf(MissingNodeLocationError);
+      expect((e as MissingNodeLocationError).nodeType).toBe('FunctionDeclaration');
+      expect((e as MissingNodeLocationError).field).toBe('loc');
+    }
+  });
+
+  it('throws a typed error on an AST parsed without range', () => {
+    const ast = parse('function f(a) { return a; }', { tokens: true, range: false, loc: true });
+    try {
+      extractUnits(ast);
+      expect.unreachable('expected MissingNodeLocationError');
+    } catch (e) {
+      expect(e).toBeInstanceOf(MissingNodeLocationError);
+      expect((e as MissingNodeLocationError).field).toBe('range');
+    }
   });
 
   it('ignores program-level tokens and comments rather than walking them', () => {

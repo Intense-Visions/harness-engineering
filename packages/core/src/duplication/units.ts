@@ -17,6 +17,33 @@ export interface DupUnit {
   range: [number, number];
 }
 
+/**
+ * Thrown when a unit node carries no `loc` or `range`.
+ *
+ * `extractUnits` is a public export with a hard precondition: the AST must come
+ * from a parse with `{ loc: true, range: true }`. Without this guard the
+ * failure was an unguarded property read — `parse(src, { loc: false })` raised
+ * `TypeError: Cannot read properties of undefined (reading 'start')` from
+ * inside the walk — and the module relied on its one internal caller always
+ * passing the right options.
+ */
+export class MissingNodeLocationError extends Error {
+  /** The ESTree node type that was missing the field. */
+  readonly nodeType: string;
+  /** Which field was absent. */
+  readonly field: 'loc' | 'range';
+
+  constructor(nodeType: string, field: 'loc' | 'range') {
+    super(
+      `extractUnits requires an AST parsed with { loc: true, range: true }: ` +
+        `a ${nodeType} node has no ${field}.`
+    );
+    this.name = 'MissingNodeLocationError';
+    this.nodeType = nodeType;
+    this.field = field;
+  }
+}
+
 /** ESTree node types that constitute a reportable unit, mapped to their kind. */
 const UNIT_KINDS: Record<string, CloneUnitKind> = {
   FunctionDeclaration: 'function',
@@ -57,8 +84,12 @@ function toUnit(record: Record<string, unknown>, consumed: Set<object>): DupUnit
     if (value !== null && typeof value === 'object') consumed.add(value);
   }
 
-  const loc = record['loc'] as TSESTree.SourceLocation;
-  const range = record['range'] as [number, number];
+  const loc = record['loc'] as TSESTree.SourceLocation | undefined;
+  const range = record['range'] as [number, number] | undefined;
+  // Guarded, not asserted: both fields are optional on the estree types and a
+  // caller is free to parse without them.
+  if (loc === undefined) throw new MissingNodeLocationError(type, 'loc');
+  if (range === undefined) throw new MissingNodeLocationError(type, 'range');
   return {
     kind,
     name: unitName(record),
@@ -105,7 +136,16 @@ function walk(node: unknown, units: DupUnit[], consumed: Set<object>, seen: Set<
   }
 }
 
-/** Extract every reportable unit from an ESTree program, in source order. */
+/**
+ * Extract every reportable unit from an ESTree program, in source order.
+ *
+ * @param ast - A program from `parse(src, { loc: true, range: true })`. Both
+ *   options are required: a unit's line numbers and character range are its
+ *   payload, so a node missing either raises
+ *   {@link MissingNodeLocationError} rather than reading `undefined.start`.
+ * @throws {MissingNodeLocationError} When the AST was parsed without `loc` or
+ *   `range`.
+ */
 export function extractUnits(ast: TSESTree.Program): DupUnit[] {
   const units: DupUnit[] = [];
   walk(ast, units, new Set<object>(), new Set<object>());
