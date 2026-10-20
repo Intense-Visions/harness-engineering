@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/tests/commands'
-sourceHash: 'a80372b0810eb3dcfd85dddcee151972d89edcd1b09c6a534b93c1ff6f7d4386'
+sourceHash: 'ca5b0482135e066f47acd484cde8692dffb5425cdad33c6a5fdede810c9c4e3e'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -43,6 +43,7 @@ members:
     'check-vocabulary-cov544b.test.ts',
     'check-vocabulary.test.ts',
     'cleanup-cov544b.test.ts',
+    'cleanup-duplication.test.ts',
     'cleanup-sessions-cov544.test.ts',
     'cleanup-sessions.test.ts',
     'cleanup.test.ts',

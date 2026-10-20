@@ -1,7 +1,13 @@
 // packages/cli/src/commands/cleanup.ts
 import { Command } from 'commander';
 import * as path from 'path';
-import type { Result, EntropyConfig, DriftConfig, PatternConfig } from '@harness-engineering/core';
+import type {
+  Result,
+  EntropyConfig,
+  DriftConfig,
+  PatternConfig,
+  DuplicationConfig,
+} from '@harness-engineering/core';
 import { Ok, Err, EntropyAnalyzer } from '@harness-engineering/core';
 import { formatFindingsContract } from '@harness-engineering/types';
 import { resolveConfig } from '../config/loader';
@@ -9,8 +15,9 @@ import { OutputFormatter, OutputMode } from '../output/formatter';
 import { resolveOutputMode } from '../utils/output';
 import { logger } from '../output/logger';
 import { CLIError, ExitCode } from '../utils/errors';
+import { resolveDuplicationRequest } from '../shared/duplication-request';
 
-type CleanupType = 'drift' | 'dead-code' | 'patterns' | 'all';
+type CleanupType = 'drift' | 'dead-code' | 'patterns' | 'duplication' | 'all';
 
 interface CleanupOptions {
   cwd?: string;
@@ -91,6 +98,22 @@ export async function runCleanup(
     );
   }
 
+  // Duplication is OPT-IN under `-t all` and always on for an explicit
+  // `-t duplication` (plan decision P3). The patterns rule above is the
+  // precedent: `all` runs a detector when the project gave it something to
+  // do. The difference is that duplication ships working defaults, so an
+  // explicit request needs no config — while `-t all` on an unconfigured
+  // project must not silently add a clone scan to every cleanup run.
+  // `false` disables it outright, and an explicit request then REFUSES
+  // rather than reporting a clean scan that never ran (#1760).
+  const duplicationRequest = resolveDuplicationRequest(
+    type,
+    config.entropy?.duplication as boolean | Partial<DuplicationConfig> | undefined
+  );
+  if (duplicationRequest.kind === 'refuse') {
+    return Err(new CLIError(duplicationRequest.message, ExitCode.VALIDATION_FAILED));
+  }
+
   const entropyConfig: EntropyConfig = {
     rootDir,
     ...(config.entropy?.entryPoints && { entryPoints: config.entropy.entryPoints }),
@@ -104,6 +127,10 @@ export async function runCleanup(
       // Only run the pattern analyzer when real rules exist; an empty rule set
       // is a no-op that misrepresents "checked" as "passed" (#1760).
       patterns: patternsRequested && hasPatternRules && patternConfig ? patternConfig : false,
+      // Spread, not `duplication: ... | false`: `analyzer.ts:194` branches on
+      // the key's truthiness and an absent key is the "never requested"
+      // signal the detector's own tests assert.
+      ...(duplicationRequest.kind === 'run' && { duplication: duplicationRequest.analyze }),
     },
     exclude: config.entropy?.excludePatterns ?? ['**/node_modules/**', '**/*.test.ts'],
   };
@@ -188,8 +215,12 @@ function printCleanupResult(value: CleanupResult, formatter: OutputFormatter): v
 
 export function createCleanupCommand(): Command {
   const command = new Command('cleanup')
-    .description('Detect entropy issues (doc drift, dead code, patterns)')
-    .option('-t, --type <type>', 'Issue type: drift, dead-code, patterns, all', 'all')
+    .description(
+      'Detect entropy issues (doc drift, dead code, patterns, duplication). Duplication is ' +
+        'advisory — it never affects the exit code — and under --type all it runs only when ' +
+        'entropy.duplication is configured in harness.config.json.'
+    )
+    .option('-t, --type <type>', 'Issue type: drift, dead-code, patterns, duplication, all', 'all')
     .option(
       '--findings-json',
       'Emit the machine-readable maintenance findings contract ({ findings: N }) as a trailing stdout line (#691)'
