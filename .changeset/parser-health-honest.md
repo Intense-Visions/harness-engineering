@@ -1,0 +1,59 @@
+---
+'@harness-engineering/core': minor
+---
+
+`TypeScriptParser.health()` now probes the parser instead of asserting it is fine
+
+`health()` was one line — `return Ok({ available: true, version: '7.0.0' })`. It
+examined nothing, and the version was wrong by a major: the installed
+`@typescript-eslint/typescript-estree` is 8.x. Because `validateDependencies`
+gates its entire parser-unavailable abstention on this one answer, and because
+`check-deps`, the `check_dependencies` MCP tool, `check-arch`'s layer-violation
+collector, `ci check` and `review`'s mechanical checks all construct
+`new TypeScriptParser()` unconditionally, **no production input could reach any
+abstention path**. The machinery added in #2208 — `unavailableChecks`, exit 3,
+the MCP `isError` abstention, `check-arch`'s `abstained` status — existed and
+could only be exercised by mocking the core export. That is what the #2098
+changeset meant by "no adopter can observe this half today"; this is the change
+that makes it observable.
+
+**What "available" now means.** The estree module resolves, exposes a callable
+`parse`, and a trial parse of a fixed snippet yields an AST that this parser's
+own `extractImports`/`extractExports` can read. The last clause is the point:
+the contract consumers depend on is not "parse did not throw", it is "the
+extracted imports and exports are usable", and only an end-to-end probe covers
+an API that drifts without erroring. The reported `version` is the module's own,
+so it tracks what is installed. Every failure is still `Ok({ available: false,
+message })`, never `Err` — an unavailable parser is an answer to the health
+question, not a failure to answer it, and `fallbackBehavior` is the caller's to
+apply.
+
+**The estree module is now resolved lazily, through a seam.** A top-level
+`import` makes a resolution failure a module-load crash _upstream_ of `health()`,
+so the abstention could never be reached for the likeliest real cause — a broken
+install, or a `typescript` peer the estree parser rejects. `parseFile` therefore
+returns `PARSER_UNAVAILABLE` where it previously could not run at all, and the
+optional constructor argument lets the unavailable branch be tested against the
+real class rather than a hand-rolled stand-in parser.
+
+**`buildDependencyGraph` fails closed on `PARSER_UNAVAILABLE`.** It skips files
+it cannot parse, which is right for a syntax error in one file and wrong when
+the parser is gone: every file is skipped, the graph has zero edges, and
+`detectCircularDeps` reads that as "no cycles". With an honest `health()` that
+became reachable, so `check-deps`' cycle half — which is not health-gated —
+would have reported clean over files it never parsed. `TypeScriptParser` is the
+only parser that emits that code (`TreeSitterParser` reports a missing grammar
+as `SYNTAX_ERROR`), and only for a global condition, so no per-file skip
+behaviour changes.
+
+**The abstention now carries the parser's own diagnosis.** `reason` was the bare
+string `'Parser unavailable'`, which `check-deps` and the MCP tool print
+verbatim — it told an operator something was wrong but never what. It is now
+`Parser unavailable: <health message>`, keeping the greppable prefix that
+consumers and their tests match on.
+
+**No behaviour change on a working install.** On this repository `health()`
+returns `available: true` with version `8.59.2`, from both built formats, so
+every consumer is byte-identical. The changes are visible only when the parser
+genuinely is unavailable — and in that state the previous behaviour was a
+module-load crash or a clean report over nothing, not a correct result.
