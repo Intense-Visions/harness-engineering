@@ -144,6 +144,97 @@ describe('buildCloneIndex — partial-extraction signal (criterion 3)', () => {
   });
 });
 
+/**
+ * A `.tsx` component whose ONLY reference to the shared import is a JSX element.
+ *
+ * `n` names the variable holding the length: the length is computed BEFORE the
+ * return rather than inline as `total={out.length}`, and that is not style.
+ * Measured: inside a JSX expression container typescript-estree tokenizes a
+ * DOTTED expression's parts as `JSXIdentifier` (`total={out.length}` yields
+ * `JSXIdentifier "out"` and `JSXIdentifier "length"`, while `data={out}` and
+ * `flag={out[0]}` yield plain `Identifier "out"`). `tokens.ts` keeps
+ * `JSXIdentifier` verbatim on the argument that a TAG name is structural, so a
+ * variable rename inside a dotted JSX attribute defeats Type-2 clustering — the
+ * three panels below differed only in identifier names and produced three
+ * fingerprints until the dotted form was lifted out.
+ */
+const jsxPanel = (spec: string, fn: string, p: string, out: string, n: string) =>
+  `import { Row } from '${spec}';\n` +
+  `export function ${fn}(${p}: string[]) {\n` +
+  `  const ${out}: string[] = [];\n` +
+  `  for (const item of ${p}) {\n` +
+  `    const trimmed = item.trim();\n` +
+  `    if (trimmed.length > 0) {\n` +
+  `      ${out}.push(trimmed.toUpperCase());\n` +
+  `    }\n` +
+  `  }\n` +
+  `  const ${n} = ${out}.length;\n` +
+  `  return <Row data={${out}} total={${n}} />;\n` +
+  `}\n`;
+
+const rowComponent = `export function Row(props: { data: string[] }) {\n  return props.data.length;\n}\n`;
+
+const jsxPanels = (ext: 'tsx' | 'ts') => ({
+  [`src/shared/row.${ext}`]: rowComponent,
+  [`src/beta.${ext}`]: jsxPanel('./shared/row.js', 'PanelBeta', 'rows', 'kept', 'size'),
+  [`src/views/alpha.${ext}`]: jsxPanel('../shared/row.js', 'PanelAlpha', 'items', 'out', 'count'),
+  [`src/views/deep/gamma.${ext}`]: jsxPanel(
+    '../../shared/row.js',
+    'PanelGamma',
+    'entries',
+    'acc',
+    'tally'
+  ),
+});
+
+describe('buildCloneIndex — a JSX element name is a qualifying use (criterion 3)', () => {
+  it('labels three .tsx wrappers whose only reference to the import is <Row />', async () => {
+    // The JSX arm had NO coverage in a detector that deliberately parses JSX:
+    // dropping it survived all 509 tests, and no duplication fixture anywhere
+    // in this feature used `.tsx` or `.jsx`. Here the import appears in exactly
+    // one place in each body — as an element name — so the label can only have
+    // come from that arm.
+    const { root, index } = await scratch(jsxPanels('tsx'));
+    try {
+      expect(index.stats.filesScanned).toBe(4);
+      expect(index.stats.filesSkipped).toBe(0);
+      expect(index.classes).toHaveLength(1);
+      const cls = index.classes[0]!;
+      expect(cls.members).toHaveLength(3);
+      expect(cls.tokenCount).toBe(83);
+      expect(cls.signal).toBe('partial-extraction');
+      expect(cls.sharedImport).toBe('src/shared/row');
+      expect(cls.members.map((m) => m.file)).toEqual([
+        'src/beta.tsx',
+        'src/views/alpha.tsx',
+        'src/views/deep/gamma.tsx',
+      ]);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it('skips the SAME sources named .ts, because TypeScript forbids JSX there', async () => {
+    // The other half of why the arm is load-bearing: `jsx: true` is enabled by
+    // extension (`isJsxCapable`), and `.ts` is excluded because `<T>x` is a type
+    // assertion there. So these three panels do not parse at all — which is the
+    // correct outcome, and it is asserted rather than assumed.
+    const { root, index } = await scratch(jsxPanels('ts'));
+    try {
+      expect(index.stats.filesScanned).toBe(1);
+      expect(index.stats.filesSkipped).toBe(3);
+      expect(index.skipped.map((sk) => sk.reason)).toEqual([
+        'unparseable',
+        'unparseable',
+        'unparseable',
+      ]);
+      expect(index.classes).toEqual([]);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+});
+
 describe('buildCloneIndex — what does NOT get labelled (criterion 2)', () => {
   it('leaves a FILE-level-only common import as a plain duplicate', async () => {
     // Every file imports `extract` and every file REFERENCES it — but only
@@ -324,12 +415,67 @@ describe('buildCloneIndex — priority ordering and the report cap (criterion 13
     }
   });
 
-  it('resolves an ambiguous byMember key to the higher-PRIORITY class', async () => {
-    const { root, index } = await scratch(mixed);
+  it('gives an AMBIGUOUS byMember key to the labelled class over a larger plain one', async () => {
+    // The seam `code-craft` will bind to (`index.ts`'s byMember comment: "a
+    // labelled class therefore wins such a key over a larger plain duplicate"),
+    // and it was covered by nothing. The case this replaces drove `mixed`,
+    // whose two classes live in DISJOINT files, so no `${file}:${startLine}`
+    // key was ever ambiguous and first-writer-wins never fired: reversing the
+    // ownership iteration left that file 11/11 green.
+    //
+    // Here the collision is real. Each `src/oN.ts` holds a one-line outer
+    // function whose inline arrow begins on the same line, so the outer and the
+    // arrow share the key `src/oN.ts:2`. The outer CALLS the shared helper
+    // (outside the arrow) and is labelled; the arrow does not and is plain. The
+    // arrow also appears standalone in three further files, which makes the
+    // PLAIN class the larger of the two by rank — so only `priority` can put
+    // the labelled class in front.
+    const ARROW = (a: string, b: string) =>
+      `(${a}) => { const ${b} = ${a}.length * 2; const q = ${b} + 1; ` +
+      `const r = q * 3; const s = r - 4; const t = s / 5; const u = t + 6; ` +
+      `return ${b} + q + r + s + t + u; }`;
+    const outer = (fn: string, p: string, a: string, b: string) =>
+      `import { extract } from './shared/extract.js';\n` +
+      `export function ${fn}(${p}) { const seed = extract('x'); ` +
+      `return ${p}.map(${ARROW(a, b)}).concat([seed.length]); }\n`;
+    const hold = (nm: string, a: string, b: string) => `export const ${nm} = ${ARROW(a, b)};\n`;
+
+    const { root, index } = await scratch({
+      'src/shared/extract.ts': shared,
+      'src/o1.ts': outer('outerOne', 'items', 'alpha', 'beta'),
+      'src/o2.ts': outer('outerTwo', 'rows', 'gamma', 'delta'),
+      'src/o3.ts': outer('outerThree', 'entries', 'epsilon', 'zeta'),
+      'src/a1.ts': hold('holdOne', 'eta', 'theta'),
+      'src/a2.ts': hold('holdTwo', 'iota', 'kappa'),
+      'src/a3.ts': hold('holdThree', 'lambda', 'mu'),
+    });
     try {
-      const labelled = index.classes[0]!;
-      for (const member of labelled.members) {
-        expect(index.byMember.get(`${member.file}:${member.startLine}`)).toBe(labelled);
+      expect(index.classes).toHaveLength(2);
+      const labelled = index.classes.find((c) => c.signal === 'partial-extraction')!;
+      const plain = index.classes.find((c) => c.signal === 'duplicate')!;
+      expect(labelled.sharedImport).toBe('src/shared/extract');
+
+      // The plain class is the LARGER one by rank, and still loses the key.
+      expect(labelled.rank).toBe(282);
+      expect(plain.rank).toBe(378);
+      expect(plain.rank).toBeGreaterThan(labelled.rank);
+      expect(labelled.priority).toBe(564);
+      expect(plain.priority).toBe(378);
+
+      // The collision is real: nine members, six keys.
+      expect(labelled.members.length + plain.members.length).toBe(9);
+      expect(index.byMember.size).toBe(6);
+      const contested = ['src/o1.ts:2', 'src/o2.ts:2', 'src/o3.ts:2'];
+      for (const key of contested) {
+        // Both classes have a member at this key...
+        expect(labelled.members.some((m) => `${m.file}:${m.startLine}` === key)).toBe(true);
+        expect(plain.members.some((m) => `${m.file}:${m.startLine}` === key)).toBe(true);
+        // ...and the labelled one owns it.
+        expect(index.byMember.get(key)).toBe(labelled);
+      }
+      // The plain class still owns the three keys nobody contests.
+      for (const key of ['src/a1.ts:1', 'src/a2.ts:1', 'src/a3.ts:1']) {
+        expect(index.byMember.get(key)).toBe(plain);
       }
     } finally {
       await rm(root, { recursive: true, force: true });

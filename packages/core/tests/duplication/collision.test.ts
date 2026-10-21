@@ -136,6 +136,62 @@ describe('buildCloneIndex — observed digest collisions', () => {
     }
   });
 
+  it('breaks a priority tie under ONE digest by tokenCount, ascending', async () => {
+    // The comparator's LAST key, and the spec recorded it as a "known-unkillable
+    // mutant rather than as coverage" on the grounds that it is consulted only
+    // when two fingerprints are equal, which needs a real sha1 collision.
+    // Production-unreachable was right; UNTESTABLE was wrong. The digest is
+    // already mocked in this file, which makes the tie constructible.
+    //
+    // Two structurally distinct bodies measured at 60 and 80 normalized tokens,
+    // four and three copies: 60 x 4 === 80 x 3 === 240, so priority ties; both
+    // are plain duplicates, so `signal` ties; the mock makes `fingerprint` tie.
+    // Only `tokenCount` is left, and it orders them ascending.
+    const stmt = {
+      a: (o: string, i: number) => `  const k${i} = ${o} + ${i};\n  ${o} += k${i};\n`,
+      c: (o: string, i: number) => `  if (${o} > ${i}) {\n    ${o} -= ${i};\n  }\n`,
+      e: (o: string, i: number) => `  const q${i} = [${o}, ${i}].length;\n  ${o} += q${i};\n`,
+    };
+    const sized = (fn: string, p: string, out: string, seq: Array<'a' | 'c' | 'e'>) =>
+      `export function ${fn}(${p}: { cost: number }[]) {\n  let ${out} = 0;\n` +
+      seq.map((k, i) => stmt[k](out, i)).join('') +
+      `  for (const row of ${p}) {\n    ${out} += row.cost;\n  }\n  return ${out};\n}\n`;
+
+    const dir = await mkdtemp(join(tmpdir(), 'dup-tiebreak-'));
+    try {
+      await mkdir(join(dir, 'src'), { recursive: true });
+      const names: string[] = [];
+      const write = async (name: string, src: string) => {
+        names.push(name);
+        await writeFile(join(dir, 'src', name), src, 'utf8');
+      };
+      for (const [i, nm] of ['One', 'Two', 'Three', 'Four'].entries()) {
+        await write(`small${i}.ts`, sized(`sum${nm}`, `rows${nm}`, `acc${nm}`, ['a', 'a']));
+      }
+      for (const [i, nm] of ['Five', 'Six', 'Seven'].entries()) {
+        await write(`large${i}.ts`, sized(`sum${nm}`, `rows${nm}`, `acc${nm}`, ['e', 'c', 'e']));
+      }
+      const result = await buildCloneIndex(
+        names.map((n) => join(dir, 'src', n)),
+        { rootDir: dir, ignorePatterns: [] }
+      );
+      if (!result.ok) throw new Error(`expected ok: ${result.error.message}`);
+      const classes = result.value.classes;
+
+      // Every earlier key provably ties, so this case reaches the last one.
+      expect(classes).toHaveLength(2);
+      expect(classes.map((c) => c.priority)).toEqual([240, 240]);
+      expect(classes.map((c) => c.rank)).toEqual([240, 240]);
+      expect(classes.map((c) => c.signal)).toEqual(['duplicate', 'duplicate']);
+      expect(classes[0]!.fingerprint).toBe(classes[1]!.fingerprint);
+      // And the last key decides: ascending tokenCount.
+      expect(classes.map((c) => c.tokenCount)).toEqual([60, 80]);
+      expect(classes.map((c) => c.members.length)).toEqual([4, 3]);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
   it('reports a class fingerprint equal to the digest of its own stream', async () => {
     // `fingerprint` is the digest, not the composite group key — a consumer can
     // recompute it with `fingerprintStream`.
