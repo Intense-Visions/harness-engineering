@@ -10,6 +10,7 @@ import { createEntropyError } from '../shared/errors';
 import type { CloneUnitKind } from './units';
 import { extractUnits as extractUnitsImpl } from './units';
 import { normalizeTokens as normalize, fingerprintStream as digest } from './tokens';
+import { collectFileImports, usedImportKeys } from './imports';
 
 export type { CloneUnitKind, DupUnit } from './units';
 export { extractUnits, MissingNodeLocationError } from './units';
@@ -19,6 +20,8 @@ export {
   IDENTIFIER_PLACEHOLDER,
   LITERAL_PLACEHOLDER,
 } from './tokens';
+export type { FileImports } from './imports';
+export { moduleKey, collectFileImports, usedImportKeys, sharedImportKey } from './imports';
 
 /** One occurrence of a clone class, located in its file. */
 export interface CloneMember {
@@ -503,11 +506,20 @@ export function isEligibleFile(relPath: string, ignorePatterns: readonly string[
   );
 }
 
-/** One fingerprinted unit: its digest, token count, and located member. */
+/**
+ * One fingerprinted unit: its digest, token count, located member, and the
+ * first-party module keys its BODY references.
+ *
+ * `importKeys` is empty for a unit that references no first-party import —
+ * the overwhelmingly common case, and the reason this is a required array
+ * rather than an optional field: absent and "none" are the same statement
+ * here, and a required field cannot be forgotten by a future producer.
+ */
 export interface FingerprintedUnit {
   fingerprint: string;
   tokenCount: number;
   member: CloneMember;
+  importKeys: readonly string[];
 }
 
 /**
@@ -675,6 +687,11 @@ export async function fingerprintFile(
   const units: FingerprintedUnit[] = [];
   let unitsBelowMinTokens = 0;
   try {
+    // Inside the same `try` that yields `'internal-error'`: import collection
+    // is OUR code reading an already-parsed Program, not the file's syntax, so
+    // it is classified with normalization and the digest rather than with
+    // extraction (see {@link FileSkipReason}).
+    const fileImports = collectFileImports(program, relPath);
     for (const unit of extracted) {
       const stream = normalize(tokens, unit.range);
       if (stream.length < minTokens) {
@@ -684,6 +701,7 @@ export async function fingerprintFile(
       units.push({
         fingerprint: digest(stream),
         tokenCount: stream.length,
+        importKeys: usedImportKeys(fileImports, unit.range),
         member: {
           file: relPath,
           unit: unit.name,

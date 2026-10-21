@@ -19,6 +19,21 @@ beforeAll(async () => {
     'utf8'
   );
   await writeFile(join(root, 'src', 'broken.ts'), `export function broken( {\n`, 'utf8');
+  // Two units in ONE file: the first calls the imported binding, the second
+  // does not. Same file, same import list — so only a BODY-scoped derivation
+  // can tell them apart.
+  await writeFile(
+    join(root, 'src', 'helper.ts'),
+    `export function trim(raw: string) {\n  return raw.trim();\n}\n`,
+    'utf8'
+  );
+  await writeFile(
+    join(root, 'src', 'importer.ts'),
+    `import { trim } from './helper.js';\n` +
+      `export function usesImport(a: string) {\n  return trim(a);\n}\n` +
+      `export function ignoresImport(b: string) {\n  return b + b;\n}\n`,
+    'utf8'
+  );
 });
 
 afterAll(async () => {
@@ -33,6 +48,23 @@ describe('fingerprintFile', () => {
     expect(result.units.map((u) => u.member.unit)).toEqual(['ok']);
     expect(result.units[0]!.fingerprint).toMatch(/^[0-9a-f]{16}$/);
     expect(result.units[0]!.member.file).toBe('src/good.ts');
+  });
+
+  it('records only the imports each unit BODY references, per unit', async () => {
+    const result = await fingerprintFile(join(root, 'src', 'importer.ts'), 'src/importer.ts');
+    expect(result.status).toBe('scanned');
+    if (result.status !== 'scanned') return;
+    expect(result.units.map((u) => u.member.unit)).toEqual(['usesImport', 'ignoresImport']);
+    expect(result.units[0]!.importKeys).toEqual(['src/helper']);
+    // The decisive assertion: identical file, identical import list, empty.
+    expect(result.units[1]!.importKeys).toEqual([]);
+  });
+
+  it('records an empty importKeys for a file with no first-party import', async () => {
+    const result = await fingerprintFile(join(root, 'src', 'good.ts'), 'src/good.ts');
+    expect(result.status).toBe('scanned');
+    if (result.status !== 'scanned') return;
+    expect(result.units[0]!.importKeys).toEqual([]);
   });
 
   it('reports skipped for an unreadable file rather than throwing', async () => {
