@@ -13,7 +13,9 @@
  */
 
 import * as path from 'node:path';
+import { buildCloneIndex } from '@harness-engineering/core';
 import type { CloneClass, CloneIndex, CloneMember } from '@harness-engineering/core';
+import { discoverSourceFiles } from './discover.js';
 import type { CodeUnit } from '../findings/schema.js';
 
 /**
@@ -115,4 +117,47 @@ function spanAgrees(cls: CloneClass, rel: string, startLine: number, endLine: nu
  */
 function toRelativePosix(projectRoot: string, file: string): string {
   return path.relative(projectRoot, file).replaceAll('\\', '/');
+}
+
+/**
+ * Build the clone index for one `code-craft` run, or `undefined`.
+ *
+ * Scope is the FULL project discovery — deliberately NOT `input.files`,
+ * `input.packages` or `input.maxFiles`. Siblings live in other files by
+ * definition and `DEFAULT_MAX_FILES` is 100, so an index over the critiqued set
+ * could never form a 3-member class for a `--files one.ts` run, which is the
+ * most common invocation. Reusing `discoverSourceFiles` (rather than core's
+ * `findFiles` + `isEligibleFile`) means every unit code-craft critiques is
+ * provably inside the indexed corpus, so a miss always means "no clone class"
+ * and never "different scope". Measured at that scope: 2,066 files, 2.1-2.9 s,
+ * 58 classes, 230 `byMember` keys, 153 of 7,880 substantive units hitting.
+ *
+ * `DEFAULT_DUPLICATION_CONFIG` (`minInstances: 3`, `minTokens: 40`) is taken as
+ * given: `harness.config.json`'s `analyze.duplication` block is NOT read, so an
+ * adopter who tunes the detector will not see `code-craft` follow. That is a
+ * recorded assumption rather than an oversight, and the fix if it is wrong is
+ * one option object here.
+ *
+ * Returns `undefined` on `Err` and on an empty discovery, and the reason is
+ * DROPPED: `CodeCraftSummary` has no channel for it and the spec requires the
+ * critique to degrade to current behaviour rather than fail. The honest cost is
+ * that a failed index build is invisible to an operator — a filed follow-up,
+ * because surfacing it changes `CodeCraftOutput`, the MCP response and the
+ * printed page. What keeps the wiring falsifiable meanwhile is the end-to-end
+ * assertion over `collectCodeCraftPrompts(...).pendingPrompts[].userPrompt`.
+ */
+export async function buildCodeCraftCloneIndex(
+  projectRoot: string
+): Promise<CloneIndex | undefined> {
+  const files = discoverSourceFiles(projectRoot);
+  // Returned before the call, not delegated to it: `buildCloneIndex([])`
+  // answers `Err` (its refuse-to-pass-over-zero-files path), so the outcome
+  // would be the same either way — but paying a module load and a config
+  // resolution to learn there is nothing to scan is work with no question
+  // behind it. `tests/code-craft/siblings.test.ts` asserts the call does not
+  // happen, because without that assertion the guard is untestable: both paths
+  // return `undefined`.
+  if (files.length === 0) return undefined;
+  const result = await buildCloneIndex(files, { rootDir: projectRoot });
+  return result.ok ? result.value : undefined;
 }

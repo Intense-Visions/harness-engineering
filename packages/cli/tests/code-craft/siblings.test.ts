@@ -8,11 +8,40 @@
  * Source: docs/changes/duplication-detection/proposal.md (Phase 5).
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import * as fs from 'node:fs';
+import * as os from 'node:os';
 import * as path from 'node:path';
 import type { CloneClass, CloneIndex, CloneMember } from '@harness-engineering/core';
-import { resolveSiblingEvidence } from '../../src/code-craft/extract/siblings';
+import {
+  resolveSiblingEvidence,
+  buildCodeCraftCloneIndex,
+} from '../../src/code-craft/extract/siblings';
+import { extractUnits } from '../../src/code-craft/extract/units';
 import type { CodeUnit } from '../../src/code-craft/findings/schema';
+
+/**
+ * Call recorder for core's `buildCloneIndex`, delegating to the real one.
+ *
+ * The empty-discovery case is VACUOUS without this: `buildCodeCraftCloneIndex`
+ * returns `undefined` both when it short-circuits on an empty file list and
+ * when it hands `[]` to `buildCloneIndex`, which answers `Err` on its own
+ * refuse-to-pass-over-zero-files path. Only "was it called?" separates the two.
+ * The mock delegates rather than stubs, so every other case in this file still
+ * exercises the real index builder.
+ */
+const recorder = vi.hoisted(() => ({ calls: [] as unknown[][] }));
+
+vi.mock('@harness-engineering/core', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@harness-engineering/core')>();
+  return {
+    ...actual,
+    buildCloneIndex: (...args: Parameters<typeof actual.buildCloneIndex>) => {
+      recorder.calls.push(args);
+      return actual.buildCloneIndex(...args);
+    },
+  };
+});
 
 const STATS_ZERO: CloneIndex['stats'] = {
   filesScanned: 0,
@@ -244,5 +273,98 @@ describe('resolveSiblingEvidence', () => {
     // becomes `packages/a/src/odd\name.ts` and the lookup misses.
     expect(got).toBeDefined();
     expect(got!.siblings).toHaveLength(2);
+  });
+});
+
+/**
+ * A >= 40-token, >= 3-statement function planted verbatim in several files.
+ *
+ * Both bars are load-bearing and in different directions: code-craft's
+ * extractor only emits a unit with 3+ body statements or control flow, and
+ * core's detector only fingerprints a unit clearing `minTokens: 40`. A fixture
+ * that quietly fell under either bar would report "no siblings" and look like
+ * a wiring defect, so the first case below asserts `tokenCount >= 40` directly.
+ */
+const PLANTED_CLONE = `export function summarize(rows: number[]): string {
+  let total = 0;
+  for (const row of rows) {
+    if (row > 0) {
+      total += row * 2;
+    }
+  }
+  const average = rows.length === 0 ? 0 : total / rows.length;
+  const label = average > 10 ? 'high' : 'low';
+  return label + ':' + String(total) + ':' + String(average);
+}
+`;
+
+describe('buildCodeCraftCloneIndex', () => {
+  let tmp: string;
+
+  beforeEach(() => {
+    recorder.calls.length = 0;
+    tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'cc-siblings-'));
+  });
+
+  afterEach(() => {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  });
+
+  function plant(rel: string, content = PLANTED_CLONE): string {
+    const full = path.join(tmp, rel);
+    fs.mkdirSync(path.dirname(full), { recursive: true });
+    fs.writeFileSync(full, content);
+    return full;
+  }
+
+  it('builds an index that resolves a planted three-copy clone end to end', async () => {
+    const a = plant('packages/p/src/a.ts');
+    plant('packages/p/src/b.ts');
+    plant('packages/p/src/c.ts');
+
+    const built = await buildCodeCraftCloneIndex(tmp);
+    expect(built).toBeDefined();
+
+    const units = extractUnits(PLANTED_CLONE, a);
+    expect(units).toHaveLength(1);
+    const got = resolveSiblingEvidence(built!, tmp, a, units[0]!);
+
+    // Mutation: hand buildCloneIndex a single-file list (the `input.files`
+    // scope) instead of the full discovery — 0 siblings, because a class needs
+    // three members and the other two copies live in other files.
+    expect(got).toBeDefined();
+    expect(got!.siblings.map((m) => m.file).sort()).toEqual([
+      'packages/p/src/b.ts',
+      'packages/p/src/c.ts',
+    ]);
+    // The fixture must clear core's minTokens bar for this case to mean
+    // anything; if it ever stops doing so this fails loudly instead of
+    // reporting a plausible "no siblings".
+    expect(got!.siblingClass.tokenCount).toBeGreaterThanOrEqual(40);
+    expect(got!.siblingClass.members).toHaveLength(3);
+  });
+
+  it('returns undefined for an empty discovery without calling buildCloneIndex', async () => {
+    expect(await buildCodeCraftCloneIndex(tmp)).toBeUndefined();
+    // Mutation: drop the `files.length === 0` guard — buildCloneIndex is called
+    // once (and still returns Err, so the `undefined` above keeps passing).
+    // This assertion is the only thing that separates the two paths.
+    expect(recorder.calls).toHaveLength(0);
+  });
+
+  it('does not form a class from two copies (minInstances: 3)', async () => {
+    const a = plant('packages/p/src/a.ts');
+    plant('packages/p/src/b.ts');
+
+    const built = await buildCodeCraftCloneIndex(tmp);
+    // Reachable because the discovery DID find two eligible files and the
+    // index built successfully — the class simply fell below minInstances.
+    expect(recorder.calls).toHaveLength(1);
+    expect(built).toBeDefined();
+    expect(built!.stats.classesSuppressed).toBe(1);
+
+    const units = extractUnits(PLANTED_CLONE, a);
+    // Mutation: pass `minInstances: 2` to buildCloneIndex — a hit.
+    expect(resolveSiblingEvidence(built!, tmp, a, units[0]!)).toBeUndefined();
   });
 });

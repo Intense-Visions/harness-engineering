@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/tests/code-craft'
-sourceHash: '8bea94a32501e14a9ccecfa9e16b05a8dd7a949c79a4b2aacbada3f6cc88c892'
+sourceHash: '1a31fa7acb7da97ed6e61ff36005e0dc87c0a37c6f983f25f254974db464a952'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -34,7 +34,7 @@ import { abstractionEarnsKeepRubric } from '../../src/code-craft/catalog/rubrics
 import { controlFlowHonestRubric } from '../../src/code-craft/catalog/rubrics/control-flow-honest'
 import { revealsIntentRubric } from '../../src/code-craft/catalog/rubrics/reveals-intent'
 import { discoverSourceFiles } from '../../src/code-craft/extract/discover'
-import { resolveSiblingEvidence } from '../../src/code-craft/extract/siblings'
+import { buildCodeCraftCloneIndex, resolveSiblingEvidence } from '../../src/code-craft/extract/siblings'
 import { extractUnits, unitSource } from '../../src/code-craft/extract/units'
 import { extractUnits, unitSource } from '../../src/code-craft/extract/units.js'
 import { CodeUnit, UnitKind } from '../../src/code-craft/findings/schema'
@@ -45,5 +45,5 @@ import { CloneClass, CloneIndex, CloneMember } from '@harness-engineering/core'
 import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 ```
