@@ -48,8 +48,24 @@ export interface CloneClass {
   tokenCount: number;
   /** Length is always `>= minInstances`. */
   members: CloneMember[];
-  /** `tokenCount * members.length` — the ranking key. */
+  /**
+   * `tokenCount * members.length` — the SIZE of the duplication, and nothing
+   * else. Unchanged by the signal, so a consumer can read it as "tokens x
+   * copies" for any class (#1612 / #1646 bind to it as a magnitude).
+   */
   rank: number;
+  /**
+   * The ORDERING key: `rank`, times
+   * {@link PARTIAL_EXTRACTION_PRIORITY_BOOST} when
+   * `signal === 'partial-extraction'`.
+   *
+   * `classes` is sorted by this and the `maxClasses` cap keeps the top
+   * `maxClasses` by this (spec criterion 13). It equals `rank` for every plain
+   * duplicate, so a project with no partial-extraction class sees exactly the
+   * pre-Phase-4 order. Published rather than kept private because a consumer
+   * handed a reordered list must be able to derive the order from the payload.
+   */
+  priority: number;
   /**
    * `'partial-extraction'` when EVERY member's unit body references a value
    * binding imported from one common first-party module — a half-done
@@ -133,7 +149,11 @@ export interface FingerprintCollision {
 
 /** The clone index over one discovered file set. */
 export interface CloneIndex {
-  /** Qualifying classes, rank-descending, capped at `maxClasses`. */
+  /**
+   * Qualifying classes, PRIORITY-descending (`CloneClass.priority`), capped at
+   * `maxClasses`. `priority` equals `rank` for every plain duplicate, so this
+   * is rank-descending for any project with no labelled class.
+   */
   classes: CloneClass[];
   /** `${file}:${startLine}` -> owning class. The seam for code-craft (Phase 5). */
   byMember: Map<string, CloneClass>;
@@ -247,7 +267,10 @@ export interface DuplicationConfig {
    * nothing in this module mutates the array — `isEligibleFile` only reads it.
    */
   ignorePatterns: readonly string[];
-  /** Report cap; the top `maxClasses` by rank survive. Default 100. */
+  /**
+   * Report cap; the top `maxClasses` by `CloneClass.priority` survive
+   * (criterion 13). Default 100.
+   */
   maxClasses: number;
 }
 
@@ -376,6 +399,24 @@ export const DEFAULT_DUPLICATION_CONFIG: Readonly<DuplicationConfig> = Object.fr
  * rail, not a reporting threshold an operator tunes.
  */
 export const MAX_EVIDENCE_ENTRIES = 100;
+
+/**
+ * How much a `partial-extraction` class outweighs a plain duplicate of the
+ * same size (spec decision D8, "rank partial-extraction above plain
+ * duplication").
+ *
+ * A POLICY constant, deliberately separate from `rank`: a half-extracted class
+ * is the cheapest fix on the page, because the shared module already exists
+ * and the refactor is delete-and-import rather than design.
+ *
+ * Measured over this repository's 96 reported classes when this landed: at 2,
+ * six of the printed top ten are labelled, the mirror rows on that page fall
+ * from four to two, and the spec's named `parseFencedJson` case rises from #21
+ * to #9 — while the largest clone in the repository stays visible at #2. A
+ * strict tier (every labelled class first) instead fills all ten printed rows
+ * and pushes that largest clone off the page entirely.
+ */
+export const PARTIAL_EXTRACTION_PRIORITY_BOOST = 2;
 
 /** Options accepted by {@link buildCloneIndex}. */
 export interface BuildCloneIndexOptions extends Partial<DuplicationConfig> {
@@ -1014,11 +1055,13 @@ export async function buildCloneIndex(
     const sharedImport = sharedImportKey(units.map((unit) => unit.importKeys));
     const signal: CloneClass['signal'] =
       sharedImport === undefined ? 'duplicate' : 'partial-extraction';
+    const rank = tokenCount * members.length;
     qualifying.push({
       fingerprint,
       tokenCount,
       members,
-      rank: tokenCount * members.length,
+      rank,
+      priority: signal === 'partial-extraction' ? rank * PARTIAL_EXTRACTION_PRIORITY_BOOST : rank,
       signal,
       // Spread, never `sharedImport: undefined`: a plain duplicate's key set
       // is pinned by the barrel suite, and a present-but-undefined key is a
@@ -1028,21 +1071,27 @@ export async function buildCloneIndex(
     });
   }
 
-  // Rank-descending, with fingerprint and then tokenCount as deterministic
+  // Priority-descending, with fingerprint and then tokenCount as deterministic
   // tiebreaks so the reported order never depends on filesystem or input
   // ordering. `fingerprint` alone no longer identifies a class: two classes can
   // share a digest and differ in `tokenCount` (that IS an observed collision),
-  // and their ranks can still tie — 10 tokens x 6 members equals 20 x 3.
+  // and their priorities can still tie — 10 tokens x 6 members equals 20 x 3,
+  // and the boost scales both sides of that equality rather than breaking it,
+  // so the tiebreak is exactly as load-bearing as Phase 1 measured it.
   qualifying.sort(
     (a, b) =>
-      b.rank - a.rank || a.fingerprint.localeCompare(b.fingerprint) || a.tokenCount - b.tokenCount
+      b.priority - a.priority ||
+      a.fingerprint.localeCompare(b.fingerprint) ||
+      a.tokenCount - b.tokenCount
   );
   const classes = qualifying.slice(0, config.maxClasses);
   const classesTruncated = qualifying.length - classes.length;
 
-  // byMember: first writer wins, iterating rank-descending, so an ambiguous
+  // byMember: first writer wins, iterating priority-descending, so an ambiguous
   // `${file}:${startLine}` key (a function and a nested arrow can share a
-  // line) resolves deterministically to the highest-ranked owning class.
+  // line) resolves deterministically to the highest-PRIORITY owning class.
+  // A labelled class therefore wins such a key over a larger plain duplicate,
+  // which is the same precedence the printed report shows.
   const byMember = new Map<string, CloneClass>();
   for (const cls of classes) {
     for (const member of cls.members) {

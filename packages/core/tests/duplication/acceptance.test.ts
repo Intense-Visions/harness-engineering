@@ -144,7 +144,7 @@ describe('buildCloneIndex over the planted-clones fixture (criterion 15)', () =>
     expect(result.value.stats.unitsFingerprinted).toBe(TOTAL_UNITS);
   });
 
-  it('reports the top class by rank and truncates the rest under maxClasses', async () => {
+  it('reports the top class by priority and truncates the rest under maxClasses', async () => {
     const files = await discover(PLANTED_ROOT);
     const result = await buildCloneIndex(files, {
       rootDir: PLANTED_ROOT,

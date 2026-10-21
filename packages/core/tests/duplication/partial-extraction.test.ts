@@ -249,3 +249,105 @@ describe('buildCloneIndex — what does NOT get labelled (criterion 2)', () => {
     }
   });
 });
+
+/**
+ * A >=40-token plain-duplicate body, LARGER than `wrapper` and referencing no
+ * import at all.
+ *
+ * Sized on purpose: measured, `wrapper` is 62 tokens x 3 = rank 186 and this
+ * one is 103 x 3 = rank 309, so `rank_PE < rank_plain < 2 x rank_PE`. That is
+ * the only interval in which the ordering assertions below can distinguish
+ * "sorted by priority" from "sorted by rank" — outside it both orderings agree
+ * and the test would be vacuous.
+ */
+const bigPlain = (fn: string, p: string, out: string) =>
+  `export function ${fn}(${p}: { cost: number; label: string }[]) {\n` +
+  `  let ${out} = 0;\n` +
+  `  const seen: string[] = [];\n` +
+  `  const skipped: string[] = [];\n` +
+  `  for (const row of ${p}) {\n` +
+  `    if (row.cost > 0) {\n` +
+  `      ${out} += row.cost;\n` +
+  `      seen.push(row.label);\n` +
+  `    } else {\n` +
+  `      skipped.push(row.label);\n` +
+  `    }\n` +
+  `  }\n` +
+  `  return { total: ${out}, labels: seen, skipped };\n` +
+  `}\n`;
+
+const mixed = {
+  ...threeDepths,
+  'src/plain/one.ts': bigPlain('sumOne', 'rows', 'total'),
+  'src/plain/two.ts': bigPlain('sumTwo', 'entries', 'acc'),
+  'src/plain/three.ts': bigPlain('sumThree', 'items', 'sum'),
+};
+
+describe('buildCloneIndex — priority ordering and the report cap (criterion 13)', () => {
+  it('puts the SMALLER labelled class ahead of the larger plain duplicate', async () => {
+    const { root, index } = await scratch(mixed);
+    try {
+      expect(index.classes).toHaveLength(2);
+      const [first, second] = index.classes as [
+        (typeof index.classes)[number],
+        (typeof index.classes)[number],
+      ];
+      expect(first.signal).toBe('partial-extraction');
+      expect(second.signal).toBe('duplicate');
+      // The proof that `priority`, not `rank`, drives the order: the class in
+      // front is the SMALLER one. Under rank-descending it would be second.
+      expect(first.rank).toBe(186);
+      expect(second.rank).toBe(309);
+      expect(first.rank).toBeLessThan(second.rank);
+      expect(first.priority).toBe(first.rank * 2);
+      expect(first.priority).toBe(372);
+      expect(second.priority).toBe(second.rank);
+      expect(index.classes.map((c) => c.priority)).toEqual([372, 309]);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it('keeps the labelled class when maxClasses drops the larger plain one', async () => {
+    const { root, index } = await scratch(mixed, { maxClasses: 1 });
+    try {
+      expect(index.classes).toHaveLength(1);
+      // Criterion 13 by `priority`: the survivor is the SMALLER class.
+      expect(index.classes[0]!.signal).toBe('partial-extraction');
+      expect(index.classes[0]!.rank).toBe(186);
+      expect(index.stats.classesTruncated).toBe(1);
+      expect(index.stats.classesReported).toBe(1);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it('resolves an ambiguous byMember key to the higher-PRIORITY class', async () => {
+    const { root, index } = await scratch(mixed);
+    try {
+      const labelled = index.classes[0]!;
+      for (const member of labelled.members) {
+        expect(index.byMember.get(`${member.file}:${member.startLine}`)).toBe(labelled);
+      }
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it('gives every plain duplicate priority === rank, so no-label projects are unchanged', async () => {
+    const { root, index } = await scratch({
+      'src/plain/one.ts': bigPlain('sumOne', 'rows', 'total'),
+      'src/plain/two.ts': bigPlain('sumTwo', 'entries', 'acc'),
+      'src/plain/three.ts': bigPlain('sumThree', 'items', 'sum'),
+    });
+    try {
+      expect(index.classes).toHaveLength(1);
+      for (const cls of index.classes) {
+        expect(cls.signal).toBe('duplicate');
+        expect(cls.priority).toBe(cls.rank);
+      }
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+});

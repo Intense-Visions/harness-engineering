@@ -39,8 +39,28 @@ const body = (fn: string, p: string, acc: string, el: string) =>
   `  return { total: ${acc}, labels: seen };\n` +
   `}\n`;
 
+/**
+ * A >=40-token body that CALLS an imported helper, at a parameterised import
+ * depth so the three copies spell one module three different ways.
+ */
+const wrapper = (spec: string, fn: string, p: string, out: string) =>
+  `import { extract } from '${spec}';\n` +
+  `export function ${fn}(${p}: string[]): string[] {\n` +
+  `  const ${out}: string[] = [];\n` +
+  `  for (const item of ${p}) {\n` +
+  `    const value = extract(item);\n` +
+  `    if (value.length > 0) {\n` +
+  `      ${out}.push(value);\n` +
+  `    }\n` +
+  `  }\n` +
+  `  return ${out};\n` +
+  `}\n`;
+
 let root: string;
 let index: CloneIndex;
+/** A second root, whose one class production code LABELLED. */
+let labelledRoot: string;
+let labelledIndex: CloneIndex;
 
 beforeAll(async () => {
   root = await mkdtemp(join(tmpdir(), 'dup-barrel-'));
@@ -55,10 +75,36 @@ beforeAll(async () => {
   );
   if (!result.ok) throw new Error(`expected ok: ${result.error.message}`);
   index = result.value;
+
+  // A SEPARATE root, so the Phase-1 assertions above keep their exact
+  // one-class/no-skip shape while the labelled key set is still asserted over
+  // an object production code built.
+  labelledRoot = await mkdtemp(join(tmpdir(), 'dup-barrel-pe-'));
+  await mkdir(join(labelledRoot, 'src', 'shared'), { recursive: true });
+  await mkdir(join(labelledRoot, 'src', 'deep', 'nested'), { recursive: true });
+  await mkdir(join(labelledRoot, 'src', 'wrappers'), { recursive: true });
+  const labelledFiles: Record<string, string> = {
+    'src/shared/extract.ts': `export function extract(raw: string): string {\n  return raw.trim();\n}\n`,
+    'src/beta.ts': wrapper('./shared/extract.js', 'keepBeta', 'rows', 'kept'),
+    'src/wrappers/alpha.ts': wrapper('../shared/extract.js', 'keepAlpha', 'items', 'out'),
+    'src/deep/nested/gamma.ts': wrapper('../../shared/extract.js', 'keepGamma', 'entries', 'acc'),
+  };
+  for (const [rel, src] of Object.entries(labelledFiles)) {
+    await writeFile(join(labelledRoot, rel), src, 'utf8');
+  }
+  const labelledResult = await buildCloneIndex(
+    Object.keys(labelledFiles).map((f) => join(labelledRoot, f)),
+    { rootDir: labelledRoot, ignorePatterns: [] }
+  );
+  if (!labelledResult.ok) {
+    throw new Error(`expected ok: ${labelledResult.error.message}`);
+  }
+  labelledIndex = labelledResult.value;
 });
 
 afterAll(async () => {
   await rm(root, { recursive: true, force: true });
+  await rm(labelledRoot, { recursive: true, force: true });
 });
 
 describe('core barrel — duplication surface (criterion 11)', () => {
@@ -80,6 +126,7 @@ describe('core barrel — duplication surface (criterion 11)', () => {
     'collectFileImports',
     'usedImportKeys',
     'sharedImportKey',
+    'PARTIAL_EXTRACTION_PRIORITY_BOOST',
   ])('exposes %s as a named export on the package entry point', (name) => {
     // What this proves: the name is present on the package's namespace object.
     // It does NOT prove the binding is usable — the case below does that for
@@ -135,16 +182,19 @@ describe('core barrel — duplication surface (criterion 11)', () => {
   it('builds a CloneClass and CloneMember matching the exported interfaces', () => {
     expect(index.classes).toHaveLength(1);
     const cls: CloneClass = index.classes[0]!;
-    // `sharedImport` is unset in Phase 1, so it is absent from the built object.
+    // `sharedImport` is unset on a plain duplicate, so it is ABSENT from the
+    // built object — not present-and-undefined, which `Object.keys` would list.
     expect(Object.keys(cls).sort()).toEqual([
       'fingerprint',
       'members',
+      'priority',
       'rank',
       'signal',
       'tokenCount',
     ]);
     expect(cls.fingerprint).toMatch(/^[0-9a-f]{16}$/);
     expect(cls.signal).toBe('duplicate');
+    expect(cls.priority).toBe(cls.rank);
 
     expect(cls.members).toHaveLength(3);
     const member: CloneMember = cls.members[0]!;
@@ -152,6 +202,26 @@ describe('core barrel — duplication surface (criterion 11)', () => {
     const kind: CloneUnitKind = member.kind;
     expect(['function', 'method', 'class']).toContain(kind);
     expect(index.byMember.get(`${member.file}:${member.startLine}`)).toBe(cls);
+  });
+
+  it('builds a LABELLED CloneClass carrying sharedImport and a boosted priority', () => {
+    expect(labelledIndex.classes).toHaveLength(1);
+    const cls: CloneClass = labelledIndex.classes[0]!;
+    expect(Object.keys(cls).sort()).toEqual([
+      'fingerprint',
+      'members',
+      'priority',
+      'rank',
+      'sharedImport',
+      'signal',
+      'tokenCount',
+    ]);
+    expect(cls.signal).toBe('partial-extraction');
+    expect(cls.sharedImport).toBe('src/shared/extract');
+    expect(cls.priority).toBe(cls.rank * core.PARTIAL_EXTRACTION_PRIORITY_BOOST);
+    // The constant is the published ordering policy, so its VALUE is part of
+    // the contract a `--json` consumer reproduces the order from.
+    expect(core.PARTIAL_EXTRACTION_PRIORITY_BOOST).toBe(2);
   });
 
   it('builds a SkippedFile matching the exported interface', () => {

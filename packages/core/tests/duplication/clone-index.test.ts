@@ -309,6 +309,9 @@ describe('buildCloneIndex', () => {
       expect(index.classes[0]!.rank).toBe(
         index.classes[0]!.tokenCount * index.classes[0]!.members.length
       );
+      // A plain duplicate's ordering key IS its size, so a project with no
+      // labelled class sees exactly the pre-Phase-4 order (criterion 13).
+      expect(index.classes[0]!.priority).toBe(index.classes[0]!.rank);
       expect(index.stats.filesScanned).toBe(3);
       expect(index.stats.filesSkipped).toBe(0);
       expect(index.stats.classesReported).toBe(index.classes.length);
@@ -404,7 +407,7 @@ describe('buildCloneIndex', () => {
     }
   });
 
-  it('caps at maxClasses by rank and records the dropped count', async () => {
+  it('caps at maxClasses by priority and records the dropped count', async () => {
     // Two STRUCTURALLY distinct bodies. `bodyB` must differ in keywords and
     // punctuators, not merely in literals or member names — those normalize
     // to `L` / `I` and would collapse both groups into one fingerprint.
@@ -438,7 +441,61 @@ describe('buildCloneIndex', () => {
     }
   });
 
-  it('sorts classes rank-descending and deterministically', async () => {
+  it('breaks a priority TIE by fingerprint, not by file-discovery order', async () => {
+    // The comparator's second key only decides anything when the first ties,
+    // and no other fixture in this feature ties: three identical files make
+    // ONE class, so the "deterministic" case below never reaches a tiebreak.
+    // Deleting `localeCompare` from the comparator passed all 506 duplication
+    // and entropy tests before this case existed.
+    //
+    // Two STRUCTURALLY distinct bodies measured to the SAME normalized token
+    // count (82), three copies each: rank 3 x 82 = 246 for both, and both are
+    // plain duplicates, so priority ties at 246 too.
+    const addEach = (fn: string, n: number) =>
+      `export function ${fn}(xs: number[]) {\n  let t = 0;\n` +
+      Array.from({ length: n }, (_, i) => `  t += xs[${i}];\n`).join('') +
+      `  return t;\n}\n`;
+    const mulEach = (fn: string, n: number) =>
+      `export function ${fn}(ys: number[]) {\n  let s = 1;\n` +
+      Array.from({ length: n }, (_, i) => `  s *= ys[${i}] ?? 1;\n`).join('') +
+      `  return s;\n}\n`;
+    const root = await scratch({
+      'src/add1.ts': addEach('addOne', 9),
+      'src/add2.ts': addEach('addTwo', 9),
+      'src/add3.ts': addEach('addThree', 9),
+      'src/mul1.ts': mulEach('mulOne', 7),
+      'src/mul2.ts': mulEach('mulTwo', 7),
+      'src/mul3.ts': mulEach('mulThree', 7),
+    });
+    try {
+      const abs = ['add1', 'add2', 'add3', 'mul1', 'mul2', 'mul3'].map((f) =>
+        join(root, 'src', `${f}.ts`)
+      );
+      const forward = await buildCloneIndex(abs, { rootDir: root, ignorePatterns: [] });
+      const reversed = await buildCloneIndex([...abs].reverse(), {
+        rootDir: root,
+        ignorePatterns: [],
+      });
+      if (!forward.ok || !reversed.ok) throw new Error('expected ok');
+      const classes = forward.value.classes;
+      // The tie is REAL, so this case provably reaches the tiebreak.
+      expect(classes).toHaveLength(2);
+      expect(classes.map((c) => c.tokenCount)).toEqual([82, 82]);
+      expect(classes.map((c) => c.rank)).toEqual([246, 246]);
+      expect(classes.map((c) => c.priority)).toEqual([246, 246]);
+      expect(classes[0]!.fingerprint).not.toBe(classes[1]!.fingerprint);
+      // Resolved by fingerprint, ascending — and so identical whichever order
+      // the files were handed in.
+      expect(classes[0]!.fingerprint.localeCompare(classes[1]!.fingerprint)).toBeLessThan(0);
+      expect(reversed.value.classes.map((c) => c.fingerprint)).toEqual(
+        classes.map((c) => c.fingerprint)
+      );
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it('sorts classes priority-descending and deterministically', async () => {
     const root = await scratch({
       'src/a.ts': body('sumAlpha', 'items', 'total', 'item'),
       'src/b.ts': body('addBeta', 'rows', 'acc', 'row'),
