@@ -274,3 +274,58 @@ describe('detect_entropy type: "duplication"', () => {
     expect(result.content[0]!.text).toContain('No pattern rules are configured');
   });
 });
+
+const PE_FIXTURE = path.join(__dirname, '../../fixtures/duplication-partial-extraction-project');
+
+describe('detect_entropy type: "duplication" — the partial-extraction signal', () => {
+  let peDir: string;
+
+  beforeEach(() => {
+    peDir = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-dup-mcp-pe-'));
+    fs.cpSync(PE_FIXTURE, peDir, { recursive: true });
+  });
+
+  afterEach(() => {
+    fs.rmSync(peDir, { recursive: true, force: true });
+  });
+
+  it('carries signal, sharedImport and priority through toJsonSafeDuplication', async () => {
+    const result = await handleDetectEntropy({ path: peDir, type: 'duplication', compact: false });
+    const payload = JSON.parse(result.content[0]!.text);
+    expect(result.isError).toBeUndefined();
+    const classes = payload.duplication.classes;
+    expect(classes).toHaveLength(2);
+    // `toJsonSafeDuplication` spreads `...rest`, so the new fields arrive with
+    // no edit there. MUTATION: project the classes field-by-field and this
+    // fails — which is what makes "they flow automatically" a guarded claim.
+    expect(classes[0].signal).toBe('partial-extraction');
+    expect(classes[0].sharedImport).toBe('src/shared/payload');
+    expect(classes[0].priority).toBe(372);
+    expect(classes[0].rank).toBe(186);
+    expect(classes[1].signal).toBe('duplicate');
+    expect(classes[1].priority).toBe(309);
+    expect('sharedImport' in classes[1]).toBe(false);
+  });
+
+  it('tags the signal on the summary-mode topClasses line that has one', async () => {
+    const result = await handleDetectEntropy({ path: peDir, type: 'duplication', mode: 'summary' });
+    const payload = JSON.parse(result.content[0]!.text);
+    const top = payload.advisory.duplication.topClasses;
+    // Asserted over a TWO-class fixture on purpose: the compaction
+    // middleware's structural pass collapses a single-element array to a
+    // scalar, so `topClasses[0]` on a one-class project is the first CHARACTER
+    // of a string, not a line.
+    expect(Array.isArray(top)).toBe(true);
+    expect(top).toHaveLength(2);
+    // MUTATION (deferred from the summarizeDuplication commit, which had no
+    // labelled fixture yet): drop the suffix from `topClassLine` and this fails.
+    expect(top[0]).toContain('3x 62 tokens: keepBeta');
+    expect(top[0]).toContain('[partial-extraction -> src/shared/payload]');
+    expect(top[1]).toContain('3x 103 tokens: sumOne');
+    expect(top[1]).not.toContain('partial-extraction');
+    expect(payload.advisory.duplication.classesReported).toBe(2);
+    expect(payload.advisory.duplication.filesSkipped).toBe(0);
+    // D4 parity on this surface, with a labelled class present.
+    expect(payload.totalIssues).toBe(0);
+  });
+});
