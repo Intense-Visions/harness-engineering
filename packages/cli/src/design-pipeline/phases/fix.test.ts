@@ -4,7 +4,7 @@ import { newContext, type DesignPipelineContext } from '../context.js';
 import type { DriftFinding } from '../../drift/findings/finding.js';
 
 /**
- * Unit contract for Phase 3 FIX (`runFix`). Pins the CURRENT behavior of the
+ * Unit contract for Phase 3 FIX (`runFix`). Pins the behavior of the
  * convergence loop: the early no-drift return, the align→re-detect cadence, the
  * converged / no-progress / error stop conditions, the 5-iteration bound, and
  * the `.harness/handoff.json` pipeline handoff write.
@@ -57,8 +57,10 @@ function makeInput(context: DesignPipelineContext, over: Partial<FixInput> = {})
   return { projectRoot: PROJECT_ROOT, context, mode: 'fast', ...over };
 }
 
+/** A context in which DETECT measured (detect-drift ran) and found `count` findings. */
 function contextWithDrift(count: number): DesignPipelineContext {
   const ctx = newContext();
+  ctx.verifiersRun.push('detect-drift');
   ctx.driftFindings = findings(count);
   return ctx;
 }
@@ -71,7 +73,7 @@ beforeEach(() => {
 
 describe('runFix', () => {
   it('returns immediately without aligning or writing when there is no drift', async () => {
-    const ctx = newContext(); // driftFindings === []
+    const ctx = contextWithDrift(0); // DETECT measured, found nothing
 
     await runFix(makeInput(ctx));
 
@@ -79,6 +81,21 @@ describe('runFix', () => {
     expect(h.runDetect).not.toHaveBeenCalled();
     expect(h.writeFileSync).not.toHaveBeenCalled();
     expect(ctx.summary.iterationsRun).toBe(0);
+    expect(ctx.summary.fixStopReason).toBe('no-drift');
+  });
+
+  it('reports detect-unavailable, not no-drift, when DETECT did not measure', async () => {
+    // detect-drift threw or abstained: the finding list is empty because
+    // nobody looked. Reporting `no-drift` here would tell a consumer there was
+    // nothing to fix on a run that never measured.
+    const ctx = newContext();
+    ctx.verifiersFailed.push({ name: 'detect-drift', error: 'abstained' });
+
+    await runFix(makeInput(ctx));
+
+    expect(h.runAlign).not.toHaveBeenCalled();
+    expect(ctx.summary.iterationsRun).toBe(0);
+    expect(ctx.summary.fixStopReason).toBe('detect-unavailable');
   });
 
   it('stops on convergence (0 fixes applied) after a single align, without re-detecting', async () => {
@@ -91,7 +108,9 @@ describe('runFix', () => {
     expect(h.runDetect).not.toHaveBeenCalled();
     // Outcomes are still collected even though the run converged.
     expect(ctx.fixesApplied).toEqual([{ kind: 'applied' }]);
-    expect(ctx.summary.iterationsRun).toBe(0);
+    // One align pass ran, so one iteration — even though it converged.
+    expect(ctx.summary.iterationsRun).toBe(1);
+    expect(ctx.summary.fixStopReason).toBe('converged');
   });
 
   it('aligns with pipeline mode against the project root', async () => {
@@ -106,14 +125,17 @@ describe('runFix', () => {
   it('stops on no-progress when the re-detected drift count does not decrease', async () => {
     const ctx = contextWithDrift(2);
     h.runAlign.mockResolvedValue(alignResult(1));
-    // Same count as before (2) => no progress => break before incrementing.
+    // Same count as before (2) => no progress => break.
     h.runDetect.mockResolvedValue({ findings: findings(2) });
 
     await runFix(makeInput(ctx));
 
     expect(h.runAlign).toHaveBeenCalledTimes(1);
     expect(h.runDetect).toHaveBeenCalledTimes(1);
-    expect(ctx.summary.iterationsRun).toBe(0);
+    // The pass applied a fix before hitting the no-progress stop. Reporting 0
+    // here put `iterations: 0` beside `fixes applied: 1` in the same report.
+    expect(ctx.summary.iterationsRun).toBe(1);
+    expect(ctx.summary.fixStopReason).toBe('no-progress');
     // Re-detected findings replace the context's findings.
     expect(ctx.driftFindings).toHaveLength(2);
   });
@@ -129,7 +151,8 @@ describe('runFix', () => {
 
     expect(h.runAlign).toHaveBeenCalledTimes(2);
     expect(h.runDetect).toHaveBeenCalledTimes(1);
-    expect(ctx.summary.iterationsRun).toBe(1);
+    expect(ctx.summary.iterationsRun).toBe(2);
+    expect(ctx.summary.fixStopReason).toBe('converged');
   });
 
   it('is bounded at 5 iterations even when drift keeps decreasing', async () => {
@@ -143,6 +166,29 @@ describe('runFix', () => {
 
     expect(h.runAlign).toHaveBeenCalledTimes(5);
     expect(ctx.summary.iterationsRun).toBe(5);
+    expect(ctx.summary.fixStopReason).toBe('max-iterations');
+  });
+
+  it('reports converged, not max-iterations, when the 5th pass is the one that converges', async () => {
+    // Four productive passes, then a 5th that applies nothing. The count is 5
+    // exactly as for a loop cut off at the cap, so only the stop reason can
+    // tell the two apart — an escalation keyed on `iterationsRun === 5` would
+    // fire on this run, which finished.
+    const ctx = contextWithDrift(5);
+    h.runAlign
+      .mockResolvedValueOnce(alignResult(1))
+      .mockResolvedValueOnce(alignResult(1))
+      .mockResolvedValueOnce(alignResult(1))
+      .mockResolvedValueOnce(alignResult(1))
+      .mockResolvedValueOnce(alignResult(0));
+    let n = 4;
+    h.runDetect.mockImplementation(async () => ({ findings: findings(n--) }));
+
+    await runFix(makeInput(ctx));
+
+    expect(h.runAlign).toHaveBeenCalledTimes(5);
+    expect(ctx.summary.iterationsRun).toBe(5);
+    expect(ctx.summary.fixStopReason).toBe('converged');
   });
 
   it('records a verifier failure and stops when align throws', async () => {
@@ -153,7 +199,9 @@ describe('runFix', () => {
 
     expect(ctx.verifiersFailed).toEqual([{ name: 'align-design-system', error: 'align boom' }]);
     expect(h.runDetect).not.toHaveBeenCalled();
-    expect(ctx.summary.iterationsRun).toBe(0);
+    // The pass was attempted; its failure is on verifiersFailed.
+    expect(ctx.summary.iterationsRun).toBe(1);
+    expect(ctx.summary.fixStopReason).toBe('failed');
   });
 
   it('stringifies non-Error align rejections in the verifier failure', async () => {
@@ -167,7 +215,7 @@ describe('runFix', () => {
     ]);
   });
 
-  it('stops without touching the context findings when re-detect throws', async () => {
+  it('records the failure and stops without touching the findings when re-detect throws', async () => {
     const ctx = contextWithDrift(2);
     const original = ctx.driftFindings;
     h.runAlign.mockResolvedValue(alignResult(1));
@@ -175,10 +223,16 @@ describe('runFix', () => {
 
     await runFix(makeInput(ctx));
 
-    // safelyRedetect swallows the error and returns null -> loop breaks.
-    expect(ctx.summary.iterationsRun).toBe(0);
+    expect(ctx.summary.iterationsRun).toBe(1);
+    expect(ctx.summary.fixStopReason).toBe('failed');
     expect(ctx.driftFindings).toBe(original);
-    expect(ctx.verifiersFailed).toEqual([]); // detect failure is silent, not recorded
+    // This used to assert `[]` — "detect failure is silent, not recorded".
+    // It was the only one of seven detect-drift call sites where the failure
+    // vanished, so a loop that stopped because it could not VERIFY its last
+    // iteration looked exactly like one that stopped because it CONVERGED
+    // (#2070). The verifiers now abstain rather than reporting a clean scan
+    // over nothing, which makes that silence reachable.
+    expect(ctx.verifiersFailed).toEqual([{ name: 'detect-drift', error: 'detect boom' }]);
   });
 
   it('forwards mode, files, and designStrictness to re-detect only when provided', async () => {

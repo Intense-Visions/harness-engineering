@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { resolveProjectFrom } from '../helpers/resolve-project-mock';
 import { Command } from 'commander';
 
 // -----------------------------------------------------------------------------
@@ -31,17 +32,23 @@ vi.mock('@harness-engineering/core', async (importOriginal) => {
   };
 });
 
-vi.mock('../../src/config/loader', () => ({
-  resolveConfig: vi.fn().mockReturnValue({
-    ok: true,
-    value: {
-      version: 1,
-      rootDir: '.',
-      agentsMapPath: './AGENTS.md',
-      docsDir: './docs',
-    },
-  }),
-}));
+vi.mock('../../src/config/loader', () => {
+  const mock = {
+    resolveConfig: vi.fn().mockReturnValue({
+      ok: true,
+      value: {
+        version: 1,
+        rootDir: '.',
+        agentsMapPath: './AGENTS.md',
+        docsDir: './docs',
+      },
+    }),
+  };
+  // `resolveProject` is the one shape commands use for "the config AND the
+  // project root it implies" (#911 class). Derive it from the config double
+  // above rather than restating the config literal.
+  return { ...mock, resolveProject: resolveProjectFrom(mock.resolveConfig) };
+});
 
 vi.mock('../../src/mcp/tools/audit-anatomy', () => ({
   runAudit: vi.fn().mockResolvedValue({
@@ -278,14 +285,18 @@ describe('runValidate — per-check failure branches (cov544)', () => {
     expect(warnFinding?.line).toBeUndefined();
   });
 
-  it('degrades gracefully when drift detection throws', async () => {
+  it('abstains when drift detection throws, rather than filing a warning', async () => {
     vi.mocked(runDetectDrift).mockRejectedValueOnce(new Error('drift boom'));
     const result = await runValidate({ cwd: '/tmp/nope' });
     if (!result.ok) return;
     expect(result.value.checks.driftDetection).toBe(false);
-    const issue = result.value.issues.find((i) => i.check === 'driftDetection');
-    expect(issue?.severity).toBe('warning');
-    expect(issue?.message).toContain('drift boom');
+    // A verifier that could not run is a fact about the report's completeness,
+    // not a filterable finding (#2070).
+    expect(
+      result.value.unavailableChecks.find((u) => u.check === 'driftDetection')?.reason
+    ).toContain('drift boom');
+    expect(result.value.complete).toBe(false);
+    expect(result.value.issues.some((i) => i.check === 'driftDetection')).toBe(false);
   });
 
   it('surfaces brand error findings and flips valid', async () => {
@@ -316,14 +327,16 @@ describe('runValidate — per-check failure branches (cov544)', () => {
     expect(result.value.issues.find((i) => i.ruleId === 'BRAND-T001')?.severity).toBe('error');
   });
 
-  it('degrades gracefully when brand audit throws', async () => {
+  it('abstains when brand audit throws, rather than filing a warning', async () => {
     vi.mocked(runAuditBrand).mockRejectedValueOnce(new Error('brand boom'));
     const result = await runValidate({ cwd: '/tmp/nope' });
     if (!result.ok) return;
     expect(result.value.checks.brandCompliance).toBe(false);
-    expect(result.value.issues.find((i) => i.check === 'brandCompliance')?.message).toContain(
-      'brand boom'
-    );
+    expect(
+      result.value.unavailableChecks.find((u) => u.check === 'brandCompliance')?.reason
+    ).toContain('brand boom');
+    expect(result.value.complete).toBe(false);
+    expect(result.value.issues.some((i) => i.check === 'brandCompliance')).toBe(false);
   });
 
   it('surfaces instruction-density findings as advisory warnings without flipping valid', async () => {

@@ -10,7 +10,7 @@ import {
 } from '@harness-engineering/core';
 import type { LayerConfig } from '@harness-engineering/core';
 import { formatFindingsContract } from '@harness-engineering/types';
-import { resolveConfig } from '../config/loader';
+import { resolveProject } from '../config/loader';
 import { loadDepsExclude } from '../config/schema';
 import { OutputFormatter, OutputMode, type OutputModeType } from '../output/formatter';
 import { logger } from '../output/logger';
@@ -23,6 +23,25 @@ interface CheckDepsOptions {
   json?: boolean;
   verbose?: boolean;
   quiet?: boolean;
+}
+
+/**
+ * A check that ABSTAINED — it did not malfunction, it simply validated nothing
+ * and said so (#2098).
+ *
+ * Distinct from an `analysisError` (#1996): an error says the engine broke, an
+ * abstention says the engine declined to run. Both refuse to report clean, but
+ * they are different verdicts and get different exit codes. Shape matches the
+ * `unavailableChecks` entry `OutputFormatter.formatValidation` renders, and the
+ * identical structure `harness validate` already emits.
+ */
+interface UnavailableCheck {
+  /** The analysis that abstained. */
+  check: string;
+  /** Why it did not run. Carries the engine's own reason verbatim. */
+  reason: string;
+  /** What the operator should do about it. */
+  suggestion?: string;
 }
 
 interface CheckDepsResult {
@@ -38,6 +57,14 @@ interface CheckDepsResult {
    *  complete, and therefore refuses to report clean (#1996). Absent (not an
    *  empty array) when every engine ran, so a clean result is unchanged. */
   analysisErrors?: string[];
+  /** Analyses that abstained — they validated nothing and said so (#2098).
+   *  Absent (not an empty array) when every engine actually ran, so a clean
+   *  result is unchanged. */
+  unavailableChecks?: UnavailableCheck[];
+  /** Set when `deps.fallbackBehavior: 'warn'` downgraded an abstention back to
+   *  the pre-#2098 exit 0. The abstention is still reported — only its exit
+   *  code is downgraded (#2098). */
+  abstentionDowngraded?: boolean;
   layerViolations: Array<{
     file: string;
     imports: string;
@@ -77,17 +104,70 @@ function recordAnalysisError(
   );
 }
 
+/**
+ * Record an engine ABSTENTION on the result (#2098).
+ *
+ * `validateDependencies` already computes this verdict and labels it — an
+ * unavailable parser returns `Ok({ valid: true, violations: [], skipped: true,
+ * reason })`. Every consumer then read only `violations`, so the abstention was
+ * computed and thrown away: `valid` stayed true, the finding lists stayed empty,
+ * and the command exited 0 having validated nothing. Reading the flag is the
+ * whole fix.
+ *
+ * `downgraded` is the documented escape hatch (`deps.fallbackBehavior: 'warn'`):
+ * the abstention is still reported in every output mode, but the exit code stays
+ * 0 for projects that need the old behaviour while they fix their setup.
+ *
+ * @param result - The in-progress check-deps result to annotate.
+ * @param stage - Human-readable name of the analysis that abstained.
+ * @param reason - The engine's own reason for not running.
+ * @param downgraded - Whether `deps.fallbackBehavior: 'warn'` is in force.
+ */
+/**
+ * Source sweep used for circular-dependency detection when no layers are
+ * configured. Circular detection needs a file set, not a layer model, and
+ * `check-deps` used to return a clean `valid: true` over zero modules the
+ * moment `layers` was absent — skipping the cycle check entirely (#2098).
+ *
+ * Deliberately the TypeScript/JavaScript source extensions the parser can
+ * actually read; `findFiles` stacks core's `DEFAULT_FIND_FILES_IGNORE`
+ * (node_modules, dist, .git, …) and the project's `deps.exclude` on top.
+ */
+const UNLAYERED_DISCOVERY_PATTERN = '**/*.{ts,tsx,mts,cts,js,jsx,mjs,cjs}';
+
+function recordAbstention(
+  result: CheckDepsResult,
+  stage: string,
+  reason: string,
+  downgraded: boolean
+): void {
+  result.unavailableChecks ??= [];
+  result.unavailableChecks.push({
+    check: stage,
+    reason: `check-deps did not run ${stage}: ${reason}`,
+    suggestion:
+      'Restore the analysis engine (the parser reported itself unavailable). ' +
+      'To keep exiting 0 meanwhile, set `deps.fallbackBehavior: "warn"` in harness.config.json.',
+  });
+  if (downgraded) {
+    result.abstentionDowngraded = true;
+    return;
+  }
+  result.valid = false;
+}
+
 export async function runCheckDeps(
   options: CheckDepsOptions
 ): Promise<Result<CheckDepsResult, CLIError>> {
-  const cwd = options.cwd ?? process.cwd();
-
-  // Load config
-  const configResult = resolveConfig(options.configPath);
-  if (!configResult.ok) {
-    return configResult;
+  // Root the scan on the project that owns the config, not `process.cwd()`:
+  // `-c` used to select the config file while the scan stayed on the current
+  // directory, so pointing it at another project measured THIS tree. Same
+  // split `check-arch` was fixed out of under #911 (9f322084c).
+  const projectResult = resolveProject(options.configPath, options.cwd);
+  if (!projectResult.ok) {
+    return projectResult;
   }
-  const config = configResult.value;
+  const { config, root: cwd } = projectResult.value;
 
   const result: CheckDepsResult = {
     valid: true,
@@ -97,12 +177,14 @@ export async function runCheckDeps(
     circularDeps: [],
   };
 
-  // If no layers configured, skip layer validation
-  if (!config.layers || config.layers.length === 0) {
-    return Ok(result);
-  }
-
-  result.layersConfigured = config.layers.length;
+  // Layers are optional, and their absence scopes down which half of this
+  // command runs — it does NOT end the run. This used to `return Ok(result)`
+  // with `valid: true` over zero modules, which also skipped
+  // circular-dependency detection, a check that needs no layers at all. So
+  // `harness check-deps && deploy` passed on a project with a real import
+  // cycle, on the configuration most adopters are on (#2098).
+  const layers = config.layers ?? [];
+  result.layersConfigured = layers.length;
 
   // Additional discovery-scoping globs (stacked on core's node_modules/skip-dir
   // defaults) — prefer the resolved config's `deps.exclude` (honors whatever
@@ -113,54 +195,95 @@ export async function runCheckDeps(
       ? config.deps.exclude
       : loadDepsExclude(cwd);
 
+  // Abstention policy (#2098). Default `skip`: the engine abstains rather than
+  // warning-and-continuing, and check-deps reports that abstention instead of
+  // discarding it. `warn` is the documented downgrade back to exit 0.
+  const fallbackBehavior = config.deps?.fallbackBehavior ?? 'skip';
+
   const rootDir = path.resolve(cwd, config.rootDir);
   const parser = new TypeScriptParser();
 
-  // Define layers from config (convert pattern string to patterns array)
-  const layers = config.layers.map((l) => defineLayer(l.name, [l.pattern], l.allowedDependencies));
+  // Layer validation needs layers. With none configured it is genuinely not
+  // applicable, and the circular-dependency half below still runs.
+  if (layers.length > 0) {
+    const layerConfig: LayerConfig = {
+      // Define layers from config (convert pattern string to patterns array)
+      layers: layers.map((l) => defineLayer(l.name, [l.pattern], l.allowedDependencies)),
+      rootDir,
+      parser,
+      fallbackBehavior,
+      extraIgnore: depsExclude,
+    };
 
-  // Build layer config
-  const layerConfig: LayerConfig = {
-    layers,
-    rootDir,
-    parser,
-    fallbackBehavior: 'warn',
-    extraIgnore: depsExclude,
-  };
-
-  // Validate dependencies
-  const depsResult = await validateDependencies(layerConfig);
-  if (depsResult.ok) {
-    for (const violation of depsResult.value.violations) {
-      result.valid = false;
-      result.layerViolations.push({
-        file: violation.file,
-        imports: violation.imports,
-        fromLayer: violation.fromLayer ?? 'unknown',
-        toLayer: violation.toLayer ?? 'unknown',
-        message: violation.reason,
-      });
+    const depsResult = await validateDependencies(layerConfig);
+    if (depsResult.ok) {
+      // The engine abstained — it validated nothing and labelled the result as
+      // such. Reporting this as a clean pass is the #2098 defect.
+      if (depsResult.value.skipped) {
+        recordAbstention(
+          result,
+          'layer validation',
+          depsResult.value.reason ?? 'the analysis engine abstained',
+          fallbackBehavior === 'warn'
+        );
+      }
+      for (const violation of depsResult.value.violations) {
+        result.valid = false;
+        result.layerViolations.push({
+          file: violation.file,
+          imports: violation.imports,
+          fromLayer: violation.fromLayer ?? 'unknown',
+          toLayer: violation.toLayer ?? 'unknown',
+          message: violation.reason,
+        });
+      }
+    } else {
+      recordAnalysisError(result, 'layer validation', depsResult.error);
     }
-  } else {
-    recordAnalysisError(result, 'layer validation', depsResult.error);
   }
 
-  // Collect all files for circular dependency detection
+  // Collect all files for circular dependency detection. The layer patterns are
+  // the scope when there are any; with none configured, sweep the project's
+  // source files, because circular detection does not depend on layers and a
+  // layerless project must not get a free pass (#2098).
+  const discoveryPatterns =
+    layers.length > 0 ? layers.map((l) => l.pattern) : [UNLAYERED_DISCOVERY_PATTERN];
   const allFiles: string[] = [];
-  for (const layer of config.layers) {
-    const files = await findFiles(layer.pattern, rootDir, depsExclude);
+  for (const pattern of discoveryPatterns) {
+    const files = await findFiles(pattern, rootDir, depsExclude);
     allFiles.push(...files);
   }
   const uniqueFiles = [...new Set(allFiles)];
   result.modulesAnalyzed = uniqueFiles.length;
 
-  // Zero-module abstention (D5): layers are configured but nothing was
-  // discovered — refuse to report clean rather than silently pass (#1188).
-  if (config.layers.length > 0 && uniqueFiles.length === 0) {
-    result.valid = false;
-    result.analysisNote =
-      `check-deps analyzed 0 modules across ${config.layers.length} configured ` +
-      `layer(s) — refusing to report clean (check layer patterns / deps.exclude).`;
+  // Zero-module abstention (D5, #1188), extended to the layerless sweep (#2098).
+  //
+  // Zero modules has two causes and they are not the same claim. A scope was
+  // given and matched nothing — configured layer patterns, or a `deps.exclude`
+  // that swallowed every source file — means the command was asked to analyse
+  // something and analysed nothing, and reporting that clean is the defect.
+  // A project that simply contains no analysable source is "not applicable":
+  // there is nothing to say about imports that do not exist.
+  if (uniqueFiles.length === 0) {
+    const scopeWasGiven =
+      layers.length > 0 ||
+      // No layers, so the sweep was unscoped: the only way it can come back
+      // empty while source exists is `deps.exclude`. Probing without the
+      // excludes distinguishes the two, and only runs on the empty result.
+      (depsExclude.length > 0 &&
+        (await findFiles(UNLAYERED_DISCOVERY_PATTERN, rootDir)).length > 0);
+
+    if (scopeWasGiven) {
+      result.valid = false;
+      result.analysisNote =
+        layers.length > 0
+          ? `check-deps analyzed 0 modules across ${layers.length} configured ` +
+            `layer(s) — refusing to report clean (check layer patterns / deps.exclude).`
+          : 'check-deps analyzed 0 modules — source files exist under ' +
+            `${config.rootDir} but deps.exclude discarded all of them, so neither ` +
+            'layer validation nor circular-dependency detection ran. Refusing to ' +
+            'report clean (check deps.exclude).';
+    }
   }
 
   // Detect circular dependencies
@@ -240,6 +363,13 @@ async function runCheckDepsAction(
     issues.push({ message: result.value.analysisNote });
   }
 
+  // An engine abstention is reported in every output mode (#2098), but it is not
+  // an `issue`: the formatter renders abstentions on their own "could not run"
+  // channel precisely so a check that abstained never reads as a check that
+  // failed — or, worse, as one that passed.
+  const abstentions = result.value.unavailableChecks ?? [];
+  const fatalAbstentions = result.value.abstentionDowngraded ? 0 : abstentions.length;
+
   // Print the analyzed-module denominator in human-facing modes (#1188).
   if (mode === OutputMode.TEXT || mode === OutputMode.VERBOSE) {
     console.log(
@@ -254,28 +384,36 @@ async function runCheckDepsAction(
     layersConfigured: result.value.layersConfigured,
     // Omitted entirely on a clean run, so the clean JSON payload is unchanged (#1996).
     ...(result.value.analysisErrors ? { analysisErrors: result.value.analysisErrors } : {}),
+    // Likewise omitted on a run where every engine actually ran (#2098).
+    ...(abstentions.length > 0 ? { unavailableChecks: abstentions } : {}),
   });
 
   if (output) {
     console.log(output);
   }
 
-  // #691: findings = layer violations + circular dependencies.
+  // #691: findings = layer violations + circular dependencies. A fatal
+  // abstention counts too (#2098) — a run that validated nothing must never
+  // hand a maintenance consumer `{ findings: 0 }`.
   if (localOpts.findingsJson) {
-    console.log(formatFindingsContract(issues.length, 'check-deps'));
+    console.log(formatFindingsContract(issues.length + fatalAbstentions, 'check-deps'));
   }
 
-  // Three outcomes, three codes (#1996): the check ran and passed (SUCCESS), the
-  // check ran and found violations (VALIDATION_FAILED), or the check could not
-  // run at all (ERROR). Collapsing the third into either of the first two is what
-  // let `harness check-deps && deploy` proceed on a broken analysis.
+  // Four outcomes, four codes (#1996, #2098): the check ran and passed
+  // (SUCCESS), the check ran and found violations (VALIDATION_FAILED), the check
+  // could not run at all (ERROR), or the engine abstained and validated nothing
+  // (ZERO_DENOMINATOR — nothing malfunctioned, nothing was examined). Collapsing
+  // any of these into SUCCESS is what let `harness check-deps && deploy` proceed
+  // on an analysis that never happened.
   const analysisFailed = (result.value.analysisErrors?.length ?? 0) > 0;
   process.exit(
     analysisFailed
       ? ExitCode.ERROR
-      : result.value.valid
-        ? ExitCode.SUCCESS
-        : ExitCode.VALIDATION_FAILED
+      : fatalAbstentions > 0
+        ? ExitCode.ZERO_DENOMINATOR
+        : result.value.valid
+          ? ExitCode.SUCCESS
+          : ExitCode.VALIDATION_FAILED
   );
 }
 

@@ -1,8 +1,8 @@
 {
   "packages/core": {
     "lines": 95.57,
-    "branches": 82.73,
-    "functions": 96.63,
+    "branches": 83.26,
+    "functions": 97.15,
     "statements": 93.28
   },
   "packages/graph": {
@@ -12,10 +12,10 @@
     "statements": 94.59
   },
   "packages/cli": {
-    "lines": 90.89,
-    "branches": 81.12,
-    "functions": 92.43,
-    "statements": 89.55
+    "lines": 91.02,
+    "branches": 81.23,
+    "functions": 92.76,
+    "statements": 89.65
   },
   "packages/orchestrator": {
     "lines": 89.53,

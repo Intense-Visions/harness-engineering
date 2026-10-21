@@ -11,6 +11,7 @@
 //     "refuses ... and never constructs the analyzer", which is the #1760
 //     failure (a clean report for a scan that never ran).
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { resolveProjectFrom } from '../helpers/resolve-project-mock';
 
 const analyzeResultHolder = { current: null as unknown };
 const capturedConfigs: Array<{ analyze: Record<string, unknown> }> = [];
@@ -30,7 +31,13 @@ vi.mock('@harness-engineering/core', async (importOriginal) => {
   };
 });
 
-vi.mock('../../src/config/loader', () => ({ resolveConfig: vi.fn() }));
+vi.mock('../../src/config/loader', () => {
+  const mock = { resolveConfig: vi.fn() };
+  // `resolveProject` is the shape `runCleanup` now reads the config AND the
+  // scan root from (#911 class). Derive it from the `resolveConfig` double
+  // this suite already drives via `configure()`, per the repo convention.
+  return { ...mock, resolveProject: resolveProjectFrom(mock.resolveConfig) };
+});
 
 import { runCleanup, printCleanupResult } from '../../src/commands/cleanup';
 

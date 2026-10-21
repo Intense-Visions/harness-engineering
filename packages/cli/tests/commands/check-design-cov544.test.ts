@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { resolveProjectFrom } from '../helpers/resolve-project-mock';
 import { Command } from 'commander';
 
 // -----------------------------------------------------------------------------
@@ -76,12 +77,18 @@ vi.mock('../../src/mcp/tools/audit-brand', () => ({
   }),
 }));
 
-vi.mock('../../src/config/loader', () => ({
-  resolveConfig: vi.fn().mockReturnValue({
-    ok: true,
-    value: { version: 1, rootDir: '.', agentsMapPath: './AGENTS.md', docsDir: './docs' },
-  }),
-}));
+vi.mock('../../src/config/loader', () => {
+  const mock = {
+    resolveConfig: vi.fn().mockReturnValue({
+      ok: true,
+      value: { version: 1, rootDir: '.', agentsMapPath: './AGENTS.md', docsDir: './docs' },
+    }),
+  };
+  // `resolveProject` is the one shape commands use for "the config AND the
+  // project root it implies" (#911 class). Derive it from the config double
+  // above rather than restating the config literal.
+  return { ...mock, resolveProject: resolveProjectFrom(mock.resolveConfig) };
+});
 
 import { createCheckDesignCommand } from '../../src/commands/check-design';
 import { runAudit as runAnatomyAudit } from '../../src/mcp/tools/audit-anatomy';
@@ -321,8 +328,13 @@ describe('check-design command action + output rendering (cov544)', () => {
     await run(['node', 't', 'check-design']);
 
     const out = printed();
-    expect(out).toContain('Verifiers that failed:');
+    expect(out).toContain('did not run (this report is incomplete)');
     expect(out).toContain('detect-drift: drift crashed');
+    // That verifier's own section must NOT claim a finding count it never
+    // computed: `detect-drift (0 findings)` reads as clean, which is the #2070
+    // symptom in the human report.
+    expect(out).not.toContain('detect-drift (0 findings)');
+    expect(out).toContain('detect-drift (did not run');
     // no error findings, but a verifier failed ⇒ degraded ⇒ ERROR (2)
     expect(exitCodes).toEqual([2]);
   });

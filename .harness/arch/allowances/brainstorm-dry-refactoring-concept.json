@@ -1,8 +1,12 @@
 {
-  "reason": "Phase 2 of the duplication-detection spec wires the duplication module into the entropy pipeline: entropy/types/config.ts imports DuplicationConfig, entropy/detectors/duplication.ts imports buildCloneIndex, and both entropy barrels re-export the detector. Those import edges ARE the deliverable, so the aggregate longest-import-chain sum rises 654 -> 661 (+7). No module exceeds a per-module depth threshold - dependency-depth carries no violationIds in either baseline - and under HARNESS_ARCH_BASE_REF=c83ec3620 (this branch fork point) the 12 pre-existing complexity findings are byte-identical, with this aggregate as the only new issue. Deliberately NOT allowed here: the 3 complexity findings an UNPINNED run reports in packages/cli/src/drift/index.ts and packages/cli/src/brand/index.ts. This branch touches no packages/cli file; they appear only because resolveArchBaseline compares against origin/main, whose baseline records 333 complexity ids against this fork point 334. They are a base-ref skew artifact and are not this branch to accept.",
+  "reason": "duplication-detection (PR #2322) adds packages/core/src/duplication (5 modules), the duplication entropy detector, and its cli/MCP wiring: aggregate module-size +3737 and dependency-depth +9 are this feature's own new code, measured against origin/main's baseline after merging 25 commits of main.",
   "categories": {
-    "dependency-depth": 661
+    "module-size": 277949,
+    "dependency-depth": 667
   },
-  "violationIds": [],
-  "createdFrom": "2e2ad4f72"
+  "violationIds": [
+    "529ba5056a0e76215e2b9043107f08f4010329a90733df55471096f80ce3dd05",
+    "a2be46b016b6bc42d0537592f672606994a890df043daa636acf7a955dbb920e"
+  ],
+  "createdFrom": "46a46fe8d"
 }

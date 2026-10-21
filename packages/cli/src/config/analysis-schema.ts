@@ -135,15 +135,42 @@ export function loadDesignTokenPath(projectPath: string): string | undefined {
 }
 
 /**
- * Schema for the `deps.exclude` glob list (check-deps discovery scoping).
- * Kept here — alongside `analysis.exclude` / `design.exclude` — so check-deps
- * can load it without importing the full HarnessConfigSchema. Patterns are
- * minimatch globs stacked on top of the built-in node_modules/skip-dir
- * defaults (issue #1188).
+ * Schema for the `deps` block (check-deps discovery scoping and abstention
+ * policy). Kept here — alongside `analysis.exclude` / `design.exclude` — so
+ * check-deps can load it without importing the full HarnessConfigSchema.
+ * `exclude` patterns are minimatch globs stacked on top of the built-in
+ * node_modules/skip-dir defaults (issue #1188).
  */
 export const DepsConfigSchema = z.object({
+  /**
+   * Whether the layer-boundary gate applies to this project at all.
+   *
+   * Every sibling gate already has this opt-out (`security.enabled`,
+   * `architecture.enabled`, `traceability.enabled`, `phaseGates.enabled`), and
+   * `deps` was the only one without — which left no way to say "this stack has
+   * no TypeScript dependency graph". Since #2071 an unconfigured `layers` set
+   * abstains and fails the run, so a Go or Rust project had no honest way to be
+   * green: `false` here is a deliberate not-applicable, distinct from a gate
+   * that wanted to run and could not.
+   */
+  enabled: z.boolean().default(true),
   /** Extra glob patterns (minimatch) excluded from check-deps discovery. */
   exclude: z.array(z.string().min(1)).default([]),
+  /**
+   * What check-deps does when the layer-validation engine cannot run — today,
+   * when the parser reports itself unavailable (issue #2098). Maps straight
+   * onto core's `LayerConfig.fallbackBehavior`.
+   *
+   * - `skip` (the default): the engine abstains. check-deps reports the
+   *   abstention and exits `ZERO_DENOMINATOR` (3) — it validated nothing, so it
+   *   must not read as green.
+   * - `warn`: the documented escape hatch. The abstention is still reported,
+   *   but downgraded back to exit 0, for projects that need the pre-#2098 exit
+   *   code while they fix their setup.
+   * - `error`: the engine fails hard instead of abstaining; check-deps records
+   *   it as an analysis error and exits `ERROR` (2) (issue #1996).
+   */
+  fallbackBehavior: z.enum(['skip', 'warn', 'error']).optional(),
 });
 
 export type DepsConfig = z.infer<typeof DepsConfigSchema>;
@@ -154,6 +181,37 @@ export type DepsConfig = z.infer<typeof DepsConfigSchema>;
  * fails validation) so check-deps keeps working on un-configured projects.
  * Mirrors `loadDesignExclude`.
  */
+/**
+ * Best-effort load of `deps.fallbackBehavior` from
+ * `<projectPath>/harness.config.json`, returning `undefined` on any miss so the
+ * caller applies its own default. Mirrors `loadDepsExclude`.
+ *
+ * Exists because the `check_dependencies` MCP handler called
+ * `validateDependencies` with no `fallbackBehavior` at all, so core's default
+ * `'error'` applied and a parser-unavailable run returned `Err` — the handler's
+ * own `skipped` branch could never execute, and the documented
+ * `deps.fallbackBehavior` config was ignored on the MCP surface (#2098).
+ */
+export function loadDepsFallbackBehavior(
+  projectPath: string
+): 'skip' | 'warn' | 'error' | undefined {
+  const configPath = path.join(projectPath, 'harness.config.json');
+  if (!fs.existsSync(configPath)) return undefined;
+
+  let raw: unknown;
+  try {
+    raw = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+  } catch {
+    return undefined;
+  }
+
+  const depsRaw = (raw as { deps?: unknown } | null | undefined)?.deps;
+  if (depsRaw === undefined || depsRaw === null || typeof depsRaw !== 'object') return undefined;
+  const parsed = DepsConfigSchema.safeParse(depsRaw);
+  if (!parsed.success) return undefined;
+  return parsed.data.fallbackBehavior;
+}
+
 export function loadDepsExclude(projectPath: string): string[] {
   const configPath = path.join(projectPath, 'harness.config.json');
   if (!fs.existsSync(configPath)) return [];

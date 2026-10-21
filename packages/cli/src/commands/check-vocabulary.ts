@@ -2,7 +2,7 @@ import { Command } from 'commander';
 import * as path from 'path';
 import type { Result } from '@harness-engineering/core';
 import { Ok } from '@harness-engineering/core';
-import { resolveConfig } from '../config/loader';
+import { resolveProject } from '../config/loader';
 import { VocabularyConfigSchema } from '../config/schema';
 import { scanFiles, resolveScanFiles, formatViolations } from '../vocabulary/scanner';
 import type { Violation } from '../vocabulary/scanner';
@@ -29,16 +29,19 @@ interface CheckVocabularyResult {
 export async function runCheckVocabulary(
   options: CheckVocabularyOptions
 ): Promise<Result<CheckVocabularyResult, CLIError>> {
-  const cwd = options.cwd ?? process.cwd();
-
-  const configResult = resolveConfig(options.configPath);
-  if (!configResult.ok) {
-    return configResult;
+  // Root the scan on the project that owns the config, not `process.cwd()`:
+  // `-c` used to select the config file while the scan stayed on the current
+  // directory, so pointing it at another project measured THIS tree. Same
+  // split `check-arch` was fixed out of under #911 (9f322084c).
+  const projectResult = resolveProject(options.configPath, options.cwd);
+  if (!projectResult.ok) {
+    return projectResult;
   }
+  const cwd = projectResult.value.root;
 
   // Fill defaults (paths/exclude) even when the `vocabulary` block is omitted, so
   // an absent block behaves like an enabled-but-ruleless gate: it passes trivially.
-  const vocab = VocabularyConfigSchema.parse(configResult.value.vocabulary ?? {});
+  const vocab = VocabularyConfigSchema.parse(projectResult.value.config.vocabulary ?? {});
 
   // Trivial pass: gate disabled, or no rules to enforce.
   if (!vocab.enabled || vocab.rules.length === 0) {

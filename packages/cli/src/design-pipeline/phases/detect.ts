@@ -27,6 +27,10 @@ export async function runDetect(input: DetectInput): Promise<void> {
       ...(designStrictness !== undefined && { designStrictness }),
     });
     context.driftFindings = [...result.findings];
+    // Taken from what the walk applied, not re-resolved from config here: a
+    // second resolution could disagree with the one the scan used.
+    context.exclusions = new Set(result.meta.excludePatterns);
+    context.exclusionsMeasured = true;
     context.verifiersRun.push('detect-drift');
   } catch (err) {
     context.verifiersFailed.push({

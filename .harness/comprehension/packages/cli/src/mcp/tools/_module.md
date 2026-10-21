@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/mcp/tools'
-sourceHash: '606eca5374f26cd74319bb5403fcf91d33a475dedaf11244ae4a32e8fa00d40e'
+sourceHash: 'f14c0ad6372d8121332642753b2dbced61c2fc846caff6a50e858c7225955d76'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -468,7 +468,7 @@ import { comprehensionEndpoint, readComprehensionConfig, remoteFileConfig, resol
 import { maybeCreateGenerateSemantic, semanticResponseSchema } from '../../comprehension/generate-semantic'
 import { committedSemanticAllowed } from '../../comprehension/policy'
 import { createStaticExtractor } from '../../comprehension/static-extractor'
-import { loadAnalysisExclude } from '../../config/analysis-schema.js'
+import { loadAnalysisExclude, loadDepsFallbackBehavior } from '../../config/analysis-schema.js'
 import { resolveConfig } from '../../config/loader'
 import { findConfigFile, loadConfig, resolveConfig } from '../../config/loader.js'
 import { HarnessConfig } from '../../config/schema.js'
@@ -484,6 +484,7 @@ import { BenchmarkTarget, VisionBenchmarkTarget, runBenchmark, runVisionBenchmar
 import { CritiqueTarget, VisionCritiqueTarget, runCritique, runVisionCritique } from '../../design-craft/phases/critique.js'
 import { PolishTarget, runPolish } from '../../design-craft/phases/polish.js'
 import { DesignPipelineContext, DesignPipelineInput, runDesignPipeline } from '../../design-pipeline/index.js'
+import { toSerializableResult } from '../../design-pipeline/serialize.js'
 import { CollectPromptsOutput, DocsCraftInput, DocsCraftMode, DocsCraftOutput, FinalizeDocsCraftInput, collectDocsCraftPrompts, finalizeDocsCraft, runDocsCraft } from '../../docs-craft/index.js'
 import { AttachMediaInput, DocsPublishConnector, DraftInput, PageTreeInput, PageTreeNode, VerifyRenderInput, resolveDocsPublishConnector } from '../../docs-publish/index.js'
 import { DetectDriftInput, DetectDriftOutput, runDetectDrift } from '../../drift/index.js'
@@ -499,6 +500,7 @@ import from '../../persona/skill-executor.js'
 import { DEFAULT_RESPONSIVE_GATE_CONFIG, ResponsiveGateConfig, ResponsiveMetrics } from '../../responsive/index.js'
 import { CollectPromptsOutput, FinalizeSecurityCraftInput, SecurityCraftInput, SecurityCraftMode, SecurityCraftOutput, collectSecurityCraftPrompts, finalizeSecurityCraft, runSecurityCraft } from '../../security-craft/index.js'
 import { resolveCraftLlmMode } from '../../shared/craft/llm/provider.js'
+import { collectDesignScanFiles, designScanAbstention, noFilesScannedError, resolveDesignExcludePatterns } from '../../shared/design-scan-targets.js'
 import { ENTROPY_ISSUE_TYPES, describeDuplicationNotRun, describeUnknownIssueType, isEntropyIssueType, resolveDuplicationRequest } from '../../shared/duplication-request.js'
 import from '../../shared/state-events.js'
 import { Verifier } from '../../shared/verifier.js'

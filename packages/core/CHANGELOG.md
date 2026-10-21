@@ -1,5 +1,148 @@
 # Changelog
 
+## 0.55.0
+
+### Minor Changes
+
+- 5290f5c: `check-arch` and `harness ci check` now actually measure `circular-deps`, `layer-violations` and `forbidden-imports` (#2235). All three were 0 whatever the code did, so the arch ratchet reported "no new violations" for them without having looked.
+  - **`circular-deps`** built its graph with a stub parser that never parsed, giving nodes and zero edges, and it globbed only `**/*.ts`. It now uses the real parser registry and every JS/TS extension (`.ts .tsx .mts .cts .js .jsx .mjs .cjs`).
+  - **`layer-violations`** validated against `layers: []`. It now uses the top-level `layers` block from `harness.config.json`, the same one `check-deps` reads. A non-default `rootDir` is folded into the layer patterns the same way `check-deps` resolves them.
+  - **`forbidden-imports`** filtered for a `FORBIDDEN_IMPORT` reason that no engine ever emits. It now applies the top-level `forbiddenImports` rules itself, using the ESLint `no-forbidden-imports` matching: exact specifier, or a glob against the specifier or the resolved root-relative path. Package and `node:` builtin imports count.
+  - **`harness ci check --check arch`** gets the same rules. It builds its arch config inside core from `ArchConfigSchema`, which carries neither block, so that surface kept measuring 0 while `check-arch` measured real values — two producers, one `baselines.json`, different numbers. The injection now lives in core (`withDependencyRules` / `readDependencyRules`) and both call it. `harness ci check` also now stacks the project-wide `analysis.exclude` list onto the arch excludes, as `check-arch` already did.
+  - Each result reports what it measured in `metadata` (`filesAnalyzed`/`edgeCount`, `layersConfigured`/`modulesAnalyzed`, `rulesConfigured`/`filesAnalyzed`, plus `skipped` when a collector abstained). `check-arch` now surfaces those denominators in a `measurements` block in `--json`, and prints a warning per abstained category in text mode, so a 0 from a run that analysed nothing can be told apart from a clean result. A category you simply have not configured is **not** warned about: `layers` and `forbiddenImports` are both optional, so `layersConfigured: 0` / `rulesConfigured: 0` reads as _not applicable_ and stays silent, while configured rules that analysed nothing still warn. Only the second is actionable, and warning about both would make "your parser broke" look identical to "you did not configure layers". One caveat on the `complexity` denominator: `functionsAnalyzed: 0` over a genuinely function-free scope (a package of pure type declarations or re-exports) is a shape fact rather than a malfunction, so it warns there too — rare at whole-repo scale, but expected if you scope a run narrowly. **They are not persisted:** `baselines.json` and the arch timeline still record only the value and the violation IDs, so a historical 0 remains ambiguous.
+  - `ArchConfig` gains optional `layers` and `forbiddenImports` fields. They are not part of the `architecture` config schema. `check-arch`, `snapshot` and `ci check` inject them from the existing top-level blocks, so `harness.config.json` needs no change.
+
+  **BREAKING for the arch gate — read before upgrading.** Your recorded values will rise, and on a project with a real cycle, layer break or forbidden import the arch gate will start **hard-failing** rather than just reporting a bigger number. The cycle, layer and forbidden-import collectors all emit `severity: 'error'`, and `check-arch` refuses to write an allowance for any new error-severity violation (`errorSeverityRefusal`) — "a genuine threshold breach must be FIXED, not acknowledged". So `--update-baseline` cannot wave it through either, and `.husky/pre-commit`-style gates that run `harness ci check` without skipping `arch` will block commits until the violation is fixed.
+
+  To upgrade: run `harness check-arch --json` first, read the `measurements` block to see what each collector now analyses, fix (or explicitly re-scope via `architecture.excludePatterns` / `analysis.exclude`) any newly-reported error-severity violation, and only then re-baseline. Order matters: re-baselining before fixing is refused, and measuring before re-baselining compares a real value against a stale 0.
+
+  **`check-arch` also gets substantially slower, and that is not undone.** Collectors that used to measure nothing now do a full-repo parse. Measured on this repo (Darwin arm64, Node 22.23.2, `harness check-arch --json`, 2 runs per side): wall time went from 6.05s to 16.99s and user CPU from 5.83s to 31.55s — **2.8x wall and 5.4x CPU** on an idle machine, and worse under concurrent load. Two paths pay it on every invocation: a `.husky/pre-commit`-style gate that runs the arch check on each commit, and the dashboard's arch panel (`dashboard/src/server/gather/arch.ts`), which goes from instant to a full-repo parse. Budget for it before wiring the arch check into a pre-commit hook. The cost is structural rather than accidental — the repo is parsed up to three times per run, once per dependency collector — and sharing one dependency graph between them needs a `Collector` contract change, filed as #2270.
+
+- 22b5f40: `harness ci check`: a check that could not run no longer reports a pass
+
+  **Breaking behaviour change for CI pipelines.** Previously, `harness ci check`
+  could print `All checks passed` and exit `0` on a run where several of its nine
+  checks never evaluated anything. Five paths produced it: a check that crashed
+  was downgraded to a warning (and warnings exit `0`), `deps` reported `pass` with
+  no `layers` configured, `traceability` reported `pass` with no knowledge
+  graph — even at `minCoverage: 100` — `security` reported `pass` when its glob
+  matched zero files, so a bad `security.exclude` silently un-enforced the gate,
+  and `phase-gate`, when _enabled_, reported a `warning` saying the orchestrator
+  cannot evaluate it, which left the gate at `warn` and the run at exit `0`.
+
+  A check that wanted to run and could not now reports `status: 'skip'` with a
+  `skipReason`, is not counted in `summary.passed`, and forces exit `1`. The new
+  `summary.abstained` counts these separately from operator-requested skips.
+
+  **What this means for your pipeline:** a build that is green today _because_ a
+  gate silently did not run will start failing. That is the defect being fixed —
+  the gate was never actually enforcing anything — but it surfaces in your CI, not
+  ours. The report will name each check that could not run and what it needed.
+
+  `@harness-engineering/cli` is post-1.0 (12.x), so this lands there as a **major**;
+  `core` (0.54.x) and `types` (0.34.x) are pre-1.0, where `minor` is the breaking level.
+
+  **Escape hatch:** an explicit `--skip` is still an acknowledged, exit-`0`
+  non-run. To keep the previous exit code while you fix the configuration:
+
+  ```bash
+  harness ci check --skip deps,traceability
+  ```
+
+  Preferred fixes: add `layers` to `harness.config.json` for `deps`, run
+  `harness scan` (or set `traceability.enabled: false`) for `traceability`, widen
+  the scan pattern / narrow `security.exclude` for `security`, and run
+  `harness check-phase-gate` as its own CI step for `phase-gate`.
+
+  For the analyzers that reported "Could not resolve entry points": ship a
+  conventional entry file (`src/index.ts`) and let auto-detection find it. If you
+  set `performance.entryPoints` explicitly, give it **concrete file paths** — the
+  values are resolved literally and are **not** glob-expanded, so a wildcard is a
+  root that matches nothing and leaves the gate reporting `pass` over an analysis
+  of zero files while every export looks dead (#2275). A non-empty value also
+  suppresses auto-detection, so a wrong value is worse than none.
+
+  The `security` abstention matches what `harness check-security` has refused to
+  call clean since #1146 (`scannedNothing`) — the `ci check` copy of the gate had
+  drifted from it.
+
+  **An abstention is scoped to a gate the project actually asked for.**
+  `traceability` abstains only when a `minCoverage` floor is configured, because
+  that floor is the only thing the check can fail on; with no floor the gate
+  asserts nothing and stays a plain, exit-`0` skip. That matches `phase-gate`
+  (`phaseGates.enabled`) and `security` (`security.enabled`), which abstain only
+  over a gate the operator opted into.
+
+  **`harness init` and `harness ci init` are two of the pipelines this touches,
+  and both stay green.** The three `ci init` emitters (GitHub Actions, GitLab,
+  generic script) all run a bare `harness ci check --json`, and nothing scaffolds
+  a `harness scan` step — so a scaffolded project had to be green without one.
+  Two fixes make that true honestly rather than by skipping:
+  - `traceability` no longer abstains on the scaffolded config, which configures
+    no `minCoverage` (see above).
+  - The `advanced`, `intermediate` and `load-bearing-minimum` templates now ship a
+    starter `src/index.ts`, as `basic` already did. They configured
+    complexity and coupling thresholds but shipped no TypeScript file at all, so
+    the analyzers had nothing to resolve an entry point from and `perf`/`entropy`
+    failed with "Could not resolve entry points" — a gate configured but
+    unrunnable, which under this change is an abstention and a red pipeline. One
+    real file makes both gates run on real content.
+
+  `performance.entryPoints` is now declared on the config schema (it was reachable
+  only through `.passthrough()`), and its docs state the behaviour that matters:
+  entry points are resolved **literally**, with no glob expansion and no existence
+  check, and a non-empty value suppresses auto-detection. A glob there is a root
+  that matches nothing — the dead-code walk reaches zero files, so every export
+  looks dead while `perf` still reports a pass over an analysis of nothing. No
+  shipped template configures `entryPoints`; they all rely on auto-detection,
+  which is correct for a scaffolded project.
+
+  A freshly scaffolded project now reports `exitCode 0`, `abstained: 0`,
+  `skipped: 0`. On a TypeScript template every gate genuinely ran. On the
+  language templates three or four of the nine are declared not-applicable and
+  therefore did **not** run — `skipped: 0` cannot show that, because
+  `enabled: false` reports `pass`. That is the existing convention for every
+  config-level opt-out, so the honest summary is "nothing abstained", not
+  "everything ran".
+
+  **New: `deps`, `entropy` and `performance` gain the `enabled` opt-out their
+  sibling gates already had.** `security`, `architecture`, `traceability` and
+  `phaseGates` could all be declared not-applicable with `enabled: false`; these
+  three could not, which left a Go, Python, Rust or Java project no honest way to
+  be green — `layers` is meaningless there, and an absent `layers` abstains. The
+  distinction the orchestrator now draws:
+  - **Not applicable** — `deps.enabled: false` on a stack with no TypeScript
+    dependency graph. A deliberate declaration, exactly like `--skip deps`, and it
+    never counts as an abstention.
+  - **Could not run** — the gate wanted to evaluate and had nothing to evaluate
+    with. Still an abstention, still exits `1`.
+
+  The four language templates now declare `deps`, `entropy` and `performance`
+  not-applicable (all three analyzers are TypeScript-based), `rust-base` also
+  declares `security` not-applicable because `.rs` is not in
+  `SECURITY_SCAN_EXTENSIONS` (tracked as #2274 — the extension list already
+  covers four non-TypeScript languages, so that is a gap to close rather than a
+  property of Rust), and `advanced`, `intermediate` and `load-bearing-minimum`
+  gain the starter `src/index.ts` that `basic` already shipped.
+
+  **Every shipped template now gets a green first `harness ci check` with zero
+  abstentions** — verified end to end across all four adoption levels, all four
+  language bases and all ten framework overlays, and pinned statically by
+  `packages/cli/tests/templates/performance-entry-points.test.ts` so a future
+  template cannot ship a red first build.
+
+  `run_ci_checks` (MCP) returns the same report verbatim, so `skipReason`,
+  `summary.abstained` and `exitCode` reach that surface unchanged; its tool
+  description now says so, and a test pins the pass-through.
+
+### Patch Changes
+
+- Updated dependencies [22b5f40]
+- Updated dependencies [f8dae74]
+- Updated dependencies [3cdc0ba]
+  - @harness-engineering/types@0.35.0
+  - @harness-engineering/graph@0.15.3
+
 ## 0.54.1
 
 ### Patch Changes

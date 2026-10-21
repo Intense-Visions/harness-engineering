@@ -29,7 +29,7 @@ import type {
   Violation,
 } from '@harness-engineering/core';
 import { formatFindingsContract } from '@harness-engineering/types';
-import { findConfigFile, loadConfig } from '../config/loader';
+import { resolveProject } from '../config/loader';
 import { OutputFormatter, OutputMode, type OutputModeType } from '../output/formatter';
 import { logger } from '../output/logger';
 import { CLIError, ExitCode } from '../utils/errors';
@@ -237,16 +237,25 @@ export function classifyMeasurement(
   // categories.
   const gate = configGate(m.category, meta, declared);
   if (gate === 'not-applicable') return 'not-applicable';
-  // ORDERING IS LOAD-BEARING — do not move this below the work-denominator
-  // check. Declared rules the collector never received is the #2235 defect
-  // itself, and in that case `modulesAnalyzed` is *large*, not zero: the
-  // collector happily parsed the whole repo and applied no rules to it. So the
-  // work denominators find nothing wrong and the measurement would classify
-  // `measured` — a silent structural zero on the very surface built to catch
-  // it. Sourcing the config answer correctly is necessary but NOT sufficient;
-  // this ordering is the other half. Covered by "flags rules the project
-  // declared that never reached the collector" in
-  // `check-arch-dependency-rules.test.ts`.
+  // DO NOT DELETE THIS BRANCH. Declared rules the collector never received is
+  // the #2235 defect itself, and in that case `modulesAnalyzed` is *large*, not
+  // zero: the collector happily parsed the whole repo and applied no rules to
+  // it. So the work denominators find nothing wrong, and without this branch
+  // the measurement classifies `measured` — a silent structural zero on the
+  // very surface built to catch it. Sourcing the config answer correctly is
+  // necessary but NOT sufficient; this branch is the other half.
+  //
+  // It sits above the `skipped`/`error` and work-denominator checks because
+  // that is the order the reasoning reads in, not because the position is
+  // load-bearing: every branch below it also returns `abstained`, and the only
+  // thing after them is the `measured` fallthrough. Measured: moving this line
+  // to just below the work-denominator computation leaves
+  // `tests/commands/check-arch*` fully green, while DELETING it fails "flags
+  // rules the project declared that never reached the collector" in
+  // `check-arch-dependency-rules.test.ts` with `expected 'measured' to be
+  // 'abstained'`. That test is the guard against deletion, which is the
+  // reachable way to lose the behaviour — an earlier version of this comment
+  // claimed it guarded against reordering, which it does not.
   if (gate === 'rules-not-received') return 'abstained';
   if (meta.skipped !== undefined || meta.error !== undefined) return 'abstained';
   const analysedNothing = WORK_DENOMINATORS.some(
@@ -538,19 +547,11 @@ export async function runCheckArch(
   // — would run the collectors against, and write the baseline into,
   // process.cwd() instead of the config's own project. That leaked writes into
   // this repo's tracked packages/cli/.harness/arch/baselines.json (issue #911).
-  const configPathResult = options.configPath ? Ok(options.configPath) : findConfigFile();
-  if (!configPathResult.ok) {
-    return configPathResult;
+  const projectResult = resolveProject(options.configPath, options.cwd);
+  if (!projectResult.ok) {
+    return projectResult;
   }
-  const configPath = configPathResult.value;
-
-  const configResult = loadConfig(configPath);
-  if (!configResult.ok) {
-    return configResult;
-  }
-  const config = configResult.value;
-
-  const cwd = options.cwd ?? path.dirname(configPath);
+  const { config, root: cwd } = projectResult.value;
 
   // Resolve architecture config (defaults if not present). The project-wide
   // `analysis.exclude` list is stacked onto the arch-scoped patterns here — in

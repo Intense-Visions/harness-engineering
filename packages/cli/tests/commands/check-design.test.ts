@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { resolveProjectFrom } from '../helpers/resolve-project-mock';
 
 // Mock both verifiers BEFORE importing runCheckDesign so the mocks bind cleanly.
 vi.mock('../../src/mcp/tools/audit-anatomy', () => ({
@@ -67,17 +68,23 @@ vi.mock('../../src/mcp/tools/audit-brand', () => ({
   }),
 }));
 
-vi.mock('../../src/config/loader', () => ({
-  resolveConfig: vi.fn().mockReturnValue({
-    ok: true,
-    value: {
-      version: 1,
-      rootDir: '.',
-      agentsMapPath: './AGENTS.md',
-      docsDir: './docs',
-    },
-  }),
-}));
+vi.mock('../../src/config/loader', () => {
+  const mock = {
+    resolveConfig: vi.fn().mockReturnValue({
+      ok: true,
+      value: {
+        version: 1,
+        rootDir: '.',
+        agentsMapPath: './AGENTS.md',
+        docsDir: './docs',
+      },
+    }),
+  };
+  // `resolveProject` is the one shape commands use for "the config AND the
+  // project root it implies" (#911 class). Derive it from the config double
+  // above rather than restating the config literal.
+  return { ...mock, resolveProject: resolveProjectFrom(mock.resolveConfig) };
+});
 
 import { runCheckDesign, createCheckDesignCommand } from '../../src/commands/check-design';
 import { runAudit as runAnatomyAudit } from '../../src/mcp/tools/audit-anatomy';

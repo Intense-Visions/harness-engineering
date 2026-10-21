@@ -441,7 +441,7 @@ Audit components for anatomy completeness. Emits ANAT-D* findings for component 
       "type": "string"
     },
     "files": {
-      "description": "Optional explicit file list (paths or globs) to scope the audit.",
+      "description": "Optional explicit file list (paths) to scope the audit. Omit it (or pass an empty array) to audit all project source files, honouring design.exclude and analysis.exclude.",
       "items": {
         "type": "string"
       },
@@ -4208,7 +4208,7 @@ Run an agent task using the harness CLI
 
 ### `run_ci_checks`
 
-Run CI/CD validation checks on a harness project. Returns pass/fail results per check with issues. Checks: validate, deps, docs, entropy, security, perf, phase-gate, arch, traceability.
+Run CI/CD validation checks on a harness project. Returns the full report: per-check status, issues, the summary counts, and `exitCode`. A check with `status: "skip"` and a `skipReason` ABSTAINED — it could not run, so it is counted in `summary.abstained` and forces a non-zero `exitCode`; do not read it as a pass (#2071). A `status: "skip"` with no `skipReason` is a check the caller left out of `checks`. Checks: validate, deps, docs, entropy, security, perf, phase-gate, arch, traceability.
 
 **Input schema:**
 
@@ -4326,7 +4326,7 @@ Run the design-pipeline orchestrator: FRESHEN -> DETECT -> FIX -> AUDIT -> FILL 
 {
   "properties": {
     "ci": {
-      "description": "Non-interactive: safe fixes only, no prompts",
+      "description": "Deprecated, no effect: every run is already non-interactive and applies safe fixes only. Passing it adds a notice to `warnings` in the result.",
       "type": "boolean"
     },
     "designStrictness": {

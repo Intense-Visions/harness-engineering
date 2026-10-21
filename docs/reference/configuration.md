@@ -210,20 +210,34 @@ Tunes `harness check-deps` discovery — the set of files considered for both la
 
 ### DepsConfig Object
 
-| Field     | Type       | Default | Description                                                                                                                                                         |
-| --------- | ---------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `exclude` | `string[]` | `[]`    | Extra glob patterns (minimatch) excluded from `check-deps` discovery, stacked on top of the built-in skip-list. Lets you scope without shrinking a layer `pattern`. |
+| Field              | Type                          | Default  | Description                                                                                                                                                         |
+| ------------------ | ----------------------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `exclude`          | `string[]`                    | `[]`     | Extra glob patterns (minimatch) excluded from `check-deps` discovery, stacked on top of the built-in skip-list. Lets you scope without shrinking a layer `pattern`. |
+| `fallbackBehavior` | `"skip" \| "warn" \| "error"` | `"skip"` | What `check-deps` does when the analysis engine cannot run (the parser reports itself unavailable). See below.                                                      |
 
 Mirrors [`analysis.exclude`](#analysis) and [`design.exclude`](#design). Prefer `deps.exclude` over narrowing a layer `pattern` to silence a finding — narrowing the pattern also shrinks what the gate actually checks.
 
 `check-deps` reports the analyzed-module count ("Analyzed N module(s) across M layer(s).") so the scanned denominator is observable. A run with layers configured that discovers **zero** modules fails rather than reporting clean.
+
+#### When the analysis engine cannot run
+
+An engine that cannot run has **abstained**, not passed. `check-deps` reports the abstention on its own "checks that could not run" channel — in the text output, in the `--json` payload (`unavailableChecks`), and in the `--findings-json` count — and exits `3` (`ZERO_DENOMINATOR`: the command ran but examined nothing). That is deliberately distinct from `0` (validated and clean), `1` (validated and found violations), and `2` (the engine malfunctioned).
+
+`deps.fallbackBehavior` selects the policy:
+
+| Value     | Behaviour                                                                                                                                                                                        |
+| --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `"skip"`  | Default. The engine abstains; `check-deps` reports it and exits `3`.                                                                                                                             |
+| `"warn"`  | **Escape hatch.** The abstention is still reported in every output mode, but the exit code is downgraded back to `0` — for projects that need the previous exit code while they fix their setup. |
+| `"error"` | The engine fails hard rather than abstaining; `check-deps` records an `analysisError` and exits `2`.                                                                                             |
 
 ### Example
 
 ```json
 {
   "deps": {
-    "exclude": ["packages/*/generated/**", "**/*.pb.ts"]
+    "exclude": ["packages/*/generated/**", "**/*.pb.ts"],
+    "fallbackBehavior": "skip"
   }
 }
 ```

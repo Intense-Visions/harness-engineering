@@ -188,6 +188,167 @@ describe('check-docs command', () => {
       expect(mockExit).toHaveBeenCalledWith(0);
     });
 
+    /**
+     * Exit-code mapping over a real scan, run from the REAL `process.cwd()`.
+     *
+     * This block used to install a `vi.spyOn(process, 'cwd')` pointing at the
+     * fixture, because the action handler called `runCheckDocs` without a `cwd`
+     * and `runCheckDocs` fell back to `process.cwd()` — so `-c` chose the
+     * config file while the scan measured the current directory. The spy was
+     * papering over that defect (the production bug `check-arch` was fixed out
+     * of under #911 / 9f322084c). `runCheckDocs` now roots on the project that
+     * owns the config, so the spy is gone and these cases prove the root is
+     * honoured rather than assuming it.
+     *
+     * The failure exit matters on its own: before #2282 every `mockExit`
+     * assertion in this file asserted 0 and nothing anywhere asserted 1, so
+     * mutating the final `process.exit(result.value.valid ? SUCCESS :
+     * VALIDATION_FAILED)` to a bare `process.exit(ExitCode.SUCCESS)` left the
+     * file green. Reaching the `valid` exit needs a scan that read something and
+     * still fell short — one source file, no docs page linking it, default 80%
+     * floor.
+     */
+    describe('exit-code mapping over a real scan', () => {
+      let root: string;
+
+      beforeEach(async () => {
+        root = await mkdtemp(path.join(tmpdir(), 'harness-checkdocs-exit-'));
+        await mkdir(path.join(root, 'docs'), { recursive: true });
+        await mkdir(path.join(root, 'src'), { recursive: true });
+        await writeFile(
+          path.join(root, 'harness.config.json'),
+          JSON.stringify({ version: 1, name: 'uncovered', rootDir: '.', docsDir: './docs' })
+        );
+      });
+
+      afterEach(async () => {
+        await rm(root, { recursive: true, force: true });
+      });
+
+      it('exits VALIDATION_FAILED (1) when coverage is below the floor', async () => {
+        // Scanned something (so not an abstention), documented nothing.
+        await writeFile(path.join(root, 'docs/readme.md'), '# Docs\n\nNothing linked here.\n');
+        await writeFile(path.join(root, 'src/thing.ts'), 'export const thing = 1;\n');
+
+        const program = makeProgram();
+        await safeParseAsync(program, [
+          'node',
+          'test',
+          '-c',
+          path.join(root, 'harness.config.json'),
+          'check-docs',
+        ]);
+
+        expect(mockExit).toHaveBeenCalledWith(1);
+        expect(mockExit).not.toHaveBeenCalledWith(0);
+      });
+
+      it('exits SUCCESS (0) over the same fixture once the file is documented', async () => {
+        // The falsifying twin: identical shape, coverage above the floor. Without
+        // it, the assertion above would also pass if the command exited 1 always.
+        await writeFile(
+          path.join(root, 'docs/readme.md'),
+          // Coverage is LINK-based: a markdown link to the basename is what
+          // marks a source file documented. Prose mentioning the filename is not.
+          '# Docs\n\nSee [the thing](../src/thing.ts).\n'
+        );
+        await writeFile(path.join(root, 'src/thing.ts'), 'export const thing = 1;\n');
+
+        const program = makeProgram();
+        await safeParseAsync(program, [
+          'node',
+          'test',
+          '-c',
+          path.join(root, 'harness.config.json'),
+          'check-docs',
+        ]);
+
+        expect(mockExit).toHaveBeenCalledWith(0);
+      });
+
+      it('exits ZERO_DENOMINATOR (3), not 0 or 1, when the scan read nothing (#1146)', async () => {
+        // The abstention contract: "read nothing" must be distinguishable from
+        // "verified and passed" (0) and "verified and failed" (1) at the exit
+        // code, which is the only thing a CI step sees.
+        await writeFile(path.join(root, 'docs/readme.md'), '# Docs\n');
+
+        const program = makeProgram();
+        await safeParseAsync(program, [
+          'node',
+          'test',
+          '-c',
+          path.join(root, 'harness.config.json'),
+          'check-docs',
+          '--min-coverage',
+          '0',
+        ]);
+
+        expect(mockExit).toHaveBeenCalledWith(3);
+      });
+
+      /**
+       * `-c` must select the project root, not just the config FILE (#911's class,
+       * fixed for `check-arch` in 9f322084c and reported for `check-docs` while
+       * reviewing #2282).
+       *
+       * This runs from the REAL `process.cwd()` — vitest's cwd for this package is
+       * `packages/cli` — and points `-c` at a tmpdir fixture. No `process.cwd`
+       * spy: the whole point is that none is needed.
+       *
+       * FIXTURE CHOICE. The wrong answer must be arithmetically unreachable from
+       * the right one, because an exit code alone is not a discriminator here:
+       * `packages/cli` itself sits below the 80% floor, so a scan of the WRONG
+       * directory also exits 1 (measured in #2282). So this asserts the
+       * denominator and the numerator, not the verdict:
+       *
+       *   right answer (the fixture) -> scanned 1, documented 1, 100%
+       *   wrong answer (packages/cli) -> scanned in the thousands, well under 80%
+       *
+       * `scanned: 1` is the load-bearing assertion. No real package tree has one
+       * source file, so it cannot be satisfied by coincidence, and it is also
+       * immune to the #1146 abstention masking the result (scanned 0).
+       */
+      it('measures the project implied by -c, not process.cwd()', async () => {
+        await writeFile(path.join(root, 'src/thing.ts'), 'export const thing = 1;\n');
+        await writeFile(
+          path.join(root, 'docs/readme.md'),
+          // Coverage is LINK-based: a markdown link to the basename is what marks
+          // a source file documented.
+          '# Docs\n\nSee [the thing](../src/thing.ts).\n'
+        );
+
+        // Guard the premise: if the test process ever ran from the fixture, this
+        // assertion would be vacuous.
+        expect(process.cwd()).not.toBe(root);
+
+        const program = makeProgram();
+        await safeParseAsync(program, [
+          'node',
+          'test',
+          '--json',
+          '-c',
+          path.join(root, 'harness.config.json'),
+          'check-docs',
+        ]);
+
+        const jsonCall = mockConsoleLog.mock.calls.find(
+          (c) => typeof c[0] === 'string' && c[0].includes('coveragePercent')
+        );
+        expect(jsonCall).toBeDefined();
+        const payload = JSON.parse(jsonCall![0] as string) as {
+          scanned: number;
+          coveragePercent: number;
+          documented: string[];
+          undocumented: string[];
+        };
+
+        expect(payload.scanned).toBe(1);
+        expect(payload.documented).toEqual(['src/thing.ts']);
+        expect(payload.undocumented).toEqual([]);
+        expect(payload.coveragePercent).toBe(100);
+      });
+    });
+
     it('outputs JSON when --json is set', async () => {
       const program = makeProgram();
       await safeParseAsync(program, [

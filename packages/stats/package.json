@@ -1,6 +1,6 @@
 {
   "name": "@harness-engineering/stats",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "license": "MIT",
   "description": "Statistical instruments for harness decisions under uncertainty: explore/exploit bandit and Bernoulli SPRT",
   "main": "./dist/index.js",

@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/src/entropy'
-sourceHash: '3b71d85203d60bfb3a3532b4c78f36f8ebb4d42825674c5de11af06fcaec07cd'
+sourceHash: '76554774ff2b3121903ff3d75fa40758ceb7bb1f7221da0a955b69f8f0eb06df'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -112,7 +112,7 @@ export validatePatternConfig
 ## Dependency Slice
 
 ```
-import { buildDependencyGraph } from '../constraints/dependencies'
+import { buildDependencyGraphFromParsed } from '../constraints/dependencies'
 import { createEntropyError } from '../shared/errors'
 import { fileExists, findFiles, readFileContent, relativePosix } from '../shared/fs-utils'
 import { AST, Export, LanguageParser, getDefaultRegistry } from '../shared/parsers'

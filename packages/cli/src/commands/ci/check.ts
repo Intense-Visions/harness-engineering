@@ -7,7 +7,7 @@ import type {
   ConstraintStage,
 } from '@harness-engineering/core';
 import { runCIChecks } from '@harness-engineering/core';
-import { resolveConfig } from '../../config/loader';
+import { resolveProject } from '../../config/loader';
 import { OutputMode } from '../../output/formatter';
 import { resolveOutputMode } from '../../utils/output';
 import { logger } from '../../output/logger';
@@ -27,18 +27,24 @@ const VALID_CHECKS: CICheckName[] = [
 
 export async function runCICheck(options: {
   configPath?: string;
+  cwd?: string;
   skip?: CICheckName[];
   failOn?: CIFailOnSeverity;
   stage?: ConstraintStage;
 }): Promise<Result<CICheckReport, CLIError>> {
-  const configResult = resolveConfig(options.configPath);
-  if (!configResult.ok) {
-    return configResult;
+  // Root every composed check on the project that owns the config, not
+  // `process.cwd()`: `-c` used to select the config file while `projectRoot`
+  // stayed on the current directory, so pointing it at another project ran the
+  // whole CI check suite against THIS tree. Same split `check-arch` was fixed
+  // out of under #911 (9f322084c).
+  const projectResult = resolveProject(options.configPath, options.cwd);
+  if (!projectResult.ok) {
+    return projectResult;
   }
 
   const input: Parameters<typeof runCIChecks>[0] = {
-    projectRoot: process.cwd(),
-    config: configResult.value as unknown as Record<string, unknown>,
+    projectRoot: projectResult.value.root,
+    config: projectResult.value.config as unknown as Record<string, unknown>,
   };
   if (options.skip) input.skip = options.skip;
   if (options.failOn) input.failOn = options.failOn;
@@ -110,6 +116,11 @@ function printConstraintPacks(report: CICheckReport): void {
 function printCheckReport(report: CICheckReport): void {
   for (const check of report.checks) {
     checkLogFn(check.status)(`${check.name}: ${check.status} (${check.durationMs}ms)`);
+    // Why an abstaining check could not run — without this the operator sees a
+    // bare `skip` and cannot tell it apart from one they asked for (#2071).
+    if (check.skipReason) {
+      console.log(`  - did not run: ${check.skipReason}`);
+    }
     for (const issue of check.issues) {
       const prefix = issue.severity === 'error' ? '  x' : '  !';
       console.log(`${prefix} ${issue.message}${issue.file ? ` (${issue.file})` : ''}`);
@@ -123,13 +134,28 @@ function printCheckReport(report: CICheckReport): void {
     );
   }
   console.log('');
+  printVerdict(report);
+}
+
+/**
+ * The one-line verdict. The abstention branch exists so the run never claims a
+ * pass over a gate that did not evaluate anything (#2071).
+ */
+function printVerdict(report: CICheckReport): void {
+  const { passed, total, failed, warnings, abstained } = report.summary;
   if (report.exitCode === 0) {
-    logger.success(`All checks passed (${report.summary.passed}/${report.summary.total})`);
-  } else {
-    logger.error(
-      `${report.summary.failed} failed, ${report.summary.warnings} warnings, ${report.summary.passed} passed`
-    );
+    logger.success(`All checks passed (${passed}/${total})`);
+    return;
   }
+  if (abstained > 0 && failed === 0) {
+    logger.error(
+      `${abstained} check(s) could not run, ${passed} passed — refusing to report a pass ` +
+        'over a gate that never evaluated. Fix the configuration above, or pass ' +
+        '`--skip <check>` to acknowledge the gate is not enforced.'
+    );
+    return;
+  }
+  logger.error(`${failed} failed, ${warnings} warnings, ${passed} passed`);
 }
 
 async function runCheckAction(

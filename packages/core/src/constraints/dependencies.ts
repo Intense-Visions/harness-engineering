@@ -154,6 +154,71 @@ export interface ParserLookup {
 }
 
 /**
+ * The error a dependency-graph build fails with when the parser itself is gone,
+ * as opposed to one file being unparseable. Extracted so the per-file loop in
+ * `buildDependencyGraph` stays within the module's function-length budget.
+ */
+function graphParserUnavailable(
+  parserName: string,
+  file: string,
+  cause: { message: string; suggestions?: string[] }
+): ConstraintError {
+  return createError<ConstraintError>(
+    'PARSER_UNAVAILABLE',
+    `Cannot build a dependency graph: ${cause.message}`,
+    { parser: parserName, file },
+    cause.suggestions
+  );
+}
+
+/**
+ * A file whose imports have already been extracted.
+ *
+ * Structurally a subset of the entropy snapshot's `SourceFile`, declared here so
+ * `constraints` does not depend on `entropy`.
+ */
+export interface ParsedFileImports {
+  path: string;
+  imports: Import[];
+}
+
+/**
+ * Build a dependency graph from files whose imports are ALREADY extracted.
+ *
+ * {@link buildDependencyGraph} re-parses every file it is given. A caller that
+ * has just parsed the tree for another reason would otherwise parse the whole
+ * repository twice. Measured in-process for the coupling collector on this
+ * monorepo (1999 files, `process.cpuUsage()`): the parse costs 13.46s of CPU,
+ * and the graph step costs 6.09s when it re-parses versus 0.09s from
+ * already-parsed files — so skipping the second parse takes the collector from
+ * 19.55s to 13.55s, about 31% off its total, on a gate that runs in
+ * `.husky/pre-commit` (#2284). Edge construction is identical; only the parse is
+ * skipped. Related: #2270, which tracks sharing ONE graph across the dependency
+ * collectors.
+ */
+export async function buildDependencyGraphFromParsed(
+  nodes: string[],
+  parsed: ParsedFileImports[]
+): Promise<DependencyGraph> {
+  const edges: DependencyEdge[] = [];
+  for (const file of parsed) {
+    const normalizedFile = file.path.replace(/\\/g, '/');
+    for (const imp of file.imports) {
+      const resolvedPath = await resolveImportPath(imp.source, file.path, '');
+      if (resolvedPath) {
+        edges.push({
+          from: normalizedFile,
+          to: resolvedPath,
+          importType: getImportType(imp),
+          line: imp.location.line,
+        });
+      }
+    }
+  }
+  return { nodes: nodes.map((f) => f.replace(/\\/g, '/')), edges };
+}
+
+/**
  * Build a dependency graph from a list of files.
  * Accepts either a single parser or a ParserLookup for multi-language support.
  * Note: buildDependencyGraph is exported as an addition beyond spec for advanced use cases
@@ -172,14 +237,9 @@ export async function buildDependencyGraph(
   }
 
   const isLookup = 'getForFile' in parser;
-
-  // Normalize all paths to forward slashes for cross-platform consistency
-  const nodes = files.map((f) => f.replace(/\\/g, '/'));
-  const edges: DependencyEdge[] = [];
+  const parsed: ParsedFileImports[] = [];
 
   for (const file of files) {
-    const normalizedFile = file.replace(/\\/g, '/');
-
     // Select the appropriate parser for this file
     const fileParser = isLookup
       ? (parser as ParserLookup).getForFile(file)
@@ -189,6 +249,17 @@ export async function buildDependencyGraph(
 
     const parseResult = await fileParser.parseFile(file);
     if (!parseResult.ok) {
+      // Skipping an unparseable file is right for a syntax error in ONE file.
+      // It is wrong when the parser itself is gone: then every file is skipped
+      // and the caller receives a zero-edge graph, which `detectCircularDeps`
+      // reads as "no cycles" and `check-deps` reports as clean. Fail closed on
+      // that one code so an absent parser surfaces as an error instead of a
+      // pass over nothing (#2267). `TypeScriptParser` is the only parser that
+      // emits it, and only when its estree module cannot be resolved — a
+      // global condition, never a per-file one.
+      if (parseResult.error.code === 'PARSER_UNAVAILABLE') {
+        return Err(graphParserUnavailable(fileParser.name, file, parseResult.error));
+      }
       // Skip files that can't be parsed
       continue;
     }
@@ -198,20 +269,12 @@ export async function buildDependencyGraph(
       continue;
     }
 
-    for (const imp of importsResult.value) {
-      const resolvedPath = await resolveImportPath(imp.source, file, '');
-      if (resolvedPath) {
-        edges.push({
-          from: normalizedFile,
-          to: resolvedPath,
-          importType: getImportType(imp),
-          line: imp.location.line,
-        });
-      }
-    }
+    parsed.push({ path: file, imports: importsResult.value });
   }
 
-  return Ok({ nodes, edges });
+  // Nodes are every file handed in, parsed or not — unchanged from when this
+  // loop built them inline.
+  return Ok(await buildDependencyGraphFromParsed(files, parsed));
 }
 
 /**
@@ -255,6 +318,25 @@ function checkLayerViolations(
 }
 
 /**
+ * Render the abstention reason for an unavailable parser.
+ *
+ * Keeps the greppable `Parser unavailable` prefix and appends whatever the
+ * parser said about itself — its `health()` message when it answered the
+ * question, or its error message when the health check itself failed.
+ */
+function parserUnavailableReason(
+  parserName: string,
+  healthResult: Awaited<ReturnType<LanguageParser['health']>>
+): string {
+  const detail = healthResult.ok
+    ? healthResult.value.message
+    : `health check failed: ${healthResult.error.message}`;
+  return detail && detail.length > 0
+    ? `Parser unavailable: ${detail}`
+    : `Parser unavailable: ${parserName} reported itself unavailable without a reason`;
+}
+
+/**
  * Validate dependencies against layer rules
  */
 export async function validateDependencies(
@@ -288,29 +370,37 @@ export async function validateDependencies(
   // Check parser health
   const healthResult = await parser.health();
   if (!healthResult.ok || !healthResult.value.available) {
+    // Carry the parser's OWN diagnosis into the abstention. `check-deps` and the
+    // `check_dependencies` MCP tool both surface `reason` verbatim, so a bare
+    // 'Parser unavailable' told an operator that something was wrong but never
+    // what — and the original design intended the health message here (see
+    // docs/changes/core-library-implementation/proposal.md). The
+    // 'Parser unavailable' prefix is kept because consumers and their tests
+    // match on it.
+    const reason = parserUnavailableReason(parser.name, healthResult);
     if (fallbackBehavior === 'skip') {
       return Ok({
         valid: true,
         violations: [],
         graph: { nodes: [], edges: [] },
         skipped: true,
-        reason: 'Parser unavailable',
+        reason,
       });
     }
     if (fallbackBehavior === 'warn') {
-      console.warn(`Parser ${parser.name} unavailable, skipping validation`);
+      console.warn(`Parser ${parser.name} unavailable, skipping validation: ${reason}`);
       return Ok({
         valid: true,
         violations: [],
         graph: { nodes: [], edges: [] },
         skipped: true,
-        reason: 'Parser unavailable',
+        reason,
       });
     }
     return Err(
       createError<ConstraintError>(
         'PARSER_UNAVAILABLE',
-        `Parser ${parser.name} is not available`,
+        `Parser ${parser.name} is not available: ${reason}`,
         { parser: parser.name },
         ['Install required runtime', 'Use different parser', 'Set fallbackBehavior: "skip"']
       )

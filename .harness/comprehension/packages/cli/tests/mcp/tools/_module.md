@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/tests/mcp/tools'
-sourceHash: '9ae70e7e19e732cb0d809adb39fc4962d8500ccfc169fbbc54bfba6bd95dd634'
+sourceHash: 'a8396554ca1535e4276124b10d5f32b8404a43d220cca6843942bb805f816412'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -13,11 +13,13 @@ members:
     'agent.test.ts',
     'api-craft.test.ts',
     'architecture-cov544.test.ts',
+    'architecture-skipped-abstention.test.ts',
     'architecture.test.ts',
     'assess-project-cov544.test.ts',
     'assess-project-error-handling.test.ts',
     'assess-project.test.ts',
     'brainstorming-file-less-smoke.test.ts',
+    'ci-abstention.test.ts',
     'cli-ergonomics-craft.test.ts',
     'code-craft.test.ts',
     'code-nav-handlers.test.ts',
@@ -51,6 +53,7 @@ members:
     'graph.test.ts',
     'init-cov544b.test.ts',
     'init.test.ts',
+    'insights-summary.test.ts',
     'interaction.test.ts',
     'knowledge-craft.test.ts',
     'linter.test.ts',
@@ -129,6 +132,7 @@ import { addComponentDefinition, handleAddComponent, handleRunAgentTask, runAgen
 import { apiCraftDefinition, apiCraftFinalizeDefinition, handleApiCraft, handleApiCraftFinalize } from '../../../src/mcp/tools/api-craft'
 import { checkDependenciesDefinition, handleCheckDependencies } from '../../../src/mcp/tools/architecture'
 import { assessProjectDefinition, handleAssessProject, parseToolResponse, resolveLintCommand } from '../../../src/mcp/tools/assess-project'
+import { handleRunCIChecks, runCIChecksDefinition } from '../../../src/mcp/tools/ci'
 import { cliErgonomicsCraftDefinition, cliErgonomicsCraftFinalizeDefinition, handleCliErgonomicsCraft, handleCliErgonomicsCraftFinalize } from '../../../src/mcp/tools/cli-ergonomics-craft'
 import { codeCraftDefinition, codeCraftFinalizeDefinition, handleCodeCraft, handleCodeCraftFinalize } from '../../../src/mcp/tools/code-craft'
 import { codeOutlineDefinition, codeSearchDefinition, codeUnfoldDefinition, handleCodeOutline, handleCodeSearch, handleCodeUnfold } from '../../../src/mcp/tools/code-nav'
@@ -152,6 +156,7 @@ import { gatherContextDefinition } from '../../../src/mcp/tools/gather-context.j
 import { generateSlashCommandsDefinition, handleGenerateSlashCommands } from '../../../src/mcp/tools/generate-slash-commands'
 import { askGraphDefinition, computeBlastRadiusDefinition, detectAnomaliesDefinition, getImpactDefinition, getRelationshipsDefinition, handleAskGraph, handleComputeBlastRadius, handleDetectAnomalies, handleFindContextFor, handleGetImpact, handleGetRelationships, handleIngestSource, handleQueryGraph, handleSearchSimilar, queryGraphDefinition, searchSimilarDefinition } from '../../../src/mcp/tools/graph/index.js'
 import { handleInitProject, initProjectDefinition } from '../../../src/mcp/tools/init'
+import { handleInsightsSummary } from '../../../src/mcp/tools/insights-summary'
 import { emitInteractionDefinition, handleEmitInteraction } from '../../../src/mcp/tools/interaction'
 import { EmitInteractionInputSchema, InteractionBatchSchema, InteractionConfirmationSchema, InteractionOptionSchema, InteractionQuestionWithOptionsSchema, InteractionTransitionSchema } from '../../../src/mcp/tools/interaction-schemas'
 import { handleKnowledgeCraft, handleKnowledgeCraftFinalize, knowledgeCraftDefinition, knowledgeCraftFinalizeDefinition } from '../../../src/mcp/tools/knowledge-craft'

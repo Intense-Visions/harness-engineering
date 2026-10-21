@@ -21,7 +21,7 @@ import {
   createNodeRoadmapIO,
 } from '@harness-engineering/core';
 import { execFileSync } from 'node:child_process';
-import { resolveConfig } from '../config/loader';
+import { resolveProject } from '../config/loader';
 import { OutputFormatter, OutputMode, type OutputModeType } from '../output/formatter';
 import { logger } from '../output/logger';
 import { CLIError, ExitCode, type ExitCodeType } from '../utils/errors';
@@ -168,17 +168,16 @@ interface ValidateResult {
 export async function runValidate(
   options: ValidateOptions
 ): Promise<Result<ValidateResult, CLIError>> {
-  // Load config
-  const configResult = resolveConfig(options.configPath);
-  if (!configResult.ok) {
-    return configResult;
+  // One shape for "the config AND the project root it implies". This used to
+  // honour an explicit `-c` but fall back to `process.cwd()` when the config was
+  // DISCOVERED, so running from a subdirectory validated the subdirectory
+  // against the repo-root config. `resolveProject` roots on the found config
+  // either way.
+  const projectResult = resolveProject(options.configPath, options.cwd);
+  if (!projectResult.ok) {
+    return projectResult;
   }
-  const config = configResult.value;
-
-  // Derive cwd from config file location if not explicitly provided
-  const cwd =
-    options.cwd ??
-    (options.configPath ? path.dirname(path.resolve(options.configPath)) : process.cwd());
+  const { config, root: cwd } = projectResult.value;
 
   const result: ValidateResult = {
     valid: true,
@@ -531,10 +530,12 @@ export async function runValidate(
         | 'strict'
         | 'standard'
         | 'permissive';
-      // NOTE: component-anatomy is intentionally NOT scoped. It is called with no
-      // `files` list in both modes (a no-op in validate today), so passing the
-      // changed surface here would activate it in affected mode only and report
-      // findings a full sweep does not — breaking scoped ⊆ full parity.
+      // NOTE: component-anatomy is intentionally NOT scoped. Omitting `files`
+      // now means "every project source file" rather than "no files at all"
+      // (#2070), so both modes run the same full sweep and scoped ⊆ full parity
+      // holds trivially. Passing the changed surface here would instead report
+      // findings scoped to it that a full sweep orders differently, so the
+      // unscoped call stays.
       const auditOutput = await runComponentAnatomyAudit({
         path: cwd,
         mode: 'fast',
@@ -558,13 +559,18 @@ export async function runValidate(
         });
       }
     } catch (err) {
-      // Audit failures don't sink the whole validate — degrade gracefully
-      // with a single warning so the rest of the checks still report.
+      // A verifier that could not run is an abstention, not a finding. Routed
+      // through unavailableChecks (as roadmapHealth already is) so it forces
+      // `complete: false` and the incomplete-run exit code. It used to be a
+      // severity-`warning` issue, which left `valid: true` and exit 0 over an
+      // audit that examined nothing — the #2070 defect one layer up, and
+      // reachable the moment the verifier started abstaining honestly.
       result.checks.componentAnatomy = false;
-      result.issues.push({
+      result.unavailableChecks.push({
         check: 'componentAnatomy',
-        severity: 'warning',
-        message: `Component-anatomy audit skipped: ${(err as Error).message}`,
+        reason: `the component-anatomy audit could not run, so no anatomy rule was applied: ${(err as Error).message}`,
+        suggestion:
+          'Check the `files` scope, `design.exclude` and `analysis.exclude`, or turn the verifier off with `design.audit.componentAnatomy.enabled: false`.',
       });
     }
   }
@@ -607,11 +613,13 @@ export async function runValidate(
         });
       }
     } catch (err) {
+      // Same abstention channel as componentAnatomy above.
       result.checks.driftDetection = false;
-      result.issues.push({
+      result.unavailableChecks.push({
         check: 'driftDetection',
-        severity: 'warning',
-        message: `Drift detection skipped: ${(err as Error).message}`,
+        reason: `detect-design-drift could not run, so no drift rule was applied: ${(err as Error).message}`,
+        suggestion:
+          'Check the `files` scope, `design.exclude` and `analysis.exclude`, or turn the verifier off with `design.audit.driftDetection.enabled: false`.',
       });
     }
   }
@@ -652,11 +660,13 @@ export async function runValidate(
         });
       }
     } catch (err) {
+      // Same abstention channel as componentAnatomy above.
       result.checks.brandCompliance = false;
-      result.issues.push({
+      result.unavailableChecks.push({
         check: 'brandCompliance',
-        severity: 'warning',
-        message: `Brand compliance audit skipped: ${(err as Error).message}`,
+        reason: `audit-brand-compliance could not run, so no brand rule was applied: ${(err as Error).message}`,
+        suggestion:
+          'Check the `files` scope, `design.exclude` and `analysis.exclude`, or turn the verifier off with `design.audit.brandCompliance.enabled: false`.',
       });
     }
   }
@@ -755,9 +765,13 @@ function resolveValidateMode(globalOpts: Record<string, unknown>): OutputModeTyp
   return OutputMode.TEXT;
 }
 
-async function printCrossCheckWarnings(mode: OutputModeType): Promise<void> {
+async function printCrossCheckWarnings(mode: OutputModeType, configPath?: string): Promise<void> {
   const { runCrossCheck } = await import('./validate-cross-check');
-  const cwd = process.cwd();
+  // Same root the validation itself ran against, not `process.cwd()` — this
+  // display path re-derived its own root and so could report cross-check
+  // warnings for a different tree than the verdict above it (#911's class).
+  const project = resolveProject(configPath);
+  const cwd = project.ok ? project.value.root : process.cwd();
   const crossResult = await runCrossCheck({
     specsDir: path.join(cwd, 'docs', 'specs'),
     plansDir: path.join(cwd, 'docs', 'plans'),
@@ -838,7 +852,11 @@ async function runValidateAction(
     process.exit(result.error.exitCode);
   }
 
-  if (opts.crossCheck) await printCrossCheckWarnings(mode);
+  if (opts.crossCheck)
+    await printCrossCheckWarnings(
+      mode,
+      typeof globalOpts.config === 'string' ? globalOpts.config : undefined
+    );
   emitValidateOutput(result.value, mode, formatter);
   process.exit(resolveValidateExitCode(result.value));
 }

@@ -5,7 +5,7 @@ import { Ok, Err } from '@harness-engineering/core';
 import { formatFindingsContract } from '@harness-engineering/types';
 import { checkDocCoverage, validateKnowledgeMap } from '@harness-engineering/core';
 import { skipDirGlobs } from '@harness-engineering/graph';
-import { resolveConfig } from '../config/loader';
+import { resolveProject } from '../config/loader';
 import { OutputFormatter, OutputMode } from '../output/formatter';
 import type { OutputModeType } from '../output/formatter';
 import { resolveOutputMode } from '../utils/output';
@@ -36,15 +36,19 @@ interface CheckDocsResult {
 export async function runCheckDocs(
   options: CheckDocsOptions
 ): Promise<Result<CheckDocsResult, CLIError>> {
-  const cwd = options.cwd ?? process.cwd();
   const minCoverage = options.minCoverage ?? 80;
 
-  // Load config
-  const configResult = resolveConfig(options.configPath);
-  if (!configResult.ok) {
-    return configResult;
+  // Load the config AND the project root it implies. `-c` used to select the
+  // config file while the scan stayed on `process.cwd()`, so
+  // `harness check-docs -c /other/project/harness.config.json` read that
+  // project's config and measured THIS directory's docs — a confident coverage
+  // number for the wrong tree. Same split `check-arch` was fixed out of under
+  // #911 (9f322084c).
+  const projectResult = resolveProject(options.configPath, options.cwd);
+  if (!projectResult.ok) {
+    return projectResult;
   }
-  const config = configResult.value;
+  const { config, root: cwd } = projectResult.value;
 
   const docsDir = path.resolve(cwd, config.docsDir);
   const sourceDir = path.resolve(cwd, config.rootDir);

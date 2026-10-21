@@ -25,7 +25,7 @@ import {
 } from '@harness-engineering/core';
 import { logger } from '../output/logger';
 import { ExitCode } from '../utils/errors';
-import { resolveConfig } from '../config/loader';
+import { resolveConfig, resolveProject } from '../config/loader';
 
 interface ProbeOptions {
   backend?: string;
@@ -201,8 +201,15 @@ function formatProbe(result: ProbeResult): string {
 // model *content* schema lives in @harness-engineering/types (re-exported
 // through core), and pool/installer wiring stays server-side.
 
-function projectRoot(): string {
-  return resolve(process.env['HARNESS_PROJECT_ROOT'] ?? process.cwd());
+function projectRoot(configPath?: string): string {
+  const explicit = process.env['HARNESS_PROJECT_ROOT'];
+  if (explicit) return resolve(explicit);
+  // Root the proposals/drift store on the project that owns the config rather
+  // than `process.cwd()`: `-c` already selects the backends this command reads
+  // (`resolveBackends(opts.config)`), so a cwd-rooted store read one project's
+  // config and another project's proposals (#911's class).
+  const project = resolveProject(configPath);
+  return project.ok ? project.value.root : resolve(process.cwd());
 }
 
 /** Compact summary row for a model proposal listing. */
@@ -221,11 +228,12 @@ function summarizeModelProposal(p: Proposal): Record<string, unknown> {
 
 /** List model proposals (defaults to the pending `open` queue). */
 export async function runModelsProposals(
-  status: string = 'open'
+  status: string = 'open',
+  configPath?: string
 ): Promise<Record<string, unknown>[]> {
   const opts: ListProposalsOptions = { kind: 'model' };
   if (status !== 'all') opts.status = status as NonNullable<ListProposalsOptions['status']>;
-  const proposals = await listProposals(projectRoot(), opts);
+  const proposals = await listProposals(projectRoot(configPath), opts);
   return proposals.map(summarizeModelProposal);
 }
 
@@ -419,8 +427,9 @@ function addProposalsCommand(cmd: Command): void {
     .command('proposals')
     .description('List model proposals in the local review queue (defaults to pending).')
     .option('--status <status>', 'Filter by status (open | approved | rejected | all).', 'open')
-    .action(async (options: { status?: string }) => {
-      const rows = await runModelsProposals(options.status ?? 'open');
+    .action(async (options: { status?: string }, command: Command) => {
+      const globalOpts = command.optsWithGlobals() as { config?: string };
+      const rows = await runModelsProposals(options.status ?? 'open', globalOpts.config);
       console.log(JSON.stringify(rows, null, 2));
     });
 }
@@ -567,7 +576,7 @@ export async function runModelsDrift(opts: DriftOptions): Promise<number> {
     logger.error(resolved.error);
     return ExitCode.ERROR;
   }
-  const root = projectRoot();
+  const root = projectRoot(opts.config);
   const json = opts.json === true;
 
   if (opts.history) return driftHistoryMode(root, json);

@@ -60,8 +60,13 @@ async function gatherEntropyBlock(projectPath: string): Promise<InsightsEntropyB
     analyze: { drift: false, deadCode: true, patterns: false, complexity: false },
   });
   const result = await analyzer.analyze();
-  const empty: InsightsEntropyBlock = { driftCount: 0, deadFiles: 0, deadExports: 0 };
-  if (!result.ok) return empty;
+  // Throw, never return zeros: `safeGather` turns a throw into `null` plus a
+  // `warnings[]` entry, while zero counts read as "no dead code" and make
+  // `gatherHealthBlock` report PASS over a tree that was never analysed — e.g.
+  // when the parser cannot run (#2267) or no entry point resolves.
+  if (!result.ok) {
+    throw new Error(`entropy analysis failed (${result.error.code}): ${result.error.message}`);
+  }
   const report = result.value as {
     drift?: { drifts?: unknown[] };
     deadCode?: { deadFiles?: unknown[]; deadExports?: unknown[] };

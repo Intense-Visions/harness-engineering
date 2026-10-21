@@ -3,7 +3,7 @@ import * as path from 'path';
 import * as fs from 'fs';
 import type { Result } from '@harness-engineering/core';
 import { Ok } from '@harness-engineering/core';
-import { resolveConfig } from '../config/loader';
+import { resolveProject } from '../config/loader';
 import { findFiles } from '../utils/files';
 import { OutputFormatter, OutputMode, type OutputModeType } from '../output/formatter';
 import { logger } from '../output/logger';
@@ -93,16 +93,15 @@ function checkSpecContent(
 export async function runCheckPhaseGate(
   options: CheckPhaseGateOptions
 ): Promise<Result<CheckPhaseGateResult, CLIError>> {
-  // Load config
-  const configResult = resolveConfig(options.configPath);
-  if (!configResult.ok) {
-    return configResult;
+  // One shape for "the config AND the project root it implies". This used to
+  // honour an explicit `-c` but fall back to `process.cwd()` when the config was
+  // DISCOVERED, so running from a subdirectory measured the subdirectory against
+  // the repo-root config. `resolveProject` roots on the found config either way.
+  const projectResult = resolveProject(options.configPath, options.cwd);
+  if (!projectResult.ok) {
+    return projectResult;
   }
-  const config = configResult.value;
-
-  const cwd =
-    options.cwd ??
-    (options.configPath ? path.dirname(path.resolve(options.configPath)) : process.cwd());
+  const { config, root: cwd } = projectResult.value;
 
   // If phase gates not enabled, skip
   if (!config.phaseGates?.enabled) {

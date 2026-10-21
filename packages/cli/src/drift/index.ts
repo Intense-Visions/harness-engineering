@@ -14,10 +14,13 @@
  */
 
 import * as fs from 'node:fs';
-import * as path from 'node:path';
-import { minimatch } from 'minimatch';
 import { sanitizePath } from '../mcp/utils/sanitize-path.js';
-import { loadAnalysisExclude, loadDesignExclude } from '../config/analysis-schema.js';
+import {
+  collectDesignScanFiles,
+  designScanAbstention,
+  noFilesScannedError,
+  resolveDesignExcludePatterns,
+} from '../shared/design-scan-targets.js';
 import type { DriftFinding, DriftSeverity, DriftStrictness } from './findings/finding.js';
 import { loadTokenSet } from './resolvers/tokens.js';
 import { loadComponentRegistry } from './resolvers/component-registry.js';
@@ -52,10 +55,19 @@ import type { Verifier } from '../shared/verifier.js';
 export type DetectDriftOutput = Verifier<
   DriftFinding,
   { rulesApplied: string[] },
-  { mode: DetectDriftMode; tokensLoaded: boolean; registryLoaded: boolean }
+  {
+    mode: DetectDriftMode;
+    tokensLoaded: boolean;
+    registryLoaded: boolean;
+    /**
+     * Exclude globs the file walk actually applied. Empty when an explicit
+     * `files` scope was given, because that path bypasses the walk and its
+     * filter entirely — reporting the configured globs there would claim a
+     * filter that never ran.
+     */
+    excludePatterns: string[];
+  }
 >;
-
-const DEFAULT_GLOB_EXTENSIONS = ['.ts', '.tsx', '.js', '.jsx', '.css', '.scss'];
 
 /**
  * Resolved configuration for a single detect-design-drift run. Centralizes
@@ -86,8 +98,7 @@ function resolveDriftConfig(input: DetectDriftInput): ResolvedDriftConfig {
   // runner so every caller (validate, check-design, align, design-pipeline, MCP)
   // honors them uniformly. An explicit `input.exclude` overrides the config read
   // (used by the detect_drift MCP tool); pass [] to force "no design excludes".
-  const designExclude = input.exclude ?? loadDesignExclude(projectRoot);
-  const excludePatterns = [...designExclude, ...loadAnalysisExclude(projectRoot)];
+  const excludePatterns = resolveDesignExcludePatterns(projectRoot, input.exclude);
   return {
     projectRoot,
     mode: input.mode ?? 'fast',
@@ -116,12 +127,12 @@ function computeRulesApplied(config: ResolvedDriftConfig): string[] {
  * Run the enabled rules against a single file's source. Returns an empty
  * list when the file cannot be read.
  */
-function scanFile(file: string, config: ResolvedDriftConfig): DriftFinding[] {
+function scanFile(file: string, config: ResolvedDriftConfig): DriftFinding[] | 'unreadable' {
   let source: string;
   try {
     source = fs.readFileSync(file, 'utf-8');
   } catch {
-    return [];
+    return 'unreadable';
   }
   const findings: DriftFinding[] = [];
   if (config.tokenBypassEnabled && config.tokens !== null) {
@@ -145,12 +156,26 @@ function scanFile(file: string, config: ResolvedDriftConfig): DriftFinding[] {
 /**
  * Scan every candidate file and accumulate findings.
  */
-function scanFiles(files: readonly string[], config: ResolvedDriftConfig): DriftFinding[] {
+/**
+ * Scan every candidate, reporting how many were actually READ. `totalFiles`
+ * used to be `filesToScan.length` — the candidate count — so a scope of one
+ * nonexistent path reported "1 file scanned, 0 findings" for a file the
+ * verifier never opened. Coverage claims count bytes read, not paths offered
+ * (#2070).
+ */
+function scanFiles(
+  files: readonly string[],
+  config: ResolvedDriftConfig
+): { findings: DriftFinding[]; filesRead: number } {
   const findings: DriftFinding[] = [];
+  let filesRead = 0;
   for (const file of files) {
-    findings.push(...scanFile(file, config));
+    const result = scanFile(file, config);
+    if (result === 'unreadable') continue;
+    filesRead += 1;
+    findings.push(...result);
   }
-  return findings;
+  return { findings, filesRead };
 }
 
 /**
@@ -177,14 +202,24 @@ export async function runDetectDrift(input: DetectDriftInput): Promise<DetectDri
   const config = resolveDriftConfig(input);
   const rulesApplied = computeRulesApplied(config);
 
-  const filesToScan = await collectFiles(config.projectRoot, input.files, config.excludePatterns);
-  const findings = scanFiles(filesToScan, config);
+  const targets = collectDesignScanFiles(config.projectRoot, input.files, config.excludePatterns);
+  const filesToScan = targets.files;
+  // Truncated walk, or a design surface this verifier resolved down to nothing
+  // (an exclude that matched everything, an explicit list that does not resolve,
+  // or a dialect it cannot read). The rule lives in designScanAbstention so the
+  // three verifiers cannot drift apart on it.
+  const abstention = designScanAbstention('detect-design-drift', config.projectRoot, targets);
+  if (abstention) throw abstention;
+  const { findings, filesRead } = scanFiles(filesToScan, config);
+  if (filesToScan.length > 0 && filesRead === 0) {
+    throw noFilesScannedError('detect-design-drift', config.projectRoot);
+  }
   const { bySeverity, byCode } = summarizeFindings(findings);
 
   return {
     findings,
     summary: {
-      totalFiles: filesToScan.length,
+      totalFiles: filesRead,
       durationMs: Date.now() - startedAt,
       bySeverity,
       byCode,
@@ -194,71 +229,11 @@ export async function runDetectDrift(input: DetectDriftInput): Promise<DetectDri
       mode: config.mode,
       tokensLoaded: config.tokens !== null,
       registryLoaded: config.registry !== null,
+      // Same condition collectDesignScanFiles uses to bypass the walk.
+      excludePatterns:
+        input.files !== undefined && input.files.length > 0 ? [] : [...config.excludePatterns],
     },
   };
-}
-
-/**
- * Collect candidate files for scanning. Honors the optional files arg
- * (explicit paths). Falls back to a simple walk of the project root when
- * not provided.
- */
-async function collectFiles(
-  projectRoot: string,
-  explicitFiles: readonly string[] | undefined,
-  excludePatterns: readonly string[]
-): Promise<string[]> {
-  // An explicit file list is already a deliberate scoping — bypass excludes,
-  // mirroring security.ts's handling of an explicit `files` arg.
-  if (explicitFiles !== undefined && explicitFiles.length > 0) {
-    return explicitFiles.map((f) => (path.isAbsolute(f) ? f : path.join(projectRoot, f)));
-  }
-  const out: string[] = [];
-  walk(projectRoot, out, 0);
-  if (excludePatterns.length === 0) return out;
-  return out.filter((abs) => !isExcluded(projectRoot, abs, excludePatterns));
-}
-
-/**
- * True when the file's project-relative, POSIX-normalized path matches any
- * exclude glob. `matchBase` lets a bare `*.test.ts` match at any depth,
- * consistent with skill/dispatcher.ts and the analysis.exclude semantics.
- */
-function isExcluded(
-  projectRoot: string,
-  absFile: string,
-  excludePatterns: readonly string[]
-): boolean {
-  const rel = path.relative(projectRoot, absFile).replaceAll('\\', '/');
-  return excludePatterns.some((pattern) => minimatch(rel, pattern, { matchBase: true }));
-}
-
-function walk(dir: string, out: string[], depth: number): void {
-  // Bounded depth + skip common heavy / generated dirs for performance.
-  if (depth > 8) return;
-  let entries: fs.Dirent[];
-  try {
-    entries = fs.readdirSync(dir, { withFileTypes: true });
-  } catch {
-    return;
-  }
-  for (const entry of entries) {
-    if (
-      entry.name.startsWith('.') ||
-      entry.name === 'node_modules' ||
-      entry.name === 'dist' ||
-      entry.name === 'build' ||
-      entry.name === 'coverage'
-    ) {
-      continue;
-    }
-    const full = path.join(dir, entry.name);
-    if (entry.isDirectory()) {
-      walk(full, out, depth + 1);
-    } else if (entry.isFile() && DEFAULT_GLOB_EXTENSIONS.some((ext) => entry.name.endsWith(ext))) {
-      out.push(full);
-    }
-  }
 }
 
 export type {

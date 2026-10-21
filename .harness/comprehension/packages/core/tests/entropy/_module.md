@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/tests/entropy'
-sourceHash: '88ca8ff24f192b650935d4a3562afd85cf587dcbe07a2b057f1dccb048ce91ab'
+sourceHash: '3d54cbcbf13a28ac0349ff91b5bf3f44a3c6cd713e30232d4d7aab3163f66f99'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -12,6 +12,7 @@ members:
     'analyzer.test.ts',
     'graph-integration.test.ts',
     'path-aliases.test.ts',
+    'snapshot-parser-unavailable.test.ts',
     'snapshot.test.ts',
   ]
 ---
@@ -30,16 +31,17 @@ import { detectDeadCode } from '../../src/entropy/detectors/dead-code'
 import { detectDocDrift } from '../../src/entropy/detectors/drift'
 import { detectDuplication } from '../../src/entropy/detectors/duplication'
 import { PathAlias, loadPathAliases, resolveAliasCandidates } from '../../src/entropy/path-aliases'
-import { buildSnapshot, parseDocumentationFile, resolveEntryPoints } from '../../src/entropy/snapshot'
+import { buildSnapshot, parseDocumentationFile, parseSourceFiles, resolveEntryPoints } from '../../src/entropy/snapshot'
 import { CodebaseSnapshot, DuplicationReport, EntropyConfig } from '../../src/entropy/types'
 import { createEntropyError } from '../../src/shared/errors'
 import { TypeScriptParser } from '../../src/shared/parsers'
+import { TypeScriptParser } from '../../src/shared/parsers/typescript'
 import { Ok } from '../../src/shared/result'
 import { memberSets } from '../duplication/fixtures'
 import { skipDirGlobs } from '@harness-engineering/graph'
 import { mkdir, mkdtemp, rm, writeFile } from 'fs/promises'
 import * as fs from 'node:fs'
-import from 'node:fs/promises'
+import * as fsp from 'node:fs/promises'
 import * as os from 'node:os'
 import { join } from 'node:path'
 import { tmpdir } from 'os'

@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/tests/ci'
-sourceHash: '1f0e63c374c9293e8cd390a5fc3aa78d6bf43fff5edef0e9f055d00cea9d698e'
+sourceHash: '7263b227a6325aa6eef3700a8ddc4cfea81224122d76d3df303759de68cdb029'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -10,6 +10,7 @@ members:
     'arch-dependency-rules.behavior.test.ts',
     'base-freshness.behavior.test.ts',
     'check-orchestrator.test.ts',
+    'check-skip-status.test.ts',
     'constraint-packs-orchestrator.test.ts',
     'constraint-packs-real-scanner.test.ts',
     'notifier.test.ts',
@@ -35,6 +36,7 @@ import { DEFAULT_VERDICT_CACHE_DIR, GATE_VERSIONS, MEMOIZABLE_CHECKS, VerdictCac
 import from '../../src/context/agents-map'
 import from '../../src/context/doc-coverage'
 import { TrackerSyncAdapter } from '../../src/roadmap/tracker-sync'
+import from '../../src/security/config'
 import { CICheckName, CICheckReport, CICheckResult, Err, Ok } from '@harness-engineering/types'
 import * as fs from 'node:fs'
 import * as fs from 'node:fs/promises'

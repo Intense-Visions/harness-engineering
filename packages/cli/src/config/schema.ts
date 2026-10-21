@@ -137,7 +137,22 @@ export const DuplicationConfigSchema = z.object({
  * Schema for entropy (drift/stale code) management configuration.
  */
 export const EntropyConfigSchema = z.object({
-  /** Explicit entry points for reachability analysis (overrides auto-detection) */
+  /**
+   * Whether the drift / dead-code gate applies to this project at all. The
+   * analyzer is TypeScript-based, so `false` is the honest setting for a Go,
+   * Python, Rust or Java codebase: not-applicable, as opposed to a gate that
+   * tried to run and could not (#2071).
+   */
+  enabled: z.boolean().default(true),
+  /**
+   * Explicit entry points for reachability analysis (overrides auto-detection).
+   * Resolved literally — see `PerformanceConfigSchema.entryPoints` for why a
+   * glob here is actively harmful rather than merely ineffective.
+   *
+   * Only the `entropy` gate reads this key, and it falls back to
+   * `performance.entryPoints` when this is unset. The `perf` gate never reads
+   * it, so a value here does not configure perf.
+   */
   entryPoints: z.array(z.string()).optional(),
   /** Patterns to exclude from entropy analysis */
   excludePatterns: z.array(z.string()).default([...skipDirGlobs(), '**/*.test.ts']),
@@ -209,6 +224,37 @@ export const SecurityConfigSchema = z
  */
 export const PerformanceConfigSchema = z
   .object({
+    /**
+     * Whether the complexity / coupling gate applies to this project at all.
+     * Same reasoning as `entropy.enabled`: the analyzer is TypeScript-based, so
+     * a non-TypeScript stack declares it not-applicable rather than leaving it
+     * to abstain (#2071).
+     */
+    enabled: z.boolean().default(true),
+    /**
+     * Entry points for the reachability walk the complexity/coupling analyzers
+     * start from. Omit it and the analyzers auto-detect (package.json `main` /
+     * `exports`, then conventional index files), which is the right default for
+     * most projects.
+     *
+     * **These are resolved literally, not glob-expanded** (#2275).
+     * `resolveEntryPoints`
+     * returns any non-empty array as-is after `path.resolve`, with no expansion
+     * and no existence check, so a wildcard value — a `src` recursive glob
+     * ending in `*.ts`, say — becomes a root path that matches nothing: the
+     * dead-code BFS then reaches zero files and every export looks dead, while
+     * `perf` still reports `pass` over an analysis of nothing. Configure concrete
+     * file paths — as this repo's own `harness.config.json` does — or leave it
+     * unset and let auto-detection work. A non-empty value here also SUPPRESSES
+     * auto-detection, so a wrong value is worse than no value.
+     *
+     * The fallback is asymmetric: the `entropy` gate falls back to this value
+     * when `entropy.entryPoints` is unset, but the `perf` gate reads only this
+     * key and never consults the entropy section. So setting
+     * `entropy.entryPoints` alone configures entropy and leaves perf on
+     * auto-detection.
+     */
+    entryPoints: z.array(z.string()).optional(),
     /** Complexity thresholds per module or pattern */
     complexity: z.record(z.unknown()).optional(),
     /** Coupling limits between modules */

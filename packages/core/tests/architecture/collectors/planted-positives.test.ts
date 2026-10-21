@@ -16,6 +16,7 @@ import * as path from 'node:path';
 import { CircularDepsCollector } from '../../../src/architecture/collectors/circular-deps';
 import { LayerViolationCollector } from '../../../src/architecture/collectors/layer-violations';
 import { ForbiddenImportCollector } from '../../../src/architecture/collectors/forbidden-imports';
+import { CouplingCollector } from '../../../src/architecture/collectors/coupling';
 import type { ArchConfig } from '../../../src/architecture/types';
 
 const baseConfig: ArchConfig = {
@@ -223,5 +224,186 @@ describe('ForbiddenImportCollector (configured rules, issue #2235)', () => {
 
     expect(r1!.violations[0]!.id).toMatch(/^[a-f0-9]{64}$/);
     expect(r1!.violations[0]!.id).toBe(r2!.violations[0]!.id);
+  });
+});
+
+/**
+ * The coupling collector's own unit test mocks `detectCouplingViolations`, and
+ * that mock ignores the snapshot it is handed — so `findFiles` is never
+ * observed and even the `filesAnalyzed` denominator is read back out of the
+ * mock's own `stats`. Measured: replacing the collector's
+ * `await findFiles('**\/*.ts', ...)` with `[]` makes it measure ZERO files and
+ * the entire `packages/core` suite still passes. Coupling is the only one of
+ * the five metric collectors whose denominator survives that mutation, and
+ * `CouplingCollector` sits in `defaultCollectors` -> `runAll` -> `runArchCheck`
+ * -> `harness ci check`, which `.husky/pre-commit` does not skip.
+ *
+ * WHY THE DENOMINATOR IS THE THING WORTH PINNING: `filesAnalyzed` is in
+ * `WORK_DENOMINATORS` (`packages/cli/src/commands/check-arch.ts`) and `coupling`
+ * is in no `CONFIG_GATED_CATEGORIES` entry, so this one number is the sole input
+ * to `classifyMeasurement`'s measured-versus-abstained verdict for this
+ * category. An untruthful denominator therefore corrupts the verdict itself, and
+ * in the dangerous direction: a denominator reporting work it did not do reads
+ * as `measured`. A ZERO one is safe today -- verified against unmutated source,
+ * `classifyMeasurement({category:'coupling', value:0, metadata:{filesAnalyzed:0}})`
+ * returns `'abstained'` with reason `nothing to measure (filesAnalyzed=0)`.
+ * (An earlier version of this comment said a collapse to 0 "reads as an
+ * IMPROVEMENT against the baseline". That was true before #2238 shipped the
+ * abstention channel this morning -- see #2268 -- and is false against this tree.
+ * The baselined `value` for this category is already 0 regardless, so there was
+ * never an improvement to read.)
+ *
+ * These two cases run the REAL `detectCouplingViolations` over a tmp-dir
+ * fixture and assert the denominator against the planted file count, so a 0 can
+ * only come from a glob that actually ran. The pair is deliberately asymmetric
+ * (3 files vs 2 after an exclude) so neither can pass on a constant.
+ *
+ * UPDATE (#2284): a nonzero coupling VIOLATION is now asserted too, in the
+ * sibling describe below. This comment previously recorded that it could not
+ * be: `buildCouplingSnapshot` hardcoded `imports: []` for every file, so
+ * `fanOut`, `fanIn` and `transitiveDepth` were all 0 and the real detector
+ * could not emit a violation through this collector whatever the fixture
+ * imported (verified against a planted 20-import hub: `value: 0`,
+ * `filesAnalyzed: 21`). The collector now parses real imports, so the planted
+ * hub is reachable and the positive discriminator the denominator pin was
+ * standing in for exists.
+ *
+ * `importEdges` joins `filesAnalyzed` in the metadata: it is the denominator
+ * every coupling metric is actually derived from, so a 0 there is the signal
+ * that the snapshot went hollow again.
+ */
+describe('CouplingCollector (real detector, denominator)', () => {
+  const collector = new CouplingCollector();
+
+  it('counts the .ts files it globbed, not a number handed back by a mock', async () => {
+    plant({
+      'src/a.ts': "import { b } from './b';\nexport const a = () => b;\n",
+      'src/b.ts': 'export const b = 1;\n',
+      'src/nested/c.ts': 'export const c = 2;\n',
+      // Outside `**/*.ts`: proves the count tracks the glob, not the tree.
+      'src/ignored.js': 'module.exports = 1;\n',
+    });
+
+    const [result] = await collector.collect(baseConfig, root);
+
+    // `src/a.ts` carries the fixture's single import edge.
+    expect(result!.metadata).toEqual({ filesAnalyzed: 3, importEdges: 1 });
+  });
+
+  it('drops excluded files from the denominator', async () => {
+    // Positive control for the case above: same tree, one exclude, and the
+    // denominator must move. Pins `resolveExcludePatterns(config)` being passed
+    // through to `findFiles` as well as the call itself.
+    plant({
+      'src/a.ts': 'export const a = 1;\n',
+      'src/b.ts': 'export const b = 2;\n',
+      'src/generated/huge.ts': 'export const huge = 3;\n',
+    });
+
+    const [result] = await collector.collect(
+      { ...baseConfig, excludePatterns: ['src/generated/**'] },
+      root
+    );
+
+    expect(result!.metadata).toEqual({ filesAnalyzed: 2, importEdges: 0 });
+  });
+});
+
+/**
+ * Planted-positive tests for `CouplingCollector` (issue #2284).
+ *
+ * `buildCouplingSnapshot` used to hand the real detector a structurally empty
+ * snapshot — `imports: []`, `exports: []`, an empty `dependencyGraph` — past the
+ * type checker via `as unknown as CodebaseSnapshot`. Every metric the detector
+ * derives was therefore 0 and every `value <= threshold` check passed, so the
+ * collector could not emit a violation under ANY input. The gate stayed green
+ * with an honest `filesAnalyzed`, which is why #2238's abstention channel read
+ * it as `measured` rather than as a collector that never looked.
+ *
+ * These cases are a POSITIVE discriminator: a named metric on a named file, not
+ * an absence. They fail if the snapshot goes hollow again (no imports -> no
+ * violation), and the clean twin fails if the collector ever starts reporting
+ * violations unconditionally. The twin also asserts `importEdges > 0`, so its
+ * zero cannot come from a parse that produced nothing.
+ */
+describe('CouplingCollector (planted positives, issue #2284)', () => {
+  const collector = new CouplingCollector();
+
+  function plantHub(importCount: number): void {
+    const names = Array.from({ length: importCount }, (_, i) => `leaf${i}`);
+    const tree: Record<string, string> = {};
+    for (const [i, n] of names.entries()) tree[`src/${n}.ts`] = `export const ${n} = ${i};\n`;
+    tree['src/hub.ts'] =
+      names.map((n) => `import { ${n} } from './${n}';`).join('\n') +
+      `\nexport const all = [${names.join(', ')}];\n`;
+    plant(tree);
+  }
+
+  it('flags a planted 20-import hub by file and metric (fanOut warn threshold is 15)', async () => {
+    plantHub(20);
+
+    const [result] = await collector.collect(baseConfig, root);
+
+    expect(result!.value).toBeGreaterThan(0);
+    const fanOut = result!.violations.filter((v) => v.detail.startsWith('fanOut='));
+    expect(fanOut).toHaveLength(1);
+    expect(fanOut[0]!.file).toBe('src/hub.ts');
+    expect(fanOut[0]!.detail).toBe('fanOut=20 (threshold: 15)');
+    expect(fanOut[0]!.severity).toBe('warning');
+    expect(fanOut[0]!.id).toMatch(/^[a-f0-9]{64}$/);
+    // Denominator: the hub's 20 edges were really parsed, not assumed.
+    expect(result!.metadata).toMatchObject({ filesAnalyzed: 21, importEdges: 20 });
+  });
+
+  it('reports 0 for a clean twin while still proving it parsed import edges', async () => {
+    // Same shape, under every threshold: 3 imports is below the fanOut warn of
+    // 15, and 4 total connections is below the couplingRatio check's floor of 5.
+    plant({
+      'src/leaf-a.ts': 'export const a = 1;\n',
+      'src/leaf-b.ts': 'export const b = 2;\n',
+      'src/leaf-c.ts': 'export const c = 3;\n',
+      'src/small-hub.ts':
+        "import { a } from './leaf-a';\nimport { b } from './leaf-b';\n" +
+        "import { c } from './leaf-c';\nexport const all = [a, b, c];\n",
+    });
+
+    const [result] = await collector.collect(baseConfig, root);
+
+    expect(result!.value).toBe(0);
+    expect(result!.violations).toHaveLength(0);
+    expect(result!.metadata).toMatchObject({ filesAnalyzed: 4, importEdges: 3 });
+  });
+
+  it('keeps a planted hub out of the measurement when it is excluded', async () => {
+    // Asymmetric positive control for the pair above: the same 20-import hub,
+    // excluded, must stop producing its violation AND drop out of both
+    // denominators — so neither assertion can pass on a constant.
+    plantHub(20);
+
+    const [result] = await collector.collect(
+      { ...baseConfig, excludePatterns: ['src/hub.ts'] },
+      root
+    );
+
+    expect(result!.violations.filter((v) => v.detail.startsWith('fanOut='))).toHaveLength(0);
+    expect(result!.metadata).toMatchObject({ filesAnalyzed: 20, importEdges: 0 });
+  });
+
+  it('never classifies a test file, however many helpers it imports', async () => {
+    // `*.test.ts` / `*.spec.ts` are excluded by the collector: a test
+    // legitimately imports a dozen helpers plus its subject, so counting that
+    // as fan-out measures the test convention rather than the production graph.
+    const names = Array.from({ length: 20 }, (_, i) => `helper${i}`);
+    const tree: Record<string, string> = {};
+    for (const [i, n] of names.entries()) tree[`src/${n}.ts`] = `export const ${n} = ${i};\n`;
+    tree['src/wide.test.ts'] =
+      names.map((n) => `import { ${n} } from './${n}';`).join('\n') +
+      `\nexport const all = [${names.join(', ')}];\n`;
+    plant(tree);
+
+    const [result] = await collector.collect(baseConfig, root);
+
+    expect(result!.violations).toHaveLength(0);
+    expect(result!.metadata).toMatchObject({ filesAnalyzed: 20, importEdges: 0 });
   });
 });

@@ -1,6 +1,6 @@
 {
   "name": "@harness-engineering/dashboard",
-  "version": "0.16.13",
+  "version": "0.16.14",
   "description": "Local web dashboard for harness project health and roadmap visualization",
   "type": "module",
   "exports": {
@@ -31,11 +31,11 @@
     "@harness-engineering/intelligence": "workspace:*",
     "@harness-engineering/orchestrator": "workspace:*",
     "@harness-engineering/types": "workspace:*",
-    "@hono/node-server": "^2.0.4",
+    "@hono/node-server": "^2.1.3",
     "@tailwindcss/typography": "^0.5.19",
     "framer-motion": "^12.38.0",
     "glob": "^13.0.6",
-    "hono": "^4.12.18",
+    "hono": "^4.13.11",
     "lucide-react": "^1.8.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
@@ -61,7 +61,7 @@
     "tailwindcss": "^4.1.0",
     "tsup": "^8.5.1",
     "tsx": "^4.23.11",
-    "vite": "^6.4.3",
+    "vite": "^6.4.4",
     "vitest": "^4.1.5"
   },
   "license": "MIT",

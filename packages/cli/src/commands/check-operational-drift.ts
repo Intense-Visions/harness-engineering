@@ -4,7 +4,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import * as path from 'node:path';
 import type { Result } from '@harness-engineering/core';
 import { Ok } from '@harness-engineering/core';
-import { resolveConfig } from '../config/loader';
+import { resolveProject } from '../config/loader';
 import { OutputMode } from '../output/formatter';
 import { resolveOutputMode } from '../utils/output';
 import { logger } from '../output/logger';
@@ -147,13 +147,18 @@ function resolvePolicy(
 export async function runCheckOperationalDrift(
   options: CheckOperationalDriftOptions
 ): Promise<Result<CheckOperationalDriftResult, CLIError>> {
-  const cwd = options.cwd ?? process.cwd();
   const runGit = options.runGit ?? defaultRunGit;
 
-  const configResult = resolveConfig(options.configPath);
-  if (!configResult.ok) return configResult;
-  const rawPolicy = (configResult.value as { operationalPolicy?: Partial<OperationalDriftPolicy> })
-    .operationalPolicy;
+  // Root the scan on the project that owns the config, not `process.cwd()`:
+  // `-c` used to select the config file while the scan stayed on the current
+  // directory, so pointing it at another project measured THIS tree. Same
+  // split `check-arch` was fixed out of under #911 (9f322084c).
+  const projectResult = resolveProject(options.configPath, options.cwd);
+  if (!projectResult.ok) return projectResult;
+  const cwd = projectResult.value.root;
+  const rawPolicy = (
+    projectResult.value.config as { operationalPolicy?: Partial<OperationalDriftPolicy> }
+  ).operationalPolicy;
   const policy = resolvePolicy(rawPolicy, options.strict);
 
   const base = resolveBaseRef({ base: options.base, runGit });

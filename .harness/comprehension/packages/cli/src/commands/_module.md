@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/commands'
-sourceHash: '95876e9a966ef3e421f05637077dabe81e437cda774a4c223935439ac042e03d'
+sourceHash: '98052cfc65bd95fdb4f0de707bd4a101e8e8ac56cb1a96bdca71a51095756edd'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -359,6 +359,7 @@ export runCheckVocabulary
 export runCleanup
 export runCleanupAll
 export runCleanupSessions
+export runComprehendAction
 export runCrossCheck
 export runCursorToolPicker
 export runDoctor
@@ -434,11 +435,12 @@ import { RefReadDeps, RegressionContext, SemanticState, defaultRefReadDeps, dete
 import { createStaticExtractor } from '../comprehension/static-extractor'
 import { loadAnalysisExclude, loadDesignExclude } from '../config/analysis-schema.js'
 import { withDependencyRules } from '../config/arch-dependency-rules'
-import { findConfigFile, loadConfig, resolveConfig } from '../config/loader'
+import { findConfigFile, resolveConfig, resolveProject } from '../config/loader'
 import { BranchingConfigSchema, ComprehensionConfig, HarnessConfig, VocabularyConfigSchema, loadDepsExclude } from '../config/schema'
 import { CopyCraftInput, CopyCraftOutput, CopySurface, runCopyCraft } from '../copy-craft/index.js'
 import { CraftFinding } from '../design-craft/findings/schema'
 import { DesignPipelineContext, DesignPipelineInput, runDesignPipeline } from '../design-pipeline/index.js'
+import { toSerializableResult } from '../design-pipeline/serialize.js'
 import { DocsCraftInput, DocsCraftOutput, runDocsCraft } from '../docs-craft/index.js'
 import { DriftFinding } from '../drift/findings/finding'
 import { DriftStrictness } from '../drift/findings/finding.js'
@@ -664,7 +666,7 @@ import * as fs, fs, { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirS
 import from 'node:fs/promises'
 import { createRequire } from 'node:module'
 import * as os, os, { tmpdir } from 'node:os'
-import * as path, path, { dirname, join, relative, resolve } from 'node:path'
+import * as nodePath, * as path, path, { dirname, join, relative, resolve } from 'node:path'
 import readline from 'node:readline'
 import { setTimeout } from 'node:timers'
 import { fileURLToPath } from 'node:url'

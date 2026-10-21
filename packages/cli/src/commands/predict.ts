@@ -6,7 +6,7 @@ import type {
   AdjustedForecast,
   PredictionWarning,
 } from '@harness-engineering/core';
-import { resolveConfig } from '../config/loader';
+import { resolveProject } from '../config/loader';
 import { OutputMode } from '../output/formatter';
 import type { OutputModeType } from '../output/formatter';
 import { logger } from '../output/logger';
@@ -115,12 +115,15 @@ export async function runPredict(options: {
   noRoadmap?: boolean;
   horizon?: number;
 }): Promise<PredictionResult> {
-  const cwd = options.cwd ?? process.cwd();
-
-  const configResult = resolveConfig(options.configPath);
-  if (!configResult.ok) {
-    throw configResult.error;
+  // Root the scan on the project that owns the config, not `process.cwd()`:
+  // `-c` used to select the config file while the scan stayed on the current
+  // directory, so pointing it at another project measured THIS tree. Same
+  // split `check-arch` was fixed out of under #911 (9f322084c).
+  const projectResult = resolveProject(options.configPath, options.cwd);
+  if (!projectResult.ok) {
+    throw projectResult.error;
   }
+  const cwd = projectResult.value.root;
 
   const manager = new TimelineManager(cwd);
   const estimator = options.noRoadmap === true ? null : new SpecImpactEstimator(cwd);

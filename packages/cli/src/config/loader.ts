@@ -119,3 +119,59 @@ export function resolveConfig(configPath?: string): Result<HarnessConfig, CLIErr
 
   return loadConfig(findResult.value);
 }
+
+/**
+ * A loaded config together with the project root it implies.
+ */
+export interface ResolvedProject {
+  /** The validated config. */
+  config: HarnessConfig;
+  /** Absolute path to the config file the config was loaded from. */
+  configPath: string;
+  /**
+   * The directory that owns the config — the root every scan, baseline and
+   * generated artifact should be resolved against.
+   */
+  root: string;
+}
+
+/**
+ * Resolves both the config AND the project root it implies.
+ *
+ * Commands that scan, measure or write a tree need two things from `-c`: the
+ * config's *contents* and the *project* that owns it. `resolveConfig` returns
+ * only the former, so a command that pairs it with `process.cwd()` reads one
+ * project's config while measuring another directory — reporting a confident
+ * number for the wrong tree. `check-arch` was fixed into this shape under
+ * issue #911 (commit 9f322084c, `options.cwd ?? path.dirname(configPath)`);
+ * the same split survived in a dozen sibling commands because the pattern was
+ * copied inline rather than shared. This function is that one shape, so the
+ * next command cannot acquire the defect by omission.
+ *
+ * @param configPath - Value of the global `-c/--config` option, when set.
+ * @param cwdOverride - An explicit root that wins over the implied one. Used by
+ *   callers (and tests) that genuinely want to point a config at another tree.
+ * @returns Ok with the config, its path, and the implied root; Err if the
+ *   config cannot be found, read or validated.
+ */
+export function resolveProject(
+  configPath?: string,
+  cwdOverride?: string
+): Result<ResolvedProject, CLIError> {
+  const found = configPath ? Ok(path.resolve(configPath)) : findConfigFile();
+  if (!found.ok) {
+    return found;
+  }
+  const resolvedConfigPath = found.value;
+
+  const configResult = loadConfig(resolvedConfigPath);
+  if (!configResult.ok) {
+    return configResult;
+  }
+
+  return Ok({
+    config: configResult.value,
+    configPath: resolvedConfigPath,
+    root: cwdOverride ?? path.dirname(resolvedConfigPath),
+  });
+}

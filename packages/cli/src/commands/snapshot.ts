@@ -7,7 +7,8 @@ import type {
   TrendResult,
   TrendLine,
 } from '@harness-engineering/core';
-import { resolveConfig } from '../config/loader';
+import { resolveProject } from '../config/loader';
+import type { HarnessConfig } from '../config/schema';
 import { withDependencyRules } from '../config/arch-dependency-rules';
 import { OutputMode } from '../output/formatter';
 import type { OutputModeType } from '../output/formatter';
@@ -26,18 +27,22 @@ function getCommitHash(cwd: string): string {
   }
 }
 
-function resolveArchConfig(
-  configPath: string | undefined,
-  cwd: string
-): { archConfig: ArchConfig; error?: never } | { archConfig?: never; error: CLIError } {
-  const configResult = resolveConfig(configPath);
-  if (!configResult.ok) {
-    return { error: configResult.error };
-  }
-  const config = configResult.value;
+function resolveArchConfig(config: HarnessConfig, cwd: string): { archConfig: ArchConfig } {
   const base: ArchConfig = config.architecture ?? ArchConfigSchema.parse({});
   // Same dependency rules check-arch measures against (#2235).
   return { archConfig: withDependencyRules(base, config, cwd) };
+}
+
+/**
+ * Project root for the read-only timeline subcommands. They accept the global
+ * `-c/--config` too, and read the timeline out of `<root>/.harness`, so a
+ * `process.cwd()` root listed another project's snapshots (#911's class).
+ * Best-effort: with no resolvable config these commands still work off the
+ * current directory, as they always have.
+ */
+function timelineRoot(configPath?: string): string {
+  const project = resolveProject(configPath);
+  return project.ok ? project.value.root : process.cwd();
 }
 
 function formatDelta(delta: number): string {
@@ -82,11 +87,16 @@ export async function runSnapshotCapture(options: {
   cwd?: string;
   configPath?: string;
 }): Promise<SnapshotCaptureResult> {
-  const cwd = options.cwd ?? process.cwd();
-  const resolved = resolveArchConfig(options.configPath, cwd);
-  if (resolved.error) {
-    throw resolved.error;
+  // Root the scan on the project that owns the config, not `process.cwd()`.
+  // `capture` WRITES the arch timeline, so the wrong root both measures and
+  // persists into a project the caller did not name. Same split `check-arch`
+  // was fixed out of under #911 (9f322084c).
+  const projectResult = resolveProject(options.configPath, options.cwd);
+  if (!projectResult.ok) {
+    throw projectResult.error;
   }
+  const cwd = projectResult.value.root;
+  const resolved = resolveArchConfig(projectResult.value.config, cwd);
 
   const manager = new TimelineManager(cwd);
 
@@ -265,7 +275,7 @@ function registerTrendsCommand(parent: Command): void {
     .action(async (opts, cmd) => {
       const globalOpts = cmd.optsWithGlobals();
       const mode: OutputModeType = globalOpts.json ? OutputMode.JSON : OutputMode.TEXT;
-      const manager = new TimelineManager(process.cwd());
+      const manager = new TimelineManager(timelineRoot(globalOpts.config));
       const trends = manager.trends({ last: parseInt(opts.last, 10), since: opts.since });
       if (mode === OutputMode.JSON) {
         console.log(JSON.stringify(trends, null, 2));
@@ -282,7 +292,7 @@ function registerListCommand(parent: Command): void {
     .action(async (_opts, cmd) => {
       const globalOpts = cmd.optsWithGlobals();
       const mode: OutputModeType = globalOpts.json ? OutputMode.JSON : OutputMode.TEXT;
-      const manager = new TimelineManager(process.cwd());
+      const manager = new TimelineManager(timelineRoot(globalOpts.config));
       if (mode === OutputMode.JSON) {
         console.log(JSON.stringify(manager.load(), null, 2));
       } else {

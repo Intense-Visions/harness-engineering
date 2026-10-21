@@ -1,5 +1,6 @@
 // packages/cli/tests/commands/audit-protected.test.ts
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { resolveProjectFrom } from '../helpers/resolve-project-mock';
 
 const mockGlobResult: string[] = [];
 const mockFileContents: Record<string, string> = {};
@@ -26,17 +27,23 @@ vi.mock('fs', async (importOriginal) => {
   };
 });
 
-vi.mock('../../src/config/loader', () => ({
-  resolveConfig: vi.fn().mockReturnValue({
-    ok: true,
-    value: {
-      version: 1,
-      rootDir: '.',
-      docsDir: './docs',
-      entropy: { excludePatterns: ['**/node_modules/**'] },
-    },
-  }),
-}));
+vi.mock('../../src/config/loader', () => {
+  const mock = {
+    resolveConfig: vi.fn().mockReturnValue({
+      ok: true,
+      value: {
+        version: 1,
+        rootDir: '.',
+        docsDir: './docs',
+        entropy: { excludePatterns: ['**/node_modules/**'] },
+      },
+    }),
+  };
+  // `resolveProject` is the one shape commands use for "the config AND the
+  // project root it implies" (#911 class). Derive it from the config double
+  // above rather than restating the config literal.
+  return { ...mock, resolveProject: resolveProjectFrom(mock.resolveConfig) };
+});
 
 import { createAuditProtectedCommand, runAuditProtected } from '../../src/commands/audit-protected';
 import { resolveConfig } from '../../src/config/loader';

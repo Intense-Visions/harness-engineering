@@ -94,7 +94,7 @@ Six commands; no convergence between them; no shared verdict; no awareness that 
 ```ts
 interface DesignPipelineContext {
   // Pipeline state
-  graphAvailable: boolean;
+  graphAvailable: boolean; // deprecated: no verifier reads the graph; removed in the next major
   inputs: {
     designMdExists: boolean;
     tokensJsonExists: boolean;

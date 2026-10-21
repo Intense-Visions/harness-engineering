@@ -1,5 +1,465 @@
 # @harness-engineering/cli
 
+## 13.0.0
+
+### Major Changes
+
+- a64326b: `harness check-deps` no longer reports clean and exits 0 over an analysis that examined nothing.
+
+  The command had two ways to do that. One is reachable today; the other is not, and this changeset says which is which.
+
+  ## Reachable: no `layers` configured skipped the cycle check too
+
+  `runCheckDeps` opened with `if (!config.layers || config.layers.length === 0) return Ok(result)` — `valid: true` over `modulesAnalyzed: 0`. That early return also skipped **circular-dependency detection, which needs no layers at all**. On a 2-file project with a genuine `a.ts -> b.ts -> a.ts` cycle and no `layers` block, the built CLI printed `Analyzed 0 module(s) across 0 layer(s).` / `v validation passed`, `--json` gave `{"valid": true, "issues": [], "modulesAnalyzed": 0}`, `--findings-json` gave `{"findings":0}`, and the exit code was `0`.
+
+  Layer validation is now scoped to the half that needs layers, and the file sweep and cycle check run regardless. **This is the breaking part, and it is the reason for the `major`:** an adopter with no `layers` block and an existing import cycle goes from exit `0` to exit `1` with no change to their code. Cycles have never been reported for them, so this can surface cycles of any age. A zero-module result is still distinguished by cause: a scope that was given and matched nothing (configured layer patterns, or a `deps.exclude` that swallowed every file) abstains and refuses to report clean, while a project that contains no analysable source is "not applicable" and stays at exit 0.
+
+  **The layerless sweep is not free.** With no `layers` block the discovery set is every `ts/tsx/mts/cts/js/jsx/mjs/cjs` file under `rootDir`, which includes tests and fixtures, and `deps.exclude` is the only lever for narrowing it. Each discovered file is parsed for the cycle check: on this repository that is 2,648 modules. A layerless project that previously paid nothing for `check-deps` now pays a full-project parse.
+
+  ## Not reachable in production: the parser-unavailable abstention
+
+  `validateDependencies` abstains when the parser is unavailable — `skipped: true` with a reason — and `check-deps` discarded that flag, so an abstention was indistinguishable from a clean repository. `check-deps` and the `check_dependencies` MCP twin now report it on the "checks that could not run" channel: in the text output, in `--json` as `unavailableChecks`, in the `--findings-json` count, and with exit `3` (`ZERO_DENOMINATOR` — the command ran but examined nothing), deliberately distinct from `0`, `1` (violations) and `2` (engine malfunction). `deps.fallbackBehavior: "warn"` keeps exit `0` while still reporting the abstention; the default is `"skip"` and `"error"` fails hard.
+
+  **No adopter can observe this half today.** `TypeScriptParser.health()` is hardcoded to `{ available: true }`, and `check-deps` and the MCP handler both construct `new TypeScriptParser()` unconditionally, so no production path yields `skipped: true` and the exit-3 branch cannot fire. The coverage for this half reaches it by mocking the core export. It is the correct contract for the day `health()` becomes honest, which is tracked in #2267 — it is not a change an adopter's pipeline will notice now.
+
+  The MCP handler was unreachable for a second, independent reason, which this change does fix: `architecture.ts` called `validateDependencies` with no `fallbackBehavior`, so core's default `'error'` applied and an unavailable parser returned `Err` rather than `Ok({skipped: true})` — and the documented `deps.fallbackBehavior` config was ignored on the MCP surface entirely. It now loads and passes the policy, defaulting to `skip` like `check-deps`. One asymmetry remains by design: the MCP twin returns `isError: true` on an abstention regardless of `fallbackBehavior`, so `"warn"` downgrades the CLI's exit code but not the MCP result — an MCP caller has no exit code to downgrade, and a tool result that looks successful is the defect being fixed.
+
+  Runs where the engine actually ran and layers are configured are unchanged, byte for byte.
+
+- 22b5f40: `harness ci check`: a check that could not run no longer reports a pass
+
+  **Breaking behaviour change for CI pipelines.** Previously, `harness ci check`
+  could print `All checks passed` and exit `0` on a run where several of its nine
+  checks never evaluated anything. Five paths produced it: a check that crashed
+  was downgraded to a warning (and warnings exit `0`), `deps` reported `pass` with
+  no `layers` configured, `traceability` reported `pass` with no knowledge
+  graph — even at `minCoverage: 100` — `security` reported `pass` when its glob
+  matched zero files, so a bad `security.exclude` silently un-enforced the gate,
+  and `phase-gate`, when _enabled_, reported a `warning` saying the orchestrator
+  cannot evaluate it, which left the gate at `warn` and the run at exit `0`.
+
+  A check that wanted to run and could not now reports `status: 'skip'` with a
+  `skipReason`, is not counted in `summary.passed`, and forces exit `1`. The new
+  `summary.abstained` counts these separately from operator-requested skips.
+
+  **What this means for your pipeline:** a build that is green today _because_ a
+  gate silently did not run will start failing. That is the defect being fixed —
+  the gate was never actually enforcing anything — but it surfaces in your CI, not
+  ours. The report will name each check that could not run and what it needed.
+
+  `@harness-engineering/cli` is post-1.0 (12.x), so this lands there as a **major**;
+  `core` (0.54.x) and `types` (0.34.x) are pre-1.0, where `minor` is the breaking level.
+
+  **Escape hatch:** an explicit `--skip` is still an acknowledged, exit-`0`
+  non-run. To keep the previous exit code while you fix the configuration:
+
+  ```bash
+  harness ci check --skip deps,traceability
+  ```
+
+  Preferred fixes: add `layers` to `harness.config.json` for `deps`, run
+  `harness scan` (or set `traceability.enabled: false`) for `traceability`, widen
+  the scan pattern / narrow `security.exclude` for `security`, and run
+  `harness check-phase-gate` as its own CI step for `phase-gate`.
+
+  For the analyzers that reported "Could not resolve entry points": ship a
+  conventional entry file (`src/index.ts`) and let auto-detection find it. If you
+  set `performance.entryPoints` explicitly, give it **concrete file paths** — the
+  values are resolved literally and are **not** glob-expanded, so a wildcard is a
+  root that matches nothing and leaves the gate reporting `pass` over an analysis
+  of zero files while every export looks dead (#2275). A non-empty value also
+  suppresses auto-detection, so a wrong value is worse than none.
+
+  The `security` abstention matches what `harness check-security` has refused to
+  call clean since #1146 (`scannedNothing`) — the `ci check` copy of the gate had
+  drifted from it.
+
+  **An abstention is scoped to a gate the project actually asked for.**
+  `traceability` abstains only when a `minCoverage` floor is configured, because
+  that floor is the only thing the check can fail on; with no floor the gate
+  asserts nothing and stays a plain, exit-`0` skip. That matches `phase-gate`
+  (`phaseGates.enabled`) and `security` (`security.enabled`), which abstain only
+  over a gate the operator opted into.
+
+  **`harness init` and `harness ci init` are two of the pipelines this touches,
+  and both stay green.** The three `ci init` emitters (GitHub Actions, GitLab,
+  generic script) all run a bare `harness ci check --json`, and nothing scaffolds
+  a `harness scan` step — so a scaffolded project had to be green without one.
+  Two fixes make that true honestly rather than by skipping:
+  - `traceability` no longer abstains on the scaffolded config, which configures
+    no `minCoverage` (see above).
+  - The `advanced`, `intermediate` and `load-bearing-minimum` templates now ship a
+    starter `src/index.ts`, as `basic` already did. They configured
+    complexity and coupling thresholds but shipped no TypeScript file at all, so
+    the analyzers had nothing to resolve an entry point from and `perf`/`entropy`
+    failed with "Could not resolve entry points" — a gate configured but
+    unrunnable, which under this change is an abstention and a red pipeline. One
+    real file makes both gates run on real content.
+
+  `performance.entryPoints` is now declared on the config schema (it was reachable
+  only through `.passthrough()`), and its docs state the behaviour that matters:
+  entry points are resolved **literally**, with no glob expansion and no existence
+  check, and a non-empty value suppresses auto-detection. A glob there is a root
+  that matches nothing — the dead-code walk reaches zero files, so every export
+  looks dead while `perf` still reports a pass over an analysis of nothing. No
+  shipped template configures `entryPoints`; they all rely on auto-detection,
+  which is correct for a scaffolded project.
+
+  A freshly scaffolded project now reports `exitCode 0`, `abstained: 0`,
+  `skipped: 0`. On a TypeScript template every gate genuinely ran. On the
+  language templates three or four of the nine are declared not-applicable and
+  therefore did **not** run — `skipped: 0` cannot show that, because
+  `enabled: false` reports `pass`. That is the existing convention for every
+  config-level opt-out, so the honest summary is "nothing abstained", not
+  "everything ran".
+
+  **New: `deps`, `entropy` and `performance` gain the `enabled` opt-out their
+  sibling gates already had.** `security`, `architecture`, `traceability` and
+  `phaseGates` could all be declared not-applicable with `enabled: false`; these
+  three could not, which left a Go, Python, Rust or Java project no honest way to
+  be green — `layers` is meaningless there, and an absent `layers` abstains. The
+  distinction the orchestrator now draws:
+  - **Not applicable** — `deps.enabled: false` on a stack with no TypeScript
+    dependency graph. A deliberate declaration, exactly like `--skip deps`, and it
+    never counts as an abstention.
+  - **Could not run** — the gate wanted to evaluate and had nothing to evaluate
+    with. Still an abstention, still exits `1`.
+
+  The four language templates now declare `deps`, `entropy` and `performance`
+  not-applicable (all three analyzers are TypeScript-based), `rust-base` also
+  declares `security` not-applicable because `.rs` is not in
+  `SECURITY_SCAN_EXTENSIONS` (tracked as #2274 — the extension list already
+  covers four non-TypeScript languages, so that is a gap to close rather than a
+  property of Rust), and `advanced`, `intermediate` and `load-bearing-minimum`
+  gain the starter `src/index.ts` that `basic` already shipped.
+
+  **Every shipped template now gets a green first `harness ci check` with zero
+  abstentions** — verified end to end across all four adoption levels, all four
+  language bases and all ten framework overlays, and pinned statically by
+  `packages/cli/tests/templates/performance-entry-points.test.ts` so a future
+  template cannot ship a red first build.
+
+  `run_ci_checks` (MCP) returns the same report verbatim, so `skipReason`,
+  `summary.abstained` and `exitCode` reach that surface unchanged; its tool
+  description now says so, and a test pins the pass-through.
+
+- fea0128: `audit_anatomy` no longer reports a clean audit of zero files.
+
+  `runAudit` defaulted its candidate set to `input.files ?? []`, so every caller that
+  omitted a `files` scope — `harness check-design`, `harness validate`, the
+  `design-pipeline` orchestrator, and the `audit_anatomy` MCP tool — got a scan loop
+  that never executed: `summary.totalFiles` stayed `0`, `findings` stayed empty, and
+  the run rendered as a pass. The published contract said the opposite; `-f, --files`
+  is documented as "Defaults to all project source files". It has been wrong since the
+  verifier shipped.
+
+  The default is now the project's source files, resolved by the same
+  `collectDesignScanFiles` helper `detect-design-drift` and `audit-brand-compliance`
+  now share, honouring `design.exclude` and `analysis.exclude`. One `check-design` run,
+  one file set. A scope that resolves to zero files throws instead of returning a clean
+  result — see the abstention rule below.
+
+  **This is breaking for anyone whose gate runs these commands.** Measured on this
+  repository with a freshly built CLI, the `audit-anatomy` verifier inside
+  `check-design --mode full` went from `audit-anatomy (0 findings)` over 0 files to
+  3,141 findings (2 error-severity, 3,139 warn) over 4,274 files. An adopter whose design gate is green
+  today can go red on the first run after upgrading, with no change to their code. To
+  stage the adoption, scope the run explicitly with `--files` (explicit paths — see the
+  glob note below), narrow it with `design.exclude` / `analysis.exclude`, or turn the
+  verifier off with `design.audit.componentAnatomy.enabled: false`.
+
+  This repository's own `check-design` exit code does **not** change: it was already 1
+  before this PR, because `detect-design-drift` emits 225 error-severity findings on
+  its own. The anatomy findings are additive here. An adopter whose only error-severity
+  findings would come from anatomy is the one who flips 0 → 1.
+
+  Major rather than patch: the fix is small, but the observable contract of a command
+  that gates CI changes from pass to fail, and `runAudit` gained a throw where it
+  previously always resolved.
+
+  ## Sibling sweep: the explicit-scope door, and candidate counts
+
+  The same defect had a second door and two more verifiers, all fixed here.
+
+  Every design verifier skips a candidate it cannot open. Closing the omitted-scope
+  door left that skip intact, so a scope that resolved to nothing _readable_ still
+  rendered as a pass: `-f, --files` was documented as "file/glob" but no verifier has
+  ever expanded a glob, so `--files 'src/**/*.tsx'` audited zero files and reported
+  zero findings. A typo'd path did the same. All three verifiers now abstain when they
+  read no files, not just when they resolve no candidates. The flag's help no longer
+  claims glob support it does not have.
+
+  `detect-design-drift` and `audit-brand-compliance` also reported `totalFiles` as the
+  _candidate_ count rather than the count of files they read, so a scope of one
+  nonexistent path reported "1 file scanned, 0 findings" for a file never opened.
+  `totalFiles` is now bytes read, not paths offered.
+
+  ### The abstention rule, and the one case it deliberately excludes
+
+  A zero-file run is an abstention when the verifier was ASKED to look at something and
+  looked at nothing, and "not applicable" when there was nothing of the kind to look at:
+
+  | why zero files                                                  | verdict                                        |
+  | --------------------------------------------------------------- | ---------------------------------------------- |
+  | candidates existed, an exclude glob discarded all of them       | abstain (throw)                                |
+  | an excluded directory was pruned, leaving nothing               | abstain (throw) — pruning is tracked           |
+  | explicit `files` list resolved to nothing readable (glob, typo) | abstain (throw)                                |
+  | the project holds no file in any scanned extension              | **not applicable** — truthful zero-file result |
+
+  Pruning an excluded directory is tracked, so `design.exclude: ['**/*']` cannot
+  turn "the config excluded everything" into "this project has no design surface"
+  and skip the abstention.
+
+  **And pruning is a strict subset of per-file exclusion.** The directory check
+  asks the _same_ `isExcluded` predicate the per-file filter uses, about two
+  synthetic paths under the directory (an immediate child and a deeply nested
+  one): a pattern that excludes both, for arbitrary names at two depths, excludes
+  everything below. An earlier revision instead stripped a trailing globstar and
+  matched with `matchBase`, which made a pattern's last segment match any
+  directory basename at any depth — so `vendor/**` pruned `src/vendor` while the
+  per-file filter _keeps_ `src/vendor/nested.css`, and a bare `vendor` (a complete
+  no-op before this change) deleted whole subtrees. A real DRIFT-T001 was silently
+  never read: the defect this module exists to remove, reintroduced by its own
+  optimisation. The property matters because the per-file filter can only remove
+  _more_ files — it can never restore a pruned one, so pruning is safe in exactly
+  one direction.
+
+  ### Two scope widenings that change this repository's numbers
+  - **The scan set is gated by RULE APPLICABILITY, not by file exclusion.**
+    `DESIGN_SCAN_EXTENSIONS` goes from 6 entries to 17: the module variants
+    (`.mts`, `.cts`, `.mjs`, `.cjs`), the preprocessor dialects (`.less`, `.pcss`,
+    `.sass`, `.styl`) and the single-file-component containers (`.vue`,
+    `.svelte`, `.astro`). `token-bypass-rule.ts` is pure regex over the raw
+    source with **no extension gate**, so DRIFT-T001..T004 produce identical,
+    true findings on all of them — measured, 2 findings each for the same
+    `.x { color: #ff0000; background: #00ff00; }` across css, scss, tsx, vue,
+    svelte, astro, less, pcss, sass and styl. Excluding a dialect never protected
+    anyone from a bad finding; it silently dropped a real one. The rules that do
+    need a narrower surface already gate themselves
+    (`primitive-adoption-rule.ts:54` returns `[]` unless jsx/tsx), and `.css` /
+    `.scss` have always been scanned **despite** primitive-adoption not applying
+    to them — the governing precedent. Accepted under-reporting: the anatomy
+    conventions and BRAND-V001 key on JSX shapes, so on an SFC container they see
+    `<script>` but not the template; and the token regex wants `prop: value`, so
+    colon-less stylus is read but not matched. Both are rule limits to fix in the
+    rules — under-reporting a component beats refusing to read it and calling the
+    result clean. The TS/JS half is also exactly the set `check-deps`
+    discovers, so the two commands no longer disagree about what counts as source
+    in one repository.
+  - **The walk depth cap is GONE.** It was 8, then briefly 32-with-abstention.
+    A cap that drops files without saying so is the same defect as auditing nothing
+    and reporting clean, just partial — **two** files in THIS repository sat at
+    depth 9 and were never scanned, one a `.tsx`, so the denominator was quietly
+    short. (An earlier revision of this note said five; it is two, which is what
+    the code and test comments say.) The cap's stated justification — protection
+    from "a pathological or symlink-looping tree" — was **false**:
+    `readdirSync(dir, { withFileTypes: true })` is lstat-based, so
+    `Dirent.isDirectory()` is `false` for a symlink to a directory and the walk
+    never follows one; a direct symlink cycle terminates immediately. Real depth
+    is PATH_MAX-bounded and the cost of a repository walk is breadth, not depth.
+
+  Together these widen the scan by **+107 files**, which is the stable figure:
+  the absolute counts move every time this branch merges `main`, the delta does
+  not. Measured apples-to-apples on one tree at this head, the old walk
+  (6 extensions, depth cap 8) finds **4,167** and the new collector **4,274** —
+  identical with or without `design.exclude` applied, since the old walk had no
+  pruning. (An earlier revision said "from 4,152", a delta of +116; that
+  before-figure came from a different tree state. +107 is the honest one, measured
+  two independent ways that agree.)
+
+  The last row matters: `harness init` followed by `harness validate` is exactly that
+  case, and a brand-new project is not an incomplete validation run. This repository
+  already draws the same line for the roadmap doctor — an absent `docs/roadmap.md` is
+  "not applicable", not "could not check". `harness check-design` records a throwing
+  verifier under `verifiersFailed` and exits 2 (degraded) — though note
+  `commands/check-design.ts` resolves `hasErrors ? 1 : degraded ? 2 : 0`, so on any
+  project with an error-severity finding the exit code is 1 and the degraded code
+  never surfaces. On this repository, where `detect-design-drift` alone emits 225
+  error-severity findings, an abstention exits 1.
+
+  `harness validate` used to catch the throw into a severity-`warning` issue, which
+  left `valid: true`, `complete: true` and exit 0 over an audit that applied no rule —
+  the same defect one layer up. All three design abstentions now go through
+  `result.unavailableChecks`, the channel `roadmapHealth` already uses, which forces
+  `complete: false` and the incomplete-run exit code. A project with no design surface is not
+  applicable rather than abstaining, so `harness init` + `harness validate` still
+  exits 0; a project whose `design.exclude` discards its whole design surface changes
+  from exit 0 to the incomplete-run exit code.
+
+  ## Also breaking: audit-brand-compliance's scope shrank
+
+  `audit-brand-compliance` never honoured any exclude config — its private `collectFiles`
+  walked the project and returned everything. Sharing `collectDesignScanFiles` means it
+  now honours `design.exclude ∪ analysis.exclude` like its two siblings. That is the
+  point of the extraction (one `check-design` run, one file set), but it is a scope
+  _reduction_ for brand specifically: an adopter who excludes a directory and relies on
+  `BRAND-T001` / `BRAND-V001` firing inside it will stop seeing those findings. On this
+  repository brand reports 0 findings either way, so the change is not observable here.
+
+  ## Cost: the default scan is no longer free
+
+  `audit-anatomy` previously read zero files in ~0 ms. Measured on this repository
+  with a freshly built CLI, `runAudit({ mode: 'fast' })` is now **4,274 files, 2
+  findings, ~1-3 s** (warm vs cold); `--mode full` reports 3,141 findings in the
+  same order of time. Every `harness validate` and `harness check-design` caller pays that, and
+  `validate` runs all three widened verifiers. If the latency matters more than the
+  coverage, scope the run with `--files`, narrow it with `design.exclude` /
+  `analysis.exclude`, or, on `harness check-design` / `harness validate`, disable a verifier via its own key (`design.audit.componentAnatomy.enabled`, `design.audit.driftDetection.enabled`, `design.audit.brandCompliance.enabled`).
+
+  ## Two consequences of abstaining honestly, both fixed here
+
+  **`check-design --json` stayed machine-readable.** Each verifier-failed branch
+  called `logger.warn`, which is `console.log` — stdout. An abstention therefore
+  prefixed `! audit-anatomy verifier failed: …` to the JSON payload and every
+  `--json` consumer got `SyntaxError: Unexpected token '!'` instead of a result.
+  Verifiers failing was near-unreachable before this change, so the warn had never
+  mattered; abstaining honestly made it live. The four warns are gone — the
+  abstention was already carried in `verifiersFailed`, rendered in the text report
+  and present in `--json`, so nothing is lost and the duplicate is removed.
+
+  **An abstained verifier is no longer rendered as `(0 findings)`.** The human
+  report printed `audit-anatomy (0 findings)` for a verifier that had read
+  nothing — the #2070 symptom one surface over, since a reader who skims past the
+  failure list below takes that as clean. Abstained verifiers now print
+  `audit-anatomy (did not run — see below)`, and the section heading went from
+  `Verifiers that failed:` to `Verifiers that did not run (this report is
+incomplete):`. A verifier that genuinely ran and found nothing still prints its
+  real `(0 findings)`.
+
+  **A disabled verifier is not `(0 findings)` either.** `check-design` now reads
+  the same `design.audit.*.enabled` keys `harness validate` already honours — it
+  read **none** of them before, so the documented way to acknowledge a verifier
+  does not apply simply did not work on this command. A disabled verifier prints
+  `(disabled by config — did not run)` and is carried in `--json` as
+  `summary.verifiersDisabled`, because an acknowledged opt-out is not a clean
+  result any more than an abstention is.
+
+  **The abstention message names the real config keys.** It used to say
+  `design.audit.*.enabled: false`; that glob is not actionable, since the schema
+  names exactly `componentAnatomy`, `driftDetection` and `brandCompliance` and
+  anything else is rejected with `ignored unknown key`. All three are now spelled
+  out, and both levers are covered by tests that run the built CLI end to end
+  rather than asserting on the message string.
+
+  ## Two cost notes and two known asymmetries
+
+  **Long lines are super-linear, and the widening extends the exposure.** The
+  per-line regex cost on a pathological single-line file is super-linear and
+  **pre-existing** — on a 360KB one-line file `.styl` and `.css` are
+  indistinguishable (44.8s vs 45.7s), so nothing here introduced it. But seven
+  more dialects are now in scope and the depth cap is gone, so more of a
+  repository can reach it. The ~1-3s figure above is this repository's happy path,
+  not a bound.
+
+  **`SKIPPED_DIRECTORIES` and dot-directories do not set the pruning flag.** A
+  project whose only design surface lives under `build/`, `coverage/` or
+  `.storybook/` therefore reports a truthful-looking `valid: true` over an unread
+  tree, rather than abstaining. This is pre-existing and not config-driven — those
+  skips are unconditional, so no adopter setting produced them — but it is an
+  asymmetry with the exclude path, which now does abstain. `.storybook/` is a
+  plausible real design surface and the most likely way to hit it.
+
+  **QUIET mode prints nothing**, so `(0 findings)`, `(did not run — see below)`
+  and `(disabled by config — did not run)` all collapse to silence with only the
+  exit code to tell them apart. Pre-existing; more reachable now that two of those
+  three states exist.
+
+### Minor Changes
+
+- 5290f5c: `check-arch` and `harness ci check` now actually measure `circular-deps`, `layer-violations` and `forbidden-imports` (#2235). All three were 0 whatever the code did, so the arch ratchet reported "no new violations" for them without having looked.
+  - **`circular-deps`** built its graph with a stub parser that never parsed, giving nodes and zero edges, and it globbed only `**/*.ts`. It now uses the real parser registry and every JS/TS extension (`.ts .tsx .mts .cts .js .jsx .mjs .cjs`).
+  - **`layer-violations`** validated against `layers: []`. It now uses the top-level `layers` block from `harness.config.json`, the same one `check-deps` reads. A non-default `rootDir` is folded into the layer patterns the same way `check-deps` resolves them.
+  - **`forbidden-imports`** filtered for a `FORBIDDEN_IMPORT` reason that no engine ever emits. It now applies the top-level `forbiddenImports` rules itself, using the ESLint `no-forbidden-imports` matching: exact specifier, or a glob against the specifier or the resolved root-relative path. Package and `node:` builtin imports count.
+  - **`harness ci check --check arch`** gets the same rules. It builds its arch config inside core from `ArchConfigSchema`, which carries neither block, so that surface kept measuring 0 while `check-arch` measured real values — two producers, one `baselines.json`, different numbers. The injection now lives in core (`withDependencyRules` / `readDependencyRules`) and both call it. `harness ci check` also now stacks the project-wide `analysis.exclude` list onto the arch excludes, as `check-arch` already did.
+  - Each result reports what it measured in `metadata` (`filesAnalyzed`/`edgeCount`, `layersConfigured`/`modulesAnalyzed`, `rulesConfigured`/`filesAnalyzed`, plus `skipped` when a collector abstained). `check-arch` now surfaces those denominators in a `measurements` block in `--json`, and prints a warning per abstained category in text mode, so a 0 from a run that analysed nothing can be told apart from a clean result. A category you simply have not configured is **not** warned about: `layers` and `forbiddenImports` are both optional, so `layersConfigured: 0` / `rulesConfigured: 0` reads as _not applicable_ and stays silent, while configured rules that analysed nothing still warn. Only the second is actionable, and warning about both would make "your parser broke" look identical to "you did not configure layers". One caveat on the `complexity` denominator: `functionsAnalyzed: 0` over a genuinely function-free scope (a package of pure type declarations or re-exports) is a shape fact rather than a malfunction, so it warns there too — rare at whole-repo scale, but expected if you scope a run narrowly. **They are not persisted:** `baselines.json` and the arch timeline still record only the value and the violation IDs, so a historical 0 remains ambiguous.
+  - `ArchConfig` gains optional `layers` and `forbiddenImports` fields. They are not part of the `architecture` config schema. `check-arch`, `snapshot` and `ci check` inject them from the existing top-level blocks, so `harness.config.json` needs no change.
+
+  **BREAKING for the arch gate — read before upgrading.** Your recorded values will rise, and on a project with a real cycle, layer break or forbidden import the arch gate will start **hard-failing** rather than just reporting a bigger number. The cycle, layer and forbidden-import collectors all emit `severity: 'error'`, and `check-arch` refuses to write an allowance for any new error-severity violation (`errorSeverityRefusal`) — "a genuine threshold breach must be FIXED, not acknowledged". So `--update-baseline` cannot wave it through either, and `.husky/pre-commit`-style gates that run `harness ci check` without skipping `arch` will block commits until the violation is fixed.
+
+  To upgrade: run `harness check-arch --json` first, read the `measurements` block to see what each collector now analyses, fix (or explicitly re-scope via `architecture.excludePatterns` / `analysis.exclude`) any newly-reported error-severity violation, and only then re-baseline. Order matters: re-baselining before fixing is refused, and measuring before re-baselining compares a real value against a stale 0.
+
+  **`check-arch` also gets substantially slower, and that is not undone.** Collectors that used to measure nothing now do a full-repo parse. Measured on this repo (Darwin arm64, Node 22.23.2, `harness check-arch --json`, 2 runs per side): wall time went from 6.05s to 16.99s and user CPU from 5.83s to 31.55s — **2.8x wall and 5.4x CPU** on an idle machine, and worse under concurrent load. Two paths pay it on every invocation: a `.husky/pre-commit`-style gate that runs the arch check on each commit, and the dashboard's arch panel (`dashboard/src/server/gather/arch.ts`), which goes from instant to a full-repo parse. Budget for it before wiring the arch check into a pre-commit hook. The cost is structural rather than accidental — the repo is parsed up to three times per run, once per dependency collector — and sharing one dependency graph between them needs a `Collector` contract change, filed as #2270.
+
+- c6b7bc8: `-c/--config` now selects the **project**, not just the config file. A command pointed at another project's config read that project's settings but scanned, measured and wrote to `process.cwd()` — a confident number for the wrong tree.
+
+  `check-arch` was fixed out of this shape under #911 (commit `9f322084c`, `options.cwd ?? path.dirname(configPath)`), but the fix was copied inline rather than shared, so the split survived in **19** sibling commands. `harness check-docs -c /other/project/harness.config.json` was the reported case: it read that project's `docsDir`/`rootDir` and then counted _this_ directory's documentation coverage.
+
+  **Fixed (19)** — now root on the directory that owns the config: `check-docs`, `check-deps`, `check-design`, `check-perf`, `check-vocabulary`, `check-operational-drift`, `check-phase-gate`, `audit-protected`, `cleanup`, `fix-drift`, `predict`, `release-inventory`, `snapshot` (`capture`, `trends`, `list`), `add`, `models` (`proposals`, `drift`), `ci check`, `comprehend`, `roadmap triage`, and the cross-check display inside `validate`.
+
+  **Migrated (3)** onto the same helper, so the rule has one implementation rather than 22 copies to keep in step: `check-arch`, `check-deployment`, `golden-build`.
+
+  Four of these **wrote** to the wrong tree, not just measured it: `fix-drift` rewrites documentation, `snapshot capture` persists an architecture timeline, `comprehend --changed --stage` compiles unit shards and `git add`s them, and `add` scaffolds new files. Reverting the fix and re-running the new `add` test created a file inside this repo — the same escape #911 reported for the arch baseline.
+
+  **Behaviour change beyond the bug, hence `minor` rather than `patch`.** `resolveProject` roots on the config it _found_, not only on an explicit `-c`. Two consequences:
+  - Running one of these commands from a **subdirectory** now measures the project root rather than the subdirectory. `validate` and `check-phase-gate` previously honoured an explicit `-c` but fell back to `process.cwd()` for a discovered config; they now behave like `check-arch`.
+  - `harness add doc foo` with no `-c`, run from a subpackage, now scaffolds into the **project root's** `docsDir` rather than the subpackage's. That is a write, so it is the one worth knowing about before upgrading.
+
+  Nothing changes when a command is run from the project root, which is how every invocation in this repo's own scripts and workflows calls them.
+
+### Patch Changes
+
+- e6f2a27: Name the stale-server cause instead of a deleted build chunk
+
+  When the CLI is upgraded underneath a running MCP server, the next lazily
+  imported tool resolves against a content-hashed chunk the upgrade deleted, and
+  Node's `ERR_MODULE_NOT_FOUND` names two build artefacts that appear in no source
+  file. Every piece of evidence points at a corrupt install, which is the one
+  thing it is not — so the server now recognises that one failure shape and
+  answers with the cause, the remedy (restart the server, do not reinstall), and
+  the version actually on disk. Anything else rethrows untouched.
+
+  Both of the server's request seams are covered. The tool seam translates at
+  `dispatchTool`; the resource seam translates at `handleReadResource`, because
+  `harness://state` and the three graph resources reach their packages through a
+  lazy `import()` too. `harness://state` additionally stopped swallowing the
+  failure into an empty `{ decisions: [], blockers: [], progress: {} }` — a
+  fabricated clean read is worse than the opaque error it replaced.
+
+  Patch rather than minor: this adds no API and changes no contract. It replaces
+  one error message with a better one on a path that previously only ever threw,
+  so nothing a consumer could have depended on behaves differently.
+
+- 50f1f47: Clear the 34 active dependency advisories that had been failing the blocking
+  `Reconcile audit exceptions` check on every PR since 2026-10-05, and cover the two
+  that have no upstream patch with a time-boxed register.
+
+  `pnpm audit` goes from **34 active advisory entries (31 distinct GHSA ids) to 2** — all four
+  criticals and ten of eleven highs clear.
+
+  Twelve `pnpm.overrides` floors raised or added: `@grpc/grpc-js` (^1.14.5), `ip-address`
+  (>=10.7.1), `fast-uri` (>=3.1.8 <4), `undici` (^7.29.1), `shell-quote` (^1.11.0),
+  `brace-expansion@2` (>=2.1.7 <3), `brace-expansion@5` (>=5.0.12 <6), plus new floors for
+  `proxy-addr` (>=2.0.8), `source-map-js` (>=1.2.2), `postcss-selector-parser` (>=7.1.6) and
+  `@vue/server-renderer` + `vue` (both >=3.5.42, floored together so the runtime and its
+  server-renderer cannot skew). Two direct dependency ranges move with them: `handlebars`
+  ^4.7.9 → ^4.7.10 (`cli`, `linter-gen`) and `@modelcontextprotocol/sdk` ^1.29.0 → ^1.31.0
+  (`cli`, `orchestrator`).
+
+  Note on the mechanism, because it is not what it looks like: **every one of the seven existing
+  floors already permitted its patched version.** They sat below it because these are transitives
+  declared in no workspace manifest, so `pnpm update` has no dependency spec to advance and only an
+  edit to the override _string_ moves them. Filed separately as the reason this recurs.
+
+  Two advisories cannot be cleared at all — `braces` (GHSA-vfj7-8cjw-p6xm) and `sprintf-js`
+  (GHSA-hp3w-g68c-fv3c) both report `patched_versions: "<0.0.0"`, so no patched release exists.
+  They are covered by a deliberately narrow two-entry `auditExceptions` register with a
+  per-advisory justification and a dated `expires`, not by a blanket exemption.
+
+- Updated dependencies [5290f5c]
+- Updated dependencies [22b5f40]
+- Updated dependencies [bcfbe81]
+- Updated dependencies [50f1f47]
+- Updated dependencies [f8dae74]
+- Updated dependencies [3cdc0ba]
+  - @harness-engineering/core@0.55.0
+  - @harness-engineering/types@0.35.0
+  - @harness-engineering/orchestrator@0.28.0
+  - @harness-engineering/intelligence@0.14.0
+  - @harness-engineering/linter-gen@0.1.8
+  - @harness-engineering/dashboard@0.16.14
+  - @harness-engineering/graph@0.15.3
+  - @harness-engineering/signals@0.3.11
+
 ## 12.10.1
 
 ### Patch Changes

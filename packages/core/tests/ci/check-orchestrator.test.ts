@@ -10,6 +10,11 @@ vi.mock('../../src/constraints/dependencies', () => ({
     ok: true,
     value: { valid: true, violations: [], graph: { nodes: [], edges: [] } },
   }),
+  defineLayer: vi.fn((name: string, patterns: string[], allowedDependencies: string[]) => ({
+    name,
+    patterns,
+    allowedDependencies,
+  })),
 }));
 
 vi.mock('../../src/context/doc-coverage', () => ({
@@ -42,10 +47,13 @@ vi.mock('../../src/shared/parsers', () => ({
 vi.mock('../../src/security/scanner', () => ({
   SecurityScanner: class {
     configureForProject = vi.fn();
+    // A scan that READ files and found nothing — a real pass. `scannedFiles: 0`
+    // is an abstention now (#2071), so it would make the security gate here
+    // skip rather than pass; see check-skip-status.test.ts for that case.
     scanFiles = vi.fn().mockResolvedValue({
       findings: [],
-      scannedFiles: 0,
-      rulesApplied: 0,
+      scannedFiles: 3,
+      rulesApplied: 40,
       externalToolsUsed: [],
       coverage: 'baseline',
     });
@@ -89,12 +97,18 @@ vi.mock('../../src/architecture', () => ({
 
 import { runCIChecks } from '../../src/ci/check-orchestrator';
 
+// A *fully configured* project: every gate has something to evaluate. `layers`
+// and the traceability opt-out are load-bearing — without them the deps and
+// traceability checks abstain (#2071) rather than running, which is a different
+// scenario and is covered by check-skip-status.test.ts.
 function minimalConfig(overrides: Record<string, unknown> = {}) {
   return {
     version: 1 as const,
     rootDir: '.',
     agentsMapPath: './AGENTS.md',
     docsDir: './docs',
+    layers: [{ name: 'app', patterns: ['src/**'], allowedDependencies: [] }],
+    traceability: { enabled: false },
     ...overrides,
   };
 }
@@ -198,10 +212,12 @@ describe('runCIChecks', () => {
 
     expect(result.ok).toBe(true);
     if (!result.ok) return;
-    // Doc coverage gaps produce warnings
-    if (result.value.summary.warnings > 0) {
-      expect(result.value.exitCode).toBe(1);
-    }
+    // Doc coverage gaps produce warnings. Asserting the warning count FIRST is
+    // the point: the exit-code assertion used to sit inside
+    // `if (result.value.summary.warnings > 0)`, so it would have gone silent —
+    // not red — the moment the mock stopped producing a warning.
+    expect(result.value.summary.warnings).toBeGreaterThan(0);
+    expect(result.value.exitCode).toBe(1);
   });
 
   it('includes timestamp and project name', async () => {

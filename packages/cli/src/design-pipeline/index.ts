@@ -4,9 +4,14 @@
  * and design-craft-elevator into a sequential pipeline with
  * convergence-based remediation.
  *
- * Mirrors harness-docs-pipeline in shape. Consumes the just-extracted
- * Verifier<F> interface generically so a 5th rule-based verifier
- * composes for free (zero orchestrator changes).
+ * Mirrors harness-docs-pipeline in shape. AUDIT invokes every registered
+ * Verifier<F> through one generic loop, but it routes each verifier's
+ * findings into a NAMED bucket, so a 5th rule-based verifier is not free:
+ * it needs a registration below, a bucket (DesignPipelineContext.auditFindings
+ * + a routing branch in phases/audit.ts), and a count in phases/report.ts.
+ * A registered verifier with no bucket is recorded as an abstention, which
+ * fails the verdict (#2273) — loud by design, rather than its findings being
+ * silently dropped.
  *
  * Source: docs/changes/design-pipeline/orchestrator/proposal.md
  *   (Technical Design → Module layout).
@@ -17,7 +22,7 @@ import { runAudit as runAnatomyAudit } from '../mcp/tools/audit-anatomy.js';
 import { runAuditBrand } from '../mcp/tools/audit-brand.js';
 import { newContext, type DesignPipelineContext } from './context.js';
 import { VerifierRegistry } from './registry.js';
-import { runFreshen } from './phases/freshen.js';
+import { runFreshen, probeGraphAvailable } from './phases/freshen.js';
 import { runDetect } from './phases/detect.js';
 import { runFix } from './phases/fix.js';
 import { runAudit } from './phases/audit.js';
@@ -32,8 +37,18 @@ export interface DesignPipelineInput {
   fix?: boolean;
   noFreshen?: boolean;
   noFill?: boolean;
+  /**
+   * @deprecated Accepted for compatibility and changes nothing. Every v1 run is
+   * already non-interactive and FIX applies only safe codemods, which is all
+   * `--ci` ever promised. Passing it records a notice on `warnings` so the
+   * no-op is visible rather than silent.
+   */
   ci?: boolean;
 }
+
+export const CI_OPTION_DEPRECATION =
+  '`ci` / `--ci` is deprecated and has no effect: design-pipeline is always ' +
+  'non-interactive and FIX applies only safe codemods. Drop the option.';
 
 export async function runDesignPipeline(
   input: DesignPipelineInput
@@ -42,9 +57,14 @@ export async function runDesignPipeline(
   const projectRoot = sanitizePath(input.path);
   const mode = input.mode ?? 'fast';
   const context = newContext();
+  if (input.ci === true) context.warnings.push(CI_OPTION_DEPRECATION);
+  // Deprecated field, probed unconditionally so it is right under --no-freshen.
+  context.graphAvailable = probeGraphAvailable(projectRoot);
 
-  // Build the verifier registry. Adding a 5th verifier here is the only
-  // orchestrator change required to compose a new rule-based audit.
+  // Build the verifier registry. Registering a 5th verifier here is necessary
+  // but NOT sufficient: AUDIT also needs a findings bucket for its name, and
+  // REPORT must count that bucket, or every run fails with the verifier named
+  // in `degradedBy` (see the header comment and phases/audit.ts).
   // design-craft-elevator is NOT registered — different output shape;
   // dispatched in FILL phase.
   const registry = new VerifierRegistry();
@@ -103,4 +123,4 @@ export async function runDesignPipeline(
   return context;
 }
 
-export type { DesignPipelineContext, Verdict } from './context.js';
+export type { DesignPipelineContext, Verdict, FixStopReason } from './context.js';

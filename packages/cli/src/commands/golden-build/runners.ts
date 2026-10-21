@@ -1,9 +1,8 @@
 import { execSync } from 'node:child_process';
-import * as path from 'node:path';
 import type { Result } from '@harness-engineering/core';
 import { Ok, Err, GoldenBuildManager, GoldenConfigSchema } from '@harness-engineering/core';
 import type { GoldenSnapshot, GoldenDiffResult, GoldenConfig } from '@harness-engineering/core';
-import { findConfigFile, loadConfig } from '../../config/loader';
+import { resolveProject } from '../../config/loader';
 import { CLIError, ExitCode } from '../../utils/errors';
 
 export interface GoldenCommandOptions {
@@ -49,15 +48,13 @@ function gitOutput(cmd: string, cwd: string): string {
 function resolveManager(
   options: GoldenCommandOptions
 ): Result<{ manager: GoldenBuildManager; cwd: string; config: GoldenConfig }, CLIError> {
-  const configPathResult = options.configPath ? Ok(options.configPath) : findConfigFile();
-  if (!configPathResult.ok) return configPathResult;
+  const projectResult = resolveProject(options.configPath, options.cwd);
+  if (!projectResult.ok) return projectResult;
 
-  const configResult = loadConfig(configPathResult.value);
-  if (!configResult.ok) return configResult;
-
-  const cwd = options.cwd ?? path.dirname(configPathResult.value);
+  const cwd = projectResult.value.root;
   const goldenConfig: GoldenConfig =
-    (configResult.value as { golden?: GoldenConfig }).golden ?? GoldenConfigSchema.parse({});
+    (projectResult.value.config as { golden?: GoldenConfig }).golden ??
+    GoldenConfigSchema.parse({});
 
   const referencePaths =
     options.paths && options.paths.length > 0 ? options.paths : goldenConfig.referencePaths;

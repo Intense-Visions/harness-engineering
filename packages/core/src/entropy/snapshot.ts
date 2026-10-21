@@ -19,7 +19,7 @@ import { getDefaultRegistry } from '../shared/parsers';
 import { skipDirGlobs } from '@harness-engineering/graph';
 import { createEntropyError } from '../shared/errors';
 import { readFileContent, findFiles, relativePosix } from '../shared/fs-utils';
-import { buildDependencyGraph } from '../constraints/dependencies';
+import { buildDependencyGraphFromParsed } from '../constraints/dependencies';
 import { resolve } from 'path';
 import { minimatch } from 'minimatch';
 import { resolveEntryPoints } from './entry-points';
@@ -256,9 +256,13 @@ function extractJSDocComments(ast: AST): JSDocComment[] {
 }
 
 /**
- * Build ExportMap from source files
+ * Index a parsed file set by export file and export name.
+ *
+ * Exported alongside {@link parseSourceFiles} so a consumer assembling a
+ * narrower snapshot keeps one implementation of the index rather than a
+ * near-copy (#2284).
  */
-function buildExportMap(files: SourceFile[]): ExportMap {
+export function buildExportMap(files: SourceFile[]): ExportMap {
   const byFile = new Map<string, Export[]>();
   const byName = new Map<string, { file: string; export: Export }[]>();
 
@@ -317,6 +321,73 @@ function extractAllCodeReferences(docs: DocumentationFile[]): CodeReference[] {
 }
 
 /**
+ * Parse a set of source paths into fully-populated {@link SourceFile} records.
+ *
+ * Extracted from {@link buildSnapshot} so a consumer that needs real import and
+ * export edges — but not entry points, docs or reachability — can get them from
+ * the same implementation instead of hand-rolling a second parse loop or, worse,
+ * faking the shape. `CouplingCollector` is that consumer: it cannot call
+ * `buildSnapshot`, because `resolveEntryPoints` fails closed on a repo with no
+ * manifest entry point (including this monorepo's own root), and an architecture
+ * gate that runs in `pre-commit` must not abstain for that reason (#2284).
+ *
+ * Files the registry has no parser for, and files that fail to parse, are
+ * skipped — so the returned length is the number of files genuinely analysed and
+ * is safe to report as a denominator.
+ *
+ * The one parse failure that is NOT skipped is `PARSER_UNAVAILABLE`: the parser
+ * itself cannot run, so every file would be skipped and the caller would get an
+ * empty file set that detectors read as "nothing dead, nothing coupled". That
+ * fails the whole call instead (#2267). A syntax error in one file is still
+ * skipped.
+ */
+export async function parseSourceFiles(
+  filePaths: string[],
+  parserForFile: (filePath: string) => LanguageParser | null
+): Promise<Result<SourceFile[], EntropyError>> {
+  const files: SourceFile[] = [];
+  for (const filePath of filePaths) {
+    const fileParser = parserForFile(filePath);
+    if (!fileParser) continue;
+
+    const parseResult = await fileParser.parseFile(filePath);
+    if (!parseResult.ok) {
+      if (parseResult.error.code === 'PARSER_UNAVAILABLE') {
+        return Err(snapshotParserUnavailable(fileParser.name, filePath, parseResult.error));
+      }
+      continue;
+    }
+
+    const importsResult = fileParser.extractImports(parseResult.value);
+    const exportsResult = fileParser.extractExports(parseResult.value);
+
+    files.push({
+      path: filePath,
+      ast: parseResult.value,
+      imports: importsResult.ok ? importsResult.value : [],
+      exports: exportsResult.ok ? exportsResult.value : [],
+      internalSymbols: extractInternalSymbols(parseResult.value),
+      jsDocComments: extractJSDocComments(parseResult.value),
+    });
+  }
+  return Ok(files);
+}
+
+/** The error {@link parseSourceFiles} fails with when the parser cannot run at all. */
+function snapshotParserUnavailable(
+  parserName: string,
+  file: string,
+  cause: { message: string; suggestions?: string[] }
+): EntropyError {
+  return createEntropyError(
+    'SNAPSHOT_BUILD_FAILED',
+    `Cannot build a codebase snapshot: the ${parserName} parser is unavailable: ${cause.message}`,
+    { file, reason: 'PARSER_UNAVAILABLE' },
+    cause.suggestions ?? []
+  );
+}
+
+/**
  * Build a complete CodebaseSnapshot
  */
 export async function buildSnapshot(
@@ -372,29 +443,10 @@ export async function buildSnapshot(
     return TEST_FILE_RE.test(rel) && !nonTestExcludes.some((p) => minimatch(rel, p));
   });
 
-  // Parse source files
-  const files: SourceFile[] = [];
-  for (const filePath of sourceFilePaths) {
-    const fileParser = parserForFile(filePath);
-    if (!fileParser) continue;
-
-    const parseResult = await fileParser.parseFile(filePath);
-    if (!parseResult.ok) continue;
-
-    const importsResult = fileParser.extractImports(parseResult.value);
-    const exportsResult = fileParser.extractExports(parseResult.value);
-    const internalSymbols = extractInternalSymbols(parseResult.value);
-    const jsDocComments = extractJSDocComments(parseResult.value);
-
-    files.push({
-      path: filePath,
-      ast: parseResult.value,
-      imports: importsResult.ok ? importsResult.value : [],
-      exports: exportsResult.ok ? exportsResult.value : [],
-      internalSymbols,
-      jsDocComments,
-    });
-  }
+  // Parse source files. Fails closed when the parser cannot run at all (#2267).
+  const filesResult = await parseSourceFiles(sourceFilePaths, parserForFile);
+  if (!filesResult.ok) return Err(filesResult.error);
+  const files = filesResult.value;
 
   // Parse test files for their import edges only (no exports/symbols — test
   // files are never classified, they only keep their import targets alive).
@@ -404,6 +456,10 @@ export async function buildSnapshot(
     if (!fileParser) continue;
 
     const parseResult = await fileParser.parseFile(filePath);
+    // No PARSER_UNAVAILABLE check here on purpose: the same parser already ran
+    // over the source files in `parseSourceFiles` above, which fails the whole
+    // snapshot on that code first (#2267). Only a per-file syntax error is
+    // skipped here.
     if (!parseResult.ok) continue;
 
     const importsResult = fileParser.extractImports(parseResult.value);
@@ -412,9 +468,13 @@ export async function buildSnapshot(
     testImports.push({ path: filePath, imports: importsResult.value });
   }
 
-  // Build dependency graph — pass the registry directly so it can dispatch per file
-  const graphResult = await buildDependencyGraph(sourceFilePaths, singleParser ?? registry);
-  const dependencyGraph = graphResult.ok ? graphResult.value : { nodes: [], edges: [] };
+  // Build the dependency graph from the files ALREADY parsed above. This used to
+  // call `buildDependencyGraph`, which re-parsed every source file and whose
+  // error was replaced with an empty graph here — a second place a parser
+  // that cannot run became "no edges" (#2267). Same nodes, same edges: both
+  // paths skip files with no parser and files that do not parse, and resolve
+  // imports with the same `resolveImportPath` call.
+  const dependencyGraph = await buildDependencyGraphFromParsed(sourceFilePaths, files);
 
   // Find and parse documentation
   const docPatterns = config.docPaths || ['docs/**/*.md', 'README.md', '**/README.md'];

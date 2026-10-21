@@ -13,7 +13,7 @@ import {
   deriveDeploymentExitCode,
 } from '@harness-engineering/core';
 import { formatFindingsContract } from '@harness-engineering/types';
-import { findConfigFile, loadConfig } from '../config/loader';
+import { resolveProject } from '../config/loader';
 import type { HarnessConfig } from '../config/schema';
 import { OutputFormatter, OutputMode, type OutputModeType } from '../output/formatter';
 import { logger } from '../output/logger';
@@ -97,21 +97,13 @@ function buildGateConfig(config: HarnessConfig): DeploymentGateConfig | undefine
 export async function runCheckDeployment(
   options: CheckDeploymentOptions
 ): Promise<Result<DeploymentGateResult, CLIError>> {
-  // Resolve the config file's location first so `cwd` can default to the project
-  // that owns the config rather than the process's cwd (mirrors check-arch #911).
-  const configPathResult = options.configPath ? Ok(options.configPath) : findConfigFile();
-  if (!configPathResult.ok) {
-    return configPathResult;
+  // `cwd` defaults to the project that owns the config rather than the
+  // process's cwd (mirrors check-arch #911).
+  const projectResult = resolveProject(options.configPath, options.cwd);
+  if (!projectResult.ok) {
+    return projectResult;
   }
-  const configPath = configPathResult.value;
-
-  const configResult = loadConfig(configPath);
-  if (!configResult.ok) {
-    return configResult;
-  }
-  const config = configResult.value;
-
-  const cwd = options.cwd ?? path.dirname(configPath);
+  const { config, root: cwd } = projectResult.value;
   const fsPort = createNodeFsPort(cwd);
 
   const surface = detectDeploymentSurface(cwd, fsPort);

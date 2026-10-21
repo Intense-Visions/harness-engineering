@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/tests/mcp'
-sourceHash: '7f0837a71d7e08e0f23db583d77b7860ee0d82e66aa677616db84260edbb141a'
+sourceHash: 'fe2eafe846799460758b01f83119203c6e475cf590832cbcb98b4bc2f8427914'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -16,6 +16,7 @@ members:
     'server-integration.test.ts',
     'server.test.ts',
     'state-resource-stale-build.test.ts',
+    'tool-stale-build.test.ts',
     'tool-tiers.test.ts',
     'update-check-hook.test.ts',
     'version-guard-surface.test.ts',
@@ -47,7 +48,7 @@ import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js'
 import * as fs, { readFileSync } from 'fs'
 import * as fs, { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import * as os, { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import * as path, { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import * as os from 'os'
 import * as path, { dirname, resolve } from 'path'
