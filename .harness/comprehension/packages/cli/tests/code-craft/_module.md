@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/tests/code-craft'
-sourceHash: '212507da6cb2dc5729db1dded3c552f9faf89893cb0cf0792e60a012acde0bce'
+sourceHash: '3068b34ab37573183e2578b0407be5c3fe5a8a662af1626620bc8bc412c5a4a8'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -14,6 +14,7 @@ members:
     'extractor-agreement.test.ts',
     'integration.test.ts',
     'sibling-evidence.test.ts',
+    'siblings-integration.test.ts',
     'siblings.test.ts',
     'units-cov544.test.ts',
     'units.test.ts',

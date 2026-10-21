@@ -31,8 +31,10 @@ import {
   deleteRunState,
   pruneOldRuns,
 } from '../shared/craft/runs/store.js';
+import type { CloneClass, CloneIndex, CloneMember } from '@harness-engineering/core';
 import { discoverSourceFiles } from './extract/discover.js';
 import { extractUnits } from './extract/units.js';
+import { buildCodeCraftCloneIndex, resolveSiblingEvidence } from './extract/siblings.js';
 import { SEED_RUBRICS, rubricApplies, type CodeRubric } from './catalog/rubrics/index.js';
 import { SEED_EXEMPLARS } from './catalog/exemplars/index.js';
 import {
@@ -55,6 +57,38 @@ export interface CodeCraftInput {
   mode?: CodeCraftMode;
   /** Test-only LLM provider override. */
   __testProvider?: LlmProvider;
+  /**
+   * Attach clone-sibling evidence to sibling-aware rubric prompts. Default
+   * `true`: the index costs 2.1-2.9 s at this repository's scope against a run
+   * that makes up to 100 LLM calls, and an opt-in default would ship a field
+   * nobody sets and a rubric still unable to answer its own question. Set
+   * `false` for a run where the index build is not worth it (one `--files` unit
+   * on a very large project). Programmatic only — no CLI flag and no MCP schema
+   * field, so the generated reference docs are untouched.
+   */
+  siblings?: boolean;
+  /** Test-only clone-index override, mirroring `__testProvider`. */
+  __testCloneIndex?: CloneIndex;
+}
+
+/** Everything a critique needs to resolve a unit's siblings. */
+interface SiblingContext {
+  index: CloneIndex;
+  projectRoot: string;
+}
+
+/**
+ * Build the run's sibling context, or `undefined` when siblings are off or the
+ * index could not be built. Called ONCE per run, outside every loop — the NFR
+ * target, asserted structurally rather than by wall clock.
+ */
+async function resolveSiblingContext(
+  projectRoot: string,
+  input: CodeCraftInput
+): Promise<SiblingContext | undefined> {
+  if (input.siblings === false) return undefined;
+  const index = input.__testCloneIndex ?? (await buildCodeCraftCloneIndex(projectRoot));
+  return index === undefined ? undefined : { index, projectRoot };
 }
 
 const DEFAULT_MAX_FILES = 100;
@@ -132,8 +166,11 @@ export async function runCodeCraft(input: CodeCraftInput): Promise<CodeCraftOutp
     unitsDetected: 0,
   };
 
+  // One call per run, outside every loop (the NFR target).
+  const siblingCtx = await resolveSiblingContext(projectRoot, input);
+
   for (const file of candidateFiles) {
-    await critiqueFile(file, maxUnitsPerFile, provider, acc);
+    await critiqueFile(file, maxUnitsPerFile, provider, acc, siblingCtx);
   }
 
   const totalCost = sumCosts(provider);
@@ -185,6 +222,9 @@ export async function collectCodeCraftPrompts(
   let filesSkippedNoUnit = 0;
   let unitsDetected = 0;
 
+  // Resolved once per run, same as the inline path.
+  const siblingCtx = await resolveSiblingContext(projectRoot, input);
+
   outer: for (const file of candidateFiles) {
     let source: string;
     try {
@@ -200,16 +240,16 @@ export async function collectCodeCraftPrompts(
     filesScanned++;
     const eligibleUnits = units.slice(0, maxUnitsPerFile);
     unitsDetected += eligibleUnits.length;
+    const queueCtx: QueueContext = {
+      file,
+      source,
+      siblings: siblingCtx,
+      records: promptRecords,
+      pending,
+      rubricsApplied,
+    };
     for (const unit of eligibleUnits) {
-      for (const rubric of SEED_RUBRICS) {
-        if (!rubricApplies(rubric, unit.kind)) continue;
-        rubricsApplied.add(rubric.id);
-        const promptId = `p${promptRecords.length + 1}`;
-        const userPrompt = buildPrompt({ file, source, unit, rubric });
-        promptRecords.push({ promptId, file, unit, rubricId: rubric.id });
-        pending.push({ promptId, systemPrompt: CRITIQUE_SYSTEM_PROMPT, userPrompt });
-        if (pending.length > budget) break outer;
-      }
+      if (queuePromptsForUnit(queueCtx, unit, budget) > budget) break outer;
     }
   }
 
@@ -318,12 +358,30 @@ export async function finalizeCodeCraft(input: FinalizeCodeCraftInput): Promise<
   };
 }
 
+/**
+ * Everything one file's critique loop needs, bundled.
+ *
+ * `critiqueUnit` already took 5 parameters against a `parameterCount` warn bar
+ * of 5, so adding the sibling channel as a 6th would have breached the
+ * pre-commit hook mid-commit — which is exactly how Phases 3 and 4 each lost a
+ * commit. Bundling BEFORE adding the channel keeps the hook green by
+ * construction rather than by luck.
+ */
+interface CritiqueFileContext {
+  file: string;
+  source: string;
+  provider: LlmProvider;
+  acc: RunAccumulator;
+  siblings: SiblingContext | undefined;
+}
+
 /** Critique every substantive unit in one file across its applicable rubrics. */
 async function critiqueFile(
   file: string,
   maxUnitsPerFile: number,
   provider: LlmProvider,
-  acc: RunAccumulator
+  acc: RunAccumulator,
+  siblings: SiblingContext | undefined
 ): Promise<void> {
   let source: string;
   try {
@@ -339,29 +397,107 @@ async function critiqueFile(
   acc.filesScanned++;
   const eligibleUnits = units.slice(0, maxUnitsPerFile);
   acc.unitsDetected += eligibleUnits.length;
+  const ctx: CritiqueFileContext = { file, source, provider, acc, siblings };
   for (const unit of eligibleUnits) {
-    await critiqueUnit(file, source, unit, provider, acc);
+    await critiqueUnit(ctx, unit);
   }
 }
 
 /** Run every applicable rubric against a single unit, folding findings into `acc`. */
-async function critiqueUnit(
-  file: string,
-  source: string,
-  unit: CodeUnit,
-  provider: LlmProvider,
-  acc: RunAccumulator
-): Promise<void> {
+async function critiqueUnit(ctx: CritiqueFileContext, unit: CodeUnit): Promise<void> {
+  // Hoisted out of the rubric loop deliberately: 7 rubrics apply to a function
+  // and the resolver is pure, so this is the difference between 7,880 and
+  // ~55,000 lookups on a full-corpus run.
+  const evidence = resolveUnitSiblings(ctx.siblings, ctx.file, unit);
   for (const rubric of SEED_RUBRICS) {
     if (!rubricApplies(rubric, unit.kind)) continue;
-    acc.rubricsApplied.add(rubric.id);
+    ctx.acc.rubricsApplied.add(rubric.id);
     try {
-      const finding = await critiqueOne({ file, source, unit, rubric, provider });
-      if (finding !== null) acc.findings.push(finding);
+      const finding = await critiqueOne({
+        file: ctx.file,
+        source: ctx.source,
+        unit,
+        rubric,
+        provider: ctx.provider,
+        ...evidence,
+      });
+      if (finding !== null) ctx.acc.findings.push(finding);
     } catch {
       /* swallow per-(unit, rubric) errors */
     }
   }
+}
+
+/**
+ * The sibling fields for one unit, as a spreadable object.
+ *
+ * Returns `{}` rather than `{ siblings: undefined }` so the two fields stay
+ * ABSENT on the prompt input, matching how `CloneClass.sharedImport` is
+ * published.
+ *
+ * The plan justified this as "keeping `buildPrompt`'s `siblings !== undefined`
+ * check meaningful". That reason is WRONG and the mutant proved it: the gate
+ * tests the VALUE, so `{ siblings: undefined }` fails it identically and the
+ * unconditional form is runtime-EQUIVALENT — it survives all 8 integration
+ * cases. What actually enforces the shape is the type layer:
+ * `exactOptionalPropertyTypes: true` (tsconfig.base.json) rejects the
+ * unconditional form with TS2375. Recorded so the next reader does not inherit
+ * a false runtime rationale, and so `npx tsc --noEmit` is understood to be this
+ * line's real guard.
+ */
+function resolveUnitSiblings(
+  ctx: SiblingContext | undefined,
+  file: string,
+  unit: CodeUnit
+): { siblings?: CloneMember[]; siblingClass?: CloneClass } {
+  if (ctx === undefined) return {};
+  const evidence = resolveSiblingEvidence(ctx.index, ctx.projectRoot, file, unit);
+  return evidence === undefined
+    ? {}
+    : { siblings: evidence.siblings, siblingClass: evidence.siblingClass };
+}
+
+/** Everything the prompt-collection loop needs for one file. */
+interface QueueContext {
+  file: string;
+  source: string;
+  siblings: SiblingContext | undefined;
+  records: CodeRunMeta['prompts'];
+  pending: CollectPromptsOutput['pendingPrompts'];
+  rubricsApplied: Set<string>;
+}
+
+/**
+ * Queue every applicable rubric's prompt for one unit; returns the new pending
+ * count.
+ *
+ * `budget` is taken and checked after EACH push, returning early, because that
+ * is exactly what the inline loop did before this helper existed: the budget
+ * breaks MID-UNIT, so a run can stop partway through a unit's rubrics.
+ * Checking once per unit instead would let `pending` exceed `budget` by up to
+ * (rubrics-for-kind - 1) = 6 and would move `projection.promptCount` in a
+ * `budget-exceeded` response. Measured pre-change and asserted as literals:
+ * budget 8 projects 9, budget 13 projects 14 — always budget + 1, never a
+ * whole extra unit's worth.
+ */
+function queuePromptsForUnit(ctx: QueueContext, unit: CodeUnit, budget: number): number {
+  const evidence = resolveUnitSiblings(ctx.siblings, ctx.file, unit);
+  for (const rubric of SEED_RUBRICS) {
+    if (!rubricApplies(rubric, unit.kind)) continue;
+    ctx.rubricsApplied.add(rubric.id);
+    const promptId = `p${ctx.records.length + 1}`;
+    const userPrompt = buildPrompt({
+      file: ctx.file,
+      source: ctx.source,
+      unit,
+      rubric,
+      ...evidence,
+    });
+    ctx.records.push({ promptId, file: ctx.file, unit, rubricId: rubric.id });
+    ctx.pending.push({ promptId, systemPrompt: CRITIQUE_SYSTEM_PROMPT, userPrompt });
+    if (ctx.pending.length > budget) return ctx.pending.length;
+  }
+  return ctx.pending.length;
 }
 
 /**
@@ -376,6 +512,16 @@ export async function critiqueCodeInFile(
     rubrics?: ReadonlyArray<CodeRubric>;
     provider?: LlmProvider;
     maxUnits?: number;
+    /**
+     * A clone index to resolve siblings against. This entry does **not**
+     * auto-build one: a single-file cross-cutting call should not pay the
+     * 2.1-2.9 s whole-project index uninvited, and every caller already holds a
+     * project root it can pass. Supply both this and `projectRoot` to get
+     * sibling evidence here.
+     */
+    cloneIndex?: CloneIndex;
+    /** Root that `cloneIndex`'s member paths are relative to. */
+    projectRoot?: string;
   } = {}
 ): Promise<CodeFinding[]> {
   const source = opts.source ?? fs.readFileSync(file, 'utf-8');
@@ -383,12 +529,17 @@ export async function critiqueCodeInFile(
   if (units.length === 0) return [];
   const rubrics = opts.rubrics ?? SEED_RUBRICS;
   const provider = opts.provider ?? getProvider();
+  const siblings: SiblingContext | undefined =
+    opts.cloneIndex !== undefined && opts.projectRoot !== undefined
+      ? { index: opts.cloneIndex, projectRoot: opts.projectRoot }
+      : undefined;
   const findings: CodeFinding[] = [];
   for (const unit of units) {
+    const evidence = resolveUnitSiblings(siblings, file, unit);
     for (const rubric of rubrics) {
       if (!rubricApplies(rubric, unit.kind)) continue;
       try {
-        const finding = await critiqueOne({ file, source, unit, rubric, provider });
+        const finding = await critiqueOne({ file, source, unit, rubric, provider, ...evidence });
         if (finding !== null) findings.push(finding);
       } catch {
         /* swallow */
