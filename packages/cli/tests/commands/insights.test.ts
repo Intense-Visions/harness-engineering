@@ -111,6 +111,20 @@ describe('insights command', () => {
       expect(all).toMatch(/- health: entropy analysis failed \(ENTRY_POINT_NOT_FOUND\)/);
     });
 
+    it('a block skipped via --skip stays omitted, even when entropy would fail', async () => {
+      // Same failing project as above, so a renderer that printed NOT MEASURED
+      // for every null block (rather than only for a block that FAILED) would
+      // show it here.
+      rmSync(join(tmp, 'package.json'));
+      rmSync(join(tmp, 'src'), { recursive: true });
+      await runCommand(tmp, ['--skip', 'entropy,health']);
+      const all = logOutput.join('\n');
+      expect(all).toMatch(/Insights for/);
+      expect(all).not.toMatch(/NOT MEASURED/);
+      expect(all).not.toMatch(/^Health/m);
+      expect(all).not.toMatch(/^Entropy/m);
+    });
+
     it('JSON: a failed entropy analysis yields null blocks plus warnings (#2267)', async () => {
       rmSync(join(tmp, 'package.json'));
       rmSync(join(tmp, 'src'), { recursive: true });

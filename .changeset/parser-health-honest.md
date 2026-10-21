@@ -87,10 +87,18 @@ consumers and their tests match on.
 **One behaviour change on a working install.** On this repository `health()`
 returns `available: true` with version `8.59.2`, from both built formats, and
 every parser consumer is byte-identical. The exception is `harness insights` /
-`insights_summary` on a project where no entropy entry point resolves (this
-monorepo's own root is one). There, the health and entropy blocks previously
-read PASS with zero counts. They now read NOT MEASURED, with an
-`ENTRY_POINT_NOT_FOUND` warning. Everything else changes only when the parser
+`insights_summary` on a project whose entry points come only from
+`harness.config.json`. The insights entropy block does not read that file: it
+passes no `entropy.entryPoints`, and it uses hard-coded include and exclude
+patterns rather than the project's (#2192, not fixed here). So the analyzer
+falls back to auto-discovery, and on such a project it returns
+`ENTRY_POINT_NOT_FOUND` even though `harness cleanup`, which does read the
+config, measures the same tree. This monorepo's root is one such project: 61
+configured entry points, 720 dead-code findings from `cleanup`. There, the
+health and entropy blocks previously read PASS with zero counts. They now read
+NOT MEASURED with an `ENTRY_POINT_NOT_FOUND` warning. That is honest about what
+insights measured. It is not a statement that the project's configured entry
+points fail to resolve. Everything else changes only when the parser
 genuinely is unavailable. In that state the previous behaviour was a
 module-load crash. Each consumer now reports a named error or abstention:
 `check-deps`, the `check_dependencies` MCP tool, `ci check`, `review`,
