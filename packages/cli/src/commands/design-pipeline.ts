@@ -128,8 +128,7 @@ function printPipelineResult(
       ` brand=${result.inputs.brandRulesExist ? 'yes' : 'no'}`
   );
   console.log(
-    `  DETECT   drift findings: ${result.driftFindings.length}` +
-      describeExclusions(result.exclusions)
+    `  DETECT   drift findings: ${result.driftFindings.length}` + describeExclusions(result)
   );
   console.log(
     `  FIX      iterations: ${result.summary.iterationsRun}, fixes applied: ${result.summary.fixesApplied}`
@@ -163,8 +162,9 @@ function printPipelineResult(
   }
 }
 
-function describeExclusions(exclusions: Set<string> | null): string {
-  if (exclusions === null) return ', excluded globs: not measured';
+function describeExclusions(result: DesignPipelineContext): string {
+  if (!result.exclusionsMeasured) return ', excluded globs: not measured';
+  const { exclusions } = result;
   return exclusions.size > 0 ? `, excluded globs: ${[...exclusions].join(', ')}` : '';
 }
 

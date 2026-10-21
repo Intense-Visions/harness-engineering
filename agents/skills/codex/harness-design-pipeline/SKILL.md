@@ -72,8 +72,10 @@ interface DesignPipelineContext {
   auditFindings: { anatomy: AnatomyFinding[]; brand: BrandFinding[] };
   craftFindings: CraftFinding[];
   craftSuggestions: number;
-  /** Exclude globs the DETECT walk applied (empty for an explicit `files` scope); null when DETECT did not measure. */
-  exclusions: Set<string> | null;
+  /** Exclude globs the DETECT walk applied (empty for an explicit `files` scope, or when unmeasured). */
+  exclusions: Set<string>;
+  /** false when detect-drift threw or abstained — then an empty `exclusions` means "not measured", not "none applied". */
+  exclusionsMeasured: boolean;
   /** Non-fatal notices, e.g. a deprecated option that changed nothing. */
   warnings: string[];
   verifiersRun: string[];
@@ -113,7 +115,7 @@ The context is passed to sub-skills via `.harness/handoff.json` with a `pipeline
 ### Phase 2: DETECT — Find Design Drift
 
 1. Invoke `runDetectDrift({ path, mode, files? })`.
-2. Populate `context.driftFindings` with all `DRIFT-T*` and `DRIFT-P*` findings, and `context.exclusions` with the exclude globs detect-design-drift reports it applied (`meta.excludePatterns`). If detect-drift fails, `exclusions` stays `null` (unmeasured) rather than an empty set.
+2. Populate `context.driftFindings` with all `DRIFT-T*` and `DRIFT-P*` findings, and `context.exclusions` with the exclude globs detect-design-drift reports it applied (`meta.excludePatterns`). If detect-drift fails, `exclusions` stays empty and `exclusionsMeasured` is `false`, so read the flag before treating an empty set as "no globs applied".
 3. Record `'detect-drift'` in `context.verifiersRun`.
 4. On failure: push to `context.verifiersFailed` and continue (graceful degradation). Graceful degradation means the OTHER verifiers still run — it does **not** mean the run can still report `pass`.
 5. If `design.audit.driftDetection.enabled === false` in config: SKIP this phase entirely.

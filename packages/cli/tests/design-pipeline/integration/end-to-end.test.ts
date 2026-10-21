@@ -124,6 +124,7 @@ describe('runDesignPipeline (integration)', () => {
 
     const out = await runDesignPipeline({ path: tmpDir, noFill: true });
     expect([...out.exclusions]).toEqual(['src/legacy/**']);
+    expect(out.exclusionsMeasured).toBe(true);
     // Positive control: drift is detected, just not in the excluded file.
     expect(out.driftFindings.some((f) => f.file.endsWith('Card.ts'))).toBe(true);
     expect(out.driftFindings.some((f) => f.file.endsWith('Old.ts'))).toBe(false);
@@ -151,7 +152,7 @@ describe('runDesignPipeline (integration)', () => {
     expect(withoutGraph.graphAvailable).toBe(false);
   });
 
-  it('a run whose DETECT abstained reports unmeasured, not empty: exclusions null, fixStopReason detect-unavailable', async () => {
+  it('a run whose DETECT abstained reports unmeasured, not empty: exclusionsMeasured false, fixStopReason detect-unavailable', async () => {
     writeFile(
       'design-system/tokens.json',
       JSON.stringify({ color: { brand: { primary: { $type: 'color', $value: '#0066cc' } } } })
@@ -165,15 +166,17 @@ describe('runDesignPipeline (integration)', () => {
     // Positive control: the abstention really happened.
     expect(out.verifiersFailed.map((f) => f.name)).toContain('detect-drift');
     expect(out.verifiersRun).not.toContain('detect-drift');
-    expect(out.exclusions).toBeNull();
+    expect(out.exclusions).toEqual(new Set());
+    expect(out.exclusionsMeasured).toBe(false);
     expect(out.summary.fixStopReason).toBe('detect-unavailable');
   });
 
-  it('a measured DETECT with no globs configured reports an empty set, not null', async () => {
+  it('a measured DETECT with no globs configured reports an empty set with exclusionsMeasured true', async () => {
     writeFile('src/Card.tsx', `export const Card = () => <div>ok</div>;\n`);
     const out = await runDesignPipeline({ path: tmpDir, fix: true, noFill: true });
     expect(out.verifiersRun).toContain('detect-drift');
     expect(out.exclusions).toEqual(new Set());
+    expect(out.exclusionsMeasured).toBe(true);
     expect(out.summary.fixStopReason).toBe('no-drift');
   });
 

@@ -88,12 +88,17 @@ export interface DesignPipelineContext {
    * The exclude globs (`design.exclude` ∪ `analysis.exclude`) the DETECT walk
    * actually applied, as reported by detect-design-drift itself rather than
    * re-resolved here, so the report cannot claim a filter the scan did not use.
-   * Empty when the walk applied none: no globs configured, or an explicit
-   * `files` scope (which bypasses the walk). `null` when DETECT did not
-   * measure (detect-drift threw or abstained) — an empty set would claim "no
-   * globs applied" for a scan that never ran.
+   * Empty when the walk applied none — no globs configured, or an explicit
+   * `files` scope (which bypasses the walk) — AND when DETECT did not measure.
+   * Read `exclusionsMeasured` to tell those apart: an empty set alone does not
+   * mean "no globs applied".
    */
-  exclusions: Set<string> | null;
+  exclusions: Set<string>;
+  /**
+   * Whether `exclusions` reflects a scan that ran: `true` once detect-drift
+   * reported what its walk applied, `false` when it threw or abstained.
+   */
+  exclusionsMeasured: boolean;
   /**
    * Non-fatal notices about how the run was invoked — e.g. a deprecated
    * option that was accepted but changes nothing. They do not affect the
@@ -158,8 +163,9 @@ export function newContext(): DesignPipelineContext {
     auditFindings: { anatomy: [], brand: [] },
     craftFindings: [],
     craftSuggestions: 0,
+    exclusions: new Set(),
     // Unmeasured until DETECT reports what its walk applied.
-    exclusions: null,
+    exclusionsMeasured: false,
     warnings: [],
     verifiersRun: [],
     verifiersFailed: [],
