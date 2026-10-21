@@ -1,3 +1,4 @@
+import { stat } from 'fs/promises';
 import { join, resolve } from 'path';
 import type { Result } from '../shared/result';
 import { Ok, Err } from '../shared/result';
@@ -12,6 +13,40 @@ interface LanguageResolution {
   detected: boolean;
   entries: string[];
   hints: string[];
+}
+
+/**
+ * Characters only a glob matcher resolves. `entryPoints` are literal file paths
+ * (see the field docs on `PerformanceConfigSchema`), so an entry carrying one of
+ * these was never expanded and matched nothing — worth naming explicitly,
+ * because a recursive-wildcard entry reads as a filesystem problem ("that file
+ * is right there") until you know the field is never globbed (issue #2275).
+ */
+const GLOB_METACHARACTERS = /[*?[\]{}]/;
+
+/**
+ * True only for a path that exists AND is a file.
+ *
+ * A reachability walk starts by parsing the entry point, so a directory is as
+ * dead a root as a missing path: it matches no entry in the snapshot's file set
+ * and contributes nothing. `fileExists` uses `F_OK` and so accepts a directory,
+ * which is right for manifest probing and wrong here.
+ */
+async function isEntryPointFile(path: string): Promise<boolean> {
+  try {
+    return (await stat(path)).isFile();
+  } catch {
+    return false;
+  }
+}
+
+/** Keep the paths that are real files, preserving input order. */
+async function keepResolvable(paths: string[]): Promise<string[]> {
+  const found: string[] = [];
+  for (const p of paths) {
+    if (await isEntryPointFile(p)) found.push(p);
+  }
+  return found;
 }
 
 function collectFieldEntries(rootDir: string, field: unknown): string[] {
@@ -53,7 +88,12 @@ async function resolveTypeScript(rootDir: string): Promise<LanguageResolution> {
   const detected = await fileExists(pkgPath);
 
   if (detected) {
-    const entries = await readPackageJsonEntries(rootDir, pkgPath);
+    // Existence-filter before accepting. A package.json `main` naming a build
+    // artifact that is not on disk yet (`dist/index.js` before a build) is a
+    // reachability root that matches nothing, and accepting it SUPPRESSES the
+    // conventional fallback below — the same silent zero as #2275's explicit
+    // entries, reached on the path most TypeScript projects actually take.
+    const entries = await keepResolvable(await readPackageJsonEntries(rootDir, pkgPath));
     if (entries.length > 0) {
       return { language: 'typescript', detected: true, entries, hints: TS_HINTS };
     }
@@ -315,11 +355,95 @@ function stripTomlString(value: string): string {
   return value;
 }
 
+/** How many unresolvable entries `error.message` names before summarising the rest. */
+const MAX_NAMED_IN_MESSAGE = 3;
+
+/**
+ * Name the unresolvable entries in the message itself, capped.
+ *
+ * Every consumer — `cleanup`, `check-perf`, `ci check`, the MCP result adapter,
+ * the dashboard gatherers — prints only `error.message`. Names carried only in
+ * `details` and `suggestions` never reach an operator, so a 1-of-62 typo would
+ * be a hard error with no clue which entry is wrong.
+ */
+function nameUnresolvable(unresolvable: string[]): string {
+  const named = unresolvable.slice(0, MAX_NAMED_IN_MESSAGE).join(', ');
+  const rest = unresolvable.length - MAX_NAMED_IN_MESSAGE;
+  return rest > 0 ? `${named} and ${rest} more` : named;
+}
+
+/**
+ * Report configured entry points that match no file.
+ *
+ * Configured work that never happened is reported, never absorbed. The returned
+ * `Err` reaches the operator through the abstention channel already built for
+ * this class of defect (`runEntropyCheck`/`runPerfCheck` turn a failed analysis
+ * into `skipReason`, which `deriveExitCode` maps to ZERO_DENOMINATOR rather than
+ * to a pass — #2071), so "nothing was analysed" stays readable as something
+ * other than "nothing was wrong".
+ *
+ * Strict on ANY unresolvable entry, not only on all of them. The precedent is
+ * `classifyMeasurement`'s `rules-not-received` branch: declared work that never
+ * reached the analysis abstains loudly even when the surrounding denominators
+ * look healthy. A config listing nine roots of which one is a typo analysed
+ * eight, and the author's intent for the ninth — usually to keep a file the
+ * dead-code detector would otherwise flag reachable — silently did nothing.
+ */
+function reportUnresolvableEntries(unresolvable: string[], configuredCount: number): EntropyError {
+  const globs = unresolvable.filter((e) => GLOB_METACHARACTERS.test(e));
+  const suggestions: string[] = [];
+  if (globs.length > 0) {
+    suggestions.push(
+      `entryPoints are literal file paths, never glob patterns — ${globs.join(', ')} ` +
+        `is used verbatim as a path and expands to nothing. List the concrete files instead.`
+    );
+  }
+  suggestions.push(
+    `Correct or remove these entryPoints: ${unresolvable.join(', ')}`,
+    'Remove entryPoints entirely to fall back to auto-detection (package.json main/exports/bin, then conventional index files)'
+  );
+
+  return createEntropyError(
+    'ENTRY_POINT_NOT_FOUND',
+    `${unresolvable.length} of ${configuredCount} configured entryPoints match no file: ` +
+      nameUnresolvable(unresolvable),
+    {
+      reason:
+        `Configured entryPoints match no file on disk: ${unresolvable.join(', ')}. ` +
+        `Reachability analysis walks outward from these paths, so a root that matches ` +
+        `nothing reaches no code: every export downstream of it looks dead while the ` +
+        `gate still has nothing to report.`,
+      issues: unresolvable,
+    },
+    suggestions
+  );
+}
+
+async function resolveExplicitEntries(
+  rootDir: string,
+  explicitEntries: string[]
+): Promise<Result<string[], EntropyError>> {
+  const resolved = explicitEntries.map((e) => resolve(rootDir, e));
+  const unresolvable: string[] = [];
+  for (const [i, abs] of resolved.entries()) {
+    // Report the string the author wrote, not its absolute form — that is what
+    // they will search their config for.
+    if (!(await isEntryPointFile(abs))) unresolvable.push(explicitEntries[i]!);
+  }
+
+  if (unresolvable.length > 0) {
+    return Err(reportUnresolvableEntries(unresolvable, explicitEntries.length));
+  }
+  return Ok(resolved);
+}
+
 /**
  * Resolve entry points for dead-code and drift analysis across supported languages.
  *
  * Resolution order:
- * 1. Explicit entries provided as arguments
+ * 1. Explicit entries provided as arguments, each of which must be an existing
+ *    file; see `reportUnresolvableEntries` for why one that is not fails rather
+ *    than being dropped or glob-expanded.
  * 2. Per-language resolvers in priority order: TypeScript, Python, Go, Rust, Java.
  *    First language with declared or conventional entries wins (preserves prior
  *    JS/TS-first behavior on polyglot repos).
@@ -334,7 +458,7 @@ export async function resolveEntryPoints(
   explicitEntries?: string[]
 ): Promise<Result<string[], EntropyError>> {
   if (explicitEntries && explicitEntries.length > 0) {
-    return Ok(explicitEntries.map((e) => resolve(rootDir, e)));
+    return resolveExplicitEntries(rootDir, explicitEntries);
   }
 
   const resolvers = [resolveTypeScript, resolvePython, resolveGo, resolveRust, resolveJava];

@@ -86,6 +86,8 @@ describe('insights command', () => {
       expect(parsed.impact).toBeNull();
       // Other sections still run.
       expect(parsed.entropy).not.toBeNull();
+      // ...and actually ran: a failed analysis is `null` + a warning, never zeros.
+      expect(parsed.warnings).toEqual([]);
     });
 
     it('renders a pretty text report (default mode)', async () => {
