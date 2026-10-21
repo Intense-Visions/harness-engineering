@@ -159,7 +159,7 @@ describe('resolveEntryPoints — configured entries that match no file (#2275)',
     if (res.ok) return;
     expect(res.error.code).toBe('ENTRY_POINT_NOT_FOUND');
     expect(res.error.details.issues).toEqual(['src/**/*.ts']);
-    expect(res.error.message).toBe('1 of 1 configured entryPoints match no file');
+    expect(res.error.message).toBe('1 of 1 configured entryPoints match no file: src/**/*.ts');
     expect(res.error.suggestions.join('\n')).toContain(
       'entryPoints are literal file paths, never glob patterns'
     );
@@ -175,11 +175,27 @@ describe('resolveEntryPoints — configured entries that match no file (#2275)',
     if (res.ok) return;
     // Exactly the typo — not the two that resolved, and not a bare count.
     expect(res.error.details.issues).toEqual(['src/typpo.ts']);
-    expect(res.error.message).toBe('1 of 3 configured entryPoints match no file');
+    expect(res.error.message).toBe('1 of 3 configured entryPoints match no file: src/typpo.ts');
     expect(res.error.details.reason).toContain('src/typpo.ts');
     expect(res.error.details.reason).not.toContain('src/index.ts');
     // No glob in this config, so the glob advice must not fire.
     expect(res.error.suggestions.join('\n')).not.toContain('never glob patterns');
+  });
+
+  it('names the first three unresolvable entries in the message and counts the rest', async () => {
+    // Consumers print only error.message, so the names must be in it — capped,
+    // so a wholly stale 62-entry config does not produce an unreadable line.
+    write('src/index.ts');
+    const missing = ['a.ts', 'b.ts', 'c.ts', 'd.ts', 'e.ts'];
+    const res = await resolveEntryPoints(root, ['src/index.ts', ...missing]);
+
+    expect(res.ok).toBe(false);
+    if (res.ok) return;
+    expect(res.error.message).toBe(
+      '5 of 6 configured entryPoints match no file: a.ts, b.ts, c.ts and 2 more'
+    );
+    // The uncapped list is still available to machine consumers.
+    expect(res.error.details.issues).toEqual(missing);
   });
 
   it('rejects a directory, which parses as no file at all', async () => {

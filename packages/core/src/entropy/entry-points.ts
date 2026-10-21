@@ -355,6 +355,23 @@ function stripTomlString(value: string): string {
   return value;
 }
 
+/** How many unresolvable entries `error.message` names before summarising the rest. */
+const MAX_NAMED_IN_MESSAGE = 3;
+
+/**
+ * Name the unresolvable entries in the message itself, capped.
+ *
+ * Every consumer — `cleanup`, `check-perf`, `ci check`, the MCP result adapter,
+ * the dashboard gatherers — prints only `error.message`. Names carried only in
+ * `details` and `suggestions` never reach an operator, so a 1-of-62 typo would
+ * be a hard error with no clue which entry is wrong.
+ */
+function nameUnresolvable(unresolvable: string[]): string {
+  const named = unresolvable.slice(0, MAX_NAMED_IN_MESSAGE).join(', ');
+  const rest = unresolvable.length - MAX_NAMED_IN_MESSAGE;
+  return rest > 0 ? `${named} and ${rest} more` : named;
+}
+
 /**
  * Report configured entry points that match no file.
  *
@@ -388,7 +405,8 @@ function reportUnresolvableEntries(unresolvable: string[], configuredCount: numb
 
   return createEntropyError(
     'ENTRY_POINT_NOT_FOUND',
-    `${unresolvable.length} of ${configuredCount} configured entryPoints match no file`,
+    `${unresolvable.length} of ${configuredCount} configured entryPoints match no file: ` +
+      nameUnresolvable(unresolvable),
     {
       reason:
         `Configured entryPoints match no file on disk: ${unresolvable.join(', ')}. ` +
