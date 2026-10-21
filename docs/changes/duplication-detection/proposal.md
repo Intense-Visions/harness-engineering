@@ -1499,7 +1499,7 @@ one; this is strictly wider than what is written there.
 #### A gate finding this batch introduced, and did not hide
 
 `harness check-arch` under `HARNESS_ARCH_BASE_REF=c83ec3620` goes from **12 findings to 13**. The
-thirteenth is `Regression in module-size: 272433 -> 275372 (+2939)`. It is an AGGREGATE regression,
+thirteenth is `Regression in module-size: 272433 -> 275454 (+3021)`. It is an AGGREGATE regression,
 not a threshold violation — no module exceeds `maxLoc` or `maxFiles`, and the twelve pre-existing
 complexity findings are byte-identical, with none in a Phase-4 file.
 
@@ -1508,9 +1508,11 @@ non-blank line, comments included, of every non-test `.ts`/`.tsx` in the reposit
 `regressionTolerance` is 0.01, so the allowance over the 272,433-line baseline is
 272,433 + floor(2,724.33) = **275,157**. At `eaca39ba0` — this branch's HEAD before the batch —
 the aggregate was 275,143: Phases 1 through 4 had already consumed 2,710 of the 2,724-line
-allowance, leaving **14 lines of headroom** for anything further. Rung F's role filter is a
+allowance, leaving **14 lines of headroom** for anything further. This batch adds 311 lines of
+non-test source, which puts the aggregate 297 over the allowance. Rung F's role filter is a
 ~100-line AST walk where rung E was a ~15-line token scan, so the batch cannot be implemented
-inside 14 lines, and its own prose was trimmed by ~25 lines before measuring.
+inside 14 lines however terse its prose; its own comments were trimmed by 23 non-blank lines
+before the figure above was taken.
 
 Three ways out, and why this one: `--update-baseline` was out of scope for this batch;
 offsetting by deleting earned documentation elsewhere to satisfy a line-count aggregate is the
