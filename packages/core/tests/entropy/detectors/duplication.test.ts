@@ -1,4 +1,6 @@
 import { describe, it, expect } from 'vitest';
+import { mkdtemp, writeFile, rm, mkdir } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { findFiles } from '../../../src/shared/fs-utils';
 import { detectDuplication } from '../../../src/entropy/detectors/duplication';
@@ -100,7 +102,7 @@ describe('detectDuplication over the planted-clones fixture', () => {
     expect(relaxed.value.stats.classesSuppressed).toBe(0);
   });
 
-  it('reports the top class by rank and records the drop (criterion 13)', async () => {
+  it('reports the top class by priority and records the drop (criterion 13)', async () => {
     const result = await detectDuplication(await plantedSnapshot(), {
       ignorePatterns: [],
       maxClasses: 1,
@@ -119,6 +121,18 @@ describe('detectDuplication over the planted-clones fixture', () => {
     expect(stats.infoCount).toBe(stats.classesReported);
     expect(stats).not.toHaveProperty('errorCount');
     expect(stats).not.toHaveProperty('warningCount');
+  });
+
+  it('leaves every class in the committed fixture a plain duplicate', async () => {
+    // Truth 12: the Phase-1/2/3 fixture must keep reporting exactly what it
+    // reported before the signal existed, including `priority === rank`.
+    const result = await detectDuplication(await plantedSnapshot(), { ignorePatterns: [] });
+    if (!result.ok) throw new Error('expected ok');
+    for (const cls of result.value.classes) {
+      expect(cls.signal).toBe('duplicate');
+      expect(cls.sharedImport).toBeUndefined();
+      expect(cls.priority).toBe(cls.rank);
+    }
   });
 
   it('applies the duplication ignorePatterns on top of what the snapshot delivered', async () => {
@@ -283,5 +297,67 @@ describe('detectDuplication failure behavior', () => {
     const stats = result.value.stats;
     expect(stats.filesIgnored).toBe(paths.length - stats.filesScanned - stats.filesSkipped);
     expect(stats.filesIgnored).toBeGreaterThan(0);
+  });
+});
+
+describe('detectDuplication — the Phase-4 fields survive the detector', () => {
+  /**
+   * The detector spreads `index.classes` straight through, so this case pins
+   * the PASS-THROUGH rather than re-testing the derivation core already
+   * covers. Without it, "the new fields flow automatically" is true today and
+   * guarded by nothing: a future revision that projects the classes
+   * field-by-field would drop `signal` silently.
+   */
+  const wrapper = (spec: string, fn: string, p: string, out: string) =>
+    `import { extract } from '${spec}';\n` +
+    `export function ${fn}(${p}: string[]): string[] {\n` +
+    `  const ${out}: string[] = [];\n` +
+    `  for (const item of ${p}) {\n` +
+    `    const value = extract(item);\n` +
+    `    if (value.length > 0) {\n` +
+    `      ${out}.push(value);\n` +
+    `    }\n` +
+    `  }\n` +
+    `  return ${out};\n` +
+    `}\n`;
+
+  it('carries signal, sharedImport and the boosted priority through detectDuplication', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'dup-det-pe-'));
+    try {
+      const files: Record<string, string> = {
+        'src/shared/extract.ts': `export function extract(raw: string): string {\n  return raw.trim();\n}\n`,
+        'src/beta.ts': wrapper('./shared/extract.js', 'keepBeta', 'rows', 'kept'),
+        'src/wrappers/alpha.ts': wrapper('../shared/extract.js', 'keepAlpha', 'items', 'out'),
+        'src/deep/nested/gamma.ts': wrapper(
+          '../../shared/extract.js',
+          'keepGamma',
+          'entries',
+          'acc'
+        ),
+      };
+      for (const [rel, src] of Object.entries(files)) {
+        await mkdir(join(root, rel, '..'), { recursive: true });
+        await writeFile(join(root, rel), src, 'utf8');
+      }
+      const snapshot = snapshotOf(
+        Object.keys(files).map((f) => join(root, f)),
+        root
+      );
+      const result = await detectDuplication(snapshot, { ignorePatterns: [] });
+      if (!result.ok) throw new Error(`expected ok: ${result.error.message}`);
+      expect(result.value.classes).toHaveLength(1);
+      const cls = result.value.classes[0]!;
+      expect(cls.signal).toBe('partial-extraction');
+      expect(cls.sharedImport).toBe('src/shared/extract');
+      expect(cls.rank).toBe(186);
+      expect(cls.priority).toBe(372);
+      expect(cls.priority).toBe(cls.rank * 2);
+      // The seam Phase 5 reads from must hand back the LABELLED object, not a
+      // stripped copy of it.
+      const member = cls.members[0]!;
+      expect(result.value.byMember.get(`${member.file}:${member.startLine}`)).toBe(cls);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
   });
 });

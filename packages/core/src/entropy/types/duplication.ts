@@ -13,7 +13,11 @@ import type { EntropyError } from '../../shared/errors';
  * error anywhere. The clone types are `import type`-only on purpose.
  */
 export interface DuplicationReport {
-  /** Clone classes, rank-descending, capped at `maxClasses`. */
+  /**
+   * Clone classes, PRIORITY-descending (`CloneClass.priority`), capped at
+   * `maxClasses`. `priority` equals `rank` for every plain duplicate, so this
+   * is rank-descending for any project with no `partial-extraction` class.
+   */
   classes: CloneClass[];
   /**
    * The O(1) `${file}:${startLine}` -> owning-class seam (spec goal 3).
