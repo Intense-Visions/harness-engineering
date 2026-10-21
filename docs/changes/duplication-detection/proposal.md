@@ -806,8 +806,11 @@ Reproducibility state, per this spec's audit instruction:
 exit **1** (tracked, not ignored). Evidence came from the REAL command,
 `harness cleanup -t duplication --json`, which exited **0** over 96 advisory classes.
 
-Counters: filesScanned **2,144**, classesReported **96**, members **382**, classesSuppressed
-**162**, classesTruncated **0**.
+Counters AS MEASURED FOR THIS AUDIT (Scope C at the Phase 3 HEAD): filesScanned **2,144**,
+classesReported **96**, members **382**, classesSuppressed **162**, classesTruncated **0**. At the
+shipped build (2026-10-21, HEAD `29c419c6b`) the same scope reads 2,147 / 96 / 382 / 160 / 0 — see
+the re-measured table under "Phase 3 — Scope C". The audit's VERDICT is over the twenty classes
+named below, which are unchanged; the counters are the run they were drawn from.
 
 Rejection clauses (fixed): (a) extraction would need one distinct parameter per member;
 (b) structurally forced by a framework or interface contract and could not differ; (c) the
@@ -932,19 +935,45 @@ come from one skill (`harness-branch-buster`).
 `rootDir` = repo root, this repo's 62 configured entry points, this repo's 12
 `entropy.excludePatterns`, `DEFAULT_DUPLICATION_CONFIG` otherwise.
 
+**RE-MEASURED at the shipped build, 2026-10-21, HEAD `29c419c6b`.** Scope C via
+`node packages/cli/dist/bin/harness.js cleanup -t duplication --json`; Scopes A and B via the
+same `dist` through `buildCloneIndex` over `findFiles` + `isEligibleFile` at their own roots.
+
 | counter            | Scope C (product) | Scope B (detector's own) | Scope A (`packages/` only) |
 | ------------------ | ----------------- | ------------------------ | -------------------------- |
-| filesScanned       | **2,144**         | 2,153                    | 2,065                      |
+| filesScanned       | **2,147**         | 2,157                    | 2,069                      |
 | classesReported    | **96**            | 98                       | 58                         |
 | members            | **382**           | 388                      | 230                        |
-| classesSuppressed  | **162**           | 174                      | 161                        |
+| classesSuppressed  | **160**           | 172                      | 159                        |
 | classesTruncated   | **0**             | 0                        | 0                          |
 | vitepress-composed | **0**             | 2                        | 0                          |
 
 96 vs 98 vs 58 is **scope, not regression**. Scope C = Scope B minus this repo's
-`excludePatterns` (chiefly `**/.vitepress/cache/**`). Scope C's filesScanned is 2,144 rather
-than the 2,143 measured at plan time because Phase 3 adds one source file
-(`packages/cli/src/shared/duplication-request.ts`).
+`excludePatterns` (chiefly `**/.vitepress/cache/**`).
+
+**This table moves whenever the feature itself adds a source file, and every figure in it is an
+observation at a HEAD rather than a property.** The Phase 3 record read
+`2,144 / 2,153 / 2,065` scanned and `162 / 174 / 161` suppressed, and the drift is fully
+attributed:
+
+- **`filesScanned`.** Exactly **four** eligible source files landed under `packages/` between the
+  pre-Phase-3 HEAD and `29c419c6b`: `cli/src/shared/duplication-request.ts` (Phase 3),
+  `core/src/duplication/imports.ts` (Phase 4), and
+  `cli/src/code-craft/extract/siblings.ts` plus `cli/src/code-craft/phases/sibling-evidence.ts`
+  (Phase 5). Nothing eligible was removed. So Scope A 2,065 + 4 = 2,069 and Scope B 2,153 + 4 =
+  2,157, while Scope C 2,144 + 3 = 2,147 — **three, not four, because the Phase-3 table's own
+  columns were measured at two different HEADs:** its Scope C figure already included
+  `duplication-request.ts` and its Scope A/B figures did not. That is the defect this note exists
+  to stop repeating, so the HEAD is now recorded with the table. It is NOT cache transience:
+  `**/.vitepress/cache/**` is in this repo's `entropy.excludePatterns`, so Scope C never saw that
+  directory in either measurement.
+- **`classesSuppressed`** falls by exactly 2 at all three scopes while `classesReported` is
+  unchanged at all three, so two sub-threshold (2-member) groups stopped forming. Attributed to
+  this feature's own refactors between the two HEADs — `imports.ts`'s rung-F rewrite, the
+  `topClasses` line-builder extraction, the cleanup mock factory split — which changed real unit
+  shapes. **Which two groups was not isolated**, and no test asserts the number (criterion 10),
+  deliberately: a suppressed-class count is a property of this repository's code at an instant,
+  and pinning it would turn any refactor into a red build.
 
 ### Phase 3 — criterion 1 evidence
 
@@ -1252,6 +1281,17 @@ source file this phase adds, `packages/core/src/duplication/imports.ts`; the new
 lives under `packages/cli/tests/fixtures/`, which
 `DEFAULT_DUPLICATION_CONFIG.ignorePatterns` excludes. Every other counter is unchanged, and so
 is every predicted position.
+
+**Re-measured at the FINAL shipped build (2026-10-21, HEAD `29c419c6b`), and the rung-F block
+above reproduces except for two counters.** `filesScanned` is **2,147** (Phase 5's two source
+files) and `classesSuppressed` is **160** (two sub-threshold groups stopped forming; see the
+attribution under "Phase 3 — Scope C"). Everything the predicate actually decides is
+byte-identical two phases later: labelled **7 of 96**, mirror classes labelled **0 of 38**, the 38
+mirror classes still holding **152** members, **13** priority ties with **0** mixed-signal,
+`parseFencedJson` at **#8** (6 x 87, rank 522, priority 1044), `sumCosts` at **#10**,
+JSON-response at **#15** (16 x 44, rank 704), the largest clone by rank at **#2** (4 x 648
+`runGates`, rank 2592), and **5 of 10** printed rows labelled with **2 of 10** mirror rows. A
+positional claim that survives two phases of unrelated change is the one worth recording.
 
 The seven labelled classes, by position, with the three rung E labelled and rung F does not:
 

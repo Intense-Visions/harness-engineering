@@ -118,10 +118,16 @@ warnings` in `packages/core/tests/entropy/analyzer.duplication.test.ts`, which r
   false positive, meaning the glob could only ever suppress real implementation modules. It was
   hiding `sumCosts` x10, the spec's own flagship evidence.
 - **Reported counts are only meaningful with their discovery scope attached.** The same shipped
-  detector reports **58** classes over `packages/` (2,065 files) and **98** over this repository's
-  non-test sources (2,153 files). Neither is a regression against the other; the scopes differ.
+  detector reports **58** classes at **Scope A** (`packages/` only, 2,065 files via `findFiles` +
+  `isEligibleFile`) and **98** at **Scope B** (the detector's own scope — this repository's
+  non-test sources, 2,153 files). Neither is a regression against the other; the scopes differ.
   No test asserts either number (spec criterion 10), precisely so that a scope change cannot
-  present itself as a behavior change.
+  present itself as a behavior change. The D4 bullet below reports **96** at **Scope C** (the
+  product scope: what `harness cleanup -t duplication` actually sees, i.e. Scope B minus this
+  repository's configured `entropy.excludePatterns`) — a THIRD number answering a different
+  question. The labels are the spec's, and they are used here because "this repository's non-test
+  sources" and "on this repository" are two phrases a reader cannot tell apart while naming two
+  different scopes. Scope C's own counts move whenever this repository gains source files.
 - **Whole-unit granularity is only cheap once the token walk is linear.** D2 claims the
   granularity is affordable, and as first implemented it was not: `normalizeTokens` rescanned a
   file's entire token array once per unit, so the per-file cost was O(units x tokens). Phase 2
@@ -147,7 +153,7 @@ warnings` in `packages/core/tests/entropy/analyzer.duplication.test.ts`, which r
   optional `duplication` block. Phase 3 also found a SECOND channel on the same field —
   `--findings-json` publishes `totalIssues` as the #691 maintenance contract, where a consumer
   gating on `findings > 0` would fail a build on advisory output — and excluded duplication from
-  that too. Observed on this repository: `harness cleanup -t duplication` exits **0** over 96
+  that too. Observed at Scope C (2026-10-21): `harness cleanup -t duplication` exits **0** over 96
   advisory classes and prints `{"findings":0,"v":1,"check":"cleanup"}`. A spawned-process test
   holds the line: folding `duplication.classes.length` into the sum turns the real process's
   status to 1 and the contract line to `{ findings: 1 }`. D4 is unchanged — it was honored

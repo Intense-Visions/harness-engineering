@@ -22,13 +22,32 @@ import type { CodeUnit } from '../findings/schema.js';
  * Start-line probe offsets, exact-first.
  *
  * The spec mandates a ±2 tolerance for the named risk that `typescript`'s
- * `node.getStart(sf)` and estree's `loc.start.line` disagree. Measured at Scope
- * D (2,066 files / 7,880 code-craft units) they agree 7,880/7,880, so this
- * tolerance contributes ZERO true positives today — and the two candidates it
- * does produce are both wrong (a one-line arrow at `brand/index.ts:167`
- * matching `collectFiles` at 165). It is retained as the degradation path for a
- * future parser release, and it is safe only because every candidate is gated
- * by {@link spanAgrees}. Exact first so the common case costs one Map lookup.
+ * `node.getStart(sf)` and estree's `loc.start.line` disagree. **This tolerance
+ * is LOAD-BEARING TODAY — do not delete it as dead code.**
+ *
+ * A DECORATED CLASS is the live case. `typescript`'s `getStart` lands on the
+ * `class` keyword, while `typescript-estree` includes a class decorator in
+ * `ClassDeclaration.loc.start` — so `@Dec()` on its own line gives code-craft
+ * line 3 and estree line 4 for the same class, and the exact key MISSES. (The
+ * two parsers agree on METHODS, whose decorators both include.) An exact-only
+ * matcher silently drops every decorated class from the clone join, which
+ * means no sibling evidence for exactly the adopters most likely to have
+ * duplication: Angular, NestJS, TypeORM, MobX. `extractor-agreement.test.ts`
+ * pins this ("the decorated class is rescued BY the +/-2 tolerance, not despite
+ * it"), and mutant `START_LINE_PROBE_ORDER -> [0]` kills three tests.
+ *
+ * Measured at Scope D (2,066 files / 7,880 code-craft units) the parsers agree
+ * 7,880/7,880 and this tolerance contributes zero true positives — and the two
+ * candidates it does produce are both wrong (a one-line arrow at
+ * `brand/index.ts:167` matching `collectFiles` at 165). **That zero is
+ * CORPUS-SPECIFIC and says nothing about the construct:** this repository
+ * contains ZERO TypeScript decorators, so Scope D never exercised the one
+ * divergence the tolerance exists for. A figure measured over a corpus that
+ * lacks the construct is not evidence about the construct.
+ *
+ * Safe because every candidate is gated by {@link spanAgrees} — the probe
+ * widens the search, the span co-check decides. Exact first so the common case
+ * costs one Map lookup.
  */
 const START_LINE_PROBE_ORDER: readonly number[] = [0, -1, 1, -2, 2];
 

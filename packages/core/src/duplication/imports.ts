@@ -243,6 +243,23 @@ function scanUses(program: TSESTree.Program, locals: ReadonlySet<string>): UseSc
   const scan: UseScan = { locals, positions: new Map(), shadowed: new Set() };
   if (locals.size === 0) return scan;
   walkForUses(program, scan, new Set<object>());
+  // Dropping a shadowed name from `positions` as well as from `byKey`. This
+  // line's deletion is a SURVIVING mutant (M3), kept deliberately rather than
+  // left unexplained — the same accounting `tokens.ts` gives its own `>=`
+  // survivor.
+  //
+  // Equivalent for the detector: `usedImportKeys` only ever looks up names it
+  // took FROM `byKey`, and {@link withoutShadowed} has already removed the
+  // shadowed ones there, so a stale `positions` entry is unreachable through
+  // this package's own call path and no test can distinguish the two forms.
+  //
+  // Kept because `FileImports` is EXPORTED and its documented contract ties the
+  // two maps together: `positions` maps "each of those names" `byKey`
+  // introduces. An external consumer reading `positions` directly — the type is
+  // published under criterion 11 — would otherwise be handed call sites for a
+  // name `byKey` denies was imported, which is exactly the false-witness class
+  // of bug the shadowing filter exists to close. The invariant is worth one Map
+  // delete per shadowed name, in only those files that have one.
   for (const name of scan.shadowed) scan.positions.delete(name);
   for (const at of scan.positions.values()) at.sort((a, b) => a - b);
   return scan;
