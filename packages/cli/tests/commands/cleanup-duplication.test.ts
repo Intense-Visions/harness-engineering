@@ -41,6 +41,9 @@ type DuplicationBlock = {
     tokenCount: number;
     memberCount: number;
     rank: number;
+    priority: number;
+    signal: 'duplicate' | 'partial-extraction';
+    sharedImport?: string;
     members: Array<{
       file: string;
       unit: string;
@@ -167,6 +170,8 @@ function duplicationReport() {
         fingerprint: 'aaaa1111',
         tokenCount: 120,
         rank: 360,
+        priority: 360,
+        signal: 'duplicate' as const,
         members: [
           { file: 'src/a.ts', unit: 'alpha', kind: 'function', startLine: 3, endLine: 20 },
           { file: 'src/b.ts', unit: 'beta', kind: 'function', startLine: 5, endLine: 22 },
@@ -177,6 +182,9 @@ function duplicationReport() {
         fingerprint: 'bbbb2222',
         tokenCount: 48,
         rank: 192,
+        priority: 384,
+        signal: 'partial-extraction' as const,
+        sharedImport: 'src/shared/payload',
         members: [
           { file: 'src/d.ts', unit: 'delta', kind: 'method', startLine: 1, endLine: 9 },
           { file: 'src/e.ts', unit: 'epsilon', kind: 'method', startLine: 2, endLine: 10 },
@@ -256,6 +264,8 @@ describe('harness cleanup -t duplication — what comes back out', () => {
       tokenCount: 120,
       memberCount: 3,
       rank: 360,
+      priority: 360,
+      signal: 'duplicate',
       members: [
         { file: 'src/a.ts', unit: 'alpha', kind: 'function', startLine: 3, endLine: 20 },
         { file: 'src/b.ts', unit: 'beta', kind: 'function', startLine: 5, endLine: 22 },
@@ -263,8 +273,31 @@ describe('harness cleanup -t duplication — what comes back out', () => {
       ],
     });
     expect(result.value.duplication?.classes[1]?.memberCount).toBe(4);
-    // Rank order is preserved as handed in.
+    // Order is preserved as handed in — the detector already sorted by
+    // priority, so the CLI must not re-sort by rank (which would reverse these).
     expect(result.value.duplication?.classes.map((c) => c.rank)).toEqual([360, 192]);
+    expect(result.value.duplication?.classes.map((c) => c.priority)).toEqual([360, 384]);
+
+    // The labelled class carries all three new fields through the projection.
+    expect(result.value.duplication?.classes[1]).toEqual({
+      fingerprint: 'bbbb2222',
+      tokenCount: 48,
+      memberCount: 4,
+      rank: 192,
+      priority: 384,
+      signal: 'partial-extraction',
+      sharedImport: 'src/shared/payload',
+      members: [
+        { file: 'src/d.ts', unit: 'delta', kind: 'method', startLine: 1, endLine: 9 },
+        { file: 'src/e.ts', unit: 'epsilon', kind: 'method', startLine: 2, endLine: 10 },
+        { file: 'src/f.ts', unit: 'zeta', kind: 'method', startLine: 3, endLine: 11 },
+        { file: 'src/g.ts', unit: 'eta', kind: 'method', startLine: 4, endLine: 12 },
+      ],
+    });
+    // ABSENT on a plain duplicate, not present-and-undefined: `toEqual` above
+    // ignores an undefined-valued key, so assert the key itself.
+    expect('sharedImport' in result.value.duplication!.classes[0]!).toBe(false);
+    expect(Object.keys(result.value.duplication!.classes[0]!)).not.toContain('sharedImport');
     // The cap's dropped count is not lost.
     expect(result.value.duplication?.classesTruncated).toBe(3);
     expect(result.value.duplication?.classesSuppressed).toBe(5);
@@ -338,14 +371,28 @@ describe('harness cleanup -t duplication — what comes back out', () => {
               tokenCount: 120,
               memberCount: 3,
               rank: 360,
+              priority: 360,
+              signal: 'duplicate' as const,
               members: [
                 { file: 'src/a.ts', unit: 'alpha', kind: 'function', startLine: 3, endLine: 20 },
+              ],
+            },
+            {
+              fingerprint: 'bbbb2222',
+              tokenCount: 48,
+              memberCount: 4,
+              rank: 192,
+              priority: 384,
+              signal: 'partial-extraction' as const,
+              sharedImport: 'src/shared/payload',
+              members: [
+                { file: 'src/d.ts', unit: 'delta', kind: 'method', startLine: 1, endLine: 9 },
               ],
             },
           ],
           filesScanned: 11,
           filesSkipped: 0,
-          classesReported: 1,
+          classesReported: 2,
           classesSuppressed: 5,
           classesTruncated: 3,
           ...duplication,
@@ -366,6 +413,15 @@ describe('harness cleanup -t duplication — what comes back out', () => {
     expect(output).toContain('Duplication (advisory');
     expect(output).toContain('3 dropped by the maxClasses cap');
     expect(output).toContain('3x 120 tokens: alpha (src/a.ts:3)');
+    // The signal is what makes a row jump the size ordering, so the row that
+    // jumped names it — and the plain row must NOT be tagged. Asserted per
+    // LINE, because `toContain` over the whole block cannot tell the two apart.
+    const rows = output.split('\n').filter((l) => l.trimStart().startsWith('- '));
+    expect(rows).toHaveLength(2);
+    expect(rows[0]).toBe('  - 3x 120 tokens: alpha (src/a.ts:3)');
+    expect(rows[1]).toBe(
+      '  - 4x 48 tokens: delta (src/d.ts:1) [partial-extraction -> src/shared/payload]'
+    );
     // Nothing was skipped: the advisory line must not imply otherwise.
     expect(output).not.toContain('skipped');
   });

@@ -125,7 +125,11 @@ export const DuplicationConfigSchema = z.object({
   minInstances: z.number().int().min(2).optional(),
   /** minimatch globs (NOT the regex language `entropy.drift.ignorePatterns` uses). Replaces the defaults. */
   ignorePatterns: z.array(z.string()).optional(),
-  /** Report cap; the top `maxClasses` by rank survive. Default 100. */
+  /**
+   * Report cap; the top `maxClasses` by `priority` survive (criterion 13).
+   * `priority` is `rank` for a plain duplicate and `rank x 2` for a
+   * `partial-extraction` class. Default 100.
+   */
   maxClasses: z.number().int().positive().optional(),
 });
 

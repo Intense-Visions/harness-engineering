@@ -67,8 +67,13 @@ interface CleanupResult {
    */
   ran: { drift: boolean; deadCode: boolean; patterns: boolean; duplication: boolean };
   /**
-   * ADVISORY clone classes, rank-descending, as reported by
+   * ADVISORY clone classes, PRIORITY-descending, as reported by
    * `EntropyReport.duplication`.
+   *
+   * `priority` is `rank` for a plain duplicate and `rank x 2` for a
+   * `partial-extraction` class, so the published order is derivable from the
+   * published fields — a consumer handed a reordered list can reproduce the
+   * ordering instead of taking it on trust.
    *
    * `undefined` means the detector did not run; an empty `classes` array
    * means it ran and found nothing. The two must not render alike.
@@ -81,6 +86,10 @@ interface CleanupResult {
       tokenCount: number;
       memberCount: number;
       rank: number;
+      priority: number;
+      signal: 'duplicate' | 'partial-extraction';
+      /** Absent, not `undefined`, unless `signal` is `'partial-extraction'`. */
+      sharedImport?: string;
       members: Array<{
         file: string;
         unit: string;
@@ -131,6 +140,12 @@ interface CleanupResult {
  *
  * The full 13-key `stats` block and both evidence arrays are available on the
  * MCP surface: `detect_entropy { type: "duplication", compact: false }`.
+ *
+ * KEPT, deliberately: `signal`, `sharedImport` and `priority`. They are not
+ * tuning counters — `signal` is WHY a class outranks a larger one and
+ * `sharedImport` names the module the repair imports from, so dropping them
+ * would publish a reordered list whose order cannot be derived from the
+ * payload. That is the same defect as hiding the ordering key, one layer out.
  */
 function projectDuplication(
   duplication: DuplicationReport
@@ -141,6 +156,11 @@ function projectDuplication(
       tokenCount: cls.tokenCount,
       memberCount: cls.members.length,
       rank: cls.rank,
+      priority: cls.priority,
+      signal: cls.signal,
+      // Conditional spread, so a plain duplicate's JSON object is byte-for-byte
+      // what Phase 3 published.
+      ...(cls.sharedImport !== undefined && { sharedImport: cls.sharedImport }),
       members: cls.members.map((member) => ({
         file: member.file,
         unit: member.unit,
@@ -387,6 +407,19 @@ function printPatternSection(patternViolations: CleanupResult['patternViolations
 }
 
 /** The advisory clone-class section, kept out of `printCleanupResult`'s branch count. */
+/**
+ * The `[partial-extraction -> key]` tag for a row that has one, else `''`.
+ *
+ * The signal is what makes a row jump the size ordering, so a row that jumped
+ * says why. Without it the printed order is unexplainable from the printed
+ * text — the operator sees a 3x62 class above a 3x103 one and no reason for it.
+ */
+function signalSuffix(cls: NonNullable<CleanupResult['duplication']>['classes'][number]): string {
+  return cls.signal === 'partial-extraction' && cls.sharedImport !== undefined
+    ? ` [partial-extraction -> ${cls.sharedImport}]`
+    : '';
+}
+
 function printDuplicationSection(duplication: NonNullable<CleanupResult['duplication']>): void {
   console.log(
     '\nDuplication (advisory — excluded from "Entropy issues", from the exit code and from --findings-json):'
@@ -405,7 +438,8 @@ function printDuplicationSection(duplication: NonNullable<CleanupResult['duplica
     const first = cls.members[0];
     console.log(
       `  - ${cls.memberCount}x ${cls.tokenCount} tokens: ` +
-        (first ? `${first.unit} (${first.file}:${first.startLine})` : '(no members)')
+        (first ? `${first.unit} (${first.file}:${first.startLine})` : '(no members)') +
+        signalSuffix(cls)
     );
   }
   if (duplication.classes.length > 10) {
