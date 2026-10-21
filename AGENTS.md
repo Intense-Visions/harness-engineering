@@ -561,9 +561,15 @@ _Maintenance:_ `cleanup`, `cleanup-sessions` (with Hermes Phase 2 `--all` / `--i
 `harness cleanup -t duplication` and the `detect_entropy` MCP tool's `type: "duplication"`
 report clone classes (whole-unit Type-2 clones at >= 3 members and >= 40 normalized tokens),
 ordered by `CloneClass.priority`: `tokenCount x members` (the `rank` field, which the signal
-never scales), DOUBLED for a `partial-extraction` class — one whose every member's BODY calls
-into a single common first-party module, named in `sharedImport`. A labelled row is the cheapest
-fix on the page, because the shared helper already exists and the repair is delete-and-import.
+never scales), DOUBLED for a `partial-extraction` class — one whose every member's BODY CALLS
+into a single common first-party module, named in `sharedImport`. "Calls" is literal and
+load-bearing: the binding must appear in every member body as a call callee, a method-call
+receiver, or a JSX element name. Merely REFERENCING a name the module exports is not enough,
+and an earlier revision that accepted it labelled three classes whose shared module exported no
+such helper at all — so the row promised a delete-and-import repair with nothing to import.
+A labelled row is usually the cheapest fix on the page, because the helper the body already
+calls is the thing the wrapper layer should have been reduced to; treat it as a strong lead,
+not a guarantee, and read the named module before planning the repair.
 They are **advisory**: clone classes never enter
 `CleanupResult.totalIssues`, so they never affect the exit code and never appear in the
 `--findings-json` contract, and on the MCP side they are reported under `advisory.duplication`

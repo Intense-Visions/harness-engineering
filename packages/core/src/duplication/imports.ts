@@ -51,11 +51,22 @@ const SPECIFIER_EXTENSION = /\.(ts|tsx|js|jsx|mjs|cjs)$/i;
  * resolution, so two specifiers naming ONE file can land on two keys —
  * `'./sub'` keys as `src/a/sub` while `'./sub/index.js'` keys as
  * `src/a/sub/index`, and a class split across the two spellings is not
- * labelled. Measured repo-wide at HEAD — 2,299 discovered files, 5,860 relative
- * specifiers, 1,829 distinct resolved targets — **6 targets are reached under
- * two keys**, and the cost in labels today is **zero**: no clone class has
- * members on both sides of a split. Inert, and recorded so neither reads as a
- * bug: `'./types.d.ts'` keys as `…/types.d` (one extension stripped, and
+ * labelled.
+ *
+ * Measured at HEAD, with both scopes and both denominators named because the
+ * answer differs 35x between them. At the scope the detector actually runs
+ * (tracked `.ts`/`.tsx`/`.js`/`.jsx`/`.mjs`/`.cjs` sources minus
+ * `node_modules`, `dist`, `build`, `coverage`, `.turbo`, tests, fixtures,
+ * `.d.ts` and the vitepress cache — 2,174 files, 4,344 relative specifiers,
+ * 1,635 distinct resolved targets): exactly **1** target is reached under two
+ * keys, `packages/cli/src/docs-publish/index.ts` via `'./docs-publish'` and
+ * `'./docs-publish/index'`. Over every tracked non-build source (4,324 files,
+ * 8,194 specifiers, 2,001 targets) it is **35**, every one of them that same
+ * directory-versus-`index` shape. The cost in labels is **zero** at both
+ * scopes: no clone class has members on both sides of a split.
+ *
+ * Also inert, and recorded so none of it reads as a bug: `'./types.d.ts'`
+ * keys as `…/types.d` (one extension stripped, and
  * `.d.ts` is ineligible to scan anyway), `.json`/`.css` specifiers keep their
  * extension (correct — not the same module as a `.ts` neighbour), and keys are
  * CASE-SENSITIVE, so `'./Row.js'` and `'./row.js'` are two keys on a

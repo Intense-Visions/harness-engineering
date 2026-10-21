@@ -83,10 +83,15 @@ For EACH step in the plan:
    - Remove one instance of duplication (take the top class from
      `harness cleanup -t duplication`, or the `detect_entropy` MCP tool's
      `type: "duplication"`, and extract ONE of its members' shared body).
-     Prefer a row tagged `[partial-extraction -> <module>]`: the shared module
-     already exists, so the repair is delete-and-import rather than design,
-     which makes it the cheapest fix on the page even when a plain duplicate
-     above it is larger.
+     Prefer a row tagged `[partial-extraction -> <module>]`: every member body
+     CALLS into that module already, so the repair is usually delete-and-import
+     rather than design, which makes it the cheapest fix on the page even when
+     a plain duplicate above it is larger. VERIFY before planning on it — open
+     the named module and confirm it exports the helper the duplicated bodies
+     should collapse into. The tag says the members share a called module, not
+     that the exact wrapper already exists there; where it does not, the repair
+     is "extract into that module", which is still cheaper than greenfield but
+     is not a delete.
 
 2. **Run the full test suite.** All tests must pass. If any test fails:
    - **STOP immediately.**

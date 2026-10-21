@@ -5,7 +5,11 @@
 
 Duplication detection reaches the operator: `harness cleanup -t duplication` and the
 `detect_entropy` MCP tool's `type: "duplication"` report whole-unit Type-2 clone classes
-(>= 3 members, >= 40 normalized tokens, ranked `tokenCount x members`).
+(>= 3 members, >= 40 normalized tokens, sized `tokenCount x members` in the `rank` field).
+Ordering is by `CloneClass.priority`, which the sibling `partial-extraction` entry in this same
+release introduces: it equals `rank` for a plain duplicate and twice `rank` for a labelled one.
+Both entries ship together, so this one states the ordering its sibling defines rather than the
+`rank` ordering that held only before it.
 
 Both surfaces are **advisory**. Clone classes never enter `CleanupResult.totalIssues`, so they
 never affect the command's exit code and never appear in the `--findings-json` maintenance
