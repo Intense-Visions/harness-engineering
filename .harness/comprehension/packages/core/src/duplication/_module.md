@@ -1,11 +1,11 @@
 ---
 schemaVersion: 1
 module: 'packages/core/src/duplication'
-sourceHash: 'c10f8c5a7460c5de95971c2e5a403cb39c2f2200d393c27a8cc6a055dcfb404f'
+sourceHash: 'cd996656015b587de3a4e773b5356b83044d96678f54f86e1330d943e933fbcd'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
-members: ['index.ts', 'tokens.ts', 'units.ts']
+members: ['imports.ts', 'index.ts', 'tokens.ts', 'units.ts']
 ---
 
 ## Interface Contract

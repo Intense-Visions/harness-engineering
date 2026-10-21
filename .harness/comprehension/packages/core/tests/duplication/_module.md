@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/tests/duplication'
-sourceHash: '096eaf729298db190e72a15d8d46e9342635a57cec0feef3e9ce7d56a5020830'
+sourceHash: 'd4eb9f660f93347c684d5571ab8ed92feb4e90f180da2f1e127beb9df5685705'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -14,6 +14,7 @@ members:
     'extraction-error.test.ts',
     'extraction-failure.test.ts',
     'failure-behavior.test.ts',
+    'imports.test.ts',
     'tokens.test.ts',
     'units.test.ts',
   ]
@@ -28,6 +29,7 @@ members:
 ## Dependency Slice
 
 ```
+import { collectFileImports, moduleKey, sharedImportKey, usedImportKeys } from '../../src/duplication/imports'
 import { DEFAULT_DUPLICATION_CONFIG, DuplicationConfig, MAX_EVIDENCE_ENTRIES, buildCloneIndex, fingerprintFile, isEligibleFile, resolveDuplicationConfig } from '../../src/duplication/index'
 import { IDENTIFIER_PLACEHOLDER, LITERAL_PLACEHOLDER, fingerprintStream, normalizeTokens } from '../../src/duplication/tokens'
 import { MissingNodeLocationError, extractUnits } from '../../src/duplication/units'
