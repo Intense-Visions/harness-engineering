@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/tests/mcp/tools'
-sourceHash: '3871f1dd524dff5648d1e9943220c01cb100904420e38e3e60581c1f9f7aa6e9'
+sourceHash: '742557f6bb63f9ff136fd228e8a9f2a1876c99412f3541380a7a83a35fc9f124'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -52,6 +52,7 @@ members:
     'graph.test.ts',
     'init-cov544b.test.ts',
     'init.test.ts',
+    'insights-summary.test.ts',
     'interaction.test.ts',
     'knowledge-craft.test.ts',
     'linter.test.ts',
@@ -153,6 +154,7 @@ import { gatherContextDefinition } from '../../../src/mcp/tools/gather-context.j
 import { generateSlashCommandsDefinition, handleGenerateSlashCommands } from '../../../src/mcp/tools/generate-slash-commands'
 import { askGraphDefinition, computeBlastRadiusDefinition, detectAnomaliesDefinition, getImpactDefinition, getRelationshipsDefinition, handleAskGraph, handleComputeBlastRadius, handleDetectAnomalies, handleFindContextFor, handleGetImpact, handleGetRelationships, handleIngestSource, handleQueryGraph, handleSearchSimilar, queryGraphDefinition, searchSimilarDefinition } from '../../../src/mcp/tools/graph/index.js'
 import { handleInitProject, initProjectDefinition } from '../../../src/mcp/tools/init'
+import { handleInsightsSummary } from '../../../src/mcp/tools/insights-summary'
 import { emitInteractionDefinition, handleEmitInteraction } from '../../../src/mcp/tools/interaction'
 import { EmitInteractionInputSchema, InteractionBatchSchema, InteractionConfirmationSchema, InteractionOptionSchema, InteractionQuestionWithOptionsSchema, InteractionTransitionSchema } from '../../../src/mcp/tools/interaction-schemas'
 import { handleKnowledgeCraft, handleKnowledgeCraftFinalize, knowledgeCraftDefinition, knowledgeCraftFinalizeDefinition } from '../../../src/mcp/tools/knowledge-craft'

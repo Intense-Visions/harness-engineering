@@ -1,11 +1,12 @@
 ---
 schemaVersion: 1
 module: 'packages/core/src/insights'
-sourceHash: '620bd0758472d97a4d14f19037fa9cb93db4f193947f6f31dd1cdf8c424b9d28'
+sourceHash: '3df3cc6792c3ae26546c5c8cb49208302fe59de2ba4e0d256789b9bc77d4910d'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
-members: ['aggregator.test.ts', 'aggregator.ts', 'index.ts']
+members:
+  ['aggregator-parser-unavailable.test.ts', 'aggregator.test.ts', 'aggregator.ts', 'index.ts']
 ---
 
 ## Interface Contract
@@ -27,5 +28,5 @@ import { mkdirSync, mkdtempSync, rmSync, utimesSync, writeFileSync } from 'node:
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import * as path from 'path'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 ```

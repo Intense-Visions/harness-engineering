@@ -38,10 +38,10 @@ No new plumbing carries the result. The `Err` reaches the operator through the a
 
 `minor` rather than `major` on core because it is a 0.x package, where minor is the breaking channel; 30 prior core changesets use it and none has used `major`.
 
-## Two callers that would have turned the new error into a wrong answer
+## Callers that would have turned the new error into a wrong answer
 
 - **Dashboard Health and Perf panels.** `discoverEntryPoints` synthesised `packages/<name>/src/index.ts` for every directory under `packages/` with no existence check, then passed them as explicit entry points. This repository's own `packages/dashboard` has no `src/index.ts`, so with the core change alone both panels would have gone from a report to `ENTRY_POINT_NOT_FOUND: 1 of 13 configured entryPoints match no file`. Measured against this repo through the built analyzer: the old discovery gives that error, the filtered discovery gives 12 entry points and a report over 2428 files. The guessed paths are now existence-filtered, the same treatment as package.json `main`: a guess is not a configuration.
-- **`composeInsights` (`harness insights`, `insights_summary`).** On a failed entropy analysis it returned `{ driftCount: 0, deadFiles: 0, deadExports: 0 }`, and the health block derived from it then reported `passed: true`, "No structural health findings." The core change makes that path reachable for a project whose package.json `main` names an unbuilt artifact. It now throws into the existing `safeGather` channel, so `entropy` and `health` are `null` with a warning naming the failure, the report's existing representation of "not measured". One existing CLI test (`insights` › `silently drops unknown --skip keys`) asserted `entropy` was non-null on an empty temp directory, which held only because the swallowed failure produced zeros; its fixture now has a `src/index.ts` so the section it checks really runs, and it also asserts no warnings.
+- **`composeInsights` (`harness insights`, `insights_summary`).** The core change makes a failed entropy analysis reachable here for a project whose package.json `main` names an unbuilt artifact. The swallow that turned a failed analysis into zero counts and a health `passed: true` was removed by #2300 (`entropy analysis failed (<code>): …` into `safeGather`); this change adds a regression test for that specific path — stale `main`, no conventional index — asserting `entropy` and `health` are `null` with a warning, plus a positive control where the analysis runs.
 
 ## No effect on this repository's gates
 

@@ -35,11 +35,20 @@ function isDisallowed(specifier: string, target: string, disallow: readonly stri
   );
 }
 
+/** Thrown out of the scan when the parser cannot run at all (#2267). */
+class ParserUnavailable extends Error {}
+
 async function readImports(file: string): Promise<Import[] | null> {
   const parser = getDefaultRegistry().getForFile(file);
   if (!parser || !JS_TS_LANGUAGES.has(parser.name)) return null;
   const ast = await parser.parseFile(file);
-  if (!ast.ok) return null;
+  if (!ast.ok) {
+    // One unparseable file is skipped; a parser that cannot run stops the scan
+    // so the measurement names the cause instead of an unexplained
+    // `filesAnalyzed: 0`.
+    if (ast.error.code === 'PARSER_UNAVAILABLE') throw new ParserUnavailable(ast.error.message);
+    return null;
+  }
   const imports = parser.extractImports(ast.value);
   return imports.ok ? imports.value : null;
 }
@@ -107,8 +116,21 @@ export class ForbiddenImportCollector implements Collector {
     const rules = config.forbiddenImports ?? [];
     const exclude = resolveExcludePatterns(config);
     const state: ScanState = { violations: [], seen: new Set(), analyzed: new Set() };
-    for (const rule of rules) {
-      await scanRule(rule, rootDir, exclude, this.category, state);
+    try {
+      for (const rule of rules) {
+        await scanRule(rule, rootDir, exclude, this.category, state);
+      }
+    } catch (e) {
+      if (!(e instanceof ParserUnavailable)) throw e;
+      return [
+        {
+          category: this.category,
+          scope: 'project',
+          value: 0,
+          violations: [],
+          metadata: { rulesConfigured: rules.length, error: e.message },
+        },
+      ];
     }
 
     return [

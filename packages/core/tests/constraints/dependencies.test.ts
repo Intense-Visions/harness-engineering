@@ -209,7 +209,9 @@ describe('validateDependencies', () => {
     expect(result.ok).toBe(true);
     if (result.ok) {
       expect(result.value.skipped).toBe(true);
-      expect(result.value.reason).toBe('Parser unavailable');
+      // The abstention carries the parser's own health message (#2267), so a
+      // consumer printing `reason` tells the operator WHAT is unavailable.
+      expect(result.value.reason).toBe('Parser unavailable: Not installed');
     }
     expect(warnSpy).toHaveBeenCalled();
     warnSpy.mockRestore();
