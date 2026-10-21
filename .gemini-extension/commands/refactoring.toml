@@ -21,7 +21,8 @@ Safe refactoring with validation before and after changes
 - When improving code structure, readability, or maintainability without changing behavior
 - When reducing duplication (DRY refactoring) — `harness cleanup -t duplication` finds the
   candidates: whole-unit Type-2 clone classes at >= 3 members and >= 40 normalized tokens,
-  ranked `tokenCount x members`, so work top-down. It is advisory and never fails a build.
+  ordered by `priority` (`tokenCount x members`, doubled for a `partial-extraction` class), so
+  work top-down. It is advisory and never fails a build.
 - When moving code to the correct architectural layer
 - When splitting large files or functions into smaller, focused ones
 - When renaming for clarity across the codebase
@@ -79,9 +80,13 @@ For EACH step in the plan:
    - Move one function to a different file
    - Inline one unnecessary abstraction
    - Replace one conditional with polymorphism
-   - Remove one instance of duplication (take the top-ranked class from
+   - Remove one instance of duplication (take the top class from
      `harness cleanup -t duplication`, or the `detect_entropy` MCP tool's
-     `type: "duplication"`, and extract ONE of its members' shared body)
+     `type: "duplication"`, and extract ONE of its members' shared body).
+     Prefer a row tagged `[partial-extraction -> <module>]`: the shared module
+     already exists, so the repair is delete-and-import rather than design,
+     which makes it the cheapest fix on the page even when a plain duplicate
+     above it is larger.
 
 2. **Run the full test suite.** All tests must pass. If any test fails:
    - **STOP immediately.**

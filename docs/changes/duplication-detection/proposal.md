@@ -1237,6 +1237,12 @@ Every mutant this phase named was planted, observed, and reverted. Three results
   bodies measured to the same 82 normalized tokens, three copies each, which ties both classes at
   rank and priority 246. This is the sixth vacuous test this feature has produced and the pattern
   is consistent: the fixture could not reach the branch the test was named for.
+
+  **Never claim a tiebreak is covered without asserting the tie exists.** That rule generalizes
+  well past this feature: a comparator's second key decides nothing unless its first key ties, so
+  a test over a fixture that cannot produce a tie is asserting nothing about the tiebreak,
+  however carefully it is titled.
+
 - **The final `tokenCount` tiebreak is unreachable by construction** and is retained as
   documented defence: it is consulted only when two fingerprints are EQUAL, which requires a real
   sha1 collision. Recorded as a known-unkillable mutant rather than as coverage.

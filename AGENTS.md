@@ -559,8 +559,12 @@ _Analysis & Intelligence:_ `predict`, `recommend`, `advise-skills`, `impact-prev
 _Maintenance:_ `cleanup`, `cleanup-sessions` (with Hermes Phase 2 `--all` / `--include` / `--exclude`), `fix-drift`, `doctor`, `update`, `sync-main`, `sync-analyses`, `publish-analyses`, `snapshot`, `maintenance` (Hermes Phase 2: `list` / `show`; maintenance-pipeline Phase 3: `run [taskId...]` — on-demand, report-first sweep of overdue sweep-eligible tasks, `--all` / `--only` / `--skip` / `--fix` / `--concurrency` / `--json`, infra-free with no orchestrator), `mcp-guard` (Hermes Phase 2: pre-launch OSV malware check)
 
 `harness cleanup -t duplication` and the `detect_entropy` MCP tool's `type: "duplication"`
-report clone classes (whole-unit Type-2 clones at >= 3 members and >= 40 normalized tokens,
-ranked `tokenCount x members`). They are **advisory**: clone classes never enter
+report clone classes (whole-unit Type-2 clones at >= 3 members and >= 40 normalized tokens),
+ordered by `CloneClass.priority`: `tokenCount x members` (the `rank` field, which the signal
+never scales), DOUBLED for a `partial-extraction` class — one whose every member's BODY calls
+into a single common first-party module, named in `sharedImport`. A labelled row is the cheapest
+fix on the page, because the shared helper already exists and the repair is delete-and-import.
+They are **advisory**: clone classes never enter
 `CleanupResult.totalIssues`, so they never affect the exit code and never appear in the
 `--findings-json` contract, and on the MCP side they are reported under `advisory.duplication`
 outside `totalIssues` (spec decision D4 / [ADR-0134](docs/knowledge/decisions/0134-whole-unit-type-2-clone-detection-at-rule-of-three.md)).
