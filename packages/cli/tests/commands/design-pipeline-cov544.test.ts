@@ -40,6 +40,8 @@ function makeContext(overrides: Record<string, unknown> = {}): Record<string, un
     verifiersRun: ['detect-design-drift', 'align'],
     verifiersFailed: [{ name: 'audit-brand', error: 'crashed' }],
     exclusions: new Set(['a', 'b']),
+    exclusionsMeasured: true,
+    warnings: [],
     ...overrides,
   };
 }

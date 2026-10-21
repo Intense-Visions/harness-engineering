@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
-import { runFreshen } from '../../../src/design-pipeline/phases/freshen';
+import { runFreshen, probeGraphAvailable } from '../../../src/design-pipeline/phases/freshen';
 import { newContext } from '../../../src/design-pipeline/context';
 
 describe('runFreshen', () => {
@@ -25,7 +25,6 @@ describe('runFreshen', () => {
   it('marks all inputs absent on empty project', () => {
     const ctx = newContext();
     runFreshen({ projectRoot: tmpDir, context: ctx });
-    expect(ctx.graphAvailable).toBe(false);
     expect(ctx.inputs.designMdExists).toBe(false);
     expect(ctx.inputs.tokensJsonExists).toBe(false);
     expect(ctx.inputs.componentRegistryExists).toBe(false);
@@ -65,17 +64,13 @@ describe('runFreshen', () => {
     expect(ctx.inputs.tokensJsonExists).toBe(true);
   });
 
-  it('detects a persisted graph (graph.json) for graphAvailable', () => {
+  it('probeGraphAvailable is true when a persisted graph (graph.json) exists', () => {
     writeFile('.harness/graph/graph.json', '{"kind":"schema"}\n');
-    const ctx = newContext();
-    runFreshen({ projectRoot: tmpDir, context: ctx });
-    expect(ctx.graphAvailable).toBe(true);
+    expect(probeGraphAvailable(tmpDir)).toBe(true);
   });
 
-  it('treats an empty .harness/graph directory (no graph.json) as unavailable', () => {
+  it('probeGraphAvailable treats an empty .harness/graph directory (no graph.json) as unavailable', () => {
     fs.mkdirSync(path.join(tmpDir, '.harness', 'graph'), { recursive: true });
-    const ctx = newContext();
-    runFreshen({ projectRoot: tmpDir, context: ctx });
-    expect(ctx.graphAvailable).toBe(false);
+    expect(probeGraphAvailable(tmpDir)).toBe(false);
   });
 });

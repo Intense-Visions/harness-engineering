@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/design-pipeline/phases'
-sourceHash: '9eaf69e83a62d737bb6a30e413728a152f42accb6c5ca0bb0687d6fc96a6a9f5'
+sourceHash: '0eb4f4fcaeae17a871af673ca3a652fc0c86922c264264c4a7eb46181b948295'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -21,6 +21,7 @@ members:
 ## Interface Contract
 
 ```ts
+export probeGraphAvailable
 export runAudit
 export runDetect
 export runFill
@@ -38,7 +39,7 @@ import { DriftFinding } from '../../drift/findings/finding.js'
 import { runAlignDesignSystem } from '../../mcp/tools/align-design-system.js'
 import { runDesignCraft } from '../../mcp/tools/design-craft.js'
 import { runDetectDrift } from '../../mcp/tools/detect-drift.js'
-import { DesignPipelineContext, Verdict, newContext } from '../context.js'
+import { DesignPipelineContext, FixStopReason, Verdict, newContext } from '../context.js'
 import { VerifierRegistry } from '../registry.js'
 import { runDetect } from './detect.js'
 import { FixInput, runFix } from './fix.js'

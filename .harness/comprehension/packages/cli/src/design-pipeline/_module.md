@@ -1,17 +1,19 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/design-pipeline'
-sourceHash: '8a9d9bde0f723ecfac29e2dacf4220a7a7f64666d053e2447cff051a383b0db4'
+sourceHash: 'b03f11fc35c225a5bd464258d17fd49dad91e766f4bcbe1f94daecfb2fbe4b3b'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
-members: ['context.ts', 'index.ts', 'registry.ts']
+members: ['context.ts', 'index.ts', 'registry.ts', 'serialize.ts']
 ---
 
 ## Interface Contract
 
 ```ts
+export CI_OPTION_DEPRECATION
 export DesignPipelineContext
+export FixStopReason
 export Verdict
 export runDesignPipeline
 ```
@@ -33,7 +35,7 @@ import { runAudit } from './phases/audit.js'
 import { runDetect } from './phases/detect.js'
 import { runFill } from './phases/fill.js'
 import { runFix } from './phases/fix.js'
-import { runFreshen } from './phases/freshen.js'
+import { probeGraphAvailable, runFreshen } from './phases/freshen.js'
 import { runReport } from './phases/report.js'
 import { VerifierRegistry } from './registry.js'
 ```

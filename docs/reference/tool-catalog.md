@@ -4325,7 +4325,7 @@ Run the design-pipeline orchestrator: FRESHEN -> DETECT -> FIX -> AUDIT -> FILL 
 {
   "properties": {
     "ci": {
-      "description": "Non-interactive: safe fixes only, no prompts",
+      "description": "Deprecated, no effect: every run is already non-interactive and applies safe fixes only. Passing it adds a notice to `warnings` in the result.",
       "type": "boolean"
     },
     "designStrictness": {

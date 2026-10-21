@@ -314,7 +314,7 @@ Run the design-pipeline orchestrator: FRESHEN → DETECT → FIX → AUDIT → F
 - `--fix` — Enable convergence-based remediation (default: detect + report only)
 - `--no-freshen` — Skip the FRESHEN phase
 - `--no-fill` — Skip the FILL phase (input bootstrap + craft polish)
-- `--ci` — Non-interactive: safe fixes only, no prompts
+- `--ci` — Deprecated, no effect: every run is already non-interactive and applies safe fixes only
 - `-f, --files` — Optional file/glob scope passed to each verifier
 - `-m, --mode` — Verifier mode: fast | full (default: "fast")
 - `--design-strictness` — Override design.strictness: strict | standard | permissive

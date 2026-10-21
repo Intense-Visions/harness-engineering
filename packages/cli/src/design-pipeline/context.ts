@@ -17,8 +17,45 @@ import type { CraftFinding } from '../design-craft/findings/schema.js';
 
 export type Verdict = 'pass' | 'warn' | 'fail';
 
+/**
+ * Why the FIX convergence loop stopped. Read this, not `iterationsRun`, to tell
+ * a loop that hit its cap from one that converged on its last allowed pass:
+ * both report `iterationsRun: 5`.
+ *
+ * - `not-run`        FIX did not run (no `--fix`).
+ * - `detect-unavailable` FIX was requested but DETECT did not measure
+ *                    (detect-drift threw or abstained; see `verifiersFailed`),
+ *                    so there is no finding list to fix. Distinct from
+ *                    `no-drift`: an empty list here means "not looked", not
+ *                    "looked and found nothing".
+ * - `no-drift`       DETECT measured and found nothing to fix.
+ * - `converged`      align applied 0 fixes on the last pass.
+ * - `no-progress`    re-detect found as many findings as before the pass.
+ * - `max-iterations` every allowed pass ran and the last one still made
+ *                    progress — the loop was cut off, not finished.
+ * - `failed`         align or the re-detect threw; see `verifiersFailed`.
+ */
+export type FixStopReason =
+  | 'not-run'
+  | 'detect-unavailable'
+  | 'no-drift'
+  | 'converged'
+  | 'no-progress'
+  | 'max-iterations'
+  | 'failed';
+
 export interface DesignPipelineContext {
   // Pipeline state
+  /**
+   * @deprecated No composed verifier reads the knowledge graph, so nothing
+   * consumes this; it will be removed in the next major. Until then it is
+   * correct: whether `graph.json` exists in the directory
+   * `resolveGraphDir(projectRoot)` resolves to — the project's own
+   * `.harness/graph`, or, in a linked worktree with no graph of its own, the
+   * main checkout's (the same fallback graph-loader uses). Probed on every
+   * run, including under `--no-freshen`, where it used to report `false` with
+   * a graph on disk.
+   */
   graphAvailable: boolean;
   inputs: {
     designMdExists: boolean;
@@ -47,7 +84,27 @@ export interface DesignPipelineContext {
    * so the count cannot drift from the list it counts (#2273).
    */
   craftSuggestions: number;
+  /**
+   * The exclude globs (`design.exclude` ∪ `analysis.exclude`) the DETECT walk
+   * actually applied, as reported by detect-design-drift itself rather than
+   * re-resolved here, so the report cannot claim a filter the scan did not use.
+   * Empty when the walk applied none — no globs configured, or an explicit
+   * `files` scope (which bypasses the walk) — AND when DETECT did not measure.
+   * Read `exclusionsMeasured` to tell those apart: an empty set alone does not
+   * mean "no globs applied".
+   */
   exclusions: Set<string>;
+  /**
+   * Whether `exclusions` reflects a scan that ran: `true` once detect-drift
+   * reported what its walk applied, `false` when it threw or abstained.
+   */
+  exclusionsMeasured: boolean;
+  /**
+   * Non-fatal notices about how the run was invoked — e.g. a deprecated
+   * option that was accepted but changes nothing. They do not affect the
+   * verdict; they exist so an accepted-but-inert input is never silent.
+   */
+  warnings: string[];
 
   // Verifier failures (graceful degradation)
   verifiersRun: string[];
@@ -74,7 +131,14 @@ export interface DesignPipelineContext {
     bySeverity: Record<'error' | 'warn' | 'info', number>;
     byCode: Record<string, number>;
     fixesApplied: number;
+    /**
+     * FIX-loop passes executed: one per align-design-system invocation,
+     * including the pass that converged, made no progress, or failed. 0 only
+     * when FIX did not run (no `--fix`) or there was no drift to fix.
+     */
     iterationsRun: number;
+    /** Why the FIX loop stopped; see {@link FixStopReason}. */
+    fixStopReason: FixStopReason;
     durationMs: number;
   };
 }
@@ -100,6 +164,9 @@ export function newContext(): DesignPipelineContext {
     craftFindings: [],
     craftSuggestions: 0,
     exclusions: new Set(),
+    // Unmeasured until DETECT reports what its walk applied.
+    exclusionsMeasured: false,
+    warnings: [],
     verifiersRun: [],
     verifiersFailed: [],
     // Fail-closed. This is the verdict before any verifier has run, so `pass`
@@ -114,6 +181,7 @@ export function newContext(): DesignPipelineContext {
       byCode: {},
       fixesApplied: 0,
       iterationsRun: 0,
+      fixStopReason: 'not-run',
       durationMs: 0,
     },
   };
