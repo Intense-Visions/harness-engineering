@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/tests/architecture/collectors'
-sourceHash: 'b9d67dfc26b1f70dfebfb1bd7cf465aa66020b8d1a32e63a9be8031e1e29f3ff'
+sourceHash: '95423155c8dea744aa3ae791b192b4c7e1107dc842930328de381c34bf94bef6'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -47,6 +47,8 @@ import { buildDependencyGraph, validateDependencies } from '../../../src/constra
 import { detectComplexityViolations } from '../../../src/entropy/detectors/complexity'
 import { detectCouplingViolations } from '../../../src/entropy/detectors/coupling'
 import from '../../../src/shared/fs-utils'
+import { TypeScriptParser } from '../../../src/shared/parsers/typescript'
+import { Err } from '../../../src/shared/result'
 import { mkdir, mkdtemp, rm, writeFile } from 'fs/promises'
 import * as fs from 'node:fs'
 import * as fsp from 'node:fs/promises'
