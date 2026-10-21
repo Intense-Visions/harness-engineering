@@ -418,6 +418,17 @@ export const MAX_EVIDENCE_ENTRIES = 100;
  */
 export const PARTIAL_EXTRACTION_PRIORITY_BOOST = 2;
 
+/**
+ * Sort order WITHIN a priority tie: a labelled class ahead of a plain one.
+ *
+ * D8's sentence is about order, not about the multiplier, so at a tie it has to
+ * hold on its own. See the comparator in {@link buildCloneIndex}.
+ */
+const SIGNAL_ORDER: Record<CloneClass['signal'], number> = {
+  'partial-extraction': 0,
+  duplicate: 1,
+};
+
 /** Options accepted by {@link buildCloneIndex}. */
 export interface BuildCloneIndexOptions extends Partial<DuplicationConfig> {
   /**
@@ -1071,16 +1082,29 @@ export async function buildCloneIndex(
     });
   }
 
-  // Priority-descending, with fingerprint and then tokenCount as deterministic
-  // tiebreaks so the reported order never depends on filesystem or input
-  // ordering. `fingerprint` alone no longer identifies a class: two classes can
-  // share a digest and differ in `tokenCount` (that IS an observed collision),
-  // and their priorities can still tie — 10 tokens x 6 members equals 20 x 3,
-  // and the boost scales both sides of that equality rather than breaking it,
-  // so the tiebreak is exactly as load-bearing as Phase 1 measured it.
+  // Priority-descending, then SIGNAL, then fingerprint, then tokenCount: four
+  // keys, each deciding only what the ones before it left tied, so the reported
+  // order never depends on filesystem or input ordering.
+  //
+  // `signal` is here because the boost creates a tie family the published
+  // decision did not cover. A labelled class of rank r ties a plain class of
+  // rank 2r — and at that tie D8 ("rank partial-extraction above plain
+  // duplication") was being decided by `fingerprint.localeCompare`, i.e. by
+  // sha1 hex, which put the labelled class BELOW the plain ones as often as
+  // not. It was live on this repository at the 10-label predicate: three plain
+  // classes and one labelled class all at priority 432, the labelled one
+  // sorting last. The tightened predicate (7 labels) leaves no such tie live
+  // here, which is exactly why the term is load-bearing rather than
+  // decorative — the next project to produce one must not rediscover it.
+  //
+  // `fingerprint` alone no longer identifies a class: two classes can share a
+  // digest and differ in `tokenCount` (that IS an observed collision), and
+  // their priorities can still tie — 10 tokens x 6 members equals 20 x 3, and
+  // the boost scales both sides of that equality rather than breaking it.
   qualifying.sort(
     (a, b) =>
       b.priority - a.priority ||
+      SIGNAL_ORDER[a.signal] - SIGNAL_ORDER[b.signal] ||
       a.fingerprint.localeCompare(b.fingerprint) ||
       a.tokenCount - b.tokenCount
   );

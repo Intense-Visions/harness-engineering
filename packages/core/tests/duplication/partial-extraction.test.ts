@@ -336,6 +336,54 @@ describe('buildCloneIndex — priority ordering and the report cap (criterion 13
     }
   });
 
+  it('puts the labelled class first when a labelled rank r TIES a plain rank 2r', async () => {
+    // The tie family the boost creates, and the one place D8's ordering
+    // sentence has to hold on its own: `priority` cannot separate these two, so
+    // without a `signal` term the published order came from sha1 hex.
+    //
+    // Sized and SHAPED so the case cannot be vacuous. The plain body's
+    // statement mix is chosen (not guessed) to land on exactly 93 normalized
+    // tokens AND to digest BELOW the wrapper's — so the pre-existing
+    // `fingerprint` tiebreak, left to itself, would put the plain class first.
+    // The assertions below prove that adversity rather than assuming it.
+    const tiedPlain = (fn: string, p: string, out: string) =>
+      `export function ${fn}(${p}: { cost: number }[]) {\n` +
+      `  let ${out} = 0;\n` +
+      `  const k0 = ${out} + 0;\n  ${out} += k0;\n` +
+      `  const k1 = ${out} + 1;\n  ${out} += k1;\n` +
+      `  if (${out} > 2) {\n    ${out} -= 2;\n  }\n` +
+      `  if (${out} > 3) {\n    ${out} -= 3;\n  }\n` +
+      `  ${out} += Math.abs(${out});\n` +
+      `  for (const row of ${p}) {\n    ${out} += row.cost;\n  }\n` +
+      `  return ${out};\n}\n`;
+    const { root, index } = await scratch({
+      ...threeDepths,
+      'src/tied/one.ts': tiedPlain('sumOne', 'rowsOne', 'accOne'),
+      'src/tied/two.ts': tiedPlain('sumTwo', 'rowsTwo', 'accTwo'),
+      'src/tied/three.ts': tiedPlain('sumThree', 'rowsThree', 'accThree'),
+      'src/tied/four.ts': tiedPlain('sumFour', 'rowsFour', 'accFour'),
+    });
+    try {
+      expect(index.classes).toHaveLength(2);
+      const [first, second] = index.classes as [
+        (typeof index.classes)[number],
+        (typeof index.classes)[number],
+      ];
+      // The tie is REAL: 62 x 3 x 2 === 93 x 4.
+      expect(first.priority).toBe(372);
+      expect(second.priority).toBe(372);
+      expect([first.rank, second.rank]).toEqual([186, 372]);
+      // And ADVERSE: by fingerprint alone the plain class would lead.
+      expect(first.fingerprint.localeCompare(second.fingerprint)).toBeGreaterThan(0);
+      // So the order below can only have come from `signal`.
+      expect(first.signal).toBe('partial-extraction');
+      expect(second.signal).toBe('duplicate');
+      expect(first.rank).toBeLessThan(second.rank);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
   it('gives every plain duplicate priority === rank, so no-label projects are unchanged', async () => {
     const { root, index } = await scratch({
       'src/plain/one.ts': bigPlain('sumOne', 'rows', 'total'),
