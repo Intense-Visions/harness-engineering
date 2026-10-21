@@ -196,25 +196,34 @@ function duplicationReport() {
     byMember: new Map(),
     collisions: [],
     skipErrors: [],
-    // The REAL 13-key `stats` block (`CloneIndex['stats']` plus
-    // `violationCount` / `infoCount`), not the four keys the projection
-    // happens to keep — a mock that carries only what the code reads cannot
-    // show what the code drops.
-    stats: {
-      filesScanned: 11,
-      filesIgnored: 4,
-      filesSkipped: 2,
-      skippedTruncated: 0,
-      unitsFingerprinted: 30,
-      unitsBelowMinTokens: 12,
-      classesReported: 2,
-      classesSuppressed: 5,
-      classesTruncated: 3,
-      collisionsObserved: 0,
-      collisionsTruncated: 0,
-      violationCount: 0,
-      infoCount: 2,
-    },
+    stats: duplicationStats(),
+  };
+}
+
+/**
+ * The REAL 13-key `stats` block (`CloneIndex['stats']` plus `violationCount` /
+ * `infoCount`), not the four keys the projection happens to keep — a mock that
+ * carries only what the code reads cannot show what the code drops.
+ *
+ * Hoisted out of {@link duplicationReport} to keep that factory under this
+ * repository's 50-line function bar, which the two Phase-4 fields pushed it
+ * over (54).
+ */
+function duplicationStats() {
+  return {
+    filesScanned: 11,
+    filesIgnored: 4,
+    filesSkipped: 2,
+    skippedTruncated: 0,
+    unitsFingerprinted: 30,
+    unitsBelowMinTokens: 12,
+    classesReported: 2,
+    classesSuppressed: 5,
+    classesTruncated: 3,
+    collisionsObserved: 0,
+    collisionsTruncated: 0,
+    violationCount: 0,
+    infoCount: 2,
   };
 }
 
