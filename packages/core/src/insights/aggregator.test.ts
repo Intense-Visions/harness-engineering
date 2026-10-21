@@ -52,9 +52,10 @@ describe('composeInsights', () => {
 
     expect(report.health).toBeNull();
     expect(report.entropy).toBeNull();
-    expect(report.warnings).toEqual([
-      expect.stringMatching(/^health: entropy analysis failed \(ENTRY_POINT_NOT_FOUND\)/),
+    // Sorted: the blocks gather in parallel, so warning order is not fixed.
+    expect([...report.warnings].sort()).toEqual([
       expect.stringMatching(/^entropy: entropy analysis failed \(ENTRY_POINT_NOT_FOUND\)/),
+      expect.stringMatching(/^health: entropy analysis failed \(ENTRY_POINT_NOT_FOUND\)/),
     ]);
   });
 
