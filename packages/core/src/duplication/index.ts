@@ -1,6 +1,5 @@
 import { posix as pathPosix, win32 as pathWin32 } from 'node:path';
 import { minimatch } from 'minimatch';
-import { parse } from '@typescript-eslint/typescript-estree';
 import type { TSESTree } from '@typescript-eslint/typescript-estree';
 import { readFileContent, relativePosix } from '../shared/fs-utils';
 import type { Result } from '../shared/result';
@@ -11,9 +10,13 @@ import type { CloneUnitKind } from './units';
 import { extractUnits as extractUnitsImpl } from './units';
 import { normalizeTokens as normalize, fingerprintStream as digest } from './tokens';
 import { collectFileImports, usedImportKeys, sharedImportKey } from './imports';
+import { estreeGate } from './estree';
 
 export type { CloneUnitKind, DupUnit } from './units';
 export { extractUnits, MissingNodeLocationError } from './units';
+// The gate itself stays internal; only its error is public, so a caller can
+// tell a missing parser apart from the other `internal-error` skip causes.
+export { EstreeUnavailableError } from './estree';
 export {
   normalizeTokens,
   fingerprintStream,
@@ -664,8 +667,10 @@ function skipSuggestions(
  * contract held only by accident.
  *
  * `internal-error` is NOT a statement about the file: it means OUR code or the
- * environment failed after a successful parse — normalization or the digest.
- * The concrete case is a FIPS-mode Node where `createHash('sha1')` throws:
+ * environment failed — normalization, the digest, or resolving the parser
+ * itself ({@link EstreeUnavailableError}, which carries that distinctive
+ * `name` so the two are separable on a skip record).
+ * The other concrete case is a FIPS-mode Node where `createHash('sha1')` throws:
  * EVERY file then failed, and with one shared reason the all-files-skipped
  * error advised "Check file permissions" and "Check that the discovered files
  * are valid TS/JS", which is actively misleading for an environment failure.
@@ -719,8 +724,8 @@ function skipFile(reason: FileSkipReason, error: Error): FingerprintFileResult {
  * every unit; the hash does not.
  *
  * Never throws: a file that cannot be read, parsed or extracted — and a
- * normalization or digest failure, which is OUR failure rather than the
- * file's — resolves to `{ status: 'skipped' }`, carrying the reason and the
+ * normalization, digest, or parser-resolution failure, which is OUR failure
+ * rather than the file's — resolves to `{ status: 'skipped' }`, carrying the
  * `Error` itself, so the caller can record it in `CloneIndex.skipped`,
  * increment `filesSkipped`, and continue. Phase 2's detector converts each
  * recorded skip into an `AnalysisError` with `analyzer: 'duplication'`; the
@@ -742,11 +747,27 @@ export async function fingerprintFile(
     return skipFile('unreadable', contentResult.error);
   }
 
+  // The parser is resolved through a cached DYNAMIC import (see `./estree`),
+  // so a broken install degrades here instead of crashing at module load.
+  // Deliberately AFTER the read, which keeps `unreadable` the reported reason
+  // for a file-specific failure exactly as before; the gate is memoized, so
+  // ordering costs nothing beyond awaiting an already-settled promise.
+  //
+  // A missing parser is OUR environment failing, not this file's syntax, so it
+  // is classified with normalization and the digest (`internal-error`) rather
+  // than as `unparseable` — see {@link FileSkipReason}. `buildCloneIndex`
+  // refuses the whole scan up front for this case, so the per-file skip is the
+  // standalone-caller path, not the bulk one.
+  const estree = await estreeGate();
+  if (!estree.ok) {
+    return skipFile('internal-error', estree.error);
+  }
+
   // Explicitly typed, not an evolving `let`. Definite-assignment analysis
   // proves it is set: the catch arm returns.
   let program: TSESTree.Program;
   try {
-    program = parse(contentResult.value, {
+    program = estree.value.parse(contentResult.value, {
       tokens: true,
       loc: true,
       range: true,
@@ -866,16 +887,24 @@ export async function fingerprintFile(
  * because at 100% skip the result is indistinguishable from the zero-discovery
  * case this function already refuses.
  *
+ * An unresolvable `@typescript-eslint/typescript-estree` returns `Err` with
+ * `details.reason: 'parser-unavailable'` BEFORE any file is read. The module
+ * loads estree through a cached dynamic import (`./estree`) precisely so that a
+ * broken install degrades to this value instead of crashing at module-load
+ * time, upstream of every guard, for anything that transitively imports
+ * `@harness-engineering/core`.
+ *
  * A malformed `ignorePatterns` entry returns `Err` with
  * `details.reason: 'invalid-ignore-pattern'`, naming the offending index. That
- * is the third `Err` and the reason this function — not
+ * is the fourth `Err` and the reason this function — not
  * `resolveDuplicationConfig` — is the validating boundary: `minimatch` throws
  * on a non-string pattern and nothing between here and
  * `EntropyAnalyzer.analyze()` catches it. See
  * {@link findInvalidIgnorePattern}.
  *
  * `EntropyError.code` is NOT a discriminator: `PARSE_ERROR` is shared across
- * distinct conditions — `'all-files-skipped'` here, and the per-file
+ * distinct conditions — `'all-files-skipped'` and `'parser-unavailable'` here,
+ * and the per-file
  * `'unparseable'` / `'internal-error'` skips Phase 2 is specified to convert
  * into `AnalysisError`s — besides being raised by unrelated entropy modules.
  * Consumers must switch on `details.reason`, never on `code`.
@@ -965,6 +994,33 @@ export async function buildCloneIndex(
           'Check that EntropyConfig.include matches real source paths',
           'Check that EntropyConfig.exclude / duplication.ignorePatterns are not excluding everything',
           'Confirm the project contains .ts/.tsx/.js/.jsx/.mjs/.cjs sources',
+        ]
+      )
+    );
+  }
+
+  // Resolve the parser ONCE, before any file is read, and refuse the scan as a
+  // whole if it cannot be resolved.
+  //
+  // This is the degradation that matters. Without it a broken install would
+  // produce ~2,100 identical per-file `internal-error` skips, collapse into the
+  // `all-files-skipped` Err below, and advise "Check file permissions" and
+  // "Check that the discovered files are valid TS/JS" — advice that is actively
+  // wrong when the truth is one unresolvable dependency. Naming the cause once,
+  // with reinstall advice, is both cheaper and honest. `details.reason` is the
+  // discriminator (`'parser-unavailable'`); `code` is not, since `PARSE_ERROR`
+  // is shared with `'all-files-skipped'`.
+  const estree = await estreeGate();
+  if (!estree.ok) {
+    return Err(
+      createEntropyError(
+        'PARSE_ERROR',
+        `Refusing to report a pass over ${eligible.length} unparsed source file(s) under ${rootDir}: ${estree.error.message}`,
+        { reason: 'parser-unavailable', file: rootDir, originalError: estree.error },
+        [
+          'Reinstall dependencies (e.g. `pnpm install`)',
+          'Check that @typescript-eslint/typescript-estree and its `typescript` peer resolve',
+          'Disable the detector with entropy.analyze.duplication: false if the parser cannot be installed',
         ]
       )
     );
