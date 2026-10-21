@@ -180,7 +180,8 @@ export interface CloneClass {
   fingerprint: string; // sha1 of the normalized token stream, 16 hex chars
   tokenCount: number;
   members: CloneMember[]; // length >= minInstances
-  rank: number; // tokenCount * members.length
+  rank: number; // tokenCount * members.length -- the SIZE, never scaled by the signal
+  priority: number; // the ORDERING key: rank, x2 when signal === 'partial-extraction'
   signal: 'duplicate' | 'partial-extraction';
   sharedImport?: string; // set only when signal === 'partial-extraction'
 }
@@ -226,9 +227,36 @@ export interface CloneIndex {
 
 ### `partial-extraction` derivation (D8)
 
-A clone class is labelled `partial-extraction` when every member's file imports a common module;
-`sharedImport` names that module. Roughly ten lines over the import lists the snapshot already
-carries.
+A clone class is labelled `partial-extraction` when **every member's unit BODY references a VALUE
+binding imported from one common FIRST-PARTY module**; `sharedImport` names that module by its
+repo-relative extensionless key. Four conditions, each earned separately by measurement over this
+repository's 96 reported classes (full ladder in "Phase 4 — the measured derivation"):
+
+1. **Module IDENTITY, not specifier strings.** Ten craft `phases/critique.ts` files sit at equal
+   depth, so `../findings/schema.js` is the same STRING in all of them while naming a different
+   file per package. Intersecting raw specifiers both over-reports (89 of 96) and mis-reports
+   (three "shared" modules for the `parseFencedJson` class, two of which are not shared at all).
+2. **Inside the unit BODY, not anywhere in the file.** This is the condition that turns a label
+   into a signal: 88 of 96 at file level versus 37 at body level, and all 38 platform-mirror
+   classes are labelled at file level because four copies of one file share an import list by
+   construction.
+3. **Value imports only**, excluded per DECLARATION and per SPECIFIER (`import { type X, y }`).
+   Two classes turn on the per-specifier arm alone. A shared `import type` IS criterion 2's
+   "structurally forced by an interface contract" false positive; a shared helper the duplicated
+   bodies CALL is the half-done extraction this decision was earned by.
+4. **First-party modules only.** Nobody extracts a wrapper into a Node builtin or an installed
+   dependency; "every member calls `node:path`" labelled 17 further plain duplicates.
+
+**Correction to this section's original text,** which said "roughly ten lines over the import
+lists the snapshot already carries". That is wrong twice. `buildCloneIndex` never receives a
+snapshot — D7 has it re-parse every file itself — so the imports come from its own parse, not
+from a carried list. And three of the four conditions above are what separate a signal from a
+92.7% label rate; the one-condition version is not a cheaper implementation of this derivation,
+it is a different and refuted one. The shipped module is
+`packages/core/src/duplication/imports.ts`.
+
+Ordering: a labelled class carries `priority = rank * PARTIAL_EXTRACTION_PRIORITY_BOOST` while
+`rank` stays exactly `tokenCount * members.length`. See "Phase 4 — the ranking decision".
 
 ### Failure behavior
 
@@ -283,7 +311,7 @@ Following the `Result` / `AnalysisError` convention already used by the sibling 
   unreachable.) (The earlier wording conflated the two, which is incoherent: a unit that was
   never fingerprinted cannot become a suppressed class.)
 - If more than `maxClasses` classes qualify, the detector shall report the top `maxClasses` by
-  `rank` and record the number dropped in `classesTruncated`.
+  `priority` and record the number dropped in `classesTruncated`.
 - Each EVIDENCE array on the index — `skipped` and `collisions` — is capped at
   `MAX_EVIDENCE_ENTRIES` (100), with the overflow in `stats.skippedTruncated` /
   `stats.collisionsTruncated`, mirroring `maxClasses` / `classesTruncated`. `classes` was the only
@@ -346,7 +374,7 @@ current behavior rather than failing.
 
 `${file}:${startLine}` is spec-mandated (it is the O(1) seam `code-craft` can compute from a unit
 target) and is deliberately not changed. It is lossy where two units start on one line: a function
-and a nested arrow already collided that way, resolved first-writer-wins in rank-descending order.
+and a nested arrow already collided that way, resolved first-writer-wins in priority-descending order.
 `ClassExpression` widens it slightly — a one-line `const K = class { m() {} }` puts the class and
 its method on the same key. Measured a non-issue at HEAD: over the measured scope `byMember.size`
 is 230, exactly the 230 members of the 58 reported classes, so no reported member is currently
@@ -430,6 +458,11 @@ named substrate that #1612 and #1646 depend on.
    JSON-response class (16 members spanning names `sendJSON`, `sendJson`, `jsonResponse`). These
    two are named because they were verified by direct grep before the spec was written; criterion
    15 carries the equivalent claim in a form an adopter project can verify.
+   **Phase 4 note.** This is a REPORTING claim — all 96 classes remain in `--json` — not a
+   printed-page claim. Both classes' ranks are unchanged (`sumCosts` 980, the JSON-response class
+   704); their by-`priority` POSITIONS moved when the signal landed: `sumCosts` #6 -> **#11** and
+   the JSON-response class #11 -> **#15**. Planned movement, recorded here rather than discovered
+   later; the printed top ten is the CLI's presentation cap, not this criterion.
 2. A manual audit of the top 20 classes by rank shall be performed and its verdicts recorded in this
    change's verification notes, targeting ≥90% genuine extractable duplication. If precision falls
    below 90%, exclusions shall be tightened before the detector leaves experimental status. The gate
@@ -439,9 +472,17 @@ named substrate that #1612 and #1646 depend on.
    parameter per member (the members share shape but not behavior); the members are structurally
    forced by a framework or interface contract and could not differ; or the shared body is a
    type-only or re-export construct carrying no logic. Every other class counts as genuine.
-3. When every member of a clone class imports a common module, the system shall label the class
-   `partial-extraction` and populate `sharedImport` — verified against the `parseFencedJson` case
-   (6 identical members, all importing `shared/craft/fenced-json`).
+3. **(Restated in Phase 4; the original file-level wording was REFUTED by measurement — see
+   "Phase 4 — the measured derivation".)** When every member of a clone class references, inside
+   its own unit body, a VALUE binding imported from one common FIRST-PARTY module, the system
+   shall label the class `partial-extraction` and populate `sharedImport` with that module's
+   repo-relative extensionless key — verified against the `parseFencedJson` case (6 members; all
+   10 craft packages that have a `phases/critique.ts` import `shared/craft/fenced-json` and all 10
+   declare their own wrapper). All four conditions are load-bearing: measured over this
+   repository's 96 reported classes, the ladder of candidate predicates labels
+   **89 / 88 / 37 / 27 / 10** (raw specifier strings / resolved module identity / plus
+   body-referenced / minus type-only / minus bare specifiers). The original wording is the first
+   rung: 92.7% of classes, including all 38 platform-mirror classes by construction.
 4. When `code-craft` critiques a unit belonging to a clone class, the rendered prompt shall include
    the sibling members' locations; and when the unit belongs to no clone class, the rendered prompt
    shall be byte-identical to the pre-change prompt.
@@ -464,7 +505,11 @@ named substrate that #1612 and #1646 depend on.
     `filesSkipped`, record an `AnalysisError` with `analyzer: 'duplication'`, and complete the run
     successfully.
 13. When more than `maxClasses` classes qualify, the system shall report the top `maxClasses` by
-    `rank` and record the dropped count in `classesTruncated`.
+    `priority` and record the dropped count in `classesTruncated`. `priority` is `rank` for every
+    plain duplicate and `rank * PARTIAL_EXTRACTION_PRIORITY_BOOST` for a `partial-extraction`
+    class, so the pre-Phase-4 truncation semantics are unchanged for any project with no labelled
+    class. (Reworded in Phase 4; it read "by `rank`" through Phases 1-3, when every class was a
+    plain duplicate and the two keys were the same number.)
 14. If zero source files are discovered, the system shall report that condition explicitly and
     shall not report a zero-duplication pass.
 15. **(Portable product behavior.)** Given a fixture project containing a known set of planted
@@ -600,10 +645,12 @@ duplication` exits non-zero on advisory-only findings — **violating D4 ("advis
 
 <!-- complexity: low -->
 
-Derive the `partial-extraction` label and `sharedImport` from the members' common imports, and
-rank those classes above plain duplicates.
+Derive the `partial-extraction` label and `sharedImport` from the modules every member's BODY
+references, and order those classes above plain duplicates via a published `CloneClass.priority`.
 Verifiable alone: the `parseFencedJson` class (6 members, all 10 craft packages importing
 `shared/craft/fenced-json`) is labelled `partial-extraction`; criterion 3.
+**Shipped.** Criteria 3 and 13 were restated against the predicate that actually ships; see
+"Phase 4 — the measured derivation, the ranking decision, and what moved".
 
 ### Phase 5: Repair CODE-R004 in code-craft
 
@@ -621,6 +668,19 @@ Verifiable alone: criteria 4 and 5.
 - Sub-unit / CPD tier (to be justified by what this ships fails to catch).
 - `design-time-reuse-discovery` — surface existing implementations of what a spec proposes, at spec
   time, giving `harness-brainstorming` step 4 the mechanical backing it currently lacks.
+- **`duplication-report-grouping` — group the structurally-concentrated classes on the printed
+  page.** Named here with its reason rather than deferred a third time to "Phase 4/5": Phase 4
+  measurably does not aggravate the 38/96 platform-mirror concentration (0 of 38 mirror classes
+  are labelled) and measurably improves it for free (mirror rows on the printed top ten fall 4 ->
+  2). Grouping itself is a distinct presentation feature needing a grouping key
+  (mirrors-of-each-other? same owning skill?), a presentation form, and a decision on whether a
+  group counts as ONE class against `maxClasses` — which would move criterion 13's semantics a
+  SECOND time in one release. Phase 5 is `code-craft` prompt wiring, a different subsystem, so it
+  is not Phase 5's either.
+- **Knowledge-graph concept nodes for `partial-extraction` and `CloneClass`.** Phase 4 is where
+  `partial-extraction` became real, so this was its natural home. Blocked on #1507:
+  `manage_adr` / graph enrichment is not worktree-aware, and writing to the main checkout from
+  this phase's worktree is worse than not writing.
 
 ## Verification notes
 
@@ -1010,9 +1070,189 @@ refusal is the ONLY outcome the surface can produce) and M6 (the
 - Knowledge-graph concept nodes (`partial-extraction`, `CloneClass`) remain unclaimed by any
   phase and are **deferred**; `manage_adr`/graph enrichment is also not worktree-aware
   (#1507), so half-doing it here would write to the wrong checkout.
-- Grouping or noting repeated structural causes in the output (the 38/96 concentration) —
-  Phase 4/5.
+- Grouping or noting repeated structural causes in the output (the 38/96 concentration) — **no
+  longer "Phase 4/5"**. Phase 4 measured that its signal does not aggravate the concentration
+  (0 of 38 mirror classes labelled) and improves it for free (mirror rows on the printed top ten
+  4 -> 2), and recorded the rest as the NAMED deferred follow-up
+  `duplication-report-grouping` with its reason. See "Deferred follow-ups (filed, not phases)".
 - `loadEntropyGraphOptions` type-awareness so the MCP surface can report duplication on a
   graph-bearing project.
 - A vendored-build-cache glob for `DEFAULT_DUPLICATION_CONFIG.ignorePatterns`, generalized
   beyond vitepress.
+
+### Phase 4 — the measured derivation, the ranking decision, and what moved
+
+Every figure below was measured in the worktree `hd-dry-concept` on 2026-10-20. The Scope C
+figures come from the SHIPPED build (`pnpm --filter ... run build` for both packages, then
+`node packages/cli/dist/bin/harness.js cleanup -t duplication --json`), not from a plan-time
+probe.
+
+#### The spec's original file-level D8 reading is refuted
+
+Five candidate predicates, each one condition stricter than the last, over the **96 Scope C
+reported classes**:
+
+| #   | predicate                                                                    | labelled / 96 |      % | mirror classes labelled / 38 |
+| --- | ---------------------------------------------------------------------------- | ------------: | -----: | ---------------------------: |
+| A   | raw import-specifier strings intersect (the literal "import lists" reading)  |        **89** | 92.7 % |                           38 |
+| B   | A, but specifiers resolved to a module identity                              |        **88** | 91.7 % |                           38 |
+| C   | B, and the binding is referenced inside every member's unit body             |        **37** | 38.5 % |                            5 |
+| D   | C, minus type-only imports                                                   |        **27** | 28.1 % |                            5 |
+| E   | D, minus bare specifiers (builtins and installed dependencies) — **SHIPPED** |        **10** | 10.4 % |                        **0** |
+
+Three findings, each load-bearing:
+
+1. **A is not merely noisy, it is WRONG.** The ten craft `phases/critique.ts` files sit at equal
+   depth, so `../catalog/rubrics/index.js` and `../findings/schema.js` match as STRINGS across
+   them while resolving to different files per package. A reports three common modules for the
+   `parseFencedJson` class, two of which are not shared at all. B reports exactly one. Resolution
+   is a correctness requirement, not hygiene.
+2. **B would make the known presentation problem worse.** All 38 platform-mirror classes (the
+   39.6% concentration the Phase-3 record names) are four copies of one file, so their import
+   lists are identical by construction and B labels every one. Boosting them would put the mirror
+   block at the HEAD of the operator's page. E labels **0 of 38**.
+3. **The type-only exclusion is criterion 2's own false-positive clause,** not a convenience, and
+   it must be per SPECIFIER rather than per declaration: two classes (`critiqueSurface`,
+   `buildSummary`) drop between D and E on a single inline `import { type LlmProvider }`
+   specifier. An earlier pass of this phase measured **12 / 96** with filesystem-resolved keys
+   and a declaration-level type filter; the shipped predicate is FS-free with a per-specifier
+   filter and measures **10 / 96**. Those two classes are the entire difference.
+
+#### The ranking decision
+
+D8 says "rank `partial-extraction` above plain duplication". Three mechanisms, measured over the
+96 Scope C classes; positions are by resulting sort order and the printed page is the CLI's top
+ten:
+
+| ordering                            | `sumCosts` (rank 980) | JSON-response (704) | `parseFencedJson` (522) | labelled on printed page | mirror rows on printed page |
+| ----------------------------------- | --------------------: | ------------------: | ----------------------: | -----------------------: | --------------------------: |
+| Phase 3 (by `rank`)                 |                    #6 |                 #11 |                     #21 |                   3 / 10 |                  **4 / 10** |
+| `priority = rank x 1.5`             |                    #8 |                 #14 |                     #12 |                   4 / 10 |                      3 / 10 |
+| **`priority = rank x 2`** (SHIPPED) |               **#11** |             **#15** |                  **#9** |               **6 / 10** |                  **2 / 10** |
+| strict tier (all labelled first)    |                   #15 |                 #18 |                      #6 |                  10 / 10 |                      0 / 10 |
+
+**Shipped: a separate `priority` key, `PARTIAL_EXTRACTION_PRIORITY_BOOST = 2`, `rank`
+untouched.**
+
+Why a separate key rather than folding the multiplier into `rank`: `rank` is documented as
+`tokenCount * members.length`, pinned by `packages/core/tests/duplication/clone-index.test.ts`,
+published by the CLI's `--json`, and is the magnitude #1612/#1646 are specified to bind to.
+Folding a policy constant into it would make a consumer's "tokens x copies" arithmetic silently
+2x wrong for exactly the classes it most wants to act on. Publishing `priority` instead keeps the
+ordering policy inspectable: one named exported constant and one published field, so a `--json`
+consumer can reproduce the order from the payload. Handing a consumer a reordered list whose
+order cannot be derived from the published fields is the same defect one layer out.
+
+Why 2 and not a strict tier: the strict tier fills all ten printed rows with labelled classes and
+pushes the largest clone in the repository (4 x 648 tokens) off the page entirely. It replaces one
+presentation problem with another. Why 2 and not 1.5: 2 is the smallest round multiplier that
+brings criterion 3's named class onto the default printed page (#9 vs #12) and it halves the
+mirror rows there (4 -> 2) — a measured, free improvement to the 38/96 concentration without
+implementing grouping. Its cost is that `sumCosts` leaves the printed page (#6 -> #11); it
+remains in `--json` and among the 96, so criterion 1's "shall report" still holds.
+
+Determinism is unchanged: the comparator is
+`b.priority - a.priority || a.fingerprint.localeCompare(b.fingerprint) || a.tokenCount - b.tokenCount`.
+The boost scales both sides of the collision case the tiebreak exists for (10 tokens x 6 members
+= 20 x 3), so it does not remove the possibility and the tiebreak stays.
+
+#### Scope C, from the shipped build
+
+```
+filesScanned 2145, classesReported 96, members 382, classesSuppressed 162,
+classesTruncated 0, filesSkipped 0, exit 0, 16.2 s wall clock
+labelled 10 of 96 = 10.4 %   mirror classes labelled 0 of 38
+
+parseFencedJson   6 members / 87 tokens / rank 522 / priority 1044 / position #9
+                  sharedImport 'packages/cli/src/shared/craft/fenced-json'
+sumCosts          10 members / 98 tokens / rank 980 / priority 980 / position #11
+JSON-response     rank 704 / position #15   (16x44 sendJSON)
+```
+
+`filesScanned` is **2145**, not the 2144 recorded for Phase 3. The delta is exactly the one
+source file this phase adds, `packages/core/src/duplication/imports.ts`; the new fixture project
+lives under `packages/cli/tests/fixtures/`, which
+`DEFAULT_DUPLICATION_CONFIG.ignorePatterns` excludes. Every other counter is unchanged, and so
+is every predicted position.
+
+The ten labelled classes, by position:
+
+| pos | rank | shape   | unit                     | sharedImport                                     |
+| --: | ---: | ------- | ------------------------ | ------------------------------------------------ |
+|  #1 | 1320 | 3 x 440 | `collectApiCraftPrompts` | `packages/cli/src/mcp/utils/sanitize-path`       |
+|  #3 |  916 | 4 x 229 | `runAction`              | `packages/cli/src/output/formatter`              |
+|  #4 |  846 | 3 x 282 | `printResult`            | `packages/cli/src/output/formatter`              |
+|  #6 |  630 | 3 x 210 | `parseFindingFromRaw`    | `packages/cli/src/shared/craft/findings/derived` |
+|  #8 |  525 | 5 x 105 | `<anon>`                 | `packages/core/src/review/constants`             |
+|  #9 |  522 | 6 x 87  | **`parseFencedJson`**    | **`packages/cli/src/shared/craft/fenced-json`**  |
+| #13 |  417 | 3 x 139 | `detectTsIgnore`         | `packages/core/src/review/constants`             |
+| #23 |  265 | 5 x 53  | `getRules`               | `packages/core/src/architecture/collectors/hash` |
+| #32 |  216 | 4 x 54  | `resolveOutputMode`      | `packages/cli/src/output/formatter`              |
+| #50 |  147 | 3 x 49  | `resolveOutputMode`      | `packages/cli/src/output/formatter`              |
+
+All ten read as genuine partial extractions: a shared helper exists and the wrapper layer stayed
+duplicated. Two have more than one common module, which is why `sharedImport` picks the
+lexicographically smallest key by a stated rule rather than by discovery order.
+
+#### Criterion 6 re-measured (truth 10)
+
+`collectFileImports` adds one pass over every token of every scanned file, so the 10-second bar
+was re-measured rather than assumed. Scope B (criterion 6's own scope: this repository's non-test
+sources, 2,403 files discovered / 2,155 scanned / 9,732 units), three runs of `detectDuplication`
+alone, median reported:
+
+```
+with    collectFileImports:  3.16 / 2.60 / 2.49 s   median 2.60 s
+without collectFileImports:  2.74 / 2.52 / 2.78 s   median 2.74 s   (stubbed to an empty map)
+```
+
+The instrumented median is LOWER than the stubbed one, so the extra pass costs less than this
+machine's run-to-run variance (load average 16-18 during both triples; a single triple swings
+0.3-0.7 s). Phase 2 recorded 2.4-3.0 s at this scope and the figure is unmoved. Criterion 6 holds
+with roughly 3.8x headroom. The wall clock remains load-sensitive evidence, not a gate — the
+reason named in "Phase 2 — ACCEPTED GAP" still stands, and no fallback (lazy `positions`
+construction) was needed.
+
+#### Carried-forward items, judged
+
+1. **Grouping the 38/96 concentration** — deferred out of BOTH Phase 4 and Phase 5, as the NAMED
+   follow-up `duplication-report-grouping` carrying its reason. See "Deferred follow-ups".
+2. **`filesSkipped` unobservable in MCP summary mode** — CLOSED here as a declared ride-along
+   (one key in `summarizeDuplication`, one assertion, one mutant). Summary mode was the one
+   duplication surface with no skip counter, so a partial scan read as a complete one.
+3. **ADR 0111 `skipUnlessBin` only partly adopted** (`comprehend-smoke.e2e.test.ts`'s local
+   `HAS_BIN`) — NOT this phase's business: different subsystem, no interaction with the
+   duplication surfaces, already filed by the Phase-3 executor. Agreed with that judgment.
+4. **Knowledge-graph concept nodes** — still deferred, now WITH the blocking reason (#1507) in
+   "Deferred follow-ups" rather than as an unowned line.
+
+#### Mutation coverage, and a sixth vacuous test caught
+
+Every mutant this phase named was planted, observed, and reverted. Three results worth recording:
+
+- **The comparator's `fingerprint` tiebreak was untested across the whole feature.** Deleting
+  `a.fingerprint.localeCompare(b.fingerprint)` passed all 506 duplication and entropy tests. The
+  existing "sorts classes deterministically" case builds three identical files, which make ONE
+  class, so no tiebreak is reachable from it. Closed with a fixture of two structurally distinct
+  bodies measured to the same 82 normalized tokens, three copies each, which ties both classes at
+  rank and priority 246. This is the sixth vacuous test this feature has produced and the pattern
+  is consistent: the fixture could not reach the branch the test was named for.
+- **The final `tokenCount` tiebreak is unreachable by construction** and is retained as
+  documented defence: it is consulted only when two fingerprints are EQUAL, which requires a real
+  sha1 collision. Recorded as a known-unkillable mutant rather than as coverage.
+- **One named mutant was mis-specified in the plan:** turning `usedImportKeys`' `offset > end`
+  early `return false` into a `continue` is an EQUIVALENT mutant (the loop body ends there either
+  way), so no test can kill it — it is a performance change only. The behaviour-changing form,
+  deleting the guard, is killed by the intended case.
+
+#### Two defects in this phase's own plan, corrected in flight
+
+- `sharedImportKey`'s "lexicographically smallest" guarantee held only for pre-sorted input:
+  `[['z','a'],['a','z']]` answered `'z'` while the same two members in the other order answered
+  `'a'` — the order-dependence the function exists to remove, on an exported API. Fixed by
+  sorting the first member's keys inside the function.
+- `collectFileImports` as planned measured cyclomaticComplexity **17** against a bar of 15 and
+  blocked its own commit. Split over `valueImportOf` and `bindingPositions`. Two further
+  threshold breaches appeared the same way and were refactored, never allowanced:
+  `summarizeDuplication` (complexity 12 vs the hook's 10) and the `duplicationReport` test factory
+  (54 lines vs 50).
