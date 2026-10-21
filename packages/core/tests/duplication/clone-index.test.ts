@@ -9,6 +9,7 @@ import {
   buildCloneIndex,
 } from '../../src/duplication/index';
 import type { DuplicationConfig } from '../../src/duplication/index';
+import { body } from './fixtures';
 
 describe('resolveDuplicationConfig', () => {
   it('applies the Rule-of-Three defaults', () => {
@@ -210,20 +211,6 @@ describe('isEligibleFile', () => {
     expect(isEligibleFile(file, DEFAULT_DUPLICATION_CONFIG.ignorePatterns)).toBe(false);
   });
 });
-
-/** A >=40-token body parameterised only by identifier names (Type-2 clone). */
-const body = (fn: string, p: string, acc: string, el: string) =>
-  `export function ${fn}(${p}: { cost: number; label: string }[]) {\n` +
-  `  let ${acc} = 0;\n` +
-  `  const seen: string[] = [];\n` +
-  `  for (const ${el} of ${p}) {\n` +
-  `    if (${el}.cost > 0) {\n` +
-  `      ${acc} += ${el}.cost;\n` +
-  `      seen.push(${el}.label);\n` +
-  `    }\n` +
-  `  }\n` +
-  `  return { total: ${acc}, labels: seen };\n` +
-  `}\n`;
 
 /**
  * A second, STRUCTURALLY distinct >=40-token body (`while`/`pop`/`break`

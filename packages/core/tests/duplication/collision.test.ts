@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeAll, afterAll } from 'vitest';
 import { mkdtemp, writeFile, rm, mkdir } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { body } from './fixtures';
 
 // A 64-bit digest collision cannot be produced from real source at this scale
 // (~1.7e-12 expected), so the only way to reach the collision path is to force
@@ -21,20 +22,6 @@ vi.mock('../../src/duplication/tokens', async () => {
 });
 
 const { buildCloneIndex, MAX_EVIDENCE_ENTRIES } = await import('../../src/duplication/index');
-
-/** A >=40-token body parameterised only by identifier names (Type-2 clone). */
-const body = (fn: string, p: string, acc: string, el: string) =>
-  `export function ${fn}(${p}: { cost: number; label: string }[]) {\n` +
-  `  let ${acc} = 0;\n` +
-  `  const seen: string[] = [];\n` +
-  `  for (const ${el} of ${p}) {\n` +
-  `    if (${el}.cost > 0) {\n` +
-  `      ${acc} += ${el}.cost;\n` +
-  `      seen.push(${el}.label);\n` +
-  `    }\n` +
-  `  }\n` +
-  `  return { total: ${acc}, labels: seen };\n` +
-  `}\n`;
 
 /** Deliberately far shorter than `body`, so the token counts cannot agree. */
 const tiny = (fn: string) => `export function ${fn}(a: number) {\n  return a + 1;\n}\n`;

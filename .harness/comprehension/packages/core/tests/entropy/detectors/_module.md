@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/tests/entropy/detectors'
-sourceHash: '7a86758e3083729fe2bc2628b0b300b95deb64f2344b00fbf3a3c5ad2ffbc2e9'
+sourceHash: '3b4c6f37b8b6eb75d0d4eb0e0ccb655a85607e308dfd765827f27378fba6b1f1'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -49,6 +49,7 @@ import { CodebaseSnapshot, ComplexityConfig, ConfigPattern, CouplingConfig, Dead
 import { findFiles, relativePosix } from '../../../src/shared/fs-utils'
 import { TypeScriptParser } from '../../../src/shared/parsers'
 import { isOk } from '../../../src/shared/result'
+import { memberSets, wrapper } from '../../duplication/fixtures'
 import from '@harness-engineering/core'
 import { skipDirGlobs } from '@harness-engineering/graph'
 import { parse } from '@typescript-eslint/typescript-estree'

@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/tests/entropy'
-sourceHash: '2e8229ec3643710b36b03dce37a3d332bd4dd80d1683ffa7012dfd117a133fc7'
+sourceHash: '88ca8ff24f192b650935d4a3562afd85cf587dcbe07a2b057f1dccb048ce91ab'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -35,6 +35,7 @@ import { CodebaseSnapshot, DuplicationReport, EntropyConfig } from '../../src/en
 import { createEntropyError } from '../../src/shared/errors'
 import { TypeScriptParser } from '../../src/shared/parsers'
 import { Ok } from '../../src/shared/result'
+import { memberSets } from '../duplication/fixtures'
 import { skipDirGlobs } from '@harness-engineering/graph'
 import { mkdir, mkdtemp, rm, writeFile } from 'fs/promises'
 import * as fs from 'node:fs'

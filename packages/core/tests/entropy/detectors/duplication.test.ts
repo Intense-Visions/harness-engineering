@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import { findFiles } from '../../../src/shared/fs-utils';
 import { detectDuplication } from '../../../src/entropy/detectors/duplication';
 import type { CodebaseSnapshot } from '../../../src/entropy/types';
+import { memberSets, wrapper } from '../../duplication/fixtures';
 
 const PLANTED = join(__dirname, '../../fixtures/duplication/planted-clones');
 
@@ -43,17 +44,6 @@ const INCLUDE = '**/*.{ts,tsx,js,jsx,mjs,cjs,md}';
 
 const CLASS_A = 'src/alpha.ts,src/beta.ts,src/gamma.ts';
 const CLASS_D = 'src/generated/gen-a.ts,src/generated/gen-b.ts,src/generated/gen-c.ts';
-
-function memberSets(classes: { members: { file: string }[] }[]): string[] {
-  return classes
-    .map((c) =>
-      c.members
-        .map((m) => m.file)
-        .sort()
-        .join(',')
-    )
-    .sort();
-}
 
 async function plantedSnapshot(): Promise<CodebaseSnapshot> {
   return snapshotOf(await findFiles(INCLUDE, PLANTED), PLANTED);
@@ -311,18 +301,6 @@ describe('detectDuplication — the Phase-4 fields survive the detector', () => 
    * guarded by nothing: a future revision that projects the classes
    * field-by-field would drop `signal` silently.
    */
-  const wrapper = (spec: string, fn: string, p: string, out: string) =>
-    `import { extract } from '${spec}';\n` +
-    `export function ${fn}(${p}: string[]): string[] {\n` +
-    `  const ${out}: string[] = [];\n` +
-    `  for (const item of ${p}) {\n` +
-    `    const value = extract(item);\n` +
-    `    if (value.length > 0) {\n` +
-    `      ${out}.push(value);\n` +
-    `    }\n` +
-    `  }\n` +
-    `  return ${out};\n` +
-    `}\n`;
 
   it('carries signal, sharedImport and the boosted priority through detectDuplication', async () => {
     const root = await mkdtemp(join(tmpdir(), 'dup-det-pe-'));

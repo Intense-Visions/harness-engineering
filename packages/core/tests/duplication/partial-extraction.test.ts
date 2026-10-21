@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { buildCloneIndex } from '../../src/duplication/index';
 import type { CloneIndex, BuildCloneIndexOptions } from '../../src/duplication/index';
+import { wrapper } from './fixtures';
 
 /**
  * Write `files` (repo-relative path -> source) into a fresh temp root and build
@@ -33,27 +34,6 @@ async function scratch(
 }
 
 const shared = `export function extract(raw: string): string {\n  return raw.trim();\n}\n`;
-
-/**
- * A >=40-token Type-2 clone body that CALLS the imported `extract`.
- *
- * `spec` is the import specifier, deliberately different per call site: the
- * three wrappers below sit at three directory depths and so spell the same
- * module three different ways. That is the arm a raw-specifier implementation
- * fails, and the reason the fixture is not three siblings.
- */
-const wrapper = (spec: string, fn: string, p: string, out: string) =>
-  `import { extract } from '${spec}';\n` +
-  `export function ${fn}(${p}: string[]): string[] {\n` +
-  `  const ${out}: string[] = [];\n` +
-  `  for (const item of ${p}) {\n` +
-  `    const value = extract(item);\n` +
-  `    if (value.length > 0) {\n` +
-  `      ${out}.push(value);\n` +
-  `    }\n` +
-  `  }\n` +
-  `  return ${out};\n` +
-  `}\n`;
 
 /** The same body shape, but the cloned unit never touches an import. */
 const standalone = (fn: string, p: string, out: string) =>

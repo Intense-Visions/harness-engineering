@@ -6,6 +6,7 @@ import { detectDuplication } from '../../src/entropy/detectors/duplication';
 import { Ok } from '../../src/shared/result';
 import { createEntropyError } from '../../src/shared/errors';
 import type { DuplicationReport } from '../../src/entropy/types';
+import { memberSets } from '../duplication/fixtures';
 
 /**
  * Spy on the module the ANALYZER imports. `analyzer.ts` imports
@@ -40,17 +41,6 @@ function analyzerFor(analyze: Record<string, unknown>, extra: Record<string, unk
     analyze,
     ...extra,
   } as never);
-}
-
-function memberSets(classes: { members: { file: string }[] }[]): string[] {
-  return classes
-    .map((c) =>
-      c.members
-        .map((m) => m.file)
-        .sort()
-        .join(',')
-    )
-    .sort();
 }
 
 const CLASS_A = 'src/alpha.ts,src/beta.ts,src/gamma.ts';

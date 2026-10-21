@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/tests/duplication'
-sourceHash: '350de569977b6b6a0f82b5206bd5318b5d818bdd81c87f30dfb82ab8f0bcb03c'
+sourceHash: '08826c75b977644e28bf7c577d63465e673e5c74e76769050cfd9bff8f153412'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -14,6 +14,7 @@ members:
     'extraction-error.test.ts',
     'extraction-failure.test.ts',
     'failure-behavior.test.ts',
+    'fixtures.ts',
     'imports.test.ts',
     'partial-extraction.test.ts',
     'tokens.test.ts',
@@ -24,7 +25,9 @@ members:
 ## Interface Contract
 
 ```ts
-
+export body
+export memberSets
+export wrapper
 ```
 
 ## Dependency Slice
@@ -35,6 +38,7 @@ import { BuildCloneIndexOptions, CloneIndex, DEFAULT_DUPLICATION_CONFIG, Duplica
 import { IDENTIFIER_PLACEHOLDER, LITERAL_PLACEHOLDER, fingerprintStream, normalizeTokens } from '../../src/duplication/tokens'
 import { MissingNodeLocationError, extractUnits } from '../../src/duplication/units'
 import { findFiles } from '../../src/shared/fs-utils'
+import { body, memberSets, wrapper } from './fixtures'
 import * as core, { CloneClass, CloneIndex, CloneMember, CloneUnitKind, DEFAULT_DUPLICATION_CONFIG, DuplicationConfig, SkippedFile, buildCloneIndex } from '@harness-engineering/core'
 import { parse } from '@typescript-eslint/typescript-estree'
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'

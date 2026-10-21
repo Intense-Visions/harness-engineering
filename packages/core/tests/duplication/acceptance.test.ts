@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { join } from 'node:path';
 import { findFiles } from '../../src/shared/fs-utils';
 import { buildCloneIndex } from '../../src/duplication/index';
+import { memberSets } from './fixtures';
 
 const PLANTED_ROOT = join(__dirname, '../fixtures/duplication/planted-clones');
 const NESTED_ROOT = join(__dirname, '../fixtures/duplication/nested-units');
@@ -41,17 +42,6 @@ const CLASS_C_MEMBERS = ['src/short-one.ts', 'src/short-three.ts', 'src/short-tw
 const SUB_MIN_TOKEN_UNITS = 3;
 /** Every planted file holds exactly one function, so 12 source files -> 12 units. */
 const TOTAL_UNITS = 12;
-
-function memberSets(classes: { members: { file: string }[] }[]): string[] {
-  return classes
-    .map((c) =>
-      c.members
-        .map((m) => m.file)
-        .sort()
-        .join(',')
-    )
-    .sort();
-}
 
 describe('buildCloneIndex over the planted-clones fixture (criterion 15)', () => {
   it('reports exactly the planted classes that meet both bars, and no others', async () => {

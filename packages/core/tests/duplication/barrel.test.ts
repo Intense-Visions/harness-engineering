@@ -12,6 +12,7 @@ import type {
   DuplicationConfig,
   SkippedFile,
 } from '@harness-engineering/core';
+import { body, wrapper } from './fixtures';
 
 // Criterion 11 says "importable from `@harness-engineering/core`", so this suite
 // imports the PACKAGE SPECIFIER, not `../../src/index`. The source barrel would stay
@@ -24,37 +25,6 @@ import type {
 // and `vitest.config.mts` has no `typecheck` block, so a type-only import is
 // never checked by anything. (That gap is filed as roadmap row
 // `typecheck-test-files`.)
-
-/** A >=40-token body parameterised only by identifier names (Type-2 clone). */
-const body = (fn: string, p: string, acc: string, el: string) =>
-  `export function ${fn}(${p}: { cost: number; label: string }[]) {\n` +
-  `  let ${acc} = 0;\n` +
-  `  const seen: string[] = [];\n` +
-  `  for (const ${el} of ${p}) {\n` +
-  `    if (${el}.cost > 0) {\n` +
-  `      ${acc} += ${el}.cost;\n` +
-  `      seen.push(${el}.label);\n` +
-  `    }\n` +
-  `  }\n` +
-  `  return { total: ${acc}, labels: seen };\n` +
-  `}\n`;
-
-/**
- * A >=40-token body that CALLS an imported helper, at a parameterised import
- * depth so the three copies spell one module three different ways.
- */
-const wrapper = (spec: string, fn: string, p: string, out: string) =>
-  `import { extract } from '${spec}';\n` +
-  `export function ${fn}(${p}: string[]): string[] {\n` +
-  `  const ${out}: string[] = [];\n` +
-  `  for (const item of ${p}) {\n` +
-  `    const value = extract(item);\n` +
-  `    if (value.length > 0) {\n` +
-  `      ${out}.push(value);\n` +
-  `    }\n` +
-  `  }\n` +
-  `  return ${out};\n` +
-  `}\n`;
 
 let root: string;
 let index: CloneIndex;
