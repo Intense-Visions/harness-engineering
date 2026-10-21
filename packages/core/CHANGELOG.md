@@ -1,5 +1,253 @@
 # Changelog
 
+## 0.56.0
+
+### Minor Changes
+
+- 0ef499d: `CouplingCollector` can now emit a violation at all (#2284). It could not before, under any input.
+
+  `buildCouplingSnapshot` handed the real detector a structurally empty `CodebaseSnapshot` — `imports: []`, `exports: []`, an empty `dependencyGraph` — laundered past the type checker with `as unknown as CodebaseSnapshot`. `detectCouplingViolations` derives `fanOut` from `file.imports.length`, `fanIn` from the same edges and `couplingRatio` from `fanIn + fanOut`, so every metric was 0, every `value <= threshold` check returned `null`, and the `coupling` category of the arch gate had been decorative since it was written. Verified against unmutated source with a planted 20-import hub (the `fanOut` warn threshold is 15): `value: 0`, `violations: []`, `filesAnalyzed: 21`.
+
+  This was worse than an abstention. `filesAnalyzed` was _honest_, and `coupling` is in no `CONFIG_GATED_CATEGORIES` entry, so `classifyMeasurement` returned `'measured'` — the gate stated with a real denominator that it had measured coupling across the repo and found none. #2238's abstention channel cannot see this shape by construction.
+  - The snapshot now carries real imports and exports from `parseSourceFiles`, and a real dependency graph. The `as unknown as` cast is gone; the value satisfies `CodebaseSnapshot` genuinely, with `docs`, `codeReferences` and `entryPoints` empty because the coupling detector consumes none of them.
+  - `parseSourceFiles` and `buildExportMap` are extracted from `buildSnapshot` rather than reimplemented, so there is one parse loop and one export index. `buildSnapshot` itself is deliberately not called: it resolves entry points first and fails closed with `ENTRY_POINT_NOT_FOUND` on any repo lacking a manifest entry point — including this monorepo's own root, measured — and an architecture gate that runs in `.husky/pre-commit` must not abstain over a field coupling never reads.
+  - New `buildDependencyGraphFromParsed` builds the graph from already-parsed files. `buildDependencyGraph` re-parses everything it is handed, which would have parsed this repo twice per arch run; measured in-process, the graph step drops from **6.09s to 0.09s** of CPU. `buildDependencyGraph` keeps its signature and behaviour and now delegates its edge construction to the same function.
+  - `metadata` gains `importEdges` alongside `filesAnalyzed`. Every coupling metric is derived from import edges, so a 0 there is the signal that the snapshot went hollow again — the denominator `filesAnalyzed` alone could not supply. It is **reported, not enforced**: `WORK_DENOMINATORS` in the CLI's `check-arch` does not include it, so a 0 `importEdges` over a non-zero `filesAnalyzed` still classifies as `measured`.
+  - Test files (`*.test.ts`, `*.spec.ts`) are excluded from the measurement, matching the documented intent on the entropy snapshot's `TestImportSource`: the classification detectors must never flag test code. A test legitimately imports a dozen helpers plus its subject, so counting that as fan-out measures the test convention. Measured on this repo, including them takes the finding count from 441 to 962 and the denominator from 1999 files to 3885.
+
+  **The recorded `coupling` value for this repo moves from 0 to 441, and the baseline moves with it.** Breakdown: 23 `fanOut` findings (top: `packages/cli/src/commands/_registry.ts` at 117 imports, `packages/orchestrator/src/orchestrator.ts` at 107, `packages/cli/src/mcp/server.ts` at 95) and 418 `couplingRatio` findings across 418 files. All are `severity: 'warning'`, so `--update-baseline` is not refused as it would be for an error-severity breach.
+
+  **Upgrading: expect your arch gate to fail once, and re-baseline deliberately.** Until this release the `coupling` category could only ever record `0`, so any committed arch baseline carries `coupling: 0`. After upgrading, `harness ci check` — and the arch check in `.husky/pre-commit`, where configured — reports every existing coupling warning in your repo as `NEW`, plus a `REGRESSION` against that zero, and exits `1`. Measured on this repo: `442 issues (441 NEW + 1 REGRESSION: 441 > 0)`. Nothing in your code changed; the gate can now see what it always should have.
+
+  Review the findings, then accept the pre-existing ones as your baseline with `harness check-arch --update-baseline`. Doing it as one deliberate commit, after reading the list, is the point: a blind re-baseline would hide any coupling you would rather fix. Given the `fanIn` undercount described below, expect the `couplingRatio` findings in particular to be numerous and partly spurious; the `fanOut` findings are the trustworthy signal.
+
+  **Read the `couplingRatio` half with suspicion.** Of 6709 import edges in this repo, only 2458 (37%) can contribute to `fanIn`: the detector's resolver handles relative specifiers only, so 2622 bare specifiers (996 of them cross-package `@harness-engineering/*`) and 1629 unresolved relative ones are invisible to it. With `fanIn` structurally undercounted, `couplingRatio` skews toward 1.0 — 153 of the 418 findings sit at exactly 1.0 — which is the same defect class as #2153 (`check-perf`'s `fanInMap` resolving ESM `.js` specifiers literally) and #2216 (the layer validator never resolving bare `@harness-engineering/*` specifiers), now visible in `check-arch` because imports are finally populated. The `fanOut` half does not depend on resolution and is sound.
+
+  **`check-arch` gets slower, on top of #2238.** The coupling collector now does a full-repo parse: 13.46s of CPU for 1999 files, measured in-process on this repo (Darwin arm64, Node 22.23.2). That is a third full-repo parse per arch run — #2270 tracks sharing one graph across the dependency collectors, and this change makes that more valuable, not less.
+
+- b53c95d: Add the `duplication` module: a deterministic, offline Type-1/2 clone index over TS/JS sources
+  (`buildCloneIndex`, `CloneIndex`, `CloneClass`, `CloneMember`, `CloneUnitKind`,
+  `DuplicationConfig`). Whole-unit granularity over normalized token-stream fingerprints, with no
+  new dependencies. Phase 1 of the DRY-floor spec — reusable module only; nothing is wired into
+  the entropy pipeline, CLI, MCP, or code-craft yet.
+- b53c95d: Wire duplication detection into the entropy pipeline: `detectDuplication`, the
+  `DuplicationReport` type, `EntropyConfig.analyze.duplication`,
+  `EntropyReport.duplication`, and `'duplication'` on the `AnalysisError['analyzer']`
+  union. Discovery is driven solely by `EntropyConfig.include` / `exclude`; per-file
+  read and parse failures become `AnalysisError`s with `analyzer: 'duplication'`
+  rather than failing the run; severity is advisory only, so duplication adds
+  nothing to `summary.errors` or `summary.warnings`. Also makes
+  `normalizeTokens` locate its range by binary search instead of rescanning each
+  file's whole token array per unit — re-measured at 214,130,152 token visits
+  before versus 1,976,826 after over this repository's non-test sources (2,153
+  eligible files, 17,064 units), with identical output.
+
+  Hardening from this phase's review: a malformed `duplication.ignorePatterns`
+  entry (a non-string, which an untyped `harness.config.json` can deliver) now
+  returns `Err INVALID_CONFIG` with `details.reason: 'invalid-ignore-pattern'`
+  instead of throwing out of `minimatch` and rejecting the whole entropy run;
+  duplication no longer runs when graph drift and dead-code data have bypassed
+  the snapshot, reporting `details.reason: 'snapshot-bypassed'` rather than
+  blaming `EntropyConfig.include` for a discovery that never ran; and `.js`,
+  `.mjs` and `.cjs` are parsed with JSX enabled, so a CRA- or Next-style project
+  is scanned instead of having every component skipped as unparseable (measured
+  byte-identical over every such file in this repository).
+
+  Phase 2 of the DRY-floor spec — no CLI or MCP surface yet.
+
+- b53c95d: Clone classes now carry a `partial-extraction` signal: a class is labelled when EVERY member's
+  unit BODY **calls into** one common first-party module, and `sharedImport` names that module by
+  its repo-relative extensionless key. It is the half-done extraction — the members already call
+  into a shared module and only the wrapper layer stayed duplicated — which usually makes it the
+  cheapest fix on the report, because the repair is bounded by a module that already exists rather
+  than by a design question.
+
+  The label means the members share a CALLED module. It does **not** claim the duplicated wrapper
+  already lives there, so it is **not necessarily a delete-and-import**: open the module named by
+  `sharedImport` and confirm what it exports before planning the repair. On this repository the
+  duplicated wrapper is among the named module's exports in **0 of the 7** labelled classes — even
+  `parseFencedJson`, whose module exports `extractFencedJsonPayload` and not the wrapper. That the
+  wrapper was never extracted is the finding itself. Where it is absent, the repair is "extract
+  into that module": cheaper than greenfield, but not a delete.
+
+  "Calls into" is literal. The binding must appear in every member body as a call callee
+  (`extract(x)`, `new Formatter(m)`), a method-call receiver (`fmt.format(x)`) or a JSX element
+  name (`<Row />`). Merely REFERENCING a name the module exports does not qualify, and that
+  distinction is not stylistic: an earlier revision of this work matched identifier TOKENS by
+  spelling and labelled three classes whose `sharedImport` pointed at a module exporting no such
+  helper at all — every member body merely mentioned a constant that module exports. The row
+  promised a delete-and-import repair with nothing to import. The role filter also excludes, by
+  construction, a member property spelled like the import (`item.extract()`), a non-computed
+  object or property key (`{ extract: item }`, `class A { extract() {} }`) and a value import used
+  only as a type (`mode: OutputModeType`). A local binding that SHADOWS the import is handled
+  conservatively — a name also declared in the file is dropped — so the residual is a false
+  negative, never a false positive.
+
+  Every condition in that predicate is load-bearing, and the reason is a measurement rather than a
+  preference. The obvious implementation — "every member's file imports a common module" — labels
+  **89 of this repository's 96 reported clone classes (92.7%)**, and labels them wrongly: ten
+  sibling files at equal directory depth share the STRING `../findings/schema.js` while naming ten
+  different files, so intersecting raw specifiers reports modules that are not shared at all. It
+  also labels all 38 platform-mirror classes by construction, since four copies of one file have
+  identical import lists — which would have put the mirror block at the head of the operator's
+  page. Keyed on module IDENTITY, scoped to the unit BODY, restricted to VALUE imports (excluded
+  per declaration AND per inline specifier) and to FIRST-PARTY modules, and to a CALL position,
+  the same ladder lands at **7 of 96, none of them a mirror**.
+
+  `CloneClass` gains a published `priority` field. **`rank` is unchanged** and remains exactly
+  `tokenCount * members.length`: it is the SIZE of the duplication and consumers read it as
+  "tokens x copies", so folding an ordering policy into it would make that arithmetic silently 2x
+  wrong for precisely the classes a consumer most wants to act on. `priority` is `rank` for a plain
+  duplicate and `rank * PARTIAL_EXTRACTION_PRIORITY_BOOST` (2) for a labelled one, and it is
+  published rather than kept private so a `--json` consumer handed a reordered list can reproduce
+  the order from the payload instead of taking it on trust.
+
+  **The `maxClasses` report cap is now by `priority` rather than by `rank`.** For any project with
+  no `partial-extraction` class the two are the same number for every class, so the reported set,
+  its order and the `classesTruncated` count are all byte-identical to before. A project that does
+  have labelled classes will see them ordered ahead of larger plain duplicates — on this repository
+  that moves one named class from position #21 to #8 and halves the structurally-concentrated rows
+  on the default printed page (4 of 10 to 2 of 10).
+
+  Within a priority TIE the ordering decision holds on its own: `signal` is a comparator term
+  ahead of `fingerprint`, so a labelled class leads. The boost makes a labelled class of rank r tie
+  a plain class of rank 2r, and that tie was previously resolved by sha1 hex — which put the
+  labelled class below plain ones as often as not. It was live on this repository under the looser
+  predicate (three plain classes and one labelled class all at priority 432, the labelled one
+  last); under the shipped predicate no such tie is live here, which is exactly why the term
+  matters for the next project rather than for this page.
+
+  Both operator surfaces name the signal, because an order the output cannot explain is worse than
+  no reordering: `harness cleanup -t duplication` prints
+  `[partial-extraction -> <module key>]` on the rows that have one and publishes `signal`,
+  `sharedImport` and `priority` under `--json` (`sharedImport` is ABSENT, not
+  present-and-`undefined`, on a plain duplicate), and `detect_entropy`'s `advisory.duplication`
+  carries the same tag on its `topClasses` lines.
+
+  Both surfaces are also actionable about SCALE, because a row names one site while the job is
+  collapsing all of them: every printed row and every `topClasses` line now reads
+  `unit (file:line, +N more sites)`, both publish a labelled-class count (`N labelled
+partial-extraction` on the CLI advisory line, `labelledClasses` on `advisory.duplication`), and
+  the CLI adds a `largest by rank` footer when the priority ordering pushed the biggest class off
+  the printed rows.
+
+  **Interface note for PRODUCERS.** `priority` and `importKeys` are REQUIRED fields added to
+  published types — `priority` on `CloneClass`, `importKeys` on the `FingerprintedUnit` that
+  `fingerprintFile` returns. Every consumer of these types is unaffected (a reader gains fields),
+  but any external code that CONSTRUCTS a `CloneClass` or a `FingerprintedUnit` — a test double, a
+  fixture factory, a mock analyzer — stops typechecking until it supplies them. That is the whole
+  breaking surface of this release for the core package.
+
+  `sharedImport` is a module KEY, not a file path: it is derived without touching the filesystem,
+  so claiming a file exists would be a claim the derivation never checked. When a class shares more
+  than one module the lexicographically smallest key wins, so the published value never depends on
+  file-discovery order.
+
+  RIDE-ALONG, named so it is not mistaken for signal work: `detect_entropy`'s summary mode now
+  reports `advisory.duplication.filesSkipped`. Summary mode was the one duplication surface with no
+  skip counter, so a partial scan was indistinguishable from a complete one.
+
+- 8110b23: `TypeScriptParser.health()` now probes the parser instead of asserting it is fine
+
+  `health()` was one line — `return Ok({ available: true, version: '7.0.0' })`. It
+  examined nothing, and the version was wrong by a major: the installed
+  `@typescript-eslint/typescript-estree` is 8.x. Because `validateDependencies`
+  gates its entire parser-unavailable abstention on this one answer, and because
+  `check-deps`, the `check_dependencies` MCP tool, `check-arch`'s layer-violation
+  collector, `ci check` and `review`'s mechanical checks all construct
+  `new TypeScriptParser()` unconditionally, **no production input could reach any
+  abstention path**. The machinery added in #2208 — `unavailableChecks`, exit 3,
+  the MCP `isError` abstention, `check-arch`'s `abstained` status — existed and
+  could only be exercised by mocking the core export. That is what the #2098
+  changeset meant by "no adopter can observe this half today"; this is the change
+  that makes it observable.
+
+  **What "available" now means.** The estree module resolves, exposes a callable
+  `parse`, and a trial parse of a fixed snippet yields an AST that this parser's
+  own `extractImports`/`extractExports` can read. The last clause is the point:
+  the contract consumers depend on is not "parse did not throw", it is "the
+  extracted imports and exports are usable", and only an end-to-end probe covers
+  an API that drifts without erroring. The reported `version` is the module's own,
+  so it tracks what is installed. Every failure is still `Ok({ available: false,
+message })`, never `Err` — an unavailable parser is an answer to the health
+  question, not a failure to answer it, and `fallbackBehavior` is the caller's to
+  apply.
+
+  **The estree module is now resolved lazily, through a seam.** A top-level
+  `import` makes a resolution failure a module-load crash _upstream_ of `health()`,
+  so the abstention could never be reached for the likeliest real cause — a broken
+  install, or a `typescript` peer the estree parser rejects. `parseFile` therefore
+  returns `PARSER_UNAVAILABLE` where it previously could not run at all, and the
+  optional constructor argument lets the unavailable branch be tested against the
+  real class rather than a hand-rolled stand-in parser.
+
+  **`buildDependencyGraph` fails closed on `PARSER_UNAVAILABLE`.** It skips files
+  it cannot parse, which is right for a syntax error in one file and wrong when
+  the parser is gone: every file is skipped, the graph has zero edges, and
+  `detectCircularDeps` reads that as "no cycles". With an honest `health()` that
+  became reachable, so `check-deps`' cycle half — which is not health-gated —
+  would have reported clean over files it never parsed. `TypeScriptParser` is the
+  only parser that emits that code (`TreeSitterParser` reports a missing grammar
+  as `SYNTAX_ERROR`), and only for a global condition, so no per-file skip
+  behaviour changes.
+
+  **The static comprehension extractor fails closed on `PARSER_UNAVAILABLE`.**
+  Resolving estree lazily turned a load-time crash into a per-file error, and
+  `createStaticExtractor` skipped every member that failed to parse — so with the
+  parser gone it returned an empty interface contract and dependency slice, and
+  `harness comprehend` (including the pre-commit hook) would write and stage units
+  claiming the module exports and imports nothing. It now rejects with a
+  `PARSER_UNAVAILABLE`-coded error and no unit is written; a syntax error in one
+  member is still skipped. `check-arch`'s circular-dependency measurement now
+  carries the graph-build cause in `metadata.error` instead of a bare
+  `'Failed to build dependency graph'`.
+
+  **The entropy snapshot fails closed on `PARSER_UNAVAILABLE` too.**
+  `parseSourceFiles` now returns a `Result`: a syntax error in one file is still
+  skipped, but a parser that cannot run fails the call with
+  `SNAPSHOT_BUILD_FAILED` (`details.reason: 'PARSER_UNAVAILABLE'`), so
+  `buildSnapshot` — and `harness cleanup` / `detect_entropy` — error instead of
+  reporting zero dead code over files they never read. `buildSnapshot` now builds
+  its dependency graph from the files it already parsed
+  (`buildDependencyGraphFromParsed`) instead of re-parsing every file and
+  replacing a failed graph build with an empty graph; nodes and edges are
+  unchanged. `check-arch`'s coupling and forbidden-imports collectors abstain with the
+  parser's cause in `metadata.error` rather than with an unexplained
+  `filesAnalyzed: 0`.
+
+  **`harness insights` / `insights_summary` no longer report Health PASS over an
+  analysis that failed.** `gatherEntropyBlock` turned any analyzer error into zero
+  counts, so the health block read PASS. It now throws, so the health and entropy
+  blocks are `null` with a `warnings[]` entry, and the text report prints
+  `NOT MEASURED (see warnings)` instead of omitting them. This covers the
+  unavailable parser (`SNAPSHOT_BUILD_FAILED`) and also `ENTRY_POINT_NOT_FOUND`.
+
+  **The abstention now carries the parser's own diagnosis.** `reason` was the bare
+  string `'Parser unavailable'`, which `check-deps` and the MCP tool print
+  verbatim — it told an operator something was wrong but never what. It is now
+  `Parser unavailable: <health message>`, keeping the greppable prefix that
+  consumers and their tests match on.
+
+  **One behaviour change on a working install.** On this repository `health()`
+  returns `available: true` with version `8.59.2`, from both built formats, and
+  every parser consumer is byte-identical. The exception is `harness insights` /
+  `insights_summary` on a project whose entry points come only from
+  `harness.config.json`. The insights entropy block does not read that file: it
+  passes no `entropy.entryPoints`, and it uses hard-coded include and exclude
+  patterns rather than the project's (#2192, not fixed here). So the analyzer
+  falls back to auto-discovery, and on such a project it returns
+  `ENTRY_POINT_NOT_FOUND` even though `harness cleanup`, which does read the
+  config, measures the same tree. This monorepo's root is one such project: 61
+  configured entry points, 720 dead-code findings from `cleanup`. There, the
+  health and entropy blocks previously read PASS with zero counts. They now read
+  NOT MEASURED with an `ENTRY_POINT_NOT_FOUND` warning. That is honest about what
+  insights measured. It is not a statement that the project's configured entry
+  points fail to resolve. Everything else changes only when the parser
+  genuinely is unavailable. In that state the previous behaviour was a
+  module-load crash. Each consumer now reports a named error or abstention:
+  `check-deps`, the `check_dependencies` MCP tool, `ci check`, `review`,
+  `check-arch`, `cleanup`, `detect_entropy`, `comprehend`, and `insights`.
+
 ## 0.55.0
 
 ### Minor Changes

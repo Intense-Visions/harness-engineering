@@ -1,5 +1,123 @@
 # @harness-engineering/dashboard
 
+## 0.16.15
+
+### Patch Changes
+
+- b53c95d: Duplication detection reaches the operator: `harness cleanup -t duplication` and the
+  `detect_entropy` MCP tool's `type: "duplication"` report whole-unit Type-2 clone classes
+  (>= 3 members, >= 40 normalized tokens, sized `tokenCount x members` in the `rank` field).
+  Ordering is by `CloneClass.priority`, which the sibling `partial-extraction` entry in this same
+  release introduces: it equals `rank` for a plain duplicate and twice `rank` for a labelled one.
+  Both entries ship together, so this one states the ordering its sibling defines rather than the
+  `rank` ordering that held only before it.
+
+  Both surfaces are **advisory**. Clone classes never enter `CleanupResult.totalIssues`, so they
+  never affect the command's exit code and never appear in the `--findings-json` maintenance
+  contract; on the MCP side they are reported under `advisory.duplication`, outside
+  `totalIssues`. Because `-t duplication` runs no doc-drift, dead-code or pattern analyzer, the
+  command now prints "Entropy issues: not checked" instead of a green-ticked zero over three
+  checks that never ran.
+
+  `entropy.duplication` in `harness.config.json` is a new validated config block
+  (`minTokens`, `minInstances`, `ignorePatterns`, `maxClasses`). It was previously stripped by
+  the config schema with an "ignored unknown key" warning, so operator tuning could not reach
+  the detector at all. `minInstances` has a floor of 2 (the detector hard-skips groups below 2,
+  so 1 silently means "report every pair") and `maxClasses` must be positive (`0` reported zero
+  classes while counting every one of them as truncated). **`ignorePatterns` REPLACES the
+  shipped 21 default globs rather than appending to them** — a project that sets one pattern
+  stops ignoring tests, fixtures, generated output, `dist` and `node_modules` unless it restates
+  them.
+
+  The block's PRESENCE is the opt-in for `-t all` / `type: "all"`, so unconfigured projects see
+  no change; an explicit request runs on the shipped defaults. `entropy.duplication: false` plus
+  an explicit request REFUSES rather than reporting a clean scan that never ran, and a detector
+  that could not execute (for example a graph-fed run that bypassed the codebase snapshot) is
+  reported with the analyzer's own reason instead of an empty result.
+
+  `detect_entropy`'s payload no longer carries `duplication.byMember`: it is a `Map`, which
+  `JSON.stringify` rendered as `{}` — indistinguishable from an empty index. Its contents are
+  already in `classes[].members`.
+
+  Four further refusals and one payload change came out of the review of this work, all on the
+  same "never report a pass over a check that never ran" rule:
+  - An unrecognized `-t <type>` / `type` value is refused on both surfaces. It previously ran NO
+    analyzer and still exited 0 — and published `{"findings":0}` on the `--findings-json`
+    contract — so `harness cleanup -t duplicaiton` looked like a clean project.
+  - `detect_entropy` refuses when `harness.config.json` fails validation instead of silently
+    analyzing on built-in defaults. zod rejects the document whole, so the fallback was
+    discarding the project's `entryPoints` and `excludePatterns` and scanning a different scope
+    than the configured one. `harness cleanup` already exited 2 on the same input.
+  - `harness cleanup -t duplication --quiet` now prints the advisory section. The quiet gate was
+    keyed on `totalIssues`, which deliberately excludes duplication, so the channel was
+    suppressed entirely.
+  - `CleanupResult.duplication` carries `filesSkipped`, and the printed advisory line says
+    `; N file(s) skipped` when non-zero. A partial skip makes a scan incomplete, and the CLI had
+    no way to say so.
+  - `detect_entropy`'s detailed payload emits `summary`, `analysisErrors` and `duplication`
+    BEFORE `snapshot`, and omits each file's `ast`. Response compaction truncates by prefix, and
+    the snapshot was 98% of the payload, so everything a caller could act on was being truncated
+    away. Pass `compact: false` for the untruncated report, ASTs excluded.
+
+  The `@harness-engineering/dashboard` entry is a COMMENT-ONLY change, listed because the
+  changeset gate requires coverage for every touched publishable package. `gatherHealth` threads
+  a caller-supplied `analyze` into the entropy analyzer and returns `summary.totalIssues` — the
+  aggregate clone classes ARE summed into — so it is the one remaining place a future caller
+  could route advisory duplication into a gating number. Named in a comment; deliberately not
+  closed, since all three callers pass only `projectPath`.
+
+- e68f5b1: Patch the `serveStatic` double-decode (GHSA-5r4p-p66f-jhc7 / CVE-2026-111757, moderate, CWE-174) in
+  both the gate-visible package and the code path the dashboard actually executes.
+
+  `serveStatic` decoded the request path a second time after it had already been decoded for routing, so
+  a crafted percent-encoded path could be routed as one path and served as another — bypassing middleware
+  mounted on a static prefix.
+  - `hono`: floor raised `>=4.13.5` -> `>=4.13.11` (the patched version). The old floor permitted the
+    vulnerable `4.13.7` that was actually resolved. This is the advisory `pnpm audit` sees.
+  - `@hono/node-server`: floor raised `>=2.0.10` -> `>=2.1.3`. The dashboard imports `serveStatic` from
+    this adapter, which carries its **own** copy of the vulnerable decode and does not use Hono's
+    middleware. No advisory is filed against it, so no audit tool would ever have flagged it; bumping
+    `hono` alone would have greened the gate without changing the executed code.
+
+  Declared ranges in `packages/dashboard` were brought up to match both floors so the two agree.
+
+  Bump level is `patch`: dependency ranges move within the same major and no public API changes. The
+  adapter's `serveStatic` does change behaviour beyond the fix — it now rejects request paths containing
+  `%` unless `allowPercentInPath` is set, and passes non-GET/HEAD requests to `next()` — neither of which
+  affects this dashboard (its built asset names are hash-based with no percent-encoding, and CORS
+  preflight is handled by middleware registered ahead of the static handler).
+
+- f58cfdf: Raise the `vite` security floor to the patched `6.4.4` for GHSA-698v-4r3x-3vcv
+  (moderate, CVE-2026-112943): `launch-editor`'s `escapeCmdArgs()` omits `%`
+  escaping on Windows, so a `cmd.exe` argument can expand an environment variable
+  and execute a subcommand.
+
+  The installed version was **vulnerable, not merely permitted**. The advisory's
+  affected range for the 6.x line is `vite <= 6.4.3` and the lockfile resolved
+  exactly `6.4.3`. Root `pnpm.overrides` goes `">=6.4.3 <7"` → `">=6.4.4 <7"` and
+  the dashboard's declared devDependency range goes `^6.4.3` → `^6.4.4` so the two
+  agree; `pnpm-lock.yaml` resolution moves `6.4.3` → `6.4.4` with no `vite@6.4.3`
+  reference left.
+
+  Patch, not minor: a dependency floor move inside the existing 6.x line, no API
+  or behaviour change. `vite` is a devDependency used to build the dashboard
+  client and, via `vitest`, to run every package's tests.
+
+  **Read the per-range data, not the first `first_patched_version`.** The advisory
+  covers six `vite` ranges; the first entry in its `vulnerabilities[]` array is the
+  8.3.x branch with `first_patched_version: 8.3.3`, which reads as though this
+  needs a major bump from 6.x. The entry whose `vulnerable_version_range` actually
+  matches this repo (`<= 6.4.3`) gives `first_patched_version: 6.4.4`. Match the
+  range first, then read its patch version.
+
+- Updated dependencies [0ef499d]
+- Updated dependencies [b53c95d]
+- Updated dependencies [b53c95d]
+- Updated dependencies [b53c95d]
+- Updated dependencies [8110b23]
+  - @harness-engineering/core@0.56.0
+  - @harness-engineering/orchestrator@0.28.1
+
 ## 0.16.14
 
 ### Patch Changes
