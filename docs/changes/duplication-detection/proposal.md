@@ -1582,16 +1582,41 @@ The denominator for every incidence figure is **7,880 `code-craft` substantive u
 
 Every figure in this table was measured twice by two separate probes and reproduced.
 
-#### The spec's named line-divergence risk is REFUTED
+#### The spec's named line-divergence risk: HALF REFUTED, and half CONFIRMED
+
+> **This subsection was rewritten after Task 8.** Its first version said decorators agree in both
+> directions. The agreement fixture disproved that within the hour, and the correction is recorded
+> here rather than the original quietly edited away.
 
 "Named risk: extractor line-number agreement" predicts the divergence is in LINE numbers and names
-**decorators and leading comments** as the likely points. Measured over 7,880 units at Scope D:
-**zero line divergences**, and decorators specifically agree — both extractors report a decorated
-class at its `@Dec()` line and a decorated method at its own `@Dec()` line, because `typescript`'s
-`node.getStart(sf)` skips only trivia (not decorators) and `@typescript-eslint/typescript-estree`
-8.59.x includes decorators in `ClassDeclaration` / `MethodDefinition` ranges. Leading JSDoc and `//`
-comments agree for the same reason. The risk was named in the one dimension that holds and missed
-the one that does not.
+**decorators and leading comments** as the likely points.
+
+**Leading comments: refuted.** JSDoc and `//` comments agree exactly, because `typescript`'s
+`node.getStart(sf)` skips trivia and estree's `loc.start` never included it.
+
+**Decorators: CONFIRMED for a class, refuted for a method.** On a 13-unit fixture holding both:
+
+| Construct                | `code-craft` (`typescript`) | core (estree)        | Agree? |
+| ------------------------ | --------------------------- | -------------------- | ------ |
+| `@Dec() export class C`  | line 3 (the `@Dec()` line)  | line 4 (the `class`) | **NO** |
+| `@Dec() run() {}` method | line 5 (its `@Dec()` line)  | line 5               | yes    |
+
+`ClassDeclaration.getStart(sf)` returns the `@` position (verified: `pos=57`, `getStart=59`, both on
+the decorator's line), while `typescript-estree` keeps class decorators OUT of
+`ClassDeclaration.loc.start` — `decorators[0].loc.start.line` is 3 and the node's own
+`loc.start.line` is 4. For a `MethodDefinition` estree DOES include the decorator. **The asymmetry
+is inside estree, between node types — not a uniform difference between the two libraries.**
+`endLine` agrees exactly in both cases.
+
+**So why did 7,880 / 7,880 hold at Scope D?** Because **this repository contains zero TS/TSX
+decorators.** The only `^@` match under the packages source roots is a CSS `@import`. The repo-scale
+scan is a real measurement and it is **vacuous with respect to the construct the named risk is
+about**: it could not have found this, and it did not. Clearing a named risk requires a corpus that
+contains the named construct — a hand-built fixture found in one run what 2,066 files could not.
+
+Criterion 5's restated claim (agreement within ±2) **holds**: the divergence is exactly 1 line.
+What does NOT hold is the stronger "13/13 exact" the plan predicted; measured exact agreement is
+**12 of 13**, and the thirteenth is the decorated class.
 
 **The measurement has a precondition worth naming, because getting it wrong moves the figure.** The
 agreement above holds only when each file is parsed with core's own per-extension rule —
@@ -1621,11 +1646,14 @@ therefore have silently dropped 1.76% of lookups.** The shipped matcher ignores 
 > and `endLine` within ±2 lines; and the only `kind` disagreement shall be the
 > object-literal-property function/arrow case, asserted by name.
 
-`tests/code-craft/extractor-agreement.test.ts` asserts 13/13 EXACT agreement on both line fields
-over a 13-unit fixture and pins the kind divergence set by name, so a change to either extractor's
-kind mapping — or a parser upgrade that shifts a line — goes red instead of silently widening the
-gap. The test asserts `units.length === 13` from BOTH extractors up front: without that guard the
-agreement could hold vacuously over a shrinking fixture.
+`tests/code-craft/extractor-agreement.test.ts` asserts, over a 13-unit fixture: 13/13 within ±2 on
+`startLine`, 13/13 EXACT on `endLine`, **12/13 exact on `startLine`** with the one exception pinned
+by name and literal line (the decorated class, `typescript` 3 vs estree 4), and the kind divergence
+set pinned to exactly `propArrow` / `propFn`. A change to either extractor's mapping — or a parser
+upgrade that shifts a line — goes red instead of silently widening the gap. The test asserts
+`units.length === 13` from BOTH extractors up front: without that guard the agreement could hold
+vacuously over a shrinking fixture, and that guard is itself verified by deleting the decorated
+method from the fixture and observing it fail by number.
 
 #### Criterion 4, restated
 
@@ -1659,9 +1687,17 @@ The spec mandates a "±2-line tolerance" on the start line. Measured at Scope D 
 - `packages/cli/src/naming-craft/index.ts:392` — the same shape against `collectFiles` at line 390
   (`endLine` 397).
 
-Both are different units entirely. The tolerance is still implemented, because it is the
-graceful-degradation path for exactly the library drift the named risk is about — but only **behind
-a mandatory span co-check**: a candidate is accepted only when the owning class holds a member at
+Both are different units entirely.
+
+**But the tolerance is NOT inert, and Task 8 is what showed it.** A decorated class diverges by
+exactly 1 line (above), so an exact-only matcher misses a decorated class OUTRIGHT. The agreement
+test asserts both halves of that: `byMember.get('fixture.ts:3')` is `undefined` while
+`resolveSiblingEvidence` resolves the unit anyway, via the ±1 probe plus the `endLine` co-check. The
+"0 true positives at Scope D" figure is true and it is a statement about THIS corpus, which has no
+decorators — not about the tolerance's value. Any adopter using Angular, NestJS, TypeORM or MobX
+decorators relies on it from the first run.
+
+The tolerance is implemented only **behind a mandatory span co-check**: a candidate is accepted only when the owning class holds a member at
 that key whose `endLine` is within ±2 of the unit's `endLine`. The co-check costs **0 of 153** true
 hits (`endLine` agrees 7,880/7,880) and rejects **2 of 2** false ones. Both real cases are the
 fixture basis for the matcher's rejection test — reproduced, not invented. The agreement test is the
