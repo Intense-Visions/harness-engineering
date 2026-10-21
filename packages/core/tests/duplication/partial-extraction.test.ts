@@ -1,0 +1,251 @@
+import { describe, it, expect } from 'vitest';
+import { mkdtemp, writeFile, rm, mkdir } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join, dirname } from 'node:path';
+import { buildCloneIndex } from '../../src/duplication/index';
+import type { CloneIndex, BuildCloneIndexOptions } from '../../src/duplication/index';
+
+/**
+ * Write `files` (repo-relative path -> source) into a fresh temp root and build
+ * the index over exactly those paths.
+ *
+ * `order` lets a case drive the SAME file set in a different sequence, which is
+ * what the determinism assertions need.
+ */
+async function scratch(
+  files: Record<string, string>,
+  options: BuildCloneIndexOptions = {},
+  order: 'given' | 'reversed' = 'given'
+): Promise<{ root: string; index: CloneIndex }> {
+  const root = await mkdtemp(join(tmpdir(), 'dup-pe-'));
+  for (const [rel, src] of Object.entries(files)) {
+    await mkdir(dirname(join(root, rel)), { recursive: true });
+    await writeFile(join(root, rel), src, 'utf8');
+  }
+  const paths = Object.keys(files).map((f) => join(root, f));
+  const result = await buildCloneIndex(order === 'reversed' ? paths.reverse() : paths, {
+    rootDir: root,
+    ignorePatterns: [],
+    ...options,
+  });
+  if (!result.ok) throw new Error(`expected ok: ${result.error.message}`);
+  return { root, index: result.value };
+}
+
+const shared = `export function extract(raw: string): string {\n  return raw.trim();\n}\n`;
+
+/**
+ * A >=40-token Type-2 clone body that CALLS the imported `extract`.
+ *
+ * `spec` is the import specifier, deliberately different per call site: the
+ * three wrappers below sit at three directory depths and so spell the same
+ * module three different ways. That is the arm a raw-specifier implementation
+ * fails, and the reason the fixture is not three siblings.
+ */
+const wrapper = (spec: string, fn: string, p: string, out: string) =>
+  `import { extract } from '${spec}';\n` +
+  `export function ${fn}(${p}: string[]): string[] {\n` +
+  `  const ${out}: string[] = [];\n` +
+  `  for (const item of ${p}) {\n` +
+  `    const value = extract(item);\n` +
+  `    if (value.length > 0) {\n` +
+  `      ${out}.push(value);\n` +
+  `    }\n` +
+  `  }\n` +
+  `  return ${out};\n` +
+  `}\n`;
+
+/** The same body shape, but the cloned unit never touches an import. */
+const standalone = (fn: string, p: string, out: string) =>
+  `export function ${fn}(${p}: string[]): string[] {\n` +
+  `  const ${out}: string[] = [];\n` +
+  `  for (const item of ${p}) {\n` +
+  `    const value = item.toUpperCase();\n` +
+  `    if (value.length > 0) {\n` +
+  `      ${out}.push(value);\n` +
+  `    }\n` +
+  `  }\n` +
+  `  return ${out};\n` +
+  `}\n`;
+
+const threeDepths = {
+  'src/shared/extract.ts': shared,
+  'src/beta.ts': wrapper('./shared/extract.js', 'keepBeta', 'rows', 'kept'),
+  'src/wrappers/alpha.ts': wrapper('../shared/extract.js', 'keepAlpha', 'items', 'out'),
+  'src/deep/nested/gamma.ts': wrapper('../../shared/extract.js', 'keepGamma', 'entries', 'acc'),
+};
+
+describe('buildCloneIndex — partial-extraction signal (criterion 3)', () => {
+  it('labels the class and names the module across three import depths', async () => {
+    const { root, index } = await scratch(threeDepths);
+    try {
+      expect(index.classes).toHaveLength(1);
+      const cls = index.classes[0]!;
+      expect(cls.members).toHaveLength(3);
+      // Measured, not guessed: this body normalizes to 62 tokens.
+      expect(cls.tokenCount).toBe(62);
+      expect(cls.rank).toBe(186);
+      expect(cls.signal).toBe('partial-extraction');
+      expect(cls.sharedImport).toBe('src/shared/extract');
+      // `./shared/extract.js`, `../shared/extract.js` and
+      // `../../shared/extract.js` are three distinct strings. One key.
+      expect(cls.members.map((m) => m.unit).sort()).toEqual(['keepAlpha', 'keepBeta', 'keepGamma']);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it('names the same module whatever order the files are discovered in', async () => {
+    const forward = await scratch(threeDepths);
+    const reversed = await scratch(threeDepths, {}, 'reversed');
+    try {
+      expect(reversed.index.classes).toHaveLength(1);
+      expect(reversed.index.classes[0]!.sharedImport).toBe(forward.index.classes[0]!.sharedImport);
+      expect(reversed.index.classes[0]!.signal).toBe('partial-extraction');
+    } finally {
+      await rm(forward.root, { recursive: true, force: true });
+      await rm(reversed.root, { recursive: true, force: true });
+    }
+  });
+
+  it('picks the lexicographically smallest key when two modules are shared', async () => {
+    // Both modules are referenced inside every member body, so the predicate
+    // holds for both and the single `sharedImport` field must pick one by a
+    // stated rule rather than by discovery order.
+    const twoShared = (spec: string, fn: string, p: string, out: string) =>
+      `import { extract } from '${spec}/extract.js';\n` +
+      `import { LIMIT } from '${spec}/bounds.js';\n` +
+      `export function ${fn}(${p}: string[]): string[] {\n` +
+      `  const ${out}: string[] = [];\n` +
+      `  for (const item of ${p}) {\n` +
+      `    const value = extract(item);\n` +
+      `    if (value.length > 0 && ${out}.length < LIMIT) {\n` +
+      `      ${out}.push(value);\n` +
+      `    }\n` +
+      `  }\n` +
+      `  return ${out};\n` +
+      `}\n`;
+    const { root, index } = await scratch({
+      'src/shared/extract.ts': shared,
+      'src/shared/bounds.ts': `export const LIMIT = 10;\n`,
+      'src/beta.ts': twoShared('./shared', 'keepBeta', 'rows', 'kept'),
+      'src/wrappers/alpha.ts': twoShared('../shared', 'keepAlpha', 'items', 'out'),
+      'src/deep/nested/gamma.ts': twoShared('../../shared', 'keepGamma', 'entries', 'acc'),
+    });
+    try {
+      expect(index.classes).toHaveLength(1);
+      // 'src/shared/bounds' < 'src/shared/extract'.
+      expect(index.classes[0]!.sharedImport).toBe('src/shared/bounds');
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+});
+
+describe('buildCloneIndex — what does NOT get labelled (criterion 2)', () => {
+  it('leaves a FILE-level-only common import as a plain duplicate', async () => {
+    // Every file imports `extract` and every file REFERENCES it — but only
+    // from a second, too-small-to-report function, never from the cloned body.
+    // This is the single case that separates the shipped predicate from the
+    // spec's original file-level wording.
+    const sidecar = (spec: string, fn: string, p: string, out: string) =>
+      `import { extract } from '${spec}';\n` +
+      standalone(fn, p, out) +
+      `export function label${fn}(raw: string): string {\n  return extract(raw);\n}\n`;
+    const { root, index } = await scratch({
+      'src/shared/extract.ts': shared,
+      'src/beta.ts': sidecar('./shared/extract.js', 'keepBeta', 'rows', 'kept'),
+      'src/wrappers/alpha.ts': sidecar('../shared/extract.js', 'keepAlpha', 'items', 'out'),
+      'src/deep/nested/gamma.ts': sidecar('../../shared/extract.js', 'keepGamma', 'entries', 'acc'),
+    });
+    try {
+      expect(index.classes).toHaveLength(1);
+      const cls = index.classes[0]!;
+      expect(cls.members).toHaveLength(3);
+      expect(cls.signal).toBe('duplicate');
+      expect(cls.sharedImport).toBeUndefined();
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it('leaves a common Node builtin as a plain duplicate, with sharedImport ABSENT', async () => {
+    const viaBuiltin = (fn: string, p: string, out: string) =>
+      `import { join } from 'node:path';\n` +
+      `export function ${fn}(${p}: string[]): string[] {\n` +
+      `  const ${out}: string[] = [];\n` +
+      `  for (const item of ${p}) {\n` +
+      `    const value = join(item, 'x');\n` +
+      `    if (value.length > 0) {\n` +
+      `      ${out}.push(value);\n` +
+      `    }\n` +
+      `  }\n` +
+      `  return ${out};\n` +
+      `}\n`;
+    const { root, index } = await scratch({
+      'src/beta.ts': viaBuiltin('keepBeta', 'rows', 'kept'),
+      'src/wrappers/alpha.ts': viaBuiltin('keepAlpha', 'items', 'out'),
+      'src/deep/nested/gamma.ts': viaBuiltin('keepGamma', 'entries', 'acc'),
+    });
+    try {
+      expect(index.classes).toHaveLength(1);
+      const cls = index.classes[0]!;
+      expect(cls.signal).toBe('duplicate');
+      // Absent, not present-and-undefined: `Object.keys` and the wire format
+      // disagree about those two, and the barrel suite pins the key set.
+      expect('sharedImport' in cls).toBe(false);
+      expect(Object.keys(cls)).not.toContain('sharedImport');
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it('leaves a common TYPE-ONLY import as a plain duplicate', async () => {
+    // A shared `import type` IS the "structurally forced by an interface
+    // contract" false positive criterion 2 rejects.
+    const viaType = (spec: string, fn: string, p: string, out: string) =>
+      `import type { Shape } from '${spec}';\n` +
+      `export function ${fn}(${p}: Shape[]): Shape[] {\n` +
+      `  const ${out}: Shape[] = [];\n` +
+      `  for (const item of ${p}) {\n` +
+      `    const value = item;\n` +
+      `    if (value.id.length > 0) {\n` +
+      `      ${out}.push(value);\n` +
+      `    }\n` +
+      `  }\n` +
+      `  return ${out};\n` +
+      `}\n`;
+    const { root, index } = await scratch({
+      'src/shared/shape.ts': `export interface Shape {\n  id: string;\n}\n`,
+      'src/beta.ts': viaType('./shared/shape.js', 'keepBeta', 'rows', 'kept'),
+      'src/wrappers/alpha.ts': viaType('../shared/shape.js', 'keepAlpha', 'items', 'out'),
+      'src/deep/nested/gamma.ts': viaType('../../shared/shape.js', 'keepGamma', 'entries', 'acc'),
+    });
+    try {
+      expect(index.classes).toHaveLength(1);
+      expect(index.classes[0]!.signal).toBe('duplicate');
+      expect(index.classes[0]!.sharedImport).toBeUndefined();
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it('leaves a class whose members reference DIFFERENT modules as a plain duplicate', async () => {
+    const { root, index } = await scratch({
+      'src/shared/extract.ts': shared,
+      'src/shared/other.ts': `export function extract(raw: string): string {\n  return raw;\n}\n`,
+      'src/beta.ts': wrapper('./shared/extract.js', 'keepBeta', 'rows', 'kept'),
+      'src/wrappers/alpha.ts': wrapper('../shared/extract.js', 'keepAlpha', 'items', 'out'),
+      // Same body, same local binding name, DIFFERENT module.
+      'src/deep/nested/gamma.ts': wrapper('../../shared/other.js', 'keepGamma', 'entries', 'acc'),
+    });
+    try {
+      const cls = index.classes.find((c) => c.members.length === 3);
+      expect(cls).toBeDefined();
+      expect(cls!.signal).toBe('duplicate');
+      expect(cls!.sharedImport).toBeUndefined();
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+});

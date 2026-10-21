@@ -75,6 +75,11 @@ describe('core barrel — duplication surface (criterion 11)', () => {
     'MAX_EVIDENCE_ENTRIES',
     'IDENTIFIER_PLACEHOLDER',
     'LITERAL_PLACEHOLDER',
+    // Phase 4, criterion 11 extended.
+    'moduleKey',
+    'collectFileImports',
+    'usedImportKeys',
+    'sharedImportKey',
   ])('exposes %s as a named export on the package entry point', (name) => {
     // What this proves: the name is present on the package's namespace object.
     // It does NOT prove the binding is usable — the case below does that for

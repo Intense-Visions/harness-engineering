@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/src/duplication'
-sourceHash: 'd1ba1765592bd7e2aa5ecc33e1caf3355f543646ec4d84d41b14ae0bfaad99b5'
+sourceHash: '7f28230ef8290a997e7ef11f81c4862645aed0c0cac0a4c0493e799d2d64f2dc'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -38,7 +38,7 @@ export usedImportKeys
 import { EntropyError, createEntropyError } from '../shared/errors'
 import { readFileContent, relativePosix } from '../shared/fs-utils'
 import { Err, Ok, Result } from '../shared/result'
-import { collectFileImports, usedImportKeys } from './imports'
+import { collectFileImports, sharedImportKey, usedImportKeys } from './imports'
 import { digest, normalize } from './tokens'
 import { CloneUnitKind, extractUnitsImpl } from './units'
 import { TSESTree, parse } from '@typescript-eslint/typescript-estree'

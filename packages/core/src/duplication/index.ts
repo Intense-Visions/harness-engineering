@@ -10,7 +10,7 @@ import { createEntropyError } from '../shared/errors';
 import type { CloneUnitKind } from './units';
 import { extractUnits as extractUnitsImpl } from './units';
 import { normalizeTokens as normalize, fingerprintStream as digest } from './tokens';
-import { collectFileImports, usedImportKeys } from './imports';
+import { collectFileImports, usedImportKeys, sharedImportKey } from './imports';
 
 export type { CloneUnitKind, DupUnit } from './units';
 export { extractUnits, MissingNodeLocationError } from './units';
@@ -51,12 +51,31 @@ export interface CloneClass {
   /** `tokenCount * members.length` — the ranking key. */
   rank: number;
   /**
-   * Always `'duplicate'` in Phase 1. The `'partial-extraction'` derivation
-   * (spec decision D8) lands in Phase 4; the field exists now so #1612/#1646
-   * bind against a stable interface.
+   * `'partial-extraction'` when EVERY member's unit body references a value
+   * binding imported from one common first-party module — a half-done
+   * extraction, where the shared helper already exists and only the wrapper
+   * layer stayed duplicated. `'duplicate'` otherwise.
+   *
+   * All four conditions are load-bearing and each is earned by measurement in
+   * `./imports.ts`: module IDENTITY rather than raw specifier strings, the
+   * reference inside the unit BODY rather than anywhere in the file, VALUE
+   * imports only, and FIRST-PARTY modules only. The spec's original
+   * file-level wording labels 89 of this repository's 96 reported classes
+   * (92.7%), including all 38 platform-mirror classes whose four copies share
+   * an import list by construction; the shipped predicate labels 10, none of
+   * them a mirror.
    */
   signal: 'duplicate' | 'partial-extraction';
-  /** Set only when `signal === 'partial-extraction'` — unset in Phase 1. */
+  /**
+   * The shared module's repo-relative, extensionless key — set only when
+   * `signal === 'partial-extraction'`, and ABSENT rather than
+   * present-and-`undefined` otherwise.
+   *
+   * A KEY, not a file path: it is derived without touching the filesystem, so
+   * claiming a file exists would be a claim the derivation never checked. When
+   * a class shares more than one module the lexicographically smallest key
+   * wins, so the published value never depends on file-discovery order.
+   */
   sharedImport?: string;
 }
 
@@ -986,13 +1005,26 @@ export async function buildCloneIndex(
     const members = units
       .map((u) => u.member)
       .sort((a, b) => a.file.localeCompare(b.file) || a.startLine - b.startLine);
+    // D8, as MEASURED rather than as first written: the spec's file-level
+    // sentence ("every member's file imports a common module") labels 89 of
+    // this repository's 96 classes, 38 of them platform mirrors whose four
+    // copies share an import list by construction. The predicate that ships
+    // is the body-level, first-party, value-only one — 10 of 96 — and it is
+    // documented in `imports.ts`, where each condition is earned separately.
+    const sharedImport = sharedImportKey(units.map((unit) => unit.importKeys));
+    const signal: CloneClass['signal'] =
+      sharedImport === undefined ? 'duplicate' : 'partial-extraction';
     qualifying.push({
       fingerprint,
       tokenCount,
       members,
       rank: tokenCount * members.length,
-      // Phase 1 always 'duplicate'; the partial-extraction derivation is Phase 4.
-      signal: 'duplicate',
+      signal,
+      // Spread, never `sharedImport: undefined`: a plain duplicate's key set
+      // is pinned by the barrel suite, and a present-but-undefined key is a
+      // different object on the wire (`JSON.stringify` drops it, `Object.keys`
+      // does not).
+      ...(sharedImport !== undefined && { sharedImport }),
     });
   }
 
