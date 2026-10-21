@@ -26,6 +26,39 @@ describe('composeInsights', () => {
     expect(typeof report.generatedAt).toBe('string');
   });
 
+  it('measures a project it can analyse: a dead file makes health FAIL', async () => {
+    mkdirSync(join(projectPath, 'src'));
+    writeFileSync(
+      join(projectPath, 'package.json'),
+      JSON.stringify({ name: 'fx', main: 'src/index.ts' })
+    );
+    writeFileSync(join(projectPath, 'src', 'index.ts'), 'export const main = 1;\n');
+    writeFileSync(join(projectPath, 'src', 'orphan.ts'), 'export const orphan = 2;\n');
+
+    const report = await composeInsights(projectPath, {
+      skip: ['decay', 'attention', 'impact'],
+    });
+
+    expect(report.warnings).toEqual([]);
+    expect(report.entropy?.deadFiles).toBe(1);
+    expect(report.health?.passed).toBe(false);
+  });
+
+  it('a failed entropy analysis is null plus a warning, never zero counts', async () => {
+    // Empty project: no entry point resolves, so the analyzer returns Err.
+    const report = await composeInsights(projectPath, {
+      skip: ['decay', 'attention', 'impact'],
+    });
+
+    expect(report.health).toBeNull();
+    expect(report.entropy).toBeNull();
+    // Sorted: the blocks gather in parallel, so warning order is not fixed.
+    expect([...report.warnings].sort()).toEqual([
+      expect.stringMatching(/^entropy: entropy analysis failed \(ENTRY_POINT_NOT_FOUND\)/),
+      expect.stringMatching(/^health: entropy analysis failed \(ENTRY_POINT_NOT_FOUND\)/),
+    ]);
+  });
+
   it('skip=[entropy,health] sets those keys to null', async () => {
     const report = await composeInsights(projectPath, { skip: ['entropy', 'health'] });
     expect(report.entropy).toBeNull();

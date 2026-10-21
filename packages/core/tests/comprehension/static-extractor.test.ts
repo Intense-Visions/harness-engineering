@@ -133,6 +133,20 @@ describe('createStaticExtractor (concrete ExtractStatic over core AST)', () => {
     expect(interfaceContract).toContain('beta');
   });
 
+  it('skips a member with a syntax error but still surfaces its siblings', async () => {
+    // Per-member degrade is the right answer for ONE unparseable file; only a
+    // parser that cannot run at all fails the extraction (#2267, see
+    // static-extractor-parser-unavailable.test.ts).
+    const sourceFiles = await writeModule(projectRoot, 'mod', {
+      'broken.ts': 'export const = ;\n',
+      'good.ts': "import { dep } from './dep';\nexport const fine = dep;\n",
+    });
+    const extract = createStaticExtractor({ projectRoot, module: 'mod' });
+    const { interfaceContract, dependencySlice } = await extract(sourceFiles);
+    expect(interfaceContract).toBe('export fine');
+    expect(dependencySlice).toBe("import { dep } from './dep'");
+  });
+
   it('degrades to empty static sections for an unsupported language (never faked)', async () => {
     const sourceFiles = await writeModule(projectRoot, 'mod', {
       'main.py': 'def foo():\n    pass\n',

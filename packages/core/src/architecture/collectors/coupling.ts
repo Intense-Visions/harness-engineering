@@ -3,6 +3,9 @@ import { violationId, constraintRuleId } from './hash';
 import { detectCouplingViolations } from '../../entropy/detectors/coupling';
 import { parseSourceFiles, buildExportMap } from '../../entropy/snapshot';
 import type { CodebaseSnapshot } from '../../entropy/types';
+import type { Result } from '../../shared/result';
+import { Ok } from '../../shared/result';
+import type { EntropyError } from '../../shared/errors';
 import { buildDependencyGraphFromParsed } from '../../constraints/dependencies';
 import { findFiles, relativePosix } from '../../shared/fs-utils';
 import { getDefaultRegistry } from '../../shared/parsers/registry';
@@ -46,14 +49,19 @@ const TEST_FILE_EXCLUDES = ['**/*.test.ts', '**/*.spec.ts'] as const;
  * detector consumes none of them — empty is the truthful value here, not a
  * stand-in, and the result satisfies `CodebaseSnapshot` without a cast.
  */
-async function buildCouplingSnapshot(files: string[], rootDir: string): Promise<CodebaseSnapshot> {
+async function buildCouplingSnapshot(
+  files: string[],
+  rootDir: string
+): Promise<Result<CodebaseSnapshot, EntropyError>> {
   const registry = getDefaultRegistry();
-  const sourceFiles = await parseSourceFiles(files, (f) => registry.getForFile(f));
+  const parsed = await parseSourceFiles(files, (f) => registry.getForFile(f));
+  if (!parsed.ok) return parsed;
+  const sourceFiles = parsed.value;
   // From the ALREADY-parsed files: `buildDependencyGraph` would re-parse the
   // whole tree, doubling the cost of a gate that runs in `.husky/pre-commit`.
   const dependencyGraph = await buildDependencyGraphFromParsed(files, sourceFiles);
 
-  return {
+  return Ok({
     files: sourceFiles,
     dependencyGraph,
     exportMap: buildExportMap(sourceFiles),
@@ -63,7 +71,7 @@ async function buildCouplingSnapshot(files: string[], rootDir: string): Promise<
     rootDir,
     config: { rootDir, analyze: { coupling: true } },
     buildTime: 0,
-  };
+  });
 }
 
 function mapCouplingViolations(
@@ -111,7 +119,21 @@ export class CouplingCollector implements Collector {
       ...TEST_FILE_EXCLUDES,
       ...resolveExcludePatterns(config),
     ]);
-    const snapshot = await buildCouplingSnapshot(files, rootDir);
+    const snapshotResult = await buildCouplingSnapshot(files, rootDir);
+    if (!snapshotResult.ok) {
+      // The parser could not run (#2267). Abstain with the cause rather than
+      // measure an empty file set as zero coupling.
+      return [
+        {
+          category: this.category,
+          scope: 'project',
+          value: 0,
+          violations: [],
+          metadata: { error: snapshotResult.error.message },
+        },
+      ];
+    }
+    const snapshot = snapshotResult.value;
 
     const result = await detectCouplingViolations(snapshot);
     if (!result.ok) {
