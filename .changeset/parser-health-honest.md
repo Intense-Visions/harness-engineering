@@ -70,14 +70,27 @@ unchanged. `check-arch`'s coupling and forbidden-imports collectors abstain with
 parser's cause in `metadata.error` rather than with an unexplained
 `filesAnalyzed: 0`.
 
+**`harness insights` / `insights_summary` no longer report Health PASS over an
+analysis that failed.** `gatherEntropyBlock` turned any analyzer error into zero
+counts, so the health block read PASS. It now throws, so the health and entropy
+blocks are `null` with a `warnings[]` entry, and the text report prints
+`NOT MEASURED (see warnings)` instead of omitting them. This covers the
+unavailable parser (`SNAPSHOT_BUILD_FAILED`) and also `ENTRY_POINT_NOT_FOUND`.
+
 **The abstention now carries the parser's own diagnosis.** `reason` was the bare
 string `'Parser unavailable'`, which `check-deps` and the MCP tool print
 verbatim — it told an operator something was wrong but never what. It is now
 `Parser unavailable: <health message>`, keeping the greppable prefix that
 consumers and their tests match on.
 
-**No behaviour change on a working install.** On this repository `health()`
-returns `available: true` with version `8.59.2`, from both built formats, so
-every consumer is byte-identical. The changes are visible only when the parser
+**One behaviour change on a working install.** On this repository `health()`
+returns `available: true` with version `8.59.2`, from both built formats, and
+every parser consumer is byte-identical. The exception is `harness insights` /
+`insights_summary` on a project where no entropy entry point resolves (this
+monorepo's own root is one). There, the health and entropy blocks previously
+read PASS with zero counts. They now read NOT MEASURED, with an
+`ENTRY_POINT_NOT_FOUND` warning. Everything else changes only when the parser
 genuinely is unavailable. In that state the previous behaviour was a
-module-load crash; it is now a named error or abstention on every consumer.
+module-load crash. Each consumer now reports a named error or abstention:
+`check-deps`, the `check_dependencies` MCP tool, `ci check`, `review`,
+`check-arch`, `cleanup`, `detect_entropy`, `comprehend`, and `insights`.

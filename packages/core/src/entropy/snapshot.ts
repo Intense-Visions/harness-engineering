@@ -456,6 +456,10 @@ export async function buildSnapshot(
     if (!fileParser) continue;
 
     const parseResult = await fileParser.parseFile(filePath);
+    // No PARSER_UNAVAILABLE check here on purpose: the same parser already ran
+    // over the source files in `parseSourceFiles` above, which fails the whole
+    // snapshot on that code first (#2267). Only a per-file syntax error is
+    // skipped here.
     if (!parseResult.ok) continue;
 
     const importsResult = fileParser.extractImports(parseResult.value);
