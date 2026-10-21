@@ -115,13 +115,95 @@ describe('collectFileImports', () => {
     ).toEqual({});
   });
 
-  it('records every identifier position of a kept binding, ascending', () => {
-    const src = `import { h } from './h.js';\nexport const a = h;\nexport const b = h;\n`;
+  it('records every CALL SITE of a kept binding, ascending, and nothing else', () => {
+    // Four mentions of `h`, two of which are qualifying uses: the import
+    // specifier itself and the bare read `const c = h` are not call sites, so
+    // only the two callee offsets are recorded. Under the token-spelling
+    // predicate this answered 4.
+    const src =
+      `import { h } from './h.js';\n` +
+      `export const a = h(1);\n` +
+      `export const b = h(2);\n` +
+      `export const c = h;\n`;
     const { positions } = collectFileImports(programOf(src), 'src/f.ts');
     const at = positions.get('h');
-    expect(at).toHaveLength(3); // the specifier itself plus the two references
+    expect(at).toHaveLength(2);
     expect([...at!]).toEqual([...at!].slice().sort((x, y) => x - y));
-    expect(at![0]).toBe(src.indexOf('h'));
+    expect(at![0]).toBe(src.indexOf('h(1)'));
+    expect(at![1]).toBe(src.indexOf('h(2)'));
+    // The import specifier's own token is BEFORE both and is not one of them.
+    expect(at![0]).toBeGreaterThan(src.indexOf('h'));
+  });
+
+  it('records a method-call RECEIVER and a JSX element name', () => {
+    const src =
+      `import { fmt } from './fmt.js';\n` +
+      `export function go(x: string) {\n` +
+      `  return fmt.render(x);\n` +
+      `}\n`;
+    const { positions } = collectFileImports(programOf(src), 'src/f.ts');
+    expect(positions.get('fmt')).toEqual([src.indexOf('fmt.render')]);
+
+    const jsx = `import { Row } from './row.js';\nexport const W = () => <Row.Cell />;\n`;
+    const parsed = parse(jsx, { tokens: true, loc: true, range: true, jsx: true });
+    expect(collectFileImports(parsed, 'src/w.tsx').positions.get('Row')).toEqual([
+      jsx.indexOf('Row.Cell'),
+    ]);
+  });
+
+  it('records NOTHING for a bare property read, a member property, an object key or a type', () => {
+    // The four mislabel shapes the role filter removes by construction. Each
+    // file mentions the import's name and calls nothing through it.
+    const cases: Array<[string, string]> = [
+      ['bare property read', `import { M } from './m.js';\nexport const a = M.JSON;\n`],
+      ['member property', `import { extract } from './e.js';\nexport const a = [].extract;\n`],
+      [
+        'object-literal key',
+        `import { extract } from './e.js';\nexport const o = { extract: 1 };\n`,
+      ],
+      [
+        'value import used as a type',
+        `import { Fmt } from './f.js';\nexport function go(a: Fmt): void {\n  void a;\n}\n`,
+      ],
+      [
+        'method named like the import',
+        `import { extract } from './e.js';\nexport class A {\n  extract(): number {\n    return 1;\n  }\n}\n`,
+      ],
+    ];
+    for (const [label, src] of cases) {
+      const { positions } = collectFileImports(programOf(src), 'src/f.ts');
+      expect([...positions.keys()], label).toEqual([]);
+    }
+  });
+
+  it('drops a local whose name is ALSO declared in the file, rather than guessing scope', () => {
+    // A shadowing parameter makes the callee a use of a DIFFERENT binding, and
+    // this module has no scope manager. The conservative answer drops the key:
+    // a false NEGATIVE, never a false positive.
+    const src =
+      `import { extract } from './e.js';\n` +
+      `export function go(extract: (s: string) => string): string {\n` +
+      `  return extract('x');\n` +
+      `}\n`;
+    expect(keyed(src, 'src/f.ts')).toEqual({});
+
+    // Destructured parameters, variable declarators and catch params count too.
+    for (const decl of [
+      `export function go({ extract }: { extract: () => void }) {\n  extract();\n}\n`,
+      `export function go() {\n  const extract = () => 1;\n  return extract();\n}\n`,
+      `export function go() {\n  try {\n    return 1;\n  } catch (extract) {\n    return 0;\n  }\n}\n`,
+    ]) {
+      expect(keyed(`import { extract } from './e.js';\n` + decl, 'src/f.ts')).toEqual({});
+    }
+  });
+
+  it('keeps a key whose OTHER local is unshadowed', () => {
+    const src =
+      `import { a, b } from './m.js';\n` +
+      `export function go(a: number): number {\n` +
+      `  return a + b();\n` +
+      `}\n`;
+    expect(keyed(src, 'src/f.ts')).toEqual({ 'src/m': ['b'] });
   });
 });
 
@@ -162,7 +244,7 @@ describe('usedImportKeys', () => {
       `import { z } from './zeta.js';`,
       `import { a } from './alpha.js';`,
       `export function both(): number {`,
-      `  return z + a;`,
+      `  return z() + a();`,
       `}`,
     ].join('\n');
     const program = programOf(two);
@@ -176,6 +258,47 @@ describe('usedImportKeys', () => {
     const program = programOf(none);
     const unit = extractUnits(program).find((u) => u.name === 'solo')!;
     expect(usedImportKeys(collectFileImports(program, 'src/main.ts'), unit.range)).toEqual([]);
+  });
+});
+
+describe('usedImportKeys — the exported range contract', () => {
+  /**
+   * `usedImportKeys` is an exported API (spec criterion 11), so its range bound
+   * is a contract a caller may hold a hand-built `FileImports` against, not an
+   * internal detail. These cases pin both ends of `[start, end]` directly.
+   *
+   * Worth stating plainly: from this repository's own `fingerprintFile` path the
+   * `offset === start` case is now UNREACHABLE. It used to be reachable — a
+   * non-computed method's own name token starts exactly at its unit's start
+   * offset, which is how one fixture class was labelled twice — and the role
+   * filter removed that witness, because a method key is in no callee position.
+   * The inclusive bound is still the published contract, and this is where it is
+   * asserted rather than inferred.
+   */
+  const imports = (offsets: number[]) => ({
+    byKey: new Map([['src/m', ['m']]]),
+    positions: new Map([['m', offsets]]),
+  });
+
+  it('counts a use starting exactly at the unit START offset', () => {
+    expect(usedImportKeys(imports([100]), [100, 200])).toEqual(['src/m']);
+  });
+
+  it('counts a use starting exactly at the unit END offset', () => {
+    expect(usedImportKeys(imports([200]), [100, 200])).toEqual(['src/m']);
+  });
+
+  it('counts neither side of the range', () => {
+    expect(usedImportKeys(imports([99]), [100, 200])).toEqual([]);
+    expect(usedImportKeys(imports([201]), [100, 200])).toEqual([]);
+    expect(usedImportKeys(imports([99, 201]), [100, 200])).toEqual([]);
+  });
+
+  it('stops at the first offset past END rather than scanning on', () => {
+    // Ascending by contract: once one offset is past `end`, every later one is
+    // too. A later offset INSIDE the range would contradict the ordering, so
+    // this case asserts the early exit is sound, not that it is lossy.
+    expect(usedImportKeys(imports([201, 202, 203]), [100, 200])).toEqual([]);
   });
 });
 

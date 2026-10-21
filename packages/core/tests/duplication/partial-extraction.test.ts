@@ -109,17 +109,19 @@ describe('buildCloneIndex — partial-extraction signal (criterion 3)', () => {
   });
 
   it('picks the lexicographically smallest key when two modules are shared', async () => {
-    // Both modules are referenced inside every member body, so the predicate
-    // holds for both and the single `sharedImport` field must pick one by a
-    // stated rule rather than by discovery order.
+    // Both modules are CALLED inside every member body, so the predicate holds
+    // for both and the single `sharedImport` field must pick one by a stated
+    // rule rather than by discovery order. `bounds` exports a function, not a
+    // constant: a shared CONSTANT is exactly what the role filter rejects, so a
+    // `LIMIT` here would make this a one-module case and the assertion vacuous.
     const twoShared = (spec: string, fn: string, p: string, out: string) =>
       `import { extract } from '${spec}/extract.js';\n` +
-      `import { LIMIT } from '${spec}/bounds.js';\n` +
+      `import { limit } from '${spec}/bounds.js';\n` +
       `export function ${fn}(${p}: string[]): string[] {\n` +
       `  const ${out}: string[] = [];\n` +
       `  for (const item of ${p}) {\n` +
       `    const value = extract(item);\n` +
-      `    if (value.length > 0 && ${out}.length < LIMIT) {\n` +
+      `    if (value.length > 0 && ${out}.length < limit()) {\n` +
       `      ${out}.push(value);\n` +
       `    }\n` +
       `  }\n` +
@@ -127,7 +129,7 @@ describe('buildCloneIndex — partial-extraction signal (criterion 3)', () => {
       `}\n`;
     const { root, index } = await scratch({
       'src/shared/extract.ts': shared,
-      'src/shared/bounds.ts': `export const LIMIT = 10;\n`,
+      'src/shared/bounds.ts': `export function limit(): number {\n  return 10;\n}\n`,
       'src/beta.ts': twoShared('./shared', 'keepBeta', 'rows', 'kept'),
       'src/wrappers/alpha.ts': twoShared('../shared', 'keepAlpha', 'items', 'out'),
       'src/deep/nested/gamma.ts': twoShared('../../shared', 'keepGamma', 'entries', 'acc'),
