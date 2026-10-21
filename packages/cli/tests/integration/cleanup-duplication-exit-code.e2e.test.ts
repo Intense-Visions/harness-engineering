@@ -153,3 +153,67 @@ describe.skipIf(skipUnlessBin)('harness cleanup -t duplication (spawned CLI)', (
     expect(result.stdout).not.toContain('Duplication (advisory');
   });
 });
+
+const PE_FIXTURE = path.join(__dirname, '../fixtures/duplication-partial-extraction-project');
+
+describe.skipIf(skipUnlessBin)(
+  'harness cleanup -t duplication, partial-extraction (spawned CLI)',
+  () => {
+    let projectDir: string;
+
+    beforeEach(() => {
+      projectDir = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-dup-pe-'));
+      fs.cpSync(PE_FIXTURE, projectDir, { recursive: true });
+    });
+
+    afterEach(() => {
+      fs.rmSync(projectDir, { recursive: true, force: true });
+    });
+
+    it('keeps a labelled class out of the exit code (D4 holds for the signal too)', () => {
+      const result = runHarness(['cleanup', '-t', 'duplication', '--json'], { cwd: projectDir });
+      expect(result.status).toBe(0);
+      const payload = JSON.parse(result.stdout);
+      expect(payload.totalIssues).toBe(0);
+      expect(payload.duplication.classesReported).toBe(2);
+    });
+
+    it('orders the SMALLER labelled class above the larger plain duplicate', () => {
+      const result = runHarness(['cleanup', '-t', 'duplication', '--json'], { cwd: projectDir });
+      expect(result.status).toBe(0);
+      const payload = JSON.parse(result.stdout);
+      const classes = payload.duplication.classes;
+      expect(classes).toHaveLength(2);
+
+      expect(classes[0].signal).toBe('partial-extraction');
+      expect(classes[0].sharedImport).toBe('src/shared/payload');
+      expect(classes[0].rank).toBe(186);
+      expect(classes[0].priority).toBe(372);
+      expect(classes[0].priority).toBe(classes[0].rank * 2);
+
+      expect(classes[1].signal).toBe('duplicate');
+      expect(classes[1].rank).toBe(309);
+      expect(classes[1].priority).toBe(309);
+      expect(classes[1].priority).toBe(classes[1].rank);
+      expect('sharedImport' in classes[1]).toBe(false);
+
+      // THE ORDERING PROOF: the first class is the SMALLER duplication, and it
+      // is first only because it is labelled.
+      // MUTATION: set PARTIAL_EXTRACTION_PRIORITY_BOOST = 1 in core, rebuild
+      // core AND cli, and this fails — classes[0] becomes the plain duplicate.
+      expect(classes[0].rank).toBeLessThan(classes[1].rank);
+    });
+
+    it('names the signal on the labelled printed row and on no other', () => {
+      const result = runHarness(['cleanup', '-t', 'duplication'], { cwd: projectDir });
+      expect(result.status).toBe(0);
+      expect(result.stdout).toContain('2 clone class(es) over 9 scanned file(s)');
+      const rows = result.stdout.split('\n').filter((l) => l.trimStart().startsWith('- '));
+      expect(rows).toHaveLength(2);
+      expect(rows[0]).toContain('3x 62 tokens: keepBeta');
+      expect(rows[0]).toContain('[partial-extraction -> src/shared/payload]');
+      expect(rows[1]).toContain('3x 103 tokens: sumOne');
+      expect(rows[1]).not.toContain('partial-extraction');
+    });
+  }
+);
