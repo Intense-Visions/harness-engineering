@@ -23,6 +23,7 @@ import {
   type DesignPipelineContext,
   type DesignPipelineInput,
 } from '../design-pipeline/index.js';
+import { toSerializableResult } from '../design-pipeline/serialize.js';
 
 interface DesignPipelineCliOptions {
   fix?: boolean;
@@ -100,9 +101,7 @@ export function createDesignPipelineCommand(): Command {
       }
 
       if (outputMode === OutputMode.JSON) {
-        // Convert Set to array for JSON serialization
-        const serializable = { ...result, exclusions: [...result.exclusions] };
-        console.log(JSON.stringify(serializable, null, 2));
+        console.log(JSON.stringify(toSerializableResult(result), null, 2));
       } else {
         printPipelineResult(result, outputMode, formatter);
       }
@@ -130,7 +129,7 @@ function printPipelineResult(
   );
   console.log(
     `  DETECT   drift findings: ${result.driftFindings.length}` +
-      (result.exclusions.size > 0 ? `, excluded globs: ${[...result.exclusions].join(', ')}` : '')
+      describeExclusions(result.exclusions)
   );
   console.log(
     `  FIX      iterations: ${result.summary.iterationsRun}, fixes applied: ${result.summary.fixesApplied}`
@@ -162,6 +161,11 @@ function printPipelineResult(
   for (const w of result.warnings) {
     logger.warn(w);
   }
+}
+
+function describeExclusions(exclusions: Set<string> | null): string {
+  if (exclusions === null) return ', excluded globs: not measured';
+  return exclusions.size > 0 ? `, excluded globs: ${[...exclusions].join(', ')}` : '';
 }
 
 function verdictBadge(verdict: 'pass' | 'warn' | 'fail'): string {

@@ -1,11 +1,11 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/design-pipeline'
-sourceHash: '2a58f8e2f6ef8af7bcb00af56195e8ed3442c034df1b4037388df5eacb72b4d9'
+sourceHash: '79937da4372e5c866fa23ecb29cc5ff78c1b9a375609517df24bde81e8d720b3'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
-members: ['context.ts', 'index.ts', 'registry.ts']
+members: ['context.ts', 'index.ts', 'registry.ts', 'serialize.ts']
 ---
 
 ## Interface Contract

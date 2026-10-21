@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/mcp/tools'
-sourceHash: 'df8fb3af59299d8b2b87fc8ee50ca6c85b87bc65a159cc922954f2d4f78f57ea'
+sourceHash: 'abfbc457aa5ba214249c9f82230e94267b13a4d2a786d59652dba8bb5c5f0eff'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -483,6 +483,7 @@ import { BenchmarkTarget, VisionBenchmarkTarget, runBenchmark, runVisionBenchmar
 import { CritiqueTarget, VisionCritiqueTarget, runCritique, runVisionCritique } from '../../design-craft/phases/critique.js'
 import { PolishTarget, runPolish } from '../../design-craft/phases/polish.js'
 import { DesignPipelineContext, DesignPipelineInput, runDesignPipeline } from '../../design-pipeline/index.js'
+import { toSerializableResult } from '../../design-pipeline/serialize.js'
 import { CollectPromptsOutput, DocsCraftInput, DocsCraftMode, DocsCraftOutput, FinalizeDocsCraftInput, collectDocsCraftPrompts, finalizeDocsCraft, runDocsCraft } from '../../docs-craft/index.js'
 import { AttachMediaInput, DocsPublishConnector, DraftInput, PageTreeInput, PageTreeNode, VerifyRenderInput, resolveDocsPublishConnector } from '../../docs-publish/index.js'
 import { DetectDriftInput, DetectDriftOutput, runDetectDrift } from '../../drift/index.js'

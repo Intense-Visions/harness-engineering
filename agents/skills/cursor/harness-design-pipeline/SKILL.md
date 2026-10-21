@@ -58,7 +58,7 @@ All phases read from and write to a shared `DesignPipelineContext`:
 
 ```typescript
 interface DesignPipelineContext {
-  /** Deprecated (removed in the next major): whether graph.json exists. No verifier reads it. */
+  /** Deprecated (removed in the next major): whether graph.json exists in resolveGraphDir(path) — the project's own .harness/graph, or the main checkout's in a linked worktree with none. No verifier reads it. */
   graphAvailable: boolean;
   inputs: {
     designMdExists: boolean;
@@ -72,8 +72,8 @@ interface DesignPipelineContext {
   auditFindings: { anatomy: AnatomyFinding[]; brand: BrandFinding[] };
   craftFindings: CraftFinding[];
   craftSuggestions: number;
-  /** Exclude globs the DETECT walk applied (empty for an explicit `files` scope). */
-  exclusions: Set<string>;
+  /** Exclude globs the DETECT walk applied (empty for an explicit `files` scope); null when DETECT did not measure. */
+  exclusions: Set<string> | null;
   /** Non-fatal notices, e.g. a deprecated option that changed nothing. */
   warnings: string[];
   verifiersRun: string[];
@@ -82,7 +82,7 @@ interface DesignPipelineContext {
   /** Projection of verifiersFailed the verdict was resolved against. */
   degradedBy: string[];
   /** iterationsRun = FIX-loop passes executed (one per align invocation). */
-  /** fixStopReason = 'not-run' | 'no-drift' | 'converged' | 'no-progress' | 'max-iterations' | 'failed' */
+  /** fixStopReason = 'not-run' | 'detect-unavailable' | 'no-drift' | 'converged' | 'no-progress' | 'max-iterations' | 'failed' */
   summary: {
     totalFindings;
     bySeverity;
@@ -113,7 +113,7 @@ The context is passed to sub-skills via `.harness/handoff.json` with a `pipeline
 ### Phase 2: DETECT — Find Design Drift
 
 1. Invoke `runDetectDrift({ path, mode, files? })`.
-2. Populate `context.driftFindings` with all `DRIFT-T*` and `DRIFT-P*` findings, and `context.exclusions` with the exclude globs detect-design-drift reports it applied (`meta.excludePatterns`).
+2. Populate `context.driftFindings` with all `DRIFT-T*` and `DRIFT-P*` findings, and `context.exclusions` with the exclude globs detect-design-drift reports it applied (`meta.excludePatterns`). If detect-drift fails, `exclusions` stays `null` (unmeasured) rather than an empty set.
 3. Record `'detect-drift'` in `context.verifiersRun`.
 4. On failure: push to `context.verifiersFailed` and continue (graceful degradation). Graceful degradation means the OTHER verifiers still run — it does **not** mean the run can still report `pass`.
 5. If `design.audit.driftDetection.enabled === false` in config: SKIP this phase entirely.
@@ -140,7 +140,7 @@ while iteration < maxIterations:
   8. previousCount = newCount
 ```
 
-`summary.iterationsRun` is the number of passes that ran, including the one that converged, made no progress, or failed — so `fixesApplied > 0` always comes with `iterationsRun >= 1`. Because of that, the count does not say why the loop stopped (a run that converged on its 5th pass also reports 5); `summary.fixStopReason` does. It is `max-iterations` only when every allowed pass ran and the last one still made progress.
+`summary.iterationsRun` is the number of passes that ran, including the one that converged, made no progress, or failed — so `fixesApplied > 0` always comes with `iterationsRun >= 1`. Because of that, the count does not say why the loop stopped (a run that converged on its 5th pass also reports 5); `summary.fixStopReason` does. It is `max-iterations` only when every allowed pass ran and the last one still made progress, and `detect-unavailable` — not `no-drift` — when `--fix` was set but DETECT never measured (detect-drift threw or abstained), so an empty finding list is never read as "nothing to fix".
 
 Each align run mutates source files via its safe codemods (T001/T002/T003 only). Probably-safe / unsafe / failed outcomes are recorded but never auto-applied (align's pre-flight classifier is the gate).
 

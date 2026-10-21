@@ -50,7 +50,7 @@ function context(overrides: Partial<DesignPipelineContext> = {}): DesignPipeline
     auditFindings: { anatomy: [], brand: [], ...overrides.auditFindings },
     craftFindings: overrides.craftFindings ?? [],
     craftSuggestions: overrides.craftSuggestions ?? 0,
-    exclusions: overrides.exclusions ?? new Set<string>(),
+    exclusions: 'exclusions' in overrides ? (overrides.exclusions ?? null) : new Set<string>(),
     warnings: overrides.warnings ?? [],
     verifiersRun: overrides.verifiersRun ?? [],
     verifiersFailed: overrides.verifiersFailed ?? [],
@@ -221,6 +221,12 @@ describe('design-pipeline command → JSON mode', () => {
     expect(parsed.exclusions).toEqual(['src/legacy/**', 'vendor/*.css']);
   });
 
+  it('serializes unmeasured exclusions (DETECT did not run) as null, not []', async () => {
+    engineReturns(context({ exclusions: null }));
+    const parsed = parseJsonStdout(await run(['--json'])) as { exclusions: unknown };
+    expect(parsed.exclusions).toBeNull();
+  });
+
   it('serializes an empty exclusions Set as [] rather than {}', async () => {
     engineReturns(context({ exclusions: new Set<string>() }));
     const parsed = parseJsonStdout(await run(['--json'])) as { exclusions: unknown };
@@ -326,6 +332,12 @@ describe('design-pipeline command → warnings and exclusions in human mode', ()
     expect(res.stdoutLines).toContain(
       '  DETECT   drift findings: 0, excluded globs: src/legacy/**, **/*.stories.tsx'
     );
+  });
+
+  it('says the globs were not measured when DETECT did not run', async () => {
+    engineReturns(context({ exclusions: null }));
+    const res = await run([]);
+    expect(res.stdoutLines).toContain('  DETECT   drift findings: 0, excluded globs: not measured');
   });
 
   it('keeps the bare DETECT line when no globs were applied', async () => {

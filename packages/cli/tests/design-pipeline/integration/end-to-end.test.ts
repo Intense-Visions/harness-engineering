@@ -151,6 +151,32 @@ describe('runDesignPipeline (integration)', () => {
     expect(withoutGraph.graphAvailable).toBe(false);
   });
 
+  it('a run whose DETECT abstained reports unmeasured, not empty: exclusions null, fixStopReason detect-unavailable', async () => {
+    writeFile(
+      'design-system/tokens.json',
+      JSON.stringify({ color: { brand: { primary: { $type: 'color', $value: '#0066cc' } } } })
+    );
+    // An exclude that matches everything: detect-drift abstains rather than
+    // reporting a clean scan over nothing.
+    writeFile('harness.config.json', JSON.stringify({ design: { exclude: ['**/*'] } }));
+    writeFile('src/Card.ts', `const c = { color: "#0066cc" };\n`);
+
+    const out = await runDesignPipeline({ path: tmpDir, fix: true, noFill: true });
+    // Positive control: the abstention really happened.
+    expect(out.verifiersFailed.map((f) => f.name)).toContain('detect-drift');
+    expect(out.verifiersRun).not.toContain('detect-drift');
+    expect(out.exclusions).toBeNull();
+    expect(out.summary.fixStopReason).toBe('detect-unavailable');
+  });
+
+  it('a measured DETECT with no globs configured reports an empty set, not null', async () => {
+    writeFile('src/Card.tsx', `export const Card = () => <div>ok</div>;\n`);
+    const out = await runDesignPipeline({ path: tmpDir, fix: true, noFill: true });
+    expect(out.verifiersRun).toContain('detect-drift');
+    expect(out.exclusions).toEqual(new Set());
+    expect(out.summary.fixStopReason).toBe('no-drift');
+  });
+
   it('summary.fixStopReason is not-run when --fix is absent', async () => {
     const out = await runDesignPipeline({ path: tmpDir, noFill: true });
     expect(out.summary.fixStopReason).toBe('not-run');

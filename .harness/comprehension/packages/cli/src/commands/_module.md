@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/commands'
-sourceHash: 'f3d25c3271bf5dd8bfbb7843843d7e6e645f6375dabb843661b0a5f5e476dd2e'
+sourceHash: '85823dd89da28549a1754c5cd3850535d554e1f6a2a84256192ebb5f4d630dd7'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -439,6 +439,7 @@ import { BranchingConfigSchema, ComprehensionConfig, HarnessConfig, VocabularyCo
 import { CopyCraftInput, CopyCraftOutput, CopySurface, runCopyCraft } from '../copy-craft/index.js'
 import { CraftFinding } from '../design-craft/findings/schema'
 import { DesignPipelineContext, DesignPipelineInput, runDesignPipeline } from '../design-pipeline/index.js'
+import { toSerializableResult } from '../design-pipeline/serialize.js'
 import { DocsCraftInput, DocsCraftOutput, runDocsCraft } from '../docs-craft/index.js'
 import { DriftFinding } from '../drift/findings/finding'
 import { DriftStrictness } from '../drift/findings/finding.js'

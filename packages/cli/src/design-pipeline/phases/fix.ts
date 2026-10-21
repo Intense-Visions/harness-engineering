@@ -43,7 +43,10 @@ export async function runFix(input: FixInput): Promise<void> {
   const { context } = input;
 
   if (context.driftFindings.length === 0) {
-    context.summary.fixStopReason = 'no-drift';
+    // Empty means "nothing to fix" only if DETECT measured. When detect-drift
+    // threw or abstained the list is empty because nobody looked.
+    const measured = context.verifiersRun.includes('detect-drift');
+    context.summary.fixStopReason = measured ? 'no-drift' : 'detect-unavailable';
     return;
   }
 
@@ -66,7 +69,13 @@ export async function runFix(input: FixInput): Promise<void> {
 
 type FixPassOutcome =
   | { kind: 'progress'; remaining: number }
-  | { kind: 'stop'; reason: Exclude<FixStopReason, 'not-run' | 'no-drift' | 'max-iterations'> };
+  | {
+      kind: 'stop';
+      reason: Exclude<
+        FixStopReason,
+        'not-run' | 'detect-unavailable' | 'no-drift' | 'max-iterations'
+      >;
+    };
 
 /**
  * One align → re-detect pass. Returns `progress` only when the re-detect found

@@ -23,7 +23,12 @@ export type Verdict = 'pass' | 'warn' | 'fail';
  * both report `iterationsRun: 5`.
  *
  * - `not-run`        FIX did not run (no `--fix`).
- * - `no-drift`       FIX ran but DETECT found nothing to fix.
+ * - `detect-unavailable` FIX was requested but DETECT did not measure
+ *                    (detect-drift threw or abstained; see `verifiersFailed`),
+ *                    so there is no finding list to fix. Distinct from
+ *                    `no-drift`: an empty list here means "not looked", not
+ *                    "looked and found nothing".
+ * - `no-drift`       DETECT measured and found nothing to fix.
  * - `converged`      align applied 0 fixes on the last pass.
  * - `no-progress`    re-detect found as many findings as before the pass.
  * - `max-iterations` every allowed pass ran and the last one still made
@@ -32,6 +37,7 @@ export type Verdict = 'pass' | 'warn' | 'fail';
  */
 export type FixStopReason =
   | 'not-run'
+  | 'detect-unavailable'
   | 'no-drift'
   | 'converged'
   | 'no-progress'
@@ -43,9 +49,12 @@ export interface DesignPipelineContext {
   /**
    * @deprecated No composed verifier reads the knowledge graph, so nothing
    * consumes this; it will be removed in the next major. Until then it is
-   * correct: whether `graph.json` exists under the project's graph directory,
-   * probed on every run — including under `--no-freshen`, where it used to
-   * report `false` with a graph on disk.
+   * correct: whether `graph.json` exists in the directory
+   * `resolveGraphDir(projectRoot)` resolves to — the project's own
+   * `.harness/graph`, or, in a linked worktree with no graph of its own, the
+   * main checkout's (the same fallback graph-loader uses). Probed on every
+   * run, including under `--no-freshen`, where it used to report `false` with
+   * a graph on disk.
    */
   graphAvailable: boolean;
   inputs: {
@@ -79,10 +88,12 @@ export interface DesignPipelineContext {
    * The exclude globs (`design.exclude` ∪ `analysis.exclude`) the DETECT walk
    * actually applied, as reported by detect-design-drift itself rather than
    * re-resolved here, so the report cannot claim a filter the scan did not use.
-   * Empty when the walk applied none: no globs configured, an explicit
-   * `files` scope (which bypasses the walk), or DETECT abstained.
+   * Empty when the walk applied none: no globs configured, or an explicit
+   * `files` scope (which bypasses the walk). `null` when DETECT did not
+   * measure (detect-drift threw or abstained) — an empty set would claim "no
+   * globs applied" for a scan that never ran.
    */
-  exclusions: Set<string>;
+  exclusions: Set<string> | null;
   /**
    * Non-fatal notices about how the run was invoked — e.g. a deprecated
    * option that was accepted but changes nothing. They do not affect the
@@ -147,7 +158,8 @@ export function newContext(): DesignPipelineContext {
     auditFindings: { anatomy: [], brand: [] },
     craftFindings: [],
     craftSuggestions: 0,
-    exclusions: new Set(),
+    // Unmeasured until DETECT reports what its walk applied.
+    exclusions: null,
     warnings: [],
     verifiersRun: [],
     verifiersFailed: [],

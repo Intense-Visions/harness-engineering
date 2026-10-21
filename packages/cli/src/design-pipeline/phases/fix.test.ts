@@ -57,8 +57,10 @@ function makeInput(context: DesignPipelineContext, over: Partial<FixInput> = {})
   return { projectRoot: PROJECT_ROOT, context, mode: 'fast', ...over };
 }
 
+/** A context in which DETECT measured (detect-drift ran) and found `count` findings. */
 function contextWithDrift(count: number): DesignPipelineContext {
   const ctx = newContext();
+  ctx.verifiersRun.push('detect-drift');
   ctx.driftFindings = findings(count);
   return ctx;
 }
@@ -71,7 +73,7 @@ beforeEach(() => {
 
 describe('runFix', () => {
   it('returns immediately without aligning or writing when there is no drift', async () => {
-    const ctx = newContext(); // driftFindings === []
+    const ctx = contextWithDrift(0); // DETECT measured, found nothing
 
     await runFix(makeInput(ctx));
 
@@ -80,6 +82,20 @@ describe('runFix', () => {
     expect(h.writeFileSync).not.toHaveBeenCalled();
     expect(ctx.summary.iterationsRun).toBe(0);
     expect(ctx.summary.fixStopReason).toBe('no-drift');
+  });
+
+  it('reports detect-unavailable, not no-drift, when DETECT did not measure', async () => {
+    // detect-drift threw or abstained: the finding list is empty because
+    // nobody looked. Reporting `no-drift` here would tell a consumer there was
+    // nothing to fix on a run that never measured.
+    const ctx = newContext();
+    ctx.verifiersFailed.push({ name: 'detect-drift', error: 'abstained' });
+
+    await runFix(makeInput(ctx));
+
+    expect(h.runAlign).not.toHaveBeenCalled();
+    expect(ctx.summary.iterationsRun).toBe(0);
+    expect(ctx.summary.fixStopReason).toBe('detect-unavailable');
   });
 
   it('stops on convergence (0 fixes applied) after a single align, without re-detecting', async () => {
