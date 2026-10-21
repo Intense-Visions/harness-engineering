@@ -406,45 +406,105 @@ function printPatternSection(patternViolations: CleanupResult['patternViolations
   }
 }
 
-/** The advisory clone-class section, kept out of `printCleanupResult`'s branch count. */
+/** How many clone rows the text report prints before summarizing the rest. */
+const PRINTED_CLASSES = 10;
+
 /**
  * The `[partial-extraction -> key]` tag for a row that has one, else `''`.
  *
  * The signal is what makes a row jump the size ordering, so a row that jumped
  * says why. Without it the printed order is unexplainable from the printed
  * text — the operator sees a 3x62 class above a 3x103 one and no reason for it.
+ *
+ * Keyed on `signal` ALONE. The previous form also required
+ * `sharedImport !== undefined`, which is implied (the core sets the signal only
+ * when it has a key) — so the second condition could never fire, and if the
+ * invariant ever broke, a labelled class would have printed UNTAGGED, which is
+ * the one outcome that leaves the ordering unexplained. It now says so loudly
+ * instead.
  */
 function signalSuffix(cls: NonNullable<CleanupResult['duplication']>['classes'][number]): string {
-  return cls.signal === 'partial-extraction' && cls.sharedImport !== undefined
-    ? ` [partial-extraction -> ${cls.sharedImport}]`
-    : '';
+  if (cls.signal !== 'partial-extraction') return '';
+  return ` [partial-extraction -> ${cls.sharedImport ?? '(no shared module recorded)'}]`;
 }
 
+/**
+ * The counts line.
+ *
+ * `labelled partial-extraction` is published here because it is the one integer
+ * that tells an agent how much of the page is CHEAP work: a labelled row's
+ * repair is delete-and-import rather than design. The per-row tag says which
+ * rows, but only for the ten that print; the count is over every reported
+ * class.
+ */
+function duplicationHeadline(duplication: NonNullable<CleanupResult['duplication']>): string {
+  const labelled = duplication.classes.filter((cls) => cls.signal === 'partial-extraction').length;
+  return (
+    `  ${duplication.classesReported} clone class(es) over ${duplication.filesScanned} scanned file(s); ` +
+    `${labelled} labelled partial-extraction; ` +
+    `${duplication.classesSuppressed} below the minInstances bar` +
+    (duplication.classesTruncated > 0
+      ? `; ${duplication.classesTruncated} dropped by the maxClasses cap`
+      : '') +
+    // A partial skip makes the scan INCOMPLETE, and this line is the only
+    // place the CLI can say so — see `CleanupResult.duplication.filesSkipped`.
+    (duplication.filesSkipped > 0 ? `; ${duplication.filesSkipped} file(s) skipped` : '')
+  );
+}
+
+/**
+ * One printed row.
+ *
+ * The row names ONE site but the job is collapsing all N, so it says how many
+ * more there are. `memberCount` and not `members.length`: the two agree in the
+ * shipped projection, and `memberCount` is the field that stays correct if a
+ * caller ever hands this an abridged member list.
+ */
+function duplicationRow(cls: NonNullable<CleanupResult['duplication']>['classes'][number]): string {
+  const first = cls.members[0];
+  if (first === undefined) {
+    return `  - ${cls.memberCount}x ${cls.tokenCount} tokens: (no members)${signalSuffix(cls)}`;
+  }
+  const more = cls.memberCount > 1 ? `, +${cls.memberCount - 1} more sites` : '';
+  return (
+    `  - ${cls.memberCount}x ${cls.tokenCount} tokens: ` +
+    `${first.unit} (${first.file}:${first.startLine}${more})${signalSuffix(cls)}`
+  );
+}
+
+/**
+ * The largest class by `rank`, when the printed rows do not already carry it.
+ *
+ * The page is ordered by `priority`, so the biggest duplication in the project
+ * can be pushed off it by smaller labelled classes — and "biggest" is the one
+ * figure an operator scanning for a headline wants. One line the cap cannot
+ * push off. Omitted when it would be redundant, which is the common case.
+ */
+function largestClassLine(
+  duplication: NonNullable<CleanupResult['duplication']>
+): string | undefined {
+  const printed = duplication.classes.slice(0, PRINTED_CLASSES);
+  const largest = duplication.classes.reduce<
+    NonNullable<CleanupResult['duplication']>['classes'][number] | undefined
+  >((max, cls) => (max === undefined || cls.rank > max.rank ? cls : max), undefined);
+  if (largest === undefined || printed.includes(largest)) return undefined;
+  return `  largest by rank (${largest.rank}), below the printed rows:\n${duplicationRow(largest)}`;
+}
+
+/** The advisory clone-class section, kept out of `printCleanupResult`'s branch count. */
 function printDuplicationSection(duplication: NonNullable<CleanupResult['duplication']>): void {
   console.log(
     '\nDuplication (advisory — excluded from "Entropy issues", from the exit code and from --findings-json):'
   );
-  console.log(
-    `  ${duplication.classesReported} clone class(es) over ${duplication.filesScanned} scanned file(s); ` +
-      `${duplication.classesSuppressed} below the minInstances bar` +
-      (duplication.classesTruncated > 0
-        ? `; ${duplication.classesTruncated} dropped by the maxClasses cap`
-        : '') +
-      // A partial skip makes the scan INCOMPLETE, and this line is the only
-      // place the CLI can say so — see `CleanupResult.duplication.filesSkipped`.
-      (duplication.filesSkipped > 0 ? `; ${duplication.filesSkipped} file(s) skipped` : '')
-  );
-  for (const cls of duplication.classes.slice(0, 10)) {
-    const first = cls.members[0];
-    console.log(
-      `  - ${cls.memberCount}x ${cls.tokenCount} tokens: ` +
-        (first ? `${first.unit} (${first.file}:${first.startLine})` : '(no members)') +
-        signalSuffix(cls)
-    );
+  console.log(duplicationHeadline(duplication));
+  for (const cls of duplication.classes.slice(0, PRINTED_CLASSES)) {
+    console.log(duplicationRow(cls));
   }
-  if (duplication.classes.length > 10) {
-    console.log(`  ... and ${duplication.classes.length - 10} more`);
+  if (duplication.classes.length > PRINTED_CLASSES) {
+    console.log(`  ... and ${duplication.classes.length - PRINTED_CLASSES} more`);
   }
+  const largest = largestClassLine(duplication);
+  if (largest !== undefined) console.log(largest);
 }
 
 /**

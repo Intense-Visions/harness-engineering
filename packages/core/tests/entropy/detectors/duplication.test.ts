@@ -102,7 +102,10 @@ describe('detectDuplication over the planted-clones fixture', () => {
     expect(relaxed.value.stats.classesSuppressed).toBe(0);
   });
 
-  it('reports the top class by priority and records the drop (criterion 13)', async () => {
+  it('reports the LARGEST class and records the drop (criterion 13)', async () => {
+    // Retitled: the committed fixture holds only plain duplicates, where
+    // `priority === rank`, so this cannot tell the keys apart. Criterion 13's
+    // `priority` clause is proved in `duplication/partial-extraction.test.ts`.
     const result = await detectDuplication(await plantedSnapshot(), {
       ignorePatterns: [],
       maxClasses: 1,

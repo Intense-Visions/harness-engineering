@@ -407,7 +407,10 @@ describe('buildCloneIndex', () => {
     }
   });
 
-  it('caps at maxClasses by priority and records the dropped count', async () => {
+  it('caps at maxClasses by SIZE and records the dropped count', async () => {
+    // Retitled: both fixture classes are plain duplicates, so
+    // `priority === rank` and the assertions below are about rank. The
+    // `priority`-over-`rank` cap is proved in `partial-extraction.test.ts`.
     // Two STRUCTURALLY distinct bodies. `bodyB` must differ in keywords and
     // punctuators, not merely in literals or member names — those normalize
     // to `L` / `I` and would collapse both groups into one fingerprint.
@@ -495,7 +498,11 @@ describe('buildCloneIndex', () => {
     }
   });
 
-  it('sorts classes priority-descending and deterministically', async () => {
+  it('reports one class identically whatever order the files arrive in', async () => {
+    // Retitled: three identical files make ONE class, so there is no ordering
+    // here to assert — this case is about determinism of the reported set under
+    // input reordering. Priority-descending ordering is proved by the
+    // two-class cases in this file and in `partial-extraction.test.ts`.
     const root = await scratch({
       'src/a.ts': body('sumAlpha', 'items', 'total', 'item'),
       'src/b.ts': body('addBeta', 'rows', 'acc', 'row'),

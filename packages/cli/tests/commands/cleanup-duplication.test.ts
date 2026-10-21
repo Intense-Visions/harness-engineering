@@ -421,18 +421,110 @@ describe('harness cleanup -t duplication — what comes back out', () => {
     expect(output).not.toMatch(/Entropy issues:\s*\u001b?\[?[0-9;]*m?0/);
     expect(output).toContain('Duplication (advisory');
     expect(output).toContain('3 dropped by the maxClasses cap');
-    expect(output).toContain('3x 120 tokens: alpha (src/a.ts:3)');
     // The signal is what makes a row jump the size ordering, so the row that
     // jumped names it — and the plain row must NOT be tagged. Asserted per
     // LINE, because `toContain` over the whole block cannot tell the two apart.
+    // Each row also says how many OTHER sites the class has: the row names one,
+    // and the job is collapsing all of them.
     const rows = output.split('\n').filter((l) => l.trimStart().startsWith('- '));
     expect(rows).toHaveLength(2);
-    expect(rows[0]).toBe('  - 3x 120 tokens: alpha (src/a.ts:3)');
+    expect(rows[0]).toBe('  - 3x 120 tokens: alpha (src/a.ts:3, +2 more sites)');
     expect(rows[1]).toBe(
-      '  - 4x 48 tokens: delta (src/d.ts:1) [partial-extraction -> src/shared/payload]'
+      '  - 4x 48 tokens: delta (src/d.ts:1, +3 more sites) [partial-extraction -> src/shared/payload]'
     );
     // Nothing was skipped: the advisory line must not imply otherwise.
     expect(output).not.toContain('skipped');
+  });
+
+  it('publishes a labelled-class COUNT on the advisory line', () => {
+    // The one integer saying how much of the page is cheap work. Without it the
+    // per-row tag is the only signal, and that covers at most ten rows.
+    expect(printed()).toContain(
+      '2 clone class(es) over 11 scanned file(s); 1 labelled partial-extraction; 5 below the minInstances bar'
+    );
+  });
+
+  it('counts a class with ONE site without inventing other sites', () => {
+    const output = printed({
+      classes: [
+        {
+          fingerprint: 'cccc3333',
+          tokenCount: 60,
+          memberCount: 1,
+          rank: 60,
+          priority: 60,
+          signal: 'duplicate' as const,
+          members: [
+            { file: 'src/s.ts', unit: 'solo', kind: 'function', startLine: 7, endLine: 20 },
+          ],
+        },
+      ],
+      classesReported: 1,
+    });
+    expect(output).toContain('  - 1x 60 tokens: solo (src/s.ts:7)');
+    expect(output).not.toContain('more sites');
+    expect(output).toContain('0 labelled partial-extraction');
+  });
+
+  it('tags a labelled class LOUDLY when it carries no sharedImport', () => {
+    // The core sets the signal only when it has a key, so this state is
+    // unreachable from `buildCloneIndex`. The printer is a separate module fed
+    // a plain object, and the previous condition required BOTH — so if the
+    // invariant ever broke the row printed untagged, which is the one outcome
+    // that leaves the published order unexplained.
+    const output = printed({
+      classes: [
+        {
+          fingerprint: 'dddd4444',
+          tokenCount: 50,
+          memberCount: 3,
+          rank: 150,
+          priority: 300,
+          signal: 'partial-extraction' as const,
+          members: [{ file: 'src/x.ts', unit: 'ex', kind: 'function', startLine: 1, endLine: 9 }],
+        },
+      ],
+      classesReported: 1,
+    });
+    expect(output).toContain('[partial-extraction -> (no shared module recorded)]');
+    expect(output).toContain('1 labelled partial-extraction');
+  });
+
+  it('adds a largest-by-rank footer only when the printed rows lost it', () => {
+    // The page is ordered by `priority`, so smaller labelled classes can push
+    // the biggest duplication in the project off it. One line the cap cannot
+    // push off.
+    const row = (i: number, rank: number, signal: 'duplicate' | 'partial-extraction') => ({
+      fingerprint: `f${String(i).padStart(3, '0')}`,
+      tokenCount: rank / 3,
+      memberCount: 3,
+      rank,
+      priority: signal === 'partial-extraction' ? rank * 2 : rank,
+      signal,
+      ...(signal === 'partial-extraction' && { sharedImport: 'src/shared/payload' }),
+      members: [
+        {
+          file: `src/f${i}.ts`,
+          unit: `u${i}`,
+          kind: 'function' as const,
+          startLine: 1,
+          endLine: 9,
+        },
+      ],
+    });
+    // Eleven labelled classes of rank 300 (priority 600) ahead of one plain
+    // class of rank 999 — which is the largest, and is row twelve.
+    const classes = [
+      ...Array.from({ length: 11 }, (_, i) => row(i, 300, 'partial-extraction')),
+      row(11, 999, 'duplicate'),
+    ];
+    const pushedOff = printed({ classes, classesReported: 12, classesTruncated: 0 });
+    expect(pushedOff).toContain('largest by rank (999), below the printed rows:');
+    expect(pushedOff).toContain('  - 3x 333 tokens: u11 (src/f11.ts:1, +2 more sites)');
+    expect(pushedOff).toContain('... and 2 more');
+
+    // The default fixture's largest class IS printed, so no footer.
+    expect(printed()).not.toContain('largest by rank');
   });
 
   it('says so on the advisory line when files were skipped', () => {

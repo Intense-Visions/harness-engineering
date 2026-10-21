@@ -144,7 +144,12 @@ describe('buildCloneIndex over the planted-clones fixture (criterion 15)', () =>
     expect(result.value.stats.unitsFingerprinted).toBe(TOTAL_UNITS);
   });
 
-  it('reports the top class by priority and truncates the rest under maxClasses', async () => {
+  it('reports the LARGEST class and truncates the rest under maxClasses', async () => {
+    // Retitled: every class in the committed fixture is a plain duplicate, so
+    // `priority === rank` for all of them and this case cannot distinguish the
+    // two keys. It pins SIZE precedence and the dropped count. The proof that
+    // `priority` and not `rank` drives the cap lives in
+    // `partial-extraction.test.ts`, which needs a labelled class to make it.
     const files = await discover(PLANTED_ROOT);
     const result = await buildCloneIndex(files, {
       rootDir: PLANTED_ROOT,

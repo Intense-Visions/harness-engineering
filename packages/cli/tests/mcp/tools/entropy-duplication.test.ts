@@ -323,7 +323,14 @@ describe('detect_entropy type: "duplication" — the partial-extraction signal',
     expect(top[0]).toContain('[partial-extraction -> src/shared/payload]');
     expect(top[1]).toContain('3x 103 tokens: sumOne');
     expect(top[1]).not.toContain('partial-extraction');
+    // Each line names ONE site and says how many more the class has: the whole
+    // job is collapsing all N, so a line naming one of three must say so.
+    expect(top[0]).toContain(', +2 more sites)');
+    expect(top[1]).toContain(', +2 more sites)');
     expect(payload.advisory.duplication.classesReported).toBe(2);
+    // The one integer saying how much of the page is cheap work. `topClasses`
+    // tags say WHICH, but only for the three lines it carries.
+    expect(payload.advisory.duplication.labelledClasses).toBe(1);
     expect(payload.advisory.duplication.filesSkipped).toBe(0);
     // D4 parity on this surface, with a labelled class present.
     expect(payload.totalIssues).toBe(0);

@@ -229,6 +229,12 @@ function summarizeDuplication(duplication: any) {
     classesSuppressed: duplication.stats.classesSuppressed,
     classesTruncated: duplication.stats.classesTruncated,
     filesSkipped: duplication.stats.filesSkipped,
+    // The one integer that tells an agent how much of the page is CHEAP work: a
+    // labelled class's repair is delete-and-import rather than design. The
+    // `topClasses` tags say WHICH, but only for the three that are listed.
+    labelledClasses: duplication.classes.filter(
+      (cls: { signal?: string }) => cls.signal === 'partial-extraction'
+    ).length,
     membersReported: duplication.classes.reduce(
       (sum: number, cls: { members: unknown[] }) => sum + cls.members.length,
       0
@@ -238,8 +244,15 @@ function summarizeDuplication(duplication: any) {
 }
 
 /**
- * One `topClasses` line: the class's shape and first member, plus the
- * `partial-extraction` tag when it has one.
+ * One `topClasses` line: the class's shape, ONE named site and how many more
+ * there are, plus the `partial-extraction` tag when it has one.
+ *
+ * The line names one site but the job is collapsing all N, so it says so.
+ *
+ * The tag is keyed on `signal` ALONE. The previous form also required
+ * `sharedImport !== undefined`, which is implied — so the second condition
+ * could never fire, and if the invariant broke a labelled class would print
+ * UNTAGGED, leaving the ordering unexplained. It now says so loudly instead.
  *
  * A module-level function rather than an inline arrow so
  * {@link summarizeDuplication} stays under the pre-commit hook's
@@ -251,10 +264,12 @@ function topClassLine(cls: {
   signal?: string;
   sharedImport?: string;
 }): string {
-  const head = `${cls.members.length}x ${cls.tokenCount} tokens: ${cls.members[0]?.unit ?? '<anon>'} (${cls.members[0]?.file ?? '?'})`;
-  return cls.signal === 'partial-extraction' && cls.sharedImport !== undefined
-    ? `${head} [partial-extraction -> ${cls.sharedImport}]`
-    : head;
+  const more = cls.members.length > 1 ? `, +${cls.members.length - 1} more sites` : '';
+  const head =
+    `${cls.members.length}x ${cls.tokenCount} tokens: ${cls.members[0]?.unit ?? '<anon>'} ` +
+    `(${cls.members[0]?.file ?? '?'}${more})`;
+  if (cls.signal !== 'partial-extraction') return head;
+  return `${head} [partial-extraction -> ${cls.sharedImport ?? '(no shared module recorded)'}]`;
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
