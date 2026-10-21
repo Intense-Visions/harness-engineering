@@ -95,6 +95,45 @@ export const DriftConfigSchema = z.object({
 });
 
 /**
+ * Schema for duplication (clone) detection tuning — `entropy.duplication`.
+ *
+ * This is the validating boundary for values that arrive from a hand-edited
+ * `harness.config.json`, where `DuplicationConfig`'s TypeScript types are
+ * enforced by nothing. `buildCloneIndex` validates only `ignorePatterns`
+ * (minimatch throws on a non-string); `minTokens`, `minInstances` and
+ * `maxClasses` are validated nowhere else in the system. Each bad value
+ * fails SILENTLY rather than loudly:
+ *   - `maxClasses: 0` reports ZERO classes while counting every qualifying
+ *     one in `classesTruncated` — a pass over findings that were found.
+ *   - `minInstances: 1` (or 0, or negative) cannot lower the bar below the
+ *     hard 2-member skip in `buildCloneIndex`, so it silently means "report
+ *     every pair".
+ *   - `minTokens: "40"` compares a number against a string and happens to
+ *     coerce; `minTokens: "x"` makes every comparison false and
+ *     fingerprints every unit in the repository.
+ *
+ * `ignorePatterns` REPLACES `DEFAULT_DUPLICATION_CONFIG.ignorePatterns` —
+ * `resolveDuplicationConfig` merges by key, so it is not appended to the
+ * shipped 21 globs. A project that sets one pattern therefore stops
+ * ignoring tests, fixtures, generated output, `dist` and `node_modules`:
+ * list the defaults it wants to keep alongside its own.
+ */
+export const DuplicationConfigSchema = z.object({
+  /** Minimum normalized tokens before a unit is fingerprinted. Default 40. */
+  minTokens: z.number().int().positive().optional(),
+  /** Minimum members before a class is reported. Default 3 (Rule of Three); floor 2. */
+  minInstances: z.number().int().min(2).optional(),
+  /** minimatch globs (NOT the regex language `entropy.drift.ignorePatterns` uses). Replaces the defaults. */
+  ignorePatterns: z.array(z.string()).optional(),
+  /**
+   * Report cap; the top `maxClasses` by `priority` survive (criterion 13).
+   * `priority` is `rank` for a plain duplicate and `rank x 2` for a
+   * `partial-extraction` class. Default 100.
+   */
+  maxClasses: z.number().int().positive().optional(),
+});
+
+/**
  * Schema for entropy (drift/stale code) management configuration.
  */
 export const EntropyConfigSchema = z.object({
@@ -128,6 +167,14 @@ export const EntropyConfigSchema = z.object({
    * pass over zero rules (issue #1760).
    */
   patterns: PatternConfigSchema.optional(),
+  /**
+   * Duplication (clone) detection tuning. PRESENCE IS THE OPT-IN for
+   * `harness cleanup -t all` and `detect_entropy type: "all"`; an explicit
+   * `-t duplication` runs on the shipped defaults whether or not this block
+   * exists. `false` disables the detector outright, and an explicit request
+   * then REFUSES rather than reporting a clean scan it never ran (#1760).
+   */
+  duplication: z.union([z.boolean(), DuplicationConfigSchema]).optional(),
 });
 
 /**

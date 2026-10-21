@@ -10,5 +10,6 @@ export * from './pattern';
 export * from './complexity';
 export * from './coupling';
 export * from './size-budget';
+export * from './duplication';
 export * from './fix';
 export * from './report';

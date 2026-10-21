@@ -10,6 +10,23 @@ const DEFAULT_EXCLUDE = ['node_modules/**', 'dist/**', '**/*.test.ts', '**/*.spe
  * Run entropy analysis on the project and return a health summary.
  * Returns an error object instead of throwing on failure.
  * @internal Called with project-resolved paths, not from HTTP input.
+ *
+ * LATENT THIRD D4 CHANNEL — `configOverride.analyze`. Clone classes are
+ * ADVISORY and must never reach a gating counter (spec decision D4 / ADR
+ * 0134): `harness cleanup` keeps them out of `CleanupResult.totalIssues` and
+ * out of the `--findings-json` contract, and `detect_entropy` reports them
+ * beside `totalIssues` rather than inside it. This function threads a
+ * CALLER-SUPPLIED `analyze` straight into the analyzer and then returns
+ * `report.summary.totalIssues` — the aggregate the analyzer DOES sum
+ * duplication into — so a future caller that passes `duplication` would put
+ * clone classes in the dashboard health number without anyone deciding to.
+ *
+ * Bounded, not speculative: of 10 production `EntropyAnalyzer` sites across 9
+ * files, this is the ONLY one that both accepts a caller-supplied `analyze`
+ * and reads an aggregate counter. Zero live impact today — all three callers
+ * pass only `projectPath`. Deliberately NOT closed here (no guard, no type
+ * narrowing): naming it is cheap and honest, closing it speculatively would
+ * add a constraint no caller has asked for.
  */
 export async function gatherHealth(
   projectPath: string,

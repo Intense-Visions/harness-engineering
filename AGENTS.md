@@ -275,7 +275,7 @@ Each package has a clear responsibility:
 - **caching** (`packages/core/src/caching/`): Manages prompt cache adapters and stability classification for multiple LLM providers.
 - **constraints** (`packages/core/src/constraints/`): Validates architectural layers, detects circular dependencies, and enforces boundary rules across modules.
 - **context** (`packages/core/src/context/`): Documentation coverage analysis, knowledge map validation, and progressive skill loading with token budgets.
-- **entropy** (`packages/core/src/entropy/`): Detects and remediates codebase entropy including dead code, drift, complexity violations, and coupling problems.
+- **entropy** (`packages/core/src/entropy/`): Detects and remediates codebase entropy including dead code, drift, complexity violations, coupling problems, and duplicated code units (clone classes).
 - **health-signals** (`packages/core/src/health-signals/`): Canonical signal<->check contract. `SIGNAL_REGISTRY` is the single source of truth from which `SignalName`, `CHECK_SIGNAL_MAP`, `SIGNAL_CATEGORY_MAP`, and `HEALTH_SIGNAL_NAMES` are derived; `reconcilePassed(checks, signals)` keeps a check's `passed` true only if assess passed and no contradicting signal is present (never flips false→true). Consumed by the cli health-snapshot/dispatch surface and core `strength-007`. See [ADR-0047](docs/knowledge/decisions/0047-canonical-signal-check-contract-in-core.md) and [`docs/knowledge/core/health-signal-contract.md`](docs/knowledge/core/health-signal-contract.md).
 - **feedback** (`packages/core/src/feedback/`): Self-review, peer review, telemetry, and action tracking for code change analysis and agent feedback loops.
 - **interaction** (`packages/core/src/interaction/`): Schemas and types for structured agent-to-human interactions (questions, confirmations, transitions).
@@ -557,6 +557,27 @@ _Validation & Checks:_ `validate`, `validate-cross-check`, `check-arch`, `check-
 _Analysis & Intelligence:_ `predict`, `recommend`, `advise-skills`, `impact-preview`, `traceability`, `adoption`, `usage`, `scan-config`, `taint`, `search`, `insights`
 
 _Maintenance:_ `cleanup`, `cleanup-sessions` (with Hermes Phase 2 `--all` / `--include` / `--exclude`), `fix-drift`, `doctor`, `update`, `sync-main`, `sync-analyses`, `publish-analyses`, `snapshot`, `maintenance` (Hermes Phase 2: `list` / `show`; maintenance-pipeline Phase 3: `run [taskId...]` — on-demand, report-first sweep of overdue sweep-eligible tasks, `--all` / `--only` / `--skip` / `--fix` / `--concurrency` / `--json`, infra-free with no orchestrator), `mcp-guard` (Hermes Phase 2: pre-launch OSV malware check)
+
+`harness cleanup -t duplication` and the `detect_entropy` MCP tool's `type: "duplication"`
+report clone classes (whole-unit Type-2 clones at >= 3 members and >= 40 normalized tokens),
+ordered by `CloneClass.priority`: `tokenCount x members` (the `rank` field, which the signal
+never scales), DOUBLED for a `partial-extraction` class — one whose every member's BODY CALLS
+into a single common first-party module, named in `sharedImport`. "Calls" is literal and
+load-bearing: the binding must appear in every member body as a call callee, a method-call
+receiver, or a JSX element name. Merely REFERENCING a name the module exports is not enough,
+and an earlier revision that accepted it labelled three classes whose shared module exported no
+such helper at all — so the row promised a delete-and-import repair with nothing to import.
+A labelled row is usually the cheapest fix on the page, because the helper the body already
+calls is the thing the wrapper layer should have been reduced to; treat it as a strong lead,
+not a guarantee, and read the named module before planning the repair.
+They are **advisory**: clone classes never enter
+`CleanupResult.totalIssues`, so they never affect the exit code and never appear in the
+`--findings-json` contract, and on the MCP side they are reported under `advisory.duplication`
+outside `totalIssues` (spec decision D4 / [ADR-0134](docs/knowledge/decisions/0134-whole-unit-type-2-clone-detection-at-rule-of-three.md)).
+Under `-t all` / `type: "all"` the detector runs **only** when `entropy.duplication` is
+configured in `harness.config.json`; an explicit request runs on the shipped defaults, and
+`entropy.duplication: false` plus an explicit request REFUSES rather than reporting a clean
+scan it never ran.
 
 _Content & Generation:_ `blueprint`, `create-skill`, `generate-agent-definitions`, `generate-slash-commands`, `knowledge-pipeline`, `share`
 

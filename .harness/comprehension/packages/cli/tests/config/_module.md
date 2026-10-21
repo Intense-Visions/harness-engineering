@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/tests/config'
-sourceHash: 'e79e35721abe0bdd68337c6373795efa7bc940b914362566eeaa3147ac97141b'
+sourceHash: 'e66e8fffc3d658611fe9d1f049d7fe41ebdd9341a8badf6e75281def91deb30f'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -12,6 +12,7 @@ members:
     'constraint-packs-schema.test.ts',
     'deployment-schema.test.ts',
     'design-schema.test.ts',
+    'duplication-schema.test.ts',
     'i18n-schema.test.ts',
     'integrations-schema.test.ts',
     'knowledge-schema.test.ts',
@@ -42,6 +43,7 @@ members:
 import { AnalysisConfigSchema, DepsConfigSchema, loadAnalysisExclude, loadDepsExclude } from '../../src/config/analysis-schema'
 import { findConfigFile, loadConfig } from '../../src/config/loader'
 import { DeploymentGateConfigSchema, DepsConfigSchema, DesignConfigSchema, HarnessConfigSchema, I18nConfigSchema, I18nCoverageConfigSchema, I18nMcpConfigSchema, IntegrationsConfigSchema, KnowledgeConfigSchema, LocalModelsConfigSchema, LocalModelsHarnessFitConfigSchema, ModelTierConfigSchema, ReviewConfigSchema, RollbackConfigSchema, SkillHookEntrySchema, SkillHooksConfigSchema, TelemetryConfigSchema, TelemetryExportOTLPSchema, TrackerConfigSchema, loadDepsExclude } from '../../src/config/schema'
+import { collectStrippedKeys } from '../../src/config/stripped-keys'
 import * as fs from 'fs'
 import * as fs from 'node:fs'
 import * as os from 'node:os'
@@ -49,4 +51,5 @@ import * as path from 'node:path'
 import * as os from 'os'
 import * as path from 'path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { z } from 'zod'
 ```

@@ -1,5 +1,6 @@
 import type { Result } from '../shared/result';
 import { Ok, Err } from '../shared/result';
+import { createEntropyError } from '../shared/errors';
 import type {
   EntropyError,
   EntropyConfig,
@@ -13,6 +14,7 @@ import type {
   ComplexityReport,
   CouplingReport,
   SizeBudgetReport,
+  DuplicationReport,
   SuggestionReport,
   AnalysisError,
 } from './types';
@@ -23,6 +25,7 @@ import { detectPatternViolations } from './detectors/patterns';
 import { detectComplexityViolations } from './detectors/complexity';
 import { detectCouplingViolations } from './detectors/coupling';
 import { detectSizeBudgetViolations } from './detectors/size-budget';
+import { detectDuplication } from './detectors/duplication';
 import { generateSuggestions } from './fixers/suggestions';
 /**
  * Main entropy analysis orchestrator
@@ -186,6 +189,57 @@ export class EntropyAnalyzer {
       }
     }
 
+    // Duplication detection
+    let duplicationReport: DuplicationReport | undefined;
+    if (this.config.analyze.duplication && !needsSnapshot) {
+      // The snapshot was BYPASSED, not built: the graph-fed branch above
+      // replaced it with a minimal one carrying `files: []`. Duplication
+      // discovers through `snapshot.files` (spec decision D7 — it re-parses
+      // those paths itself for estree tokens) and has no graph-fed path, so
+      // calling it here would map an empty list straight into its
+      // zero-discovery refusal: a guard for BROKEN discovery, reporting
+      // "check that EntropyConfig.include matches real source paths" when the
+      // include is fine and the snapshot was skipped on purpose.
+      //
+      // So: do not run it, leave `EntropyReport.duplication` undefined (the
+      // honest "not run" signal), and record WHY with a reason of its own.
+      //
+      // Noted rather than fixed: the other snapshot-fed detectors (patterns,
+      // complexity, coupling, sizeBudget) still run over the empty snapshot in
+      // this mode and report vacuously clean. That is pre-existing behavior
+      // and out of this change's scope; duplication can refuse because it is
+      // the only one with an explicit zero-discovery guard to refuse WITH.
+      analysisErrors.push({
+        analyzer: 'duplication',
+        error: createEntropyError(
+          'INVALID_CONFIG',
+          'Duplication analysis did not run: this run supplied both graph drift and graph dead-code data, so no codebase snapshot was built and the detector has no file list to scan. This is not a discovery failure — EntropyConfig.include was never consulted.',
+          { reason: 'snapshot-bypassed' },
+          [
+            'Supply graph data for at most one of drift / deadCode, so the snapshot is still built',
+            'Or analyze duplication in a separate pass, with no graph data, where the snapshot is built from EntropyConfig.include / exclude',
+          ]
+        ),
+      });
+    } else if (this.config.analyze.duplication) {
+      const duplicationConfig =
+        typeof this.config.analyze.duplication === 'object' ? this.config.analyze.duplication : {};
+      const result = await detectDuplication(this.snapshot, duplicationConfig);
+      if (result.ok) {
+        duplicationReport = result.value;
+        // A per-file skip is a finding ABOUT the scan, not a failure OF it:
+        // the run succeeded with gaps, so each skip is surfaced as an
+        // AnalysisError while the report is still published. The detector
+        // hands back bare EntropyErrors; the `analyzer` tag is applied here,
+        // in the one place that owns `analysisErrors`.
+        for (const error of result.value.skipErrors) {
+          analysisErrors.push({ analyzer: 'duplication', error });
+        }
+      } else {
+        analysisErrors.push({ analyzer: 'duplication', error: result.error });
+      }
+    }
+
     // Calculate summary
     const driftIssues = driftReport?.drifts.length || 0;
     const deadCodeIssues =
@@ -203,6 +257,20 @@ export class EntropyAnalyzer {
     const complexityWarnings = complexityReport?.stats.warningCount || 0;
     const couplingWarnings = couplingReport?.stats.warningCount || 0;
     const sizeBudgetWarnings = sizeBudgetReport?.stats.warningCount || 0;
+    // Advisory-only (spec decision D4): clone classes are counted in
+    // totalIssues so the summary cannot report a clean run over a scan that
+    // reported classes, and are added to NEITHER `errors` NOR `warnings`.
+    //
+    // The DuplicationReport's missing errorCount / warningCount blocks the
+    // realistic accident — copying a sibling's
+    // `+= report.stats.errorCount` line does not compile — but it does NOT
+    // make this impossible, and claiming it did was an overstatement worth
+    // correcting here. `stats.violationCount` and `stats.classesReported` are
+    // numbers on the same object and compile into either sum fine; adding
+    // `violationCount` to `errors` below typechecks clean and fails the D4
+    // test in `tests/entropy/analyzer.duplication.test.ts` at runtime
+    // (verified). The type and that test are two layers, not one.
+    const duplicationIssues = duplicationReport?.stats.classesReported || 0;
 
     const totalIssues =
       driftIssues +
@@ -210,7 +278,8 @@ export class EntropyAnalyzer {
       patternIssues +
       complexityIssues +
       couplingIssues +
-      sizeBudgetIssues;
+      sizeBudgetIssues +
+      duplicationIssues;
 
     // Calculate fixable count
     const fixableCount =
@@ -258,6 +327,9 @@ export class EntropyAnalyzer {
     }
     if (sizeBudgetReport) {
       report.sizeBudget = sizeBudgetReport;
+    }
+    if (duplicationReport) {
+      report.duplication = duplicationReport;
     }
 
     this.report = report;

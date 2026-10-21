@@ -78,6 +78,23 @@ const defaultAnalyzeResult = {
     patterns: {
       violations: [{ pattern: 'no-any', file: 'src/hack.ts' }],
     },
+    // `EntropyReport.snapshot` is REQUIRED
+    // (`core/src/entropy/types/report.ts:25`) and the detailed response
+    // projects it (the per-file `ast` is stripped — an in-process parse tree
+    // no MCP caller can act on, and 80% of the payload). This mock omitted it
+    // entirely, so it described a report the analyzer cannot produce.
+    snapshot: {
+      files: [
+        {
+          path: 'src/old.ts',
+          ast: { type: 'Program', body: [] },
+          imports: [],
+          exports: [],
+          internalSymbols: [],
+          jsDocComments: [],
+        },
+      ],
+    },
   },
 };
 
@@ -104,6 +121,7 @@ describe('detect_entropy tool', () => {
         'drift',
         'dead-code',
         'patterns',
+        'duplication',
         'all',
       ]);
     });
@@ -141,6 +159,63 @@ describe('detect_entropy tool', () => {
       const data = JSON.parse(result.content[0].text);
       expect(data).toHaveProperty('drift');
       expect(data).toHaveProperty('deadCode');
+      // The snapshot survives, its per-file ASTs do not.
+      expect(data.snapshot.files[0].path).toBe('src/old.ts');
+      expect('ast' in data.snapshot.files[0]).toBe(false);
+    });
+
+    // SURVIVING MUTANT M6: removing the `skipErrors[].details.originalError`
+    // strip from `toJsonSafeReport` left the suite green, because the real
+    // fixture used by the duplication suite yields `skipErrors: []` and the
+    // `.map()` never executes. The changeset and the function's own comment
+    // both advertise this projection, and a regression reinstates the
+    // `{}`-serializes-away defect that spec Phase 3 forward note 4 exists to
+    // prevent. One hand-built entry through the mocked analyzer seam is enough
+    // to execute the branch.
+    it('strips the unserializable originalError from a skipErrors entry', async () => {
+      entropyAnalyzeResult.current = {
+        ok: true as const,
+        value: {
+          ...defaultAnalyzeResult.value,
+          duplication: {
+            classes: [],
+            byMember: new Map([['src/x.ts#alpha', 'aaaa1111']]),
+            collisions: [],
+            skipErrors: [
+              {
+                code: 'READ_FAILED',
+                message: 'Could not read src/unreadable.ts',
+                details: {
+                  reason: 'unreadable',
+                  file: 'src/unreadable.ts',
+                  // An `Error`, which `JSON.stringify` renders as `{}` — a key
+                  // that reads as an empty object rather than an
+                  // unserializable one.
+                  originalError: new Error('EACCES: permission denied'),
+                },
+                suggestions: ['Check the file permissions'],
+              },
+            ],
+            stats: { filesScanned: 1, filesSkipped: 1, classesReported: 0 },
+          },
+        },
+      } as unknown;
+
+      const result = await handleDetectEntropy({ path: '/tmp/project' });
+      const data = JSON.parse(result.content[0].text);
+      // Below the middleware, so `skipErrors` is still an array of one (over
+      // the wire the structural pass would collapse it — see the note on
+      // `summarizeDuplication`).
+      const skip = data.duplication.skipErrors[0];
+      // MUTATION: return `skipErrors` unmapped and `originalError: {}` is back.
+      expect('originalError' in skip.details).toBe(false);
+      // Everything a reader can act on survives.
+      expect(skip.message).toContain('Could not read src/unreadable.ts');
+      expect(skip.details.reason).toBe('unreadable');
+      expect(skip.details.file).toBe('src/unreadable.ts');
+      expect(skip.code).toBe('READ_FAILED');
+      // And the Map is omitted rather than shipped as `{}`.
+      expect('byMember' in data.duplication).toBe(false);
     });
 
     it('returns summary mode response when mode=summary', async () => {

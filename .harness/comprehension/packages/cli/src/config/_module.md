@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/config'
-sourceHash: '7b6acc2ba8da0e73ecb9df689247dea47efe92a866815f767e5da30a5c6856fd'
+sourceHash: 'a8867433482003a96345a398c74370bf3a876d6ef5053598b9c0be10276b2ed8'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -39,6 +39,7 @@ export DesignConfigSchema
 export DesignCraftConfigSchema
 export DriftConfigSchema
 export DriftDetectionConfigSchema
+export DuplicationConfigSchema
 export EntropyConfigSchema
 export ForbiddenImportSchema
 export HarnessConfigSchema

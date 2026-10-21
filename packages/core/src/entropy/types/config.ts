@@ -5,6 +5,7 @@ import type { ComplexityConfig } from './complexity';
 import type { CouplingConfig } from './coupling';
 import type { SizeBudgetConfig } from './size-budget';
 import type { PatternConfig } from './pattern-config';
+import type { DuplicationConfig } from '../../duplication';
 
 export interface DriftConfig {
   docPaths: string[];
@@ -51,6 +52,22 @@ export interface EntropyConfig {
     complexity?: boolean | Partial<ComplexityConfig>;
     coupling?: boolean | Partial<CouplingConfig>;
     sizeBudget?: boolean | Partial<SizeBudgetConfig>;
+    /**
+     * Duplication (clone) detection. Absent or `false` means the detector is
+     * never called and `EntropyReport.duplication` stays `undefined` — no file
+     * is read or parsed for duplication (spec criterion 7).
+     *
+     * The two filters COMPOSE and are not the same thing:
+     * `EntropyConfig.include` / `exclude` decide which files reach the detector
+     * at all (they are what builds `snapshot.files`), while
+     * `DuplicationConfig.ignorePatterns` is a second, duplication-specific
+     * filter applied to whatever arrives. The duplication defaults already
+     * ignore test, spec, bench, fixture, generated, node_modules, dist, build
+     * and coverage paths — see `DEFAULT_DUPLICATION_CONFIG`. (The glob
+     * literals are deliberately NOT spelled out here: each one contains the
+     * sequence that would close this comment block.)
+     */
+    duplication?: boolean | Partial<DuplicationConfig>;
   };
   include?: string[];
   exclude?: string[];

@@ -174,11 +174,11 @@ Fail when deprecated or renamed canonical terms reappear in skills/docs prose
 
 ### `harness cleanup`
 
-Detect entropy issues (doc drift, dead code, patterns)
+Detect entropy issues (doc drift, dead code, patterns, duplication). Duplication is advisory — it never affects the exit code — and under --type all it runs only when entropy.duplication is configured in harness.config.json.
 
 **Options:**
 
-- `-t, --type` — Issue type: drift, dead-code, patterns, all (default: "all")
+- `-t, --type` — Issue type: drift, dead-code, patterns, duplication, all (default: "all")
 - `--findings-json` — Emit the machine-readable maintenance findings contract ({ findings: N }) as a trailing stdout line (#691)
 
 ### `harness cleanup-sessions`

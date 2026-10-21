@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/tests/commands'
-sourceHash: '919e82c3a4fec0e84237c15f2c019091218b70c2dc3ac7ee670b6c10a9099f1e'
+sourceHash: '52816591a3490ba918ee5c25c3bfb281f5d660255a9b26753268f1352b713f17'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -46,6 +46,7 @@ members:
     'check-vocabulary-cov544b.test.ts',
     'check-vocabulary.test.ts',
     'cleanup-cov544b.test.ts',
+    'cleanup-duplication.test.ts',
     'cleanup-sessions-cov544.test.ts',
     'cleanup-sessions.test.ts',
     'cleanup.test.ts',
@@ -259,7 +260,7 @@ import { createCheckPhaseGateCommand, runCheckPhaseGate } from '../../src/comman
 import { createCheckSecurityCommand, runCheckSecurity } from '../../src/commands/check-security'
 import { createCheckVocabularyCommand, runCheckVocabulary } from '../../src/commands/check-vocabulary'
 import from '../../src/commands/ci/check'
-import { createCleanupCommand, runCleanup } from '../../src/commands/cleanup'
+import { createCleanupCommand, printCleanupResult, runCleanup } from '../../src/commands/cleanup'
 import { createCleanupSessionsCommand, runCleanupAll, runCleanupSessions } from '../../src/commands/cleanup-sessions'
 import { createCliErgonomicsCraftCommand } from '../../src/commands/cli-ergonomics-craft'
 import { createCodeCraftCommand } from '../../src/commands/code-craft'
@@ -410,6 +411,7 @@ import { runInstructionDensityAudit } from '../../src/mcp/tools/instruction-dens
 import { resolveAnalysisProvider } from '../../src/mcp/utils/analysis-provider'
 import from '../../src/mcp/utils/graph-loader'
 import { NamingCraftInput, NamingCraftOutput } from '../../src/naming-craft/index.js'
+import { OutputFormatter, OutputMode } from '../../src/output/formatter'
 import { logger } from '../../src/output/logger'
 import { prompt } from '../../src/output/prompt'
 import { loadPersona } from '../../src/persona/loader'

@@ -1,0 +1,12 @@
+{
+  "reason": "duplication-detection (PR #2322) adds packages/core/src/duplication (5 modules), the duplication entropy detector, and its cli/MCP wiring: aggregate module-size +3737 and dependency-depth +9 are this feature's own new code, measured against origin/main's baseline after merging 25 commits of main.",
+  "categories": {
+    "module-size": 277949,
+    "dependency-depth": 667
+  },
+  "violationIds": [
+    "529ba5056a0e76215e2b9043107f08f4010329a90733df55471096f80ce3dd05",
+    "a2be46b016b6bc42d0537592f672606994a890df043daa636acf7a955dbb920e"
+  ],
+  "createdFrom": "46a46fe8d"
+}

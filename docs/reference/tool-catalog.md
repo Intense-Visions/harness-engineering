@@ -1724,7 +1724,7 @@ Detect design-system drift in source: hardcoded values where tokens exist (token
 
 ### `detect_entropy`
 
-Detect documentation drift, dead code, and pattern violations. Optionally auto-fix detected issues.
+Detect documentation drift, dead code, pattern violations, and duplicated code units (clone classes, advisory). Optionally auto-fix detected issues.
 
 **Input schema:**
 
@@ -1768,11 +1768,12 @@ Detect documentation drift, dead code, and pattern violations. Optionally auto-f
       "type": "string"
     },
     "type": {
-      "description": "Type of entropy to detect (default: all)",
+      "description": "Type of entropy to detect (default: all). \"duplication\" reports clone classes and is advisory — it is never summed into totalIssues; under \"all\" it runs only when entropy.duplication is configured.",
       "enum": [
         "drift",
         "dead-code",
         "patterns",
+        "duplication",
         "all"
       ],
       "type": "string"

@@ -5,7 +5,10 @@
 ## When to Use
 
 - When improving code structure, readability, or maintainability without changing behavior
-- When reducing duplication (DRY refactoring)
+- When reducing duplication (DRY refactoring) — `harness cleanup -t duplication` finds the
+  candidates: whole-unit Type-2 clone classes at >= 3 members and >= 40 normalized tokens,
+  ordered by `priority` (`tokenCount x members`, doubled for a `partial-extraction` class), so
+  work top-down. It is advisory and never fails a build.
 - When moving code to the correct architectural layer
 - When splitting large files or functions into smaller, focused ones
 - When renaming for clarity across the codebase
@@ -63,7 +66,20 @@ For EACH step in the plan:
    - Move one function to a different file
    - Inline one unnecessary abstraction
    - Replace one conditional with polymorphism
-   - Remove one instance of duplication
+   - Remove one instance of duplication (take the top class from
+     `harness cleanup -t duplication`, or the `detect_entropy` MCP tool's
+     `type: "duplication"`, and extract ONE of its members' shared body).
+     Prefer a row tagged `[partial-extraction -> <module>]`: every member body
+     CALLS into that module already, so the repair is bounded by a module that
+     already exists rather than by a design question, which makes it the
+     cheapest fix on the page even when a plain duplicate above it is larger.
+     It is **not necessarily a delete-and-import.** VERIFY before planning on
+     it — open the named module and confirm what it exports. The tag says the
+     members share a CALLED module, not that the duplicated wrapper already
+     lives there; measured on the harness repository itself the wrapper was
+     among the named module's exports in **0 of 7** labelled classes, so expect
+     the repair to be "extract into that module" — still cheaper than
+     greenfield, but not a delete.
 
 2. **Run the full test suite.** All tests must pass. If any test fails:
    - **STOP immediately.**

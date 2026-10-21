@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/tests/mcp/tools'
-sourceHash: '742557f6bb63f9ff136fd228e8a9f2a1876c99412f3541380a7a83a35fc9f124'
+sourceHash: 'a8396554ca1535e4276124b10d5f32b8404a43d220cca6843942bb805f816412'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -35,6 +35,7 @@ members:
     'docs-publish-cov544.test.ts',
     'docs.test.ts',
     'entropy-config-threading.test.ts',
+    'entropy-duplication.test.ts',
     'entropy-patterns-empty-ruleset.test.ts',
     'entropy.test.ts',
     'event-emitter.test.ts',
@@ -123,6 +124,7 @@ import { extractLevel } from '../../../../core/src/context/section-parser'
 import { findConfigFile, loadConfig } from '../../../src/config/loader'
 import { MockLlmProvider } from '../../../src/design-craft/llm/provider.js'
 import { resolveDocsPublishConnector } from '../../../src/docs-publish/index'
+import { wrapWithCompaction } from '../../../src/mcp/middleware/compaction'
 import { acceptanceEvalDefinition, handleAcceptanceEval, resolveTestContent } from '../../../src/mcp/tools/acceptance-eval.js'
 import { handleManageAdr, manageAdrDefinition } from '../../../src/mcp/tools/adr'
 import { allocateNextNumber, listAdrs, resolveWorktreeRoot } from '../../../src/mcp/tools/adr-store'
@@ -195,6 +197,7 @@ import { generateCIWorkflow } from '../../../src/persona/generators/ci-workflow'
 import { generateRuntime } from '../../../src/persona/generators/runtime'
 import { listPersonas, loadPersona } from '../../../src/persona/loader'
 import { runPersona } from '../../../src/persona/runner'
+import { ENTROPY_ISSUE_TYPES } from '../../../src/shared/duplication-request'
 import from '../../../src/shared/state-events'
 import { scoreSkill, suggest } from '../../../src/skill/dispatcher'
 import { formatSuggestions, isTier1Skill, suggest } from '../../../src/skill/dispatcher.js'
