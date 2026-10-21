@@ -194,6 +194,21 @@ describe('detectDuplication performance (spec criterion 6)', () => {
         expect(error.suggestions.length).toBeGreaterThan(0);
       }
       expect(filesSkipped).toBeLessThan(filesScanned / 100);
-    }
+    },
+    // An EXPLICIT timeout, because the default 60s was measuring the runner and
+    // not the detector: this case asserts no duration at all (the deterministic
+    // visit-bound case above is criterion 6's actual guard), yet it parses every
+    // non-test source in the repository, and a shared macOS arm64 runner took
+    // >60s over a ~6.5s local scan -- red on macOS AND windows, green on
+    // ubuntu, same code. Scope of that scan, measured: 2,421 files / 12.3 MB
+    // (0 from dist/ -- `skipDirGlobs()` excludes it), so the gap is runner
+    // speed, not a discovery that quietly grew.
+    //
+    // So the budget below is deliberately far above any honest scan time. It is
+    // not a performance assertion and must not be read as one; it is a hang
+    // tripwire, sized to still fail fast against the one failure it can speak
+    // to -- a quadratic regression or a scan that never returns -- without
+    // failing against a slow or contended runner.
+    300_000
   );
 });
