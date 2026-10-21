@@ -30,6 +30,25 @@ describe('CircularDepsCollector', () => {
     expect(collector.category).toBe('circular-deps');
   });
 
+  it('carries the graph-build cause into metadata.error (#2267)', async () => {
+    mockBuild.mockResolvedValue({
+      ok: false,
+      error: {
+        code: 'PARSER_UNAVAILABLE',
+        message:
+          'Cannot build a dependency graph: @typescript-eslint/typescript-estree could not be loaded',
+      },
+    } as any);
+
+    const results = await collector.collect(baseConfig, '/project');
+    expect(results).toHaveLength(1);
+    expect(results[0]!.metadata).toEqual({
+      error:
+        'Failed to build dependency graph: Cannot build a dependency graph: ' +
+        '@typescript-eslint/typescript-estree could not be loaded',
+    });
+  });
+
   it('returns empty results when no cycles found', async () => {
     mockBuild.mockResolvedValue({
       ok: true,
