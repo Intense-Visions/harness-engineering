@@ -95,6 +95,14 @@ describe('detect_entropy type: "duplication"', () => {
     expect(payload.advisory.duplication.classesReported).toBe(1);
     expect(payload.advisory.duplication.membersReported).toBe(3);
     expect(payload.advisory.duplication.topClasses[0]).toContain('3x 83 tokens');
+    // Summary mode was the one duplication surface with no skip counter, so a
+    // PARTIAL scan read as a complete one. The Phase-3 fixture skips nothing,
+    // so 0 is the right value here; a non-zero arm is covered by core's own
+    // skip suites, since this surface only forwards the counter.
+    expect(payload.advisory.duplication.filesSkipped).toBe(0);
+    // The Phase-3 fixture's one class is a plain duplicate, so the summary
+    // line must carry NO signal tag.
+    expect(payload.advisory.duplication.topClasses[0]).not.toContain('partial-extraction');
     // MUTATION: fold duplication into `totalIssues` and this fails — the D4
     // parity test for the MCP surface. `totalIssues` is the one number an
     // agent reads as "is this clean".

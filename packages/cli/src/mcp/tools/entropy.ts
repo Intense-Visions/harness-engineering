@@ -210,6 +210,17 @@ function summarizePatterns(patterns: any): { issueCount: number; topIssues: stri
  * character of the collapsed string. The same applies in detailed mode to
  * `classes`, `members`, `collisions` and `skipErrors`. Deliberate, for token
  * thrift — named here so it is not discovered the hard way.
+ *
+ * `topClasses` names the `partial-extraction` signal and its shared module,
+ * because the top three are where an agent DECIDES: a half-extracted class is
+ * the cheapest fix on the list (the shared helper already exists, so the
+ * repair is delete-and-import), and without the tag the agent cannot see why
+ * a smaller class is listed above a larger one.
+ *
+ * `filesSkipped` rides along here (a ride-along, not signal work). Summary
+ * mode was the one duplication surface with no skip counter, so a partial
+ * scan read as a complete one — the gap the Phase-3 record names as still
+ * open.
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function summarizeDuplication(duplication: any) {
@@ -217,6 +228,7 @@ function summarizeDuplication(duplication: any) {
     classesReported: duplication.stats.classesReported,
     classesSuppressed: duplication.stats.classesSuppressed,
     classesTruncated: duplication.stats.classesTruncated,
+    filesSkipped: duplication.stats.filesSkipped,
     membersReported: duplication.classes.reduce(
       (sum: number, cls: { members: unknown[] }) => sum + cls.members.length,
       0
@@ -224,8 +236,17 @@ function summarizeDuplication(duplication: any) {
     topClasses: duplication.classes
       .slice(0, 3)
       .map(
-        (cls: { members: Array<{ unit: string; file: string }>; tokenCount: number }) =>
-          `${cls.members.length}x ${cls.tokenCount} tokens: ${cls.members[0]?.unit ?? '<anon>'} (${cls.members[0]?.file ?? '?'})`
+        (cls: {
+          members: Array<{ unit: string; file: string }>;
+          tokenCount: number;
+          signal?: string;
+          sharedImport?: string;
+        }) => {
+          const head = `${cls.members.length}x ${cls.tokenCount} tokens: ${cls.members[0]?.unit ?? '<anon>'} (${cls.members[0]?.file ?? '?'})`;
+          return cls.signal === 'partial-extraction' && cls.sharedImport !== undefined
+            ? `${head} [partial-extraction -> ${cls.sharedImport}]`
+            : head;
+        }
       ),
   };
 }
