@@ -500,11 +500,20 @@ named substrate that #1612 and #1646 depend on.
    including all 38 platform-mirror classes by construction. The sixth rung is what makes the
    label's PROMISE true: at rung five, three classes named a module that exported no such helper
    at all.
-4. When `code-craft` critiques a unit belonging to a clone class, the rendered prompt shall include
-   the sibling members' locations; and when the unit belongs to no clone class, the rendered prompt
-   shall be byte-identical to the pre-change prompt.
-5. The estree and `typescript` unit extractors shall agree on `(kind, startLine)` for every unit in a
-   shared fixture, within ±2 lines.
+4. **(Restated in Phase 5 as rubric-scoped; see "Phase 5 — the measured extractor agreement".)**
+   When `code-craft` critiques a unit belonging to a clone class, the prompt for a rubric in
+   `SIBLING_AWARE_RUBRIC_IDS` (seeded `CODE-R004`) shall include the sibling members' locations; and
+   when the unit belongs to no clone class, or the rubric is outside that set, the rendered prompt
+   shall be byte-identical to the pre-change prompt. Rendering for all seven seed rubrics would cost
+   7x the tokens for six rubrics with no clause that can use the evidence. The second half had **no
+   guard at all** before Phase 5 and is now anchored on literals captured against unmodified `src/`.
+5. **(Restated in Phase 5 against measurement; the `kind` half is REFUTED — see "Phase 5 — the
+   measured extractor agreement".)** The estree and `typescript` unit extractors shall agree on
+   every unit's `startLine` and `endLine` in a shared fixture, within ±2 lines; and the only `kind`
+   disagreement shall be the object-literal-property function/arrow case, asserted by name. `kind`
+   disagrees for **139 of 7,880** units at Scope D (1.76%), all `code-craft` `method` vs estree
+   `function`, so matching on `(file, kind, startLine)` as originally written would silently drop
+   1.76% of lookups. The shipped matcher never consults `kind`.
 6. `detectDuplication` shall complete over this repository's non-test sources in under 10 seconds
    (probe baseline: 2.4s including a pass this spec drops).
 7. If `analyze.duplication` is absent or `false`, the system shall not parse for duplication and
@@ -694,6 +703,15 @@ Verifiable alone: criteria 4 and 5.
   group counts as ONE class against `maxClasses` — which would move criterion 13's semantics a
   SECOND time in one release. Phase 5 is `code-craft` prompt wiring, a different subsystem, so it
   is not Phase 5's either.
+- **`code-craft` sibling-evidence incidence in the run summary.** Phase 5's index build degrades to
+  `undefined` on `Err` and on an empty discovery, and the reason is DROPPED — so a failed index
+  build is invisible to an operator, who sees a normal run with no sibling evidence in it. Deferred
+  rather than smuggled in because surfacing it changes `CodeCraftOutput`'s shape, the `code_craft`
+  MCP response and the printed page, and it traces to no criterion. What stands in for it meanwhile
+  is Phase 5's end-to-end assertion over the real
+  `collectCodeCraftPrompts(...).pendingPrompts[].userPrompt` string, which makes the wiring
+  falsifiable with no schema change; what it does NOT give is operator visibility into a build that
+  failed.
 - **Knowledge-graph concept nodes for `partial-extraction` and `CloneClass`.** Phase 4 is where
   `partial-extraction` became real, so this was its natural home. Blocked on #1507:
   `manage_adr` / graph enrichment is not worktree-aware, and writing to the main checkout from
@@ -1524,3 +1542,210 @@ attribution. It is a baseline-FRESHNESS artifact of a 100-commit feature branch 
 a baseline captured on `main`, and the standing refresh chore on `main` is where it clears. The
 pre-commit arch hook treats it as a warning and reports exactly the three pre-existing NEW
 complexity lines, so no hook was bypassed and no threshold was allowanced.
+
+### Phase 5 — the measured extractor agreement, and two criteria restated
+
+Phase 5 gives CODE-R004 the cross-file evidence its own text demands. The rubric names the Rule of
+Three verbatim — "the same five lines copied in three places crying out for one named home" — while
+`CritiqueInput` carried ONE unit's source span and no cross-file channel. Asking a model whether
+five lines appear in three places while showing it one place is not a hard judgment call; it is an
+impossible one.
+
+#### Scope D is a FOURTH scope
+
+Every Phase 5 figure below is over **Scope D**: the corpus `code-craft`'s own
+`discoverSourceFiles(projectRoot)` walks — `packages/*/src`, minus
+`tests`/`test`/`__tests__`/`fixtures`/`dist`/`coverage`/`__mocks__`/`__snapshots__` and
+`*.{test,spec}.*` — which is **2,066 files**. It is not Scope A (`packages/`, 2,065 files via
+`findFiles` + `isEligibleFile`), not Scope B (repo non-test sources, 2,153), and not Scope C (the
+product scope, 96 classes). **Figures do not transfer between scopes.** Scope D is deliberately
+`code-craft`'s own discovery function rather than core's `findFiles` + `isEligibleFile`, so every
+unit `code-craft` critiques is provably inside the indexed corpus and a miss always means "no clone
+class" and never "different scope".
+
+The denominator for every incidence figure is **7,880 `code-craft` substantive units** over those
+2,066 files.
+
+| Figure                                                    | Value                            | Denominator / scope             |
+| --------------------------------------------------------- | -------------------------------- | ------------------------------- |
+| `buildCloneIndex` wall clock at Scope D                   | 2,894 / 2,386 / 2,142 / 2,075 ms | 2,066 files, idle, Node 24.15.0 |
+| Classes reported at Scope D                               | 58                               | 2,066 files                     |
+| `byMember.size`                                           | 230                              | = the 230 members of 58 classes |
+| Units fingerprinted                                       | 8,221                            | 2,066 files                     |
+| `partial-extraction` classes at Scope D                   | 7                                | 58 classes                      |
+| Units whose `${file}:${line}` key hits `byMember` exactly | **153** (1.94%)                  | 7,880 units                     |
+| Units that hit **only** via the ±2 start tolerance        | **2** — and **both are FALSE**   | 7,880 units                     |
+| Units whose owning class is `partial-extraction`          | **16**                           | 7,880 units                     |
+| Extractor `startLine` agreement (`typescript` vs estree)  | **7,880 / 7,880 exact**          | 7,880 units; 0 needed tolerance |
+| Extractor `endLine` agreement                             | **7,880 / 7,880 exact**          | 7,880 units                     |
+| Extractor **`kind`** agreement                            | **7,741 / 7,880 (98.24%)**       | 139 disagree — see below        |
+
+Every figure in this table was measured twice by two separate probes and reproduced.
+
+#### The spec's named line-divergence risk is REFUTED
+
+"Named risk: extractor line-number agreement" predicts the divergence is in LINE numbers and names
+**decorators and leading comments** as the likely points. Measured over 7,880 units at Scope D:
+**zero line divergences**, and decorators specifically agree — both extractors report a decorated
+class at its `@Dec()` line and a decorated method at its own `@Dec()` line, because `typescript`'s
+`node.getStart(sf)` skips only trivia (not decorators) and `@typescript-eslint/typescript-estree`
+8.59.x includes decorators in `ClassDeclaration` / `MethodDefinition` ranges. Leading JSDoc and `//`
+comments agree for the same reason. The risk was named in the one dimension that holds and missed
+the one that does not.
+
+**The measurement has a precondition worth naming, because getting it wrong moves the figure.** The
+agreement above holds only when each file is parsed with core's own per-extension rule —
+`jsx: true` for every supported extension EXCEPT `.ts` (`JSX_CAPABLE_EXTENSIONS`). A first probe
+that passed `jsx: true` uniformly made
+`packages/dashboard/src/client/hooks/useLocalModelsPanel.ts` unparseable (`TSError: Unexpected
+token. Did you mean '{">"}' or '&gt;'?`), dropping its one `code-craft` unit from the pairing and
+reporting 7,879 / 7,880. That 7,879 was the probe's defect, not a divergence: core's
+`fingerprintFile` parses that file with `jsx: false` and skips nothing (`stats.filesSkipped: 0`).
+An agreement claim between two parsers is only as good as the parser options it was taken under.
+
+#### The real divergence is `kind`, and the spec's match key would have been broken by it
+
+**139 of 7,880 (1.76%)** `code-craft` units carry a `kind` estree disagrees with — all one shape and
+all one direction: `code-craft` reports `method`, estree reports `function`, for an object-literal
+property whose value is a function or arrow (`{ propArrow: (a) => {…} }`,
+`{ propFn: function (a) {…} }`). `code-craft`'s `asFunctionLike` promotes a
+`ts.isPropertyAssignment` parent to `'method'` (`extract/units.ts`); core's `UNIT_KINDS` maps
+`ArrowFunctionExpression` and `FunctionExpression` to `'function'` unconditionally.
+
+**Matching on `(file, kind, startLine)` as criterion 5 and the Technical Design both mandate would
+therefore have silently dropped 1.76% of lookups.** The shipped matcher ignores `kind`.
+
+#### Criterion 5, restated
+
+> While both extractors run over one shared fixture, they shall agree on every unit's `startLine`
+> and `endLine` within ±2 lines; and the only `kind` disagreement shall be the
+> object-literal-property function/arrow case, asserted by name.
+
+`tests/code-craft/extractor-agreement.test.ts` asserts 13/13 EXACT agreement on both line fields
+over a 13-unit fixture and pins the kind divergence set by name, so a change to either extractor's
+kind mapping — or a parser upgrade that shifts a line — goes red instead of silently widening the
+gap. The test asserts `units.length === 13` from BOTH extractors up front: without that guard the
+agreement could hold vacuously over a shrinking fixture.
+
+#### Criterion 4, restated
+
+> When `code-craft` critiques a unit that belongs to a clone class, the prompt for a rubric in
+> `SIBLING_AWARE_RUBRIC_IDS` shall list the sibling members' `file:line` locations; and for a unit
+> that belongs to no clone class, or for a rubric outside that set, the rendered prompt shall be
+> byte-identical to the pre-change prompt.
+
+`SIBLING_AWARE_RUBRIC_IDS` is seeded `{'CODE-R004'}`. `code-craft` sends one prompt per
+(unit, rubric) pair and 7 seed rubrics apply to a function, so rendering the evidence for all 7
+costs 7x the tokens for six rubrics with no clause that can use it. The literal reading of the
+original criterion ("the rendered prompt") appears in the "Repairing CODE-R004" section and reads
+naturally as CODE-R004's prompt; it is restated rather than left to a reviewer. Widening the set to
+`simplest-it-could-be` or the naming rubrics is one line plus a test, and is a decision someone
+should make deliberately rather than inherit.
+
+**Criterion 4's second half had no guard at all before this phase** — no test in
+`packages/cli/tests/code-craft/` called `buildPrompt`, so "byte-identical to the pre-change prompt"
+was unfalsifiable. `tests/code-craft/critique-prompt.test.ts` freezes the pre-change prompt for one
+sibling-aware and one non-sibling-aware rubric as literal anchors, captured against unmodified
+`src/` BEFORE `critique.ts` was touched. Editing an anchor to make a test pass defeats the criterion
+it exists for.
+
+#### The ±2 tolerance: an honest account
+
+The spec mandates a "±2-line tolerance" on the start line. Measured at Scope D it contributes
+**0 of the 153 true hits**, and the **2** candidates it does produce are **both wrong**:
+
+- `packages/cli/src/brand/index.ts:167` — a one-line arrow (`endLine` 167) matched `collectFiles` at
+  line 165 (`endLine` 172, 88 tokens).
+- `packages/cli/src/naming-craft/index.ts:392` — the same shape against `collectFiles` at line 390
+  (`endLine` 397).
+
+Both are different units entirely. The tolerance is still implemented, because it is the
+graceful-degradation path for exactly the library drift the named risk is about — but only **behind
+a mandatory span co-check**: a candidate is accepted only when the owning class holds a member at
+that key whose `endLine` is within ±2 of the unit's `endLine`. The co-check costs **0 of 153** true
+hits (`endLine` agrees 7,880/7,880) and rejects **2 of 2** false ones. Both real cases are the
+fixture basis for the matcher's rejection test — reproduced, not invented. The agreement test is the
+alarm that would tell a future maintainer the tolerance has started earning its keep.
+
+#### One more Phase 5 figure that did NOT reproduce
+
+The planning record claimed "keys where ≥2 estree units share one `${file}:${line}`: **2**, both
+`function|function`". That does not reproduce at Scope D under either reading:
+
+- Over **all** estree units: **84** such keys (83 pairs plus one triple), and every one of them is
+  `function|function` — so the SHAPE claim holds and the count is off by ~40x.
+- Over the units that actually reach a clone class: **0**. `byMember.size` is 230 and the 58 classes
+  hold 230 members total, so `byMember`'s first-writer-wins ownership discards nothing at this
+  scope.
+
+This matters for how truth 8 is justified, not for what the code does: the key's lossiness is real
+by construction (`${file}:${startLine}` cannot separate a one-line arrow from its enclosing
+function), the span co-check is what handles it, and `siblings` excludes EVERY member at the matched
+key rather than only the queried unit — two units at one location are ONE location to a reader
+following a `file:line` pointer. But the justifying count was wrong and is corrected here rather
+than repeated.
+
+#### Design decisions, with their rejected alternatives
+
+**D-P5-1 — `code-craft` builds its own index, once per run, over the FULL project.**
+`buildCodeCraftCloneIndex(projectRoot)` calls `discoverSourceFiles(projectRoot)` uncapped —
+deliberately ignoring `input.files`, `input.packages` and `input.maxFiles` — and hands the result to
+`buildCloneIndex(files, { rootDir: projectRoot })`. Siblings live in OTHER files by definition and
+`DEFAULT_MAX_FILES` is 100, so an index over the critiqued set alone could never form a 3-member
+class for a targeted `--files one.ts` run, which is the most common invocation: the feature would
+have shipped dead. Default ON — 2.1-2.9 s against a run that makes up to 100 LLM calls — with
+`CodeCraftInput.siblings: false` as a programmatic opt-out.
+
+_Rejected: inject-only_ (`CodeCraftInput.cloneIndex`, nobody wires it). That is the
+"zero callers = not wired" shape this repository has shipped before; the field would exist and the
+rubric would still be blind. _Rejected: read a persisted artifact_ from a prior
+`harness cleanup -t duplication` run — no such artifact exists, and inventing one is a new surface,
+a new staleness question, and traces to no criterion.
+
+**The honest cost of the failure path.** On `Err` — or on an empty discovery —
+`buildCodeCraftCloneIndex` returns `undefined` and **the reason is dropped**: `CodeCraftSummary` has
+no channel for it and the spec requires the critique to degrade to current behaviour rather than
+fail. So a failed index build is invisible to an operator. What makes the wiring falsifiable instead
+is an end-to-end assertion on the REAL rendered prompt:
+`collectCodeCraftPrompts(...).pendingPrompts[].userPrompt` carries the sibling block for a planted
+3-copy fixture, with no schema change at all.
+
+**D-P5-2 — match on `(file, startLine)` with a span co-check; never on `kind`.** Exact key first,
+then ±1, ±2, each candidate gated by `|member.endLine - unit.endLine| <= 2`. A
+`relative(root, file).replaceAll('\\', '/')` normalisation mirrors core's `relativePosix`, which is
+not barrel-exported — approximating it with `path.posix.relative` would not convert separators and
+would be a 100% miss rate on Windows rather than a subtle one.
+
+**D-P5-3 — the prompt carries locations, the token count, and Phase 4's signal.** The minimum per
+criterion 4 is the locations; `tokenCount`, `signal` and `sharedImport` come off the same
+`CloneClass` at zero extra cost and change the ADVICE the rubric can give. The `partial-extraction`
+wording holds Phase 4's gate-fix correction (I1) verbatim in spirit: the copies share a **CALLED**
+module, NOT "the wrapper already lives there". That distinction is not pedantic — before the
+predicate was tightened, three classes named a module that exported no such helper at all, and the
+operator-facing promise was false for 3 of 10 classes. Telling a model "the helper exists, just
+import it" where it does not is the same false promise with a larger blast radius. Both
+`CALLS INTO` and `confirm what it exports` are pinned by assertion. Locations are capped at 10 with
+a `(+N more)` line so a 16-member class cannot dominate the prompt.
+
+**D-P5-4 — only CODE-R004 renders the block.** See criterion 4, restated.
+
+**D-P5-5 — criterion 5's `kind` half is restated against measurement.** See above.
+
+**Assumption, recorded rather than widened into scope.** `buildCodeCraftCloneIndex` hard-wires
+`DEFAULT_DUPLICATION_CONFIG` (`minInstances: 3`, `minTokens: 40`); `harness.config.json`'s
+`analyze.duplication` block is NOT read, so an adopter who tunes the detector will not see
+`code-craft` follow. This traces to no criterion, so it is an assumption rather than a task. If it
+is wrong, the fix is one option object in `buildCodeCraftCloneIndex`.
+
+**Assumption.** The 2.1-2.9 s index build is acceptable in every entry point that inherits it (the
+CLI command and the MCP `code_craft` tool). `critiqueCodeInFile` is explicitly excluded — a
+single-file cross-cutting entry should not pay 2.1-2.9 s uninvited, and its callers already hold a
+project root they can pass.
+
+#### Incidence, with its denominator
+
+**153 of 7,880** substantive units at Scope D (1.94%) belong to a clone class, **16** of them to a
+`partial-extraction` class. With `DEFAULT_MAX_FILES` at 100 a default run critiques a small slice of
+that corpus, so a typical run attaches siblings to single digits of units. **The feature is quiet by
+design.** That is the measured rate of whole-unit Type-2 clones among substantive units, not a
+wiring defect — and anyone judging this feature by "how often did it fire" needs that denominator.
