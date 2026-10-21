@@ -1,5 +1,446 @@
 # @harness-engineering/cli
 
+## 14.0.0
+
+### Major Changes
+
+- 392b4b4: `harness design-pipeline`: a verifier that could not run no longer reports a pass
+
+  **Breaking behaviour change for anything gating on the design-pipeline verdict.**
+  `runDesignPipeline` derived `verdict` from the finding severities alone, so
+  `context.verifiersFailed` — the record of a verifier that examined nothing —
+  could not influence it. The pipeline reported `verdict: 'pass'` over a run in
+  which one of its four verifiers saw no part of the design surface, and
+  `harness design-pipeline` exits on the verdict (`verdict === 'fail' ? 1 : 0`),
+  so that false pass was a gate that could not fail. `run_design_pipeline` (MCP)
+  returned the same false verdict.
+
+  Same bug class as `harness ci check` #2071, fixed in #2207: a summary field
+  computed independently of the thing it summarises.
+
+  **What changed.** The verdict is now resolved _from_ the context in a single
+  expression, which returns the abstention set it resolved against as
+  `context.degradedBy` — a projection of `verifiersFailed`, so the verdict and
+  its evidence cannot disagree. This is a stronger property than checking the two
+  for agreement: there is nothing to forget to check.
+  - A non-empty `verifiersFailed` yields `verdict: 'fail'` with `degradedBy`
+    naming each abstaining verifier. Names are not de-duplicated —
+    `detect-drift` runs in both DETECT and the FIX loop, and two abstentions are
+    two facts.
+  - An error-severity finding still wins the verdict, and `degradedBy` is still
+    populated alongside it, so a reader can always tell "we could not see part of
+    the surface" from "we found a violation".
+  - A genuinely clean run still reports `pass`, and a warn-only run still reports
+    `warn`. Both directions are pinned by test.
+
+  `verdict` keeps its three-value domain (`pass | warn | fail`), as the issue
+  preferred over widening it: `degradedBy` carries the reason, `verdict` carries
+  the non-zero-ness. This mirrors `harness check-design`, whose `valid` is
+  `bySeverity.error === 0 && verifiersFailed.length === 0`. `check-design` also
+  separates the two non-zero cases by exit code (`hasErrors ? 1 : degraded ? 2 : 0`);
+  `harness design-pipeline` exits `1` for both, because its verdict→exit map lives
+  in `packages/cli/src/commands/design-pipeline.ts`, outside this change.
+
+  **What this means for your pipeline.** A design-pipeline step that is green
+  today _because_ a verifier abstained will start failing. That is the defect
+  being fixed — the gate was not enforcing anything — but it surfaces in your CI.
+  `verifiersFailed[].error` and `degradedBy` name what could not run. #2210 made
+  an abstention reachable in five situations (an exclude glob that discarded
+  every candidate; an explicit `files` list that resolved to nothing readable; a
+  project walk that hit the depth cap; a design surface in a dialect no verifier
+  parses; candidates that resolved but could not be opened), plus the FIX loop's
+  final re-detect. Every other recorded abstention now fails the gate too, and
+  two of them are the ones you are most likely to hit first:
+  - **The design-craft critique failing** (FILL phase). When a backend is
+    selected (`HARNESS_CRAFT_LLM` or `craft.llm.backend`) but cannot serve the
+    critique — its name is missing from `agent.backends`, its entry is
+    incomplete, or it is unreachable (an outage, a rate limit, a network error) —
+    the critique abstains, and the run now reports `fail` (exit `1`)
+    with `degradedBy: ['design-craft-critique']` and zero findings. Measured on a
+    fixture that otherwise passes:
+    `HARNESS_CRAFT_LLM=nonexistent-backend harness design-pipeline --json` →
+    exit `1`, `verdict: 'fail'`, `bySeverity {error:0, warn:0, info:0}`. On the
+    previous release the same run was `pass`, exit `0`.
+  - **`align-design-system` throwing** inside the `--fix` loop (FIX phase).
+
+  Craft is documented as an advisory ceiling layer. **If you do not want a
+  configured craft backend to be able to fail CI, run with `--no-fill`** (MCP: `noFill: true`), which skips the
+  FILL phase — the craft critique and input bootstrap — so the critique cannot
+  abstain. Measured on the same fixture with the same unknown backend:
+  `HARNESS_CRAFT_LLM=nonexistent-backend harness design-pipeline --json --no-fill`
+  → exit `0`, `verdict: 'pass'`, `design-craft-critique` absent from both
+  `verifiersRun` and `verifiersFailed`. Because FILL runs after AUDIT, skipping
+  it cannot hide a rule-based verifier's abstention. Know what you give up:
+  `--no-fill` turns craft **off** rather than making it advisory (no craft
+  suggestions at all), and it skips bootstrapping missing design inputs, so an
+  empty project that reports `warn` (with stubs written) reports `pass` (with no
+  stubs written) under `--no-fill`. Neither changes the exit code.
+
+  With no LLM configuration at all, the critique runs in-session and does not
+  abstain: an otherwise-clean project still reports `pass`, exit `0`.
+
+  `@harness-engineering/cli` is post-1.0 (13.x), so a behavioural break in a
+  gate's verdict lands there as a **major**, matching #2207.
+
+  **Two more instances of the same class, swept in the same surface:**
+  - `craftSuggestions` was stored next to `craftFindings` by FILL. It is now
+    counted from that list in REPORT, so the count cannot drift from the list it
+    counts.
+  - The AUDIT phase routes verifier findings into named buckets by verifier name.
+    The comment claimed an unknown name was "stashed under `audit-anatomy` by
+    default"; the branch had no `else`, so those findings were dropped while
+    `verifiersRun` recorded the verifier as having contributed. A 5th registered
+    verifier could report any number of violations and the run would still read
+    clean. An unroutable name is now an abstention naming the missing bucket.
+    **If you register your own verifier**, that means `register()` alone now
+    fails every run: it also needs a field on `DesignPipelineContext.auditFindings`,
+    a routing branch in `phases/audit.ts` and a count in `phases/report.ts`. The
+    code comments and the `harness-design-pipeline` skill previously said a 5th
+    verifier "composes for free" with a `register()` call; that was never true
+    (its findings were dropped) and has been corrected to state what is required.
+
+  `newContext()` also initialised `verdict: 'pass'` — a green reading asserted
+  before any verifier had run. It is now fail-closed; REPORT overwrites it on
+  every run that reaches Phase 6.
+
+### Minor Changes
+
+- 0c731f3: `harness design-pipeline` / `run_design_pipeline`: four outputs and options that were accepted or reported but did nothing are now either real or explicitly marked (#2303).
+  - **`summary.iterationsRun` counts the FIX passes that ran.** It used to increment only when a re-detect found strictly fewer findings, so a pass that applied fixes and then hit the no-progress stop reported `FIX iterations: 0, fixes applied: 1`. It now counts one per align-design-system invocation, including the pass that converged, made no progress, or failed. `fixesApplied > 0` therefore always comes with `iterationsRun >= 1`. **Behaviour change for consumers of the number:** a run that converged on its first pass now reports `1` (was `0`); a run that reached the 5-pass cap still reports `5`, and so does one that converged on its 5th pass — use `fixStopReason` to tell them apart.
+  - **`exclusions` now carries the exclude globs DETECT applied.** It was initialised empty and written by no phase, so every report said no exclusions were applied even when `design.exclude` / `analysis.exclude` filtered files. detect-design-drift now reports the globs its walk applied on a new `meta.excludePatterns` field (also visible from the `detect_drift` MCP tool), and DETECT copies that rather than re-resolving config. It is empty for an explicit `files` scope, which bypasses the walk, and also empty when DETECT did not measure (detect-drift threw or abstained). A new additive `exclusionsMeasured: boolean` tells those apart (`false` for the unmeasured case), so a scan that never ran is not read as "no globs applied"; `exclusions` stays a `string[]` in the JSON output. The text report prints `excluded globs: not measured` when the flag is `false`. The text report names the globs on the DETECT line.
+  - **`--ci` / `ci` is deprecated and has no effect, and now says so.** Every v1 run is already non-interactive and FIX only applies safe codemods, which is everything `--ci` promised, so there was nothing for it to switch. It is still accepted (so existing `--ci --fix` invocations keep working), and passing it adds a notice to a new `warnings: string[]` field on the result, printed as a warning in the text report. The skill no longer recommends it.
+  - **`graphAvailable` is deprecated and now correct.** It is deprecated and will be removed in the next major, because no composed verifier reads the knowledge graph. Until then its value is honest: whether `graph.json` exists in the directory `resolveGraphDir(projectRoot)` resolves to — the project's own `.harness/graph`, or, in a linked worktree with no graph of its own, the main checkout's (the same fallback graph-loader uses) — probed on every run. It used to be set only by FRESHEN, so under `--no-freshen` it reported `false` with a graph on disk.
+  - **New `summary.fixStopReason`** (`not-run` | `detect-unavailable` | `no-drift` | `converged` | `no-progress` | `max-iterations` | `failed`) says why the FIX loop stopped. Because `iterationsRun` now counts every pass, a run that converged on its 5th pass reports `iterationsRun: 5` exactly like one cut off at the cap, so read `fixStopReason === 'max-iterations'` — not the count — to detect a loop that never converged. `detect-unavailable` means `--fix` was set but DETECT never measured, so the empty finding list is "not looked", not `no-drift`'s "looked and found nothing".
+
+- b53c95d: Duplication detection reaches the operator: `harness cleanup -t duplication` and the
+  `detect_entropy` MCP tool's `type: "duplication"` report whole-unit Type-2 clone classes
+  (>= 3 members, >= 40 normalized tokens, sized `tokenCount x members` in the `rank` field).
+  Ordering is by `CloneClass.priority`, which the sibling `partial-extraction` entry in this same
+  release introduces: it equals `rank` for a plain duplicate and twice `rank` for a labelled one.
+  Both entries ship together, so this one states the ordering its sibling defines rather than the
+  `rank` ordering that held only before it.
+
+  Both surfaces are **advisory**. Clone classes never enter `CleanupResult.totalIssues`, so they
+  never affect the command's exit code and never appear in the `--findings-json` maintenance
+  contract; on the MCP side they are reported under `advisory.duplication`, outside
+  `totalIssues`. Because `-t duplication` runs no doc-drift, dead-code or pattern analyzer, the
+  command now prints "Entropy issues: not checked" instead of a green-ticked zero over three
+  checks that never ran.
+
+  `entropy.duplication` in `harness.config.json` is a new validated config block
+  (`minTokens`, `minInstances`, `ignorePatterns`, `maxClasses`). It was previously stripped by
+  the config schema with an "ignored unknown key" warning, so operator tuning could not reach
+  the detector at all. `minInstances` has a floor of 2 (the detector hard-skips groups below 2,
+  so 1 silently means "report every pair") and `maxClasses` must be positive (`0` reported zero
+  classes while counting every one of them as truncated). **`ignorePatterns` REPLACES the
+  shipped 21 default globs rather than appending to them** — a project that sets one pattern
+  stops ignoring tests, fixtures, generated output, `dist` and `node_modules` unless it restates
+  them.
+
+  The block's PRESENCE is the opt-in for `-t all` / `type: "all"`, so unconfigured projects see
+  no change; an explicit request runs on the shipped defaults. `entropy.duplication: false` plus
+  an explicit request REFUSES rather than reporting a clean scan that never ran, and a detector
+  that could not execute (for example a graph-fed run that bypassed the codebase snapshot) is
+  reported with the analyzer's own reason instead of an empty result.
+
+  `detect_entropy`'s payload no longer carries `duplication.byMember`: it is a `Map`, which
+  `JSON.stringify` rendered as `{}` — indistinguishable from an empty index. Its contents are
+  already in `classes[].members`.
+
+  Four further refusals and one payload change came out of the review of this work, all on the
+  same "never report a pass over a check that never ran" rule:
+  - An unrecognized `-t <type>` / `type` value is refused on both surfaces. It previously ran NO
+    analyzer and still exited 0 — and published `{"findings":0}` on the `--findings-json`
+    contract — so `harness cleanup -t duplicaiton` looked like a clean project.
+  - `detect_entropy` refuses when `harness.config.json` fails validation instead of silently
+    analyzing on built-in defaults. zod rejects the document whole, so the fallback was
+    discarding the project's `entryPoints` and `excludePatterns` and scanning a different scope
+    than the configured one. `harness cleanup` already exited 2 on the same input.
+  - `harness cleanup -t duplication --quiet` now prints the advisory section. The quiet gate was
+    keyed on `totalIssues`, which deliberately excludes duplication, so the channel was
+    suppressed entirely.
+  - `CleanupResult.duplication` carries `filesSkipped`, and the printed advisory line says
+    `; N file(s) skipped` when non-zero. A partial skip makes a scan incomplete, and the CLI had
+    no way to say so.
+  - `detect_entropy`'s detailed payload emits `summary`, `analysisErrors` and `duplication`
+    BEFORE `snapshot`, and omits each file's `ast`. Response compaction truncates by prefix, and
+    the snapshot was 98% of the payload, so everything a caller could act on was being truncated
+    away. Pass `compact: false` for the untruncated report, ASTs excluded.
+
+  The `@harness-engineering/dashboard` entry is a COMMENT-ONLY change, listed because the
+  changeset gate requires coverage for every touched publishable package. `gatherHealth` threads
+  a caller-supplied `analyze` into the entropy analyzer and returns `summary.totalIssues` — the
+  aggregate clone classes ARE summed into — so it is the one remaining place a future caller
+  could route advisory duplication into a gating number. Named in a comment; deliberately not
+  closed, since all three callers pass only `projectPath`.
+
+- b53c95d: code-craft: give CODE-R004 the cross-file evidence its own text demands
+
+  `abstraction-earns-keep` (CODE-R004) names the Rule of Three verbatim — "the same five lines copied
+  in three places crying out for one named home" — while the critique prompt carried ONE unit's source
+  span and no cross-file channel. Asking a model whether five lines appear in three places while
+  showing it one place is not a hard judgment call, it is an impossible one.
+
+  Each critiqued unit is now resolved against `CloneIndex.byMember`, and the CODE-R004 prompt carries
+  the sibling `file:line` locations, the shared normalized token count, and — for a
+  `partial-extraction` class — the `sharedImport` module key.
+
+  **Default ON.** Cost: one clone index per `code-craft` run, **2.1-2.9 s measured over this
+  repository's 2,066 discovered source files** (four runs: 2894 / 2386 / 2142 / 2075 ms), against a
+  run that makes up to 100 LLM calls. `siblings: false` on the programmatic input opts out. **No CLI
+  flag and no MCP schema change**, so the generated reference docs are untouched.
+
+  **Incidence, with its denominator: 153 of 7,880** substantive units at that scope (1.94%) belong to
+  a clone class, **16** of them to a `partial-extraction` class. Since `maxFiles` defaults to 100, a
+  typical run attaches siblings to single digits of units. The feature is quiet by design — that is
+  the measured rate of whole-unit Type-2 clones among substantive units, not a wiring defect. Anyone
+  judging it by "how often did it fire" needs that denominator.
+
+  **Scoped to CODE-R004.** `code-craft` sends one prompt per (unit, rubric) pair and 7 seed rubrics
+  apply to a function, so rendering for all 7 would cost 7x the tokens for six rubrics with no clause
+  that can use the evidence. The other six rubrics' prompts are byte-identical, and so is every prompt
+  for a unit with no siblings — both anchored on literals captured against unmodified sources before
+  the change.
+
+  **The `partial-extraction` wording holds Phase 4's corrected promise:** the copies share a CALLED
+  module, which is not the same claim as the wrapper already living there. The block tells the reader
+  to open that module and confirm what it exports.
+
+  **The matcher never consults `kind`.** The two unit extractors disagree there for 139 of 7,880 units
+  (1.76%) — all `code-craft` `method` vs estree `function` for an object-literal property function or
+  arrow — so matching on `(file, kind, startLine)` would have silently dropped 1.76% of lookups.
+  Matching is on `(file, startLine)`, exact key first then ±1 then ±2, with every candidate gated by
+  an `endLine` span co-check.
+
+  **What it does not do:**
+  - Nothing surfaces sibling incidence in the run summary, so a failed index build is **invisible to
+    an operator** — the run completes normally with no evidence attached. Filed as a follow-up; it
+    changes `CodeCraftOutput`, the MCP response and the printed page.
+  - `critiqueCodeInFile` does not auto-build an index. Pass `cloneIndex` and `projectRoot` to get
+    sibling evidence from that entry point.
+  - `DEFAULT_DUPLICATION_CONFIG` is hard-wired; `harness.config.json`'s `analyze.duplication` block is
+    not read, so an adopter who tunes the detector will not see `code-craft` follow.
+
+- b53c95d: Clone classes now carry a `partial-extraction` signal: a class is labelled when EVERY member's
+  unit BODY **calls into** one common first-party module, and `sharedImport` names that module by
+  its repo-relative extensionless key. It is the half-done extraction — the members already call
+  into a shared module and only the wrapper layer stayed duplicated — which usually makes it the
+  cheapest fix on the report, because the repair is bounded by a module that already exists rather
+  than by a design question.
+
+  The label means the members share a CALLED module. It does **not** claim the duplicated wrapper
+  already lives there, so it is **not necessarily a delete-and-import**: open the module named by
+  `sharedImport` and confirm what it exports before planning the repair. On this repository the
+  duplicated wrapper is among the named module's exports in **0 of the 7** labelled classes — even
+  `parseFencedJson`, whose module exports `extractFencedJsonPayload` and not the wrapper. That the
+  wrapper was never extracted is the finding itself. Where it is absent, the repair is "extract
+  into that module": cheaper than greenfield, but not a delete.
+
+  "Calls into" is literal. The binding must appear in every member body as a call callee
+  (`extract(x)`, `new Formatter(m)`), a method-call receiver (`fmt.format(x)`) or a JSX element
+  name (`<Row />`). Merely REFERENCING a name the module exports does not qualify, and that
+  distinction is not stylistic: an earlier revision of this work matched identifier TOKENS by
+  spelling and labelled three classes whose `sharedImport` pointed at a module exporting no such
+  helper at all — every member body merely mentioned a constant that module exports. The row
+  promised a delete-and-import repair with nothing to import. The role filter also excludes, by
+  construction, a member property spelled like the import (`item.extract()`), a non-computed
+  object or property key (`{ extract: item }`, `class A { extract() {} }`) and a value import used
+  only as a type (`mode: OutputModeType`). A local binding that SHADOWS the import is handled
+  conservatively — a name also declared in the file is dropped — so the residual is a false
+  negative, never a false positive.
+
+  Every condition in that predicate is load-bearing, and the reason is a measurement rather than a
+  preference. The obvious implementation — "every member's file imports a common module" — labels
+  **89 of this repository's 96 reported clone classes (92.7%)**, and labels them wrongly: ten
+  sibling files at equal directory depth share the STRING `../findings/schema.js` while naming ten
+  different files, so intersecting raw specifiers reports modules that are not shared at all. It
+  also labels all 38 platform-mirror classes by construction, since four copies of one file have
+  identical import lists — which would have put the mirror block at the head of the operator's
+  page. Keyed on module IDENTITY, scoped to the unit BODY, restricted to VALUE imports (excluded
+  per declaration AND per inline specifier) and to FIRST-PARTY modules, and to a CALL position,
+  the same ladder lands at **7 of 96, none of them a mirror**.
+
+  `CloneClass` gains a published `priority` field. **`rank` is unchanged** and remains exactly
+  `tokenCount * members.length`: it is the SIZE of the duplication and consumers read it as
+  "tokens x copies", so folding an ordering policy into it would make that arithmetic silently 2x
+  wrong for precisely the classes a consumer most wants to act on. `priority` is `rank` for a plain
+  duplicate and `rank * PARTIAL_EXTRACTION_PRIORITY_BOOST` (2) for a labelled one, and it is
+  published rather than kept private so a `--json` consumer handed a reordered list can reproduce
+  the order from the payload instead of taking it on trust.
+
+  **The `maxClasses` report cap is now by `priority` rather than by `rank`.** For any project with
+  no `partial-extraction` class the two are the same number for every class, so the reported set,
+  its order and the `classesTruncated` count are all byte-identical to before. A project that does
+  have labelled classes will see them ordered ahead of larger plain duplicates — on this repository
+  that moves one named class from position #21 to #8 and halves the structurally-concentrated rows
+  on the default printed page (4 of 10 to 2 of 10).
+
+  Within a priority TIE the ordering decision holds on its own: `signal` is a comparator term
+  ahead of `fingerprint`, so a labelled class leads. The boost makes a labelled class of rank r tie
+  a plain class of rank 2r, and that tie was previously resolved by sha1 hex — which put the
+  labelled class below plain ones as often as not. It was live on this repository under the looser
+  predicate (three plain classes and one labelled class all at priority 432, the labelled one
+  last); under the shipped predicate no such tie is live here, which is exactly why the term
+  matters for the next project rather than for this page.
+
+  Both operator surfaces name the signal, because an order the output cannot explain is worse than
+  no reordering: `harness cleanup -t duplication` prints
+  `[partial-extraction -> <module key>]` on the rows that have one and publishes `signal`,
+  `sharedImport` and `priority` under `--json` (`sharedImport` is ABSENT, not
+  present-and-`undefined`, on a plain duplicate), and `detect_entropy`'s `advisory.duplication`
+  carries the same tag on its `topClasses` lines.
+
+  Both surfaces are also actionable about SCALE, because a row names one site while the job is
+  collapsing all of them: every printed row and every `topClasses` line now reads
+  `unit (file:line, +N more sites)`, both publish a labelled-class count (`N labelled
+partial-extraction` on the CLI advisory line, `labelledClasses` on `advisory.duplication`), and
+  the CLI adds a `largest by rank` footer when the priority ordering pushed the biggest class off
+  the printed rows.
+
+  **Interface note for PRODUCERS.** `priority` and `importKeys` are REQUIRED fields added to
+  published types — `priority` on `CloneClass`, `importKeys` on the `FingerprintedUnit` that
+  `fingerprintFile` returns. Every consumer of these types is unaffected (a reader gains fields),
+  but any external code that CONSTRUCTS a `CloneClass` or a `FingerprintedUnit` — a test double, a
+  fixture factory, a mock analyzer — stops typechecking until it supplies them. That is the whole
+  breaking surface of this release for the core package.
+
+  `sharedImport` is a module KEY, not a file path: it is derived without touching the filesystem,
+  so claiming a file exists would be a claim the derivation never checked. When a class shares more
+  than one module the lexicographically smallest key wins, so the published value never depends on
+  file-discovery order.
+
+  RIDE-ALONG, named so it is not mistaken for signal work: `detect_entropy`'s summary mode now
+  reports `advisory.duplication.filesSkipped`. Summary mode was the one duplication surface with no
+  skip counter, so a partial scan was indistinguishable from a complete one.
+
+### Patch Changes
+
+- f67c97c: `harness check-perf -c <config>` now reads `performance.entryPoints` from the `-c` project's config instead of walking up from the current directory. Previously the scan was rooted on the `-c` project but used whichever project's entry points were found above `process.cwd()`.
+- 8110b23: `TypeScriptParser.health()` now probes the parser instead of asserting it is fine
+
+  `health()` was one line — `return Ok({ available: true, version: '7.0.0' })`. It
+  examined nothing, and the version was wrong by a major: the installed
+  `@typescript-eslint/typescript-estree` is 8.x. Because `validateDependencies`
+  gates its entire parser-unavailable abstention on this one answer, and because
+  `check-deps`, the `check_dependencies` MCP tool, `check-arch`'s layer-violation
+  collector, `ci check` and `review`'s mechanical checks all construct
+  `new TypeScriptParser()` unconditionally, **no production input could reach any
+  abstention path**. The machinery added in #2208 — `unavailableChecks`, exit 3,
+  the MCP `isError` abstention, `check-arch`'s `abstained` status — existed and
+  could only be exercised by mocking the core export. That is what the #2098
+  changeset meant by "no adopter can observe this half today"; this is the change
+  that makes it observable.
+
+  **What "available" now means.** The estree module resolves, exposes a callable
+  `parse`, and a trial parse of a fixed snippet yields an AST that this parser's
+  own `extractImports`/`extractExports` can read. The last clause is the point:
+  the contract consumers depend on is not "parse did not throw", it is "the
+  extracted imports and exports are usable", and only an end-to-end probe covers
+  an API that drifts without erroring. The reported `version` is the module's own,
+  so it tracks what is installed. Every failure is still `Ok({ available: false,
+message })`, never `Err` — an unavailable parser is an answer to the health
+  question, not a failure to answer it, and `fallbackBehavior` is the caller's to
+  apply.
+
+  **The estree module is now resolved lazily, through a seam.** A top-level
+  `import` makes a resolution failure a module-load crash _upstream_ of `health()`,
+  so the abstention could never be reached for the likeliest real cause — a broken
+  install, or a `typescript` peer the estree parser rejects. `parseFile` therefore
+  returns `PARSER_UNAVAILABLE` where it previously could not run at all, and the
+  optional constructor argument lets the unavailable branch be tested against the
+  real class rather than a hand-rolled stand-in parser.
+
+  **`buildDependencyGraph` fails closed on `PARSER_UNAVAILABLE`.** It skips files
+  it cannot parse, which is right for a syntax error in one file and wrong when
+  the parser is gone: every file is skipped, the graph has zero edges, and
+  `detectCircularDeps` reads that as "no cycles". With an honest `health()` that
+  became reachable, so `check-deps`' cycle half — which is not health-gated —
+  would have reported clean over files it never parsed. `TypeScriptParser` is the
+  only parser that emits that code (`TreeSitterParser` reports a missing grammar
+  as `SYNTAX_ERROR`), and only for a global condition, so no per-file skip
+  behaviour changes.
+
+  **The static comprehension extractor fails closed on `PARSER_UNAVAILABLE`.**
+  Resolving estree lazily turned a load-time crash into a per-file error, and
+  `createStaticExtractor` skipped every member that failed to parse — so with the
+  parser gone it returned an empty interface contract and dependency slice, and
+  `harness comprehend` (including the pre-commit hook) would write and stage units
+  claiming the module exports and imports nothing. It now rejects with a
+  `PARSER_UNAVAILABLE`-coded error and no unit is written; a syntax error in one
+  member is still skipped. `check-arch`'s circular-dependency measurement now
+  carries the graph-build cause in `metadata.error` instead of a bare
+  `'Failed to build dependency graph'`.
+
+  **The entropy snapshot fails closed on `PARSER_UNAVAILABLE` too.**
+  `parseSourceFiles` now returns a `Result`: a syntax error in one file is still
+  skipped, but a parser that cannot run fails the call with
+  `SNAPSHOT_BUILD_FAILED` (`details.reason: 'PARSER_UNAVAILABLE'`), so
+  `buildSnapshot` — and `harness cleanup` / `detect_entropy` — error instead of
+  reporting zero dead code over files they never read. `buildSnapshot` now builds
+  its dependency graph from the files it already parsed
+  (`buildDependencyGraphFromParsed`) instead of re-parsing every file and
+  replacing a failed graph build with an empty graph; nodes and edges are
+  unchanged. `check-arch`'s coupling and forbidden-imports collectors abstain with the
+  parser's cause in `metadata.error` rather than with an unexplained
+  `filesAnalyzed: 0`.
+
+  **`harness insights` / `insights_summary` no longer report Health PASS over an
+  analysis that failed.** `gatherEntropyBlock` turned any analyzer error into zero
+  counts, so the health block read PASS. It now throws, so the health and entropy
+  blocks are `null` with a `warnings[]` entry, and the text report prints
+  `NOT MEASURED (see warnings)` instead of omitting them. This covers the
+  unavailable parser (`SNAPSHOT_BUILD_FAILED`) and also `ENTRY_POINT_NOT_FOUND`.
+
+  **The abstention now carries the parser's own diagnosis.** `reason` was the bare
+  string `'Parser unavailable'`, which `check-deps` and the MCP tool print
+  verbatim — it told an operator something was wrong but never what. It is now
+  `Parser unavailable: <health message>`, keeping the greppable prefix that
+  consumers and their tests match on.
+
+  **One behaviour change on a working install.** On this repository `health()`
+  returns `available: true` with version `8.59.2`, from both built formats, and
+  every parser consumer is byte-identical. The exception is `harness insights` /
+  `insights_summary` on a project whose entry points come only from
+  `harness.config.json`. The insights entropy block does not read that file: it
+  passes no `entropy.entryPoints`, and it uses hard-coded include and exclude
+  patterns rather than the project's (#2192, not fixed here). So the analyzer
+  falls back to auto-discovery, and on such a project it returns
+  `ENTRY_POINT_NOT_FOUND` even though `harness cleanup`, which does read the
+  config, measures the same tree. This monorepo's root is one such project: 61
+  configured entry points, 720 dead-code findings from `cleanup`. There, the
+  health and entropy blocks previously read PASS with zero counts. They now read
+  NOT MEASURED with an `ENTRY_POINT_NOT_FOUND` warning. That is honest about what
+  insights measured. It is not a statement that the project's configured entry
+  points fail to resolve. Everything else changes only when the parser
+  genuinely is unavailable. In that state the previous behaviour was a
+  module-load crash. Each consumer now reports a named error or abstention:
+  `check-deps`, the `check_dependencies` MCP tool, `ci check`, `review`,
+  `check-arch`, `cleanup`, `detect_entropy`, `comprehend`, and `insights`.
+
+- a93839a: test: pin the five `-c`-implied-project-root fixes #2285 left undetectable.
+
+  #2285 fixed nineteen commands that read their config from `-c/--config` but
+  measured — or wrote to — `process.cwd()`. Twelve were pinned by a behavioural
+  test; `fix-drift`, `cleanup`, `release-inventory`, `check-design` and
+  `check-operational-drift` were not, so reverting any of them left the whole
+  `packages/cli` suite green. Each now has a case in
+  `tests/commands/config-implied-root.test.ts` that asserts a named artifact or a
+  non-zero denominator only the tmpdir fixture can produce, and that fails when
+  the pre-#2285 behaviour is restored. `fix-drift` asserts where the write landed.
+  Behaviour-only; no runtime change.
+
+- Updated dependencies [0ef499d]
+- Updated dependencies [b53c95d]
+- Updated dependencies [b53c95d]
+- Updated dependencies [b53c95d]
+- Updated dependencies [b53c95d]
+- Updated dependencies [e68f5b1]
+- Updated dependencies [8110b23]
+- Updated dependencies [f58cfdf]
+  - @harness-engineering/core@0.56.0
+  - @harness-engineering/dashboard@0.16.15
+  - @harness-engineering/orchestrator@0.28.1
+
 ## 13.0.0
 
 ### Major Changes
