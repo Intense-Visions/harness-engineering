@@ -30,6 +30,7 @@ function inputHandedToEngine(): Record<string, unknown> {
 
 function context(overrides: Partial<DesignPipelineContext> = {}): DesignPipelineContext {
   return {
+    graphAvailable: false,
     inputs: {
       designMdExists: false,
       tokensJsonExists: false,
@@ -60,6 +61,7 @@ function context(overrides: Partial<DesignPipelineContext> = {}): DesignPipeline
       byCode: {},
       fixesApplied: 0,
       iterationsRun: 0,
+      fixStopReason: 'not-run',
       durationMs: 11,
       ...overrides.summary,
     },

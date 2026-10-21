@@ -141,6 +141,21 @@ describe('runDesignPipeline (integration)', () => {
     expect(withCi.verdict).toBe(without.verdict);
   });
 
+  it('graphAvailable is probed even under --no-freshen (it used to read false with a graph on disk)', async () => {
+    writeFile('.harness/graph/graph.json', '{"kind":"schema"}\n');
+    const withGraph = await runDesignPipeline({ path: tmpDir, noFreshen: true, noFill: true });
+    expect(withGraph.graphAvailable).toBe(true);
+
+    fs.rmSync(path.join(tmpDir, '.harness', 'graph'), { recursive: true, force: true });
+    const withoutGraph = await runDesignPipeline({ path: tmpDir, noFreshen: true, noFill: true });
+    expect(withoutGraph.graphAvailable).toBe(false);
+  });
+
+  it('summary.fixStopReason is not-run when --fix is absent', async () => {
+    const out = await runDesignPipeline({ path: tmpDir, noFill: true });
+    expect(out.summary.fixStopReason).toBe('not-run');
+  });
+
   it('summary.durationMs is recorded', async () => {
     const out = await runDesignPipeline({ path: tmpDir });
     expect(out.summary.durationMs).toBeGreaterThanOrEqual(0);

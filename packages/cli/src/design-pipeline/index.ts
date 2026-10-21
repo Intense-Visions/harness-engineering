@@ -22,7 +22,7 @@ import { runAudit as runAnatomyAudit } from '../mcp/tools/audit-anatomy.js';
 import { runAuditBrand } from '../mcp/tools/audit-brand.js';
 import { newContext, type DesignPipelineContext } from './context.js';
 import { VerifierRegistry } from './registry.js';
-import { runFreshen } from './phases/freshen.js';
+import { runFreshen, probeGraphAvailable } from './phases/freshen.js';
 import { runDetect } from './phases/detect.js';
 import { runFix } from './phases/fix.js';
 import { runAudit } from './phases/audit.js';
@@ -58,6 +58,8 @@ export async function runDesignPipeline(
   const mode = input.mode ?? 'fast';
   const context = newContext();
   if (input.ci === true) context.warnings.push(CI_OPTION_DEPRECATION);
+  // Deprecated field, probed unconditionally so it is right under --no-freshen.
+  context.graphAvailable = probeGraphAvailable(projectRoot);
 
   // Build the verifier registry. Registering a 5th verifier here is necessary
   // but NOT sufficient: AUDIT also needs a findings bucket for its name, and
@@ -121,4 +123,4 @@ export async function runDesignPipeline(
   return context;
 }
 
-export type { DesignPipelineContext, Verdict } from './context.js';
+export type { DesignPipelineContext, Verdict, FixStopReason } from './context.js';

@@ -79,6 +79,7 @@ describe('runFix', () => {
     expect(h.runDetect).not.toHaveBeenCalled();
     expect(h.writeFileSync).not.toHaveBeenCalled();
     expect(ctx.summary.iterationsRun).toBe(0);
+    expect(ctx.summary.fixStopReason).toBe('no-drift');
   });
 
   it('stops on convergence (0 fixes applied) after a single align, without re-detecting', async () => {
@@ -93,6 +94,7 @@ describe('runFix', () => {
     expect(ctx.fixesApplied).toEqual([{ kind: 'applied' }]);
     // One align pass ran, so one iteration — even though it converged.
     expect(ctx.summary.iterationsRun).toBe(1);
+    expect(ctx.summary.fixStopReason).toBe('converged');
   });
 
   it('aligns with pipeline mode against the project root', async () => {
@@ -117,6 +119,7 @@ describe('runFix', () => {
     // The pass applied a fix before hitting the no-progress stop. Reporting 0
     // here put `iterations: 0` beside `fixes applied: 1` in the same report.
     expect(ctx.summary.iterationsRun).toBe(1);
+    expect(ctx.summary.fixStopReason).toBe('no-progress');
     // Re-detected findings replace the context's findings.
     expect(ctx.driftFindings).toHaveLength(2);
   });
@@ -133,6 +136,7 @@ describe('runFix', () => {
     expect(h.runAlign).toHaveBeenCalledTimes(2);
     expect(h.runDetect).toHaveBeenCalledTimes(1);
     expect(ctx.summary.iterationsRun).toBe(2);
+    expect(ctx.summary.fixStopReason).toBe('converged');
   });
 
   it('is bounded at 5 iterations even when drift keeps decreasing', async () => {
@@ -146,6 +150,29 @@ describe('runFix', () => {
 
     expect(h.runAlign).toHaveBeenCalledTimes(5);
     expect(ctx.summary.iterationsRun).toBe(5);
+    expect(ctx.summary.fixStopReason).toBe('max-iterations');
+  });
+
+  it('reports converged, not max-iterations, when the 5th pass is the one that converges', async () => {
+    // Four productive passes, then a 5th that applies nothing. The count is 5
+    // exactly as for a loop cut off at the cap, so only the stop reason can
+    // tell the two apart — an escalation keyed on `iterationsRun === 5` would
+    // fire on this run, which finished.
+    const ctx = contextWithDrift(5);
+    h.runAlign
+      .mockResolvedValueOnce(alignResult(1))
+      .mockResolvedValueOnce(alignResult(1))
+      .mockResolvedValueOnce(alignResult(1))
+      .mockResolvedValueOnce(alignResult(1))
+      .mockResolvedValueOnce(alignResult(0));
+    let n = 4;
+    h.runDetect.mockImplementation(async () => ({ findings: findings(n--) }));
+
+    await runFix(makeInput(ctx));
+
+    expect(h.runAlign).toHaveBeenCalledTimes(5);
+    expect(ctx.summary.iterationsRun).toBe(5);
+    expect(ctx.summary.fixStopReason).toBe('converged');
   });
 
   it('records a verifier failure and stops when align throws', async () => {
@@ -158,6 +185,7 @@ describe('runFix', () => {
     expect(h.runDetect).not.toHaveBeenCalled();
     // The pass was attempted; its failure is on verifiersFailed.
     expect(ctx.summary.iterationsRun).toBe(1);
+    expect(ctx.summary.fixStopReason).toBe('failed');
   });
 
   it('stringifies non-Error align rejections in the verifier failure', async () => {
@@ -180,6 +208,7 @@ describe('runFix', () => {
     await runFix(makeInput(ctx));
 
     expect(ctx.summary.iterationsRun).toBe(1);
+    expect(ctx.summary.fixStopReason).toBe('failed');
     expect(ctx.driftFindings).toBe(original);
     // This used to assert `[]` — "detect failure is silent, not recorded".
     // It was the only one of seven detect-drift call sites where the failure

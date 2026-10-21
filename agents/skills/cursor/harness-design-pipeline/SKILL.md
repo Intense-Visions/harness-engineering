@@ -58,6 +58,8 @@ All phases read from and write to a shared `DesignPipelineContext`:
 
 ```typescript
 interface DesignPipelineContext {
+  /** Deprecated (removed in the next major): whether graph.json exists. No verifier reads it. */
+  graphAvailable: boolean;
   inputs: {
     designMdExists: boolean;
     tokensJsonExists: boolean;
@@ -80,7 +82,16 @@ interface DesignPipelineContext {
   /** Projection of verifiersFailed the verdict was resolved against. */
   degradedBy: string[];
   /** iterationsRun = FIX-loop passes executed (one per align invocation). */
-  summary: { totalFindings; bySeverity; byCode; fixesApplied; iterationsRun; durationMs };
+  /** fixStopReason = 'not-run' | 'no-drift' | 'converged' | 'no-progress' | 'max-iterations' | 'failed' */
+  summary: {
+    totalFindings;
+    bySeverity;
+    byCode;
+    fixesApplied;
+    iterationsRun;
+    fixStopReason;
+    durationMs;
+  };
 }
 ```
 
@@ -129,7 +140,7 @@ while iteration < maxIterations:
   8. previousCount = newCount
 ```
 
-`summary.iterationsRun` is the number of passes that ran, including the one that converged, made no progress, or failed — so `fixesApplied > 0` always comes with `iterationsRun >= 1`.
+`summary.iterationsRun` is the number of passes that ran, including the one that converged, made no progress, or failed — so `fixesApplied > 0` always comes with `iterationsRun >= 1`. Because of that, the count does not say why the loop stopped (a run that converged on its 5th pass also reports 5); `summary.fixStopReason` does. It is `max-iterations` only when every allowed pass ran and the last one still made progress.
 
 Each align run mutates source files via its safe codemods (T001/T002/T003 only). Probably-safe / unsafe / failed outcomes are recorded but never auto-applied (align's pre-flight classifier is the gate).
 
@@ -286,7 +297,7 @@ Summary: 0 total findings (0 error, 0 warn, 0 info) in 89ms
 
 ## Escalation
 
-- **When the convergence loop hits maxIterations without converging:** check `context.summary.iterationsRun === 5`. Real fix oscillation almost always indicates a conflict between drift findings (e.g., two tokens with the same value). Inspect `fixesApplied` outcomes; the failing pattern is usually visible.
+- **When the convergence loop hits maxIterations without converging:** check `context.summary.fixStopReason === 'max-iterations'` (not `iterationsRun === 5`, which a run that converged on its last allowed pass also reports). Real fix oscillation almost always indicates a conflict between drift findings (e.g., two tokens with the same value). Inspect `fixesApplied` outcomes; the failing pattern is usually visible.
 - **When a verifier consistently fails:** `context.verifiersFailed[].error` carries the message. Run the verifier standalone (e.g. `harness skill run audit-brand-compliance`) to reproduce — orchestrator just propagates the failure.
 - **When FILL bootstraps a file you didn't want bootstrapped:** delete the stub; the orchestrator only writes when the file is absent. Or run with `--no-fill` to suppress the entire phase.
 - **When verdict is `fail` but you want to merge anyway:** the orchestrator exits with code 1; bypass via CI config (treating design-pipeline as advisory not blocking). Not recommended — error-severity findings represent declared violations.

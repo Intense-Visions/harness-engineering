@@ -17,8 +17,37 @@ import type { CraftFinding } from '../design-craft/findings/schema.js';
 
 export type Verdict = 'pass' | 'warn' | 'fail';
 
+/**
+ * Why the FIX convergence loop stopped. Read this, not `iterationsRun`, to tell
+ * a loop that hit its cap from one that converged on its last allowed pass:
+ * both report `iterationsRun: 5`.
+ *
+ * - `not-run`        FIX did not run (no `--fix`).
+ * - `no-drift`       FIX ran but DETECT found nothing to fix.
+ * - `converged`      align applied 0 fixes on the last pass.
+ * - `no-progress`    re-detect found as many findings as before the pass.
+ * - `max-iterations` every allowed pass ran and the last one still made
+ *                    progress — the loop was cut off, not finished.
+ * - `failed`         align or the re-detect threw; see `verifiersFailed`.
+ */
+export type FixStopReason =
+  | 'not-run'
+  | 'no-drift'
+  | 'converged'
+  | 'no-progress'
+  | 'max-iterations'
+  | 'failed';
+
 export interface DesignPipelineContext {
   // Pipeline state
+  /**
+   * @deprecated No composed verifier reads the knowledge graph, so nothing
+   * consumes this; it will be removed in the next major. Until then it is
+   * correct: whether `graph.json` exists under the project's graph directory,
+   * probed on every run — including under `--no-freshen`, where it used to
+   * report `false` with a graph on disk.
+   */
+  graphAvailable: boolean;
   inputs: {
     designMdExists: boolean;
     tokensJsonExists: boolean;
@@ -92,12 +121,15 @@ export interface DesignPipelineContext {
      * when FIX did not run (no `--fix`) or there was no drift to fix.
      */
     iterationsRun: number;
+    /** Why the FIX loop stopped; see {@link FixStopReason}. */
+    fixStopReason: FixStopReason;
     durationMs: number;
   };
 }
 
 export function newContext(): DesignPipelineContext {
   return {
+    graphAvailable: false,
     inputs: {
       designMdExists: false,
       tokensJsonExists: false,
@@ -131,6 +163,7 @@ export function newContext(): DesignPipelineContext {
       byCode: {},
       fixesApplied: 0,
       iterationsRun: 0,
+      fixStopReason: 'not-run',
       durationMs: 0,
     },
   };

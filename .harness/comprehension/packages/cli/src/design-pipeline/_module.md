@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/design-pipeline'
-sourceHash: '3d861f05ebcdecbd169482b2e17649da2e8ec6c686c163e115e8ec7acf806e0a'
+sourceHash: '2a58f8e2f6ef8af7bcb00af56195e8ed3442c034df1b4037388df5eacb72b4d9'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -13,6 +13,7 @@ members: ['context.ts', 'index.ts', 'registry.ts']
 ```ts
 export CI_OPTION_DEPRECATION
 export DesignPipelineContext
+export FixStopReason
 export Verdict
 export runDesignPipeline
 ```
@@ -34,7 +35,7 @@ import { runAudit } from './phases/audit.js'
 import { runDetect } from './phases/detect.js'
 import { runFill } from './phases/fill.js'
 import { runFix } from './phases/fix.js'
-import { runFreshen } from './phases/freshen.js'
+import { probeGraphAvailable, runFreshen } from './phases/freshen.js'
 import { runReport } from './phases/report.js'
 import { VerifierRegistry } from './registry.js'
 ```
