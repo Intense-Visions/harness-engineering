@@ -22,9 +22,16 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { buildPrompt } from '../../src/code-craft/phases/critique';
+import type { CloneClass, CloneMember } from '@harness-engineering/core';
+import {
+  buildPrompt,
+  critiqueOne,
+  SIBLING_AWARE_RUBRIC_IDS,
+} from '../../src/code-craft/phases/critique';
 import { abstractionEarnsKeepRubric } from '../../src/code-craft/catalog/rubrics/abstraction-earns-keep';
 import { revealsIntentRubric } from '../../src/code-craft/catalog/rubrics/reveals-intent';
+import { SEED_RUBRICS } from '../../src/code-craft/catalog/rubrics';
+import type { LlmProvider, LlmCallCost } from '../../src/shared/craft/llm/provider';
 import type { CodeUnit } from '../../src/code-craft/findings/schema';
 
 const SOURCE = `export function classify(x: number): string {
@@ -121,5 +128,138 @@ describe('buildPrompt byte-identity anchors (criterion 4, second half)', () => {
     expect(PROMPT_CODE_R001_NO_SIBLINGS).toContain('CODE-R001');
     // The anchors must differ, or one of them is pinning the wrong rubric.
     expect(PROMPT_CODE_R004_NO_SIBLINGS).not.toBe(PROMPT_CODE_R001_NO_SIBLINGS);
+  });
+});
+
+const SIBLINGS: CloneMember[] = [
+  {
+    file: 'packages/cli/src/naming-craft/phases/critique.ts',
+    unit: 'parseFencedJson',
+    kind: 'function',
+    startLine: 71,
+    endLine: 80,
+  },
+  {
+    file: 'packages/cli/src/docs-craft/phases/critique.ts',
+    unit: 'parseFencedJson',
+    kind: 'function',
+    startLine: 88,
+    endLine: 97,
+  },
+];
+
+const SIBLING_CLASS: CloneClass = {
+  fingerprint: 'aaaaaaaaaaaaaaaa',
+  tokenCount: 90,
+  members: [...SIBLINGS, { ...SIBLINGS[0]!, file: 'packages/cli/src/demo.ts', startLine: 1 }],
+  rank: 270,
+  priority: 270,
+  signal: 'duplicate',
+};
+
+/** Records the exact prompt string the phase handed the provider. */
+class CapturingProvider implements LlmProvider {
+  readonly providerId = 'capture';
+  readonly model = 'capture-1';
+  readonly prompts: string[] = [];
+
+  async callText(prompt: string): Promise<string> {
+    this.prompts.push(prompt);
+    return '```json\nnull\n```';
+  }
+
+  async callVision(): Promise<string> {
+    throw new Error('not used');
+  }
+
+  recordCost(_cost: LlmCallCost): void {
+    /* not used */
+  }
+}
+
+describe('buildPrompt sibling-evidence gate (criterion 4, restated)', () => {
+  it('CODE-R004 is the only sibling-aware seed rubric', () => {
+    // Pins D-P5-4 itself: widening the set is one line, and this is the test
+    // that makes the widening visible rather than incidental.
+    expect([...SIBLING_AWARE_RUBRIC_IDS]).toEqual(['CODE-R004']);
+    expect(SEED_RUBRICS.filter((r) => SIBLING_AWARE_RUBRIC_IDS.has(r.id))).toHaveLength(1);
+    // The six others must really exist, or "7x the tokens for six rubrics with
+    // no clause that can use it" is an argument about an empty set.
+    expect(SEED_RUBRICS.filter((r) => !SIBLING_AWARE_RUBRIC_IDS.has(r.id))).toHaveLength(6);
+  });
+
+  it('renders the evidence block for CODE-R004 when siblings are present', () => {
+    const prompt = buildPrompt({
+      ...BASE,
+      rubric: abstractionEarnsKeepRubric,
+      siblings: SIBLINGS,
+      siblingClass: SIBLING_CLASS,
+    });
+
+    expect(prompt).toContain('packages/cli/src/naming-craft/phases/critique.ts:71');
+    expect(prompt).toContain('packages/cli/src/docs-craft/phases/critique.ts:88');
+    expect(prompt).toContain('MECHANICAL DUPLICATION EVIDENCE');
+    expect(prompt).toContain('(90 tokens)');
+    // Ordering, not just containment: the block must sit between the closing
+    // code fence and the response instruction, so the model reads the evidence
+    // as part of the material under review rather than after its instructions.
+    // Mutation: append `evidence` after the tail instead — these two fail.
+    const fenceEnd = prompt.lastIndexOf('```');
+    const respond = prompt.indexOf('Respond with a fenced JSON block. Either:');
+    const block = prompt.indexOf('MECHANICAL DUPLICATION EVIDENCE');
+    expect(block).toBeGreaterThan(fenceEnd);
+    expect(block).toBeLessThan(respond);
+    // The tail must survive the splice.
+    expect(prompt.endsWith('high requires a specific quotable construct.')).toBe(true);
+  });
+
+  it('stays byte-identical for CODE-R004 when siblings is present but EMPTY', () => {
+    // Reachable because the fixture passes a present-but-empty array, which
+    // only the `length > 0` term rejects. Mutation: drop that term — a header
+    // over zero locations is rendered into the prompt.
+    expect(buildPrompt({ ...BASE, rubric: abstractionEarnsKeepRubric, siblings: [] })).toBe(
+      PROMPT_CODE_R004_NO_SIBLINGS
+    );
+  });
+
+  it('stays byte-identical for a non-sibling-aware rubric WITH siblings present', () => {
+    // Truth 3, and the case the "render for every rubric" reading of criterion
+    // 4 would fail. Reachable because the fixture populates siblings AND a
+    // class, so the rubric gate is the only thing stopping the render.
+    // Mutation: drop the SIBLING_AWARE_RUBRIC_IDS.has term — the block appears
+    // in CODE-R001's prompt.
+    expect(
+      buildPrompt({
+        ...BASE,
+        rubric: revealsIntentRubric,
+        siblings: SIBLINGS,
+        siblingClass: SIBLING_CLASS,
+      })
+    ).toBe(PROMPT_CODE_R001_NO_SIBLINGS);
+  });
+
+  it('critiqueOne forwards the sibling fields to the provider', async () => {
+    const provider = new CapturingProvider();
+    await critiqueOne({
+      ...BASE,
+      rubric: abstractionEarnsKeepRubric,
+      provider,
+      siblings: SIBLINGS,
+      siblingClass: SIBLING_CLASS,
+    });
+
+    // Asserted on the string the provider ACTUALLY received, not on
+    // buildPrompt's return. Mutation: have critiqueOne call buildPrompt with
+    // the four fields spelled out instead of passing `input` whole — the
+    // sibling fields are dropped and the block never reaches the model.
+    expect(provider.prompts).toHaveLength(1);
+    expect(provider.prompts[0]!).toContain('MECHANICAL DUPLICATION EVIDENCE');
+    expect(provider.prompts[0]!).toContain('packages/cli/src/naming-craft/phases/critique.ts:71');
+  });
+
+  it('critiqueOne sends the pre-change prompt when no siblings are supplied', async () => {
+    const provider = new CapturingProvider();
+    await critiqueOne({ ...BASE, rubric: abstractionEarnsKeepRubric, provider });
+    expect(provider.prompts[0]!).toBe(PROMPT_CODE_R004_NO_SIBLINGS);
   });
 });

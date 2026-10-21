@@ -12,14 +12,30 @@
  * Source: docs/changes/code-craft/proposal.md (Technical Design → critique phase).
  */
 
+import type { CloneClass, CloneMember } from '@harness-engineering/core';
 import type { LlmProvider } from '../../shared/craft/llm/provider.js';
 import type { CodeRubric } from '../catalog/rubrics/index.js';
 import type { CodeUnit, CodeFinding, Tier, Impact, Confidence } from '../findings/schema.js';
 import { derivePriority } from '../../shared/craft/findings/derived.js';
 import { extractFencedJsonPayload } from '../../shared/craft/fenced-json.js';
 import { unitSource } from '../extract/units.js';
+import { renderSiblingEvidence } from './sibling-evidence.js';
 
 const MAX_UNIT_CHARS = 2500;
+
+/**
+ * Rubrics whose text carries a clause only cross-file evidence can answer.
+ *
+ * CODE-R004 names the Rule of Three verbatim — "the same five lines copied in
+ * three places crying out for one named home" — and was structurally unable to
+ * answer it. The other six seed rubrics judge the unit in front of them, so
+ * rendering siblings for all seven would cost 7x the tokens (one prompt per
+ * (unit, rubric) pair) for six rubrics with no clause that can use it. Widening
+ * this set is one line plus a test, and is a decision someone should make
+ * deliberately rather than inherit. Spec criterion 4 is restated as
+ * rubric-scoped on exactly this argument.
+ */
+export const SIBLING_AWARE_RUBRIC_IDS: ReadonlySet<string> = new Set(['CODE-R004']);
 
 /**
  * Conservative-confidence system prompt. Readability judgments are inherently
@@ -48,6 +64,22 @@ export interface CritiqueInput {
   unit: CodeUnit;
   rubric: CodeRubric;
   provider: LlmProvider;
+  /**
+   * Other locations sharing this unit's normalized token shape. Spec-literal
+   * (`siblings?: CloneMember[]`) and self-excluded. Absent — not empty — when
+   * the unit belongs to no clone class, so the no-siblings prompt stays
+   * byte-identical to the pre-change one.
+   */
+  siblings?: readonly CloneMember[];
+  /**
+   * The owning clone class, for `tokenCount` / `signal` / `sharedImport`.
+   * Separate from `siblings` because `siblings` is the self-EXCLUDED list and
+   * this is the class it came from; `resolveSiblingEvidence` is the only
+   * construction site, so the pair cannot desync. Optional independently: a
+   * caller following the spec's literal wording passes `siblings` alone and gets
+   * the locations without the token count or the signal.
+   */
+  siblingClass?: CloneClass;
 }
 
 export async function critiqueOne(input: CritiqueInput): Promise<CodeFinding | null> {
@@ -95,11 +127,38 @@ export interface BuildPromptInput {
   source: string;
   unit: CodeUnit;
   rubric: CodeRubric;
+  /**
+   * Other locations sharing this unit's normalized token shape. Spec-literal
+   * (`siblings?: CloneMember[]`) and self-excluded. Absent — not empty — when
+   * the unit belongs to no clone class, so the no-siblings prompt stays
+   * byte-identical to the pre-change one.
+   */
+  siblings?: readonly CloneMember[];
+  /**
+   * The owning clone class, for `tokenCount` / `signal` / `sharedImport`.
+   * Separate from `siblings` because `siblings` is the self-EXCLUDED list and
+   * this is the class it came from; `resolveSiblingEvidence` is the only
+   * construction site, so the pair cannot desync. Optional independently: a
+   * caller following the spec's literal wording passes `siblings` alone and gets
+   * the locations without the token count or the signal.
+   */
+  siblingClass?: CloneClass;
 }
 
 export function buildPrompt(input: BuildPromptInput): string {
-  const { file, source, unit, rubric } = input;
+  const { file, source, unit, rubric, siblings, siblingClass } = input;
   const snippet = unitSource(source, unit, MAX_UNIT_CHARS);
+  // All three terms are load-bearing and each is pinned by its own
+  // byte-identity case: `!== undefined` keeps the no-clone-class prompt
+  // untouched, `length > 0` rejects a present-but-empty array (a header over
+  // zero locations is worse than no header), and the rubric gate is what keeps
+  // the other six rubrics' prompts identical for a unit that DOES have
+  // siblings. Spreading `[]` splices nothing, so the no-siblings array is the
+  // same array it was — truth 2 is structural rather than a promise.
+  const evidence =
+    siblings !== undefined && siblings.length > 0 && SIBLING_AWARE_RUBRIC_IDS.has(rubric.id)
+      ? renderSiblingEvidence(siblings, siblingClass)
+      : [];
   return [
     `Rubric: ${rubric.title} (${rubric.id})`,
     `Source: ${rubric.source}`,
@@ -113,6 +172,7 @@ export function buildPrompt(input: BuildPromptInput): string {
     snippet,
     '```',
     '',
+    ...evidence,
     'Respond with a fenced JSON block. Either:',
     '- `null` (literal) if the rubric does not apply OR the unit already clears this bar, OR',
     '- `{ "tier": "foundational|polish|aspirational", "impact": "small|medium|large", "confidence": "high|medium|low", "message": "<critique naming the specific construct and a concrete suggested revision>" }`',

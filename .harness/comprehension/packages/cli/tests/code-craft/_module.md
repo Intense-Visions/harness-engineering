@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/tests/code-craft'
-sourceHash: '1caed54dc89c2b72c4ed091897a6c9a92e6d14ac3727b28c4140d92fc1d59fbb'
+sourceHash: '66d2ae98ed24af005ff6f0705e36746f4b38d632034e139ba90d52cfbc778863'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -40,9 +40,9 @@ import { extractUnits, unitSource } from '../../src/code-craft/extract/units'
 import { extractUnits, unitSource } from '../../src/code-craft/extract/units.js'
 import { CodeUnit, UnitKind } from '../../src/code-craft/findings/schema'
 import { CodeUnit } from '../../src/code-craft/findings/schema.js'
-import { buildPrompt, critiqueOne } from '../../src/code-craft/phases/critique'
+import { SIBLING_AWARE_RUBRIC_IDS, buildPrompt, critiqueOne } from '../../src/code-craft/phases/critique'
 import { renderSiblingEvidence } from '../../src/code-craft/phases/sibling-evidence'
-import { InSessionLlmProvider, MockLlmProvider } from '../../src/shared/craft/llm/provider'
+import { InSessionLlmProvider, LlmCallCost, LlmProvider, MockLlmProvider } from '../../src/shared/craft/llm/provider'
 import { CloneClass, CloneIndex, CloneMember } from '@harness-engineering/core'
 import * as fs from 'node:fs'
 import * as os from 'node:os'
