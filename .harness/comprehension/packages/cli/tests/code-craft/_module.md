@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/tests/code-craft'
-sourceHash: '1a31fa7acb7da97ed6e61ff36005e0dc87c0a37c6f983f25f254974db464a952'
+sourceHash: '1caed54dc89c2b72c4ed091897a6c9a92e6d14ac3727b28c4140d92fc1d59fbb'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -12,6 +12,7 @@ members:
     'critique.test.ts',
     'discover.test.ts',
     'integration.test.ts',
+    'sibling-evidence.test.ts',
     'siblings.test.ts',
     'units-cov544.test.ts',
     'units.test.ts',
@@ -40,6 +41,7 @@ import { extractUnits, unitSource } from '../../src/code-craft/extract/units.js'
 import { CodeUnit, UnitKind } from '../../src/code-craft/findings/schema'
 import { CodeUnit } from '../../src/code-craft/findings/schema.js'
 import { buildPrompt, critiqueOne } from '../../src/code-craft/phases/critique'
+import { renderSiblingEvidence } from '../../src/code-craft/phases/sibling-evidence'
 import { InSessionLlmProvider, MockLlmProvider } from '../../src/shared/craft/llm/provider'
 import { CloneClass, CloneIndex, CloneMember } from '@harness-engineering/core'
 import * as fs from 'node:fs'
