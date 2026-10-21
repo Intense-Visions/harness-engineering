@@ -698,10 +698,27 @@ Verifiable alone: criteria 4 and 5.
 
 ### Deferred follow-ups (filed, not phases)
 
-- Baseline ratchet for duplication (per D4).
-- Sub-unit / CPD tier (to be justified by what this ships fails to catch).
+**Every item below is a roadmap shard under `docs/roadmap.d/`, named by slug so the claim is
+checkable.** It was not, until the FINAL_REVIEW pass checked it: seven of the nine were recorded
+here as "filed" while existing nowhere but this sentence — `duplication-report-grouping` most
+sharply, since its own text claims it is "named here with its reason rather than deferred a third
+time". Filed on 2026-10-21 as orders 219-225 via direct shard writes plus `harness roadmap regen`
+(not `manage_roadmap`, which has a live stale-build hazard that flips unrelated rows), each
+carrying its reason below verbatim. A deferral with a reason and no record is a deferral that
+happens again.
+
+- Baseline ratchet for duplication (per D4). → `duplication-baseline-ratchet` (order 219)
+- Sub-unit / CPD tier (to be justified by what this ships fails to catch). →
+  `duplication-sub-unit-cpd-tier` (order 220)
 - `design-time-reuse-discovery` — surface existing implementations of what a spec proposes, at spec
-  time, giving `harness-brainstorming` step 4 the mechanical backing it currently lacks.
+  time, giving `harness-brainstorming` step 4 the mechanical backing it currently lacks. → filed
+  (order 217)
+- `loadEntropyGraphOptions` type-awareness so the MCP surface can report duplication on a
+  graph-bearing project. → `entropy-graph-options-type-awareness` (order 224)
+- A vendored-build-cache glob for `DEFAULT_DUPLICATION_CONFIG.ignorePatterns`, generalized beyond
+  vitepress. → `duplication-vendored-build-cache-glob` (order 225)
+- Bring test files under a typechecked project, so type-level test assertions stop being
+  decorative. → `typecheck-test-files` (order 218)
 - **`duplication-report-grouping` — group the structurally-concentrated classes on the printed
   page.** Named here with its reason rather than deferred a third time to "Phase 4/5": Phase 4
   measurably does not aggravate the 38/96 platform-mirror concentration (0 of 38 mirror classes
@@ -710,7 +727,7 @@ Verifiable alone: criteria 4 and 5.
   (mirrors-of-each-other? same owning skill?), a presentation form, and a decision on whether a
   group counts as ONE class against `maxClasses` — which would move criterion 13's semantics a
   SECOND time in one release. Phase 5 is `code-craft` prompt wiring, a different subsystem, so it
-  is not Phase 5's either.
+  is not Phase 5's either. → `duplication-report-grouping` (order 221)
 - **`code-craft` sibling-evidence incidence in the run summary.** Phase 5's index build degrades to
   `undefined` on `Err` and on an empty discovery, and the reason is DROPPED — so a failed index
   build is invisible to an operator, who sees a normal run with no sibling evidence in it. Deferred
@@ -719,11 +736,13 @@ Verifiable alone: criteria 4 and 5.
   is Phase 5's end-to-end assertion over the real
   `collectCodeCraftPrompts(...).pendingPrompts[].userPrompt` string, which makes the wiring
   falsifiable with no schema change; what it does NOT give is operator visibility into a build that
-  failed.
+  failed. → `code-craft-sibling-evidence-incidence` (order 222)
 - **Knowledge-graph concept nodes for `partial-extraction` and `CloneClass`.** Phase 4 is where
   `partial-extraction` became real, so this was its natural home. Blocked on #1507:
   `manage_adr` / graph enrichment is not worktree-aware, and writing to the main checkout from
-  this phase's worktree is worse than not writing.
+  this phase's worktree is worse than not writing. →
+  `duplication-knowledge-graph-concept-nodes` (order 223, filed `blocked` against #1507 rather
+  than `planned`, because the blocker is external and naming it is the point)
 
 ## Verification notes
 
@@ -1148,9 +1167,9 @@ refusal is the ONLY outcome the surface can produce) and M6 (the
   4 -> 2), and recorded the rest as the NAMED deferred follow-up
   `duplication-report-grouping` with its reason. See "Deferred follow-ups (filed, not phases)".
 - `loadEntropyGraphOptions` type-awareness so the MCP surface can report duplication on a
-  graph-bearing project.
+  graph-bearing project. Filed: `entropy-graph-options-type-awareness` (order 224).
 - A vendored-build-cache glob for `DEFAULT_DUPLICATION_CONFIG.ignorePatterns`, generalized
-  beyond vitepress.
+  beyond vitepress. Filed: `duplication-vendored-build-cache-glob` (order 225).
 
 ### Phase 4 — the measured derivation, the ranking decision, and what moved
 
