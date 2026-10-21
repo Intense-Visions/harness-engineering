@@ -233,22 +233,28 @@ function summarizeDuplication(duplication: any) {
       (sum: number, cls: { members: unknown[] }) => sum + cls.members.length,
       0
     ),
-    topClasses: duplication.classes
-      .slice(0, 3)
-      .map(
-        (cls: {
-          members: Array<{ unit: string; file: string }>;
-          tokenCount: number;
-          signal?: string;
-          sharedImport?: string;
-        }) => {
-          const head = `${cls.members.length}x ${cls.tokenCount} tokens: ${cls.members[0]?.unit ?? '<anon>'} (${cls.members[0]?.file ?? '?'})`;
-          return cls.signal === 'partial-extraction' && cls.sharedImport !== undefined
-            ? `${head} [partial-extraction -> ${cls.sharedImport}]`
-            : head;
-        }
-      ),
+    topClasses: duplication.classes.slice(0, 3).map(topClassLine),
   };
+}
+
+/**
+ * One `topClasses` line: the class's shape and first member, plus the
+ * `partial-extraction` tag when it has one.
+ *
+ * A module-level function rather than an inline arrow so
+ * {@link summarizeDuplication} stays under the pre-commit hook's
+ * cyclomatic-complexity bar of 10 (inlined, it measured 12).
+ */
+function topClassLine(cls: {
+  members: Array<{ unit: string; file: string }>;
+  tokenCount: number;
+  signal?: string;
+  sharedImport?: string;
+}): string {
+  const head = `${cls.members.length}x ${cls.tokenCount} tokens: ${cls.members[0]?.unit ?? '<anon>'} (${cls.members[0]?.file ?? '?'})`;
+  return cls.signal === 'partial-extraction' && cls.sharedImport !== undefined
+    ? `${head} [partial-extraction -> ${cls.sharedImport}]`
+    : head;
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
