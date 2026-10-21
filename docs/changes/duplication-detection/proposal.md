@@ -1242,8 +1242,11 @@ The seven labelled classes, by position, with the three rung E labelled and rung
 |   — |  216 | 4 x 54  | `resolveOutputMode`      | ~~`packages/cli/src/output/formatter`~~          | E only |
 |   — |  147 | 3 x 49  | `resolveOutputMode`      | ~~`packages/cli/src/output/formatter`~~          | E only |
 
-The three dropped classes now report as plain duplicates at #12, #29 and #47 and are unchanged in
-every other field.
+The three dropped classes now report as plain duplicates at #12 (`printResult`, priority 846),
+#62 (`resolveOutputMode` 4 x 54, priority 216) and #82 (`resolveOutputMode` 3 x 49, priority 147),
+and are unchanged in every other field. They fall further than the label count alone suggests
+because losing the label means losing the doubling: each now sorts on `rank` against 95 classes
+that always did.
 
 All seven were re-verified by grep against the claim the label makes — "the named module exports
 a helper these bodies call" — and all seven hold: `sanitizePath`, `OutputFormatter` (via
