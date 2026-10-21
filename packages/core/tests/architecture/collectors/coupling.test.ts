@@ -101,6 +101,11 @@ describe('CouplingCollector', () => {
     // `importEdges` is 0 here because the detector is mocked and '/project'
     // does not exist, so the real snapshot the collector builds is empty. The
     // planted-positive suite covers the populated case (#2284).
-    expect(results[0]!.metadata).toEqual({ filesAnalyzed: 15, importEdges: 0 });
+    // No files means no import syntax either, so `importStatements` is 0 too.
+    expect(results[0]!.metadata).toEqual({
+      filesAnalyzed: 15,
+      importEdges: 0,
+      importStatements: 0,
+    });
   });
 });

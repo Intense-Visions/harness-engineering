@@ -373,6 +373,48 @@ describe('abstainedMeasurements (issue #2235)', () => {
     ).toBe('abstained');
   });
 
+  it('abstains on coupling importEdges=0 only when import syntax corroborates a hollow parse (#2304)', () => {
+    const none = declared({});
+    // The #2284 shape: a real file count, zero parsed import edges, and import
+    // statements plainly present in the text. Must not read as a clean zero.
+    const hollow = measurement({
+      category: 'coupling',
+      metadata: { filesAnalyzed: 1999, importEdges: 0, importStatements: 6712 },
+    });
+    expect(classifyMeasurement(hollow, none)).toBe('abstained');
+    expect(abstentionReason(hollow, none)).toBe(
+      'importEdges=0 although the analysed files contain importStatements=6712 — the parse returned none of them'
+    );
+
+    // Measured: a declaration-only package reports exactly this over real
+    // files. No import syntax means nothing to couple — a clean zero, not an
+    // abstention. Listing `importEdges` in WORK_DENOMINATORS would get this wrong.
+    expect(
+      classifyMeasurement(
+        measurement({
+          category: 'coupling',
+          metadata: { filesAnalyzed: 2, importEdges: 0, importStatements: 0 },
+        }),
+        none
+      )
+    ).toBe('measured');
+
+    // A collector that predates the corroborating count cannot tell the two
+    // apart, so it keeps the pre-#2304 verdict rather than abstaining blindly.
+    expect(
+      classifyMeasurement(
+        measurement({ category: 'coupling', metadata: { filesAnalyzed: 2, importEdges: 0 } }),
+        none
+      )
+    ).toBe('measured');
+    expect(
+      classifyMeasurement(
+        measurement({ category: 'coupling', metadata: { filesAnalyzed: 2, importEdges: 5 } }),
+        none
+      )
+    ).toBe('measured');
+  });
+
   it('does NOT flag a genuine clean result', () => {
     expect(
       abstainedMeasurements(
