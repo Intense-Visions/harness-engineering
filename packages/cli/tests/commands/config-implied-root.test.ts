@@ -31,6 +31,29 @@ import { tmpdir } from 'node:os';
 import * as path from 'node:path';
 import { Command } from 'commander';
 
+/**
+ * Pass-through recorder around core's `EntropyAnalyzer`. Behaviour is the REAL
+ * analyzer's; the only addition is that each construction's config is kept so a
+ * test can assert which entry points a command actually handed the analysis.
+ * Needed by the `check-perf` case: the perf detectors never consume entry
+ * points, so the only place a leaked entry-point set is observable is at this
+ * boundary (#2293).
+ */
+const analyzerConfigs = vi.hoisted(() => [] as Array<{ rootDir: string; entryPoints?: string[] }>);
+vi.mock('@harness-engineering/core', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@harness-engineering/core')>();
+  class RecordingEntropyAnalyzer extends actual.EntropyAnalyzer {
+    constructor(config: ConstructorParameters<typeof actual.EntropyAnalyzer>[0]) {
+      super(config);
+      analyzerConfigs.push({
+        rootDir: config.rootDir,
+        ...(config.entryPoints ? { entryPoints: [...config.entryPoints] } : {}),
+      });
+    }
+  }
+  return { ...actual, EntropyAnalyzer: RecordingEntropyAnalyzer };
+});
+
 import { runCheckVocabulary } from '../../src/commands/check-vocabulary';
 import { runAuditProtected } from '../../src/commands/audit-protected';
 import { runCheckDeps } from '../../src/commands/check-deps';
@@ -363,27 +386,40 @@ describe('-c selects the project root, not just the config file (#911 class)', (
   });
 
   /**
-   * `check-perf` — the action handler called `runCheckPerf(process.cwd(), ...)`
-   * while `resolveConfiguredEntryPoints` read the entry points from `-c`, so the
-   * configured entry points of one project scoped a scan of another.
+   * `check-perf` — two halves of one split. The action handler called
+   * `runCheckPerf(process.cwd(), ...)` (the ROOT half, fixed under #2285), and it
+   * never forwarded `-c`, so `resolveConfiguredEntryPoints(undefined)` walked up
+   * from `process.cwd()` and used THIS repo's nine `packages/**` entry points
+   * against the fixture's root (the ENTRY-POINT half, #2293).
    *
-   * Discriminator: this repo has 13 standing complexity violations, so a run
-   * against the WRONG root exits VALIDATION_FAILED(1) with 13 issues naming
-   * `packages/**` files. The fixture is one trivial function, so a correctly
-   * rooted run exits SUCCESS(0) with none. Asserting "zero issues, and no issue
-   * naming a path outside the fixture" is a finding assertion, not a verdict
-   * one — it cannot be satisfied by the repo's own tree.
+   * The previous version of this test asserted `issues: []`. That is exactly the
+   * value the entry-point leak produced: nine unresolvable entry points against a
+   * one-file tree analysed nothing of consequence and reported a clean pass. A
+   * zero cannot discriminate a defect whose symptom is a zero.
+   *
+   * Discriminators, both positive:
+   *   1. The analyzer was handed the FIXTURE's configured entry point — a
+   *      non-conventional path (`src/app/boot.ts`) that auto-detection cannot
+   *      find, so it can only have come from the fixture's `performance` block —
+   *      rooted at the fixture. Under the leak it receives this repo's nine
+   *      `packages/**` paths.
+   *   2. The fixture's own seeded finding is reported: a 7-parameter function in
+   *      that entry file, a `parameterCount` warning naming a path that exists
+   *      only in the tmpdir. That proves the analysis actually ran over the
+   *      fixture rather than abstaining.
    */
-  it('check-perf analyses the -c project', async () => {
+  it("check-perf analyses the -c project with the -c project's entry points", async () => {
     await withProject(
-      { rootDir: './src', docsDir: './docs' },
+      { rootDir: '.', docsDir: './docs', performance: { entryPoints: ['src/app/boot.ts'] } },
       async (root) => {
+        await mkdir(path.join(root, 'src/app'), { recursive: true });
         await writeFile(
-          path.join(root, 'src/thing.ts'),
-          'export function thing(a: number): number {\n  return a + 1;\n}\n'
+          path.join(root, 'src/app/boot.ts'),
+          'export function widen(a: number, b: number, c: number, d: number, e: number, f: number, g: number): number {\n' +
+            '  return a + b + c + d + e + f + g;\n}\n'
         );
       },
-      async (configPath) => {
+      async (configPath, root) => {
         const { createCheckPerfCommand } = await import('../../src/commands/check-perf');
 
         const exitError = new Error('process.exit');
@@ -402,6 +438,7 @@ describe('-c selects the project root, not just the config file (#911 class)', (
         program.option('--json', 'JSON');
         program.addCommand(createCheckPerfCommand());
 
+        analyzerConfigs.length = 0;
         try {
           await program.parseAsync(['node', 'test', '--json', '-c', configPath, 'check-perf']);
         } catch (e) {
@@ -411,11 +448,24 @@ describe('-c selects the project root, not just the config file (#911 class)', (
           logSpy.mockRestore();
         }
 
+        // 1. The entry points came from the -c project, and the root is its root.
+        expect(analyzerConfigs).toHaveLength(1);
+        expect(analyzerConfigs[0]!.rootDir).toBe(path.resolve(root));
+        expect(analyzerConfigs[0]!.entryPoints).toEqual(['src/app/boot.ts']);
+
+        // 2. The analysis ran over the fixture and found the fixture's finding.
         const payload = JSON.parse(
           logs.find((l) => l.includes('valid')) ?? '{"valid":null,"issues":[]}'
-        ) as { valid: boolean | null; issues: Array<{ file: string }> };
+        ) as { valid: boolean | null; issues: Array<{ file: string; message: string }> };
 
-        expect(payload.issues).toEqual([]);
+        const fixtureFile = toPosix(path.join(root, 'src/app/boot.ts'));
+        const seeded = payload.issues.filter(
+          (i) => toPosix(i.file) === fixtureFile && i.message.includes('"widen" has 7 parameters')
+        );
+        expect(seeded, JSON.stringify(payload.issues)).toHaveLength(1);
+        // Nothing outside the fixture, and no analysis-error row.
+        expect(payload.issues.every((i) => toPosix(i.file).startsWith(toPosix(root)))).toBe(true);
+        // A parameterCount finding is a warning, so the verdict stays passing.
         expect(payload.valid).toBe(true);
         expect(codes).toContain(0);
       }
@@ -678,7 +728,12 @@ describe('-c selects the project root, not just the config file (#911 class)', (
       {
         rootDir: './fixtureapp',
         docsDir: './fixturedocs',
-        entropy: { entryPoints: ['fixtureapp/main.ts'] },
+        // Relative to `rootDir` (fix-drift resolves entry points against it), so
+        // this names the seeded `fixtureapp/main.ts`. It used to read
+        // `fixtureapp/main.ts`, which resolved to `fixtureapp/fixtureapp/main.ts`
+        // — a file that does not exist — and passed only because configured
+        // entry points were never existence-checked (#2275).
+        entropy: { entryPoints: ['main.ts'] },
       },
       async (root) => {
         await mkdir(path.join(root, 'fixtureapp'), { recursive: true });
