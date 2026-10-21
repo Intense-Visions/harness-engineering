@@ -5,9 +5,18 @@
 
 Clone classes now carry a `partial-extraction` signal: a class is labelled when EVERY member's
 unit BODY **calls into** one common first-party module, and `sharedImport` names that module by
-its repo-relative extensionless key. It is the half-done extraction — the members already call a
-shared helper and only the wrapper layer stayed duplicated — which usually makes it the cheapest
-fix on the report, because the repair is delete-and-import rather than design.
+its repo-relative extensionless key. It is the half-done extraction — the members already call
+into a shared module and only the wrapper layer stayed duplicated — which usually makes it the
+cheapest fix on the report, because the repair is bounded by a module that already exists rather
+than by a design question.
+
+The label means the members share a CALLED module. It does **not** claim the duplicated wrapper
+already lives there, so it is **not necessarily a delete-and-import**: open the module named by
+`sharedImport` and confirm what it exports before planning the repair. On this repository the
+duplicated wrapper is among the named module's exports in **0 of the 7** labelled classes — even
+`parseFencedJson`, whose module exports `extractFencedJsonPayload` and not the wrapper. That the
+wrapper was never extracted is the finding itself. Where it is absent, the repair is "extract
+into that module": cheaper than greenfield, but not a delete.
 
 "Calls into" is literal. The binding must appear in every member body as a call callee
 (`extract(x)`, `new Formatter(m)`), a method-call receiver (`fmt.format(x)`) or a JSX element

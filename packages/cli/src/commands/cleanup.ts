@@ -432,8 +432,10 @@ function signalSuffix(cls: NonNullable<CleanupResult['duplication']>['classes'][
  * The counts line.
  *
  * `labelled partial-extraction` is published here because it is the one integer
- * that tells an agent how much of the page is CHEAP work: a labelled row's
- * repair is delete-and-import rather than design. The per-row tag says which
+ * that tells an operator how much of the page is CHEAPER work: a labelled row's
+ * members already CALL INTO the named module, so the repair is bounded by that
+ * module rather than greenfield. It is NOT necessarily a delete-and-import —
+ * open the module and confirm what it exports first. The per-row tag says which
  * rows, but only for the ten that print; the count is over every reported
  * class.
  */

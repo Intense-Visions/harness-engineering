@@ -498,8 +498,16 @@ named substrate that #1612 and #1646 depend on.
    identity / plus body-referenced / minus type-only / minus bare specifiers / plus a CALL
    position rather than a mention). The original wording is the first rung: 92.7% of classes,
    including all 38 platform-mirror classes by construction. The sixth rung is what makes the
-   label's PROMISE true: at rung five, three classes named a module that exported no such helper
-   at all.
+   label's CLAIM true — "every member CALLS INTO this module" — which is a strictly weaker claim
+   than the one four documents originally shipped: at rung five, three classes named a module that
+   exported no such helper at all, so the label's promise of a delete-and-import repair was false.
+   Rung six drops those three. It does NOT make a delete-and-import promise true, and the label
+   must not be read as one: measured over the 7 surviving labels (Scope C, 2026-10-21), the
+   duplicated wrapper is among the named module's exports in **0 of 7**. Even `parseFencedJson`
+   fails it — `shared/craft/fenced-json` exports `extractFencedJsonPayload`, not the wrapper. That
+   the wrapper was never extracted IS the finding; it is not something a reader can import. Every
+   operator-facing surface therefore says "calls into" and instructs the reader to open the module
+   and confirm what it exports.
 4. **(Restated in Phase 5 as rubric-scoped; see "Phase 5 — the measured extractor agreement".)**
    When `code-craft` critiques a unit belonging to a clone class, the prompt for a rubric in
    `SIBLING_AWARE_RUBRIC_IDS` (seeded `CODE-R004`) shall include the sibling members' locations; and
@@ -1389,11 +1397,31 @@ positions — a call callee (`extract(x)`, `new Formatter(m)`), a method-call re
 `runAction` keeps its label because it calls `new OutputFormatter(outputMode)`, which is the
 distinction the whole condition rests on.
 
-The claim was corrected in all four places, and not by softening one word. A labelled row now
-says the members CALL into the named module and instructs the reader to open it and confirm the
-export before planning the repair — because the tag means "they share a called module", not "the
-exact wrapper already lives there". Where it does not, the repair is "extract into that module",
-which is still cheaper than greenfield but is not a delete.
+The claim was corrected in the four places this pass looked at, and not by softening one word. A
+labelled row now says the members CALL into the named module and instructs the reader to open it
+and confirm the export before planning the repair — because the tag means "they share a called
+module", not "the exact wrapper already lives there". Where it does not, the repair is "extract
+into that module", which is still cheaper than greenfield but is not a delete.
+
+**That correction was incomplete, and the FINAL_REVIEW pass found out how.** The same false claim
+was still live in six further places — `core/src/duplication/index.ts` twice (both shipping in
+`dist/index.d.ts`), `cli/src/mcp/tools/entropy.ts` twice, `cli/src/commands/cleanup.ts`, and the
+changeset itself, which would have shipped it in the release notes — plus a surviving "usually
+delete-and-import" in the refactoring SKILL. All are now rewritten to the hedged form. Two
+lessons, both now mechanised:
+
+1. **It is worse than this pass measured: the delete-and-import promise is false for 7 of 7
+   labelled classes, not 3 of 10.** Rung F dropped the three classes whose named module exported
+   nothing matching, but in every one of the 7 survivors the duplicated wrapper is likewise absent
+   from the named module's exports (Scope C, 2026-10-21). Rung F made the "calls into" claim true;
+   it never made a delete-and-import claim true, and this pass over-read its own fix.
+2. **Pinning a correction's PRESENCE is not pinning the false claim's ABSENCE.** The repo's only
+   absence-assertion was `cli/tests/code-craft/sibling-evidence.test.ts`, scoped to one rendered
+   prompt string — which is exactly why six sites survived a pass that recorded them fixed.
+   Presence-assertions failed to catch this four times. `cli/tests/duplication-claim-guard.test.ts`
+   now asserts the ABSENCE of both phrasings across `packages/*/src` and `.changeset/`, so the
+   next writer who reaches for "the shared helper already exists" fails a test instead of shipping
+   it. This is the general form of Phase 5's N2 lesson.
 
 #### I2 — `referencedIn` was a token-spelling match; four of five shapes close by construction
 

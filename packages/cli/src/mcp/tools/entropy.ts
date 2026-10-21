@@ -213,9 +213,11 @@ function summarizePatterns(patterns: any): { issueCount: number; topIssues: stri
  *
  * `topClasses` names the `partial-extraction` signal and its shared module,
  * because the top three are where an agent DECIDES: a half-extracted class is
- * the cheapest fix on the list (the shared helper already exists, so the
- * repair is delete-and-import), and without the tag the agent cannot see why
- * a smaller class is listed above a larger one.
+ * usually the cheapest fix on the list (every member CALLS INTO the named
+ * module, so a shared layer is already extracted — but NOT necessarily this
+ * wrapper, so it is not necessarily a delete-and-import; the agent must open
+ * that module and confirm what it exports), and without the tag the agent
+ * cannot see why a smaller class is listed above a larger one.
  *
  * `filesSkipped` rides along here (a ride-along, not signal work). Summary
  * mode was the one duplication surface with no skip counter, so a partial
@@ -229,9 +231,11 @@ function summarizeDuplication(duplication: any) {
     classesSuppressed: duplication.stats.classesSuppressed,
     classesTruncated: duplication.stats.classesTruncated,
     filesSkipped: duplication.stats.filesSkipped,
-    // The one integer that tells an agent how much of the page is CHEAP work: a
-    // labelled class's repair is delete-and-import rather than design. The
-    // `topClasses` tags say WHICH, but only for the three that are listed.
+    // The one integer that tells an agent how much of the page is CHEAPER work:
+    // a labelled class's members already CALL INTO a shared module, so the
+    // repair is bounded by that module rather than greenfield — it is not
+    // necessarily a delete-and-import. The `topClasses` tags say WHICH, but
+    // only for the three that are listed.
     labelledClasses: duplication.classes.filter(
       (cls: { signal?: string }) => cls.signal === 'partial-extraction'
     ).length,

@@ -69,8 +69,17 @@ export interface CloneClass {
   /**
    * `'partial-extraction'` when EVERY member's unit body references a value
    * binding imported from one common first-party module — a half-done
-   * extraction, where the shared helper already exists and only the wrapper
-   * layer stayed duplicated. `'duplicate'` otherwise.
+   * extraction, where the members all CALL INTO a shared layer and only the
+   * wrapper layer stayed duplicated. `'duplicate'` otherwise.
+   *
+   * The label means the members share a CALLED module. It does NOT claim the
+   * duplicated wrapper already lives in that module, and it is NOT necessarily
+   * a delete-and-import: open the module named by `sharedImport` and confirm
+   * what it exports before planning the repair. Measured over this
+   * repository's 7 labelled classes, the duplicated wrapper is among the named
+   * module's exports in **0 of 7** — `parseFencedJson`'s own module exports
+   * `extractFencedJsonPayload`, not the wrapper. That the wrapper was never
+   * extracted IS the finding; it is not something a reader can import.
    *
    * All four conditions are load-bearing and each is earned by measurement in
    * `./imports.ts`: module IDENTITY rather than raw specifier strings, the
@@ -167,10 +176,9 @@ export interface CloneIndex {
    * reason, message and `Error` were computed in {@link fingerprintFile} and
    * then discarded here.
    *
-   * `'duplication'` is NOT yet a member of `AnalysisError['analyzer']`
-   * (`entropy/types/report.ts`), so that binding does not typecheck today.
-   * Adding the union member is Phase 2 registration work, named in the spec's
-   * Phase 2 section; this describes the intended consumer, not a current one.
+   * `'duplication'` IS a member of `AnalysisError['analyzer']`
+   * (`entropy/types/report.ts`), added by Phase 2's registration work, so that
+   * binding typechecks. This field is the evidence that conversion consumes.
    */
   skipped: SkippedFile[];
   /**
@@ -406,15 +414,22 @@ export const MAX_EVIDENCE_ENTRIES = 100;
  * duplication").
  *
  * A POLICY constant, deliberately separate from `rank`: a half-extracted class
- * is the cheapest fix on the page, because the shared module already exists
- * and the refactor is delete-and-import rather than design.
+ * is usually the cheapest fix on the page, because the members already CALL
+ * INTO a shared module and only the wrapper layer stayed duplicated. It is NOT
+ * necessarily a delete-and-import — open the module named by `sharedImport`
+ * and confirm what it exports. On this repository the duplicated wrapper is
+ * among that module's exports in 0 of 7 labelled classes, so the honest repair
+ * is usually "extract into that module": cheaper than greenfield, not a delete.
  *
- * Measured over this repository's 96 reported classes when this landed: at 2,
- * six of the printed top ten are labelled, the mirror rows on that page fall
- * from four to two, and the spec's named `parseFencedJson` case rises from #21
- * to #9 — while the largest clone in the repository stays visible at #2. A
- * strict tier (every labelled class first) instead fills all ten printed rows
- * and pushes that largest clone off the page entirely.
+ * Measured over this repository's 96 reported classes (Scope C, 2026-10-21, at
+ * the shipped build): at 2, five of the printed top ten are labelled, the
+ * mirror rows on that page fall from four to two, and the spec's named
+ * `parseFencedJson` case rises from #21 by rank to #8 by priority — while the
+ * largest clone in the repository stays visible at #2. A strict tier (every
+ * labelled class first) instead fills all ten printed rows and pushes that
+ * largest clone off the page entirely. These positions move whenever the
+ * repository's own sources change; the ORDERING property is the invariant, the
+ * positions are a dated observation.
  */
 export const PARTIAL_EXTRACTION_PRIORITY_BOOST = 2;
 
