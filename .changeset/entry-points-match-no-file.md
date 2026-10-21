@@ -1,6 +1,7 @@
 ---
 '@harness-engineering/core': minor
 '@harness-engineering/cli': major
+'@harness-engineering/dashboard': patch
 ---
 
 A configured entry point that matches no file is reported by name instead of producing a clean pass over zero analysis.
@@ -37,8 +38,11 @@ No new plumbing carries the result. The `Err` reaches the operator through the a
 
 `minor` rather than `major` on core because it is a 0.x package, where minor is the breaking channel; 30 prior core changesets use it and none has used `major`.
 
-**No effect on this repository.** All 62 `entropy.entryPoints` and all 9 `performance.entryPoints` resolve to existing files, measured path by path; both gates still produce a verdict with the change built in (entropy: 543 dead exports over 62 entry points; perf: 668 complexity and 510 coupling violations over 9), and `.harness/**` baselines are untouched.
+## Two callers that would have turned the new error into a wrong answer
 
-## One true positive left red rather than tuned
+- **Dashboard Health and Perf panels.** `discoverEntryPoints` synthesised `packages/<name>/src/index.ts` for every directory under `packages/` with no existence check, then passed them as explicit entry points. This repository's own `packages/dashboard` has no `src/index.ts`, so with the core change alone both panels would have gone from a report to `ENTRY_POINT_NOT_FOUND: 1 of 13 configured entryPoints match no file`. Measured against this repo through the built analyzer: the old discovery gives that error, the filtered discovery gives 12 entry points and a report over 2428 files. The guessed paths are now existence-filtered, the same treatment as package.json `main`: a guess is not a configuration.
+- **`composeInsights` (`harness insights`, `insights_summary`).** On a failed entropy analysis it returned `{ driftCount: 0, deadFiles: 0, deadExports: 0 }`, and the health block derived from it then reported `passed: true`, "No structural health findings." The core change makes that path reachable for a project whose package.json `main` names an unbuilt artifact. It now throws into the existing `safeGather` channel, so `entropy` and `health` are `null` with a warning naming the failure, the report's existing representation of "not measured". One existing CLI test (`insights` › `silently drops unknown --skip keys`) asserted `entropy` was non-null on an empty temp directory, which held only because the swallowed failure produced zeros; its fixture now has a `src/index.ts` so the section it checks really runs, and it also asserts no warnings.
 
-`packages/cli/tests/commands/config-implied-root.test.ts` -> `'check-perf analyses the -c project'` fails on this branch with `Analysis failed: 9 of 9 configured entryPoints match no file`. Nine is this repository's `performance.entryPoints` count, measured while the scan root was a temp fixture: `runCheckPerfAction` forwards `-c` to `resolveProject` for the root but never passes `configPath` to `runCheckPerf`, so `resolveConfiguredEntryPoints(undefined)` walks up from `process.cwd()` and reads **this** repository's config. The root half of that split was fixed under #911; the entry-point half was not. The test asserted `issues` was `[]` and documented that zero as proof of correct rooting — but the zero came from nine unresolvable roots producing no analysis, so the assertion measured nothing it claimed to. Any fix to this defect that existence-checks configured entry points turns that test red. It is filed as #2293 and left failing rather than adjusted, because the adjustment would re-bury the defect and the fix belongs to the `-c` family tracked in #2287.
+## No effect on this repository's gates
+
+All 62 `entropy.entryPoints` and all 9 `performance.entryPoints` resolve to existing files, checked path by path. Before and after, with the CLI built from each: `check-perf --json` reports 1555 issues, and the only two that differ are the size and coupling-ratio findings for `entry-points.ts` itself, the file this change edits. `cleanup --type dead-code --json` reports 720 dead-code findings, identical before and after. No `analysis-error` issue appears in either run.

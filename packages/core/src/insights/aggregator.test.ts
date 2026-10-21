@@ -32,6 +32,44 @@ describe('composeInsights', () => {
     expect(report.health).toBeNull();
   });
 
+  it('a failed entropy analysis is reported as unmeasured, never as a health pass', async () => {
+    // package.json `main` names an unbuilt artifact and there is no conventional
+    // index file, so entry-point resolution fails and the analysis never runs.
+    writeFileSync(
+      join(projectPath, 'package.json'),
+      JSON.stringify({ name: 'stale-main', main: 'dist/index.js' }),
+      'utf8'
+    );
+    mkdirSync(join(projectPath, 'src'), { recursive: true });
+    writeFileSync(join(projectPath, 'src', 'lib.ts'), 'export const x = 1;\n', 'utf8');
+
+    const report = await composeInsights(projectPath, { skip: ['decay', 'attention', 'impact'] });
+
+    expect(report.health).toBeNull();
+    expect(report.entropy).toBeNull();
+    expect(report.warnings.some((w) => w.startsWith('entropy: entropy analysis failed'))).toBe(
+      true
+    );
+    expect(report.warnings.some((w) => w.startsWith('health: entropy analysis failed'))).toBe(true);
+  });
+
+  it('a project whose analysis runs still gets an entropy block (positive control)', async () => {
+    mkdirSync(join(projectPath, 'src'), { recursive: true });
+    writeFileSync(join(projectPath, 'src', 'index.ts'), "export { used } from './lib';\n", 'utf8');
+    writeFileSync(
+      join(projectPath, 'src', 'lib.ts'),
+      'export const used = 1;\nexport const unused = 2;\n',
+      'utf8'
+    );
+
+    const report = await composeInsights(projectPath, { skip: ['decay', 'attention', 'impact'] });
+
+    expect(report.warnings).toEqual([]);
+    expect(report.entropy).not.toBeNull();
+    expect(report.entropy!.deadExports).toBeGreaterThan(0);
+    expect(report.health?.passed).toBe(false);
+  });
+
   it('attention block counts active vs stale session directories', async () => {
     const sessionsDir = join(projectPath, '.harness', 'sessions');
     const freshDir = join(sessionsDir, 'fresh-session');

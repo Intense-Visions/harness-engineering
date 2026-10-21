@@ -60,8 +60,12 @@ async function gatherEntropyBlock(projectPath: string): Promise<InsightsEntropyB
     analyze: { drift: false, deadCode: true, patterns: false, complexity: false },
   });
   const result = await analyzer.analyze();
-  const empty: InsightsEntropyBlock = { driftCount: 0, deadFiles: 0, deadExports: 0 };
-  if (!result.ok) return empty;
+  // A failed analysis is NOT zero findings. Returning `{0, 0, 0}` here made the
+  // health block below report `passed: true` / "No structural health findings."
+  // over an analysis that never ran — e.g. a project whose entry points resolve
+  // to no file (#2275). Throwing routes it through `safeGather`, which records a
+  // warning and leaves the block `null`, the report's existing "not measured".
+  if (!result.ok) throw new Error(`entropy analysis failed: ${result.error.message}`);
   const report = result.value as {
     drift?: { drifts?: unknown[] };
     deadCode?: { deadFiles?: unknown[]; deadExports?: unknown[] };

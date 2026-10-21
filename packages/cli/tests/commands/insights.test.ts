@@ -1,7 +1,7 @@
 // packages/cli/tests/commands/insights.test.ts
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { Command } from 'commander';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { createInsightsCommand } from '../../src/commands/insights';
@@ -75,11 +75,18 @@ describe('insights command', () => {
     });
 
     it('silently drops unknown --skip keys without erroring', async () => {
+      // Give the project an entry point so the entropy section can actually run.
+      // On an empty directory entropy analysis fails, and a failed analysis is
+      // reported as `null` + a warning rather than as zero findings (#2275), so
+      // an empty fixture cannot tell "skipped" apart from "ran and failed".
+      mkdirSync(join(tmp, 'src'), { recursive: true });
+      writeFileSync(join(tmp, 'src', 'index.ts'), 'export const x = 1;\n');
       await runCommand(tmp, ['--json', '--skip', 'not-a-key,impact']);
       const parsed = JSON.parse(logOutput.join('\n').trim()) as Record<string, unknown>;
       expect(parsed.impact).toBeNull();
       // Other sections still run.
       expect(parsed.entropy).not.toBeNull();
+      expect(parsed.warnings).toEqual([]);
     });
 
     it('renders a pretty text report (default mode)', async () => {
