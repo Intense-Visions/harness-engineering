@@ -1,5 +1,6 @@
 ---
 '@harness-engineering/core': minor
+'@harness-engineering/cli': patch
 ---
 
 `TypeScriptParser.health()` now probes the parser instead of asserting it is fine
