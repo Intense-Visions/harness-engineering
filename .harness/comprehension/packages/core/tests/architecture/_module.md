@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/tests/architecture'
-sourceHash: '2b4f1f3171899598e671c4c6843f69a2455382a405f74bb0e8819d628f11a0b1'
+sourceHash: '0c15faec55f570cf56d0576dafa53ed163983abee49719c78886747d11c71db7'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent

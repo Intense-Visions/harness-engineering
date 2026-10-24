@@ -104,6 +104,11 @@ export interface CheckArchResult {
   configuredCategories?: ConfiguredCategories;
   baselineUpdated?: boolean;
   warning?: string;
+  /**
+   * Allowance files present but not applied (bad JSON / schema mismatch), with why.
+   * Optional for additivity; populated in baseline mode so the skip is never silent.
+   */
+  skippedAllowances?: Array<{ file: string; reason: string }>;
 }
 
 /**
@@ -713,6 +718,10 @@ export async function runCheckArch(
     thresholdViolations,
     measurements: summarizeMeasurements(results),
     configuredCategories,
+    skippedAllowances: coverage.skipped.map((s) => ({
+      file: path.relative(cwd, s.file).replaceAll('\\', '/'),
+      reason: s.reason,
+    })),
   });
 }
 
@@ -739,6 +748,13 @@ function buildArchIssues(value: CheckArchResult) {
   ];
 }
 
+/** A skipped allowance stops acknowledging its regression; say so instead of failing mysteriously. */
+function warnSkippedAllowances(value: CheckArchResult): void {
+  for (const s of value.skippedAllowances ?? []) {
+    logger.warn(`Allowance ${s.file} ignored (${s.reason}); its regressions are NOT acknowledged.`);
+  }
+}
+
 function printArchResult(
   value: CheckArchResult,
   mode: OutputModeType,
@@ -760,6 +776,7 @@ function printArchResult(
       );
     }
   }
+  if (mode !== OutputMode.QUIET) warnSkippedAllowances(value);
   if (value.resolvedViolations.length > 0 && mode !== OutputMode.QUIET) {
     logger.success(`${value.resolvedViolations.length} violation(s) resolved since baseline.`);
   }

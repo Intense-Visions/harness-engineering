@@ -387,6 +387,24 @@ describe('arch allowances', () => {
     expect(filtered.allowedRegressions).toHaveLength(1);
   });
 
+  it('records skipped allowance files with a reason instead of dropping them silently', () => {
+    const dir = archAllowancesDir(root, BASELINE_REL);
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, 'broken.json'), 'not-json{{{');
+    writeFileSync(join(dir, 'no-reason.json'), JSON.stringify({ categories: { complexity: 1 } }));
+    writeFileSync(join(dir, 'ok.json'), JSON.stringify({ reason: 'fine' }));
+
+    const coverage = loadArchAllowances(root, BASELINE_REL);
+    expect(coverage.files).toEqual([join(dir, 'ok.json')]);
+    expect(coverage.skipped).toEqual([
+      { file: join(dir, 'broken.json'), reason: 'not valid JSON' },
+      {
+        file: join(dir, 'no-reason.json'),
+        reason: expect.stringContaining('does not match the allowance schema at "reason"'),
+      },
+    ]);
+  });
+
   it('still rejects an allowance category that is not a known metric', () => {
     expect(
       ArchAllowanceSchema.safeParse({ reason: 'x', categories: { 'not-a-metric': 1 } }).success
@@ -409,6 +427,7 @@ describe('arch allowances', () => {
       categoryCeilings: new Map([['complexity' as const, 312]]),
       files: [],
       reasons: [],
+      skipped: [],
     };
     const filtered = filterDiffByAllowances(rawDiff, coverage);
     expect(filtered.passed).toBe(true);
@@ -425,6 +444,7 @@ describe('arch allowances', () => {
       categoryCeilings: new Map(),
       files: [],
       reasons: [],
+      skipped: [],
     };
     const filtered = filterDiffByAllowances(rawDiff, coverage);
     expect(filtered.passed).toBe(false);
@@ -441,6 +461,7 @@ describe('arch allowances', () => {
       categoryCeilings: new Map([['complexity' as const, 350]]), // ceiling below current 400
       files: [],
       reasons: [],
+      skipped: [],
     };
     const filtered = filterDiffByAllowances(rawDiff, coverage);
     expect(filtered.passed).toBe(false);
