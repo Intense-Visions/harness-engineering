@@ -31,7 +31,7 @@
   "dependencies": {
     "@harness-engineering/types": "workspace:*",
     "minimatch": "^10.2.5",
-    "zod": "^3.25.76"
+    "zod": "^4.6.6"
   },
   "optionalDependencies": {
     "tree-sitter": "^0.22.4",

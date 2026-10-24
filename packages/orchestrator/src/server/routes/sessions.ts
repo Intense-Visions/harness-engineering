@@ -116,7 +116,7 @@ async function handleUpdate(
     }
     const body = await readBody(req);
     // harness-ignore SEC-DES-001: input validated by Zod z.record() schema
-    const updates = z.record(z.unknown()).parse(JSON.parse(body));
+    const updates = z.record(z.string(), z.unknown()).parse(JSON.parse(body));
     const sessionFilePath = path.join(sessionsDir, id, 'session.json');
     // harness-ignore SEC-DES-001: reading self-written session.json from disk — trusted internal source
     const current = JSON.parse(await fs.readFile(sessionFilePath, 'utf-8'));

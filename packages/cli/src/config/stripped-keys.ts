@@ -12,21 +12,27 @@ export interface StrippedKey {
   suggestion?: string;
 }
 
-/** A zod schema node with the internal `_def` we walk. Typed loosely on purpose. */
+/**
+ * A zod 4 schema node's internal definition (`schema._zod.def`). Typed loosely on
+ * purpose. zod 3 exposed `_def.typeName` ('ZodObject', …); zod 4 uses a lowercase
+ * `def.type` discriminant and models `.passthrough()` / `.strict()` as an object
+ * `catchall` (`unknown` / `never`) instead of `unknownKeys`. A walker left on the
+ * zod 3 names matches nothing and silently reports zero dropped keys.
+ */
 type ZodDef = {
-  typeName?: string;
+  type?: string;
   innerType?: z.ZodTypeAny;
-  schema?: z.ZodTypeAny;
+  in?: z.ZodTypeAny;
   getter?: () => z.ZodTypeAny;
-  type?: z.ZodTypeAny;
+  element?: z.ZodTypeAny;
   valueType?: z.ZodTypeAny;
   options?: z.ZodTypeAny[];
-  unknownKeys?: 'strip' | 'strict' | 'passthrough';
-  shape?: () => Record<string, z.ZodTypeAny>;
+  catchall?: z.ZodTypeAny;
+  shape?: Record<string, z.ZodTypeAny>;
 };
 
 function defOf(schema: z.ZodTypeAny): ZodDef {
-  return (schema as unknown as { _def: ZodDef })._def;
+  return (schema as unknown as { _zod: { def: ZodDef } })._zod.def;
 }
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
@@ -128,33 +134,37 @@ function join(prefix: string, key: string): string {
 
 /** Wrapper types that carry no keys of their own — unwrap and continue. */
 const WRAPPERS: Record<string, (def: ZodDef) => z.ZodTypeAny | undefined> = {
-  ZodOptional: (d) => d.innerType,
-  ZodNullable: (d) => d.innerType,
-  ZodDefault: (d) => d.innerType,
-  ZodEffects: (d) => d.schema,
-  ZodLazy: (d) => d.getter?.(),
+  optional: (d) => d.innerType,
+  nullable: (d) => d.innerType,
+  default: (d) => d.innerType,
+  prefault: (d) => d.innerType,
+  catch: (d) => d.innerType,
+  readonly: (d) => d.innerType,
+  // transform / preprocess are pipes in zod 4; the raw input is validated by `in`.
+  // (refine / superRefine are checks on the schema itself, not wrappers.)
+  pipe: (d) => d.in,
+  lazy: (d) => d.getter?.(),
 };
 
 function walk(schema: z.ZodTypeAny, value: unknown, prefix: string, out: StrippedKey[]): void {
   const def = defOf(schema);
-  const typeName = def.typeName ?? '';
+  const type = def.type ?? '';
 
-  const unwrapper = WRAPPERS[typeName];
+  const unwrapper = WRAPPERS[type];
   if (unwrapper) {
     const inner = unwrapper(def);
     if (inner) walk(inner, value, prefix, out);
     return;
   }
 
-  switch (typeName) {
-    case 'ZodObject':
+  switch (type) {
+    case 'object':
       return walkObject(def, value, prefix, out);
-    case 'ZodRecord':
+    case 'record':
       return walkRecord(def, value, prefix, out);
-    case 'ZodArray':
+    case 'array':
       return walkArray(def, value, prefix, out);
-    case 'ZodUnion':
-    case 'ZodDiscriminatedUnion':
+    case 'union': // discriminated unions share this def type in zod 4
       return walkUnion(def, value, prefix, out);
     default:
       // Primitives and anything else carry no droppable keys.
@@ -162,11 +172,24 @@ function walk(schema: z.ZodTypeAny, value: unknown, prefix: string, out: Strippe
   }
 }
 
+/**
+ * `.passthrough()` is a catchall of `unknown`, `.strict()` a catchall of `never`, and
+ * plain strip has none. Any non-`never` catchall keeps extra keys, so never report them.
+ */
+function keepsUnknownKeys(def: ZodDef): boolean {
+  if (!def.catchall) return false;
+  return defOf(def.catchall).type !== 'never';
+}
+
+function shapeOf(def: ZodDef): Record<string, z.ZodTypeAny> {
+  return def.shape ?? {};
+}
+
 function walkObject(def: ZodDef, value: unknown, prefix: string, out: StrippedKey[]): void {
   if (!isPlainObject(value)) return;
-  const shape = def.shape ? def.shape() : {};
+  const shape = shapeOf(def);
   const knownKeys = Object.keys(shape);
-  const passthrough = def.unknownKeys === 'passthrough';
+  const passthrough = keepsUnknownKeys(def);
   for (const key of Object.keys(value)) {
     // Own-property lookup only: a config key that collides with an
     // `Object.prototype` member (`__proto__`, `constructor`, `toString`, …)
@@ -201,8 +224,8 @@ function walkRecord(def: ZodDef, value: unknown, prefix: string, out: StrippedKe
 }
 
 function walkArray(def: ZodDef, value: unknown, prefix: string, out: StrippedKey[]): void {
-  if (!Array.isArray(value) || !def.type) return;
-  const elem = def.type;
+  if (!Array.isArray(value) || !def.element) return;
+  const elem = def.element;
   value.forEach((item, i) => walk(elem, item, `${prefix}[${i}]`, out));
 }
 

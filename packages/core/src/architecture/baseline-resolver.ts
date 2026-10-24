@@ -206,8 +206,13 @@ export function isWholeSnapshotContext(resolution: ArchBaselineResolution): bool
 export const ArchAllowanceSchema = z.object({
   /** Human reason the regression is accepted (required). */
   reason: z.string().min(1),
-  /** Per-category allowed aggregate ceiling: `currentValue` is accepted for this category. */
-  categories: z.record(ArchMetricCategorySchema, z.number()).default({}),
+  /**
+   * Per-category allowed aggregate ceiling: `currentValue` is accepted for this category.
+   * `partialRecord`, not `record`: an allowance lists only the categories it acknowledges.
+   * Under zod 4 an enum-keyed `z.record` is exhaustive, so a subset would fail the parse
+   * and the loader would silently drop the whole allowance.
+   */
+  categories: z.partialRecord(ArchMetricCategorySchema, z.number()).default({}),
   /** New (warning-severity) violation ids this allowance accepts. */
   violationIds: z.array(z.string()).default([]),
   /** Commit the allowance was authored from (provenance only). */
@@ -263,7 +268,7 @@ export function loadArchAllowances(
     if (!entry.endsWith('.json')) continue;
     const full = join(dir, entry);
     if (excluded.has(resolve(full))) continue;
-    let parsed: z.SafeParseReturnType<unknown, ArchAllowance>;
+    let parsed: z.ZodSafeParseResult<ArchAllowance>;
     try {
       parsed = ArchAllowanceSchema.safeParse(JSON.parse(readFileSync(full, 'utf-8')));
     } catch {
