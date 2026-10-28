@@ -91,19 +91,23 @@
     ],
     "overrides": {
       "hono": ">=4.13.11",
+      "zod": ">=4.6.6 <5",
       "@grpc/grpc-js": "^1.14.5",
       "@hono/node-server": ">=2.1.3",
       "postcss": ">=8.5.23",
       "basic-ftp": ">=5.3.1",
-      "body-parser": ">=2.3.0",
+      "body-parser": ">=2.4.0",
       "browserslist": ">=4.28.7",
       "fast-xml-parser": ">=5.7.0",
       "ip-address": ">=10.7.1",
-      "fast-uri": ">=3.1.8 <4",
+      "fast-uri": ">=3.1.9 <4",
       "@humanfs/node": ">=0.16.8",
       "protobufjs": "^7.6.3",
       "undici": "^7.29.1",
-      "qs": ">=6.16.0",
+      "qs": ">=6.16.1",
+      "vitest": ">=4.1.12 <5",
+      "@vitest/coverage-v8": ">=4.1.12 <5",
+      "@vitest/ui": ">=4.1.12 <5",
       "fflate": ">=0.8.3",
       "shell-quote": "^1.11.0",
       "tmp": "^0.2.6",
@@ -124,16 +128,7 @@
       "vue": ">=3.5.42"
     }
   },
-  "auditExceptions": {
-    "GHSA-vfj7-8cjw-p6xm": {
-      "reason": "braces stack-exhaustion DoS (high). NO UPSTREAM PATCH EXISTS - GitHub reports patched_versions '<0.0.0' and 3.0.3 is the latest release, so this cannot be cleared by a version move. Reached only as a transitive of micromatch, via @changesets/config, @changesets/git and fast-glob: build and release tooling that expands repo-authored glob patterns, never untrusted input, so the deeply-nested-pattern DoS has no attacker-controlled source in this repo. Re-evaluate when micromatch ships a braces-free major or upstream patches the 3.x line.",
-      "expires": "2027-04-16"
-    },
-    "GHSA-hp3w-g68c-fv3c": {
-      "reason": "sprintf-js unbounded-precision DoS (moderate). NO UPSTREAM PATCH EXISTS - patched_versions is '<0.0.0' and the advisory covers <=1.1.3, which is the latest release. Reached only via argparse@1.0.10 beneath js-yaml@3, i.e. dev and build tooling parsing repo-authored YAML; the format strings are library-internal and not attacker-supplied. The real remedy is eliminating the js-yaml@3 branch entirely (argparse 2.x drops the sprintf-js dependency), which is a structural dependency change rather than a bump and is tracked separately.",
-      "expires": "2027-04-16"
-    }
-  },
+  "auditExceptions": {},
   "engines": {
     "node": ">=22.0.0",
     "pnpm": ">=8.0.0"

@@ -12,7 +12,7 @@ export type StreamInfo = z.infer<typeof StreamInfoSchema>;
 export const StreamIndexSchema = z.object({
   schemaVersion: z.literal(1),
   activeStream: z.string().nullable(),
-  streams: z.record(StreamInfoSchema),
+  streams: z.record(z.string(), StreamInfoSchema),
 });
 
 export type StreamIndex = z.infer<typeof StreamIndexSchema>;

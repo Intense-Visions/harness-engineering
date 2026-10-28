@@ -21,7 +21,7 @@ export function validateConfig<T>(data: unknown, schema: z.ZodSchema<T>): Result
 
   // Convert Zod errors to ConfigError
   const zodErrors = result.error;
-  const firstError = zodErrors.errors[0];
+  const firstError = zodErrors.issues[0];
 
   let code: ConfigError['code'] = 'VALIDATION_FAILED';
   let message = 'Configuration validation failed';
@@ -33,10 +33,10 @@ export function validateConfig<T>(data: unknown, schema: z.ZodSchema<T>): Result
 
     // Determine error code based on issue type
     if (firstError.code === 'invalid_type') {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const received = (firstError as any).received as string;
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const expected = (firstError as any).expected as string;
+      // zod 4 dropped `received` from invalid_type issues, so derive it from the
+      // input itself — otherwise every missing field would read as a type mismatch.
+      const received = describeReceived(valueAtPath(data, firstError.path));
+      const expected = firstError.expected;
 
       // Check if this is a missing field (undefined received)
       if (received === 'undefined') {
@@ -65,4 +65,19 @@ export function validateConfig<T>(data: unknown, schema: z.ZodSchema<T>): Result
   );
 
   return Err(error);
+}
+
+function valueAtPath(data: unknown, path: readonly PropertyKey[]): unknown {
+  let current: unknown = data;
+  for (const key of path) {
+    if (current === null || typeof current !== 'object') return undefined;
+    current = (current as Record<PropertyKey, unknown>)[key];
+  }
+  return current;
+}
+
+function describeReceived(value: unknown): string {
+  if (value === null) return 'null';
+  if (Array.isArray(value)) return 'array';
+  return typeof value;
 }

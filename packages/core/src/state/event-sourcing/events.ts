@@ -99,7 +99,7 @@ const ComplexityVerdictPayload = z
   .object({
     level: z.enum(['trivial', 'simple', 'moderate', 'complex']),
     confidence: z.enum(['high', 'medium', 'low']),
-    signals: z.record(z.union([z.number(), z.boolean(), z.string()])),
+    signals: z.record(z.string(), z.union([z.number(), z.boolean(), z.string()])),
     source: z.enum(['static', 'llm-tiebreak', 'escalated']),
   })
   .strict();
@@ -108,7 +108,7 @@ const TriagePredictedPayload = z.object({
   externalId: z.string().min(1),
   shapeKey: z.string().min(1),
   verdict: ComplexityVerdictPayload,
-  levers: z.record(z.unknown()),
+  levers: z.record(z.string(), z.unknown()),
   scopeEstimate: z.number(),
   ratchetStage: z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4)]),
 });
@@ -216,7 +216,7 @@ export const StoredEventSchema = z.object({
     'triage_predicted',
     'triage_outcome',
   ]),
-  payload: z.union([z.record(z.unknown()), BlobRefSchema]),
+  payload: z.union([z.record(z.string(), z.unknown()), BlobRefSchema]),
 });
 export type StoredEvent = z.infer<typeof StoredEventSchema>;
 

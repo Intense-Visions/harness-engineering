@@ -46,7 +46,7 @@ describe('validateConfig', () => {
     expect(isErr(result)).toBe(true);
     if (result.ok === false) {
       expect(result.error.code).toBe('INVALID_TYPE');
-      expect(result.error.message).toContain('Expected number');
+      expect(result.error.message).toContain('expected number');
     }
   });
 
@@ -68,7 +68,7 @@ describe('validateConfig', () => {
     expect(isErr(result)).toBe(true);
     if (result.ok === false) {
       expect(result.error.code).toBe('MISSING_FIELD');
-      expect(result.error.message).toContain('Required');
+      expect(result.error.message).toContain('Missing required field');
     }
   });
 
@@ -119,7 +119,7 @@ describe('validateConfig', () => {
     expect(isErr(result)).toBe(true);
     if (!result.ok) {
       expect(result.error.code).toBe('VALIDATION_FAILED');
-      expect(result.error.message).toContain('at least 5 character');
+      expect(result.error.message).toContain('>=5 characters');
     }
   });
 

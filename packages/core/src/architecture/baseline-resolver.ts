@@ -206,8 +206,13 @@ export function isWholeSnapshotContext(resolution: ArchBaselineResolution): bool
 export const ArchAllowanceSchema = z.object({
   /** Human reason the regression is accepted (required). */
   reason: z.string().min(1),
-  /** Per-category allowed aggregate ceiling: `currentValue` is accepted for this category. */
-  categories: z.record(ArchMetricCategorySchema, z.number()).default({}),
+  /**
+   * Per-category allowed aggregate ceiling: `currentValue` is accepted for this category.
+   * `partialRecord`, not `record`: an allowance lists only the categories it acknowledges.
+   * Under zod 4 an enum-keyed `z.record` is exhaustive, so a subset would fail the parse
+   * and the loader would silently drop the whole allowance.
+   */
+  categories: z.partialRecord(ArchMetricCategorySchema, z.number()).default({}),
   /** New (warning-severity) violation ids this allowance accepts. */
   violationIds: z.array(z.string()).default([]),
   /** Commit the allowance was authored from (provenance only). */
@@ -230,10 +235,22 @@ export interface ArchAllowanceCoverage {
   files: string[];
   /** The reasons, for audit/reporting. */
   reasons: string[];
+  /**
+   * Allowance files that were present but NOT applied (unparseable JSON or a schema
+   * mismatch), with why. Surfaced so callers can warn: a skipped allowance silently
+   * stops acknowledging its regression, which reads as a mysterious gate failure.
+   */
+  skipped: Array<{ file: string; reason: string }>;
 }
 
 function emptyCoverage(): ArchAllowanceCoverage {
-  return { violationIds: new Set(), categoryCeilings: new Map(), files: [], reasons: [] };
+  return {
+    violationIds: new Set(),
+    categoryCeilings: new Map(),
+    files: [],
+    reasons: [],
+    skipped: [],
+  };
 }
 
 export interface LoadAllowancesOptions {
@@ -247,7 +264,8 @@ export interface LoadAllowancesOptions {
 
 /**
  * Read + aggregate every `*.json` allowance in the allowances dir. Invalid or unparseable
- * files are skipped (never a hard failure — a malformed allowance must not break the gate).
+ * files are skipped (never a hard failure — a malformed allowance must not break the gate)
+ * but recorded in `coverage.skipped` so the skip is visible rather than silent.
  */
 export function loadArchAllowances(
   projectRoot: string,
@@ -263,13 +281,18 @@ export function loadArchAllowances(
     if (!entry.endsWith('.json')) continue;
     const full = join(dir, entry);
     if (excluded.has(resolve(full))) continue;
-    let parsed: z.SafeParseReturnType<unknown, ArchAllowance>;
+    let parsed: z.ZodSafeParseResult<ArchAllowance>;
     try {
       parsed = ArchAllowanceSchema.safeParse(JSON.parse(readFileSync(full, 'utf-8')));
-    } catch {
-      continue; // unreadable / non-JSON → skip
+    } catch (error) {
+      const reason = error instanceof SyntaxError ? 'not valid JSON' : 'unreadable';
+      coverage.skipped.push({ file: full, reason });
+      continue;
     }
-    if (!parsed.success) continue;
+    if (!parsed.success) {
+      coverage.skipped.push({ file: full, reason: describeSchemaFailure(parsed.error) });
+      continue;
+    }
     coverage.files.push(full);
     coverage.reasons.push(parsed.data.reason);
     for (const id of parsed.data.violationIds) coverage.violationIds.add(id);
@@ -280,6 +303,13 @@ export function loadArchAllowances(
     }
   }
   return coverage;
+}
+
+function describeSchemaFailure(error: z.ZodError): string {
+  const issue = error.issues[0];
+  if (!issue) return 'does not match the allowance schema';
+  const at = issue.path.length > 0 ? ` at "${issue.path.map(String).join('.')}"` : '';
+  return `does not match the allowance schema${at}: ${issue.message}`;
 }
 
 export interface AllowanceFilteredDiff extends ArchDiffResult {

@@ -83,7 +83,7 @@ export function buildV1Registry(): OpenAPIRegistry {
     '/api/v1/jobs/maintenance',
     'Trigger a maintenance task ad-hoc.',
     'trigger-job',
-    z.object({ taskId: z.string(), params: z.record(z.unknown()).optional() }),
+    z.object({ taskId: z.string(), params: z.record(z.string(), z.unknown()).optional() }),
     z.object({ ok: z.boolean(), taskId: z.string(), runId: z.string() })
   );
 

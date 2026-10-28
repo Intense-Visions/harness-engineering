@@ -95,7 +95,7 @@ export const HarnessStateSchema = z.object({
       })
     )
     .default([]),
-  progress: z.record(z.enum(['pending', 'in_progress', 'complete'])).default({}),
+  progress: z.record(z.string(), z.enum(['pending', 'in_progress', 'complete'])).default({}),
   lastSession: z
     .object({
       date: z.string(),

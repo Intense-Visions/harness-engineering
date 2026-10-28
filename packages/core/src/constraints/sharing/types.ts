@@ -9,7 +9,7 @@ export const ManifestSchema = z.object({
   include: z.array(z.string()).min(1),
   minHarnessVersion: z.string().optional(),
   keywords: z.array(z.string()).optional().default([]),
-  layers: z.record(z.array(z.string())).optional(),
+  layers: z.record(z.string(), z.array(z.string())).optional(),
   boundaries: z
     .array(
       z.object({
@@ -52,13 +52,13 @@ export const BundleConstraintsSchema = z.object({
     .optional(),
   architecture: z
     .object({
-      thresholds: z.record(z.unknown()).optional(),
-      modules: z.record(z.record(z.unknown())).optional(),
+      thresholds: z.record(z.string(), z.unknown()).optional(),
+      modules: z.record(z.string(), z.record(z.string(), z.unknown())).optional(),
     })
     .optional(),
   security: z
     .object({
-      rules: z.record(z.string()).optional(),
+      rules: z.record(z.string(), z.string()).optional(),
     })
     .optional(),
 });
@@ -70,10 +70,10 @@ export const BundleSchema = z.object({
   minHarnessVersion: z.string().optional(),
   manifest: ManifestSchema,
   constraints: BundleConstraintsSchema,
-  contributions: z.record(z.unknown()).optional(),
+  contributions: z.record(z.string(), z.unknown()).optional(),
 });
 
-export const ContributionsSchema = z.record(z.unknown());
+export const ContributionsSchema = z.record(z.string(), z.unknown());
 
 export type Bundle = z.infer<typeof BundleSchema>;
 export type BundleConstraints = z.infer<typeof BundleConstraintsSchema>;
@@ -85,7 +85,7 @@ export const LockfilePackageSchema = z.object({
   version: z.string(),
   source: z.string(),
   installedAt: z.string(),
-  contributions: z.record(z.unknown()).optional().nullable(),
+  contributions: z.record(z.string(), z.unknown()).optional().nullable(),
   resolved: z.string().optional(),
   integrity: z.string().optional(),
   provenance: z.array(z.string()).optional(),
@@ -95,7 +95,7 @@ export const LockfileSchema = z
   .object({
     version: z.literal(1).optional(), // Used by some tests
     lockfileVersion: z.literal(1).optional(), // Standard field
-    packages: z.record(LockfilePackageSchema),
+    packages: z.record(z.string(), LockfilePackageSchema),
   })
   .refine((data) => data.version !== undefined || data.lockfileVersion !== undefined, {
     message: "Either 'version' or 'lockfileVersion' must be present and equal to 1",

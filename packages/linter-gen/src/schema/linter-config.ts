@@ -11,7 +11,7 @@ export const RuleConfigSchema = z.object({
   /** ESLint severity level */
   severity: z.enum(['error', 'warn', 'off']).default('error'),
   /** Template-specific configuration */
-  config: z.record(z.unknown()),
+  config: z.record(z.string(), z.unknown()),
 });
 
 export type RuleConfig = z.infer<typeof RuleConfigSchema>;
@@ -25,7 +25,7 @@ export const LinterConfigSchema = z.object({
   /** Output directory for generated rules */
   output: z.string().min(1),
   /** Optional explicit template path mappings (type → path) */
-  templates: z.record(z.string()).optional(),
+  templates: z.record(z.string(), z.string()).optional(),
   /** Rules to generate */
   rules: z.array(RuleConfigSchema).min(1, 'At least one rule is required'),
 });

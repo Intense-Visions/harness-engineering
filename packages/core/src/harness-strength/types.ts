@@ -38,14 +38,14 @@ export const HarnessConfigSubsetSchema = z
       // `thresholds` distinguishes absent (undefined) from empty ({}): Phase 2's
       // STRENGTH-004 rule treats both as meaningful — undefined = key never set,
       // {} = key present but no thresholds configured.
-      .object({ thresholds: z.record(z.unknown()).optional() })
+      .object({ thresholds: z.record(z.string(), z.unknown()).optional() })
       .passthrough()
       .optional(),
     template: z.object({ level: z.string().optional() }).passthrough().optional(),
     audit: z
       .object({
         harnessStrength: z
-          .object({ severities: z.record(SeveritySchema).optional() })
+          .object({ severities: z.record(z.string(), SeveritySchema).optional() })
           .passthrough()
           .optional(),
       })

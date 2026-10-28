@@ -22,7 +22,7 @@ const SkillCliSchema = z.object({
 
 const SkillMcpSchema = z.object({
   tool: z.string(),
-  input: z.record(z.string()),
+  input: z.record(z.string(), z.string()),
 });
 
 const SkillStateSchema = z.object({
@@ -58,7 +58,7 @@ export const SkillMetadataSchema = z.object({
   type: z.enum(['rigid', 'flexible', 'knowledge']),
   cognitive_mode: z.string().optional(),
   phases: z.array(SkillPhaseSchema).optional(),
-  state: SkillStateSchema.default({}),
+  state: SkillStateSchema.prefault({}),
   depends_on: z.array(z.string()).default([]),
   paths: z.array(z.string()).default([]),
   related_skills: z.array(z.string()).default([]),
