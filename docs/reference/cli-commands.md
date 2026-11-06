@@ -174,11 +174,11 @@ Fail when deprecated or renamed canonical terms reappear in skills/docs prose
 
 ### `harness cleanup`
 
-Detect entropy issues (doc drift, dead code, patterns)
+Detect entropy issues (doc drift, dead code, patterns, duplication). Duplication is advisory — it never affects the exit code — and under --type all it runs only when entropy.duplication is configured in harness.config.json.
 
 **Options:**
 
-- `-t, --type` — Issue type: drift, dead-code, patterns, all (default: "all")
+- `-t, --type` — Issue type: drift, dead-code, patterns, duplication, all (default: "all")
 - `--findings-json` — Emit the machine-readable maintenance findings contract ({ findings: N }) as a trailing stdout line (#691)
 
 ### `harness cleanup-sessions`
@@ -314,7 +314,7 @@ Run the design-pipeline orchestrator: FRESHEN → DETECT → FIX → AUDIT → F
 - `--fix` — Enable convergence-based remediation (default: detect + report only)
 - `--no-freshen` — Skip the FRESHEN phase
 - `--no-fill` — Skip the FILL phase (input bootstrap + craft polish)
-- `--ci` — Non-interactive: safe fixes only, no prompts
+- `--ci` — Deprecated, no effect: every run is already non-interactive and applies safe fixes only
 - `-f, --files` — Optional file/glob scope passed to each verifier
 - `-m, --mode` — Verifier mode: fast | full (default: "fast")
 - `--design-strictness` — Override design.strictness: strict | standard | permissive

@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/mcp/tools'
-sourceHash: '4c97ba5b9de92df92a16929bb6654d57537b9af77644d0c36b748ff9d8e70d6c'
+sourceHash: '6d726ed363ce1264329ce453b8611eceafb0d10de0970048b8d64e3becdf6197'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -471,6 +471,7 @@ import { createStaticExtractor } from '../../comprehension/static-extractor'
 import { loadAnalysisExclude, loadDepsFallbackBehavior } from '../../config/analysis-schema.js'
 import { resolveConfig } from '../../config/loader'
 import { findConfigFile, loadConfig, resolveConfig } from '../../config/loader.js'
+import { HarnessConfig } from '../../config/schema.js'
 import { CollectPromptsOutput, CopyCraftInput, CopyCraftMode, CopyCraftOutput, FinalizeCopyCraftInput, collectCopyCraftPrompts, finalizeCopyCraft, runCopyCraft } from '../../copy-craft/index.js'
 import { SEED_EXEMPLARS } from '../../design-craft/catalog/exemplars/index.js'
 import { SEED_PATTERNS } from '../../design-craft/catalog/patterns/index.js'
@@ -483,6 +484,7 @@ import { BenchmarkTarget, VisionBenchmarkTarget, runBenchmark, runVisionBenchmar
 import { CritiqueTarget, VisionCritiqueTarget, runCritique, runVisionCritique } from '../../design-craft/phases/critique.js'
 import { PolishTarget, runPolish } from '../../design-craft/phases/polish.js'
 import { DesignPipelineContext, DesignPipelineInput, runDesignPipeline } from '../../design-pipeline/index.js'
+import { toSerializableResult } from '../../design-pipeline/serialize.js'
 import { CollectPromptsOutput, DocsCraftInput, DocsCraftMode, DocsCraftOutput, FinalizeDocsCraftInput, collectDocsCraftPrompts, finalizeDocsCraft, runDocsCraft } from '../../docs-craft/index.js'
 import { AttachMediaInput, DocsPublishConnector, DraftInput, PageTreeInput, PageTreeNode, VerifyRenderInput, resolveDocsPublishConnector } from '../../docs-publish/index.js'
 import { DetectDriftInput, DetectDriftOutput, runDetectDrift } from '../../drift/index.js'
@@ -499,6 +501,7 @@ import { DEFAULT_RESPONSIVE_GATE_CONFIG, ResponsiveGateConfig, ResponsiveMetrics
 import { CollectPromptsOutput, FinalizeSecurityCraftInput, SecurityCraftInput, SecurityCraftMode, SecurityCraftOutput, collectSecurityCraftPrompts, finalizeSecurityCraft, runSecurityCraft } from '../../security-craft/index.js'
 import { resolveCraftLlmMode } from '../../shared/craft/llm/provider.js'
 import { collectDesignScanFiles, designScanAbstention, noFilesScannedError, resolveDesignExcludePatterns } from '../../shared/design-scan-targets.js'
+import { ENTROPY_ISSUE_TYPES, describeDuplicationNotRun, describeUnknownIssueType, isEntropyIssueType, resolveDuplicationRequest } from '../../shared/duplication-request.js'
 import from '../../shared/state-events.js'
 import { Verifier } from '../../shared/verifier.js'
 import { dispatchSkills, dispatchSkillsFromGit, enrichSnapshotForDispatch } from '../../skill/dispatch-engine.js'
@@ -564,7 +567,7 @@ import { handleSummarizeSession, summarizeSessionDefinition } from './summarize-
 import { handleUatSignoff, uatSignoffDefinition } from './uat-signoff.js'
 import from './validate.js'
 import { handleSubscribeWebhook, subscribeWebhookDefinition } from './webhook-tools'
-import { CHARS_PER_TOKEN, COMPREHENSION_ROOT, CompactionPipeline, ComprehensionSourceFile, ComprehensionStore, ComprehensionUnit, ConflictError, DEFAULT_INSTRUCTION_BUDGET, DriftConfig, Err, ExtractStatic, FeaturePatch, GenerateSemantic, LevelInstructionDensity, NewFeatureInput, Ok, PackedEnvelope, PatternConfig, RefinementContextClass, RefinementDemandReport, RefinementOperation, RefinementRequest, Result, RoadmapPromoteCoreResult, RoadmapTrackerClient, SourceFile, StaticExtraction, StructuralStrategy, TrackedFeature, TrackerSyncAdapter, TruncationStrategy, aggregateDemand, analyzeSkillInstructionDensity, applyRoadmapDiff, archiveDoneShardsForProject, classifyRefinement, computeLoadPlan, computeSourceHash, createHttpComprehensionReadIO, createNodeComprehensionIO, createNodeModuleSourceReader, createTrackerClient, decidePromotionForRow, detectRoadmapStorageMode, estimateTokens, extractLevel, loadProjectRoadmapMode, loadTrackerClientConfigFromProject, loadTrackerSyncConfig, paginate, renderServedUnit, resolveRoadmapStore, roadmapSourceExists, serializeEnvelope, serveGate, slugifyFeatureName } from '@harness-engineering/core'
+import { CHARS_PER_TOKEN, COMPREHENSION_ROOT, CompactionPipeline, ComprehensionSourceFile, ComprehensionStore, ComprehensionUnit, ConflictError, DEFAULT_INSTRUCTION_BUDGET, DriftConfig, DuplicationConfig, EntropyReport, Err, ExtractStatic, FeaturePatch, GenerateSemantic, LevelInstructionDensity, NewFeatureInput, Ok, PackedEnvelope, PatternConfig, RefinementContextClass, RefinementDemandReport, RefinementOperation, RefinementRequest, Result, RoadmapPromoteCoreResult, RoadmapTrackerClient, SourceFile, StaticExtraction, StructuralStrategy, TrackedFeature, TrackerSyncAdapter, TruncationStrategy, aggregateDemand, analyzeSkillInstructionDensity, applyRoadmapDiff, archiveDoneShardsForProject, classifyRefinement, computeLoadPlan, computeSourceHash, createHttpComprehensionReadIO, createNodeComprehensionIO, createNodeModuleSourceReader, createTrackerClient, decidePromotionForRow, detectRoadmapStorageMode, estimateTokens, extractLevel, loadProjectRoadmapMode, loadTrackerClientConfigFromProject, loadTrackerSyncConfig, paginate, renderServedUnit, resolveRoadmapStore, roadmapSourceExists, serializeEnvelope, serveGate, slugifyFeatureName } from '@harness-engineering/core'
 import { skipDirGlobs } from '@harness-engineering/graph'
 import { AnalysisProvider, CanaryAdapter, CanaryFrameworkInfo, GuardianAnalysis, createCanaryAdapter, readGuardianAnalyses, resolveTestCommand } from '@harness-engineering/intelligence'
 import from '@harness-engineering/linter-gen'

@@ -95,6 +95,45 @@ export const DriftConfigSchema = z.object({
 });
 
 /**
+ * Schema for duplication (clone) detection tuning — `entropy.duplication`.
+ *
+ * This is the validating boundary for values that arrive from a hand-edited
+ * `harness.config.json`, where `DuplicationConfig`'s TypeScript types are
+ * enforced by nothing. `buildCloneIndex` validates only `ignorePatterns`
+ * (minimatch throws on a non-string); `minTokens`, `minInstances` and
+ * `maxClasses` are validated nowhere else in the system. Each bad value
+ * fails SILENTLY rather than loudly:
+ *   - `maxClasses: 0` reports ZERO classes while counting every qualifying
+ *     one in `classesTruncated` — a pass over findings that were found.
+ *   - `minInstances: 1` (or 0, or negative) cannot lower the bar below the
+ *     hard 2-member skip in `buildCloneIndex`, so it silently means "report
+ *     every pair".
+ *   - `minTokens: "40"` compares a number against a string and happens to
+ *     coerce; `minTokens: "x"` makes every comparison false and
+ *     fingerprints every unit in the repository.
+ *
+ * `ignorePatterns` REPLACES `DEFAULT_DUPLICATION_CONFIG.ignorePatterns` —
+ * `resolveDuplicationConfig` merges by key, so it is not appended to the
+ * shipped 21 globs. A project that sets one pattern therefore stops
+ * ignoring tests, fixtures, generated output, `dist` and `node_modules`:
+ * list the defaults it wants to keep alongside its own.
+ */
+export const DuplicationConfigSchema = z.object({
+  /** Minimum normalized tokens before a unit is fingerprinted. Default 40. */
+  minTokens: z.number().int().positive().optional(),
+  /** Minimum members before a class is reported. Default 3 (Rule of Three); floor 2. */
+  minInstances: z.number().int().min(2).optional(),
+  /** minimatch globs (NOT the regex language `entropy.drift.ignorePatterns` uses). Replaces the defaults. */
+  ignorePatterns: z.array(z.string()).optional(),
+  /**
+   * Report cap; the top `maxClasses` by `priority` survive (criterion 13).
+   * `priority` is `rank` for a plain duplicate and `rank x 2` for a
+   * `partial-extraction` class. Default 100.
+   */
+  maxClasses: z.number().int().positive().optional(),
+});
+
+/**
  * Schema for entropy (drift/stale code) management configuration.
  */
 export const EntropyConfigSchema = z.object({
@@ -128,6 +167,14 @@ export const EntropyConfigSchema = z.object({
    * pass over zero rules (issue #1760).
    */
   patterns: PatternConfigSchema.optional(),
+  /**
+   * Duplication (clone) detection tuning. PRESENCE IS THE OPT-IN for
+   * `harness cleanup -t all` and `detect_entropy type: "all"`; an explicit
+   * `-t duplication` runs on the shipped defaults whether or not this block
+   * exists. `false` disables the detector outright, and an explicit request
+   * then REFUSES rather than reporting a clean scan it never ran (#1760).
+   */
+  duplication: z.union([z.boolean(), DuplicationConfigSchema]).optional(),
 });
 
 /**
@@ -153,7 +200,7 @@ export const PhaseGatesConfigSchema = z.object({
   /** List of implementation-to-spec mappings */
   mappings: z
     .array(PhaseGateMappingSchema)
-    .default([{ implPattern: 'src/**/*.ts', specPattern: 'docs/changes/{feature}/proposal.md' }]),
+    .prefault([{ implPattern: 'src/**/*.ts', specPattern: 'docs/changes/{feature}/proposal.md' }]),
 });
 
 /**
@@ -209,11 +256,11 @@ export const PerformanceConfigSchema = z
      */
     entryPoints: z.array(z.string()).optional(),
     /** Complexity thresholds per module or pattern */
-    complexity: z.record(z.unknown()).optional(),
+    complexity: z.record(z.string(), z.unknown()).optional(),
     /** Coupling limits between modules */
-    coupling: z.record(z.unknown()).optional(),
+    coupling: z.record(z.string(), z.unknown()).optional(),
     /** Size budget for bundles or directories */
-    sizeBudget: z.record(z.unknown()).optional(),
+    sizeBudget: z.record(z.string(), z.unknown()).optional(),
   })
   .passthrough();
 
@@ -237,7 +284,7 @@ export const ComponentAnatomyAuditConfigSchema = z.object({
       /** Cap to keep validate fast on large repos */
       maxFiles: z.number().int().positive().default(500),
     })
-    .default({}),
+    .prefault({}),
 });
 
 /**
@@ -255,14 +302,14 @@ export const DriftDetectionConfigSchema = z.object({
       /** Primitive adoption rules (DRIFT-P001-P004). Default: true. */
       primitiveAdoption: z.boolean().default(true),
     })
-    .default({}),
+    .prefault({}),
   /** Fast-mode controls (validate-time scope cap) */
   fastMode: z
     .object({
       /** Cap to keep validate fast on large repos */
       maxFiles: z.number().int().positive().default(500),
     })
-    .default({}),
+    .prefault({}),
 });
 
 /**
@@ -280,13 +327,13 @@ export const BrandComplianceConfigSchema = z.object({
       /** Voice rule (BRAND-V001 forbidden phrases in JSX text + string attributes). Default: true. */
       voice: z.boolean().default(true),
     })
-    .default({}),
+    .prefault({}),
   /** Fast-mode controls (validate-time scope cap) */
   fastMode: z
     .object({
       maxFiles: z.number().int().positive().default(500),
     })
-    .default({}),
+    .prefault({}),
 });
 
 /**
@@ -618,7 +665,7 @@ const GitHubTrackerConfigSchema = z.object({
   /** Labels auto-applied to synced issues for filtering */
   labels: z.array(z.string()).optional(),
   /** Maps roadmap status -> external status */
-  statusMap: z.record(
+  statusMap: z.partialRecord(
     z.enum(['backlog', 'planned', 'in-progress', 'done', 'blocked', 'needs-human']),
     z.string()
   ),
@@ -727,7 +774,7 @@ export const RollbackConfigSchema = z.object({
     .object({
       enabled: z.boolean().default(false),
     })
-    .default({}),
+    .prefault({}),
 });
 
 /**
@@ -859,7 +906,7 @@ export const BranchingConfigSchema = z.object({
  */
 export const ComplianceConfigSchema = z.object({
   /** Branch naming convention settings */
-  branching: BranchingConfigSchema.default({}),
+  branching: BranchingConfigSchema.prefault({}),
 });
 
 /**
@@ -968,9 +1015,9 @@ export const LocalModelsHarnessFitConfigSchema = z.object({
 export const LocalModelsConfigSchema = z.object({
   /** Opt-in switch. Default false preserves today's behavior. */
   enabled: z.boolean().default(false),
-  pool: LocalModelsPoolConfigSchema.default({}),
-  refresh: LocalModelsRefreshConfigSchema.default({}),
-  installer: LocalModelsInstallerConfigSchema.default({}),
+  pool: LocalModelsPoolConfigSchema.prefault({}),
+  refresh: LocalModelsRefreshConfigSchema.prefault({}),
+  installer: LocalModelsInstallerConfigSchema.prefault({}),
   /** Harness-fit probe (D5). Optional + disabled by default; absent ⇒ no probe. */
   harnessFit: LocalModelsHarnessFitConfigSchema.optional(),
   hardware: z
@@ -1095,9 +1142,8 @@ const SKILL_HOOK_EVENT_KEY_RE = /^(before|after|on):[A-Za-z0-9_-]+$/;
  * `after:dispatch:item`), a `"*"` wildcard outer key ("hooks for every skill"),
  * and `{{token}}` prompt templating.
  */
-export const SkillHooksConfigSchema = z
+const SkillHooksMapSchema = z
   .record(z.string().min(1), z.record(z.string(), z.array(SkillHookEntrySchema)))
-  .default({})
   .superRefine((hooks, ctx) => {
     for (const [skillName, events] of Object.entries(hooks)) {
       for (const eventKey of Object.keys(events)) {
@@ -1111,6 +1157,14 @@ export const SkillHooksConfigSchema = z
       }
     }
   });
+
+/**
+ * The skill-hooks map (see above), defaulting to `{}`. The default lives on this
+ * separate schema so `HarnessConfigSchema.skillHooks` can stay truly optional:
+ * zod 4 applies an inner `.default()` even under `.optional()`, which would turn an
+ * absent block into `{}` (zod 3 left it undefined).
+ */
+export const SkillHooksConfigSchema = SkillHooksMapSchema.default({});
 
 /**
  * Compiled-comprehension substrate settings. Minimal surface this phase — the
@@ -1329,7 +1383,7 @@ export const HarnessConfigSchema = z.object({
    * gracefully with an actionable message rather than crashing.
    */
   docsPublish: z
-    .object({ connector: z.string(), config: z.record(z.unknown()).default({}) })
+    .object({ connector: z.string(), config: z.record(z.string(), z.unknown()).default({}) })
     .optional(),
   /** Semantic-vocabulary CI gate settings (`harness check-vocabulary`) */
   vocabulary: VocabularyConfigSchema.optional(),
@@ -1344,7 +1398,7 @@ export const HarnessConfigSchema = z.object({
    * and prompts attached at lifecycle points of any hook-supporting skill.
    * See {@link SkillHooksConfigSchema}. Absent/empty preserves default behavior.
    */
-  skillHooks: SkillHooksConfigSchema.optional(),
+  skillHooks: SkillHooksMapSchema.optional(),
   /** MCP peer integration enablement and dismissal */
   integrations: IntegrationsConfigSchema.optional(),
   /** General architectural enforcement settings */

@@ -52,7 +52,7 @@ export const SpecImpactEstimateSchema = z.object({
   specPath: z.string(),
   featureName: z.string(),
   signals: SpecImpactSignalsSchema,
-  deltas: z.record(ArchMetricCategorySchema, z.number()).optional(),
+  deltas: z.partialRecord(ArchMetricCategorySchema, z.number()).optional(),
 });
 
 export type SpecImpactEstimate = z.infer<typeof SpecImpactEstimateSchema>;
@@ -109,7 +109,7 @@ export const PredictionResultSchema = z.object({
     to: z.string(),
   }),
   stabilityForecast: StabilityForecastSchema,
-  categories: z.record(ArchMetricCategorySchema, AdjustedForecastSchema),
+  categories: z.partialRecord(ArchMetricCategorySchema, AdjustedForecastSchema),
   warnings: z.array(PredictionWarningSchema),
 });
 
@@ -121,7 +121,7 @@ export const PredictionOptionsSchema = z.object({
   horizon: z.number().int().min(1).default(12),
   includeRoadmap: z.boolean().default(true),
   categories: z.array(ArchMetricCategorySchema).optional(),
-  thresholds: z.record(ArchMetricCategorySchema, z.number()).optional(),
+  thresholds: z.partialRecord(ArchMetricCategorySchema, z.number()).optional(),
 });
 
 export type PredictionOptions = z.infer<typeof PredictionOptionsSchema>;

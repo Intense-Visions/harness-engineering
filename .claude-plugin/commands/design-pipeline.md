@@ -23,7 +23,7 @@ Orchestrator composing detect-design-drift, align-design-system, audit-component
 
 Phases:
 
-- freshen: Check input freshness (DESIGN.md, tokens.json, graph staleness) (optional)
+- freshen: Check input presence (DESIGN.md, tokens.json, registry, brand rules) (optional)
 - detect: Invoke detect-design-drift; collect DRIFT-\* findings
 - fix: Convergence loop with align-design-system (only when --fix is set) (optional)
 - audit: Generic Verifier<F> registry loop (audit-anatomy + audit-brand)

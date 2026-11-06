@@ -257,12 +257,12 @@ Detect design-system drift in source: hardcoded values where tokens exist (token
 
 ### `detect_entropy`
 
-Detect documentation drift, dead code, and pattern violations. Optionally auto-fix detected issues.
+Detect documentation drift, dead code, pattern violations, and duplicated code units (clone classes, advisory). Optionally auto-fix detected issues.
 
 **Parameters:**
 
 - `path` (string, required) — Path to project root
-- `type` (string, optional) — Type of entropy to detect (default: all)
+- `type` (string, optional) — Type of entropy to detect (default: all). "duplication" reports clone classes and is advisory — it is never summed into totalIssues; under "all" it runs only when entropy.duplication is configured.
 - `autoFix` (boolean, optional) — When true, apply fixes after analysis. Default: false (analysis only)
 - `dryRun` (boolean, optional) — Preview fixes without applying (only used when autoFix is true)
 - `fixTypes` (array, optional) — Specific fix types to apply (default: all safe types). Only used when autoFix is true.
@@ -1223,7 +1223,7 @@ Run the design-pipeline orchestrator: FRESHEN -> DETECT -> FIX -> AUDIT -> FILL 
 - `fix` (boolean, optional) — Enable convergence-based remediation
 - `noFreshen` (boolean, optional) — Skip FRESHEN phase
 - `noFill` (boolean, optional) — Skip FILL phase
-- `ci` (boolean, optional) — Non-interactive: safe fixes only, no prompts
+- `ci` (boolean, optional) — Deprecated, no effect: every run is already non-interactive and applies safe fixes only. Passing it adds a notice to `warnings` in the result.
 - `mode` (string, optional) — Verifier mode passed to each composed verifier
 - `files` (array, optional) — Optional file/glob scope
 - `designStrictness` (string, optional) — Override design.strictness

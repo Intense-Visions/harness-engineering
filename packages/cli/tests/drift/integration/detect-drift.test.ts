@@ -150,6 +150,32 @@ describe('runDetectDrift (integration)', () => {
     expect([...files].some((f) => f.endsWith('Card.ts'))).toBe(true);
   });
 
+  it('reports the exclude globs the walk applied on meta.excludePatterns', async () => {
+    writeFile('design-system/tokens.json', JSON.stringify({ color: {} }));
+    writeFile(
+      'harness.config.json',
+      JSON.stringify({
+        design: { exclude: ['**/tokens-reference.ts'] },
+        analysis: { exclude: ['backend/**'] },
+      })
+    );
+    writeFile('ui/Card.ts', `const c = { color: "#445566" };`);
+
+    const out = await runDetectDrift({ path: tmpDir });
+    expect([...out.meta.excludePatterns].sort()).toEqual(['**/tokens-reference.ts', 'backend/**']);
+  });
+
+  it('reports no applied exclude globs for an explicit files scope, which bypasses the walk', async () => {
+    writeFile('design-system/tokens.json', JSON.stringify({ color: {} }));
+    writeFile('harness.config.json', JSON.stringify({ design: { exclude: ['**/legacy/**'] } }));
+    writeFile('ui/Card.ts', `const c = { color: "#445566" };`);
+
+    const out = await runDetectDrift({ path: tmpDir, files: ['ui/Card.ts'] });
+    // The scope was honoured (the file was read), and no filter was claimed.
+    expect(out.findings.length).toBeGreaterThan(0);
+    expect(out.meta.excludePatterns).toEqual([]);
+  });
+
   it('matchBase: a bare-basename pattern matches at any depth', async () => {
     writeFile('design-system/tokens.json', JSON.stringify({ color: {} }));
     writeFile('src/deep/nested/Foo.tokens.ts', `const a = "#aabbcc";`);

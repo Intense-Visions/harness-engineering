@@ -23,6 +23,7 @@ import {
   type DesignPipelineContext,
   type DesignPipelineInput,
 } from '../design-pipeline/index.js';
+import { toSerializableResult } from '../design-pipeline/serialize.js';
 
 interface DesignPipelineCliOptions {
   fix?: boolean;
@@ -58,7 +59,10 @@ export function createDesignPipelineCommand(): Command {
     .option('--fix', 'Enable convergence-based remediation (default: detect + report only)')
     .option('--no-freshen', 'Skip the FRESHEN phase')
     .option('--no-fill', 'Skip the FILL phase (input bootstrap + craft polish)')
-    .option('--ci', 'Non-interactive: safe fixes only, no prompts')
+    .option(
+      '--ci',
+      'Deprecated, no effect: every run is already non-interactive and applies safe fixes only'
+    )
     .option('-f, --files <files...>', 'Optional file/glob scope passed to each verifier')
     .option('-m, --mode <mode>', 'Verifier mode: fast | full', 'fast')
     .option(
@@ -97,9 +101,7 @@ export function createDesignPipelineCommand(): Command {
       }
 
       if (outputMode === OutputMode.JSON) {
-        // Convert Set to array for JSON serialization
-        const serializable = { ...result, exclusions: [...result.exclusions] };
-        console.log(JSON.stringify(serializable, null, 2));
+        console.log(JSON.stringify(toSerializableResult(result), null, 2));
       } else {
         printPipelineResult(result, outputMode, formatter);
       }
@@ -125,7 +127,9 @@ function printPipelineResult(
       ` registry=${result.inputs.componentRegistryExists ? 'yes' : 'no'}` +
       ` brand=${result.inputs.brandRulesExist ? 'yes' : 'no'}`
   );
-  console.log(`  DETECT   drift findings: ${result.driftFindings.length}`);
+  console.log(
+    `  DETECT   drift findings: ${result.driftFindings.length}` + describeExclusions(result)
+  );
   console.log(
     `  FIX      iterations: ${result.summary.iterationsRun}, fixes applied: ${result.summary.fixesApplied}`
   );
@@ -153,6 +157,15 @@ function printPipelineResult(
       console.log(`  - ${f.name}: ${f.error}`);
     }
   }
+  for (const w of result.warnings) {
+    logger.warn(w);
+  }
+}
+
+function describeExclusions(result: DesignPipelineContext): string {
+  if (!result.exclusionsMeasured) return ', excluded globs: not measured';
+  const { exclusions } = result;
+  return exclusions.size > 0 ? `, excluded globs: ${[...exclusions].join(', ')}` : '';
 }
 
 function verdictBadge(verdict: 'pass' | 'warn' | 'fail'): string {
