@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/src/entropy'
-sourceHash: '1b323fb892cd73ad9835c66fb046db254ca57d46f0285f251321baa72af66e7c'
+sourceHash: '4bcf4424a17c90e4326b2d3a070475ebf3a6b3c699a487e0d41b78b4f3349ed7'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -46,6 +46,7 @@ export DocumentationDrift
 export DocumentationFile
 export DriftConfig
 export DriftReport
+export DuplicationReport
 export EntropyAnalyzer
 export EntropyConfig
 export EntropyConfigSchema
@@ -96,6 +97,7 @@ export detectComplexityViolations
 export detectCouplingViolations
 export detectDeadCode
 export detectDocDrift
+export detectDuplication
 export detectPatternViolations
 export detectSizeBudgetViolations
 export generateSuggestions
@@ -119,13 +121,14 @@ import { detectComplexityViolations } from './detectors/complexity'
 import { detectCouplingViolations } from './detectors/coupling'
 import { detectDeadCode } from './detectors/dead-code'
 import { detectDocDrift } from './detectors/drift'
+import { detectDuplication } from './detectors/duplication'
 import { detectPatternViolations } from './detectors/patterns'
 import { detectSizeBudgetViolations } from './detectors/size-budget'
 import { resolveEntryPoints } from './entry-points'
 import { generateSuggestions } from './fixers/suggestions'
 import { loadPathAliases } from './path-aliases'
 import { buildSnapshot } from './snapshot'
-import { AnalysisError, CodeBlock, CodeReference, CodebaseSnapshot, ComplexityReport, CouplingReport, DeadCodeReport, DocumentationFile, DriftConfig, DriftReport, EntropyConfig, EntropyError, EntropyReport, ExportMap, InlineReference, InternalSymbol, JSDocComment, PatternConfig, PatternReport, SizeBudgetReport, SourceFile, SuggestionReport, TestImportSource } from './types'
+import { AnalysisError, CodeBlock, CodeReference, CodebaseSnapshot, ComplexityReport, CouplingReport, DeadCodeReport, DocumentationFile, DriftConfig, DriftReport, DuplicationReport, EntropyConfig, EntropyError, EntropyReport, ExportMap, InlineReference, InternalSymbol, JSDocComment, PatternConfig, PatternReport, SizeBudgetReport, SourceFile, SuggestionReport, TestImportSource } from './types'
 import { skipDirGlobs } from '@harness-engineering/graph'
 import * as fs from 'fs'
 import { stat } from 'fs/promises'
