@@ -29,7 +29,7 @@
   "dependencies": {
     "@typescript-eslint/utils": "^8.59.0",
     "minimatch": "^10.2.5",
-    "zod": "^3.25.76"
+    "zod": "^4.6.6"
   },
   "devDependencies": {
     "@types/node": "^22.19.15",

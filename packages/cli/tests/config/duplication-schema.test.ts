@@ -10,21 +10,27 @@ const withDuplication = (duplication: unknown) => ({
 
 /**
  * Every issue path in a zod error tree, descending into `invalid_union`'s
- * `unionErrors` (which is where a union parks the field that actually failed).
+ * per-branch `errors` (which is where a union parks the field that actually failed).
+ * zod 4 records those nested paths RELATIVE to the union, so they are re-rooted
+ * onto the parent issue's path here.
  * `ignorePatterns: [42]` reports `entropy.duplication.ignorePatterns.0`, so
  * paths are also truncated at the first numeric segment.
  */
-function flattenIssuePaths(issues: readonly z.ZodIssue[]): string[] {
+function flattenIssuePaths(
+  issues: readonly z.core.$ZodIssue[],
+  parent: readonly PropertyKey[] = []
+): string[] {
   const out: string[] = [];
   for (const issue of issues) {
+    const fullPath = [...parent, ...issue.path];
     const segments: string[] = [];
-    for (const segment of issue.path) {
+    for (const segment of fullPath) {
       if (typeof segment === 'number') break;
-      segments.push(segment);
+      segments.push(String(segment));
     }
     out.push(segments.join('.'));
     if (issue.code === 'invalid_union') {
-      for (const nested of issue.unionErrors) out.push(...flattenIssuePaths(nested.issues));
+      for (const branch of issue.errors) out.push(...flattenIssuePaths(branch, fullPath));
     }
   }
   return out;
@@ -96,8 +102,8 @@ describe('entropy.duplication config surface', () => {
     // `maxClasses: '100'`, `ignorePatterns: [42]`) fails BOTH arms of
     // `z.union([z.boolean(), DuplicationConfigSchema])`, so zod reports a
     // single `invalid_union` issue whose own path stops at
-    // `entropy.duplication` and parks the field-qualified path inside
-    // `unionErrors[].issues[].path`. A value whose type is right but whose
+    // `entropy.duplication` and parks the field path inside the branch errors
+    // (zod 3: `unionErrors[].issues[].path`; zod 4: `errors[][]`, relative). A value whose type is right but whose
     // RANGE is wrong (`maxClasses: 0`, `minInstances: 1`) reports
     // `entropy.duplication.maxClasses` at the top level, with NO
     // block-level issue beside it. The plan asserted the top-level path

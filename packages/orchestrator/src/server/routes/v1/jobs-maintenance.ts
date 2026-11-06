@@ -6,7 +6,7 @@ import type { MaintenanceRouteDeps } from '../maintenance';
 
 const BodySchema = z.object({
   taskId: z.string().min(1).max(200),
-  params: z.record(z.unknown()).optional(),
+  params: z.record(z.string(), z.unknown()).optional(),
 });
 
 function sendJSON(res: ServerResponse, status: number, body: unknown): void {

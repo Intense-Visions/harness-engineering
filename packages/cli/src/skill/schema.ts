@@ -21,7 +21,7 @@ const SkillCliSchema = z.object({
 
 const SkillMcpSchema = z.object({
   tool: z.string(),
-  input: z.record(z.string()),
+  input: z.record(z.string(), z.string()),
 });
 
 const SkillStateSchema = z.object({
@@ -234,7 +234,7 @@ export const SkillMetadataSchema = z
       .passthrough()
       .default({}),
     phases: z.array(SkillPhaseSchema).optional(),
-    state: SkillStateSchema.default({}),
+    state: SkillStateSchema.prefault({}),
     depends_on: z.array(z.string()).default([]),
     repository: z.string().url().optional(),
     tier: z.number().int().min(1).max(3).optional(),

@@ -188,9 +188,11 @@ function dualContent(prompt: string, metadata: Record<string, unknown>): McpCont
   ];
 }
 
-function formatZodErrors(issues: Array<{ path: Array<string | number>; message: string }>): string {
+function formatZodErrors(
+  issues: ReadonlyArray<{ path: readonly PropertyKey[]; message: string }>
+): string {
   return issues
-    .map((i) => (i.path.length > 0 ? `${i.path.join('.')}: ${i.message}` : i.message))
+    .map((i) => (i.path.length > 0 ? `${i.path.map(String).join('.')}: ${i.message}` : i.message))
     .join('; ');
 }
 

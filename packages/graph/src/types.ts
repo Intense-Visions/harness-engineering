@@ -332,7 +332,7 @@ export const GraphNodeSchema = z.object({
     .optional(),
   content: z.string().optional(),
   hash: z.string().optional(),
-  metadata: z.record(z.unknown()),
+  metadata: z.record(z.string(), z.unknown()),
   embedding: z.array(z.number()).optional(),
   lastModified: z.string().optional(),
   staleness: z
@@ -352,5 +352,5 @@ export const GraphEdgeSchema = z.object({
   type: z.enum(EDGE_TYPES),
   confidence: z.number().min(0).max(1).optional(),
   provenance: z.enum(EDGE_PROVENANCES).optional(),
-  metadata: z.record(z.unknown()).optional(),
+  metadata: z.record(z.string(), z.unknown()).optional(),
 });
