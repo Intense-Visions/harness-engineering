@@ -133,12 +133,7 @@
       "glob@13": ">=14.0.3 <15"
     }
   },
-  "auditExceptions": {
-    "GHSA-g3hv-75wg-m249": {
-      "reason": "minimatch <11.0.1 (moderate). Every runtime path is cleared by the minimatch@9/@10 -> >=11.0.1 and glob -> >=14.0.3 overrides. The one copy left is minimatch@5.1.9 under readdir-glob@1.1.3 <- archiver@7 <- testcontainers, a devDependency used only by integration tests that archive repo-authored fixture paths, never untrusted patterns. It cannot be forced to 11: readdir-glob 1.x calls minimatch 5 default export, which 9+ removed. Remedy: archiver 8 (readdir-glob ^3, minimatch ^10.2) once testcontainers accepts it, then lift minimatch@10 to the 11 floor.",
-      "expires": "2027-02-01"
-    }
-  },
+  "auditExceptions": {},
   "engines": {
     "node": ">=22.0.0",
     "pnpm": ">=8.0.0"
