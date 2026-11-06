@@ -10,8 +10,15 @@ import { createParseError } from './base';
  * consumes. Naming it is what lets `health()` answer a real question instead of
  * a rhetorical one: the surface we call is either present and behaving, or it
  * is not, and the two cases are distinguishable.
+ *
+ * Exported because it is no longer this parser's private business: the
+ * duplication detector (`duplication/estree.ts`) loads the same module behind
+ * the same seam and consumes exactly this surface. One named slice shared by
+ * both consumers beats two structurally identical declarations that can drift
+ * apart. `TSESTree.Program` already carries the optional `tokens` array the
+ * duplication detector reads, so neither consumer needs its own widening.
  */
-interface EstreeModule {
+export interface EstreeModule {
   parse: (code: string, options: Record<string, unknown>) => TSESTree.Program;
   /** Package version, re-exported by typescript-estree itself. */
   version?: string;

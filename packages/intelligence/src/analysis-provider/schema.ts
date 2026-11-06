@@ -1,16 +1,26 @@
 import type { z } from 'zod';
 
-type ZodDef = Record<string, unknown>;
+/**
+ * The zod 4 internal definition node we walk (`schema._zod.def`). Typed loosely on
+ * purpose: zod does not publish a stable shape for it, and every field is read
+ * defensively. Under zod 3 this walked `_def.typeName`; zod 4 renamed the
+ * discriminant to lowercase `def.type`, so a stale walker would silently emit `{}`
+ * for every schema — hence the explicit port rather than a compat import.
+ */
+type ZodDef = Record<string, unknown> & { type?: string };
 type Converter = (def: ZodDef) => Record<string, unknown>;
 
+function defOf(schema: z.ZodType): ZodDef {
+  return (schema as unknown as { _zod: { def: ZodDef } })._zod.def;
+}
+
 function convertObject(def: ZodDef): Record<string, unknown> {
-  const shape = (def['shape'] as () => Record<string, z.ZodType>)();
+  const shape = def['shape'] as Record<string, z.ZodType>;
   const properties: Record<string, unknown> = {};
   const required: string[] = [];
   for (const [key, value] of Object.entries(shape)) {
     properties[key] = zodToJsonSchema(value);
-    const innerDef = (value as unknown as { _def: ZodDef })._def;
-    if (innerDef['typeName'] !== 'ZodOptional') required.push(key);
+    if (defOf(value).type !== 'optional') required.push(key);
   }
   const result: Record<string, unknown> = { type: 'object', properties };
   if (required.length > 0) result['required'] = required;
@@ -23,40 +33,57 @@ function convertNullable(def: ZodDef): Record<string, unknown> {
   return { oneOf: [inner, { type: 'null' }] };
 }
 
+type NumberCheckDef = { check?: string; value?: number; inclusive?: boolean; format?: string };
+
+/** JSON Schema keyword a zod 4 number bound maps to, by [check kind][inclusive]. */
+const BOUND_KEYWORD: Record<string, [exclusive: string, inclusive: string]> = {
+  greater_than: ['exclusiveMinimum', 'minimum'],
+  less_than: ['exclusiveMaximum', 'maximum'],
+};
+
+function applyNumberCheck(result: Record<string, unknown>, check: NumberCheckDef): void {
+  const bound = check.check ? BOUND_KEYWORD[check.check] : undefined;
+  if (bound) result[check.inclusive === false ? bound[0] : bound[1]] = check.value;
+  else if (check.check === 'number_format' && check.format?.includes('int')) {
+    result['type'] = 'integer';
+  }
+}
+
+function convertNumber(def: ZodDef): Record<string, unknown> {
+  const result: Record<string, unknown> = { type: 'number' };
+  const checks = (def['checks'] as Array<{ _zod: { def: NumberCheckDef } }> | undefined) ?? [];
+  for (const { _zod } of checks) applyNumberCheck(result, _zod.def);
+  return result;
+}
+
+function convertLiteral(def: ZodDef): Record<string, unknown> {
+  const values = def['values'] as unknown[];
+  if (values.length === 1) return { type: typeof values[0], const: values[0] };
+  return { enum: values };
+}
+
 const ZOD_CONVERTERS: Record<string, Converter> = {
-  ZodString: () => ({ type: 'string' }),
-  ZodNumber: (def) => {
-    const result: Record<string, unknown> = { type: 'number' };
-    const checks = def['checks'] as
-      | Array<{ kind: string; value: number; inclusive?: boolean }>
-      | undefined;
-    if (checks) {
-      for (const check of checks) {
-        if (check.kind === 'min') {
-          result[check.inclusive === false ? 'exclusiveMinimum' : 'minimum'] = check.value;
-        }
-        if (check.kind === 'max') {
-          result[check.inclusive === false ? 'exclusiveMaximum' : 'maximum'] = check.value;
-        }
-        if (check.kind === 'int') result['type'] = 'integer';
-      }
-    }
-    return result;
+  string: () => ({ type: 'string' }),
+  number: convertNumber,
+  boolean: () => ({ type: 'boolean' }),
+  literal: convertLiteral,
+  // zod 4 folds nativeEnum into `enum`; `entries` maps key -> value for both.
+  enum: (def) => {
+    const values = Object.values(def['entries'] as Record<string, unknown>);
+    return values.every((v) => typeof v === 'string')
+      ? { type: 'string', enum: values }
+      : { enum: values };
   },
-  ZodBoolean: () => ({ type: 'boolean' }),
-  ZodLiteral: (def) => ({ type: typeof def['value'], const: def['value'] }),
-  ZodEnum: (def) => ({ type: 'string', enum: def['values'] as string[] }),
-  ZodNativeEnum: (def) => ({ enum: Object.values(def['values'] as Record<string, unknown>) }),
-  ZodArray: (def) => ({ type: 'array', items: zodToJsonSchema(def['type'] as z.ZodType) }),
-  ZodObject: convertObject,
-  ZodOptional: (def) => zodToJsonSchema(def['innerType'] as z.ZodType),
-  ZodNullable: convertNullable,
-  ZodDefault: (def) => zodToJsonSchema(def['innerType'] as z.ZodType),
-  ZodRecord: (def) => ({
+  array: (def) => ({ type: 'array', items: zodToJsonSchema(def['element'] as z.ZodType) }),
+  object: convertObject,
+  optional: (def) => zodToJsonSchema(def['innerType'] as z.ZodType),
+  nullable: convertNullable,
+  default: (def) => zodToJsonSchema(def['innerType'] as z.ZodType),
+  record: (def) => ({
     type: 'object',
     additionalProperties: zodToJsonSchema(def['valueType'] as z.ZodType),
   }),
-  ZodUnion: (def) => ({ oneOf: (def['options'] as z.ZodType[]).map(zodToJsonSchema) }),
+  union: (def) => ({ oneOf: (def['options'] as z.ZodType[]).map(zodToJsonSchema) }),
 };
 
 /**
@@ -66,8 +93,7 @@ const ZOD_CONVERTERS: Record<string, Converter> = {
  * objects, strings, numbers, booleans, arrays, enums, optionals, and nullables.
  */
 export function zodToJsonSchema(schema: z.ZodType): Record<string, unknown> {
-  const def = (schema as unknown as { _def: ZodDef })._def;
-  const typeName = def['typeName'] as string | undefined;
-  const converter = typeName ? ZOD_CONVERTERS[typeName] : undefined;
-  return converter ? converter(def) : {};
+  const type = defOf(schema).type;
+  const converter = type ? ZOD_CONVERTERS[type] : undefined;
+  return converter ? converter(defOf(schema)) : {};
 }

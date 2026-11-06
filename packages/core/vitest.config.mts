@@ -2,6 +2,13 @@ import { defineConfig } from 'vitest/config';
 // eslint-disable-next-line import/no-relative-packages -- config reaches into repo-root scripts/ on purpose
 import { prepushTestOptions } from '../../scripts/vitest-prepush-reporter.mjs';
 
+// Vitest does NOT propagate a coverage flag into the worker `process.env`, so a
+// test that must step aside under v8 instrumentation cannot detect it on its
+// own. Detect it here, where the CLI argv is visible, and forward it — the same
+// mechanism `packages/orchestrator/vitest.config.mts` uses for its
+// coverage-aware latency budget. Consumed by duplication.perf.test.ts.
+const COVERAGE = process.argv.includes('--coverage');
+
 export default defineConfig({
   test: {
     ...prepushTestOptions(),
@@ -23,6 +30,7 @@ export default defineConfig({
     // gets its own isolated process) without touching mac/linux parallelism.
     // This removes the nondeterminism at its source rather than merely widening
     // a timeout, which the raised ceiling below already showed does not fix it.
+    env: { HARNESS_COVERAGE: COVERAGE ? '1' : '' },
     fileParallelism: process.platform === 'win32' ? false : true,
     testTimeout: 60_000,
     // Same rationale for setup/teardown hooks, which have their own separate

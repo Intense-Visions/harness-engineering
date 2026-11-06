@@ -27,7 +27,7 @@ export const TemplateMetadataSchema = z.object({
   level: z.enum(['basic', 'intermediate', 'load-bearing-minimum', 'advanced']).optional(),
   framework: z.string().optional(),
   extends: z.string().optional(),
-  mergeStrategy: MergeStrategySchema.default({}),
+  mergeStrategy: MergeStrategySchema.prefault({}),
   version: z.literal(1),
   language: LanguageEnum.optional(),
   tooling: ToolingSchema.optional(),

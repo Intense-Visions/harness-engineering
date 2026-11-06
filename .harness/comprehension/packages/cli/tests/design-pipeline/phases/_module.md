@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/tests/design-pipeline/phases'
-sourceHash: '15fd49c5ca45330a1f0504e2c5e216bed3d925851e086d96b65f8dfbc28d3ae9'
+sourceHash: 'b6abf3e2bec930b34a122ee0e522fcb8888c35c09c4089d44f5bbb7b3bc3b2a1'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -22,7 +22,7 @@ import { CraftFinding } from '../../../src/design-craft/findings/schema'
 import { newContext } from '../../../src/design-pipeline/context'
 import { runFill } from '../../../src/design-pipeline/phases/fill'
 import from '../../../src/design-pipeline/phases/fix'
-import { runFreshen } from '../../../src/design-pipeline/phases/freshen'
+import { probeGraphAvailable, runFreshen } from '../../../src/design-pipeline/phases/freshen'
 import { runReport } from '../../../src/design-pipeline/phases/report'
 import { DriftFinding } from '../../../src/drift/findings/finding'
 import from '../../../src/mcp/tools/align-design-system'

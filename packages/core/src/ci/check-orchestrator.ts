@@ -538,6 +538,13 @@ async function runArchCheck(
       regressionTolerance: archConfig.regressionTolerance,
     });
     const coverage = loadArchAllowances(projectRoot, archConfig.baselinePath);
+    for (const s of coverage.skipped) {
+      issues.push({
+        severity: 'warning',
+        message: `[arch] allowance ignored (${s.reason}) — its regressions are NOT acknowledged`,
+        file: path.relative(projectRoot, s.file).replaceAll('\\', '/'),
+      });
+    }
     const diffResult = filterDiffByAllowances(rawDiff, coverage);
     if (!diffResult.passed) {
       for (const v of diffResult.newViolations) {

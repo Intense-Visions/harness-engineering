@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "rootDir": ".",
+  "docsDir": "./docs",
+  "entropy": {
+    "entryPoints": ["src/index.ts"],
+    "excludePatterns": ["**/node_modules/**"],
+    "duplication": true
+  }
+}

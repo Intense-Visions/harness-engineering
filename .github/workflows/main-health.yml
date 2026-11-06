@@ -107,6 +107,33 @@ jobs:
           grep -rq "HARNESS_E2E_LIVE" packages/cli/tests/e2e/support/tiers.ts
           echo "Tier B suite present and HARNESS_E2E_LIVE gate wired."
 
+      # Sibling assertion for binary-gated suites that live OUTSIDE
+      # `packages/cli/tests/e2e/` and are therefore not covered by the grep
+      # above. The duplication D4 exit-code suite sits in `tests/integration/`
+      # and gates on the same shared `skipUnlessBin` predicate; without this
+      # step a rotted gate would leave it skipped-by-default forever, and a
+      # silently-skipped suite must not read as a pass.
+      #
+      # Stronger than a grep: it RUNS the suite and fails if vitest reports any
+      # skipped test, so "the gate is wired" and "the gate is open" are both
+      # proven. `HAS_HARNESS_BIN` resolves `dist/` against the cwd, hence the
+      # subshell cd into the package — which is also how `turbo run test`
+      # invokes it.
+      - name: Assert gated CLI suites outside tests/e2e are reachable
+        run: |
+          set -euo pipefail
+          test -f packages/cli/dist/bin/harness.js
+          grep -rq "skipUnlessBin" packages/cli/tests/integration/
+          grep -rq "HAS_HARNESS_BIN" packages/cli/tests/e2e/support/tiers.ts
+          (cd packages/cli && npx vitest run tests/integration/cleanup-duplication-exit-code.e2e.test.ts) \
+            2>&1 | tee /tmp/d4-reachability.log
+          grep -qE "Tests +[0-9]+ passed" /tmp/d4-reachability.log
+          if grep -q "skipped" /tmp/d4-reachability.log; then
+            echo "D4 exit-code suite reported SKIPPED tests — the binary gate did not open." >&2
+            exit 1
+          fi
+          echo "D4 exit-code suite present, wired to skipUnlessBin, and running."
+
       # Run the gated live suite. Degradation-safe: with no provider credential it
       # produces a valid static unit and passes; with one it exercises the real
       # provider path. `continue-on-error` keeps a live-provider hiccup from
