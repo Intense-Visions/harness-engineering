@@ -14,16 +14,14 @@ import type {
  * Reusable schema for the local/pi `model` field — either a non-empty
  * string or a non-empty array of non-empty strings (Spec 1 fallback list).
  *
- * The `errorMap` collapses Zod's default opaque "Invalid input" union
+ * The `error` option collapses Zod's default opaque "Invalid input" union
  * failure into an actionable message that names both accepted shapes.
  * Without this, e.g. `model: 0` produces `invalid_union` with two child
  * `invalid_type` issues whose messages don't mention what the user
  * should have written.
  */
 const ModelSchema = z.union([z.string().min(1), z.array(z.string().min(1)).nonempty()], {
-  errorMap: () => ({
-    message: 'model must be a non-empty string or array of strings',
-  }),
+  error: 'model must be a non-empty string or array of strings',
 });
 
 /**
@@ -77,7 +75,7 @@ export const BackendCapabilitiesSchema = z
  * the forward-compat cost of sharing one schema with the Shuttle wire.
  */
 export const RoutingPolicySchema = z.object({
-  complexityTierMatrix: z.record(COMPLEXITY_LEVEL, CAPABILITY_TIER).optional(),
+  complexityTierMatrix: z.partialRecord(COMPLEXITY_LEVEL, CAPABILITY_TIER).optional(),
   skillTierOverrides: z.record(z.string(), CAPABILITY_TIER).optional(),
   privacyFloor: PRIVACY_CLASS.optional(),
   budget: z

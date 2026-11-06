@@ -33,7 +33,7 @@ export const MetricResultSchema = z.object({
   scope: z.string(), // e.g., 'project', 'src/services', 'src/api/routes.ts'
   value: z.number(), // numeric metric (violation count, complexity score, etc.)
   violations: z.array(ViolationSchema),
-  metadata: z.record(z.unknown()).optional(),
+  metadata: z.record(z.string(), z.unknown()).optional(),
 });
 
 export type MetricResult = z.infer<typeof MetricResultSchema>;
@@ -53,7 +53,8 @@ export const ArchBaselineSchema = z.object({
   version: z.literal(1),
   updatedAt: z.string().datetime(), // ISO 8601
   updatedFrom: z.string(), // commit hash
-  metrics: z.record(ArchMetricCategorySchema, CategoryBaselineSchema),
+  // partialRecord keeps zod 3 semantics: a baseline written before a category existed still parses.
+  metrics: z.partialRecord(ArchMetricCategorySchema, CategoryBaselineSchema),
 });
 
 export type ArchBaseline = z.infer<typeof ArchBaselineSchema>;
@@ -83,7 +84,7 @@ export type ArchDiffResult = z.infer<typeof ArchDiffResultSchema>;
 
 // --- Threshold Config ---
 
-export const ThresholdConfigSchema = z.record(
+export const ThresholdConfigSchema = z.partialRecord(
   ArchMetricCategorySchema,
   z.union([z.number(), z.record(z.string(), z.number())])
 );

@@ -51,7 +51,7 @@
     "@harness-engineering/graph": "workspace:*",
     "@harness-engineering/types": "workspace:*",
     "openai": "^6.0.0",
-    "zod": "^3.25.76"
+    "zod": "^4.6.6"
   },
   "optionalDependencies": {
     "canary-test-cli": "^5.4.0"

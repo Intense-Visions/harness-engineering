@@ -11,6 +11,7 @@ import {
   writeArchAllowance,
   archAllowanceSlug,
   archAllowancesDir,
+  ArchAllowanceSchema,
 } from '../../src/architecture/baseline-resolver';
 import type { ArchBaselineResolution } from '../../src/architecture/baseline-resolver';
 import { ArchBaselineManager } from '../../src/architecture/baseline-manager';
@@ -352,6 +353,64 @@ describe('arch allowances', () => {
     expect(excludingOwn.categoryCeilings.get('coupling')).toBe(40);
   });
 
+  // Regression (zod 4, GHSA-mrhx-c7xc-m3w5 upgrade): an enum-keyed `z.record` is exhaustive
+  // in zod 4, so an allowance naming only ONE category failed safeParse and the loader
+  // silently skipped it — the acknowledged regression stopped counting with no error.
+  it('counts an allowance that lists only a subset of categories', () => {
+    const dir = archAllowancesDir(root, BASELINE_REL);
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(
+      join(dir, 'subset.json'),
+      JSON.stringify({ reason: 'module split pending', categories: { 'module-size': 120 } })
+    );
+
+    const parsed = ArchAllowanceSchema.safeParse({
+      reason: 'x',
+      categories: { 'module-size': 120 },
+    });
+    expect(parsed.success).toBe(true);
+
+    const coverage = loadArchAllowances(root, BASELINE_REL);
+    expect(coverage.files).toHaveLength(1);
+    expect(coverage.categoryCeilings.get('module-size')).toBe(120);
+    expect(coverage.categoryCeilings.size).toBe(1);
+
+    const filtered = filterDiffByAllowances(
+      diffWith({
+        regressions: [
+          { category: 'module-size', baselineValue: 100, currentValue: 120, delta: 20 },
+        ],
+      }),
+      coverage
+    );
+    expect(filtered.passed).toBe(true);
+    expect(filtered.allowedRegressions).toHaveLength(1);
+  });
+
+  it('records skipped allowance files with a reason instead of dropping them silently', () => {
+    const dir = archAllowancesDir(root, BASELINE_REL);
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, 'broken.json'), 'not-json{{{');
+    writeFileSync(join(dir, 'no-reason.json'), JSON.stringify({ categories: { complexity: 1 } }));
+    writeFileSync(join(dir, 'ok.json'), JSON.stringify({ reason: 'fine' }));
+
+    const coverage = loadArchAllowances(root, BASELINE_REL);
+    expect(coverage.files).toEqual([join(dir, 'ok.json')]);
+    expect(coverage.skipped).toEqual([
+      { file: join(dir, 'broken.json'), reason: 'not valid JSON' },
+      {
+        file: join(dir, 'no-reason.json'),
+        reason: expect.stringContaining('does not match the allowance schema at "reason"'),
+      },
+    ]);
+  });
+
+  it('still rejects an allowance category that is not a known metric', () => {
+    expect(
+      ArchAllowanceSchema.safeParse({ reason: 'x', categories: { 'not-a-metric': 1 } }).success
+    ).toBe(false);
+  });
+
   it('returns empty coverage when the allowances dir is absent', () => {
     const coverage = loadArchAllowances(root, BASELINE_REL);
     expect(coverage.violationIds.size).toBe(0);
@@ -368,6 +427,7 @@ describe('arch allowances', () => {
       categoryCeilings: new Map([['complexity' as const, 312]]),
       files: [],
       reasons: [],
+      skipped: [],
     };
     const filtered = filterDiffByAllowances(rawDiff, coverage);
     expect(filtered.passed).toBe(true);
@@ -384,6 +444,7 @@ describe('arch allowances', () => {
       categoryCeilings: new Map(),
       files: [],
       reasons: [],
+      skipped: [],
     };
     const filtered = filterDiffByAllowances(rawDiff, coverage);
     expect(filtered.passed).toBe(false);
@@ -400,6 +461,7 @@ describe('arch allowances', () => {
       categoryCeilings: new Map([['complexity' as const, 350]]), // ceiling below current 400
       files: [],
       reasons: [],
+      skipped: [],
     };
     const filtered = filterDiffByAllowances(rawDiff, coverage);
     expect(filtered.passed).toBe(false);

@@ -23,7 +23,7 @@ export const TimelineSnapshotSchema = z.object({
   /** Composite stability score (0-100, higher is healthier) */
   stabilityScore: z.number().min(0).max(100),
   /** Per-category metric aggregates */
-  metrics: z.record(ArchMetricCategorySchema, CategorySnapshotSchema),
+  metrics: z.partialRecord(ArchMetricCategorySchema, CategorySnapshotSchema),
 });
 
 export type TimelineSnapshot = z.infer<typeof TimelineSnapshotSchema>;
@@ -58,7 +58,7 @@ export const TrendResultSchema = z.object({
   /** Overall stability trend */
   stability: TrendLineSchema,
   /** Per-category trends */
-  categories: z.record(ArchMetricCategorySchema, TrendLineSchema),
+  categories: z.partialRecord(ArchMetricCategorySchema, TrendLineSchema),
   /** Number of snapshots analyzed */
   snapshotCount: z.number(),
   /** Time range covered */

@@ -15,12 +15,14 @@ extendZodWithOpenApi(z);
 export function buildAuthRegistry(): OpenAPIRegistry {
   const registry = new OpenAPIRegistry();
 
-  // Reusable components
-  const TokenScope = registry.register('TokenScope', TokenScopeSchema.openapi('TokenScope'));
-  const BridgeKind = registry.register('BridgeKind', BridgeKindSchema.openapi('BridgeKind'));
+  // Reusable components. These schemas are built in @harness-engineering/types BEFORE
+  // extendZodWithOpenApi runs; zod 4 instances do not pick up the patched `.openapi`
+  // retroactively, so name them via zod's native `.meta({ id })` (a fresh instance that does).
+  const TokenScope = registry.register('TokenScope', TokenScopeSchema.meta({ id: 'TokenScope' }));
+  const BridgeKind = registry.register('BridgeKind', BridgeKindSchema.meta({ id: 'BridgeKind' }));
   const AuthTokenPublic = registry.register(
     'AuthTokenPublic',
-    AuthTokenPublicSchema.openapi('AuthTokenPublic')
+    AuthTokenPublicSchema.meta({ id: 'AuthTokenPublic' })
   );
 
   const CreateRequest = z
