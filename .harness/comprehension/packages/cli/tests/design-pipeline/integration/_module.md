@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/tests/design-pipeline/integration'
-sourceHash: '3318fff98146c72ac35a5581eb97f5e038b6036a311390d98e143caae94f785b'
+sourceHash: '53d7891f03d93b778b5dbc1cd5420f74e25b95f4c0dbf52c81a3662b4d3ab5a2'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent

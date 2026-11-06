@@ -12,6 +12,7 @@ import {
   type DesignPipelineInput,
   type DesignPipelineContext,
 } from '../../design-pipeline/index.js';
+import { toSerializableResult } from '../../design-pipeline/serialize.js';
 
 interface ToolResponse {
   content: Array<{ type: 'text'; text: string }>;
@@ -33,7 +34,9 @@ export const designPipelineDefinition = {
       noFill: { type: 'boolean', description: 'Skip FILL phase' },
       ci: {
         type: 'boolean',
-        description: 'Non-interactive: safe fixes only, no prompts',
+        description:
+          'Deprecated, no effect: every run is already non-interactive and applies safe fixes only. ' +
+          'Passing it adds a notice to `warnings` in the result.',
       },
       mode: {
         type: 'string',
@@ -69,9 +72,9 @@ export async function handleDesignPipeline(input: DesignPipelineInput): Promise<
   }
   try {
     const result: DesignPipelineContext = await runDesignPipeline(input);
-    // Serialize Set -> array for transport
-    const payload = { ...result, exclusions: [...result.exclusions] };
-    return { content: [{ type: 'text', text: JSON.stringify(payload, null, 2) }] };
+    return {
+      content: [{ type: 'text', text: JSON.stringify(toSerializableResult(result), null, 2) }],
+    };
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     return {

@@ -1431,6 +1431,116 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 - **Priority:** P2
 - **External-ID:** github:Intense-Visions/harness-engineering#1681
 
+### Mechanical duplication detection — a DRY floor for the gate stack
+
+- **Status:** in-progress
+- **Spec:** docs/changes/duplication-detection/proposal.md
+- **Summary:** DRY is the only major quality axis with zero mechanical enforcement: it is documented in `harness-refactoring` (a procedure with no detector upstream) and in `code-craft` rubric CODE-R004 (which names the Rule of Three but whose per-unit prompt carries one unit's source span, making its own question unanswerable), and enforced nowhere — a measured gap against the Harness Coverage KPI. Build a deterministic, offline Type-2 clone index as a reusable `packages/core/src/duplication/` module (normalized token-stream fingerprints via `@typescript-eslint/typescript-estree`, identifiers→I and literals→L), an advisory-first entropy detector over it at a Rule-of-Three threshold, a `partial-extraction` ranking signal for classes whose members already import a common shared module, and the `siblings` wiring that gives CODE-R004 its cross-file evidence. Granularity was decided by measurement, not preference: a probe found 60 whole-unit clone classes against 6,173 sliding-window classes, with real top hits including `sumCosts` ×10 across every craft package and a JSON-response helper ×16 across orchestrator routes under three different names. Never fail-closed (#855 precedent). Leaves a stable `CloneClass` interface that `idiom-contagion-epidemiology` and `semantic-canonicalization-entropy-floor` are both already predicated on. Does not fix the 60 classes it finds; sub-unit/CPD detection and the baseline ratchet are deferred.
+- **Blockers:** —
+- **Plan:** docs/changes/duplication-detection/plans/2026-10-19-duplication-phase-1-core-module-plan.md, docs/changes/duplication-detection/plans/2026-10-20-duplication-phase-2-entropy-detector-plan.md, docs/changes/duplication-detection/plans/2026-10-20-duplication-phase-3-cli-mcp-surface-plan.md, docs/changes/duplication-detection/plans/2026-10-20-duplication-phase-4-partial-extraction-signal-plan.md, docs/changes/duplication-detection/plans/2026-10-21-duplication-phase-5-code-craft-siblings-plan.md
+- **Assignee:** Chad Warner
+- **Priority:** P2
+- **External-ID:** —
+
+### Design-time reuse discovery — "this already exists" before the code is written
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** `duplication-detection` catches copy-paste after it lands; the more expensive failure is reinvention — a spec proposing something the codebase already implements. `harness-brainstorming` already instructs "Check for prior art. Has this been partially solved elsewhere?" (SKILL.md step 4) with no tool behind it, and `spec-craft`'s seven rubrics contain no reuse/prior-art rubric, so the check is unenforced prose. Build the retrieval side: at spec time, search for existing implementations of what the spec proposes and surface them to the author before a line is written. This is deliberately a _recall_ problem, not the _detection_ problem `duplication-detection` solves — it needs semantic/Type-4 similarity (the existing `VectorStore` cosine top-K in `@harness-engineering/graph` plus `gather_context` are the likely substrate), and it has no clean ground truth, which is why it is scoped separately rather than bundled. Prevention over cleanup: the highest-leverage DRY intervention is the duplicate that never gets created.
+- **Blockers:** Depends on `duplication-detection`
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** P3
+- **External-ID:** —
+
+### Bring test files under a typechecked project — type-level test assertions are currently decorative
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** No `tsc` project includes `packages/core/tests/**`: `packages/core/tsconfig.json` is `include: ['src/**/*']` with `exclude: [..., 'tests']`, `tsconfig.build.json` excludes tests too, the root config is `files: []` plus project references, and `vitest.config.mts` declares no `typecheck` block so vitest strips types without checking them. Measured: `tsc -p packages/core/tsconfig.json --noEmit --listFilesOnly | grep -c '/tests/'` returns **0**. The consequence is that every type-level assertion written in a test file is unenforced — a test can annotate a value with an interface, assert the interface's shape, and pass while the interface drifts. Found concretely during the duplication Phase 1 review: `packages/core/tests/duplication/barrel.test.ts` asserted "`DuplicationConfig` has exactly the four specified fields" over an object literal the test itself typed, and adding a fifth field to the real interface would have turned nothing red anywhere in the repo. The same hole makes a `import type`-only re-export test (its only runtime assertion being on a `Map` the test built) pass even if all four type exports were deleted from the barrel. Scope: decide per-package whether tests join the main project, get their own `tsconfig.test.json` referenced from the root, or are covered by vitest's `typecheck` mode; then make the gate real in CI. This is a cross-cutting enforcement gap, not a duplication-feature concern — the duplication tests were merely where it surfaced.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** P2
+- **External-ID:** —
+
+### Baseline ratchet for duplication — make the advisory floor move in one direction
+
+- **Status:** planned
+- **Spec:** docs/changes/duplication-detection/proposal.md
+- **Summary:** Deferred from `duplication-detection` with its reason verbatim: "Baseline ratchet for duplication (per D4)." D4 made clone classes ADVISORY — they are reported alongside `totalIssues` and deliberately outside the exit-code arithmetic on both the CLI and MCP surfaces, so nothing today prevents the count from growing. A ratchet is the standard harness answer (the `check-arch` baseline is the precedent): record the current class count or rank total per scope, fail only on a NEW regression against it, and keep the absolute number unasserted so a scope change cannot present itself as a behavior change (spec criterion 10). The design question the ratchet has to answer first is WHICH number is ratchetable: `classesReported` moves with this repository's own source additions (measured: it moved three times across Phases 3-5 with no detector change), so a raw count is the wrong key, and rank-total or a per-class fingerprint set is the likely substrate. Must not fail-closed (#855 precedent).
+- **Blockers:** Depends on `duplication-detection`
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** P3
+- **External-ID:** —
+
+### Sub-unit / CPD duplication tier — to be justified by what the whole-unit floor misses
+
+- **Status:** planned
+- **Spec:** docs/changes/duplication-detection/proposal.md
+- **Summary:** Deferred from `duplication-detection` with its reason verbatim: "Sub-unit / CPD tier (to be justified by what this ships fails to catch)." The shipped detector is deliberately WHOLE-UNIT (function, method, class) at a Rule-of-Three threshold, a granularity chosen by measurement rather than preference: a probe found 60 whole-unit clone classes against 6,173 sliding-window classes, i.e. a sub-unit tier is ~100x noisier at this corpus and needs its own precision story before it earns a place in the gate stack. The gating condition on this item is therefore evidence, not design: it should be opened only once there is a recorded set of real duplications the whole-unit floor provably does NOT catch. Until that set exists, building the tier would add noise to a surface whose whole value is that an operator can act on its top rows.
+- **Blockers:** Depends on `duplication-detection`
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** P3
+- **External-ID:** —
+
+### Group the structurally-concentrated clone classes on the printed page
+
+- **Status:** planned
+- **Spec:** docs/changes/duplication-detection/proposal.md
+- **Summary:** Deferred from `duplication-detection` with its reason verbatim: "Named here with its reason rather than deferred a third time to 'Phase 4/5': Phase 4 measurably does not aggravate the 38/96 platform-mirror concentration (0 of 38 mirror classes are labelled) and measurably improves it for free (mirror rows on the printed top ten fall 4 -> 2). Grouping itself is a distinct presentation feature needing a grouping key (mirrors-of-each-other? same owning skill?), a presentation form, and a decision on whether a group counts as ONE class against `maxClasses` — which would move criterion 13's semantics a SECOND time in one release. Phase 5 is `code-craft` prompt wiring, a different subsystem, so it is not Phase 5's either." The concentration is real and measured: 38 of this repository's 96 reported classes are platform mirrors (the same skill file copied across `claude-code` / `cursor` / `codex` / `gemini-cli`), holding 152 of 382 members, and they are unactionable individually because the copies are generated.
+- **Blockers:** Depends on `duplication-detection`
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** P3
+- **External-ID:** —
+
+### Surface code-craft's sibling-evidence incidence, so a failed index build is not invisible
+
+- **Status:** planned
+- **Spec:** docs/changes/duplication-detection/proposal.md
+- **Summary:** Deferred from `duplication-detection` with its reason verbatim: "Phase 5's index build degrades to `undefined` on `Err` and on an empty discovery, and the reason is DROPPED — so a failed index build is invisible to an operator, who sees a normal run with no sibling evidence in it. Deferred rather than smuggled in because surfacing it changes `CodeCraftOutput`'s shape, the `code_craft` MCP response and the printed page, and it traces to no criterion. What stands in for it meanwhile is Phase 5's end-to-end assertion over the real `collectCodeCraftPrompts(...).pendingPrompts[].userPrompt` string, which makes the wiring falsifiable with no schema change; what it does NOT give is operator visibility into a build that failed." Scope: carry the index-build outcome (count of units with siblings, or the dropped `Err` reason) through `CodeCraftOutput` to the run summary and the MCP response, so "no duplication in this codebase" and "the clone index did not build" stop looking identical.
+- **Blockers:** Depends on `duplication-detection`
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** P3
+- **External-ID:** —
+
+### Knowledge-graph concept nodes for partial-extraction and CloneClass
+
+- **Status:** blocked
+- **Spec:** docs/changes/duplication-detection/proposal.md
+- **Summary:** Deferred from `duplication-detection` with its reason verbatim: "Phase 4 is where `partial-extraction` became real, so this was its natural home. Blocked on #1507: `manage_adr` / graph enrichment is not worktree-aware, and writing to the main checkout from this phase's worktree is worse than not writing." Scope: add concept nodes for `partial-extraction` (the signal, its five load-bearing conditions, and the CALL-position predicate that makes its claim true) and `CloneClass` (the published shape `idiom-contagion-epidemiology` and `semantic-canonicalization-entropy-floor` are both predicated on), so a later feature can query the concept instead of re-deriving it from the spec. Unblocks once #1507 makes graph enrichment worktree-aware; filing it against that blocker is the point, because the work was NOT done and the reason is external.
+- **Blockers:** #1507 — manage_adr / graph enrichment is not worktree-aware
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** P3
+- **External-ID:** —
+
+### Make loadEntropyGraphOptions type-aware so detect_entropy can report duplication on a graph-bearing project
+
+- **Status:** planned
+- **Spec:** docs/changes/duplication-detection/proposal.md
+- **Summary:** Deferred from `duplication-detection` with its reason verbatim: "`loadEntropyGraphOptions` type-awareness so the MCP surface can report duplication on a graph-bearing project." The mechanism, as recorded in the Phase 3 evidence: `loadEntropyGraphOptions` in `packages/cli/src/mcp/tools/entropy.ts` supplies BOTH graph keys unconditionally, irrespective of the requested issue type, which interacts with the did-not-run refusal — so on a graph-bearing project a `type: "duplication"` request can be refused for a reason that has nothing to do with duplication. Making the option load conditional on the requested type is explicitly a follow-up rather than part of Phase 3, because it changes behaviour for every entropy type the tool serves, not just this one.
+- **Blockers:** Depends on `duplication-detection`
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** P3
+- **External-ID:** —
+
+### A vendored-build-cache ignore glob for DEFAULT_DUPLICATION_CONFIG, generalized beyond vitepress
+
+- **Status:** planned
+- **Spec:** docs/changes/duplication-detection/proposal.md
+- **Summary:** Deferred from `duplication-detection` with its reason verbatim: "A vendored-build-cache glob for `DEFAULT_DUPLICATION_CONFIG.ignorePatterns`, generalized beyond vitepress." Measured during the Phase 3 precision audit: `docs/.vitepress/cache/deps_temp_*` is a Vite dependency pre-bundle — vendored generated output nobody will ever refactor — and the classes it composes are false positives for any operator. This repository closes it locally through its own `entropy.excludePatterns`, which is why Scope C reports 96 classes where Scope B reports 98; an adopter gets no such protection from the shipped defaults. The reason this was NOT done inside the feature is recorded with it: the honest generalization (vendored dependency pre-bundles across build tools, not a vitepress special case) is a shape this repository alone cannot observe, and a default `ignorePatterns` entry ships to every adopter, so a one-repo sample is the wrong evidence base for it. Related precision note: the real files carry no generated-file marker (only an `eslint-disable` for vendored tooling), so marker-based detection is not available either.
+- **Blockers:** Depends on `duplication-detection`
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** P3
+- **External-ID:** —
+
 ## v5.0 — Catalog Rationalization
 
 ### Change init skill default recommendation away from "basic"

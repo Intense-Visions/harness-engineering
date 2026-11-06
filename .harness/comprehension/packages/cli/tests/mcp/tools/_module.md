@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/tests/mcp/tools'
-sourceHash: '3871f1dd524dff5648d1e9943220c01cb100904420e38e3e60581c1f9f7aa6e9'
+sourceHash: 'a8396554ca1535e4276124b10d5f32b8404a43d220cca6843942bb805f816412'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -35,6 +35,7 @@ members:
     'docs-publish-cov544.test.ts',
     'docs.test.ts',
     'entropy-config-threading.test.ts',
+    'entropy-duplication.test.ts',
     'entropy-patterns-empty-ruleset.test.ts',
     'entropy.test.ts',
     'event-emitter.test.ts',
@@ -52,6 +53,7 @@ members:
     'graph.test.ts',
     'init-cov544b.test.ts',
     'init.test.ts',
+    'insights-summary.test.ts',
     'interaction.test.ts',
     'knowledge-craft.test.ts',
     'linter.test.ts',
@@ -122,6 +124,7 @@ import { extractLevel } from '../../../../core/src/context/section-parser'
 import { findConfigFile, loadConfig } from '../../../src/config/loader'
 import { MockLlmProvider } from '../../../src/design-craft/llm/provider.js'
 import { resolveDocsPublishConnector } from '../../../src/docs-publish/index'
+import { wrapWithCompaction } from '../../../src/mcp/middleware/compaction'
 import { acceptanceEvalDefinition, handleAcceptanceEval, resolveTestContent } from '../../../src/mcp/tools/acceptance-eval.js'
 import { handleManageAdr, manageAdrDefinition } from '../../../src/mcp/tools/adr'
 import { allocateNextNumber, listAdrs, resolveWorktreeRoot } from '../../../src/mcp/tools/adr-store'
@@ -153,6 +156,7 @@ import { gatherContextDefinition } from '../../../src/mcp/tools/gather-context.j
 import { generateSlashCommandsDefinition, handleGenerateSlashCommands } from '../../../src/mcp/tools/generate-slash-commands'
 import { askGraphDefinition, computeBlastRadiusDefinition, detectAnomaliesDefinition, getImpactDefinition, getRelationshipsDefinition, handleAskGraph, handleComputeBlastRadius, handleDetectAnomalies, handleFindContextFor, handleGetImpact, handleGetRelationships, handleIngestSource, handleQueryGraph, handleSearchSimilar, queryGraphDefinition, searchSimilarDefinition } from '../../../src/mcp/tools/graph/index.js'
 import { handleInitProject, initProjectDefinition } from '../../../src/mcp/tools/init'
+import { handleInsightsSummary } from '../../../src/mcp/tools/insights-summary'
 import { emitInteractionDefinition, handleEmitInteraction } from '../../../src/mcp/tools/interaction'
 import { EmitInteractionInputSchema, InteractionBatchSchema, InteractionConfirmationSchema, InteractionOptionSchema, InteractionQuestionWithOptionsSchema, InteractionTransitionSchema } from '../../../src/mcp/tools/interaction-schemas'
 import { handleKnowledgeCraft, handleKnowledgeCraftFinalize, knowledgeCraftDefinition, knowledgeCraftFinalizeDefinition } from '../../../src/mcp/tools/knowledge-craft'
@@ -193,6 +197,7 @@ import { generateCIWorkflow } from '../../../src/persona/generators/ci-workflow'
 import { generateRuntime } from '../../../src/persona/generators/runtime'
 import { listPersonas, loadPersona } from '../../../src/persona/loader'
 import { runPersona } from '../../../src/persona/runner'
+import { ENTROPY_ISSUE_TYPES } from '../../../src/shared/duplication-request'
 import from '../../../src/shared/state-events'
 import { scoreSkill, suggest } from '../../../src/skill/dispatcher'
 import { formatSuggestions, isTier1Skill, suggest } from '../../../src/skill/dispatcher.js'

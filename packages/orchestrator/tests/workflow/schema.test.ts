@@ -38,8 +38,10 @@ describe('BackendDefSchema', () => {
     expect(result.success).toBe(false);
     if (result.success) return;
     const issue = result.error.issues[0]!;
-    expect(issue.code).toBe('invalid_union_discriminator');
-    // Zod's invalid_union_discriminator includes the valid options:
+    // zod 4 folded `invalid_union_discriminator` into `invalid_union` (with a
+    // `discriminator` field); the issue still lists the valid options:
+    expect(issue.code).toBe('invalid_union');
+    expect(issue.path).toEqual(['type']);
     const message = JSON.stringify(issue);
     expect(message).toContain('mock');
     expect(message).toContain('claude');
@@ -71,7 +73,7 @@ describe('BackendDefSchema', () => {
     });
     expect(result.success).toBe(false);
     if (result.success) return;
-    // The union errorMap collapses opaque "Invalid input" into a message
+    // The union `error` option collapses opaque "Invalid input" into a message
     // naming both accepted shapes.
     const messages = result.error.issues.map((i) => i.message).join('\n');
     expect(messages).toContain('non-empty string or array of strings');
@@ -201,7 +203,7 @@ describe('validateBackendsAndRouting (cross-field superRefine helper)', () => {
   // and surfaces issues, mirroring what Phase 3 will do.
   const ParentSchema = z
     .object({
-      backends: z.record(BackendDefSchema).optional(),
+      backends: z.record(z.string(), BackendDefSchema).optional(),
       routing: RoutingConfigSchema.optional(),
     })
     .superRefine((cfg, ctx) =>

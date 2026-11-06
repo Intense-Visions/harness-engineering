@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/src/entropy'
-sourceHash: '455a676627f18c839b1582fef4db5b0ba36529e840141e61ce875c2f6b8a9399'
+sourceHash: '76554774ff2b3121903ff3d75fa40758ceb7bb1f7221da0a955b69f8f0eb06df'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -46,6 +46,7 @@ export DocumentationDrift
 export DocumentationFile
 export DriftConfig
 export DriftReport
+export DuplicationReport
 export EntropyAnalyzer
 export EntropyConfig
 export EntropyConfigSchema
@@ -96,6 +97,7 @@ export detectComplexityViolations
 export detectCouplingViolations
 export detectDeadCode
 export detectDocDrift
+export detectDuplication
 export detectPatternViolations
 export detectSizeBudgetViolations
 export generateSuggestions
@@ -110,7 +112,7 @@ export validatePatternConfig
 ## Dependency Slice
 
 ```
-import { buildDependencyGraph } from '../constraints/dependencies'
+import { buildDependencyGraphFromParsed } from '../constraints/dependencies'
 import { createEntropyError } from '../shared/errors'
 import { fileExists, findFiles, readFileContent, relativePosix } from '../shared/fs-utils'
 import { AST, Export, LanguageParser, getDefaultRegistry } from '../shared/parsers'
@@ -119,13 +121,14 @@ import { detectComplexityViolations } from './detectors/complexity'
 import { detectCouplingViolations } from './detectors/coupling'
 import { detectDeadCode } from './detectors/dead-code'
 import { detectDocDrift } from './detectors/drift'
+import { detectDuplication } from './detectors/duplication'
 import { detectPatternViolations } from './detectors/patterns'
 import { detectSizeBudgetViolations } from './detectors/size-budget'
 import { resolveEntryPoints } from './entry-points'
 import { generateSuggestions } from './fixers/suggestions'
 import { loadPathAliases } from './path-aliases'
 import { buildSnapshot } from './snapshot'
-import { AnalysisError, CodeBlock, CodeReference, CodebaseSnapshot, ComplexityReport, CouplingReport, DeadCodeReport, DocumentationFile, DriftConfig, DriftReport, EntropyConfig, EntropyError, EntropyReport, ExportMap, InlineReference, InternalSymbol, JSDocComment, PatternConfig, PatternReport, SizeBudgetReport, SourceFile, SuggestionReport, TestImportSource } from './types'
+import { AnalysisError, CodeBlock, CodeReference, CodebaseSnapshot, ComplexityReport, CouplingReport, DeadCodeReport, DocumentationFile, DriftConfig, DriftReport, DuplicationReport, EntropyConfig, EntropyError, EntropyReport, ExportMap, InlineReference, InternalSymbol, JSDocComment, PatternConfig, PatternReport, SizeBudgetReport, SourceFile, SuggestionReport, TestImportSource } from './types'
 import { skipDirGlobs } from '@harness-engineering/graph'
 import * as fs from 'fs'
 import { minimatch } from 'minimatch'

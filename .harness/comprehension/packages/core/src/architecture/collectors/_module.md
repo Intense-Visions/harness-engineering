@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/src/architecture/collectors'
-sourceHash: '29a3a01305b1fe6a2986c0a32324b8946cf8a581adef74d26cbb15d6535330b4'
+sourceHash: '878c34ab1a31dca75c440703b0d4c2c1fdc2ba9d5bf813108ac18910b83ed87e'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -46,9 +46,11 @@ import { detectComplexityViolations } from '../../entropy/detectors/complexity'
 import { detectCouplingViolations } from '../../entropy/detectors/coupling'
 import { buildExportMap, parseSourceFiles } from '../../entropy/snapshot'
 import { CodebaseSnapshot } from '../../entropy/types'
+import { EntropyError } from '../../shared/errors'
 import { findFiles, relativePosix } from '../../shared/fs-utils'
 import { Import } from '../../shared/parsers'
 import { getDefaultRegistry } from '../../shared/parsers/registry'
+import { Ok, Result } from '../../shared/result'
 import { isExcluded, resolveExcludePatterns } from '../exclude'
 import { ArchConfig, ArchForbiddenImportRule, Collector, ConstraintRule, MetricResult, Violation } from '../types'
 import { CircularDepsCollector } from './circular-deps'

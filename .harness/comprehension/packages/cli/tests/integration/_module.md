@@ -1,13 +1,14 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/tests/integration'
-sourceHash: 'e16c239ee15c5b3bcb61a459ba5535714d4784208f4f1892508ce6bf67646798'
+sourceHash: '8240aa512f242de14e6a0b4ce347c70741aaa20e215e57583f07ece8ea57c5d9'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
 members:
   [
     'autopilot-skill-hooks.test.ts',
+    'cleanup-duplication-exit-code.e2e.test.ts',
     'cli.test.ts',
     'community-skill-discovery.test.ts',
     'init-design-roadmap-matrix.test.ts',
@@ -43,6 +44,7 @@ import { RecommendationResult } from '../../src/skill/recommendation-types'
 import { SkillSource, normalizeSkills } from '../../src/slash-commands/normalize'
 import { TemplateEngine } from '../../src/templates/engine'
 import { resolveTemplatesDir } from '../../src/utils/paths'
+import { runHarness, skipUnlessBin } from '../e2e/support'
 import { scaffoldInitFixture } from './_helpers/init-fixture'
 import { ALLOWED_FIELD_KEYS, PII_FIELD_DENYLIST, clearPulseAdapters, parseRoadmap, registerMockAdapter, registerPulseAdapter } from '@harness-engineering/core'
 import { PulseAdapter, SanitizedResult } from '@harness-engineering/types'

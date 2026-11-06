@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/tests/comprehension'
-sourceHash: '05ccfc5da7422c143b374278ebc0bbf182a1267ad46d2448dc633d847ae61d09'
+sourceHash: '6744a494436d063a5a24acfbe629aca1be7b37ccd98ec25cea11f73bd0ecb59b'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -19,6 +19,7 @@ members:
     'serialize.test.ts',
     'serve-gate.test.ts',
     'source-hash.test.ts',
+    'static-extractor-parser-unavailable.test.ts',
     'static-extractor.test.ts',
     'store.test.ts',
   ]

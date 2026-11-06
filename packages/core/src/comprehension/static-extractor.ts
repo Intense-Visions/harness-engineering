@@ -10,7 +10,9 @@
  * The render helpers below are pure and deterministic (dedup + sort), and never
  * fabricate a surface — an empty input yields an empty section so an
  * unsupported/parse-degraded module produces a static-degraded (semantic-only)
- * unit rather than a faked one.
+ * unit rather than a faked one. The one exception is a parser that cannot run
+ * at all (`PARSER_UNAVAILABLE`): extraction then rejects instead of returning
+ * empty sections, because "empty" would be a claim about files never read.
  */
 
 import * as path from 'node:path';
@@ -90,6 +92,17 @@ export function renderDependencySlice(
   return lines.join('\n');
 }
 
+/**
+ * The error a static extraction rejects with when the AST parser itself is
+ * unavailable (as opposed to one member being unparseable). Carries the
+ * parser's `PARSER_UNAVAILABLE` code so callers can tell the two apart.
+ */
+function staticParserUnavailable(file: string, detail: string): Error & { code: string } {
+  return Object.assign(new Error(`Cannot extract the static surface of ${file}: ${detail}`), {
+    code: 'PARSER_UNAVAILABLE',
+  });
+}
+
 /** Minimal structural view of a parsed member's static surface. */
 interface MemberSurface {
   exports: Array<{ name: string }>;
@@ -108,7 +121,17 @@ async function parseMember(
   wantExports: boolean
 ): Promise<MemberSurface | null> {
   const ast = await parser.parseFile(abs);
-  if (!ast.ok) return null;
+  if (!ast.ok) {
+    // A syntax error in ONE member degrades that member only. A parser that
+    // cannot run at all is different: every member would be skipped and the
+    // unit written with an empty contract and slice — a confident "this module
+    // exports nothing" over files that were never read, which the pre-commit
+    // hook would then stage. Fail closed so no unit is written (#2267).
+    if (ast.error.code === 'PARSER_UNAVAILABLE') {
+      throw staticParserUnavailable(abs, ast.error.message);
+    }
+    return null;
+  }
   const surface: MemberSurface = { exports: [], imports: [] };
   if (wantExports) {
     const ex = parser.extractExports(ast.value);

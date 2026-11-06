@@ -25,15 +25,22 @@ function parseSkip(raw: string | undefined): InsightsKey[] {
 function renderPretty(report: InsightsReport): void {
   logger.info(`Insights for ${report.project.name ?? report.project.root}`);
   logger.info(`Generated: ${report.generatedAt}\n`);
+  // A block that FAILED (null plus a warning) is shown as not measured. A block
+  // the caller skipped is null with no warning and stays omitted.
+  const failed = (key: string): boolean => report.warnings.some((w) => w.startsWith(`${key}:`));
   if (report.health) {
     console.log(`Health      : ${report.health.passed ? 'PASS' : 'FAIL'}`);
     console.log(`            : ${report.health.summary}`);
+  } else if (failed('health')) {
+    console.log('Health      : NOT MEASURED (see warnings)');
   }
   if (report.entropy) {
     const e = report.entropy;
     console.log(
       `Entropy     : drift=${e.driftCount} deadFiles=${e.deadFiles} deadExports=${e.deadExports}`
     );
+  } else if (failed('entropy')) {
+    console.log('Entropy     : NOT MEASURED (see warnings)');
   }
   if (report.decay) {
     const top = report.decay.topAffected.join(', ') || '(none)';

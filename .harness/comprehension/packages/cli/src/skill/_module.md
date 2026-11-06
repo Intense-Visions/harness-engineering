@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/skill'
-sourceHash: 'e63311278f5e51441b6ee1551b9cef30dc585d95fdf9e092c989456c602c227a'
+sourceHash: '13817768bb1aa7dd1719818068a8d69b52ce66092b4295183a8f466ac9a72376'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent

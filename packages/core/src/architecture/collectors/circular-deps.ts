@@ -61,7 +61,10 @@ export class CircularDepsCollector implements Collector {
           scope: 'project',
           value: 0,
           violations: [],
-          metadata: { error: 'Failed to build dependency graph' },
+          // Carry the cause: once the graph build fails closed on an
+          // unavailable parser (#2267) this is the only place check-arch can
+          // say WHY the cycle measurement is missing.
+          metadata: { error: `Failed to build dependency graph: ${graphResult.error.message}` },
         },
       ];
     }

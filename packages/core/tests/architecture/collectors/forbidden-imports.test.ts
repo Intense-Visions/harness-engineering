@@ -34,6 +34,26 @@ describe('ForbiddenImportCollector', () => {
     }
   });
 
+  it('skips a file with a syntax error but still scans its siblings', async () => {
+    const root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'forbidden-imports-')));
+    try {
+      fs.mkdirSync(path.join(root, 'src'), { recursive: true });
+      fs.writeFileSync(path.join(root, 'src/broken.ts'), 'export const = ;\n');
+      fs.writeFileSync(
+        path.join(root, 'src/model.ts'),
+        "import { exec } from 'node:child_process';\nexport const m = exec;\n"
+      );
+      const rules = [{ from: 'src/**', disallow: ['node:child_process'] }];
+
+      const [result] = await collector.collect({ ...baseConfig, forbiddenImports: rules }, root);
+
+      expect(result!.value).toBe(1);
+      expect(result!.metadata).toEqual({ rulesConfigured: 1, filesAnalyzed: 1 });
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+    }
+  });
+
   it('honors excludePatterns for files a rule would otherwise cover', async () => {
     const root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'forbidden-imports-')));
     try {
