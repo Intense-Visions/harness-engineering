@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { execPath } from 'node:process';
+import { spawn } from 'node:child_process';
 import { defaultExecFile } from '../../../src/review/ci/orchestrator';
 
 // SUG-4: exercise the REAL defaultExecFile — the only place the child-process
@@ -62,6 +63,73 @@ describe('defaultExecFile — real child-process safety', () => {
       stdin: 'PIPED',
     });
     expect(stdout).toBe('got:PIPED');
+  });
+});
+
+describe('defaultExecFile — child exits without draining stdin (#2298)', () => {
+  // 8 MiB cannot fit in any OS pipe buffer (64 KiB on Linux/macOS, ~4-64 KiB on
+  // win32), so the write is still pending when the child exits without reading.
+  // The only way it can complete is with a closed-pipe error (EPIPE on POSIX,
+  // EPIPE/ECONNRESET/EOF on win32). Unhandled, that error escapes as an uncaught
+  // exception in the host process — the defect. Waiting for the write to fail is
+  // deterministic; it is not a race against the child's exit.
+  const BIG = 'x'.repeat(8 * 1024 * 1024);
+
+  async function captureUncaught<T>(
+    run: () => Promise<T>
+  ): Promise<{ settled: unknown; uncaught: Error[] }> {
+    const uncaught: Error[] = [];
+    const onUncaught = (e: Error): void => {
+      uncaught.push(e);
+    };
+    process.prependListener('uncaughtException', onUncaught);
+    try {
+      let settled: unknown;
+      try {
+        settled = await run();
+      } catch (e) {
+        settled = e;
+      }
+      // The child's 'close' can win the race against the stdin error callback;
+      // give the destroyed socket's error emission time to land before asserting.
+      await new Promise((r) => setTimeout(r, 200));
+      return { settled, uncaught };
+    } finally {
+      process.removeListener('uncaughtException', onUncaught);
+    }
+  }
+
+  it('positive control: the undrained write really does fail with a closed-pipe error here', async () => {
+    // Proves the precondition on THIS platform, so the no-uncaught assertions below
+    // cannot pass merely because no pipe error ever occurred.
+    const { command, args } = node('process.exit(3)');
+    const child = spawn(command, args, { stdio: ['pipe', 'ignore', 'ignore'] });
+    const code = await new Promise<string | undefined>((resolve) => {
+      child.stdin.on('error', (e: NodeJS.ErrnoException) => resolve(e.code));
+      child.stdin.end(BIG, (err?: NodeJS.ErrnoException | null) =>
+        resolve(err ? err.code : undefined)
+      );
+    });
+    expect(['EPIPE', 'ECONNRESET', 'EOF']).toContain(code);
+  });
+
+  it('non-zero exit with an undrained payload rejects with the CHILD status, no uncaught EPIPE', async () => {
+    const { command, args } = node('process.exit(3)');
+    const { settled, uncaught } = await captureUncaught(() =>
+      defaultExecFile(command, args, { ...baseOpts, stdin: BIG })
+    );
+    expect(uncaught.map((e) => String(e))).toEqual([]);
+    expect(settled).toBeInstanceOf(Error);
+    expect(String(settled)).toMatch(/exited with code 3/);
+  });
+
+  it('zero exit with an undrained payload still resolves (the exit status decides, not the pipe)', async () => {
+    const { command, args } = node('process.stdout.write("early-ok"); process.exit(0)');
+    const { settled, uncaught } = await captureUncaught(() =>
+      defaultExecFile(command, args, { ...baseOpts, stdin: BIG })
+    );
+    expect(uncaught.map((e) => String(e))).toEqual([]);
+    expect(settled).toEqual({ stdout: 'early-ok' });
   });
 });
 

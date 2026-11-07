@@ -20,6 +20,7 @@ import type {
 } from '@harness-engineering/types';
 import type { CacheMetricsRecorder } from '@harness-engineering/core';
 import { buildSubprocessEnv, isLaneStateIsolationEnabled } from '../subprocess-env.js';
+import { guardChildStdin } from './child-stdin.js';
 
 /**
  * Governance record handed to a {@link ClaudeBackendOptions.policyAudit} sink at
@@ -549,7 +550,12 @@ export class ClaudeBackend implements AgentBackend {
       env,
     });
 
-    // Close stdin to signal no input is coming
+    // Close stdin to signal no input is coming. Guarded so a child that is
+    // already gone cannot raise an unhandled stdin error (#2298); spawn/exit
+    // failures are reported by the 'error'/exit handling below.
+    guardChildStdin(child.stdin, (e) => {
+      console.error(`[claude stdin error] ${e.message}`);
+    });
     child.stdin.end();
 
     child.on('error', (err) => {

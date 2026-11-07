@@ -7,6 +7,7 @@ import type {
 } from './interface.js';
 import { zodToJsonSchema } from './schema.js';
 import { coerceStructuredContent, buildCorrectionPrompt } from './structured-output.js';
+import { guardChildStdin } from './child-stdin.js';
 
 export interface ClaudeCliProviderOptions {
   /** Path to the claude binary (default: 'claude') */
@@ -218,6 +219,9 @@ export class ClaudeCliAnalysisProvider implements AnalysisProvider {
         }
       });
 
+      guardChildStdin(child.stdin, (e) =>
+        reject(new Error(`Claude CLI stdin write failed: ${e.message}`))
+      );
       child.stdin.end();
     });
   }
@@ -300,6 +304,9 @@ export class ClaudeCliAnalysisProvider implements AnalysisProvider {
         }
       });
 
+      guardChildStdin(child.stdin, (e) =>
+        reject(new Error(`Claude CLI stdin write failed: ${e.message}`))
+      );
       child.stdin.write(stdinPayload);
       child.stdin.end();
     });

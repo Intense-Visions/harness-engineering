@@ -67,8 +67,8 @@ const PersonaSchemaV1 = z.object({
   skills: z.array(z.string()),
   commands: z.array(z.string()),
   triggers: z.array(PersonaTriggerSchema),
-  config: PersonaConfigSchema.default({}),
-  outputs: PersonaOutputsSchema.default({}),
+  config: PersonaConfigSchema.prefault({}),
+  outputs: PersonaOutputsSchema.prefault({}),
 });
 
 // V2 schema (with steps)
@@ -80,8 +80,8 @@ const PersonaSchemaV2 = z.object({
   skills: z.array(z.string()),
   steps: z.array(StepSchema),
   triggers: z.array(PersonaTriggerSchema),
-  config: PersonaConfigSchema.default({}),
-  outputs: PersonaOutputsSchema.default({}),
+  config: PersonaConfigSchema.prefault({}),
+  outputs: PersonaOutputsSchema.prefault({}),
 });
 
 export const PersonaSchema = z.union([PersonaSchemaV1, PersonaSchemaV2]);

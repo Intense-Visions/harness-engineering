@@ -806,6 +806,32 @@ describe('check-arch: base-aware gating + allowances (PR context)', () => {
     }
   });
 
+  it('reports a schema-invalid allowance as skipped instead of ignoring it silently', async () => {
+    const ctx = await seedPrContext();
+    try {
+      fs.mkdirSync(ctx.allowancesDir, { recursive: true });
+      // No `reason` — fails the allowance schema, so it must NOT cover the regression.
+      fs.writeFileSync(
+        path.join(ctx.allowancesDir, 'feature.json'),
+        JSON.stringify({ categories: { 'module-size': 1_000_000 } })
+      );
+      const result = await runCheckArch({ cwd: ctx.tmpDir, configPath: ctx.configPath });
+      expect(result.ok).toBe(true);
+      if (result.ok) {
+        expect(result.value.passed).toBe(false);
+        expect(result.value.skippedAllowances).toEqual([
+          {
+            file: '.harness/arch/allowances/feature.json',
+            reason: expect.stringContaining('at "reason"'),
+          },
+        ]);
+      }
+    } finally {
+      ctx.restore();
+      fs.rmSync(ctx.tmpDir, { recursive: true, force: true });
+    }
+  });
+
   it('rejects an allowance write without a --reason', async () => {
     const ctx = await seedPrContext();
     try {

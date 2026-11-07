@@ -9,7 +9,7 @@
  * each planted violation must be counted, and each clean twin must stay at 0 so
  * the assertions cannot pass by always reporting > 0.
  */
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
@@ -18,6 +18,8 @@ import { LayerViolationCollector } from '../../../src/architecture/collectors/la
 import { ForbiddenImportCollector } from '../../../src/architecture/collectors/forbidden-imports';
 import { CouplingCollector } from '../../../src/architecture/collectors/coupling';
 import type { ArchConfig } from '../../../src/architecture/types';
+import { TypeScriptParser } from '../../../src/shared/parsers/typescript';
+import { Err } from '../../../src/shared/result';
 
 const baseConfig: ArchConfig = {
   enabled: true,
@@ -305,7 +307,8 @@ describe('CouplingCollector (real detector, denominator)', () => {
       root
     );
 
-    expect(result!.metadata).toEqual({ filesAnalyzed: 2, importEdges: 0 });
+    // Neither file has import syntax, so the zero is corroborated as clean.
+    expect(result!.metadata).toEqual({ filesAnalyzed: 2, importEdges: 0, importStatements: 0 });
   });
 });
 
@@ -405,5 +408,65 @@ describe('CouplingCollector (planted positives, issue #2284)', () => {
 
     expect(result!.violations).toHaveLength(0);
     expect(result!.metadata).toMatchObject({ filesAnalyzed: 20, importEdges: 0 });
+  });
+});
+
+/**
+ * `importEdges: 0` is ambiguous on its own (#2304). A package with no import
+ * syntax — declaration-only, a re-export barrel, a types-only module — really
+ * has zero edges, while a parse that came back hollow (#2284) reports the same
+ * zero. `importStatements`, counted from the file text, is what tells them
+ * apart, and the CLI abstains only when it is non-zero.
+ */
+describe('CouplingCollector (importEdges corroboration, issue #2304)', () => {
+  const collector = new CouplingCollector();
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('reports importStatements: 0 for a declaration-only package', async () => {
+    plant({
+      'src/index.d.ts': 'export interface A { x: number }\nexport type B = A[];\n',
+      'src/barrel.d.ts': "export * from './index';\nexport type { A } from './index';\n",
+      'src/types.ts': 'export type C = { y: string };\n// import x from "commented-out"\n',
+    });
+
+    const [result] = await collector.collect(baseConfig, root);
+
+    expect(result!.metadata).toEqual({ filesAnalyzed: 3, importEdges: 0, importStatements: 0 });
+  });
+
+  it('reports the import syntax it found when the parse returns no edges', async () => {
+    // Simulate the hollow parse: `parseSourceFiles` substitutes `[]` when
+    // `extractImports` fails, which is exactly a snapshot with no edges over
+    // files that plainly import.
+    vi.spyOn(TypeScriptParser.prototype, 'extractImports').mockReturnValue(
+      Err({ code: 'PARSE_ERROR', message: 'hollow', details: {}, suggestions: [] } as never)
+    );
+    plant({
+      'src/a.ts': "import { b } from './b';\nimport type { T } from './t';\nexport const a = b;\n",
+      'src/b.ts':
+        "import {\n  readFileSync,\n} from 'node:fs';\nexport const b = () => import('./a');\n",
+      'src/t.ts': 'export type T = number;\n',
+    });
+
+    const [result] = await collector.collect(baseConfig, root);
+
+    // 3 static declarations (one multi-line) + 1 dynamic import.
+    expect(result!.metadata).toEqual({ filesAnalyzed: 3, importEdges: 0, importStatements: 4 });
+  });
+
+  it('omits importStatements when the parse found edges', async () => {
+    // Positive control for the two cases above: the corroborating count is only
+    // computed when it is needed, so a populated snapshot never carries it.
+    plant({
+      'src/a.ts': "import { b } from './b';\nexport const a = b;\n",
+      'src/b.ts': 'export const b = 1;\n',
+    });
+
+    const [result] = await collector.collect(baseConfig, root);
+
+    expect(result!.metadata).toEqual({ filesAnalyzed: 2, importEdges: 1 });
   });
 });

@@ -104,6 +104,11 @@ export interface CheckArchResult {
   configuredCategories?: ConfiguredCategories;
   baselineUpdated?: boolean;
   warning?: string;
+  /**
+   * Allowance files present but not applied (bad JSON / schema mismatch), with why.
+   * Optional for additivity; populated in baseline mode so the skip is never silent.
+   */
+  skippedAllowances?: Array<{ file: string; reason: string }>;
 }
 
 /**
@@ -207,6 +212,38 @@ const WORK_DENOMINATORS = [
 ] as const;
 
 /**
+ * Denominators whose 0 is ambiguous on its own, each paired with the count that
+ * corroborates it. A 0 is a malfunction only when the corroborating count says
+ * there was something to find.
+ *
+ * `importEdges` (coupling, #2304) cannot simply join `WORK_DENOMINATORS`: a
+ * declaration-only or import-free package genuinely has zero import edges over
+ * real files (measured on `.d.ts`-only, re-export-barrel and types-only `.ts`
+ * fixtures), and listing it there would make every such package abstain. The
+ * collector therefore reports `importStatements` — import syntax counted from
+ * the file text, independently of the parser — whenever `importEdges` is 0.
+ * Import syntax present with no parsed edges is the hollow-snapshot shape of
+ * #2284; no import syntax is a clean zero.
+ *
+ * When the corroborating key is absent (a collector that predates it) the 0
+ * cannot be told apart from a clean result, so it is NOT treated as an
+ * abstention — the pre-#2304 behaviour, not a new silence.
+ */
+const CORROBORATED_DENOMINATORS = {
+  importEdges: 'importStatements',
+} as const satisfies Record<string, string>;
+
+/** The corroborated denominators that are 0 while their corroborating count is not. */
+function uncorroboratedZeros(
+  meta: Record<string, unknown>
+): Array<{ key: string; witness: string; seen: number }> {
+  return Object.entries(CORROBORATED_DENOMINATORS).flatMap(([key, witness]) => {
+    const seen = meta[witness];
+    return meta[key] === 0 && typeof seen === 'number' && seen > 0 ? [{ key, witness, seen }] : [];
+  });
+}
+
+/**
  * Why a measurement's `value` is what it is.
  *
  * - `measured` — a real denominator backed the number; a 0 is a clean result.
@@ -261,7 +298,8 @@ export function classifyMeasurement(
   const analysedNothing = WORK_DENOMINATORS.some(
     (key) => typeof meta[key] === 'number' && meta[key] === 0
   );
-  return analysedNothing ? 'abstained' : 'measured';
+  if (analysedNothing) return 'abstained';
+  return uncorroboratedZeros(meta).length > 0 ? 'abstained' : 'measured';
 }
 
 /**
@@ -305,6 +343,18 @@ export function abstentionReason(m: ArchMeasurement, declared?: ConfiguredCatego
   }
   if (meta.error !== undefined) return `collector failed: ${describe(meta.error)}`;
   if (meta.skipped !== undefined) return `abstained: ${describe(meta.skipped)}`;
+  // Before the generic zero listing: `importEdges=0` reads as "nothing to
+  // measure", which is the one thing it does not mean here — the files DO
+  // contain imports, and the parse returned none of them.
+  const hollow = uncorroboratedZeros(meta);
+  if (hollow.length > 0) {
+    return hollow
+      .map(
+        ({ key, witness, seen }) =>
+          `${key}=0 although the analysed files contain ${witness}=${seen} — the parse returned none of them`
+      )
+      .join('; ');
+  }
   const zeroed = Object.entries(meta)
     .filter(([, v]) => typeof v === 'number' && v === 0)
     .map(([k]) => `${k}=0`);
@@ -713,6 +763,10 @@ export async function runCheckArch(
     thresholdViolations,
     measurements: summarizeMeasurements(results),
     configuredCategories,
+    skippedAllowances: coverage.skipped.map((s) => ({
+      file: path.relative(cwd, s.file).replaceAll('\\', '/'),
+      reason: s.reason,
+    })),
   });
 }
 
@@ -739,6 +793,13 @@ function buildArchIssues(value: CheckArchResult) {
   ];
 }
 
+/** A skipped allowance stops acknowledging its regression; say so instead of failing mysteriously. */
+function warnSkippedAllowances(value: CheckArchResult): void {
+  for (const s of value.skippedAllowances ?? []) {
+    logger.warn(`Allowance ${s.file} ignored (${s.reason}); its regressions are NOT acknowledged.`);
+  }
+}
+
 function printArchResult(
   value: CheckArchResult,
   mode: OutputModeType,
@@ -760,6 +821,7 @@ function printArchResult(
       );
     }
   }
+  if (mode !== OutputMode.QUIET) warnSkippedAllowances(value);
   if (value.resolvedViolations.length > 0 && mode !== OutputMode.QUIET) {
     logger.success(`${value.resolvedViolations.length} violation(s) resolved since baseline.`);
   }
