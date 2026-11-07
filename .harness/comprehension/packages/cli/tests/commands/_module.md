@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/tests/commands'
-sourceHash: '99d200b908d93737da24d62638a13b952bb1fc3b5ba0d3cf3fa20ff2572170cf'
+sourceHash: 'b9ff5003d2d7c75e16e9fc5e6423029960a70a6b4f0f7716232b5dff156f0d19'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -74,6 +74,7 @@ members:
     'docs-craft-cov544.test.ts',
     'doctor-hardening.test.ts',
     'doctor.test.ts',
+    'entry-point-not-found-message.test.ts',
     'fix-drift-cov544.test.ts',
     'fix-drift.test.ts',
     'generate-agent-definitions-cov544b.test.ts',

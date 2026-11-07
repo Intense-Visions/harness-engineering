@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/utils'
-sourceHash: '7725781afcf97977b80b91d43a22bd90e0ecf4d548384086d532257c931dd608'
+sourceHash: '27c2ed157203fb4865c274d40ace4b6d7b72b4656d14f2783f1cf2e405e1c42b'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -70,6 +70,7 @@ import { envEnabled } from './env-flag'
 import { ExitCode } from './errors'
 import { DEFAULT_FIND_FILES_IGNORE } from '@harness-engineering/core'
 import from '@harness-engineering/intelligence'
+import { ZERO_DENOMINATOR_EXIT_CODE } from '@harness-engineering/types'
 import { Command } from 'commander'
 import * as fs from 'fs'
 import { glob } from 'glob'

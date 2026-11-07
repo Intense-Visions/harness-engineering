@@ -1857,6 +1857,15 @@ harness ci check --skip entropy,docs
 harness ci check --fail-on warning
 ```
 
+**Exit codes:**
+
+| Code | Meaning                                                                                                            |
+| ---- | ------------------------------------------------------------------------------------------------------------------ |
+| `0`  | Every check that ran passed (and, with `--fail-on warning`, none warned). `--skip` checks are not counted.         |
+| `1`  | A check failed, or warned under `--fail-on warning`. Wins over `3` — a failure is a verdict.                       |
+| `2`  | The run itself could not start (invalid config, unknown `--stage`).                                                |
+| `3`  | No check failed, but at least one could not run (`status: "skip"` with a `skipReason`) — the report is incomplete. |
+
 ---
 
 ### harness ci init
@@ -2556,7 +2565,7 @@ input existed and could not be consumed. It is distinct from `0` (nothing was
 verified) and from `2` (nothing malfunctioned). A gate that matched, compared, or
 fetched zero items has abstained, not passed, and must never read as green.
 `harness validate`, `harness roadmap sync`, `harness check-docs`,
-`harness check-deployment`, and `harness review-ci` all use it.
+`harness check-deployment`, `harness review-ci`, and `harness ci check` all use it.
 
 For `harness validate` specifically the three codes map to the three possible
 states of a run:

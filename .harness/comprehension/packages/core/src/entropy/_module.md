@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/src/entropy'
-sourceHash: '76554774ff2b3121903ff3d75fa40758ceb7bb1f7221da0a955b69f8f0eb06df'
+sourceHash: 'd6014f81281aed991195cc3649a528d028d43079959455195898019528165129'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -131,6 +131,7 @@ import { buildSnapshot } from './snapshot'
 import { AnalysisError, CodeBlock, CodeReference, CodebaseSnapshot, ComplexityReport, CouplingReport, DeadCodeReport, DocumentationFile, DriftConfig, DriftReport, DuplicationReport, EntropyConfig, EntropyError, EntropyReport, ExportMap, InlineReference, InternalSymbol, JSDocComment, PatternConfig, PatternReport, SizeBudgetReport, SourceFile, SuggestionReport, TestImportSource } from './types'
 import { skipDirGlobs } from '@harness-engineering/graph'
 import * as fs from 'fs'
+import { stat } from 'fs/promises'
 import { minimatch } from 'minimatch'
 import * as os from 'os'
 import * as path, { dirname, isAbsolute, join, resolve, sep } from 'path'

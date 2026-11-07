@@ -60,7 +60,9 @@ export type {
   ConstraintPackComplianceStatus,
   ConstraintPackStageCompliance,
   ConstraintPackCompliance,
+  CICheckExitCode,
 } from './ci';
+export { ZERO_DENOMINATOR_EXIT_CODE } from './ci';
 
 // --- CI Notify ---
 export type { CINotifyTarget, CINotifyOptions } from './ci-notify';

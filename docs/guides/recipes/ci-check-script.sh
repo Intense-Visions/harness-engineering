@@ -43,6 +43,8 @@ if [ "${EXIT_CODE}" -eq 0 ]; then
   echo "All harness checks passed."
 elif [ "${EXIT_CODE}" -eq 1 ]; then
   echo "Harness checks failed."
+elif [ "${EXIT_CODE}" -eq 3 ]; then
+  echo "A harness check could not run — the report is incomplete, not a pass."
 else
   echo "Harness internal error."
 fi

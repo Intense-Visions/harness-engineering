@@ -1,3 +1,5 @@
+import { ZERO_DENOMINATOR_EXIT_CODE } from '@harness-engineering/types';
+
 /**
  * Standard exit codes for the Harness CLI.
  */
@@ -14,9 +16,10 @@ export const ExitCode = {
    * Distinct from SUCCESS (it did not verify anything) and from ERROR (nothing
    * malfunctioned). A gate that matched, compared, or fetched zero items has
    * abstained, not passed, and must never read as green. Used by
-   * `harness roadmap sync`.
+   * `harness roadmap sync` and `harness ci check`; the value is shared with
+   * core's CI report through `ZERO_DENOMINATOR_EXIT_CODE`.
    */
-  ZERO_DENOMINATOR: 3,
+  ZERO_DENOMINATOR: ZERO_DENOMINATOR_EXIT_CODE,
 } as const;
 
 /**

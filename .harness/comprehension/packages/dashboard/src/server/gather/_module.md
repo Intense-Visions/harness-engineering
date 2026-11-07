@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/dashboard/src/server/gather'
-sourceHash: '00c6265b71bd90e8ddec9582e819b2b5639a2c3c194e0d28cbf14c4cb01f65d2'
+sourceHash: '659ea5ceef3b0f005bae76baefebf0befd0f04b90ed44369c6632cd9c4e77f52'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -54,6 +54,6 @@ import { ArchBaselineManager, ArchConfigSchema, EntropyAnalyzer, EntropyConfig, 
 import { CascadeSimulator, GraphAnomalyAdapter, GraphStore, NODE_TYPES, queryTraceability } from '@harness-engineering/graph'
 import { AdoptionSnapshot } from '@harness-engineering/types'
 import { glob } from 'glob'
-import { mkdir, readFile, readdir, writeFile } from 'node:fs/promises'
+import { mkdir, readFile, readdir, stat, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 ```

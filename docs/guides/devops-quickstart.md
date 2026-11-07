@@ -828,7 +828,7 @@ It depends on project size, but the checks are structural analysis — not compi
 
 ### Can I use harness with GitLab CI, Jenkins, or other platforms?
 
-Yes. `harness ci init --platform gitlab` generates GitLab CI config. `harness ci init --platform generic` generates a platform-agnostic script. For Jenkins, CircleCI, or any other runner, use the generic output or call `harness ci check` directly — the exit codes (0/1/2) work with any CI system.
+Yes. `harness ci init --platform gitlab` generates GitLab CI config. `harness ci init --platform generic` generates a platform-agnostic script. For Jenkins, CircleCI, or any other runner, use the generic output or call `harness ci check` directly — the exit codes (0 pass, 1 a check failed, 2 the run could not start, 3 a check could not run) work with any CI system.
 
 ### What if `check-arch` fails on code that was already there?
 

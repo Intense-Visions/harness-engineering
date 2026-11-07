@@ -396,11 +396,25 @@ export async function buildSnapshot(
   const startTime = Date.now();
   const rootDir = resolve(config.rootDir);
 
-  // Resolve entry points
+  // Resolve entry points. Only the dead-code detector reads them — it walks
+  // reachability outward from them — so a CONFIGURED entry point that matches
+  // no file is fatal only to a run that asked for dead-code analysis.
+  // Complexity, coupling, size-budget, drift and patterns analyse
+  // `include`/`exclude` and never touch `entryPoints`; failing them here would
+  // turn a typo in a field they do not read into "the perf gate could not run"
+  // (#2275 review). The error is kept on the snapshot so those callers can
+  // still warn about it.
+  //
+  // Auto-detection finding nothing stays fatal for every run: there the error
+  // is the only signal that the root holds no recognisable project at all, and
+  // proceeding would report a clean result over zero files.
   const entryPointsResult = await resolveEntryPoints(rootDir, config.entryPoints);
-  if (!entryPointsResult.ok) {
+  const configuredEntries = (config.entryPoints?.length ?? 0) > 0;
+  if (!entryPointsResult.ok && (config.analyze.deadCode || !configuredEntries)) {
     return Err(entryPointsResult.error);
   }
+  const entryPoints = entryPointsResult.ok ? entryPointsResult.value : [];
+  const entryPointsError = entryPointsResult.ok ? undefined : entryPointsResult.error;
 
   // Source-file dispatch: if caller passed a single parser, use it for every
   // file (preserves legacy behavior); otherwise dispatch per-file via the
@@ -510,7 +524,8 @@ export async function buildSnapshot(
     exportMap,
     docs,
     codeReferences,
-    entryPoints: entryPointsResult.value,
+    entryPoints,
+    ...(entryPointsError ? { entryPointsError } : {}),
     rootDir,
     config,
     pathAliases,

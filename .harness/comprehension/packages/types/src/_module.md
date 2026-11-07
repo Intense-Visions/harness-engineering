@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/types/src'
-sourceHash: '1b0acdd6446c73df385d2d2d840cf85e47c6ffa3b6fbbce88bc1c62bfd16175a'
+sourceHash: 'a579f1e53252fa4ea6bf38a8c010266af7aa8f5109c694f5159edbc45970d265'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -79,6 +79,7 @@ export BridgeKindSchema
 export BudgetEnvelopeStatus
 export BudgetSnapshot
 export BugTrackCategory
+export CICheckExitCode
 export CICheckIssue
 export CICheckName
 export CICheckOptions
@@ -450,6 +451,7 @@ export WorkflowResult
 export WorkflowStep
 export WorkflowStepResult
 export WorkspaceConfig
+export ZERO_DENOMINATOR_EXIT_CODE
 export formatFindingsContract
 export isErr
 export isOk

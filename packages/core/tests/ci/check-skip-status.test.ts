@@ -128,6 +128,7 @@ vi.mock('../../src/architecture', () => ({
 }));
 
 import { runCIChecks } from '../../src/ci/check-orchestrator';
+import { ZERO_DENOMINATOR_EXIT_CODE } from '@harness-engineering/types';
 import type { CICheckName, CICheckReport } from '@harness-engineering/types';
 
 /** A config whose entropy/perf analyzers succeed and whose deps check has layers. */
@@ -216,6 +217,85 @@ describe('#2071 — a check that could not run must not read as green', () => {
 
     expect(result.value.exitCode).not.toBe(0);
     expect(result.value.summary.abstained).toBeGreaterThan(0);
+  });
+
+  // The exit code is ZERO_DENOMINATOR (3) specifically, not merely non-zero:
+  // the changeset for #2275 promised 3, and 1 would read as "a check failed".
+  it('exits ZERO_DENOMINATOR (3) when a check could not run and none failed', async () => {
+    mockAnalyze.mockResolvedValue(ANALYZER_CRASH);
+
+    const result = await runCIChecks({
+      projectRoot: '/fake',
+      config: baseConfig(),
+      skip: ['traceability'],
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+
+    expect(result.value.summary.failed).toBe(0);
+    expect(result.value.summary.abstained).toBeGreaterThan(0);
+    expect(result.value.exitCode).toBe(ZERO_DENOMINATOR_EXIT_CODE);
+    expect(ZERO_DENOMINATOR_EXIT_CODE).toBe(3);
+  });
+
+  it('keeps exit 1 when a check failed, even if another could not run', async () => {
+    mockAnalyze.mockResolvedValue(ANALYZER_CRASH);
+    mockScanFiles.mockResolvedValue({
+      ...SCAN_READ_FILES,
+      findings: [
+        {
+          ruleId: 'SEC-TEST-001',
+          message: 'planted error finding',
+          match: 'x',
+          file: '/fake/src/a.ts',
+          line: 1,
+          severity: 'error',
+        },
+      ],
+    });
+
+    const result = await runCIChecks({
+      projectRoot: '/fake',
+      config: baseConfig(),
+      skip: ['traceability'],
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+
+    // Positive control: the planted finding really did fail the security gate,
+    // and the crashed analyzer really did abstain.
+    expect(checkNamed(result.value, 'security').status).toBe('fail');
+    expect(result.value.summary.abstained).toBeGreaterThan(0);
+    // A failure is a verdict; it is not downgraded to "could not check".
+    expect(result.value.exitCode).toBe(1);
+  });
+
+  it('still exits 1 when a check failed and every check ran', async () => {
+    mockScanFiles.mockResolvedValue({
+      ...SCAN_READ_FILES,
+      findings: [
+        {
+          ruleId: 'SEC-TEST-001',
+          message: 'planted error finding',
+          match: 'x',
+          file: '/fake/src/a.ts',
+          line: 1,
+          severity: 'error',
+        },
+      ],
+    });
+
+    const result = await runCIChecks({
+      projectRoot: '/fake',
+      config: baseConfig(),
+      skip: ['traceability'],
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+
+    expect(result.value.summary.abstained).toBe(0);
+    expect(checkNamed(result.value, 'security').status).toBe('fail');
+    expect(result.value.exitCode).toBe(1);
   });
 
   it('does not count a crashed check as passed', async () => {

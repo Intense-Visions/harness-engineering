@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/src/insights'
-sourceHash: 'cc31056ed74e814457c1d6ee341faba1245e963609170dce7f0be1a0ed002e20'
+sourceHash: '3df3cc6792c3ae26546c5c8cb49208302fe59de2ba4e0d256789b9bc77d4910d'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
