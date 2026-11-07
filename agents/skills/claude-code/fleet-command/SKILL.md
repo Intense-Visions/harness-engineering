@@ -192,6 +192,8 @@ Phase 1: SELECT --> Phase 2: CONFIRM --> Phase 3: DISPATCH
 
 11. **Push-path caveat.** A worktree created under a nested agent-config path breaks the local pre-push documentation gate: it self-excludes and scans zero files. Lanes push via the GitHub API or from a non-nested throwaway worktree. **Never `--no-verify`** — bypassing the gate defeats the verification every lane verdict rests on.
 
+12. **Gated lanes get an explicit worktree.** A lane parks at its member's CONFIRM gate with a clean tree, and a host-managed worktree that is unchanged when its agent stops can be auto-cleaned. The resumed lane then runs in the shared checkout and gets no signal that anything changed. So create each lane's worktree yourself, before dispatch, with `git worktree add ../<repo>-<lane> --detach origin/main`, and remove it only after VERIFY. Every resumed lane checks `git rev-parse --show-toplevel` against its assigned path before its first write, and on a mismatch it parks and reports isolation-lost rather than continuing. See `docs/reference/fleet-family.md` §"Gated lanes and the unchanged-worktree auto-clean".
+
 ### The Contention Map — Four Collision Classes
 
 The map is built **before dispatch**, over collision **classes** rather than as a hard-coded playbook of known conflicting pairs, and each class is resolved with the **cheapest sufficient mechanism** for it. Building it early is what makes it a scheduling input rather than a post-mortem; describing it as classes is what keeps it correct in a project whose shared surfaces are not this one's.
