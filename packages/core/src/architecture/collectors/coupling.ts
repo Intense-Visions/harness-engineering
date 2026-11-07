@@ -1,3 +1,4 @@
+import { readFile } from 'node:fs/promises';
 import type { Collector, ArchConfig, MetricResult, Violation, ConstraintRule } from '../types';
 import { violationId, constraintRuleId } from './hash';
 import { detectCouplingViolations } from '../../entropy/detectors/coupling';
@@ -10,6 +11,45 @@ import { buildDependencyGraphFromParsed } from '../../constraints/dependencies';
 import { findFiles, relativePosix } from '../../shared/fs-utils';
 import { getDefaultRegistry } from '../../shared/parsers/registry';
 import { resolveExcludePatterns } from '../exclude';
+
+/**
+ * Lexical twin of what `TypeScriptParser.extractImports` counts: a static
+ * `import` declaration (value, `type`, or side-effect) at the start of a line,
+ * and a dynamic `import('literal')`. Deliberately NOT `export ... from`,
+ * `require(...)` or `import x = require(...)` — the parser does not count
+ * those, so counting them here would make a pure re-export barrel or a
+ * declaration-only package look like a hollow parse and abstain falsely.
+ */
+const STATIC_IMPORT = /^[ \t]*import\s*(?:type\s+)?(?:[\w$*{][^;'"]*?\bfrom\s*)?['"]/gm;
+const DYNAMIC_IMPORT = /\bimport\s*\(\s*['"]/g;
+
+/**
+ * Count import statements in the analysed files by text, independently of the
+ * parser. Only called when the parse produced zero import edges, so the normal
+ * path pays nothing for it.
+ *
+ * It exists because `importEdges: 0` alone is ambiguous: a declaration-only or
+ * import-free package really has no import edges (measured: a `.d.ts`-only
+ * fixture, a re-export barrel and a types-only `.ts` package all report
+ * `importEdges: 0` over real files), while a hollow parse (#2284, or
+ * `extractImports` failing and `parseSourceFiles` substituting `[]`) also
+ * reports 0. The text tells them apart: no import syntax means nothing to
+ * couple; import syntax with no parsed edges means the parse came back empty.
+ * A file that cannot be read contributes 0 — it cannot corroborate anything.
+ */
+async function countImportStatements(paths: string[]): Promise<number> {
+  let count = 0;
+  for (const p of paths) {
+    let text: string;
+    try {
+      text = await readFile(p, 'utf-8');
+    } catch {
+      continue;
+    }
+    count += (text.match(STATIC_IMPORT)?.length ?? 0) + (text.match(DYNAMIC_IMPORT)?.length ?? 0);
+  }
+  return count;
+}
 
 /**
  * Test files stay out of the coupling measurement.
@@ -150,6 +190,7 @@ export class CouplingCollector implements Collector {
 
     const { violations: couplingViolations, stats } = result.value;
     const violations = mapCouplingViolations(couplingViolations, rootDir, this.category);
+    const importEdges = snapshot.files.reduce((n, f) => n + f.imports.length, 0);
 
     return [
       {
@@ -158,13 +199,18 @@ export class CouplingCollector implements Collector {
         value: violations.length,
         violations,
         // `importEdges` is the denominator `filesAnalyzed` could not supply:
-        // every coupling metric is derived from import edges, so a 0 here means
-        // the snapshot carried none and the `value: 0` above is "never looked",
-        // not "no coupling" (#2284). Reported, not yet enforced — the CLI's
-        // `WORK_DENOMINATORS` does not include it.
+        // every coupling metric is derived from import edges (#2284). A 0 is
+        // ambiguous on its own — an import-free package has none either — so
+        // when it is 0 the collector also reports `importStatements`, the
+        // lexical count of import syntax in the same files. The CLI abstains
+        // only when that count is non-zero: imports were written but none were
+        // parsed (#2304).
         metadata: {
           filesAnalyzed: stats.filesAnalyzed,
-          importEdges: snapshot.files.reduce((n, f) => n + f.imports.length, 0),
+          importEdges,
+          ...(importEdges === 0
+            ? { importStatements: await countImportStatements(snapshot.files.map((f) => f.path)) }
+            : {}),
         },
       },
     ];

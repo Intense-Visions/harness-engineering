@@ -1,13 +1,14 @@
 ---
 schemaVersion: 1
 module: 'packages/orchestrator/src/agent/backends'
-sourceHash: '2b78b1655f2f872a15fdaf2767bab71aaf756dee86aa81339d86052d8044dfb2'
+sourceHash: 'ebaf7b37b168dca95dae286b62d292c729690081f1ccb3db96b24c0701f3373f'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
 members:
   [
     'anthropic.ts',
+    'child-stdin.ts',
     'claude.lane-isolation.test.ts',
     'claude.policy-envelope.test.ts',
     'claude.ts',
@@ -45,6 +46,8 @@ export SshBackend
 export buildMcpConfigArgs
 export extractCodexAgentMessage
 export fromNativeResponse
+export guardChildStdin
+export isClosedPipeError
 export looksLikeUnparsedLimit
 export parseSubscriptionLimit
 export recordCacheUsage
@@ -58,6 +61,7 @@ export truncate
 import { BackendDefSchema } from '../../workflow/schema'
 import { createBackend, isLocalEndpointBackend, isLocalExecutionBackend } from '../backend-factory'
 import { buildSubprocessEnv, isLaneStateIsolationEnabled } from '../subprocess-env.js'
+import { guardChildStdin } from './child-stdin.js'
 import { ClaudeBackend, PolicyAuditRecord } from './claude'
 import { PolicyAuditSink } from './claude.js'
 import { CodexBackend, buildMcpConfigArgs, extractCodexAgentMessage } from './codex'
@@ -77,6 +81,7 @@ import * as fs from 'node:fs/promises'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import * as readline from 'node:readline'
+import { Writable } from 'node:stream'
 import OpenAI from 'openai'
 import { describe, expect, it } from 'vitest'
 ```

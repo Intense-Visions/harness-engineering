@@ -1,13 +1,14 @@
 ---
 schemaVersion: 1
 module: 'packages/intelligence/src/analysis-provider'
-sourceHash: 'a94a42094c3bb25443e3679cc8ed22ae8a969b1bc169960fa5cce6ef1c8f99e3'
+sourceHash: 'e2fcab0866a2e50256750fb6a715e34c669cc1868d9fd97b38fc484afed9d263'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
 members:
   [
     'anthropic.ts',
+    'child-stdin.ts',
     'claude-cli.ts',
     'generic-cli.ts',
     'interface.ts',
@@ -31,6 +32,8 @@ export coerceStructuredContent
 export createCliAnalysisProvider
 export extractEmbeddedJson
 export geminiCliTemplate
+export guardChildStdin
+export isClosedPipeError
 export jsonEnvelopeParser
 export textSalvageParser
 export zodToJsonSchema
@@ -39,11 +42,13 @@ export zodToJsonSchema
 ## Dependency Slice
 
 ```
+import { guardChildStdin } from './child-stdin.js'
 import { AnalysisImage, AnalysisProvider, AnalysisRequest, AnalysisResponse } from './interface.js'
 import { zodToJsonSchema } from './schema.js'
 import { buildCorrectionPrompt, coerceStructuredContent, extractEmbeddedJson } from './structured-output.js'
 import Anthropic from '@anthropic-ai/sdk'
 import { spawn } from 'node:child_process'
+import { Writable } from 'node:stream'
 import OpenAI from 'openai'
 import { z } from 'zod'
 ```
