@@ -79,8 +79,32 @@ Blocks modifications to linter and formatter configuration files. Protected file
 - Stylelint: `.stylelintrc*`
 - Markdownlint: `.markdownlint*`
 - Deno: `deno.json`
+- The override ledger itself: `config-overrides.json`
 
-This prevents an AI agent from weakening linting rules to make code pass. If you need to update a config file, temporarily remove this hook or use `harness hooks remove`.
+This prevents an AI agent from weakening linting rules to make code pass.
+
+**Allowing a reviewed change.** When a human has decided a config change should go in, record that decision in `.harness/config-overrides.json` at the repo root. The hook then allows agent edits to that one file until the entry expires:
+
+```json
+{
+  "overrides": [
+    {
+      "file": "eslint.config.mjs",
+      "reason": "Turn off a rule whose hits are the behaviour under test",
+      "decision": "https://github.com/owner/repo/pull/123",
+      "approvedBy": "repo-owner",
+      "expires": "2026-12-31"
+    }
+  ]
+}
+```
+
+- `file` is the path relative to the repo root (the nearest ancestor containing `.git`), not a basename, so an entry for `eslint.config.mjs` does not unlock `packages/a/eslint.config.mjs`.
+- Every field must be a non-empty string, and `expires` must be a real `YYYY-MM-DD` date that is today or later (UTC; the expiry day itself is allowed).
+- Expired, partial, or malformed entries, and a ledger that is not valid JSON or has no `overrides` array, count as absent. The edit stays blocked, and the block message says which of these it was.
+- An allowed edit writes a one-line stderr notice that names the decision, the approver, and the expiry.
+- The ledger is protected too, so the hook never lets an agent add its own entry. A human edits it, or it lands through a reviewed PR.
+- The hook guards agent Write/Edit tool calls only. It does not judge whether an edit weakens or tightens a config; that is tracked as a follow-up.
 
 ### pre-compact-state.js
 
