@@ -196,6 +196,23 @@ export interface VerdictCacheStats {
 }
 
 /**
+ * Exit code for a run that examined NOTHING — a zero denominator.
+ *
+ * Distinct from success (nothing was verified) and from a failure (nothing was
+ * found wrong). The single source for the CLI's `ExitCode.ZERO_DENOMINATOR` and
+ * for `harness ci check`, whose report carries it when a check could not run
+ * and none failed (#2071).
+ */
+export const ZERO_DENOMINATOR_EXIT_CODE = 3 as const;
+
+/**
+ * Process exit code a CI report suggests: 0 pass, 1 a check failed (or warned
+ * under `failOn: 'warning'`), 2 reserved for an orchestration error, 3
+ * ({@link ZERO_DENOMINATOR_EXIT_CODE}) a check could not run and none failed.
+ */
+export type CICheckExitCode = 0 | 1 | 2 | typeof ZERO_DENOMINATOR_EXIT_CODE;
+
+/**
  * Final report for a CI run.
  */
 export interface CICheckReport {
@@ -209,8 +226,8 @@ export interface CICheckReport {
   checks: CICheckResult[];
   /** Aggregated summary */
   summary: CICheckSummary;
-  /** Process exit code suggested for the CI runner */
-  exitCode: 0 | 1 | 2;
+  /** Process exit code suggested for the CI runner — see {@link CICheckExitCode}. */
+  exitCode: CICheckExitCode;
   /**
    * Per-pack, per-stage compliance summary for opted-in constraint packs.
    * Absent when the project has opted into no packs (default behavior).

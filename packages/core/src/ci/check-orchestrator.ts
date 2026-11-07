@@ -19,6 +19,8 @@ import type {
   ConstraintPackComplianceStatus,
   GateMeasurement,
 } from '@harness-engineering/types';
+import { ZERO_DENOMINATOR_EXIT_CODE } from '@harness-engineering/types';
+import type { CICheckExitCode } from '@harness-engineering/types';
 import type { Result } from '../shared/result';
 import { Ok, Err } from '../shared/result';
 import { resolveConstraintPacks } from '../constraints/packs';
@@ -775,13 +777,20 @@ function buildSummary(checks: CICheckResult[]): CICheckSummary {
   };
 }
 
-function determineExitCode(summary: CICheckSummary, failOn: CIFailOnSeverity = 'error'): 0 | 1 | 2 {
+function determineExitCode(
+  summary: CICheckSummary,
+  failOn: CIFailOnSeverity = 'error'
+): CICheckExitCode {
+  // A failed check is a verdict, and it keeps exit 1 whatever else happened.
   if (summary.failed > 0) return 1;
   // A check that could not run did not pass. Exiting 0 here is what let an
   // adopter's pipeline go green over a gate that never evaluated anything
-  // (#2071). Operator-requested skips are not abstentions and do not land here,
-  // so `--skip <check>` remains the escape hatch.
-  if (summary.abstained > 0) return 1;
+  // (#2071). It did not fail either, so it exits ZERO_DENOMINATOR (3), the code
+  // the CLI already uses for "examined nothing" — a pipeline can tell "fix your
+  // code" (1) from "fix your gate configuration" (3). Operator-requested skips
+  // are not abstentions and do not land here, so `--skip <check>` remains the
+  // escape hatch.
+  if (summary.abstained > 0) return ZERO_DENOMINATOR_EXIT_CODE;
   if (failOn === 'warning' && summary.warnings > 0) return 1;
   return 0;
 }

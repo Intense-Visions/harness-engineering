@@ -634,7 +634,7 @@ npm install -g @harness-engineering/cli
 harness ci check --json
 ```
 
-That's it. The exit code (0/1/2) integrates with any CI platform. Use `harness ci init --platform github|gitlab|generic` to generate a ready-to-commit config file. Architecture checks are included in the default `harness ci check` run alongside deps, security, perf, and other gates.
+That's it. The exit code (0 pass, 1 a check failed, 2 the run could not start, 3 a check could not run) integrates with any CI platform. Use `harness ci init --platform github|gitlab|generic` to generate a ready-to-commit config file. Architecture checks are included in the default `harness ci check` run alongside deps, security, perf, and other gates.
 
 ---
 

@@ -94,6 +94,8 @@ if (exitCode === 0) {
   console.log('All harness checks passed.');
 } else if (exitCode === 1) {
   console.log('Harness checks failed.');
+} else if (exitCode === 3) {
+  console.log('A harness check could not run — the report is incomplete, not a pass.');
 } else {
   console.log('Harness internal error.');
 }

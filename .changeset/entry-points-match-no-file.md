@@ -1,4 +1,5 @@
 ---
+'@harness-engineering/types': minor
 '@harness-engineering/core': minor
 '@harness-engineering/cli': major
 '@harness-engineering/dashboard': patch
@@ -14,7 +15,7 @@ if (explicitEntries && explicitEntries.length > 0) {
 }
 ```
 
-No existence check. The literal string became a reachability root in `snapshot.entryPoints`, and the dead-code BFS seeds its queue from exactly that array — so a root that matches no file reached no code and produced **two opposite wrong answers at once**: wholesale dead-export noise (nothing is reachable, so everything looks dead) and a clean `pass` from `perf`, which had nothing to report because it analysed nothing. Measured on a scaffolded project with `index.ts -> helper.ts` plus an unreferenced `orphan.ts`: `entryPoints: ["src/**/*.ts"]` flagged `helper`, `main` and `neverUsed`; `entryPoints: ["src/index.ts"]` flagged only `neverUsed`. A wrong explicit value was worse than no value, because a non-empty array also suppresses the auto-detection that gets it right.
+No existence check. The literal string became a reachability root in `snapshot.entryPoints`, and the dead-code BFS seeds its queue from exactly that array — so a root that matches no file reached no code and produced wholesale dead-export noise (nothing is reachable, so everything looks dead), while the configured intent behind that entry — usually to keep a file reachable — was silently ignored. Measured on a scaffolded project with `index.ts -> helper.ts` plus an unreferenced `orphan.ts`: `entryPoints: ["src/**/*.ts"]` flagged `helper`, `main` and `neverUsed`; `entryPoints: ["src/index.ts"]` flagged only `neverUsed`. A wrong explicit value was worse than no value, because a non-empty array also suppresses the auto-detection that gets it right.
 
 Configured entry points are now existence-checked, and any that match no file return `ENTRY_POINT_NOT_FOUND` naming them in `error.message` itself — the strings the author wrote rather than their absolute forms, the first three and then `and N more`, after a count (`"1 of 3 configured entryPoints match no file: src/typpo.ts"`) so a partial config is distinguishable from a wholly broken one. The names are in the message because every consumer (`cleanup`, `check-perf`, `ci check`, the MCP result adapter, the dashboard gatherers) prints only the message; the full uncapped list is also in `details.issues`. A directory is rejected for the same reason a missing path is: a reachability walk parses its entry point, so a directory is as dead a root as an absent file.
 
@@ -26,7 +27,15 @@ The field is documented as literal paths in the schema that defines it (`Perform
 
 The precedent is `classifyMeasurement`'s `rules-not-received` branch in `check-arch`: declared work that never reached the analysis abstains loudly even when the surrounding denominators look healthy. A config listing nine roots of which one is a typo analyses eight and silently drops the author's intent for the ninth — which, given the documented remediation for `UNREFERENCED_ENTRY_POINT` is "declare it in `entryPoints`, do not delete it", is usually the intent to keep a file the dead-code detector would otherwise flag. Dropping it quietly is the same defect at smaller scale.
 
-No new plumbing carries the result. The `Err` reaches the operator through the abstention channel built for this class under #2071: `runEntropyCheck` and `runPerfCheck` turn a failed analysis into `skipReason`, `ci check` ranks an abstention above `pass`, and `deriveExitCode` maps it to `ZERO_DENOMINATOR` (3) rather than 0. "No analysis" was already rendered differently from "no dead code"; this change makes the entry-point case reach it.
+The `Err` reaches the operator through the abstention channel built for this class under #2071: `runEntropyCheck` turns a failed analysis into `skipReason`, and `ci check` ranks an abstention above `pass`. "No analysis" was already rendered differently from "no dead code"; this change makes the entry-point case reach it.
+
+## Only dead-code analysis fails on it
+
+Entry points are read by exactly one detector: dead-code reachability. Complexity, coupling and size-budget analyse the `include`/`exclude` file set and never touch them. So `buildSnapshot` now fails on an unresolvable configured entry point only when the run requests dead-code analysis; any other run proceeds with no entry points and carries the error as `snapshot.entryPointsError`. `check-perf` reports it as a `warning` (`metric: 'entry-points'`) and still exits 0 on an otherwise clean report, and `ci check`'s `perf` check reports it as a warning issue rather than abstaining. A typo in a field perf does not read no longer switches off the perf gate. Auto-detection that finds no entry point at all still fails every run, as before: there it is the only sign the root holds no recognisable project.
+
+## `ci check` exits 3 when a check could not run and none failed
+
+`determineExitCode` returned `1` for an abstention, the same code as a failed check, so a pipeline could not tell "fix your code" from "fix your gate configuration". It now returns `ZERO_DENOMINATOR` (3), the code the CLI already uses for "examined nothing" (`harness validate`, `roadmap sync`, `check-docs`, `review-ci`). A failed check still exits `1` even when another check also abstained: a failure is a verdict and is not downgraded. The value is single-sourced as `ZERO_DENOMINATOR_EXIT_CODE` in `@harness-engineering/types`, which the CLI's `ExitCode.ZERO_DENOMINATOR` now references, and `CICheckReport.exitCode` is typed `CICheckExitCode` (`0 | 1 | 2 | 3`).
 
 ## Same defect on the auto-detection path
 
@@ -34,7 +43,7 @@ No new plumbing carries the result. The `Err` reaches the operator through the a
 
 ## Breaking: a green gate can go red with no change to your code
 
-`major` on the CLI for the reason `harness check-deps` and `audit_anatomy` took one: the observable contract of a command that gates CI changes. An adopter with a stale or wildcard `entryPoints` entry goes from `pass` to an abstention on `ci check`'s `entropy` and `perf` checks, and `check-perf` goes from exit 0 to exit 1 reporting `Analysis failed: N of M configured entryPoints match no file: <names>`. That green was never a verdict — it was a report over an analysis that never ran — but it was green, and it will not be after upgrading. The remedy the error names is to correct or remove the offending entries, or to remove `entryPoints` entirely and let auto-detection resolve them.
+`major` on the CLI for the reason `harness check-deps` and `audit_anatomy` took one: the observable contract of a command that gates CI changes. An adopter with a stale or wildcard `entropy.entryPoints` entry goes from `pass` to an abstention on `ci check`'s `entropy` check, and `cleanup --type dead-code` fails reporting `N of M configured entryPoints match no file: <names>`. That green was never a verdict — the configured intent behind the entry was ignored — but it was green, and it will not be after upgrading. A `ci check` run whose only problem is a check that could not run now exits `3` instead of `1`; a script that tested for exactly `1` must treat any non-zero code as red. `check-perf` and `ci check`'s `perf` check keep running and only warn. The remedy the error names is to correct or remove the offending entries, or to remove `entryPoints` entirely and let auto-detection resolve them.
 
 `minor` rather than `major` on core because it is a 0.x package, where minor is the breaking channel; 30 prior core changesets use it and none has used `major`.
 
