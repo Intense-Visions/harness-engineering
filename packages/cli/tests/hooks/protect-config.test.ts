@@ -51,6 +51,35 @@ describe('protect-config', () => {
     });
   }
 
+  // Default APFS (macOS) and NTFS (Windows) are case-insensitive, and Win32
+  // drops trailing dots and spaces from a file name. Each name below opens the
+  // same file as its canonical form there, so the guard must match it too. The
+  // check is on the name alone, so these tests mean the same thing on every OS.
+  const variantNames = [
+    'ESLint.config.mjs',
+    '.ESLintrc.json',
+    '.Prettierrc',
+    'Biome.json',
+    'Deno.JSON',
+    'Config-Overrides.json',
+    'CONFIG-OVERRIDES.JSON',
+    'config-overrides.json.',
+    'config-overrides.json ',
+    'biome.json. .',
+  ];
+
+  for (const file of variantNames) {
+    it(`blocks write to case/trailing-character variant ${JSON.stringify(file)}`, () => {
+      const input = JSON.stringify({
+        tool_name: 'Write',
+        tool_input: { file_path: file, content: '{}' },
+      });
+      const { exitCode, stderr } = runHook(input);
+      expect(exitCode).toBe(2);
+      expect(stderr).toContain('protected');
+    });
+  }
+
   it('blocks Edit to protected config', () => {
     const input = JSON.stringify({
       tool_name: 'Edit',
@@ -298,6 +327,18 @@ describe('protect-config', () => {
       expect(exitCode).toBe(2);
       expect(stderr).toContain('config override ledger');
     });
+
+    // A case-variant ledger name opens the real ledger on macOS and Windows.
+    // Before the fix it skipped the ledger guard, so an agent could Write a
+    // self-approved entry and then edit any protected config.
+    for (const variant of ['.harness/Config-Overrides.json', '.harness/CONFIG-OVERRIDES.json']) {
+      it(`blocks edits to the ledger under the case variant ${variant}`, () => {
+        const root = makeRepo({ overrides: [validEntry({ file: variant })] });
+        const { exitCode, stderr } = editIn(root, variant);
+        expect(exitCode).toBe(2);
+        expect(stderr).toContain('config override ledger');
+      });
+    }
 
     it('still allows unprotected files when a ledger exists', () => {
       const root = makeRepo({ overrides: [validEntry()] });

@@ -38,7 +38,8 @@ import { readHookStdin } from './read-hook-stdin.js';
 const LEDGER_RELATIVE_PATH = '.harness/config-overrides.json';
 const LEDGER_FIELDS = ['file', 'reason', 'decision', 'approvedBy', 'expires'];
 
-// Protected config file patterns
+// Protected config file patterns, tested against matchName() (lower-cased), so
+// every pattern must be written in lower case.
 const PROTECTED_PATTERNS = [
   /^\.eslintrc/,
   /^eslint\.config\./,
@@ -55,13 +56,26 @@ const PROTECTED_PATTERNS = [
   /^config-overrides\.json$/,
 ];
 
+/**
+ * The file name as the filesystem resolves it, for matching. Default APFS
+ * (macOS) and NTFS (Windows) are case-insensitive, and Win32 drops trailing
+ * dots and spaces, so `Config-Overrides.json` or `config-overrides.json.` opens
+ * the same file as the canonical name. Matching the raw name let such a
+ * variant skip the guard while writing the protected file.
+ */
+function matchName(filePath) {
+  return basename(filePath)
+    .replace(/[. ]+$/, '')
+    .toLowerCase();
+}
+
 function isProtected(filePath) {
-  const base = basename(filePath);
-  return PROTECTED_PATTERNS.some((pattern) => pattern.test(base));
+  const name = matchName(filePath);
+  return PROTECTED_PATTERNS.some((pattern) => pattern.test(name));
 }
 
 function isLedgerFile(filePath) {
-  return basename(filePath) === basename(LEDGER_RELATIVE_PATH);
+  return matchName(filePath) === basename(LEDGER_RELATIVE_PATH);
 }
 
 /** Nearest ancestor of `startDir` (inclusive) that contains `.git`, or null. */
