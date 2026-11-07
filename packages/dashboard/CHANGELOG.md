@@ -1,5 +1,219 @@
 # @harness-engineering/dashboard
 
+## 0.17.0
+
+### Minor Changes
+
+- a6f5f19: Move every package from `zod ^3.25.76` to `zod ^4.6.6` for GHSA-mrhx-c7xc-m3w5
+  (high: zod can exhaust memory while validating oversized constrained collections).
+  The advisory covers every `zod < 4.6.6` and no patched 3.x exists, so this is a major
+  upgrade of the validator rather than a floor bump. Root `pnpm.overrides` gains
+  `"zod": ">=4.6.6 <5"` so transitive dependents (`@mistralai/mistralai`, the MCP SDK,
+  `openai`, `@anthropic-ai/sdk`) resolve the same patched copy; the lockfile has no
+  `zod@3` left. `@asteasolutions/zod-to-openapi` moves `^7.3.0` -> `^8.5.0` (its zod 4
+  line); `docs/api/openapi.yaml` regenerates byte-identical.
+
+  **Silent allowance bug this exposed.** In zod 4 an enum-keyed `z.record` is
+  exhaustive. `ArchAllowanceSchema.categories` used one, so an allowance listing only the
+  categories it acknowledges (the normal case) failed `safeParse`, and
+  `loadArchAllowances` skipped it without a word — the acknowledged regression stopped
+  counting. Every enum-keyed record (allowance categories, baseline/timeline metrics,
+  threshold config, trend/prediction categories and deltas, the routing
+  `complexityTierMatrix`, the GitHub tracker `statusMap`) is now `z.partialRecord`, which
+  is what zod 3 did at runtime and what their inferred types already said.
+
+  Other zod 4 semantics ported rather than shimmed (no `zod/v3` imports):
+  - Object `.default({})` / array-of-object defaults that relied on zod 3 parsing the
+    default through the inner schema are now `.prefault()`, so nested defaults still fill.
+  - `skillHooks` stays `undefined` when absent (zod 4 applies an inner `.default()` even
+    under `.optional()`).
+  - The JSON-schema converter used by the analysis providers and the
+    `harness.config.json` stripped-key walker read zod 3 internals (`_def.typeName`);
+    under zod 4 they would have emitted `{}` / reported no dropped keys. Both are ported
+    to `_zod.def`, and the converter gains tests.
+  - `validateConfig` no longer misreports a missing field as a type mismatch (zod 4
+    dropped `received` from `invalid_type` issues).
+  - Single-argument `z.record(v)` -> `z.record(z.string(), v)`; `errorMap` -> `error`.
+
+  Bump level is `minor`: these packages export zod schemas, and a consumer that composes
+  them with its own zod 3 instance will not interoperate. User-visible validation
+  messages also change wording (e.g. "Invalid input: expected number, received string").
+
+### Patch Changes
+
+- b53c95d: Duplication detection reaches the operator: `harness cleanup -t duplication` and the
+  `detect_entropy` MCP tool's `type: "duplication"` report whole-unit Type-2 clone classes
+  (>= 3 members, >= 40 normalized tokens, sized `tokenCount x members` in the `rank` field).
+  Ordering is by `CloneClass.priority`, which the sibling `partial-extraction` entry in this same
+  release introduces: it equals `rank` for a plain duplicate and twice `rank` for a labelled one.
+  Both entries ship together, so this one states the ordering its sibling defines rather than the
+  `rank` ordering that held only before it.
+
+  Both surfaces are **advisory**. Clone classes never enter `CleanupResult.totalIssues`, so they
+  never affect the command's exit code and never appear in the `--findings-json` maintenance
+  contract; on the MCP side they are reported under `advisory.duplication`, outside
+  `totalIssues`. Because `-t duplication` runs no doc-drift, dead-code or pattern analyzer, the
+  command now prints "Entropy issues: not checked" instead of a green-ticked zero over three
+  checks that never ran.
+
+  `entropy.duplication` in `harness.config.json` is a new validated config block
+  (`minTokens`, `minInstances`, `ignorePatterns`, `maxClasses`). It was previously stripped by
+  the config schema with an "ignored unknown key" warning, so operator tuning could not reach
+  the detector at all. `minInstances` has a floor of 2 (the detector hard-skips groups below 2,
+  so 1 silently means "report every pair") and `maxClasses` must be positive (`0` reported zero
+  classes while counting every one of them as truncated). **`ignorePatterns` REPLACES the
+  shipped 21 default globs rather than appending to them** — a project that sets one pattern
+  stops ignoring tests, fixtures, generated output, `dist` and `node_modules` unless it restates
+  them.
+
+  The block's PRESENCE is the opt-in for `-t all` / `type: "all"`, so unconfigured projects see
+  no change; an explicit request runs on the shipped defaults. `entropy.duplication: false` plus
+  an explicit request REFUSES rather than reporting a clean scan that never ran, and a detector
+  that could not execute (for example a graph-fed run that bypassed the codebase snapshot) is
+  reported with the analyzer's own reason instead of an empty result.
+
+  `detect_entropy`'s payload no longer carries `duplication.byMember`: it is a `Map`, which
+  `JSON.stringify` rendered as `{}` — indistinguishable from an empty index. Its contents are
+  already in `classes[].members`.
+
+  Four further refusals and one payload change came out of the review of this work, all on the
+  same "never report a pass over a check that never ran" rule:
+  - An unrecognized `-t <type>` / `type` value is refused on both surfaces. It previously ran NO
+    analyzer and still exited 0 — and published `{"findings":0}` on the `--findings-json`
+    contract — so `harness cleanup -t duplicaiton` looked like a clean project.
+  - `detect_entropy` refuses when `harness.config.json` fails validation instead of silently
+    analyzing on built-in defaults. zod rejects the document whole, so the fallback was
+    discarding the project's `entryPoints` and `excludePatterns` and scanning a different scope
+    than the configured one. `harness cleanup` already exited 2 on the same input.
+  - `harness cleanup -t duplication --quiet` now prints the advisory section. The quiet gate was
+    keyed on `totalIssues`, which deliberately excludes duplication, so the channel was
+    suppressed entirely.
+  - `CleanupResult.duplication` carries `filesSkipped`, and the printed advisory line says
+    `; N file(s) skipped` when non-zero. A partial skip makes a scan incomplete, and the CLI had
+    no way to say so.
+  - `detect_entropy`'s detailed payload emits `summary`, `analysisErrors` and `duplication`
+    BEFORE `snapshot`, and omits each file's `ast`. Response compaction truncates by prefix, and
+    the snapshot was 98% of the payload, so everything a caller could act on was being truncated
+    away. Pass `compact: false` for the untruncated report, ASTs excluded.
+
+  The `@harness-engineering/dashboard` entry is a COMMENT-ONLY change, listed because the
+  changeset gate requires coverage for every touched publishable package. `gatherHealth` threads
+  a caller-supplied `analyze` into the entropy analyzer and returns `summary.totalIssues` — the
+  aggregate clone classes ARE summed into — so it is the one remaining place a future caller
+  could route advisory duplication into a gating number. Named in a comment; deliberately not
+  closed, since all three callers pass only `projectPath`.
+
+- 4038425: A configured entry point that matches no file is reported by name instead of producing a clean pass over zero analysis.
+
+  `resolveEntryPoints` accepted any non-empty `entryPoints` array as-is:
+
+  ```ts
+  if (explicitEntries && explicitEntries.length > 0) {
+    return Ok(explicitEntries.map((e) => resolve(rootDir, e)));
+  }
+  ```
+
+  No existence check. The literal string became a reachability root in `snapshot.entryPoints`, and the dead-code BFS seeds its queue from exactly that array — so a root that matches no file reached no code and produced wholesale dead-export noise (nothing is reachable, so everything looks dead), while the configured intent behind that entry — usually to keep a file reachable — was silently ignored. Measured on a scaffolded project with `index.ts -> helper.ts` plus an unreferenced `orphan.ts`: `entryPoints: ["src/**/*.ts"]` flagged `helper`, `main` and `neverUsed`; `entryPoints: ["src/index.ts"]` flagged only `neverUsed`. A wrong explicit value was worse than no value, because a non-empty array also suppresses the auto-detection that gets it right.
+
+  Configured entry points are now existence-checked, and any that match no file return `ENTRY_POINT_NOT_FOUND` naming them in `error.message` itself — the strings the author wrote rather than their absolute forms, the first three and then `and N more`, after a count (`"1 of 3 configured entryPoints match no file: src/typpo.ts"`) so a partial config is distinguishable from a wholly broken one. The names are in the message because every consumer (`cleanup`, `check-perf`, `ci check`, the MCP result adapter, the dashboard gatherers) prints only the message; the full uncapped list is also in `details.issues`. A directory is rejected for the same reason a missing path is: a reachability walk parses its entry point, so a directory is as dead a root as an absent file.
+
+  ## Globs are still not expanded, deliberately
+
+  The field is documented as literal paths in the schema that defines it (`PerformanceConfigSchema.entryPoints`, `EntropyConfigSchema.entryPoints`), no doc under `docs/` or template claims otherwise, and this repository's own config uses 62 concrete paths and no wildcard. Expanding globs would also not fix the reported defect — it would swap one false green for the opposite one. `entryPoints: ["src/**/*.ts"]` expanded makes **every** file a reachability root, and `detectDeadCode` skips any file that is itself an entry point, so the dead-code detector would report nothing at all on every project. A wildcard entry is therefore rejected with advice that names the field's contract (`entryPoints are literal file paths, never glob patterns`), because "that file is right there" is the first reaction to a wildcard being called unresolvable.
+
+  ## Strict on ANY unresolvable entry, not only on all of them
+
+  The precedent is `classifyMeasurement`'s `rules-not-received` branch in `check-arch`: declared work that never reached the analysis abstains loudly even when the surrounding denominators look healthy. A config listing nine roots of which one is a typo analyses eight and silently drops the author's intent for the ninth — which, given the documented remediation for `UNREFERENCED_ENTRY_POINT` is "declare it in `entryPoints`, do not delete it", is usually the intent to keep a file the dead-code detector would otherwise flag. Dropping it quietly is the same defect at smaller scale.
+
+  The `Err` reaches the operator through the abstention channel built for this class under #2071: `runEntropyCheck` turns a failed analysis into `skipReason`, and `ci check` ranks an abstention above `pass`. "No analysis" was already rendered differently from "no dead code"; this change makes the entry-point case reach it.
+
+  ## Only dead-code analysis fails on it
+
+  Entry points are read by exactly one detector: dead-code reachability. Complexity, coupling and size-budget analyse the `include`/`exclude` file set and never touch them. So `buildSnapshot` now fails on an unresolvable configured entry point only when the run requests dead-code analysis; any other run proceeds with no entry points and carries the error as `snapshot.entryPointsError`. `check-perf` reports it as a `warning` (`metric: 'entry-points'`) and still exits 0 on an otherwise clean report, and `ci check`'s `perf` check reports it as a warning issue rather than abstaining. A typo in a field perf does not read no longer switches off the perf gate. Auto-detection that finds no entry point at all still fails every run, as before: there it is the only sign the root holds no recognisable project.
+
+  ## `ci check` exits 3 when a check could not run and none failed
+
+  `determineExitCode` returned `1` for an abstention, the same code as a failed check, so a pipeline could not tell "fix your code" from "fix your gate configuration". It now returns `ZERO_DENOMINATOR` (3), the code the CLI already uses for "examined nothing" (`harness validate`, `roadmap sync`, `check-docs`, `review-ci`). A failed check still exits `1` even when another check also abstained: a failure is a verdict and is not downgraded. The value is single-sourced as `ZERO_DENOMINATOR_EXIT_CODE` in `@harness-engineering/types`, which the CLI's `ExitCode.ZERO_DENOMINATOR` now references, and `CICheckReport.exitCode` is typed `CICheckExitCode` (`0 | 1 | 2 | 3`).
+
+  ## Same defect on the auto-detection path
+
+  `resolveTypeScript` accepted `package.json` `main`/`exports`/`bin` with no existence check either, so a `main` naming an unbuilt artifact (`dist/index.js` before a build) short-circuited resolution with a root that matches nothing **and** suppressed the conventional `src/index.ts` fallback below it — the same silent zero, on the path most TypeScript projects actually take. Those fields are now existence-filtered: the entries that exist are used, and a manifest whose declarations all point at absent files falls through to conventional resolution instead of poisoning the result. This only closes the before-a-build case. An entry that exists on disk but is never analysed — a built `dist/` file, `./package.json` in `exports`, a `bin/` script outside the analysed set — is still a dead root; that is the neighbouring defect tracked in #2296 and is not addressed here.
+
+  ## Breaking: a green gate can go red with no change to your code
+
+  `major` on the CLI for the reason `harness check-deps` and `audit_anatomy` took one: the observable contract of a command that gates CI changes. An adopter with a stale or wildcard `entropy.entryPoints` entry goes from `pass` to an abstention on `ci check`'s `entropy` check, and `cleanup --type dead-code` fails reporting `N of M configured entryPoints match no file: <names>`. That green was never a verdict — the configured intent behind the entry was ignored — but it was green, and it will not be after upgrading. A `ci check` run whose only problem is a check that could not run now exits `3` instead of `1`; a script that tested for exactly `1` must treat any non-zero code as red. `check-perf` and `ci check`'s `perf` check keep running and only warn. The remedy the error names is to correct or remove the offending entries, or to remove `entryPoints` entirely and let auto-detection resolve them.
+
+  `minor` rather than `major` on core because it is a 0.x package, where minor is the breaking channel; 30 prior core changesets use it and none has used `major`.
+
+  ## Callers that would have turned the new error into a wrong answer
+  - **Dashboard Health and Perf panels.** `discoverEntryPoints` synthesised `packages/<name>/src/index.ts` for every directory under `packages/` with no existence check, then passed them as explicit entry points. This repository's own `packages/dashboard` has no `src/index.ts`, so with the core change alone both panels would have gone from a report to `ENTRY_POINT_NOT_FOUND: 1 of 13 configured entryPoints match no file`. Measured against this repo through the built analyzer: the old discovery gives that error, the filtered discovery gives 12 entry points and a report over 2428 files. The guessed paths are now existence-filtered, the same treatment as package.json `main`: a guess is not a configuration.
+  - **`composeInsights` (`harness insights`, `insights_summary`).** The core change makes a failed entropy analysis reachable here for a project whose package.json `main` names an unbuilt artifact. The swallow that turned a failed analysis into zero counts and a health `passed: true` was removed by #2300 (`entropy analysis failed (<code>): …` into `safeGather`); this change adds a regression test for that specific path — stale `main`, no conventional index — asserting `entropy` and `health` are `null` with a warning, plus a positive control where the analysis runs.
+
+  ## No effect on this repository's gates
+
+  All 62 `entropy.entryPoints` and all 9 `performance.entryPoints` resolve to existing files, checked path by path. Before and after, with the CLI built from each: `check-perf --json` reports 1555 issues, and the only two that differ are the size and coupling-ratio findings for `entry-points.ts` itself, the file this change edits. `cleanup --type dead-code --json` reports 720 dead-code findings, identical before and after. No `analysis-error` issue appears in either run.
+
+- e68f5b1: Patch the `serveStatic` double-decode (GHSA-5r4p-p66f-jhc7 / CVE-2026-111757, moderate, CWE-174) in
+  both the gate-visible package and the code path the dashboard actually executes.
+
+  `serveStatic` decoded the request path a second time after it had already been decoded for routing, so
+  a crafted percent-encoded path could be routed as one path and served as another — bypassing middleware
+  mounted on a static prefix.
+  - `hono`: floor raised `>=4.13.5` -> `>=4.13.11` (the patched version). The old floor permitted the
+    vulnerable `4.13.7` that was actually resolved. This is the advisory `pnpm audit` sees.
+  - `@hono/node-server`: floor raised `>=2.0.10` -> `>=2.1.3`. The dashboard imports `serveStatic` from
+    this adapter, which carries its **own** copy of the vulnerable decode and does not use Hono's
+    middleware. No advisory is filed against it, so no audit tool would ever have flagged it; bumping
+    `hono` alone would have greened the gate without changing the executed code.
+
+  Declared ranges in `packages/dashboard` were brought up to match both floors so the two agree.
+
+  Bump level is `patch`: dependency ranges move within the same major and no public API changes. The
+  adapter's `serveStatic` does change behaviour beyond the fix — it now rejects request paths containing
+  `%` unless `allowPercentInPath` is set, and passes non-GET/HEAD requests to `next()` — neither of which
+  affects this dashboard (its built asset names are hash-based with no percent-encoding, and CORS
+  preflight is handled by middleware registered ahead of the static handler).
+
+- f58cfdf: Raise the `vite` security floor to the patched `6.4.4` for GHSA-698v-4r3x-3vcv
+  (moderate, CVE-2026-112943): `launch-editor`'s `escapeCmdArgs()` omits `%`
+  escaping on Windows, so a `cmd.exe` argument can expand an environment variable
+  and execute a subcommand.
+
+  The installed version was **vulnerable, not merely permitted**. The advisory's
+  affected range for the 6.x line is `vite <= 6.4.3` and the lockfile resolved
+  exactly `6.4.3`. Root `pnpm.overrides` goes `">=6.4.3 <7"` → `">=6.4.4 <7"` and
+  the dashboard's declared devDependency range goes `^6.4.3` → `^6.4.4` so the two
+  agree; `pnpm-lock.yaml` resolution moves `6.4.3` → `6.4.4` with no `vite@6.4.3`
+  reference left.
+
+  Patch, not minor: a dependency floor move inside the existing 6.x line, no API
+  or behaviour change. `vite` is a devDependency used to build the dashboard
+  client and, via `vitest`, to run every package's tests.
+
+  **Read the per-range data, not the first `first_patched_version`.** The advisory
+  covers six `vite` ranges; the first entry in its `vulnerabilities[]` array is the
+  8.3.x branch with `first_patched_version: 8.3.3`, which reads as though this
+  needs a major bump from 6.x. The entry whose `vulnerable_version_range` actually
+  matches this repo (`<= 6.4.3`) gives `first_patched_version: 6.4.4`. Match the
+  range first, then read its patch version.
+
+- Updated dependencies [a6f5f19]
+- Updated dependencies [ed24d7d]
+- Updated dependencies [0ef499d]
+- Updated dependencies [7c3729c]
+- Updated dependencies [b53c95d]
+- Updated dependencies [b53c95d]
+- Updated dependencies [b53c95d]
+- Updated dependencies [4038425]
+- Updated dependencies [8110b23]
+- Updated dependencies [a6f5f19]
+  - @harness-engineering/core@0.56.0
+  - @harness-engineering/intelligence@0.15.0
+  - @harness-engineering/orchestrator@0.29.0
+  - @harness-engineering/types@0.36.0
+  - @harness-engineering/signals@0.4.0
+  - @harness-engineering/graph@0.16.0
+
 ## 0.16.14
 
 ### Patch Changes
