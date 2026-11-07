@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/orchestrator/src/server/routes'
-sourceHash: '2f3f4e1c1480a6b44dd2f014a09d7e79baf3aedeab4487f5234cd1e7b2b2f9db'
+sourceHash: '313fb582202d22934430e08ac0d9b24fd68833285c5322cb9cf3b5fa9fd2ca75'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -49,6 +49,7 @@ export toMaintenanceHistoryEntry
 ## Dependency Slice
 
 ```
+import { guardChildStdin } from '../../agent/backends/child-stdin.js'
 import { TokenStore } from '../../auth/tokens'
 import { AnalysisArchive } from '../../core/analysis-archive'
 import { InteractionQueue } from '../../core/interaction-queue'

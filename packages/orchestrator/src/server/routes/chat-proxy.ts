@@ -4,6 +4,7 @@ import { randomUUID } from 'node:crypto';
 import * as readline from 'node:readline';
 import { z } from 'zod';
 import { readBody } from '../utils';
+import { guardChildStdin } from '../../agent/backends/child-stdin.js';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -146,6 +147,13 @@ async function handleChatRequest(
 
     const args = buildArgs(parsed.prompt, sessionId, isFirstTurn, parsed.system);
     child = spawn(command, args, { env: buildChildEnv(), stdio: 'pipe' });
+    // Guarded so a child that is already gone cannot raise an unhandled stdin
+    // error (#2298); spawn failure is reported by the 'error' handler below.
+    if (child.stdin) {
+      guardChildStdin(child.stdin, (e) => {
+        console.error(`[chat-proxy stdin error] ${e.message}`);
+      });
+    }
     child.stdin?.end();
 
     let clientDisconnected = false;

@@ -12,6 +12,7 @@ import {
   Err,
   type AgentError,
 } from '@harness-engineering/types';
+import { guardChildStdin } from './child-stdin.js';
 
 /**
  * Opaque handle to a cold-started serverless workload. Producers
@@ -214,6 +215,14 @@ export class OciServerlessBackend extends ServerlessBackend {
       prompt: params.prompt,
       isContinuation: params.isContinuation,
     });
+    // A child that dies before draining stdin (auth failure, missing remote
+    // binary) fails the write with EPIPE; unhandled, that crashes the
+    // orchestrator (#2298). The exit code below still fails the turn. Any other
+    // stdin error means the agent never received its turn, so it fails it too.
+    let stdinError: string | undefined;
+    guardChildStdin(child.stdin, (e) => {
+      stdinError = e.message;
+    });
     try {
       child.stdin.write(payload + '\n');
       child.stdin.end();
@@ -249,6 +258,10 @@ export class OciServerlessBackend extends ServerlessBackend {
       if (code !== 0 && code !== null) {
         success = false;
         lastError = lastError ?? `runtime exec exited with code ${code}`;
+      }
+      if (stdinError !== undefined) {
+        success = false;
+        lastError = lastError ?? `failed writing runtime exec stdin: ${stdinError}`;
       }
     } finally {
       clearTimeout(timeout);
