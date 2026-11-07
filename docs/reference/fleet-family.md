@@ -197,6 +197,17 @@ The canonical statement is **ADR 0098** — members reference it rather than res
 
 A worktree created under a `.claude/`-nested path breaks the local pre-push `check-docs` gate (it self-excludes and scans zero files). Subagents push via the GitHub API or from a non-`.claude` throwaway worktree. **Never `--no-verify`** — bypassing the gate defeats the verification the fleet depends on.
 
+## Gated lanes and the unchanged-worktree auto-clean
+
+A host-managed worktree is not guaranteed to outlive a stop. Claude Code's Agent tool, dispatched with `isolation: "worktree"`, **auto-cleans the worktree when the agent stops with no changes**: the directory, its `git worktree list` entry and its branch all go. A lane that parks at its member's CONFIRM gate hits that exactly, because it parks right after a read-only SELECT with a clean tree. When the conductor resumes it with the human's answer, the lane runs in the **parent's cwd, which is the shared checkout**, and nothing tells it that its isolation lapsed. This was reproduced deterministically (spawn, run read-only commands, stop, resume: the toplevel is now the shared checkout on `main`), and it cost eight lanes their worktrees across three conducted runs before anyone named the cause.
+
+Any lane that will stop and be resumed therefore needs both of the following:
+
+- **An explicit worktree that outlives the stop.** Create it yourself, outside any agent-config directory: `git worktree add ../<repo>-<lane> --detach origin/main`. Dispatch the lane into that path rather than relying on host isolation. A sibling path also clears the push-path caveat above. The conductor removes the worktree after VERIFY, never before.
+- **A toplevel guard on every resume.** Before its first write after a resume, the lane checks `git rev-parse --show-toplevel` against the worktree it was assigned. On a mismatch it **parks and reports isolation-lost**. It does not continue, and it never treats the shared checkout as an acceptable substitute. This catches any other way of losing isolation, so a future host behavior fails loudly instead of writing into a peer's tree.
+
+Leaf workers that run to completion without stopping are not exposed, and may keep host isolation.
+
 ## Runtime preconditions
 
 A conductor or a fan-out parent is the one actor able to inject a single bad environment assumption into every lane at once, so the runtime a lane inherits is part of the contract — not an implementation detail left to whoever launches it.
