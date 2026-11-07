@@ -78,11 +78,38 @@ describe('entropy analysis over an unresolvable entry point (#2275)', () => {
     if (snapshot.ok) return;
     expect(snapshot.error.code).toBe('ENTRY_POINT_NOT_FOUND');
     expect(snapshot.error.details.issues).toEqual(['src/**/*.ts']);
-    // This Err is what `runEntropyCheck`/`runPerfCheck` convert into an
-    // abstention (`skipReason`), which `deriveExitCode` maps to
-    // ZERO_DENOMINATOR — so the operator sees "did not run", not "clean".
+    // This Err is what `runEntropyCheck` converts into an abstention
+    // (`skipReason`), which `determineExitCode` maps to ZERO_DENOMINATOR (3)
+    // when nothing failed — so the operator sees "did not run", not "clean".
     expect(snapshot.error.suggestions.join('\n')).toContain(
       'entryPoints are literal file paths, never glob patterns'
     );
+  });
+
+  // Only dead-code reads entry points. A perf-only run (complexity, coupling,
+  // size) must not fail over a field it never reads; it proceeds with no entry
+  // points and carries the error so its caller can warn (#2275 review).
+  it('does not fail a run that requests no dead-code analysis', async () => {
+    const snapshot = await buildSnapshot({
+      rootDir: root,
+      parser: new TypeScriptParser(),
+      analyze: { complexity: true, coupling: true },
+      include: ['src/**/*.ts'],
+      entryPoints: ['src/index.ts', 'src/typo.ts'],
+    });
+
+    expect(snapshot.ok).toBe(true);
+    if (!snapshot.ok) return;
+    expect(snapshot.value.files.length).toBe(3);
+    expect(snapshot.value.entryPoints).toEqual([]);
+    expect(snapshot.value.entryPointsError?.code).toBe('ENTRY_POINT_NOT_FOUND');
+    expect(snapshot.value.entryPointsError?.message).toContain('src/typo.ts');
+  });
+
+  it('carries no entry-point error when the entry points resolve', async () => {
+    const snapshot = await snapshotFor(['src/index.ts']);
+    expect(snapshot.ok).toBe(true);
+    if (!snapshot.ok) return;
+    expect(snapshot.value.entryPointsError).toBeUndefined();
   });
 });

@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/tests/ci'
-sourceHash: '7263b227a6325aa6eef3700a8ddc4cfea81224122d76d3df303759de68cdb029'
+sourceHash: 'abe6551b85ba50ceec6b440e52f5e63514228079004fbca5d064ae66c4df49ef'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -37,7 +37,7 @@ import from '../../src/context/agents-map'
 import from '../../src/context/doc-coverage'
 import { TrackerSyncAdapter } from '../../src/roadmap/tracker-sync'
 import from '../../src/security/config'
-import { CICheckName, CICheckReport, CICheckResult, Err, Ok } from '@harness-engineering/types'
+import { CICheckName, CICheckReport, CICheckResult, Err, Ok, ZERO_DENOMINATOR_EXIT_CODE } from '@harness-engineering/types'
 import * as fs from 'node:fs'
 import * as fs from 'node:fs/promises'
 import * as os from 'node:os'

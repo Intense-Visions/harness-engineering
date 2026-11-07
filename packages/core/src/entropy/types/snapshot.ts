@@ -3,6 +3,7 @@ import type { AST, Import, Export } from '../../shared/parsers';
 import type { DependencyGraph } from '../../constraints/types';
 import type { EntropyConfig } from './config';
 import type { PathAlias } from '../path-aliases';
+import type { EntropyError } from '../../shared/errors';
 
 export interface InternalSymbol {
   name: string;
@@ -86,6 +87,15 @@ export interface CodebaseSnapshot {
   docs: DocumentationFile[];
   codeReferences: CodeReference[];
   entryPoints: string[];
+  /**
+   * Why the CONFIGURED entry points failed to resolve, on a run that did not
+   * request dead-code analysis — the only consumer of `entryPoints`. Such a run
+   * proceeds with
+   * `entryPoints: []` instead of failing, and a caller such as `check-perf`
+   * surfaces this as a warning. Absent whenever resolution succeeded; never set
+   * on a dead-code run, which fails with this error instead.
+   */
+  entryPointsError?: EntropyError;
   rootDir: string;
   config: EntropyConfig;
   /**

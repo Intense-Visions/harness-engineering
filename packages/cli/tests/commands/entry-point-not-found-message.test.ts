@@ -46,15 +46,38 @@ describe('a configured entry point that matches no file is named in CLI output',
     expect(result.error.message).not.toContain('src/index.ts');
   });
 
-  it('check-perf names the missing performance entry point', async () => {
+  it('check-perf still runs, and names the missing performance entry point as a warning', async () => {
     const result = await runCheckPerf(root, { configPath });
 
     expect(result.ok).toBe(true);
     if (!result.ok) return;
-    expect(result.value.valid).toBe(false);
-    const messages = result.value.violations.map((v) => v.message);
-    expect(messages).toHaveLength(1);
-    expect(messages[0]).toContain('1 of 2 configured entryPoints match no file');
-    expect(messages[0]).toContain('src/typpo-perf.ts');
+    // No perf metric reads entry points, so a typo there must not stop the
+    // report: the gate passes on the code it actually measured (#2275 review).
+    expect(result.value.valid).toBe(true);
+    expect(result.value.stats.filesAnalyzed).toBeGreaterThan(0);
+    expect(result.value.violations.some((v) => v.metric === 'analysis-error')).toBe(false);
+    // ...but the broken config is still named, at warning severity.
+    const warning = result.value.violations.find((v) => v.metric === 'entry-points');
+    expect(warning?.severity).toBe('warning');
+    expect(warning?.message).toContain('1 of 2 configured entryPoints match no file');
+    expect(warning?.message).toContain('src/typpo-perf.ts');
+  });
+
+  it('check-perf reports no entry-points warning when every entry point resolves', async () => {
+    await writeFile(
+      configPath,
+      JSON.stringify({
+        version: 1,
+        name: 'fixture',
+        performance: { entryPoints: ['src/index.ts'] },
+      })
+    );
+    const result = await runCheckPerf(root, { configPath });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.value.valid).toBe(true);
+    expect(result.value.stats.filesAnalyzed).toBeGreaterThan(0);
+    expect(result.value.violations.some((v) => v.metric === 'entry-points')).toBe(false);
   });
 });

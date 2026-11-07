@@ -117,6 +117,24 @@ export async function runCheckPerf(
   const report = analysisResult.value;
   const violations: CheckPerfResult['violations'] = [];
 
+  // Perf metrics never read entry points, so an unresolvable one no longer
+  // stops the report — but it is still a broken config the author should fix
+  // before dead-code analysis trips on it. A warning: it does not fail the gate.
+  const entryPointsError = report.snapshot?.entryPointsError;
+  if (entryPointsError) {
+    violations.push({
+      tier: 3,
+      severity: 'warning',
+      metric: 'entry-points',
+      file: '',
+      value: 0,
+      threshold: 0,
+      message:
+        `Ignored for perf (no perf metric reads entry points), but dead-code analysis ` +
+        `will fail on it: ${entryPointsError.message}`,
+    });
+  }
+
   if (report.complexity) {
     for (const v of report.complexity.violations) {
       violations.push({

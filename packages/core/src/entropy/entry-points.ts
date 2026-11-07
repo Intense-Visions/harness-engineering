@@ -375,12 +375,17 @@ function nameUnresolvable(unresolvable: string[]): string {
 /**
  * Report configured entry points that match no file.
  *
- * Configured work that never happened is reported, never absorbed. The returned
- * `Err` reaches the operator through the abstention channel already built for
- * this class of defect (`runEntropyCheck`/`runPerfCheck` turn a failed analysis
- * into `skipReason`, which `deriveExitCode` maps to ZERO_DENOMINATOR rather than
- * to a pass — #2071), so "nothing was analysed" stays readable as something
- * other than "nothing was wrong".
+ * Configured work that never happened is reported, never absorbed. On a run
+ * that requests dead-code analysis — the only consumer of entry points —
+ * `buildSnapshot` fails with the returned `Err`, which reaches the operator
+ * through the abstention channel already built for this class of defect
+ * (`runEntropyCheck` turns a failed analysis into `skipReason`, and
+ * `determineExitCode` maps an abstention with no failure to ZERO_DENOMINATOR
+ * (3) rather than to a pass — #2071), so "nothing was analysed" stays readable
+ * as something other than "nothing was wrong". A run that requests no dead-code
+ * analysis (perf: complexity, coupling, size) never reads entry points, so it
+ * proceeds and carries the error as `snapshot.entryPointsError` for its caller
+ * to warn about.
  *
  * Strict on ANY unresolvable entry, not only on all of them. The precedent is
  * `classifyMeasurement`'s `rules-not-received` branch: declared work that never

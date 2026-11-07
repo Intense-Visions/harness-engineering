@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/src/ci'
-sourceHash: 'ef9c8fe475b901c2aaced7d0cf0e47ee6acf9c3cd73a9a3d0afe395335be6553'
+sourceHash: 'f2a3796cef69b303f97fd6e3143df9cec10b56e6a6f9d65e10299d21d8ae7e19'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -64,7 +64,7 @@ import { Err, Ok, Result } from '../shared/result'
 import { formatCIReportAsMarkdown } from './report-formatter'
 import { GATE_VERSIONS, MEMOIZABLE_CHECKS, VerdictCache, VerdictCacheStatsCollector, computeConfigHash, computeProjectInputHash, computeVerdictKey, parseVerdictCacheConfig } from './verdict-cache'
 import { GraphStore, queryTraceability, resolveGraphDir, skipDirGlobs } from '@harness-engineering/graph'
-import { CICheckIssue, CICheckName, CICheckReport, CICheckResult, CICheckSummary, CIFailOnSeverity, CINotifyOptions, ConstraintPackCompliance, ConstraintPackComplianceStatus, ConstraintStage, GateMeasurement, VerdictCacheStats } from '@harness-engineering/types'
+import { CICheckExitCode, CICheckIssue, CICheckName, CICheckReport, CICheckResult, CICheckSummary, CIFailOnSeverity, CINotifyOptions, ConstraintPackCompliance, ConstraintPackComplianceStatus, ConstraintStage, GateMeasurement, VerdictCacheStats, ZERO_DENOMINATOR_EXIT_CODE } from '@harness-engineering/types'
 import { glob } from 'glob'
 import * as crypto from 'node:crypto'
 import * as fs from 'node:fs'

@@ -431,6 +431,16 @@ async function runPerfCheck(
   }
   {
     const perfReport = perfResult.value;
+    // Perf ran without entry points (no perf metric reads them); the broken
+    // config is still worth a warning. The entropy check, which does read them,
+    // abstains on the same error and names it.
+    const entryPointsError = perfReport.snapshot?.entryPointsError;
+    if (entryPointsError) {
+      issues.push({
+        severity: 'warning',
+        message: `Ignored for perf, which reads no entry points: ${entryPointsError.message}`,
+      });
+    }
     if (perfReport.complexity) {
       for (const v of perfReport.complexity.violations) {
         // Complexity violations are baselined by the arch check — report as warnings here to avoid double-gating
