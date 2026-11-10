@@ -39,8 +39,8 @@ export utils
 ## Dependency Slice
 
 ```
-import from './dynamic-module'
-import from './styles.css'
+import './dynamic-module'
+import './styles.css'
 import fs, { PathLike, Stats, existsSync } from 'fs'
 import * as os from 'os'
 import { join, resolve } from 'path'

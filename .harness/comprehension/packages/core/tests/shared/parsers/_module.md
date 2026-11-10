@@ -23,7 +23,7 @@ members:
 
 ```
 import { TypeScriptParser } from '../../../src/shared/parsers/typescript'
-import from '@typescript-eslint/typescript-estree'
+import '@typescript-eslint/typescript-estree'
 import { createRequire } from 'node:module'
 import { join } from 'path'
 import { describe, expect, it, vi } from 'vitest'

@@ -47,8 +47,9 @@ import { AnalysisProvider, AnalysisRequest, AnalysisResponse } from '@harness-en
 import { spawnSync } from 'node:child_process'
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import * as fsp from 'node:fs/promises'
-import * as os, { tmpdir } from 'node:os'
-import * as path, path from 'node:path'
-import from 'prettier'
+import { tmpdir } from 'node:os'
+import * as os from 'node:os'
+import path, * as path from 'node:path'
+import 'prettier'
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 ```

@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import * as fsp from 'node:fs/promises';
 import * as os from 'node:os';
 import * as path from 'node:path';
+import { parse } from '@typescript-eslint/typescript-estree';
 import {
   isStaticSupported,
   renderInterfaceContract,
@@ -94,6 +95,51 @@ describe('static-extractor render primitives', () => {
     });
     it('renders an empty slice as an empty string', () => {
       expect(renderDependencySlice([])).toBe('');
+    });
+    it('never co-locates a namespace binding with a named group (#2288)', () => {
+      const out = renderDependencySlice([
+        { source: '@harness-engineering/core', namespace: 'core' },
+        { source: '@harness-engineering/core', specifiers: ['CloneIndex', 'CloneClass'] },
+        { source: 'react', default: 'React', namespace: 'ReactNS', specifiers: ['useState'] },
+      ]);
+      // Every rendered line must be a statement TypeScript accepts.
+      expect(() => parse(out)).not.toThrow();
+      expect(out.split('\n')).toEqual([
+        "import { CloneClass, CloneIndex } from '@harness-engineering/core'",
+        "import * as core from '@harness-engineering/core'",
+        "import React, { useState } from 'react'",
+        "import * as ReactNS from 'react'",
+      ]);
+    });
+    it('keeps the valid single-statement shapes on one line', () => {
+      const out = renderDependencySlice([
+        { source: 'a', default: 'A', namespace: 'ns' },
+        { source: 'b', default: 'B', specifiers: ['x'] },
+        { source: 'c', namespace: 'c' },
+        { source: 'd' },
+      ]);
+      expect(() => parse(out)).not.toThrow();
+      expect(out.split('\n')).toEqual([
+        "import A, * as ns from 'a'",
+        "import B, { x } from 'b'",
+        "import * as c from 'c'",
+        "import 'd'",
+      ]);
+    });
+    it('splits repeated default or namespace bindings into valid statements', () => {
+      const out = renderDependencySlice([
+        { source: 'm', namespace: 'one' },
+        { source: 'm', namespace: 'two' },
+        { source: 'n', default: 'First' },
+        { source: 'n', default: 'Second' },
+      ]);
+      expect(() => parse(out)).not.toThrow();
+      expect(out.split('\n')).toEqual([
+        "import * as one from 'm'",
+        "import * as two from 'm'",
+        "import First from 'n'",
+        "import Second from 'n'",
+      ]);
     });
   });
 });

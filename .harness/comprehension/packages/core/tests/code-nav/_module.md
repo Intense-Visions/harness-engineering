@@ -38,7 +38,7 @@ import { getParser, parseFile, resetParserCache } from '../../src/code-nav/parse
 import { searchSymbols } from '../../src/code-nav/search'
 import { CodeSymbol, EXTENSION_MAP, OutlineResult, SearchResult, UnfoldResult, detectLanguage } from '../../src/code-nav/types'
 import { unfoldRange, unfoldSymbol } from '../../src/code-nav/unfold'
-import from '../../src/shared/fs-utils'
+import '../../src/shared/fs-utils'
 import * as path from 'path'
 import { beforeAll, describe, expect, it, vi } from 'vitest'
 ```

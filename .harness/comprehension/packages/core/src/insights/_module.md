@@ -19,8 +19,8 @@ export composeInsights
 ## Dependency Slice
 
 ```
-import from '../architecture/timeline-manager.js'
-import from '../entropy/analyzer.js'
+import '../architecture/timeline-manager.js'
+import '../entropy/analyzer.js'
 import { composeInsights } from './aggregator'
 import { INSIGHTS_KEYS, InsightsAttentionBlock, InsightsDecayBlock, InsightsEntropyBlock, InsightsHealthBlock, InsightsImpactBlock, InsightsKey, InsightsReport } from '@harness-engineering/types'
 import * as fs from 'fs'

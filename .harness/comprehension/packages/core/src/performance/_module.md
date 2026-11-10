@@ -40,6 +40,8 @@ export RegressionResult
 import { Baseline, BaselinesFile, BenchmarkResult, CriticalPathEntry, CriticalPathSet, RegressionReport, RegressionResult } from './types'
 import { DEFAULT_SKIP_DIRS } from '@harness-engineering/graph'
 import { execFileSync } from 'node:child_process'
-import * as fs, { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
-import * as path, { dirname, join } from 'node:path'
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import * as fs from 'node:fs'
+import { dirname, join } from 'node:path'
+import * as path from 'node:path'
 ```

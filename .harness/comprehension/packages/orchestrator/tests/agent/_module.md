@@ -38,7 +38,7 @@ import { contextCapFromMemoryGb, createBackend } from '../../src/agent/backend-f
 import { BackendRouter, toArray } from '../../src/agent/backend-router.js'
 import { AnthropicBackend } from '../../src/agent/backends/anthropic.js'
 import { ClaudeBackend } from '../../src/agent/backends/claude.js'
-import from '../../src/agent/backends/container.js'
+import '../../src/agent/backends/container.js'
 import { GeminiBackend } from '../../src/agent/backends/gemini.js'
 import { LocalBackend } from '../../src/agent/backends/local.js'
 import { MockBackend } from '../../src/agent/backends/mock'

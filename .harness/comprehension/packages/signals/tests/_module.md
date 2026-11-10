@@ -25,7 +25,7 @@ members:
 
 ```
 import { CommandRunner, DEFAULT_COMMAND_TIMEOUT_MS, NETWORK_COMMAND_TIMEOUT_MS, defaultCommandRunner } from '../src/command-runner'
-import from '../src/gather'
+import '../src/gather'
 import { OutcomeQueryStore, computeHolidayConfidence } from '../src/holiday-confidence'
 import { bucketsToHistory, deriveEndpointTrend, round2, toDate } from '../src/shared'
 import { SignalTimelineStore } from '../src/timeline-store'

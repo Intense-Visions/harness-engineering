@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/src/comprehension'
-sourceHash: '677138af060b83677c05de7bae4b2b0a5b7bfc9a9bf69146c16a2924ea75676e'
+sourceHash: 'aa865a1464aecd486c4f1b32e072a024ac64c40185a72788fe4677dd57ef3026'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -117,5 +117,6 @@ import * as crypto from 'node:crypto'
 import { readFileSync } from 'node:fs'
 import * as fsp from 'node:fs/promises'
 import { homedir } from 'node:os'
-import * as path, { join } from 'node:path'
+import { join } from 'node:path'
+import * as path from 'node:path'
 ```

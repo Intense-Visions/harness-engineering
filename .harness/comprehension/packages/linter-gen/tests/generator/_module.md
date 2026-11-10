@@ -41,6 +41,7 @@ import { GeneratedRule, generateRule } from '../../src/generator/rule-generator'
 import { RuleConfig } from '../../src/schema/linter-config'
 import * as fs from 'fs/promises'
 import * as os from 'os'
-import * as path, { join } from 'path'
+import { join } from 'path'
+import * as path from 'path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 ```

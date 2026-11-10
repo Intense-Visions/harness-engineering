@@ -34,11 +34,11 @@ export getStateResource
 ## Dependency Slice
 
 ```
-import from '../../shared/state-events.js'
+import '../../shared/state-events.js'
 import { describeStaleBuildError } from '../stale-build.js'
 import { loadGraphStore } from '../utils/graph-loader.js'
-import from '@harness-engineering/core'
-import from '@harness-engineering/graph'
+import '@harness-engineering/core'
+import '@harness-engineering/graph'
 import * as fs from 'fs'
 import * as fs from 'node:fs/promises'
 import * as path from 'node:path'

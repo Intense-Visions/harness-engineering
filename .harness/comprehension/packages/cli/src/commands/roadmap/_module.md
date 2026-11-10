@@ -74,7 +74,7 @@ import { BrainstormWiringDeps, PoolState, PoolStateStore, RankProfile, RankableC
 import { Issue, Roadmap, RoadmapFeature, ScopeTier, SkippedCreate } from '@harness-engineering/types'
 import chalk from 'chalk'
 import { Command } from 'commander'
-import from 'dotenv'
+import 'dotenv'
 import { execFileSync } from 'node:child_process'
 import * as fs from 'node:fs'
 import * as fsp from 'node:fs/promises'

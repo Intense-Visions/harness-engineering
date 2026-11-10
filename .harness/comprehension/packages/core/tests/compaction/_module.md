@@ -41,7 +41,7 @@ members:
 
 ```
 import { CHARS_PER_TOKEN, PackedEnvelope, estimateTokens, serializeEnvelope } from '../../src/compaction/envelope'
-import from '../../src/compaction/index'
+import '../../src/compaction/index'
 import { PaginatedSlice, PaginationMeta, paginate } from '../../src/compaction/pagination'
 import { CompactionPipeline } from '../../src/compaction/pipeline'
 import { CompactionStrategy, StructuralStrategy } from '../../src/compaction/strategies/structural'

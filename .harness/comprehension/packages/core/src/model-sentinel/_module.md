@@ -53,8 +53,10 @@ import { acknowledgeModelDrift, evaluateModelSentinel, hasUnacknowledgedMaterial
 import { RawBackendsMap, fnv1aHex, snapshotModelIdentities } from './snapshot'
 import { appendSentinelRecord, latestSnapshot, readSentinelHistory, sentinelHistoryPath } from './store'
 import { BackendModelDelta, BackendModelIdentity, DriftSeverity, ModelDriftResult, ModelSnapshot, SentinelCycleResult, SentinelRecord } from './types'
-import * as fs, { appendFileSync, mkdtempSync, readFileSync, rmSync } from 'node:fs'
+import { appendFileSync, mkdtempSync, readFileSync, rmSync } from 'node:fs'
+import * as fs from 'node:fs'
 import { tmpdir } from 'node:os'
-import * as path, { join } from 'node:path'
+import { join } from 'node:path'
+import * as path from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 ```
