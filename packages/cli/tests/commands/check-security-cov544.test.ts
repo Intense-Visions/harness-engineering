@@ -98,6 +98,44 @@ describe('check-security action (cov544)', () => {
     expect(exitCode).toBe(0);
   });
 
+  // #2072 defect 2: the text renderer dropped the ABSTAINED issue when `valid` was
+  // true, so a scan that read nothing printed a green "validation passed".
+  it('zero-file scan in text mode renders as incomplete, never as "validation passed"', async () => {
+    process.chdir(NO_SOURCE_FIXTURES);
+    await expect(run(['--severity', 'error'])).rejects.toThrow('exit:0');
+    const out = logOutput.join('\n');
+    expect(out).not.toContain('validation passed');
+    expect(out).toContain('could not run');
+    expect(out).toContain('ABSTAINED');
+    expect(out.match(/ABSTAINED/g)).toHaveLength(1);
+  });
+
+  it('zero-file scan in quiet mode still prints the abstention', async () => {
+    process.chdir(NO_SOURCE_FIXTURES);
+    await expect(run(['--severity', 'error', '--quiet'])).rejects.toThrow('exit:0');
+    const out = logOutput.join('\n');
+    expect(out).toContain('[unavailable]');
+    expect(out).toContain('ABSTAINED');
+  });
+
+  it('control: a clean scan over real files still prints "validation passed"', async () => {
+    process.chdir(CLEAN_FIXTURES);
+    await expect(run([])).rejects.toThrow('exit:0');
+    const out = logOutput.join('\n');
+    expect(out).toContain('validation passed');
+    expect(out).not.toContain('ABSTAINED');
+    expect(out).not.toMatch(/^\s*0 file\(s\) scanned/m);
+  });
+
+  it('zero-file scan with --fail-on-empty (text) renders incomplete AND failed', async () => {
+    process.chdir(NO_SOURCE_FIXTURES);
+    await expect(run(['--severity', 'error', '--fail-on-empty'])).rejects.toThrow('exit:1');
+    const out = logOutput.join('\n');
+    expect(out).toContain('could not run');
+    expect(out).toContain('Validation failed');
+    expect(out).not.toContain('validation passed');
+  });
+
   it('--fail-on-empty flips a zero-file scan to VALIDATION_FAILED (1)', async () => {
     process.chdir(NO_SOURCE_FIXTURES);
     await expect(run(['--severity', 'error', '--fail-on-empty'])).rejects.toThrow('exit:1');
