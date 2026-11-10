@@ -70,9 +70,11 @@ function stripStringsAndComments(cmd) {
 }
 
 // Shell command separators: `;`, `&&`, `||`, `|`, `|&`, a background `&`
-// (but not the `&` of a redirection such as `2>&1`), newlines, subshell
-// parens and backticks. A flag in one segment never belongs to another.
-const SEGMENT_SEPARATOR = /&&|\|\||\|&?|;|(?<![<>])&|\n|[()`]/;
+// (but not the `&` of a redirection such as `2>&1`, `&>file` or `&>>file`),
+// newlines, subshell parens and backticks. A flag in one segment never belongs
+// to another. A redirection is NOT a separator: in `git commit &>/dev/null -n`
+// the `-n` is still an argument to git.
+const SEGMENT_SEPARATOR = /&&|\|\||\|&?|;|(?<![<>])&(?!>)|\n|[()`]/;
 
 // git global options (before the subcommand) that take a separate value.
 const GIT_GLOBAL_OPTS_WITH_VALUE = new Set([

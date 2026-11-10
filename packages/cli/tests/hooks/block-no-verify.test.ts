@@ -223,6 +223,11 @@ describe('block-no-verify', () => {
       { command: 'git commit -m x \\\n  -n', expected: 2 },
       // Redirections are not separators.
       { command: 'git commit -m x 2>&1 -n', expected: 2 },
+      { command: 'git commit -m x &>/dev/null -n', expected: 2 },
+      { command: 'git commit -m x &>>log -n', expected: 2 },
+      { command: 'git commit -m x &>/dev/null; echo -n done', expected: 0 },
+      // A background `&` is still a separator.
+      { command: 'git commit -m x & echo -n done', expected: 0 },
       // Everything after `--` is a pathspec.
       { command: 'git commit -m x -- -n', expected: 0 },
     ];
