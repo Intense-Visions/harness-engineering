@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/src/rehearsal'
-sourceHash: '955513ef14381d08c9a8afeeacbde37040cba837985f1bdabc9d4bfc0a48c2ab'
+sourceHash: 'fcdf3225483d6bd5be37d1c6d375ba080c7eceaa8e506b4fdf835b5f3eaec52e'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
