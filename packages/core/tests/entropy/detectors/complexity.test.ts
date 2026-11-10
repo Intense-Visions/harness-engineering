@@ -521,3 +521,68 @@ describe('detectComplexityViolations — issue #2279 (commas nested inside a par
     expect(await parameterCountOf(file, signature)).toBe(expected);
   });
 });
+
+describe('detectComplexityViolations — issue #2384 (parameter list capture)', () => {
+  const COUNT_EVERYTHING: ComplexityConfig = { thresholds: { parameterCount: { warn: 0 } } };
+
+  async function analyze(name: string, content: string) {
+    await writeFixture(name, content);
+    const result = await detectComplexityViolations(
+      makeSnapshot([{ name, content }]),
+      COUNT_EVERYTHING
+    );
+    expect(isOk(result)).toBe(true);
+    if (!isOk(result)) throw new Error('detector failed');
+    return result.value;
+  }
+
+  function paramsOf(value: Awaited<ReturnType<typeof analyze>>, fn: string): number {
+    const v = value.violations.find((x) => x.metric === 'parameterCount' && x.function === fn);
+    return v ? (v.value as number) : 0;
+  }
+
+  it('does not truncate a parameter list at a nested parenthesis', async () => {
+    const value = await analyze(
+      'nested-paren.ts',
+      'export function f(a = (x) => x, b: Map<string, number>) {\n  return 0;\n}\n'
+    );
+    expect(paramsOf(value, 'f')).toBe(2);
+  });
+
+  it('still skips a multi-line parameter list (deferred: needs a baseline decision)', async () => {
+    // Pins the current limit. Lifting MAX_PARAM_LIST_LINES makes this function
+    // visible; update this test together with the repo complexity baseline.
+    const value = await analyze(
+      'multi-line-fn.ts',
+      'export function f(\n  a: string,\n  b: number,\n) {\n  return 0;\n}\n'
+    );
+    expect(value.stats.functionsAnalyzed).toBe(0);
+  });
+
+  it('counts a method and an arrow function with nested parens', async () => {
+    const value = await analyze(
+      'nested-method.ts',
+      [
+        'class C {',
+        '  run(a = (x: number) => x, b: number): void {',
+        '    return;',
+        '  }',
+        '}',
+        'export const g = async (x = (y: number) => y, z: number): Promise<number> => {',
+        '  return z;',
+        '};',
+        '',
+      ].join('\n')
+    );
+    expect(paramsOf(value, 'run')).toBe(2);
+    expect(paramsOf(value, 'g')).toBe(2);
+  });
+
+  it('does not treat a control-flow statement with a nested call as a function', async () => {
+    const value = await analyze(
+      'control-flow.ts',
+      'export function f(a: number) {\n  if (check(a)) {\n    return 1;\n  }\n  return 0;\n}\n'
+    );
+    expect(value.stats.functionsAnalyzed).toBe(1);
+  });
+});
