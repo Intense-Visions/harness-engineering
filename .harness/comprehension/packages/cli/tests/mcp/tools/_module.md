@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/tests/mcp/tools'
-sourceHash: 'e87ec4db4a16d977aa4b9898e1d3d51434544415dce960a5b6a46a6b3ed79cd5'
+sourceHash: 'f20e0337c7f1a0215977722c2f340ab1ab93e18b5cc6570fd2e427a1d70a52ef'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -207,7 +207,7 @@ import { HealthSnapshot, captureHealthSnapshot, isSnapshotFresh, loadCachedSnaps
 import { loadOrRebuildIndex } from '../../../src/skill/index-builder'
 import { recommend } from '../../../src/skill/recommendation-engine'
 import { loadOrGenerateProfile } from '../../../src/skill/stack-profile'
-import { COMPILER_VERSION, ComprehensionSourceFile, ComprehensionStore, ComprehensionUnit, ConflictError, Err, ExtractStatic, FeaturePatch, HistoryEvent, NewFeatureInput, Ok, PnyonTrackerAdapter, Result, RoadmapTrackerClient, SCHEMA_VERSION, TrackedFeature, compileModule, computeSourceHash, createNodeComprehensionIO, createNodeModuleSourceReader, detectStaleConstraints, loadTrackerConfig, parseRoadmap, roadmapToShards, serializeMeta, serializeShard } from '@harness-engineering/core'
+import { COMPILER_VERSION, ComprehensionSourceFile, ComprehensionStore, ComprehensionUnit, ConflictError, Err, ExtractStatic, FeaturePatch, HistoryEvent, NewFeatureInput, Ok, PnyonTrackerAdapter, Result, RoadmapTrackerClient, SCHEMA_VERSION, TrackedFeature, compileModule, computeSourceHash, createNodeComprehensionIO, createNodeModuleSourceReader, detectStaleConstraints, loadTrackerConfig, parseDiff, parseRoadmap, roadmapToShards, serializeMeta, serializeShard } from '@harness-engineering/core'
 import { queryTraceability } from '@harness-engineering/graph'
 import { deriveAcceptanceAuthority } from '@harness-engineering/intelligence'
 import { Err, Ok, Result } from '@harness-engineering/types'
