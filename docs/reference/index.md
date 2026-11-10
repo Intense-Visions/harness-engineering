@@ -123,6 +123,8 @@ Per-package source indexes. Each page lists individual source files, links each 
 | [orchestrator / 1](./packages-orchestrator-1.md) | `agent/`, `auth/`, `core/`, `cost/`                                               |
 | [orchestrator / 2](./packages-orchestrator-2.md) | `maintenance/`, `gateway/`, `proposals/`, `server/`, `routing/`, `notifications/` |
 | [orchestrator / 3](./packages-orchestrator-3.md) | `server/`, `sessions/`, `workflow/`, `tracker/`                                   |
+| [orchestrator / 4](./packages-orchestrator-4.md) | `agent/` (routing, triage, escalation, cost and subprocess-env modules)           |
+| [orchestrator / 5](./packages-orchestrator-5.md) | `core/`, `workflow/`, `gateway/`, `maintenance/`, `proposals/`, `workspace/`      |
 
 ### Other packages
 
