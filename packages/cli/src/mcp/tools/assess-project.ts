@@ -353,10 +353,20 @@ export async function handleAssessProject(input: {
               topIssue: first?.text ?? 'Invalid perf output',
             };
           }
-          const issues =
-            (parsed.violations as unknown[] | undefined)?.length ??
-            (parsed.issues as unknown[] | undefined)?.length ??
-            0;
+          // `check_performance` returns an `EntropyReport`; its count lives at
+          // `summary.totalIssues`. Reading any other key yields 0 and a check
+          // that always passes (#2387), so a missing count fails closed.
+          const totalIssues = (parsed.summary as { totalIssues?: unknown } | undefined)
+            ?.totalIssues;
+          if (typeof totalIssues !== 'number') {
+            return {
+              name: 'perf',
+              passed: false,
+              issueCount: 1,
+              topIssue: 'Perf output has no numeric summary.totalIssues',
+            };
+          }
+          const issues = totalIssues;
           return {
             name: 'perf',
             passed: issues === 0,
