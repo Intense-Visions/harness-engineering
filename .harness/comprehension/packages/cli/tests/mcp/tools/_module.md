@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/tests/mcp/tools'
-sourceHash: '435761769b47fb117db941edbfe152752cf8ed91fb512e0d28b2a00a428cd3ae'
+sourceHash: '442c6ad3fd91afe4763caa0c21e0290a6a27abb913124a309c75c8593ddd73a1'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -105,6 +105,7 @@ members:
     'traceability.test.ts',
     'validate-cov544b.test.ts',
     'validate.test.ts',
+    'wire-contract.test.ts',
     'workflow-e2e.test.ts',
   ]
 ---
