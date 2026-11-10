@@ -55,6 +55,7 @@ packages/core/tests/fixtures/code-nav/syntax-error.ts
 .changeset/stagedecision-jsdoc-comment-no-release.md
 .changeset/codex-test-windows-skip-no-release.md
 .changeset/dependabot-alert-cleanup-no-release.md
+.changeset/orchestrator-core-test-quality-no-release.md
 
 # Local orchestrator state backups (disposable)
 **/.harness/state-backup-*/
