@@ -1,12 +1,13 @@
 ---
 schemaVersion: 1
 module: 'tests/scripts'
-sourceHash: 'f66f8c61fafe31925f0b63131706370943ca8624b70dafaee5d79bb4d567be04'
+sourceHash: '59bc16f457632b0ec9bed916a4a6c86ff74d6914dba92372eed41fefcda1d341'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
 members:
   [
+    'assert-vitest-ran.test.mjs',
     'audit-exceptions.test.mjs',
     'baseline-gating.test.mjs',
     'check-changesets.test.mjs',
@@ -34,6 +35,7 @@ members:
 ## Dependency Slice
 
 ```
+import { EXIT, assessVitestLog, stripAnsi } from '../../scripts/assert-vitest-ran.mjs'
 import { extractAdvisories, lapseReason, reconcile } from '../../scripts/audit-exceptions.mjs'
 import { mergeBenchmarkBaselines } from '../../scripts/benchmark-check.mjs'
 import { parseChangesetFrontmatter } from '../../scripts/check-changesets.mjs'

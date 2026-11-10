@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/burn/tests'
-sourceHash: 'e3e8d8f8a494a4e541fd218ebaf67bd7e0c8cced9afb4d9d6a7bc5a4f6d60368'
+sourceHash: 'e6d720f94a0ccf4a16f583fe8f77de081a45140d226f45c6b6f526ed87abceeb'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -35,6 +35,7 @@ members:
 ```ts
 export BIN
 export DEFAULT_WEEK
+export MID_WEEK
 export PACKAGE_ROOT
 export agentLine
 export daysAgo
@@ -67,7 +68,7 @@ import { buildSummary } from '../src/summary'
 import { BurnConfig, ScanInfo, Summary, UsageRecord } from '../src/types'
 import { human, units } from '../src/units'
 import { safeZone, weekBounds } from '../src/window'
-import { BIN, DEFAULT_WEEK, Hud, agentLine, daysAgo, guardChildStdin, hoursAgo, makeHud, minutesAgo, runBin, runProcess, transcriptLine, utcIsoWeekday } from './helpers'
+import { BIN, DEFAULT_WEEK, Hud, MID_WEEK, agentLine, daysAgo, guardChildStdin, hoursAgo, makeHud, minutesAgo, runBin, runProcess, transcriptLine, utcIsoWeekday } from './helpers'
 import { spawn } from 'node:child_process'
 import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import { isBuiltin } from 'node:module'

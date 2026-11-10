@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/tests/commands'
-sourceHash: '7be7a78dc4056f5d2db81bba1b12ed88c0d6f04f056bd80dc70b9d5c83b15af3'
+sourceHash: '58b0766fcea6d48d72e711b94212a2aebdac7398d2e580cb77b667fc41b31c33'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -314,7 +314,7 @@ import { createGenerateCommand } from '../../src/commands/linter/generate'
 import { createMaintenanceCommand } from '../../src/commands/maintenance'
 import { MaintenanceRunDeps, aggregateReport, buildTaskRunner, createCheckRunner, createFixDispatcher, deriveExitCode, loadRunHistory, makeResolveBackend, parseConcurrency, renderTable, resolveHarnessSpawn, resolveSelection, runMaintenanceRun } from '../../src/commands/maintenance-run'
 import { createMcpCommand, createMcpContextReportCommand, createMcpListCapabilitiesCommand, createMcpRefinementDemandCommand, formatCapabilitiesByPermission, formatCapabilitiesTable, formatContextReport, formatRefinementDemand } from '../../src/commands/mcp'
-import { createMcpGuardCommand, extractNpmPackages, parseNpmSpec, runMcpGuardCheck } from '../../src/commands/mcp-guard'
+import { createMcpGuardCommand, extractNpmPackages, guardExitCode, parseNpmSpec, runMcpGuardCheck } from '../../src/commands/mcp-guard'
 import { createMigrateCommand, detectLegacyArtifacts, runMigrate } from '../../src/commands/migrate'
 import { createBackendsSubcommand, runMigrateBackends } from '../../src/commands/migrate-backends'
 import { createModelsCommand, refreshExitCode, runModelsApprove, runModelsProbe, runModelsProposals, runModelsRefresh, runModelsReject } from '../../src/commands/models'
