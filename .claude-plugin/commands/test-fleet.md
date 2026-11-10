@@ -1,7 +1,7 @@
 ---
 name: harness:test-fleet
 description: Autonomous test-coverage backlog sweep — enumerate under-covered areas and uncovered critical paths, confirm a ranked target batch with the human once, fan out worktree-isolated subagents that author tests via the real tdd then test-craft flow, independently verify each by added behavior-asserting tests plus a coverage delta plus all-OS CI, and hand back a batch of green test PRs for human review. Never auto-merges.
-argument-hint: '[--path <path>] [----concurrency <--concurrency>] [----report-only <--report-only>] [----dry-run <--dry-run>]'
+argument-hint: '[--path <path>] [--concurrency <concurrency>] [--report-only <report-only>] [--dry-run <dry-run>]'
 allowed-tools:
   - Bash
   - Read

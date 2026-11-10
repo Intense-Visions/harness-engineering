@@ -1,7 +1,7 @@
 ---
 name: harness:bug-fleet
 description: Proactive undiscovered-bug hunt across the standing codebase — rank the codebase into disjoint risk-ordered areas by composing the existing detection analyses, confirm the batch once, fan out worktree-isolated subagents that each run the real per-area hunt (review machinery, adversarial refutation, a tdd-authored reproducing test, tracker cross-check, classification, debugging-driven fix), independently verify every item by pipeline-provenance artifact plus a re-run reproducing test at the pinned base SHA plus all-OS CI, and hand back a tiered batch of fix PRs and filed issues. No reproduction, no bug. Never auto-merges.
-argument-hint: '[--path <path>] [----concurrency <--concurrency>] [----report-only <--report-only>] [----dry-run <--dry-run>] [----file-only <--file-only>]'
+argument-hint: '[--path <path>] [--concurrency <concurrency>] [--report-only <report-only>] [--dry-run <dry-run>] [--file-only <file-only>]'
 allowed-tools:
   - Bash
   - Read

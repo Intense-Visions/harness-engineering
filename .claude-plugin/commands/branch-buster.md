@@ -1,7 +1,7 @@
 ---
 name: harness:branch-buster
 description: Sync a branch from its base with interactive conflict resolution, run the project's exact CI gate set locally, delegate review to harness-code-review, then classify every finding by ORIGIN (introduced by this branch vs pre-existing on the base) into a dated report and auto-fix only the in-scope ones after one approval
-argument-hint: '[--path <path>] [--base <base>] [----report-only <--report-only>] [----no-sync <--no-sync>] [----scope <--scope>] [----depth <--depth>] [----fast <--fast>] [----thorough <--thorough>] [----no-mechanical <--no-mechanical>] [----comment <--comment>]'
+argument-hint: '[--path <path>] [--base <base>] [--report-only <report-only>] [--no-sync <no-sync>] [--scope <scope>] [--depth <depth>] [--fast <fast>] [--thorough <thorough>] [--no-mechanical <no-mechanical>] [--comment <comment>]'
 allowed-tools:
   - Bash
   - Read
