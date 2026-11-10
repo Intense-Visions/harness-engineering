@@ -1,3 +1,10 @@
+---
+type: business_concept
+domain: orchestrator
+tags: [backends, ssh, remote-host, dispatch, isolation, hermes-phase-5]
+phase: hermes-phase-5
+---
+
 # SSH agent dispatch backend
 
 **Phase:** Hermes Phase 5 — Dispatch Hardening

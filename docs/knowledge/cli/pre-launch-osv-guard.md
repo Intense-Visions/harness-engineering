@@ -1,3 +1,10 @@
+---
+type: business_process
+domain: cli
+tags: [security, supply-chain, osv, malware, mcp, mcp-guard, hermes-phase-2]
+phase: hermes-phase-2
+---
+
 # Pre-launch OSV malware guard
 
 **Phase:** Hermes Phase 2 — Custom Maintenance Jobs
