@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/burn/tests'
-sourceHash: '2ccdcad3ef4e4fb09de88e0303160aad953f74f5105facf2a7f83d74bd7e685a'
+sourceHash: 'e3e8d8f8a494a4e541fd218ebaf67bd7e0c8cced9afb4d9d6a7bc5a4f6d60368'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -19,6 +19,7 @@ members:
     'pr-linkage.test.ts',
     'provenance.test.ts',
     'robustness.test.ts',
+    'run-process-stdin.test.ts',
     'scan-attribution.test.ts',
     'scan.test.ts',
     'statusline.test.ts',
@@ -37,10 +38,13 @@ export DEFAULT_WEEK
 export PACKAGE_ROOT
 export agentLine
 export daysAgo
+export guardChildStdin
 export hoursAgo
+export isClosedPipeError
 export makeHud
 export minutesAgo
 export runBin
+export runProcess
 export transcriptLine
 export utcIsoWeekday
 ```
@@ -63,12 +67,13 @@ import { buildSummary } from '../src/summary'
 import { BurnConfig, ScanInfo, Summary, UsageRecord } from '../src/types'
 import { human, units } from '../src/units'
 import { safeZone, weekBounds } from '../src/window'
-import { BIN, DEFAULT_WEEK, Hud, agentLine, daysAgo, hoursAgo, makeHud, minutesAgo, runBin, transcriptLine, utcIsoWeekday } from './helpers'
+import { BIN, DEFAULT_WEEK, Hud, agentLine, daysAgo, guardChildStdin, hoursAgo, makeHud, minutesAgo, runBin, runProcess, transcriptLine, utcIsoWeekday } from './helpers'
 import { spawn } from 'node:child_process'
 import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import { isBuiltin } from 'node:module'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
+import { PassThrough, Writable } from 'node:stream'
 import { fileURLToPath } from 'node:url'
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 ```
