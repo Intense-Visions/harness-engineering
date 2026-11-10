@@ -84,9 +84,18 @@ export class AuditLogger {
     this.queue = this.queue.then(() => this.writeLine(line)).catch(() => undefined);
   }
 
-  /** Wait for queued writes to drain. Test-only; not called on the hot path. */
+  /**
+   * Wait for queued writes to drain, including any enqueued while waiting
+   * (e.g. a response `finish` handler firing during shutdown). Never rejects.
+   * Not called on the hot path; owners of the log's directory call it before
+   * removing that directory so no write outlives it (#2265).
+   */
   async flush(): Promise<void> {
-    await this.queue;
+    let pending: Promise<void>;
+    do {
+      pending = this.queue;
+      await pending;
+    } while (pending !== this.queue);
   }
 
   private async writeLine(line: string): Promise<void> {

@@ -56,8 +56,12 @@ describe('Phase 1 auth middleware', () => {
       );
     });
   });
-  afterEach(() => {
-    (server as unknown as { httpServer: http.Server }).httpServer.close();
+  afterEach(async () => {
+    await new Promise<void>((resolve) => {
+      (server as unknown as { httpServer: http.Server }).httpServer.close(() => resolve());
+    });
+    // Drain the fire-and-forget audit write before its directory goes (#2265).
+    await server.flushAudit();
     rmSync(dir, { recursive: true, force: true });
   });
 
