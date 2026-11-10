@@ -1,0 +1,21 @@
+{
+  "issues": [2329],
+  "route": "bug",
+  "stages": ["debugging"],
+  "reproducingTest": "packages/core/tests/constraints/circular-deps-chain.test.ts",
+  "reproducingTests": [
+    "packages/core/tests/constraints/circular-deps-chain.test.ts",
+    "packages/cli/tests/commands/check-deps-cycle-chain.test.ts"
+  ],
+  "assumptions": [
+    "The structured `cycle` field on check-deps circularDeps stays ABSOLUTE (unchanged contract); only the human/JSON `message` becomes repo-relative, carried on a new `message` field like layerViolations already has.",
+    "Correcting the cycle array changes the arch `circular-deps` violation id (it hashes the chain) for any existing cycle once; this repo's baseline has zero circular-deps ids so nothing here moves.",
+    "Out of scope: for an SCC with branching edges, Tarjan discovery order is not always a real import walk (consecutive pairs may lack an edge). Linear 2- and 3-file cycles, the reported case, are real walks."
+  ],
+  "rootCause": "detectCircularDeps (packages/core/src/constraints/circular-deps.ts) closed each cycle with `reversed[reversed.length - 1]` - the LAST node - instead of `reversed[0]`, so the data array itself was `[b, a, a]` (a fake self-edge). check-deps then joined the absolute paths verbatim into the message while `file` was already posix-relative.",
+  "reproduction": {
+    "before": "core chain test 2 failed | 1 passed (3); cli chain test 2 failed (2)",
+    "after": "core chain test 3 passed (3); cli chain test 2 passed (2)"
+  },
+  "closingKeyword": "Refs #2329"
+}

@@ -252,7 +252,10 @@ describe('detect_entropy tool', () => {
         autoFix: true,
       });
       expect(mockCreateFixes).toHaveBeenCalled();
-      expect(mockApplyFixes).toHaveBeenCalled();
+      // #2294: backups must be rooted on the analysed project, not process.cwd().
+      expect(mockApplyFixes).toHaveBeenCalledWith(expect.any(Array), {
+        projectRoot: '/tmp/project',
+      });
       const data = JSON.parse(result.content[0].text);
       expect(data).toHaveProperty('analysis');
     });

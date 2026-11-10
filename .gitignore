@@ -124,3 +124,6 @@ tmp-plugin-*-agents/
 
 # Local orchestrator state backups (timestamped, disposable) — keep out of git + prettier
 **/.harness/state-backup-*/
+
+# fix-drift / entropy autoFix backups of deleted files (#2294)
+.entropy-backups/
