@@ -8,6 +8,8 @@ import os from 'node:os';
 import fs from 'node:fs';
 import { execSync } from 'node:child_process';
 import { noopExecFile } from '../helpers/noop-exec-file';
+// eslint-disable-next-line import/no-relative-packages -- shared repo-root test helper (#2089)
+import { removeTempDirSafely } from '../../../../tests/helpers/remove-temp-dir';
 
 let tmpDir: string;
 
@@ -121,17 +123,10 @@ describe('Multi-Orchestrator Claim Coordination', () => {
     fs.mkdirSync(path.join(tmpDir, '.harness', 'workspaces'), { recursive: true });
   });
 
-  afterEach(async () => {
-    // On Windows, git worktree processes may hold file locks briefly.
-    // Retry cleanup to avoid EBUSY failures in CI.
-    for (let i = 0; i < 3; i++) {
-      try {
-        fs.rmSync(tmpDir, { recursive: true, force: true });
-        break;
-      } catch {
-        if (i < 2) await new Promise((r) => setTimeout(r, 500));
-      }
-    }
+  afterEach(() => {
+    // On Windows, git worktree processes may hold file locks briefly —
+    // the helper awaits the settle. See tests/helpers/remove-temp-dir.ts.
+    removeTempDirSafely(tmpDir);
   });
 
   // ClaimManager.claimAndVerify has a 2s default verify delay, so each

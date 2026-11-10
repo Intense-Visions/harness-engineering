@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/tests/state'
-sourceHash: '7573b34d89e56ae59cb57475f036f1007128f5bdf23728b7246d97642bc79519'
+sourceHash: 'b92232ea18ba2452b29a06ee7872f7b878939dc7a23ea90ebff6004e54887289'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -39,6 +39,7 @@ members:
 ## Dependency Slice
 
 ```
+import { removeTempDirSafely } from '../../../../tests/helpers/remove-temp-dir'
 import { ensureIdentity, readIdentity } from '../../src/identity/store'
 import { isValidUlid } from '../../src/identity/ulid'
 import { appendFailure, appendLearning, archiveFailures, clearFailuresCache, clearLearningsCache, computeContentHash, extractIndexEntry, loadBudgetedLearnings, loadFailures, loadHandoff, loadIndexEntries, loadRelevantLearnings, normalizeLearningContent, parseFrontmatter, runMechanicalGate, saveHandoff } from '../../src/state'

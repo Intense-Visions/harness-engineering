@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/orchestrator/tests/integration'
-sourceHash: 'ef68ec5e6222189fa1fb9c4b1d94c85e4d24a52315a98fa46cf118a6cc5eab1e'
+sourceHash: '9144d561b2908fa983d72e2cca8b7702af425bee3d94c569b7f0a4258d44d19d'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -33,6 +33,7 @@ members:
 ## Dependency Slice
 
 ```
+import { removeTempDirSafely } from '../../../../tests/helpers/remove-temp-dir'
 import { AdaptiveRouter } from '../../src/agent/adaptive-router'
 import { BackendRouter } from '../../src/agent/backend-router'
 import { MockBackend } from '../../src/agent/backends/mock'

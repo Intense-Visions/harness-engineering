@@ -12,6 +12,8 @@ import { spawnSync } from 'node:child_process';
 import { existsSync, mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
+// eslint-disable-next-line import/no-relative-packages -- shared repo-root test helper (#2089)
+import { removeTempDirSafely } from '../../../../tests/helpers/remove-temp-dir';
 
 // The built CLI entrypoint (turbo builds it before `test:coverage`). When absent
 // (someone ran the test without building), skip rather than fail — this is a
@@ -59,15 +61,10 @@ describe.skipIf(!HAS_BIN)('harness comprehend — E2E smoke (static, no LLM)', (
   afterAll(() => {
     // Windows: a just-exited `harness comprehend` subprocess (spawned by
     // comprehend() via spawnSync) — and the `git` child used to scaffold this
-    // repo — can briefly retain handles on files under `proj`, so a plain
-    // recursive rmSync intermittently throws EBUSY / ENOTEMPTY / EPERM and
-    // reds the whole suite from teardown after every assertion has passed.
-    // `force` does NOT cover this: it suppresses "path does not exist", not
-    // "path is locked". `force` + `maxRetries`/`retryDelay` makes Node retry
-    // until the OS releases the handles ("await the settle"), removing the
-    // teardown-race nondeterminism rather than hiding it. A no-op on POSIX,
-    // where handles are released synchronously on exit. See #2089.
-    if (proj) rmSync(proj, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+    // repo — can briefly retain handles on files under `proj` and red the whole
+    // suite from teardown after every assertion has passed (#2089). The helper
+    // awaits the settle. See tests/helpers/remove-temp-dir.ts.
+    removeTempDirSafely(proj);
   });
 
   it('compiles a static-only unit with valid provenance + interface contract', () => {

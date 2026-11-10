@@ -9,6 +9,8 @@ import { checkTaint } from '@harness-engineering/core';
 import type { WorkflowConfig, Issue } from '@harness-engineering/types';
 import { Ok } from '@harness-engineering/types';
 import { noopExecFile } from '../helpers/noop-exec-file';
+// eslint-disable-next-line import/no-relative-packages -- shared repo-root test helper (#2089)
+import { removeTempDirSafely } from '../../../../tests/helpers/remove-temp-dir';
 
 describe('Orchestrator Sentinel Integration', () => {
   let tmpDir: string;
@@ -88,16 +90,9 @@ describe('Orchestrator Sentinel Integration', () => {
     if (orchestrator) {
       await orchestrator.stop();
     }
-    // On Windows, git worktree processes may hold file locks briefly after stop.
-    // Retry cleanup to avoid EBUSY failures in CI.
-    for (let i = 0; i < 3; i++) {
-      try {
-        fs.rmSync(tmpDir, { recursive: true, force: true });
-        break;
-      } catch {
-        if (i < 2) await new Promise((r) => setTimeout(r, 500));
-      }
-    }
+    // On Windows, git worktree processes may hold file locks briefly after stop —
+    // the helper awaits the settle. See tests/helpers/remove-temp-dir.ts.
+    removeTempDirSafely(tmpDir);
   });
 
   it('aborts dispatch when workspace has high-severity CLAUDE.md', async () => {
