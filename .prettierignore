@@ -58,6 +58,7 @@ packages/core/tests/fixtures/code-nav/syntax-error.ts
 .changeset/codex-test-windows-skip-no-release.md
 .changeset/core-test-quality-2006-1746-no-release.md
 .changeset/dependabot-alert-cleanup-no-release.md
+.changeset/burn-tests-week-reset-window-no-release.md
 
 # Local orchestrator state backups (disposable)
 **/.harness/state-backup-*/
