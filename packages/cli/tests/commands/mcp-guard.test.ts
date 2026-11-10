@@ -155,6 +155,18 @@ describe('runMcpGuardCheck', () => {
     expect(fetched).toBe(0);
   });
 
+  // V8's JSON.parse messages quote a source snippet around the error, and
+  // .mcp.json `env` blocks hold secrets: the reason must never echo it.
+  it.each([
+    '{"mcpServers":{"x":{"command":"npx","args":["a"],"env":{"TOKEN": SENTINEL-sk-test-123}}}}',
+    '{"mcpServers":{"x":{"command":"npx","args":["a"],"env":{"TOKEN":"sk-test-SENTINEL123"},}}}',
+  ])('never echoes .mcp.json content in the abstain reason (%#)', async (body) => {
+    await fs.promises.writeFile(path.join(cwd, '.mcp.json'), body, 'utf-8');
+    const result = await runMcpGuardCheck({ cwd });
+    expect(JSON.stringify(result)).not.toContain('SENTINEL');
+    expect(result.abstained?.reason).toMatch(/could not be parsed \(SyntaxError/);
+  });
+
   it.each(['null', '[]', '"a string"', '42'])(
     'abstains when .mcp.json top level is not an object (%s)',
     async (body) => {

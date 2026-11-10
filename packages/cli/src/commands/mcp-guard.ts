@@ -130,8 +130,7 @@ export async function runMcpGuardCheck(options: GuardCheckOptions = {}): Promise
   try {
     parsed = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
   } catch (err) {
-    const detail = err instanceof Error ? err.message : String(err);
-    return abstain(`${configPath} exists but could not be parsed (${detail})`);
+    return abstain(`${configPath} exists but could not be parsed (${describeParseError(err)})`);
   }
   if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) {
     return abstain(`${configPath} exists but its top level is not a JSON object`);
@@ -173,6 +172,21 @@ export async function runMcpGuardCheck(options: GuardCheckOptions = {}): Promise
     if (result.malicious.length > 0) ok = false;
   }
   return { ok, checked };
+}
+
+/**
+ * Describe a JSON.parse failure WITHOUT echoing the input. V8 messages quote a
+ * snippet of the source around the error, and `.mcp.json` `env` blocks hold
+ * secrets, so only the error name and a numeric location are kept.
+ */
+function describeParseError(err: unknown): string {
+  const name = err instanceof Error ? err.name : 'Error';
+  const message = err instanceof Error ? err.message : '';
+  const lineCol = /line (\d+) column (\d+)/.exec(message);
+  if (lineCol) return `${name} at line ${lineCol[1]} column ${lineCol[2]}`;
+  const position = /position (\d+)/.exec(message);
+  if (position) return `${name} at position ${position[1]}`;
+  return name;
 }
 
 function abstain(reason: string): GuardCheckResult {
