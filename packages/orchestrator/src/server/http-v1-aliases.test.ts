@@ -98,6 +98,8 @@ describe('v1 alias coverage + Deprecation header', () => {
     await new Promise<void>((resolve) => {
       (server as unknown as { httpServer: http.Server }).httpServer.close(() => resolve());
     });
+    // Drain the fire-and-forget audit write before its directory goes (#2265).
+    await server.flushAudit();
     safeRmTemp(dir);
     delete process.env['HARNESS_TOKENS_PATH'];
     delete process.env['HARNESS_AUDIT_PATH'];
@@ -182,13 +184,10 @@ describe('v1 bridge primitives — HTTP integration through dispatchAuthedReques
     await new Promise<void>((resolve) => {
       (bridgeServer as unknown as { httpServer: http.Server }).httpServer.close(() => resolve());
     });
-    // Best-effort temp cleanup. The orchestrator's audit writer flushes its
-    // final entry asynchronously (fire-and-forget, not awaitable from the test),
-    // so it can re-create a file between rmSync's directory scan and the rmdir
-    // syscall — surfacing ENOTEMPTY even with retries (observed on Linux tmpfs in
-    // CI). The dir lives under os.tmpdir() and is not part of any assertion, so a
-    // residual-write race must never fail an otherwise-passing test; the OS
-    // reclaims it.
+    // The audit writer appends asynchronously (fire-and-forget); drain it so no
+    // write outlives the directory (#2265). Cleanup stays best-effort: the dir
+    // lives under os.tmpdir() and is not part of any assertion.
+    await bridgeServer.flushAudit();
     safeRmTemp(bridgeDir);
     delete process.env['HARNESS_TOKENS_PATH'];
     delete process.env['HARNESS_AUDIT_PATH'];
