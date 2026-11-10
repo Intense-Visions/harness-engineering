@@ -30,14 +30,21 @@ describe('InteractionQueue event emission', () => {
     rmSync(dir, { recursive: true, force: true });
   });
 
-  it('emits interaction.created on push', async () => {
+  it('emits one interaction.created per push, in push order', async () => {
     const bus = new EventEmitter();
     const events: unknown[] = [];
     bus.on('interaction.created', (e) => events.push(e));
     const q = new InteractionQueue(dir, bus);
+    // Distinct issueIds so the pending-upsert does not collapse the two pushes.
     await q.push(sample);
-    expect(events).toHaveLength(1);
-    expect((events[0] as PendingInteraction).id).toBe('int_test');
+    await q.push({ ...sample, id: 'int_second', issueId: 'iss_second' });
+    expect(
+      events,
+      'each push must emit exactly one interaction.created, in the order pushed'
+    ).toEqual([
+      expect.objectContaining({ id: 'int_test', issueId: 'iss_test', status: 'pending' }),
+      expect.objectContaining({ id: 'int_second', issueId: 'iss_second', status: 'pending' }),
+    ]);
   });
 
   it('emits interaction.resolved on updateStatus("resolved") only', async () => {
@@ -46,20 +53,30 @@ describe('InteractionQueue event emission', () => {
     bus.on('interaction.resolved', (e) => events.push(e));
     const q = new InteractionQueue(dir, bus);
     await q.push(sample);
+
     await q.updateStatus('int_test', 'claimed');
-    expect(events).toHaveLength(0);
+    expect(events, 'updateStatus("claimed") must not emit interaction.resolved').toEqual([]);
+
     await q.updateStatus('int_test', 'resolved');
-    expect(events).toHaveLength(1);
-    const evt = events[0] as { id: string; status: string };
-    expect(evt.id).toBe('int_test');
-    expect(evt.status).toBe('resolved');
+    expect(
+      events,
+      'updateStatus("resolved") emits exactly one interaction.resolved for that interaction'
+    ).toEqual([expect.objectContaining({ id: 'int_test', status: 'resolved' })]);
   });
 
-  it('is a no-op when no emitter is passed (backwards compat)', async () => {
-    const q = new InteractionQueue(dir); // no emitter
+  it('persists the interaction and applies status transitions when constructed without an emitter', async () => {
+    // Arrange: the pre-Phase-2 construction path (no event bus).
+    const q = new InteractionQueue(dir);
+
+    // Act
     await q.push(sample);
     await q.updateStatus('int_test', 'resolved');
-    // No assertions on emission; just verifying no throw.
+
+    // Assert: the optional emitter must not gate the write path.
+    expect(
+      await q.list(),
+      'emitter-less queue must still persist the interaction and apply the status transition'
+    ).toEqual([expect.objectContaining({ id: 'int_test', status: 'resolved' })]);
   });
 
   // Phase 2 review-fix cycle 1 (IMP-1): interaction.created must emit

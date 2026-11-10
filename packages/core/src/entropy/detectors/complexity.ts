@@ -45,6 +45,55 @@ const FUNCTION_PATTERNS = [
   /^\s*(?:export\s+)?(?:const|let|var)\s+(\w+)\s*=\s*(?:async\s+)?(\w+)\s*=>/,
 ];
 
+const OPENING_BRACKETS = new Set(['(', '[', '{', '<']);
+const CLOSING_BRACKETS = new Set([')', ']', '}', '>']);
+const QUOTES = new Set(["'", '"', '`']);
+
+/** Index of the quote that closes the literal opened at `open`, honouring escapes. */
+function skipStringLiteral(text: string, open: number): number {
+  const quote = text[open];
+  let i = open + 1;
+  while (i < text.length && text[i] !== quote) i += text[i] === '\\' ? 2 : 1;
+  return i;
+}
+
+/** How a character moves bracket depth. The `>` of an arrow (`=>`) closes nothing. */
+function bracketDelta(text: string, i: number): number {
+  const ch = text[i]!;
+  if (OPENING_BRACKETS.has(ch)) return 1;
+  if (!CLOSING_BRACKETS.has(ch)) return 0;
+  return ch === '>' && text[i - 1] === '=' ? 0 : -1;
+}
+
+/**
+ * Count the parameters in a captured parameter list.
+ *
+ * A comma separates parameters only at bracket depth 0 and outside a string or
+ * template literal. Commas inside a generic (`Map<string, number>`), a
+ * destructuring pattern (`{ a, b }`), an array default (`[1, 2]`) or a string
+ * default (`'*.{ts,tsx}'`) belong to a single parameter, and a trailing comma
+ * does not add a parameter.
+ */
+function countParameters(paramsStr: string): number {
+  let depth = 0;
+  let count = 0;
+  let segmentHasContent = false;
+
+  for (let i = 0; i < paramsStr.length; i++) {
+    const ch = paramsStr[i]!;
+    if (ch === ',' && depth === 0) {
+      if (segmentHasContent) count++;
+      segmentHasContent = false;
+      continue;
+    }
+    if (QUOTES.has(ch)) i = skipStringLiteral(paramsStr, i);
+    else depth = Math.max(0, depth + bracketDelta(paramsStr, i));
+    if (!/\s/.test(ch)) segmentHasContent = true;
+  }
+
+  return segmentHasContent ? count + 1 : count;
+}
+
 /**
  * Extract function boundaries from source code using regex.
  * Handles function declarations, methods, and arrow functions.
@@ -61,7 +110,7 @@ function extractFunctions(content: string): FunctionInfo[] {
       if (match) {
         const name = match[1] ?? 'anonymous';
         const paramsStr = match[2] || '';
-        const params = paramsStr.trim() === '' ? 0 : paramsStr.split(',').length;
+        const params = countParameters(paramsStr);
 
         // Find the function body by tracking braces
         const endLine = findFunctionEnd(lines, i);

@@ -30,6 +30,14 @@ Event-bus topics the SSE handler subscribes to.
 
 **Exports:** `handleV1JobsMaintenanceRoute`
 
+## packages/orchestrator/src/server/routes/v1/local-models-pool-mutation.ts
+
+[`packages/orchestrator/src/server/routes/v1/local-models-pool-mutation.ts`](/packages/orchestrator/src/server/routes/v1/local-models-pool-mutation.ts)
+
+Operator-initiated LMLM pool mutation routes (`POST /api/v1/local-models/pool/install` and `/pool/remove`), modeled as auto-approved model proposals that reuse the shared approve core; install returns `202` immediately and streams progress on the `local-models:install` topic, while remove is synchronous.
+
+**Exports:** `V1LocalModelsMutationDeps`, `handleV1LocalModelsMutationRoute`
+
 ## packages/orchestrator/src/server/routes/v1/proposals.ts
 
 [`packages/orchestrator/src/server/routes/v1/proposals.ts`](/packages/orchestrator/src/server/routes/v1/proposals.ts)
@@ -58,6 +66,14 @@ Session archive hook bundle.
 
 **Exports:** `BuildArchiveHooksOptions`, `buildArchiveHooks`
 
+## packages/orchestrator/src/sessions/retrospection.ts
+
+[`packages/orchestrator/src/sessions/retrospection.ts`](/packages/orchestrator/src/sessions/retrospection.ts)
+
+Auto-triggered session retrospection: at session archive it asks an `AnalysisProvider` for a grounded retrospective over the archived session and persists each applyable result as an ordinary open `SkillProposal`, never auto-applying anything.
+
+**Exports:** `RETROSPECTION_PROPOSED_BY`, `RetrospectionContext`, `RetrospectionResult`, `isRetrospectionEnabled`, `retrospectArchivedSession`
+
 ## packages/orchestrator/src/sessions/search-index.ts
 
 [`packages/orchestrator/src/sessions/search-index.ts`](/packages/orchestrator/src/sessions/search-index.ts)
@@ -81,6 +97,30 @@ LLM-driven session summary.
 Phase 4 / S2: thin wrapper that exposes the orchestrator's small `IssueTrackerClient` interface (Phase 1, 6 methods) over the wide `RoadmapTrackerClient` interface (Phase 2, ~12 methods) from `@harness-engineering/core`.
 
 **Exports:** `GitHubIssuesIssueTrackerAdapter`
+
+## packages/orchestrator/src/workflow/comprehension-blast-radius.ts
+
+[`packages/orchestrator/src/workflow/comprehension-blast-radius.ts`](/packages/orchestrator/src/workflow/comprehension-blast-radius.ts)
+
+Graph-backed 1-hop blast-radius resolver (#1690) for the dispatch pre-warm: given a module directory, returns the de-duplicated, sorted module directories of its direct importers from a `GraphStore`, yielding `[]` instead of throwing on a hostile or empty graph.
+
+**Exports:** `GraphBlastRadiusResolver`, `createGraphBlastRadiusResolver`
+
+## packages/orchestrator/src/workflow/comprehension-prewarm.ts
+
+[`packages/orchestrator/src/workflow/comprehension-prewarm.ts`](/packages/orchestrator/src/workflow/comprehension-prewarm.ts)
+
+Dispatch pre-warm (SF4.1): derives seed modules from paths referenced by the issue (plus graph direct deps when available) and serves their committed comprehension units through the LLM-free `serveGate`, skipping missing or stale units and never throwing, so an empty result leaves the stage prompt unchanged.
+
+**Exports:** `LeafPrewarmDeps`, `LeafPrewarmResult`, `deriveSeedModules`, `resolveLeafPrewarm`
+
+## packages/orchestrator/src/workflow/doc-coverage-gate.ts
+
+[`packages/orchestrator/src/workflow/doc-coverage-gate.ts`](/packages/orchestrator/src/workflow/doc-coverage-gate.ts)
+
+Doc-coverage gate for local/codex changes: blocks a change that ADDS a public source file under a package `src/` (excluding tests, type declarations, barrels, and config) whose basename is not mentioned anywhere under `docs/`, and formats the block reason for the retry prompt.
+
+**Exports:** `needsDoc`, `docToken`, `findUndocumentedAdditions`, `formatUndocumentedReason`
 
 ## packages/orchestrator/src/workflow/skill-catalog.ts
 
