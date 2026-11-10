@@ -12,7 +12,7 @@ Unified Knowledge Graph for AI-powered context assembly. Ingests code, git histo
 └──────────────────┬───────────────────────────────┘
                    ▼
 ┌──────────────────────────────────────────────────┐
-│               Store (LokiJS)                     │
+│               Store (in-memory)                  │
 │         GraphStore · VectorStore                 │
 │         Serializer (save/load)                   │
 └──────────┬──────────────────┬────────────────────┘
@@ -75,7 +75,7 @@ const results = fusion.search('authentication handler', 10);
 
 | Class                          | Description                                                                          |
 | ------------------------------ | ------------------------------------------------------------------------------------ |
-| `GraphStore`                   | In-memory graph backed by LokiJS with indexed node/edge collections                  |
+| `GraphStore`                   | In-memory graph over plain `Map`s with indexed from/to/type edge lookups             |
 | `VectorStore`                  | In-memory brute-force cosine similarity vector store                                 |
 | `ContextQL`                    | BFS-based graph traversal engine with type filtering and observability pruning       |
 | `project` (function)           | Projection utility to select specific fields from query results                      |

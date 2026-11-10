@@ -29,19 +29,15 @@ export default defineConfig({
           name: 'client',
           include: ['tests/client/**/*.test.ts', 'tests/client/**/*.test.tsx'],
           environment: 'jsdom',
+          // Load-tolerant RTL wait budget for every waitFor/findBy (#2339).
+          setupFiles: ['./tests/client/setup.ts'],
         },
       },
     ],
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'json-summary'],
-      exclude: [
-        'node_modules/',
-        'tests/',
-        '**/*.test.ts',
-        '**/*.spec.ts',
-        'src/client/**',
-      ],
+      exclude: ['node_modules/', 'tests/', '**/*.test.ts', '**/*.spec.ts', 'src/client/**'],
     },
   },
 });

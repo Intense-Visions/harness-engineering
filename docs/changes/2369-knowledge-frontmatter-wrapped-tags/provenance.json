@@ -1,0 +1,18 @@
+{
+  "issues": [2369],
+  "route": "bug",
+  "stages": ["debugging"],
+  "reproducingTest": "packages/graph/tests/ingest/BusinessKnowledgeIngestor.wrapped-lists.test.ts",
+  "assumptions": [
+    "packages/graph has no direct YAML parser dependency (only types, minimatch, zod), and dependencies may not be added (open PR #2378 touches package.json), so the fix folds continuation lines in place rather than switching to a YAML parser.",
+    "Block-sequence lists (`key:` then `- item` lines) share the root cause and occur on origin/main (docs/solutions/.../halflife-constant-must-use-base-2-decay.md), so they are fixed in the same change.",
+    "parseStrategyMarkdown uses the same line regex but has no list support and STRATEGY.md frontmatter carries no list keys, so it is left unchanged.",
+    "Single-line values, including single-line `[a, b]` lists, are parsed exactly as before; the trailing-comma strip applies only to a flow list that was folded from several lines."
+  ],
+  "rootCause": "parseFrontmatter and parseSolutionFrontmatter read frontmatter one physical line at a time with /^(\\w+):\\s*(.+)$/. A list prettier wrapped leaves `tags:` with no value (no match, key skipped) or opens `[` without closing it on that line (stored as a broken string); continuation lines never match. Block-sequence lists were dropped the same way. Knowledge nodes lost metadata.tags silently; solution docs, where tags is required, were rejected.",
+  "reproduction": {
+    "before": "wrapped-lists test: 6 failed | 1 passed (7). Real corpus via built dist: 55 nodes with tags, 0 solution nodes; doctor-hardening and gateway-api tags undefined.",
+    "after": "wrapped-lists test: 7 passed (7). Real corpus: 65 nodes with tags (+8 knowledge, +2 solutions), 2 solution nodes. Full graph suite: 87 files / 1057 tests passed."
+  },
+  "closingKeyword": "Refs #2369"
+}

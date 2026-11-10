@@ -192,4 +192,49 @@ describe('block-no-verify', () => {
       expect(exitCode).toBe(2);
     });
   });
+  // Issue #2147: the `-n` check used to run past shell separators (so a `-n`
+  // owned by a later command blocked a legitimate commit) and only matched a
+  // standalone `-n` (so aggregated short options like `-nm` slipped through).
+  describe('git commit -n parsing (issue #2147)', () => {
+    const cases: Array<{ command: string; expected: 0 | 2 }> = [
+      // The seven cases from the issue table.
+      { command: 'git commit -m "msg"; echo -n done', expected: 0 },
+      { command: 'git commit -m x && git log --oneline | head -n 3', expected: 0 },
+      { command: 'git commit -m x; grep -n TODO README.md', expected: 0 },
+      { command: 'git commit -n -m x', expected: 2 },
+      { command: 'git commit --no-verify -m x', expected: 2 },
+      { command: 'git commit -m x', expected: 0 },
+      { command: 'git commit -nm x', expected: 2 },
+      // Aggregated clusters containing n.
+      { command: 'git commit -an -m x', expected: 2 },
+      { command: 'git commit -anm x', expected: 2 },
+      { command: 'git commit -m "msg" -an', expected: 2 },
+      // A value-taking option consumes the rest of its cluster: message "n".
+      { command: 'git commit -mn x', expected: 0 },
+      { command: 'git commit -am fix', expected: 0 },
+      // -n in a non-commit git subcommand is not a hook bypass.
+      { command: 'git log -n 3 && git commit -m x', expected: 0 },
+      { command: 'git log -n 3', expected: 0 },
+      // A later commit in the chain that does bypass is still caught.
+      { command: 'git commit -m x && git commit -n -m y', expected: 2 },
+      { command: 'git commit -m x || git commit -nm y', expected: 2 },
+      // Global git options before the subcommand, and line continuations.
+      { command: 'git -C /tmp/repo commit -n -m x', expected: 2 },
+      { command: 'git commit -m x \\\n  -n', expected: 2 },
+      // Redirections are not separators.
+      { command: 'git commit -m x 2>&1 -n', expected: 2 },
+      { command: 'git commit -m x &>/dev/null -n', expected: 2 },
+      { command: 'git commit -m x &>>log -n', expected: 2 },
+      { command: 'git commit -m x &>/dev/null; echo -n done', expected: 0 },
+      // A background `&` is still a separator.
+      { command: 'git commit -m x & echo -n done', expected: 0 },
+      // Everything after `--` is a pathspec.
+      { command: 'git commit -m x -- -n', expected: 0 },
+    ];
+
+    it.each(cases)('$command -> exit $expected', ({ command, expected }) => {
+      const input = JSON.stringify({ tool_name: 'Bash', tool_input: { command } });
+      expect(runHook(input).exitCode).toBe(expected);
+    });
+  });
 });

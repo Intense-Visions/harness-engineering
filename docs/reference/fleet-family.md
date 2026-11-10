@@ -107,6 +107,64 @@ Otherwise — the base moved past the tested SHA since the green was gathered �
 
 **Mechanically checkable.** `classifyBaseFreshness` (exported from `@harness-engineering/core`) turns the tested base SHA, current base tip, whether the base advanced since the test, and whether strict protection is enforced into a `{ trust: 'verified' | 'degraded', fresh, reason }` verdict — so the clause is enforceable in code, not only prose. The caller derives its inputs from `gh pr view --json` + `gh api` / branch protection.
 
+## `CONFLICTING` on driver-managed paths (GitHub cannot run merge drivers)
+
+This repo routes its high-churn generated artifacts through custom merge drivers declared in `.gitattributes`:
+
+| Paths                                                                                                                                                                      | Driver                |
+| -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------- |
+| `.harness/**/baselines.json`, `**/.harness/**/baselines.json`, `coverage-baselines.json`, `benchmark-baselines.json`, `.harness/security/timeline.json`, `docs/roadmap.md` | `merge=ours`          |
+| `.harness/comprehension/**/_module.md`                                                                                                                                     | `merge=comprehension` |
+
+A driver exists only in a local checkout's git config: `git config merge.ours.driver true` and `git config merge.comprehension.driver 'harness comprehension-merge-driver %O %A %B %P'`, both set by `harness init`. GitHub's server-side merge has neither. A PR whose only conflicts are on these paths therefore shows `mergeable: CONFLICTING` / `mergeStateStatus: DIRTY` on GitHub while merging cleanly locally. In one `pr-fleet` run, all four `CONFLICTING` PRs in the queue merged locally with zero unresolved paths (#2042). On the PR page alone, that false red looks exactly like a real conflict.
+
+**Telling a false red from a real conflict.** First confirm both drivers are registered in the checkout (`git config --get merge.ours.driver`, `git config --get merge.comprehension.driver`). Without them a local merge reproduces GitHub's false red, so the check would test nothing. Then, on the PR branch, run `git merge --no-commit origin/main` and list unresolved paths with `git diff --name-only --diff-filter=U`. An empty list means the red was the driver gap. Any listed path is a real conflict and goes back through the per-item pipeline.
+
+**Heal.** Commit the merge-forward and push it. GitHub recomputes mergeability against the new head. For comprehension shards, the pre-commit hook and `harness comprehend --check` reconcile any residual source-staleness the merge leaves.
+
+**The `merge=ours` trap: check before you heal.** `ours` keeps the **branch's** copy, which is not neutral when the branch's copy is the older one. Merging `origin/main` into a stale baseline-refresh branch keeps that branch's baseline and discards main's newer one. #2042 caught a merge-forward that would have reverted `.harness/arch/baselines.json` from a `13:16:06` refresh back to `13:07:32`. Before pushing a merge-forward, run `git diff origin/main -- <path>` on every `merge=ours` path it touched. If the branch's copy is older than main's, regenerate it on the merged tree, as the `.gitattributes` comment directs ("Regenerate after merge instead"), and do not keep it. A PR whose whole content is a stale baseline refresh is closed and regenerated on current `main`, not healed.
+
+## Verification hazards (probes that report success without running)
+
+Invariant 3 says a self-report is never verification. The hazards below are the cases where the _independent_ check is itself a self-report in disguise: it exits 0 and agrees with the claim whether or not the thing it checks happened. The common rule is to pair every check with a control that shows it can fail. A probe that has never been seen to fail has not been shown to test anything.
+
+### An identity probe over two missing exports (#2062)
+
+To prove a deprecated alias still resolves to its replacement, the obvious probe compares the two imports:
+
+```js
+const m = await import('<pkg entry>');
+console.log('identical=', m.oldName === m.newName); // true when BOTH are undefined
+```
+
+`undefined === undefined` is `true`. If neither name is exported, the probe certifies the very surface it failed to find. Both barrel shapes in this repo can produce that `undefined`. `packages/core/src/index.ts` is generated, and part of it comes from the curated `SELECTIVE_EXPORTS` allowlist in `scripts/generate-core-barrel.mjs`, so an export added without an allowlist edit is silently absent. `packages/orchestrator/src/core/index.ts` is a hand-maintained named export list. Run against `packages/core/dist/index.mjs` with two names that do not exist, the probe prints `identical= true`. The existence check below prints `exists= false`.
+
+- **Assert existence before identity.** Both names must pass `typeof m.name === 'function'` (or `'name' in m`) before `===` is consulted. Identity alone is never sufficient.
+- **Show the probe failing.** Remove the export locally, confirm the probe goes red, then restore it.
+- **Probe the built artifact,** through a real runtime import via the package's `exports` map, not a source-path import that may resolve through a barrel no consumer sees.
+
+### An in-place edit that matched nothing (#2061)
+
+macOS ships BSD `sed`, which does not support GNU's `\b` word-boundary escape. A substitution using it matches nothing, changes no bytes and **exits 0**. BSD `grep` _does_ honour `\b`, so re-grepping for the search pattern finds it and looks like confirmation. Reproduced on macOS 27 (`/usr/bin/sed`, `grep (BSD grep, GNU compatible) 2.6.0-FreeBSD`):
+
+```
+$ printf 'foo bar\n' > t.txt
+$ sed -i '' 's/\bfoo\b/REPLACED/g' t.txt; echo "exit=$?"
+exit=0
+$ cat t.txt
+foo bar
+$ grep -c '\bfoo\b' t.txt
+1
+$ grep -c REPLACED t.txt
+0
+```
+
+Every signal a lane would normally read says the edit succeeded, and the file is unchanged. `perl -pi -e 's/\bfoo\b/REPLACED/g' t.txt` on the same file produces `REPLACED bar`.
+
+- **Verify an edit by its post-condition, never by re-matching the search pattern.** Check that `git diff --stat` is non-empty, or grep for the **replacement** text.
+- **An edit command that exits 0 with an empty diff has failed.** Do not record it as applied.
+- **Script word-boundary codemods** with `perl -pi -e` or a short `node` script, whose `\b` behaves the same on every platform, rather than `sed`.
+
 ## The concurrency governor (machine-storm cap)
 
 Cap concurrent subagents at **2 (default), max ~3**. Beyond roughly three concurrent build/assist agents the compound load produces flaky failures indistinguishable from real ones; a stormed batch is slower once re-runs are counted. Never raise the cap to "go faster."
@@ -197,7 +255,30 @@ The canonical statement is **ADR 0098** — members reference it rather than res
 
 A worktree created under a `.claude/`-nested path breaks the local pre-push `check-docs` gate (it self-excludes and scans zero files). Subagents push via the GitHub API or from a non-`.claude` throwaway worktree. **Never `--no-verify`** — bypassing the gate defeats the verification the fleet depends on.
 
+**Hooks in a linked worktree inherit `GIT_DIR` but not `GIT_WORK_TREE` (#1841).** When you push from a linked worktree, git runs the hook with `GIT_DIR` set to the absolute per-worktree git dir (`<primary>/.git/worktrees/<name>`) and leaves `GIT_WORK_TREE` unset. Git then treats the **current directory** as the top of the working tree. From the worktree root that is correct by accident, so most hooks never notice. It breaks when the hook, or any tool it spawns, runs git from a different directory. From a subdirectory, `git rev-parse --show-toplevel` returns that subdirectory, and `git status` reports every tracked file as deleted and every file in the subdirectory as untracked. `git -C <another checkout>` compares that checkout's files against this worktree's index. Reproduced with git 2.54 and a `pre-push` hook in a linked worktree containing a `sub/` directory:
+
+```
+GIT_DIR=main/.git/worktrees/linked GIT_WORK_TREE=<unset>
+cd sub:                      toplevel=linked/sub status=[ D root.txt  D sub/f  D sub/g  D sub/h ?? f ?? g ?? h ]
+export GIT_WORK_TREE; cd sub: toplevel=linked     status=[]
+unset GIT_DIR; cd sub:       toplevel=linked     status=[]
+```
+
+The same hook, pushed from the primary checkout, saw no `GIT_DIR` and reported clean from every directory. The failure therefore appears only in worktree fan-outs, where it reads as a real gate failure full of phantom modifications. That is exactly the pressure that makes `--no-verify` tempting. Fix it in the hook. Run `unset GIT_DIR GIT_INDEX_FILE GIT_WORK_TREE GIT_COMMON_DIR` near the top so every child re-discovers its repo from its own cwd, as this repo's `.husky/pre-push` already does. Alternatively, export `GIT_WORK_TREE="$(git rev-parse --show-toplevel)"` before changing directory. A lane that meets phantom modifications from a gate whose hook lacks this guard parks and reports the cause. It does not bypass the gate.
+
 ## Gated lanes and the unchanged-worktree auto-clean
+
+A gated lane runs in **two legs**. That is the only way a member's CONFIRM can both be presented verbatim and be batched with the rest of its wave into one human round (#1309):
+
+```
+leg 1: SELECT → CONFIRM surface → stop            (read-only; the conductor collects the surface)
+       conductor batches the wave's surfaces → the human answers once
+leg 2: resume with the relayed answer → DISPATCH → VERIFY → terminal act
+```
+
+**A resumed lane never answers its own CONFIRM.** A member's CONFIRM is written for a human who is present, and it carries recommended defaults. A resumed lane must not take those defaults in place of the human. Only the human's answer, as relayed by the conductor, counts. If the relayed answer is missing or does not cover a fork, the lane parks and reports the unanswered fork. The conductor states this rule in the resume message as an explicit instruction rather than leaving the lane to infer it.
+
+Leg 1 stops with a clean tree, which is what exposes it to the auto-clean below.
 
 A host-managed worktree is not guaranteed to outlive a stop. Claude Code's Agent tool, dispatched with `isolation: "worktree"`, **auto-cleans the worktree when the agent stops with no changes**: the directory, its `git worktree list` entry and its branch all go. A lane that parks at its member's CONFIRM gate hits that exactly, because it parks right after a read-only SELECT with a clean tree. When the conductor resumes it with the human's answer, the lane runs in the **parent's cwd, which is the shared checkout**, and nothing tells it that its isolation lapsed. This was reproduced deterministically (spawn, run read-only commands, stop, resume: the toplevel is now the shared checkout on `main`), and it cost eight lanes their worktrees across three conducted runs before anyone named the cause.
 
