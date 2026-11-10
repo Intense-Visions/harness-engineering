@@ -52,13 +52,19 @@ describe('loadGraphStore', () => {
     expect(mockLoad).toHaveBeenCalledTimes(1);
   });
 
-  it('cached call completes in <5ms', async () => {
+  // A cache hit's cost is "one stat, no construction, no load". This used to be
+  // asserted as elapsed < 5ms, which measures runner load rather than whether the
+  // cache hit (#2046). Assert the work the hit performs instead.
+  it('cached call does only a stat — no GraphStore construction or load', async () => {
     mockStat.mockResolvedValue({ mtimeMs: 1000 });
     await loadGraphStore('/project');
-    const start = performance.now();
+    const statsBefore = mockStat.mock.calls.length;
+    const loadsBefore = mockLoad.mock.calls.length;
+    const constructedBefore = constructorCallCount;
     await loadGraphStore('/project');
-    const elapsed = performance.now() - start;
-    expect(elapsed).toBeLessThan(5);
+    expect(mockStat.mock.calls.length - statsBefore).toBe(1);
+    expect(mockLoad.mock.calls.length - loadsBefore).toBe(0);
+    expect(constructorCallCount - constructedBefore).toBe(0);
   });
 
   it('reloads when mtime changes', async () => {

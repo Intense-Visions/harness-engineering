@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'tests/scripts'
-sourceHash: '20e173e6d524eeb0087d34eb2b78c392436062eb0ca6ace2639a4bee6663bce8'
+sourceHash: '59bc16f457632b0ec9bed916a4a6c86ff74d6914dba92372eed41fefcda1d341'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -20,6 +20,7 @@ members:
     'plugin-pin-sync.test.mjs',
     'prepush-tag-only.test.mjs',
     'release-publish.test.mjs',
+    'test-runner-split.test.mjs',
     'workflow-merge-race.test.mjs',
     'workflow-token-permissions.test.mjs',
   ]

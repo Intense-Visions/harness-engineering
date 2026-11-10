@@ -371,8 +371,11 @@ function withoutFileAsts(snapshot: EntropyReport['snapshot']): unknown {
  * — on a project whose post-AST-strip payload still exceeds the budget the
  * prefix is cut mid-value. `compact: false` remains the way to get the whole
  * report.
+ *
+ * Shared with `check_performance` (performance.ts), which returns the same
+ * `EntropyReport` shape and hit the same truncated-mid-AST defect (#2364).
  */
-function toJsonSafeReport(report: EntropyReport): unknown {
+export function toJsonSafeReport(report: EntropyReport): unknown {
   const { snapshot, summary, analysisErrors, duplication, ...rest } = report;
   return {
     summary,

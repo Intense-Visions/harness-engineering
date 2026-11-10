@@ -1,5 +1,40 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { fanOutReview } from '../../src/review/fan-out';
+
+// Dispatch-order probe: each domain agent is wrapped (behaviour unchanged) to
+// record when it is invoked into a shared log. See the parallel-dispatch test.
+const dispatchLog = vi.hoisted(() => [] as string[]);
+vi.mock('../../src/review/agents/compliance-agent', async (orig) => {
+  const m = await orig<typeof import('../../src/review/agents/compliance-agent')>();
+  return {
+    ...m,
+    runComplianceAgent: (b: never) => (dispatchLog.push('compliance'), m.runComplianceAgent(b)),
+  };
+});
+vi.mock('../../src/review/agents/bug-agent', async (orig) => {
+  const m = await orig<typeof import('../../src/review/agents/bug-agent')>();
+  return {
+    ...m,
+    runBugDetectionAgent: (b: never) => (dispatchLog.push('bug'), m.runBugDetectionAgent(b)),
+  };
+});
+vi.mock('../../src/review/agents/security-agent', async (orig) => {
+  const m = await orig<typeof import('../../src/review/agents/security-agent')>();
+  return {
+    ...m,
+    runSecurityAgent: (b: never) => (dispatchLog.push('security'), m.runSecurityAgent(b)),
+  };
+});
+vi.mock('../../src/review/agents/architecture-agent', async (orig) => {
+  const m = await orig<typeof import('../../src/review/agents/architecture-agent')>();
+  return {
+    ...m,
+    runArchitectureAgent: (b: never) => (
+      dispatchLog.push('architecture'),
+      m.runArchitectureAgent(b)
+    ),
+  };
+});
 import type { ContextBundle } from '../../src/review/types';
 
 function makeBundles(): ContextBundle[] {
@@ -72,13 +107,22 @@ describe('fanOutReview()', () => {
     expect(secResult.findings[0]!.severity).toBe('critical');
   });
 
-  it('dispatches agents in parallel (not sequential)', async () => {
-    const start = Date.now();
-    await fanOutReview({ bundles: makeBundles() });
-    const elapsed = Date.now() - start;
-    // All 4 agents should complete in parallel, not sequentially
-    // Each agent is nearly instant for small inputs, so total should be < 100ms
-    expect(elapsed).toBeLessThan(500);
+  // "Parallel" here means fan-out dispatches EVERY agent before awaiting ANY of
+  // them (Promise.all over eagerly-started runs), so agents overlap once they do
+  // async work. This used to be asserted as a wall-clock budget (elapsed < 500ms),
+  // which says nothing about overlap and fails on a loaded runner (#2046).
+  // Assert the dispatch order instead: a microtask queued before fan-out can only
+  // run once fan-out first yields. If all four agents were started eagerly, all
+  // four are logged before the tick; a sequential `for … await` loop would yield
+  // after the first agent, interleaving the tick between dispatches.
+  it('dispatches all agents before awaiting any (parallel, not sequential)', async () => {
+    dispatchLog.length = 0;
+    queueMicrotask(() => dispatchLog.push('tick'));
+    const pending = fanOutReview({ bundles: makeBundles() });
+    // Nothing is awaited yet: every agent must already have been dispatched.
+    expect(dispatchLog).toEqual(['compliance', 'bug', 'security', 'architecture']);
+    await pending;
+    expect(dispatchLog).toEqual(['compliance', 'bug', 'security', 'architecture', 'tick']);
   });
 
   it('handles empty bundles array gracefully', async () => {

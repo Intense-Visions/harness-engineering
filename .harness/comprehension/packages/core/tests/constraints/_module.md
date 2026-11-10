@@ -1,13 +1,14 @@
 ---
 schemaVersion: 1
 module: 'packages/core/tests/constraints'
-sourceHash: '051a4ad37bf75cfc644c53cfb7188342455af44217c77d407a3ce505f47c72e3'
+sourceHash: 'd773d45e5458693456bee9564abf844ce32ba68542606a7921c38a772828e701'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
 members:
   [
     'boundary.test.ts',
+    'circular-deps-chain.test.ts',
     'circular-deps.test.ts',
     'dependencies.test.ts',
     'graph-integration.test.ts',
