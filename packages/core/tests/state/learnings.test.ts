@@ -873,19 +873,30 @@ describe('appendLearning performance', () => {
     fs.rmSync(tmpDir, { recursive: true });
   });
 
-  it('should append 100 unique learnings in under 8 seconds', async () => {
-    const start = performance.now();
+  // Regression guard on per-append dedup overhead, NOT a latency SLA. The old
+  // form summed 100 appends against one 8s wall-clock budget, so a burst of I/O
+  // contention on a shared runner (turbo concurrency, Windows fs) spent the whole
+  // budget with no code change — it had already been raised 4s -> 8s once (#2046).
+  // Assert on the MEDIAN per-append cost instead, at the same 80ms-per-append
+  // budget the 8s total implied: a contention burst inflates a minority of
+  // samples and cannot move the median, while a real per-append regression
+  // (e.g. dedup that rescans or rebuilds on every append, a lock that always
+  // backs off) moves every sample. Local median is ~2-3ms.
+  it('appends 100 unique learnings with bounded per-append cost (median under 80ms)', async () => {
+    const perAppend: number[] = [];
     for (let i = 0; i < 100; i++) {
+      const start = performance.now();
       await appendLearning(tmpDir, `Unique learning number ${i}`, 'skill-perf', 'success');
+      perAppend.push(performance.now() - start);
     }
-    const elapsed = performance.now() - start;
-    // 8s budget accommodates CI + concurrent turbo runs where I/O contention is high
-    expect(elapsed).toBeLessThan(8000);
+    perAppend.sort((a, b) => a - b);
+    const median = perAppend[50]!;
 
     // Verify all 100 were written
     const content = fs.readFileSync(path.join(tmpDir, '.harness', 'learnings.md'), 'utf-8');
     const matches = content.match(/Unique learning number/g);
     expect(matches?.length).toBe(100);
+    expect(median).toBeLessThan(80);
   });
 });
 
