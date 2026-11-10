@@ -1,3 +1,5 @@
+import { skipDirGlobs } from '@harness-engineering/graph';
+
 /**
  * Which files a security scan is allowed to read — one definition, three callers.
  *
@@ -17,7 +19,10 @@
  * Source extensions the rule engine can meaningfully scan.
  *
  * `mjs`/`cjs`/`mts`/`cts` are the ESM/CJS-explicit variants: same JavaScript and
- * TypeScript the rules already understand, different file suffix. `sh` is
+ * TypeScript the rules already understand, different file suffix. `rs` (Rust) is
+ * covered by the language-agnostic rules — secrets above all — which read `.rs`
+ * text as-is; its absence made every Rust project's gate abstain on zero files
+ * (#2274). `sh` is
  * deliberately absent — {@link SECURITY_SCAN_GLOB} covers code the AST/regex rules
  * target, and shell scanning is handled by its own command.
  */
@@ -34,15 +39,22 @@ export const SECURITY_SCAN_EXTENSIONS = [
   'py',
   'java',
   'rb',
+  'rs',
 ] as const;
 
 /** Brace-expansion glob over {@link SECURITY_SCAN_EXTENSIONS}. */
 export const SECURITY_SCAN_GLOB = `**/*.{${SECURITY_SCAN_EXTENSIONS.join(',')}}`;
 
-/** Default ignores for a security scan when the project config sets none. */
-export const SECURITY_SCAN_DEFAULT_IGNORE = [
-  '**/node_modules/**',
-  '**/dist/**',
+/**
+ * Default ignores for a security scan when the project config sets none.
+ *
+ * Built from the shared walker skip-list so build and vendor output (Cargo
+ * `target/`, `vendor/`, `build/`, ...) stays out of every scanner. The dashboard
+ * used a hand-written four-entry list and scanned generated Rust and Java code
+ * the CLI gates skip (#2391); this is now the only copy.
+ */
+export const SECURITY_SCAN_DEFAULT_IGNORE: readonly string[] = [
+  ...skipDirGlobs(),
   '**/*.test.ts',
   '**/fixtures/**',
-] as const;
+];

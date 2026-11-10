@@ -1,4 +1,4 @@
-import { skipDirGlobs } from '@harness-engineering/graph';
+import { SECURITY_SCAN_DEFAULT_IGNORE } from './scan-targets';
 
 export type SecurityCategory =
   | 'secrets'
@@ -78,5 +78,5 @@ export const DEFAULT_SECURITY_CONFIG: SecurityConfig = {
   enabled: true,
   strict: false,
   rules: {},
-  exclude: [...skipDirGlobs(), '**/*.test.ts', '**/fixtures/**'],
+  exclude: [...SECURITY_SCAN_DEFAULT_IGNORE],
 };
