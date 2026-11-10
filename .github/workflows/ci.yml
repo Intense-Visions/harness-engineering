@@ -346,6 +346,21 @@ jobs:
           # when this merge moved no baseline. Only PRs older than 30 minutes are touched,
           # so a concurrent run's PR that is mid-retry (and transiently DIRTY) is left alone.
           # Best-effort: a failed close is a warning, never a red main.
+          # GitHub computes mergeability LAZILY: after main moves, a PR's mergeable_state
+          # reads `unknown` until something asks, and the first ask only STARTS the
+          # computation. A single read therefore sees `unknown` for every PR a merge just
+          # invalidated, which is exactly the set the sweep exists for (the first live
+          # sweep closed 0 of 14 dirty PRs this way). Re-read while it is still unknown.
+          mergeable_state_of() {
+            local state
+            for _ in 1 2 3 4 5 6; do
+              state=$(gh api "repos/$GITHUB_REPOSITORY/pulls/$1" --jq '.mergeable_state' || echo unknown)
+              [ "$state" != "unknown" ] && break
+              sleep 5
+            done
+            echo "$state"
+          }
+
           sweep_stale_refresh_prs() {
             local cutoff n state
             cutoff=$(date -u -d '30 minutes ago' +%Y-%m-%dT%H:%M:%SZ)
@@ -353,7 +368,7 @@ jobs:
               --jq ".[] | select((.headRefName | startswith(\"chore/refresh-baselines-\")) and .createdAt < \"$cutoff\") | .number" |
               while read -r n; do
                 [ -n "$n" ] || continue
-                state=$(gh api "repos/$GITHUB_REPOSITORY/pulls/$n" --jq '.mergeable_state' || echo unknown)
+                state=$(mergeable_state_of "$n")
                 if [ "$state" = "dirty" ]; then
                   echo "::notice::Closing stale baseline refresh #$n: it conflicts with main, so its queued auto-merge can never fire."
                   gh pr close "$n" --delete-branch \

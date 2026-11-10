@@ -463,3 +463,29 @@ test('refresh-baselines: stale DIRTY refresh PRs are swept on every main merge',
     'the sweep must run before the no-change exit, so the backlog drains on every merge'
   );
 });
+
+test('refresh-baselines: the sweep re-reads mergeability while GitHub reports it unknown', () => {
+  // GitHub computes mergeability lazily: right after main moves, every PR it
+  // invalidated reads `unknown`, and the first read only starts the computation.
+  // The first live sweep read once, saw `unknown` for all 14 dirty refresh PRs,
+  // and closed none of them.
+  const helper = refreshBaselinesStep.match(/mergeable_state_of\(\) \{([\s\S]*?)\n {10}\}/);
+  assert.ok(helper, 'mergeable_state_of must be a named function with a readable body');
+  assert.match(
+    helper[1],
+    /for _ in [^\n]*; do[\s\S]*\[ "\$state" != "unknown" \] && break[\s\S]*sleep/,
+    'an `unknown` mergeable_state must be re-read after a pause, not taken as final'
+  );
+  const sweepBody = refreshBaselinesStep.match(/sweep_stale_refresh_prs\(\) \{([\s\S]*?)\n {10}\}/);
+  assert.ok(sweepBody, 'sweep_stale_refresh_prs must still exist');
+  assert.match(
+    sweepBody[1],
+    /state=\$\(mergeable_state_of "\$n"\)/,
+    'the sweep must read mergeability through the re-reading helper'
+  );
+  assert.doesNotMatch(
+    sweepBody[1],
+    /gh api [^\n]*mergeable_state/,
+    'the sweep must not take a single raw mergeable_state read'
+  );
+});
