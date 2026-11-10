@@ -1,6 +1,7 @@
 import { Ok } from '@harness-engineering/core';
 import { resultToMcpResponse } from '../utils/result-adapter.js';
 import { sanitizePath } from '../utils/sanitize-path.js';
+import { toJsonSafeReport } from './entropy.js';
 import { findConfigFile, loadConfig } from '../../config/loader.js';
 
 export const checkPerformanceDefinition = {
@@ -68,7 +69,13 @@ export async function handleCheckPerformance(input: { path: string; type?: strin
     }
 
     const result = await analyzer.analyze(graphOptions);
-    return resultToMcpResponse(result);
+    // The raw `EntropyReport` leads with `snapshot` (full per-file ASTs); the
+    // compaction middleware prefix-truncates, so the delivered text was cut
+    // mid-AST and unparseable (#2364). Same JSON-safe projection as
+    // `detect_entropy`: actionable keys first, ASTs stripped.
+    return result.ok
+      ? resultToMcpResponse(Ok(toJsonSafeReport(result.value)))
+      : resultToMcpResponse(result);
   } catch (error) {
     return {
       content: [
