@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/tests/e2e/support'
-sourceHash: 'd754897f9c8250e8994e15d4e292941a9bc62a0f2c766da3a7db67935a232934'
+sourceHash: '41e33138c5d4f47e5381b75f45cd625d6c9f9514127fba7ca3578970340ee72e'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
