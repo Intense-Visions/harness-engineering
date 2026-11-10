@@ -110,12 +110,11 @@ function strongConnectImpl(
  * Tarjan's Strongly Connected Components algorithm
  * Returns all SCCs with more than one node (cycles)
  */
-function tarjanSCC(graph: DependencyGraph): string[][] {
+function tarjanSCC(graph: DependencyGraph, adjacency: Map<string, string[]>): string[][] {
   const nodeMap = new Map<string, TarjanNode>();
   const stack: string[] = [];
   const sccs: string[][] = [];
   const indexRef = { value: 0 };
-  const adjacency = buildAdjacencyList(graph);
 
   for (const node of graph.nodes) {
     if (!nodeMap.has(node)) {
@@ -127,27 +126,59 @@ function tarjanSCC(graph: DependencyGraph): string[][] {
 }
 
 /**
+ * Render an SCC as a real closed import walk (#2390).
+ *
+ * Tarjan's pop order is only a walk when the SCC is a single elementary cycle;
+ * with branching edges consecutive nodes may have no import between them. So
+ * instead emit the shortest cycle through the SCC's lowest-sorted node, found
+ * by BFS restricted to the SCC with neighbours visited in sorted order. The
+ * result is canonical: it starts at the lowest-sorted node and does not depend
+ * on node or edge order, which keeps the arch violation id that hashes it stable.
+ */
+function canonicalCycle(scc: string[], adjacency: Map<string, string[]>): string[] {
+  const members = new Set(scc);
+  const start = [...scc].sort()[0]!;
+  const parent = new Map<string, string>();
+  const queue: string[] = [start];
+  const sortedNeighbors = (n: string): string[] =>
+    [...new Set(adjacency.get(n) ?? [])].filter((m) => members.has(m)).sort();
+
+  for (let head = 0; head < queue.length; head++) {
+    const node = queue[head]!;
+    for (const next of sortedNeighbors(node)) {
+      if (next === start) {
+        const path: string[] = [node];
+        for (let p = parent.get(node); p !== undefined; p = parent.get(p)) path.push(p);
+        path.reverse();
+        return [...path, start];
+      }
+      if (!parent.has(next)) {
+        parent.set(next, node);
+        queue.push(next);
+      }
+    }
+  }
+  // Unreachable for a cyclic SCC: every member reaches every other.
+  return [start, start];
+}
+
+/**
  * Detect circular dependencies in a dependency graph
  */
 export function detectCircularDeps(
   graph: DependencyGraph
 ): Result<CircularDepsResult, ConstraintError> {
-  const sccs = tarjanSCC(graph);
+  const adjacency = buildAdjacencyList(graph);
+  const sccs = tarjanSCC(graph, adjacency);
 
-  const cycles: CircularDependency[] = sccs.map((scc) => {
-    // Tarjan pops an SCC in reverse discovery order; reversing restores the
-    // order the DFS walked it. Close the chain on its FIRST node so it reads
-    // `b -> a -> b`. Closing on the last node (`b -> a -> a`) invented a
-    // self-edge that does not exist and hid which import closes the loop (#2329).
-    const ordered = [...scc].reverse();
-    const firstNode = ordered[0]!;
-    const cycle: string[] = [...ordered, firstNode];
-    return {
-      cycle,
-      severity: 'error' as const,
-      size: scc.length,
-    };
-  });
+  const cycles: CircularDependency[] = sccs.map((scc) => ({
+    // A real closed walk that closes on its first node (#2329, #2390). For a
+    // branching SCC it is one elementary cycle; `size` still counts every
+    // file the SCC entangles.
+    cycle: canonicalCycle(scc, adjacency),
+    severity: 'error' as const,
+    size: scc.length,
+  }));
 
   const largestCycle = cycles.reduce((max, c) => Math.max(max, c.size), 0);
 

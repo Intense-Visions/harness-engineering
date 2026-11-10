@@ -67,9 +67,9 @@ describe('runOutcomeEvalCi — diff/test-output/commit seams', () => {
     expect(calls[0]).toMatchObject({ diff: 'DIFF-TEXT', commit: 'SHA123', testOutput: '' });
   });
 
-  it('degrades the diff to empty string when resolveRaw throws', async () => {
+  it('abstains (evaluator NOT run) instead of grading an empty diff when resolveRaw throws', async () => {
     const { evaluator, calls } = capturingEvaluator(verdict());
-    await runOutcomeEvalCi({
+    const res = await runOutcomeEvalCi({
       cwd: '/repo',
       diffRange: 'main...HEAD',
       specPath,
@@ -81,7 +81,10 @@ describe('runOutcomeEvalCi — diff/test-output/commit seams', () => {
       makeEvaluator: async () => evaluator,
       store: undefined, // store undefined → persist skipped entirely
     });
-    expect(calls[0].diff).toBe('');
+    expect(calls).toHaveLength(0);
+    expect(res.verdict.verdict).toBe('INCONCLUSIVE');
+    expect(res.verdict.rationale).toContain('git diff boom');
+    expect(res.exitCode).toBe(0);
   });
 
   it('degrades test output to empty string when the reader throws', async () => {

@@ -95,6 +95,49 @@ const COMMIT_SHORT_OPTS_WITH_VALUE = new Set(['F', 'm', 'c', 'C', 't', 'U']);
 // Short options whose value is OPTIONAL and only ever attached (`-uno`, `-Skey`).
 const COMMIT_SHORT_OPTS_WITH_ATTACHED_VALUE = new Set(['S', 'u']);
 
+// git subcommands that run client-side hooks — where relocating the hooks
+// directory with `-c core.hooksPath=...` amounts to skipping them.
+const HOOK_RUNNING_SUBCOMMANDS = new Set([
+  'am',
+  'checkout',
+  'cherry-pick',
+  'commit',
+  'merge',
+  'pull',
+  'push',
+  'rebase',
+  'revert',
+  'switch',
+  'worktree',
+]);
+
+// True for the git executable however it is spelled: `git`, `\git` (alias
+// bypass), `/usr/bin/git`, `git.exe`, `C:\Git\cmd\git.exe`.
+function isGitCommandToken(token) {
+  const base = token.replace(/^\\+/, '').split(/[\\/]/).pop().toLowerCase();
+  return base === 'git' || base === 'git.exe';
+}
+
+// git accepts any unambiguous prefix of a long option, so `--no-verif` and
+// `--no-v` are `--no-verify`. Treat every prefix from `--no-v` up as the flag.
+function isNoVerifyAbbreviation(token) {
+  // harness-ignore SEC-AGT-006: definitional — this IS the detection of the bypass flag
+  return token.length >= '--no-v'.length && '--no-verify'.startsWith(token);
+}
+
+// True when the global options between `git` and its subcommand point
+// core.hooksPath somewhere else (`-c core.hooksPath=...`, `--config-env ...`).
+function globalOptsRelocateHooks(globalOpts) {
+  for (let i = 0; i < globalOpts.length; i++) {
+    const tok = globalOpts[i];
+    let assignment;
+    if (tok === '-c' || tok === '--config-env') assignment = globalOpts[i + 1];
+    else if (tok.startsWith('--config-env=')) assignment = tok.slice('--config-env='.length);
+    if (assignment && /^core\.hookspath=/i.test(assignment)) return true;
+  }
+  return false;
+}
+
 function isShortOptionCluster(token) {
   return /^-[A-Za-z]/.test(token);
 }
@@ -147,11 +190,20 @@ function containsHookBypass(command) {
   for (const segment of joined.split(SEGMENT_SEPARATOR)) {
     const tokens = segment.trim().split(/\s+/).filter(Boolean);
     for (let g = 0; g < tokens.length; g++) {
-      if (tokens[g] !== 'git' && !tokens[g].endsWith('/git')) continue;
+      if (!isGitCommandToken(tokens[g])) continue;
       const sub = findGitSubcommand(tokens, g);
-      if (sub !== -1 && tokens[sub] === 'commit' && commitArgsBypassHooks(tokens.slice(sub + 1))) {
+      if (sub === -1) continue;
+      const args = tokens.slice(sub + 1);
+      const dashDash = args.indexOf('--');
+      const options = dashDash === -1 ? args : args.slice(0, dashDash);
+      if (options.some(isNoVerifyAbbreviation)) return true;
+      if (
+        HOOK_RUNNING_SUBCOMMANDS.has(tokens[sub]) &&
+        globalOptsRelocateHooks(tokens.slice(g + 1, sub))
+      ) {
         return true;
       }
+      if (tokens[sub] === 'commit' && commitArgsBypassHooks(args)) return true;
     }
   }
   return false;
