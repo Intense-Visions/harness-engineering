@@ -8,10 +8,21 @@
 // detection from format-check.js; only the exit-code policy differs.
 
 import process from 'node:process';
-import { runFormatCheck, readHookInput } from './format-check.js';
+import { runFormatCheck, parseHookInput } from './format-check.js';
+import { readHookStdin } from './read-hook-stdin.js';
 
 function main() {
-  const input = readHookInput(0);
+  const stdin = readHookStdin();
+  if (!stdin.ok) {
+    // Warn-only, but say so: an unreadable stdin is not "no input" (#2337).
+    process.stderr.write(
+      `[quality-warner] could not read hook input (${stdin.error.code ?? stdin.error.message}); ` +
+        `the edit was not checked.\n`
+    );
+    process.exit(0);
+  }
+
+  const input = parseHookInput(stdin.data);
   if (!input) {
     process.exit(0);
   }

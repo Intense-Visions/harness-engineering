@@ -120,7 +120,41 @@ describe('runFormatCheck', () => {
       mockExec.mockImplementation(() => {
         throw execError({ code: 'ENOENT' });
       });
-      expect(runFormatCheck(goInput, cwd).status).toBe('infra-error');
+      const result = runFormatCheck(goInput, cwd);
+      expect(result.status).toBe('infra-error');
+      expect(result.reason).toBe('not-installed');
     });
+
+    // #2337: under load a gofmt timeout looked identical to "not installed",
+    // so the strict gate failed open on a file with a genuine violation.
+    it('classifies a gofmt kill-by-timeout as reason "timeout"', () => {
+      mockExec.mockImplementation(() => {
+        throw execError({ code: 'ETIMEDOUT', signal: 'SIGTERM' });
+      });
+      const result = runFormatCheck(goInput, cwd);
+      expect(result.status).toBe('infra-error');
+      expect(result.reason).toBe('timeout');
+    });
+
+    it('honours HARNESS_FORMAT_CHECK_TIMEOUT_MS for the spawn timeout', () => {
+      vi.stubEnv('HARNESS_FORMAT_CHECK_TIMEOUT_MS', '1234');
+      try {
+        mockExec.mockReturnValue('');
+        runFormatCheck(goInput, cwd);
+        expect(mockExec.mock.calls[0]?.[2]).toMatchObject({ timeout: 1234 });
+      } finally {
+        vi.unstubAllEnvs();
+      }
+    });
+  });
+
+  it('classifies a detector kill-by-timeout as reason "timeout"', () => {
+    writeFileSync(join(cwd, '.prettierrc'), '{}');
+    mockExec.mockImplementation(() => {
+      throw execError({ code: 'ETIMEDOUT', signal: 'SIGTERM' });
+    });
+    const result = runFormatCheck({ tool_input: { file_path: 'a.ts' } }, cwd);
+    expect(result.status).toBe('infra-error');
+    expect(result.reason).toBe('timeout');
   });
 });

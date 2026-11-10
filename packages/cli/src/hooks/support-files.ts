@@ -11,9 +11,9 @@
  * ADR: "installer ships hook support files".
  */
 export const HOOK_SUPPORT_FILES: Record<string, string[]> = {
-  // Hooks that share format-check.js.
-  'quality-warner': ['format-check.js'],
-  'strict-quality-gate': ['format-check.js'],
+  // Hooks that share format-check.js (and, since #2337, read-hook-stdin.js).
+  'quality-warner': ['format-check.js', 'read-hook-stdin.js'],
+  'strict-quality-gate': ['format-check.js', 'read-hook-stdin.js'],
   // Hooks that share read-hook-stdin.js (extracted in #994). Every hook that
   // `import`s a sibling must be listed here, or the installer ships a hook whose
   // static import fails at load with ERR_MODULE_NOT_FOUND in the adopter — a
