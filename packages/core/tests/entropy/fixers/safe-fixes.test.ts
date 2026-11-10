@@ -431,7 +431,10 @@ describe('applyFixes backup location (#2294)', () => {
 
   it('writes the default backup under the project root, not process.cwd()', async () => {
     // Sanity: the fixture must live outside cwd, or the two locations coincide.
-    expect(path.relative(process.cwd(), projectRoot).startsWith('..')).toBe(true);
+    // On Windows the tmpdir can sit on a different drive from cwd, where
+    // path.relative returns an absolute path rather than a '..'-prefixed one.
+    const fromCwd = path.relative(process.cwd(), projectRoot);
+    expect(fromCwd.startsWith('..') || path.isAbsolute(fromCwd)).toBe(true);
     const target = path.join(projectRoot, 'src', 'dead.ts');
     await mkdir(path.dirname(target), { recursive: true });
     await writeFile(target, 'export const dead = 1;');
