@@ -398,3 +398,68 @@ test('refresh-baselines: the merge is not neutralised and the #531 scope guard s
     'the fail-closed self-approval scope guard (#531) must still run before every approval'
   );
 });
+
+// ---------------------------------------------------------------------------
+// Third defect in the same step: a QUEUED merge was reported as a merge.
+//
+// `gh pr merge --auto` exits 0 when it only QUEUES — which it does on a PR GitHub
+// has not finished computing mergeability for, i.e. almost every just-created
+// refresh PR. The step printed "Merged (or queued)" and exited. When a sibling
+// merge then touched the baselines, the queued PR went DIRTY: GitHub never
+// auto-merges a conflicting PR, the run that could close it had exited, and the
+// close-on-exhaustion path above never ran because no merge call ever FAILED.
+// Fourteen approved, auto-merge-enabled, conflicting refresh PRs piled up in one
+// merge burst. The fix awaits the queued merge and sweeps the stale leftovers.
+
+test('refresh-baselines: a queued auto-merge is awaited, never reported as merged', () => {
+  assert.doesNotMatch(
+    refreshBaselinesStep,
+    /Merged \(or queued\)/,
+    'a queued merge must not be reported as a completed one and exited on'
+  );
+  assert.match(
+    refreshBaselinesStep,
+    /if gh pr merge "\$PR_URL" --auto --squash --delete-branch; then\n\s*settled=0\n\s*await_merge \|\| settled=\$\?/,
+    'a successful `--auto` call must be followed by awaiting the merge it may only have queued'
+  );
+  const awaitBody = refreshBaselinesStep.match(/await_merge\(\) \{([\s\S]*?)\n {10}\}/);
+  assert.ok(awaitBody, 'await_merge must be a named function with a readable body');
+  assert.match(awaitBody[1], /MERGED/, 'await_merge must recognise a completed merge');
+  assert.match(
+    awaitBody[1],
+    /mergeable_state[\s\S]*"dirty"[\s\S]*return 1/,
+    'a queued PR that went DIRTY must route back into the re-derive retry'
+  );
+});
+
+test('refresh-baselines: stale DIRTY refresh PRs are swept on every main merge', () => {
+  const sweepBody = refreshBaselinesStep.match(/sweep_stale_refresh_prs\(\) \{([\s\S]*?)\n {10}\}/);
+  assert.ok(sweepBody, 'sweep_stale_refresh_prs must be a named function with a readable body');
+  assert.match(
+    sweepBody[1],
+    /startswith\(\\"chore\/refresh-baselines-\\"\)/,
+    'the sweep must be scoped to refresh-baselines branches only'
+  );
+  assert.match(
+    sweepBody[1],
+    /if \[ "\$state" = "dirty" \]; then[\s\S]*gh pr close "\$n"/,
+    'only a PR that conflicts with main may be closed — a clean one can still auto-merge'
+  );
+  assert.match(
+    sweepBody[1],
+    /\.createdAt < /,
+    'a fresh PR another run is still retrying must be left alone (age floor)'
+  );
+  assert.match(
+    sweepBody[1],
+    /\|\| echo "::warning::/,
+    'a failed close is best-effort — it must warn, never redden main'
+  );
+  const call = refreshBaselinesStep.indexOf('\n          sweep_stale_refresh_prs\n');
+  const noChangeExit = refreshBaselinesStep.indexOf('No baseline changes to commit.');
+  assert.ok(call !== -1, 'the sweep must actually be invoked, not merely defined');
+  assert.ok(
+    call < noChangeExit,
+    'the sweep must run before the no-change exit, so the backlog drains on every merge'
+  );
+});
