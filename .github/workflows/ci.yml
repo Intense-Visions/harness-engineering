@@ -334,6 +334,36 @@ jobs:
           # an allowance file cannot weaken main on its own — it is inert unless a regression
           # is actually present, and the very next refresh would fold + delete it regardless.
           SCOPE_ALLOW="$BASELINE_FILES .harness/arch/allowances/ packages/cli/.harness/arch/allowances/"
+          # Sweep refresh PRs that a QUEUED auto-merge left behind. `gh pr merge --auto`
+          # returns success when it only QUEUES (GitHub has not computed mergeability yet
+          # on a just-created PR). If another merge touches the baselines before the queued
+          # merge fires, the PR goes DIRTY: GitHub never auto-merges a conflicting PR, and
+          # the run that opened it has long exited, so nothing ever closed it (14 piled up
+          # in one merge burst). A DIRTY refresh PR can never land on its own, and landing
+          # it by hand would REVERT main's newer baselines under the `merge=ours` driver, so
+          # closing it loses nothing: this run (or the next merge) regenerates a fresh one.
+          # Runs on EVERY main merge, before the no-change exit, so the backlog drains even
+          # when this merge moved no baseline. Only PRs older than 30 minutes are touched,
+          # so a concurrent run's PR that is mid-retry (and transiently DIRTY) is left alone.
+          # Best-effort: a failed close is a warning, never a red main.
+          sweep_stale_refresh_prs() {
+            local cutoff n state
+            cutoff=$(date -u -d '30 minutes ago' +%Y-%m-%dT%H:%M:%SZ)
+            gh pr list --state open --base main --limit 100 --json number,headRefName,createdAt \
+              --jq ".[] | select((.headRefName | startswith(\"chore/refresh-baselines-\")) and .createdAt < \"$cutoff\") | .number" |
+              while read -r n; do
+                [ -n "$n" ] || continue
+                state=$(gh api "repos/$GITHUB_REPOSITORY/pulls/$n" --jq '.mergeable_state' || echo unknown)
+                if [ "$state" = "dirty" ]; then
+                  echo "::notice::Closing stale baseline refresh #$n: it conflicts with main, so its queued auto-merge can never fire."
+                  gh pr close "$n" --delete-branch \
+                    --comment "Closing: this baseline refresh conflicts with main, so its queued auto-merge can never fire. Landing it would revert main's newer baselines (\`.harness/**/baselines.json\` uses a \`merge=ours\` driver). A later merge to main regenerated a fresh refresh." \
+                    || echo "::warning::Could not close stale baseline refresh #$n."
+                fi
+              done
+          }
+          sweep_stale_refresh_prs
+
           git add $BASELINE_FILES
           for d in $ALLOWANCE_DIRS; do
             if [ -d "$d" ]; then git add -A "$d"; fi
@@ -437,12 +467,39 @@ jobs:
           # matching the `for attempt in 1 2 3` + re-fetch idiom already used by
           # holiday-confidence-track.yml's "Commit the trend ledger" step. `--auto` is
           # kept so the job still behaves correctly if required checks are added later.
+          # Wait for a QUEUED auto-merge to resolve instead of treating "queued" as done.
+          # Returns 0 once the PR is merged (or closed by someone else), 1 when it went
+          # DIRTY (main moved under it, so re-derive and retry), 2 when it is still queued
+          # and mergeable after the wait (the next run's sweep closes it if it goes stale).
+          await_merge() {
+            local _ state
+            for _ in $(seq 1 12); do
+              state=$(gh pr view "$PR_URL" --json state --jq '.state')
+              case "$state" in MERGED|CLOSED) return 0 ;; esac
+              if [ "$(gh api "repos/$GITHUB_REPOSITORY/pulls/${PR_URL##*/}" --jq '.mergeable_state')" = "dirty" ]; then
+                return 1
+              fi
+              sleep 10
+            done
+            return 2
+          }
+
           for attempt in 1 2 3; do
             if gh pr merge "$PR_URL" --auto --squash --delete-branch; then
-              echo "Merged (or queued) $PR_URL on attempt $attempt."
-              exit 0
+              settled=0
+              await_merge || settled=$?
+              if [ "$settled" = 0 ]; then
+                echo "Merged $PR_URL on attempt $attempt."
+                exit 0
+              fi
+              if [ "$settled" = 2 ]; then
+                echo "::notice::Auto-merge of $PR_URL is still queued; if it goes stale, the next refresh run's sweep closes it."
+                exit 0
+              fi
+              echo "Queued merge of $PR_URL went stale (conflicts with main) on attempt $attempt; re-deriving on the new tip."
+            else
+              echo "Merge attempt $attempt failed — main likely moved; re-deriving on the new tip."
             fi
-            echo "Merge attempt $attempt failed — main likely moved; re-deriving on the new tip."
             sleep 5
             if ! rebuild_branch_on_main; then
               abstain_superseded "latest main already carries these baselines"
