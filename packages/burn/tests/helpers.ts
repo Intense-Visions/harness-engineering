@@ -2,6 +2,7 @@ import { spawn } from 'node:child_process';
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
+import type { Writable } from 'node:stream';
 import { fileURLToPath } from 'node:url';
 
 import { resolvePaths, type BurnPaths } from '../src/config';
@@ -21,15 +22,58 @@ export function runBin(
   env: NodeJS.ProcessEnv,
   stdin = '{}'
 ): Promise<{ stdout: string; stderr: string; code: number | null }> {
+  return runProcess(process.execPath, [BIN, ...args], env, stdin);
+}
+
+/** Spawn `command`, write `stdin` and close it, and settle on the child's `'close'`. */
+export function runProcess(
+  command: string,
+  args: string[],
+  env: NodeJS.ProcessEnv,
+  stdin: string
+): Promise<{ stdout: string; stderr: string; code: number | null }> {
   return new Promise((resolve, reject) => {
-    const child = spawn(process.execPath, [BIN, ...args], { env });
+    const child = spawn(command, args, { env });
     let stdout = '';
     let stderr = '';
     child.stdout.on('data', (d: Buffer) => (stdout += d.toString()));
     child.stderr.on('data', (d: Buffer) => (stderr += d.toString()));
     child.on('error', reject);
     child.on('close', (code) => resolve({ stdout, stderr, code }));
+    guardChildStdin(child.stdin, reject);
     child.stdin.end(stdin);
+  });
+}
+
+/**
+ * Errors a stdin write gets when the child has already closed its end of the
+ * pipe: EPIPE (POSIX), ECONNRESET / EOF (win32 named pipes), or a write landing
+ * after Node destroyed the stream. None of them carries a result of its own —
+ * the child's exit status does. Mirrors the predicate in
+ * `packages/orchestrator/src/agent/backends/child-stdin.ts` (#2298).
+ */
+export function isClosedPipeError(e: NodeJS.ErrnoException): boolean {
+  return (
+    e.code === 'EPIPE' ||
+    e.code === 'ECONNRESET' ||
+    e.code === 'EOF' ||
+    e.code === 'ERR_STREAM_DESTROYED'
+  );
+}
+
+/**
+ * Attach the `'error'` listener a child's stdin MUST have before it is written.
+ *
+ * `scan` and the usage fallback never read stdin, so the child can exit before
+ * the write flushes; the write then fails with a closed-pipe error, and with no
+ * listener that error is an uncaught exception that reds an all-pass run
+ * (#2356). A closed pipe is ignored because `'close'` decides the outcome; any
+ * other stdin error means the child never got its input, so it is forwarded.
+ */
+export function guardChildStdin(stdin: Writable, onOtherError: (e: Error) => void): void {
+  stdin.on('error', (e: NodeJS.ErrnoException) => {
+    if (isClosedPipeError(e)) return;
+    onOtherError(e);
   });
 }
 
