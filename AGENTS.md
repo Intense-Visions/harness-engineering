@@ -97,7 +97,7 @@ harness-engineering/
 │   ├── cli/                  # CLI tool (harness validate, check-deps, skill, state, etc.)
 │   ├── eslint-plugin/        # ESLint rules for constraint enforcement
 │   ├── linter-gen/           # YAML-to-ESLint rule generator
-│   ├── graph/                # Unified Knowledge Graph: LokiJS store, ContextQL queries, code/git/knowledge ingestion, FusionLayer search, 4 external connectors (Jira, Slack, Confluence, CI)
+│   ├── graph/                # Unified Knowledge Graph: in-memory Map-based store, ContextQL queries, code/git/knowledge ingestion, FusionLayer search, 4 external connectors (Jira, Slack, Confluence, CI)
 │   ├── intelligence/         # Intelligence pipeline for spec enrichment, complexity modeling, and pre-execution simulation
 │   ├── stats/                # Statistical instruments (explore/exploit bandit, Bernoulli SPRT) as one namespace per instrument; leaf package depending only on types
 │   ├── dashboard/            # Local web dashboard for project health and roadmap visualization
@@ -876,7 +876,7 @@ Beyond the core Result, Config, and ValidationError types:
 
 ### Unified Knowledge Graph
 
-The `packages/graph` package provides a graph-based context system that unifies code structure, organizational knowledge, and external data into a single queryable model. It powers context assembly, entropy detection, constraint enforcement, and skill execution across the entire toolkit. Key components: LokiJS graph store, ContextQL query engine, FusionLayer (keyword + semantic search), code/git/knowledge ingestion pipelines, CascadeSimulator (probabilistic failure propagation via `compute_blast_radius` MCP tool), and 4 external connectors (Jira, Slack, Confluence, CI).
+The `packages/graph` package provides a graph-based context system that unifies code structure, organizational knowledge, and external data into a single queryable model. It powers context assembly, entropy detection, constraint enforcement, and skill execution across the entire toolkit. Key components: in-memory graph store (`GraphStore`, persisted to `.harness/graph/` by `Serializer`), ContextQL query engine, FusionLayer (keyword + semantic search), code/git/knowledge ingestion pipelines, CascadeSimulator (probabilistic failure propagation via `compute_blast_radius` MCP tool), and 4 external connectors (Jira, Slack, Confluence, CI).
 
 ### Integration Phase
 

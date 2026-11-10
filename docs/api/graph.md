@@ -93,7 +93,7 @@ Metadata about the graph itself (node/edge counts, last updated, schema version)
 
 ### `GraphStore`
 
-In-memory graph store backed by LokiJS. Supports adding, querying, and removing nodes and edges.
+In-memory graph store over plain `Map`s with `from`/`to`/`type` edge indexes; `save()`/`load()` persist it via `Serializer`. Supports adding, querying, and removing nodes and edges.
 
 **Query types:** `NodeQuery`, `EdgeQuery`
 
