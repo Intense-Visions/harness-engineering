@@ -69,11 +69,91 @@ function stripStringsAndComments(cmd) {
   return s;
 }
 
+// Shell command separators: `;`, `&&`, `||`, `|`, `|&`, a background `&`
+// (but not the `&` of a redirection such as `2>&1`, `&>file` or `&>>file`),
+// newlines, subshell parens and backticks. A flag in one segment never belongs
+// to another. A redirection is NOT a separator: in `git commit &>/dev/null -n`
+// the `-n` is still an argument to git.
+const SEGMENT_SEPARATOR = /&&|\|\||\|&?|;|(?<![<>])&(?!>)|\n|[()`]/;
+
+// git global options (before the subcommand) that take a separate value.
+const GIT_GLOBAL_OPTS_WITH_VALUE = new Set([
+  '-C',
+  '-c',
+  '--git-dir',
+  '--work-tree',
+  '--namespace',
+  '--super-prefix',
+  '--config-env',
+  '--exec-path',
+]);
+
+// `git commit` short options that REQUIRE a value: the rest of the cluster is
+// the value, or the next argument when the option ends the cluster
+// (`-mn` is message "n", `-m x` is message "x").
+const COMMIT_SHORT_OPTS_WITH_VALUE = new Set(['F', 'm', 'c', 'C', 't', 'U']);
+// Short options whose value is OPTIONAL and only ever attached (`-uno`, `-Skey`).
+const COMMIT_SHORT_OPTS_WITH_ATTACHED_VALUE = new Set(['S', 'u']);
+
+function isShortOptionCluster(token) {
+  return /^-[A-Za-z]/.test(token);
+}
+
+// Index of the git subcommand following the `git` token at `gitIndex`, or -1.
+function findGitSubcommand(tokens, gitIndex) {
+  let i = gitIndex + 1;
+  while (i < tokens.length) {
+    const tok = tokens[i];
+    if (!tok.startsWith('-')) return i;
+    if (GIT_GLOBAL_OPTS_WITH_VALUE.has(tok)) i += 2;
+    else i += 1;
+  }
+  return -1;
+}
+
+// True when a `git commit` argument list carries -n, alone or inside an
+// aggregated short-option cluster (`-nm`, `-an`).
+function commitArgsBypassHooks(args) {
+  for (let i = 0; i < args.length; i++) {
+    const tok = args[i];
+    if (tok === '--') return false; // everything after is a pathspec
+    if (!isShortOptionCluster(tok)) continue;
+    const cluster = tok.slice(1);
+    for (let j = 0; j < cluster.length; j++) {
+      const opt = cluster[j];
+      if (opt === 'n') return true;
+      if (COMMIT_SHORT_OPTS_WITH_ATTACHED_VALUE.has(opt)) break;
+      if (COMMIT_SHORT_OPTS_WITH_VALUE.has(opt)) {
+        // The value is the cluster remainder, else the next argument. Never
+        // let an option-looking argument be swallowed as a value: blocking a
+        // literal `-m -n` is the conservative reading.
+        if (j === cluster.length - 1) {
+          const next = args[i + 1];
+          if (next !== undefined && next !== '--' && !isShortOptionCluster(next)) i += 1;
+        }
+        break;
+      }
+    }
+  }
+  return false;
+}
+
 function containsHookBypass(command) {
   const stripped = stripStringsAndComments(command);
   // harness-ignore SEC-AGT-006: definitional — this IS the detection regex for the bypass flag
   if (/(?:^|\s)--no-verify(?=\s|$)/.test(stripped)) return true;
-  if (/\bgit\s+(?:[\w-]+\s+)*?commit\b[^\n]*?(?:^|\s)-n(?=\s|$)/.test(stripped)) return true;
+
+  const joined = stripped.replace(/\\\r?\n/g, ' '); // line continuations
+  for (const segment of joined.split(SEGMENT_SEPARATOR)) {
+    const tokens = segment.trim().split(/\s+/).filter(Boolean);
+    for (let g = 0; g < tokens.length; g++) {
+      if (tokens[g] !== 'git' && !tokens[g].endsWith('/git')) continue;
+      const sub = findGitSubcommand(tokens, g);
+      if (sub !== -1 && tokens[sub] === 'commit' && commitArgsBypassHooks(tokens.slice(sub + 1))) {
+        return true;
+      }
+    }
+  }
   return false;
 }
 

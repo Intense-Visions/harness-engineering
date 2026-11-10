@@ -1,7 +1,10 @@
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import {
   SECURITY_SCAN_DEFAULT_IGNORE,
   SECURITY_SCAN_GLOB,
   SecurityScanner,
+  parseSecurityConfig,
 } from '@harness-engineering/core';
 import { glob } from 'glob';
 import type { SecurityResult } from '../../shared/types';
@@ -10,7 +13,20 @@ import type { SecurityResult } from '../../shared/types';
 // packages/core/src/security/scan-targets.ts. Local copies of this glob had already
 // drifted apart and all three omitted .mjs/.cjs.
 const SCAN_PATTERN = SECURITY_SCAN_GLOB;
-const SCAN_IGNORE = [...SECURITY_SCAN_DEFAULT_IGNORE];
+
+/**
+ * The project's `security.exclude`, resolved the way `harness check-security`
+ * resolves it, so the dashboard reads the same files as the CLI gate (#2391).
+ * A missing or unreadable config falls back to the shared default ignores.
+ */
+function resolveScanIgnore(projectPath: string): string[] {
+  try {
+    const raw = JSON.parse(readFileSync(join(projectPath, 'harness.config.json'), 'utf-8'));
+    return parseSecurityConfig(raw?.security ?? {}).exclude ?? [...SECURITY_SCAN_DEFAULT_IGNORE];
+  } catch {
+    return [...SECURITY_SCAN_DEFAULT_IGNORE];
+  }
+}
 
 /**
  * Run a security scan on the project and return a summary.
@@ -24,7 +40,7 @@ export async function gatherSecurity(projectPath: string): Promise<SecurityResul
     const filesToScan = await glob(SCAN_PATTERN, {
       cwd: projectPath,
       absolute: true,
-      ignore: SCAN_IGNORE,
+      ignore: resolveScanIgnore(projectPath),
     });
 
     const result = await scanner.scanFiles(filesToScan);

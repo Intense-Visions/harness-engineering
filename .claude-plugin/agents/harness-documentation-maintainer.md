@@ -569,7 +569,7 @@ Generate markdown sections following AGENTS.md conventions:
   - src/feedback/ — Self-review, peer review, diff analysis
 
 - **packages/graph/** — Knowledge graph: store, query, ingest, search
-  - src/store/ — LokiJS-backed graph store, vector store, serialization
+  - src/store/ — In-memory (Map-based) graph store, vector store, serialization
   - src/query/ — ContextQL traversal, projection
   - src/ingest/ — Code, git, knowledge, connector ingestion
   - src/search/ — FusionLayer hybrid search

@@ -6,7 +6,7 @@ tags: [graph, nodes, edges, schema, knowledge-graph]
 
 # Knowledge Graph Schema
 
-The harness knowledge graph is a unified data structure that connects code, knowledge, and operational data. It is stored in-memory using LokiJS and persisted to `.harness/graph/`.
+The harness knowledge graph is a unified data structure that connects code, knowledge, and operational data. It is held in memory by `GraphStore` (plain `Map`s with `from`/`to`/`type` edge indexes) and persisted by `Serializer` to `.harness/graph/` as `graph.json` (NDJSON — one node or edge record per line) plus `metadata.json` (schema version and node/edge counts).
 
 ## Node Type Categories
 

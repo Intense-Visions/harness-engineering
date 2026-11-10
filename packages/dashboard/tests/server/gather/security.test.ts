@@ -95,3 +95,43 @@ describe('gatherSecurity', () => {
     expect(result.error).toContain('Scanner crashed');
   });
 });
+
+describe('gatherSecurity scan scope (#2391)', () => {
+  beforeEach(() => {
+    vi.resetAllMocks();
+    mockScanFiles.mockResolvedValue({
+      findings: [],
+      scannedFiles: 0,
+      rulesApplied: 0,
+      externalToolsUsed: [],
+      coverage: 'baseline',
+    });
+  });
+
+  it('skips build and vendor dirs like the CLI gate when no config is present', async () => {
+    const { glob } = await import('glob');
+    vi.mocked(glob).mockResolvedValue([]);
+    await gatherSecurity('/nonexistent-project-2391');
+    const ignore = vi.mocked(glob).mock.calls[0]![1]!.ignore as string[];
+    expect(ignore).toEqual(expect.arrayContaining(['**/target/**', '**/vendor/**', '**/build/**']));
+  });
+
+  it("honours the project's security.exclude", async () => {
+    const { mkdtempSync, writeFileSync, rmSync } = await import('node:fs');
+    const { join } = await import('node:path');
+    const { tmpdir } = await import('node:os');
+    const root = mkdtempSync(join(tmpdir(), 'dash-sec-2391-'));
+    try {
+      writeFileSync(
+        join(root, 'harness.config.json'),
+        JSON.stringify({ security: { exclude: ['**/generated/**'] } })
+      );
+      const { glob } = await import('glob');
+      vi.mocked(glob).mockResolvedValue([]);
+      await gatherSecurity(root);
+      expect(vi.mocked(glob).mock.calls[0]![1]!.ignore).toEqual(['**/generated/**']);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+});

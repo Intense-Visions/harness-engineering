@@ -469,15 +469,15 @@ Identifies critical execution paths.
 
 #### Source Files
 
-| File                                                                         | Description                                                     |
-| ---------------------------------------------------------------------------- | --------------------------------------------------------------- |
-| [`state-shared.ts`](../../packages/core/src/state/state-shared.ts)           | Shared utilities for state loading, saving, and path resolution |
-| [`state-persistence.ts`](../../packages/core/src/state/state-persistence.ts) | Persistence layer for durable state storage                     |
-| [`session-summary.ts`](../../packages/core/src/state/session-summary.ts)     | Session summary generation and management                       |
-| [`session-resolver.ts`](../../packages/core/src/state/session-resolver.ts)   | Session directory resolution and index management               |
-| [`mechanical-gate.ts`](../../packages/core/src/state/mechanical-gate.ts)     | Mechanical quality gate implementation                          |
-| [`handoff.ts`](../../packages/core/src/state/handoff.ts)                     | Handoff document save/load                                      |
-| [`failures.ts`](../../packages/core/src/state/failures.ts)                   | Failure recording and archival                                  |
+| File                                                                       | Description                                                                                                             |
+| -------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| [`state-shared.ts`](../../packages/core/src/state/state-shared.ts)         | Shared utilities for state loading, saving, and path resolution                                                         |
+| [`event-sourcing/`](../../packages/core/src/state/event-sourcing/index.ts) | Persistence layer for durable state storage: append-only event log + derived snapshot (replaced `state-persistence.ts`) |
+| [`session-summary.ts`](../../packages/core/src/state/session-summary.ts)   | Session summary generation and management                                                                               |
+| [`session-resolver.ts`](../../packages/core/src/state/session-resolver.ts) | Session directory resolution and index management                                                                       |
+| [`mechanical-gate.ts`](../../packages/core/src/state/mechanical-gate.ts)   | Mechanical quality gate implementation                                                                                  |
+| [`handoff.ts`](../../packages/core/src/state/handoff.ts)                   | Handoff document save/load                                                                                              |
+| [`failures.ts`](../../packages/core/src/state/failures.ts)                 | Failure recording and archival                                                                                          |
 
 ### Streams
 

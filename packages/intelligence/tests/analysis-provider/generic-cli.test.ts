@@ -46,6 +46,7 @@ function queueChild(stdout: string, exitCode = 0, stderr = ''): ReturnType<typeo
       if (stdout) child.stdout.emit('data', Buffer.from(stdout));
       if (stderr) child.stderr.emit('data', Buffer.from(stderr));
       child.emit('exit', exitCode);
+      child.emit('close', exitCode);
     }, 0);
     return child;
   });
@@ -236,6 +237,29 @@ describe('GenericCliAnalysisProvider', () => {
       );
       expect(mockSpawn).toHaveBeenCalledTimes(2);
     });
+  });
+
+  // #2231: stdout can still be draining when 'exit' fires; parse only on 'close'.
+  it('parses stdout that arrives after the exit event (#2231)', async () => {
+    mockSpawn.mockImplementationOnce(() => {
+      const child = makeFakeChild();
+      setTimeout(() => {
+        child.emit('exit', 0);
+        child.stdout.emit(
+          'data',
+          Buffer.from(JSON.stringify({ structured_output: { summary: 'late', score: 0.2 } }))
+        );
+        child.emit('close', 0);
+      }, 0);
+      return child;
+    });
+    const provider = new GenericCliAnalysisProvider({
+      command: 'myagent',
+      argTemplate: buildCustomCliTemplate({ args: ['{{prompt}}'] }),
+      outputParser: jsonEnvelopeParser,
+    });
+    const res = await provider.analyze({ prompt: 'x', responseSchema: testSchema });
+    expect(res.result).toEqual({ summary: 'late', score: 0.2 });
   });
 
   describe('error handling', () => {

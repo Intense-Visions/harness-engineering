@@ -51,6 +51,7 @@ describe('ClaudeCliAnalysisProvider', () => {
       if (stdout) child.stdout.emit('data', Buffer.from(stdout));
       if (stderr) child.stderr.emit('data', Buffer.from(stderr));
       child.emit('exit', exitCode);
+      child.emit('close', exitCode);
     }, 0);
 
     return child;
@@ -286,6 +287,52 @@ describe('ClaudeCliAnalysisProvider', () => {
     });
   });
 
+  // #2231: Node may emit a child's 'exit' BEFORE its stdout pipe has drained
+  // (documented: "stdio streams might still be open" at 'exit'). Resolving on
+  // 'exit' parsed an empty buffer ("Unexpected end of JSON input") — a valid reply
+  // lost to scheduling, seen as a flaky macOS CI failure of the comprehend smoke.
+  // The provider must wait for 'close' (all stdio drained) before parsing.
+  describe('stdout drained after exit (#2231)', () => {
+    const good = JSON.stringify({
+      type: 'result',
+      result: 'done',
+      structured_output: { summary: 'late stdout', score: 0.4 },
+      usage: { input_tokens: 3, output_tokens: 2 },
+    });
+
+    function queueLateStdoutChild(stdout: string): void {
+      mockSpawn.mockImplementationOnce(() => {
+        const child = makeFakeChild();
+        // The vision path writes its stream-json payload to stdin.
+        Object.assign(child.stdin, { write: vi.fn() });
+        setTimeout(() => {
+          child.emit('exit', 0);
+          child.stdout.emit('data', Buffer.from(stdout));
+          child.emit('close', 0);
+        }, 0);
+        return child;
+      });
+    }
+
+    it('text path: parses stdout that arrives after the exit event', async () => {
+      queueLateStdoutChild(good);
+      const res = await provider.analyze({ prompt: 'x', responseSchema: testSchema });
+      expect(res.result).toEqual({ summary: 'late stdout', score: 0.4 });
+      expect(mockSpawn).toHaveBeenCalledTimes(1);
+    });
+
+    it('vision (stream-json) path: parses a result event that arrives after exit', async () => {
+      queueLateStdoutChild(`${good}\n`);
+      const res = await provider.analyze({
+        prompt: 'x',
+        responseSchema: testSchema,
+        images: [{ base64: 'AAAA', mediaType: 'image/png' }],
+      });
+      expect(res.result).toEqual({ summary: 'late stdout', score: 0.4 });
+      expect(mockSpawn).toHaveBeenCalledTimes(1);
+    });
+  });
+
   describe('error handling', () => {
     it('throws when CLI exits with non-zero code', async () => {
       setupChild('', 1, 'Error: model not found');
@@ -359,6 +406,7 @@ describe('ClaudeCliAnalysisProvider', () => {
         setTimeout(() => {
           if (stdout) child.stdout.emit('data', Buffer.from(stdout));
           child.emit('exit', exitCode);
+          child.emit('close', exitCode);
         }, 0);
         return child;
       });

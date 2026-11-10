@@ -1,0 +1,18 @@
+{
+  "issues": [2279],
+  "route": "bug",
+  "stages": ["debugging"],
+  "reproducingTest": "packages/core/tests/entropy/detectors/complexity.test.ts",
+  "assumptions": [
+    "The complexity detector is regex/line-based (FUNCTION_PATTERNS); it never reads snapshot.files[].ast, so the issue's suggested node.params.length is not available on this path. A depth-aware text counter is the smallest correct fix.",
+    "A bare `<` in a default-value expression (e.g. `a = x < y`) is treated as a generic opener; this can undercount, never overcount, and is rare in parameter defaults.",
+    "The regex capture `[^)]*` truncating at the first `)` (nested-paren defaults) and missing multi-line parameter lists is a separate root cause in the capture, not the count, and is left out of scope.",
+    "Lower parameterCount values shifting the arch baseline downward is an improvement; no baseline was updated."
+  ],
+  "rootCause": "extractFunctions computed params as paramsStr.split(',').length, counting every comma inside a generic, destructuring pattern, array/object default, or string literal as a parameter separator.",
+  "reproduction": {
+    "before": "9 of 11 table cases fail (e.g. expected 8 to be 2 for the brace-expansion glob default)",
+    "after": "11 of 11 pass (12 with the escaped-quote case); full complexity suite 35/35"
+  },
+  "closingKeyword": "Refs #2279"
+}

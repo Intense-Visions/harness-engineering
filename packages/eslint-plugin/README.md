@@ -101,8 +101,11 @@ Create `harness.config.json` in your project root:
 
 ## Configs
 
-- **recommended**: Architecture rules as errors, others as warnings
-- **strict**: All rules as errors
+- **recommended**: enables 18 rules — `error` for the architecture rules, `no-process-env-in-spawn`, `no-spread-in-variadic`, `no-focused-tests`, `no-skipped-tests`, `no-disabled-tests`, and `no-hardcoded-test-count`; `warn` for the other 9
+- **strict**: enables 17 rules, all as `error` (it does not include `no-hardcoded-test-count`)
+- `no-empty-describe`, `no-process-exit`, and `no-undefined-optional-assignment` are in neither preset; enable them explicitly
+
+See the [ESLint Rules Reference](../../docs/reference/eslint-rules.md#rule-summary) for the per-rule severity table.
 
 ## License
 

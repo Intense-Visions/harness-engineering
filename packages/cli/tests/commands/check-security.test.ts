@@ -22,6 +22,7 @@ const REQUIRED_SCAN_EXTENSIONS = [
   'mjs',
   'cjs',
   'py',
+  'rs',
 ] as const;
 
 describe('runCheckSecurity', () => {
