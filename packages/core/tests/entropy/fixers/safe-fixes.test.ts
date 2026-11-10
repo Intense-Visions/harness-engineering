@@ -392,6 +392,113 @@ describe('applyFixes', () => {
   });
 });
 
+/**
+ * #2294: `fix-drift --no-dry-run` deletes files in the target project but used
+ * to write their backups to a bare relative `.entropy-backups`, resolved
+ * against `process.cwd()` — so the safety net landed in a different tree from
+ * the destruction. The discriminator is the backup's LOCATION: asserting that
+ * *a* backup exists passes in both the right and the wrong case.
+ */
+describe('applyFixes backup location (#2294)', () => {
+  let projectRoot: string;
+  const cwdBackupDir = path.join(process.cwd(), '.entropy-backups');
+  const cwdCustomDir = path.join(process.cwd(), 'custom');
+  let cwdBackupExistedBefore: boolean;
+  let cwdCustomExistedBefore: boolean;
+
+  beforeEach(async () => {
+    projectRoot = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'safe-fixes-2294-'));
+    cwdBackupExistedBefore = fs.existsSync(cwdBackupDir);
+    cwdCustomExistedBefore = fs.existsSync(cwdCustomDir);
+  });
+
+  afterEach(async () => {
+    await rm(projectRoot, { recursive: true, force: true });
+    // Never leave a stray backup dir in the caller's tree if this test (or the
+    // pre-fix code under test) created one.
+    if (!cwdBackupExistedBefore) await rm(cwdBackupDir, { recursive: true, force: true });
+    if (!cwdCustomExistedBefore) await rm(cwdCustomDir, { recursive: true, force: true });
+  });
+
+  const deleteFix = (file: string): Fix => ({
+    type: 'dead-files',
+    file,
+    description: 'Delete dead file',
+    action: 'delete-file',
+    safe: true,
+    reversible: true,
+  });
+
+  it('writes the default backup under the project root, not process.cwd()', async () => {
+    // Sanity: the fixture must live outside cwd, or the two locations coincide.
+    expect(path.relative(process.cwd(), projectRoot).startsWith('..')).toBe(true);
+    const target = path.join(projectRoot, 'src', 'dead.ts');
+    await mkdir(path.dirname(target), { recursive: true });
+    await writeFile(target, 'export const dead = 1;');
+
+    const result = await applyFixes([deleteFix(target)], {
+      dryRun: false,
+      fixTypes: ['dead-files'],
+      createBackup: true,
+      projectRoot,
+    });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.value.errors).toEqual([]);
+    expect(result.value.stats.filesDeleted).toBe(1);
+    expect(await exists(target)).toBe(false);
+
+    // POSITIVE: the backup is under the project being fixed, with the content.
+    const backupDir = path.join(projectRoot, '.entropy-backups');
+    const backups = fs.readdirSync(backupDir);
+    expect(backups).toHaveLength(1);
+    expect(backups[0]).toMatch(/-dead\.ts$/);
+    await expect(readFile(path.join(backupDir, backups[0]!), 'utf-8')).resolves.toBe(
+      'export const dead = 1;'
+    );
+    // NEGATIVE: nothing escaped into the invoking directory.
+    expect(fs.existsSync(cwdBackupDir)).toBe(cwdBackupExistedBefore);
+  });
+
+  it('resolves a relative configured backupDir against the project root', async () => {
+    const target = path.join(projectRoot, 'dead.ts');
+    await writeFile(target, 'x');
+
+    const result = await applyFixes([deleteFix(target)], {
+      dryRun: false,
+      fixTypes: ['dead-files'],
+      createBackup: true,
+      backupDir: 'custom/backups',
+      projectRoot,
+    });
+
+    expect(result.ok && result.value.stats.filesDeleted).toBe(1);
+    expect(fs.readdirSync(path.join(projectRoot, 'custom', 'backups'))).toHaveLength(1);
+    expect(fs.existsSync(cwdCustomDir)).toBe(cwdCustomExistedBefore);
+  });
+
+  it('honours an absolute backupDir as-is', async () => {
+    const target = path.join(projectRoot, 'dead.ts');
+    await writeFile(target, 'x');
+    const elsewhere = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'safe-fixes-2294-abs-'));
+    try {
+      const result = await applyFixes([deleteFix(target)], {
+        dryRun: false,
+        fixTypes: ['dead-files'],
+        createBackup: true,
+        backupDir: elsewhere,
+        projectRoot,
+      });
+      expect(result.ok && result.value.stats.filesDeleted).toBe(1);
+      expect(fs.readdirSync(elsewhere)).toHaveLength(1);
+      expect(fs.existsSync(path.join(projectRoot, '.entropy-backups'))).toBe(false);
+    } finally {
+      await rm(elsewhere, { recursive: true, force: true });
+    }
+  });
+});
+
 describe('applyFixes with protectedRegions', () => {
   let tmpDir: string;
 

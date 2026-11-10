@@ -20,7 +20,17 @@ export interface FixConfig {
   dryRun: boolean;
   fixTypes: FixType[];
   createBackup: boolean;
+  /**
+   * Where deleted files are backed up. A relative path is resolved against
+   * `projectRoot`, never against `process.cwd()`; an absolute path is used as-is.
+   */
   backupDir?: string;
+  /**
+   * Root of the project being fixed. A relative `backupDir` resolves against it
+   * so backups land in the same tree as the files they protect (#2294).
+   * Defaults to `process.cwd()` only when the caller supplies no root.
+   */
+  projectRoot?: string;
   /** When provided, fixes targeting lines within protected regions are skipped. */
   protectedRegions?: ProtectedRegionMap;
 }

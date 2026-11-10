@@ -556,7 +556,8 @@ export async function handleDetectEntropy(input: {
     }
 
     if (fixes.length > 0) {
-      const applied = await applyFixes(fixes, {});
+      // Back up into the analysed project, not the server's cwd (#2294).
+      const applied = await applyFixes(fixes, { projectRoot: projectPath });
       if (!applied.ok) return resultToMcpResponse(applied);
       return {
         content: [
