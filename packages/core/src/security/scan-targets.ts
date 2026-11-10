@@ -1,3 +1,5 @@
+import { skipDirGlobs } from '@harness-engineering/graph';
+
 /**
  * Which files a security scan is allowed to read — one definition, three callers.
  *
@@ -43,10 +45,16 @@ export const SECURITY_SCAN_EXTENSIONS = [
 /** Brace-expansion glob over {@link SECURITY_SCAN_EXTENSIONS}. */
 export const SECURITY_SCAN_GLOB = `**/*.{${SECURITY_SCAN_EXTENSIONS.join(',')}}`;
 
-/** Default ignores for a security scan when the project config sets none. */
-export const SECURITY_SCAN_DEFAULT_IGNORE = [
-  '**/node_modules/**',
-  '**/dist/**',
+/**
+ * Default ignores for a security scan when the project config sets none.
+ *
+ * Built from the shared walker skip-list so build and vendor output (Cargo
+ * `target/`, `vendor/`, `build/`, ...) stays out of every scanner. The dashboard
+ * used a hand-written four-entry list and scanned generated Rust and Java code
+ * the CLI gates skip (#2391); this is now the only copy.
+ */
+export const SECURITY_SCAN_DEFAULT_IGNORE: readonly string[] = [
+  ...skipDirGlobs(),
   '**/*.test.ts',
   '**/fixtures/**',
-] as const;
+];

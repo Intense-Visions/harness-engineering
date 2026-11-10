@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/src/ci'
-sourceHash: 'f2a3796cef69b303f97fd6e3143df9cec10b56e6a6f9d65e10299d21d8ae7e19'
+sourceHash: '21285a6883ff4ca18e8abe08a25174919bb77c28c37d3f4d1a7df4dc1f045e7c'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -57,7 +57,7 @@ import { DriftConfig } from '../entropy/types'
 import { accumulateLoss, computeGateLosses } from '../gate-loss'
 import { TrackerSyncAdapter } from '../roadmap/tracker-sync'
 import { parseSecurityConfig } from '../security/config'
-import { SECURITY_SCAN_GLOB } from '../security/scan-targets'
+import { SECURITY_SCAN_DEFAULT_IGNORE, SECURITY_SCAN_GLOB } from '../security/scan-targets'
 import { SecurityScanner } from '../security/scanner'
 import { TypeScriptParser } from '../shared/parsers'
 import { Err, Ok, Result } from '../shared/result'

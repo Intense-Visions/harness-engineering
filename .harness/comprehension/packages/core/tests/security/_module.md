@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/tests/security'
-sourceHash: '7b64902d1c69db78b5fc8d068f7c4043a20cf4612e47c4ebfe25d78f1252bd16'
+sourceHash: '6059e74f8ee93af390f488873fb9515d1aca1f55460a979d2cc044424ff1287a'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -11,6 +11,7 @@ members:
     'injection-patterns.test.ts',
     'integration.test.ts',
     'osv-client.test.ts',
+    'scan-targets-default-ignore.test.ts',
     'scan-targets-rust.test.ts',
     'scanner-fileglob.test.ts',
     'scanner.test.ts',
@@ -34,7 +35,7 @@ members:
 import { SecurityConfigSchema, parseSecurityConfig, resolveRuleSeverity } from '../../src/security/config'
 import { InjectionFinding, getInjectionPatterns, scanForInjection } from '../../src/security/injection-patterns'
 import { createOsvClient } from '../../src/security/osv-client'
-import { SECURITY_SCAN_EXTENSIONS, SECURITY_SCAN_GLOB } from '../../src/security/scan-targets'
+import { SECURITY_SCAN_DEFAULT_IGNORE, SECURITY_SCAN_EXTENSIONS, SECURITY_SCAN_GLOB } from '../../src/security/scan-targets'
 import { SecurityScanner, parseHarnessIgnore } from '../../src/security/scanner'
 import { extractQuotedSecretValue, isReferenceOnlySecretValue } from '../../src/security/secret-reference'
 import { SecurityTimelineManager } from '../../src/security/security-timeline-manager'
@@ -46,6 +47,6 @@ import { glob } from 'glob'
 import * as fs, { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import from 'node:fs/promises'
 import * as os, { tmpdir } from 'node:os'
-import * as path, { join } from 'node:path'
+import * as path, { join, relative } from 'node:path'
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 ```

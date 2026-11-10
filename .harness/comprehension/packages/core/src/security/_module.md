@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/src/security'
-sourceHash: '249641700b802e508b2f73623eda715dfb8dac4d2c3d471e2a5e3a8b05d6f7a9'
+sourceHash: '7c079289a48ccdf17d3c4fd80d9730af2fa6e6dc90e776bae36402019d116be9'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -143,6 +143,7 @@ import { nodeRules } from './rules/stack/node'
 import { reactRules } from './rules/stack/react'
 import { xssRules } from './rules/xss'
 import { ScanConfigFileResult, ScanConfigFinding, computeOverallSeverity, computeScanExitCode, isDuplicateFinding, mapInjectionFindings, mapSecurityFindings, mapSecuritySeverity } from './scan-config-shared'
+import { SECURITY_SCAN_DEFAULT_IGNORE } from './scan-targets'
 import { extractQuotedSecretValue, isReferenceOnlySecretValue } from './secret-reference'
 import { Direction, EMPTY_SUPPLY_CHAIN, FindingLifecycle, SecurityCategorySnapshot, SecurityTimelineFile, SecurityTimelineFileSchema, SecurityTimelineSnapshot, SecurityTrendLine, SecurityTrendResult, SupplyChainSnapshot, TimeToFixResult, TimeToFixStats, TrendAttribution, securityFindingId } from './security-timeline-types'
 import { detectStack } from './stack-detector'
