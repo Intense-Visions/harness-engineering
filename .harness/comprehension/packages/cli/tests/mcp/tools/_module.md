@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/tests/mcp/tools'
-sourceHash: 'd1399d769ff15f65fc3add683c303d1ebf7884037d472144b7c4075da0165a4c'
+sourceHash: '93e92538675c67fb86f93d5ee2b7c5d5d762dfae2f7bcadf469ce6516da89846'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -60,6 +60,7 @@ members:
     'naming-craft.test.ts',
     'outcome-eval.test.ts',
     'pagination-integration.test.ts',
+    'performance-wire.test.ts',
     'performance.test.ts',
     'persona-handlers.test.ts',
     'persona.security.test.ts',

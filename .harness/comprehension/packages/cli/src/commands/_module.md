@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/commands'
-sourceHash: 'ba81512f87a7e9fd15909a9bf86624af806dedc13bc6f3610b6265e241d1e203'
+sourceHash: '624eb4eb32aeda738b1a795aa656eab40b4e7f9c1a29042dc0aaa2390971eae5'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -303,6 +303,7 @@ export getInstalledVersion
 export getInstalledVersions
 export getLatestVersion
 export getLatestVersionAsync
+export guardExitCode
 export handleOrphanDeletion
 export installSkillDir
 export isCatalogStale

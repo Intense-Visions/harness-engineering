@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/tests/commands'
-sourceHash: '5983256488d5c0f19f3dff9be3a3899398e6244e90baa966b95b242c4530fa0d'
+sourceHash: '794efdddf2a45a95570381e86d55cce17956ded184e33bd29b7c5e3673f75cd4'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -27,6 +27,7 @@ members:
     'check-arch.test.ts',
     'check-deployment.test.ts',
     'check-deps-cov544b.test.ts',
+    'check-deps-cycle-chain.test.ts',
     'check-deps-err-swallow.test.ts',
     'check-deps-no-layers-cycle.test.ts',
     'check-deps-skipped-abstention.test.ts',
@@ -314,7 +315,7 @@ import { createGenerateCommand } from '../../src/commands/linter/generate'
 import { createMaintenanceCommand } from '../../src/commands/maintenance'
 import { MaintenanceRunDeps, aggregateReport, buildTaskRunner, createCheckRunner, createFixDispatcher, deriveExitCode, loadRunHistory, makeResolveBackend, parseConcurrency, renderTable, resolveHarnessSpawn, resolveSelection, runMaintenanceRun } from '../../src/commands/maintenance-run'
 import { createMcpCommand, createMcpContextReportCommand, createMcpListCapabilitiesCommand, createMcpRefinementDemandCommand, formatCapabilitiesByPermission, formatCapabilitiesTable, formatContextReport, formatRefinementDemand } from '../../src/commands/mcp'
-import { createMcpGuardCommand, extractNpmPackages, parseNpmSpec, runMcpGuardCheck } from '../../src/commands/mcp-guard'
+import { createMcpGuardCommand, extractNpmPackages, guardExitCode, parseNpmSpec, runMcpGuardCheck } from '../../src/commands/mcp-guard'
 import { createMigrateCommand, detectLegacyArtifacts, runMigrate } from '../../src/commands/migrate'
 import { createBackendsSubcommand, runMigrateBackends } from '../../src/commands/migrate-backends'
 import { createModelsCommand, refreshExitCode, runModelsApprove, runModelsProbe, runModelsProposals, runModelsRefresh, runModelsReject } from '../../src/commands/models'

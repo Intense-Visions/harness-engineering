@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/mcp/tools'
-sourceHash: '335163179e8960ffea9cca058db529ae8370b284870fa51d7e83727e72dcaedf'
+sourceHash: '370b9f62970ad532c50468a36d8cb8e44b8ff5a4ed98b9f711dc840eacd373c8'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -428,6 +428,7 @@ export subscribeWebhookDefinition
 export summarizeSessionDefinition
 export testCraftDefinition
 export testCraftFinalizeDefinition
+export toJsonSafeReport
 export triggerExternalSync
 export triggerMaintenanceJobDefinition
 export triggerScopedExternalSync
@@ -542,7 +543,7 @@ import { handleValidateCrossCheck, validateCrossCheckDefinition } from './cross-
 import { docsPublishDefinition, handleDocsPublish } from './docs-publish'
 import from './docs.js'
 import { editFileDefinition, handleEditFile } from './edit-file.js'
-import from './entropy.js'
+import { toJsonSafeReport } from './entropy.js'
 import { emitSkillEvent } from './event-emitter.js'
 import from './feedback.js'
 import { handleListGatewayTokens, handleTriggerMaintenanceJob, listGatewayTokensDefinition, triggerMaintenanceJobDefinition } from './gateway-tools'
