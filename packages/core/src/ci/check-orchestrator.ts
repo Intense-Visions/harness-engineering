@@ -32,7 +32,7 @@ import { EntropyAnalyzer } from '../entropy/analyzer';
 import type { DriftConfig } from '../entropy/types';
 import { SecurityScanner } from '../security/scanner';
 import { parseSecurityConfig } from '../security/config';
-import { SECURITY_SCAN_GLOB } from '../security/scan-targets';
+import { SECURITY_SCAN_DEFAULT_IGNORE, SECURITY_SCAN_GLOB } from '../security/scan-targets';
 import { TypeScriptParser } from '../shared/parsers';
 import {
   ArchConfigSchema,
@@ -373,7 +373,7 @@ async function runSecurityCheck(
   const sourceFiles = await globFn(SECURITY_SCAN_GLOB, {
     cwd: projectRoot,
     ignore: [
-      ...(securityConfig.exclude ?? [...skipDirGlobs(), '**/*.test.ts', '**/fixtures/**']),
+      ...(securityConfig.exclude ?? SECURITY_SCAN_DEFAULT_IGNORE),
       ...analysisExclude(config),
     ],
     absolute: true,

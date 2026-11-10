@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'scripts'
-sourceHash: '313f696750c4caf66dd1687cd7d4eeb297f26e9e7127c13ddd299e3258841a29'
+sourceHash: 'fc8a91e71ac296462ff656e1c3a8f8c2ed58a200766e6f23c9edd6e8c9a4840c'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -9,6 +9,7 @@ members:
   [
     'assert-baseline-only-diff.mjs',
     'assert-diff-scope.mjs',
+    'assert-vitest-ran.mjs',
     'audit-exceptions.mjs',
     'benchmark-check.mjs',
     'check-changesets.mjs',
@@ -42,6 +43,7 @@ export DEFAULT_VERIFY_TIMEOUT_MS
 export EXIT
 export MANIFEST_PATHS
 export REGISTRY_BASE
+export assessVitestLog
 export baseUrl
 export classifyPublish
 export decideAction

@@ -20,7 +20,10 @@ export interface FakeClaudeOptions {
   chattyOnce?: {
     /** The prose/narration envelope to return on the first call. */
     chattyEnvelope: ClaudeEnvelope;
-    /** Absolute path to a counter file the fake uses to track invocation count. */
+    /**
+     * Absolute path to a first-call marker. The first invocation creates it
+     * exclusively (`wx`); its existence marks every later call. Must not exist yet.
+     */
     counterFile: string;
   };
 }
@@ -40,9 +43,16 @@ export function withFakeClaude(envelope: ClaudeEnvelope, opts: FakeClaudeOptions
     script = `#!/usr/bin/env node
 const fs = require('node:fs');
 const ctrl = ${ctrl};
-const n = fs.existsSync(ctrl) ? (parseInt(fs.readFileSync(ctrl, 'utf8'), 10) || 0) : 0;
-fs.writeFileSync(ctrl, String(n + 1));
-process.stdout.write(n === 0 ? ${JSON.stringify(prose)} : ${JSON.stringify(good)});
+// First call = the one that CREATES the marker (O_EXCL: atomic, no readback).
+// EEXIST => a later call; any other error throws loudly (#2231).
+let first = false;
+try {
+  fs.closeSync(fs.openSync(ctrl, 'wx'));
+  first = true;
+} catch (e) {
+  if (e.code !== 'EEXIST') throw e;
+}
+process.stdout.write(first ? ${JSON.stringify(prose)} : ${JSON.stringify(good)});
 `;
   } else {
     script = `#!/usr/bin/env node

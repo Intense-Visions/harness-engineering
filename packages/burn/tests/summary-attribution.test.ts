@@ -12,7 +12,15 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import { recompute, refresh } from '../src/refresh';
 import type { Summary } from '../src/types';
-import { DEFAULT_WEEK, agentLine, hoursAgo, makeHud, transcriptLine, type Hud } from './helpers';
+import {
+  DEFAULT_WEEK,
+  MID_WEEK,
+  agentLine,
+  hoursAgo,
+  makeHud,
+  transcriptLine,
+  type Hud,
+} from './helpers';
 
 let hud: Hud | null = null;
 
@@ -31,7 +39,7 @@ describe('summary — agents block', () => {
     // Each block rounds independently, so the published integers are asserted
     // to +/-1 unit per label — never as an exact integer sum.
     const h = newHud();
-    const now = new Date();
+    const now = MID_WEEK;
     h.writeConfig({ week_reset: DEFAULT_WEEK });
     h.writeTranscript('main.jsonl', [transcriptLine('m1', hoursAgo(now, 1), { out: 333 })]);
     h.writeSubagentTranscript('agent-a.jsonl', [
@@ -44,7 +52,7 @@ describe('summary — agents block', () => {
       agentLine('s2', hoursAgo(now, 1), { isSidechain: true, agentId: 'lane-2' }, { out: 111 }),
     ]);
 
-    const s = refresh(h.paths);
+    const s = refresh(h.paths, MID_WEEK);
     const labels = Object.keys(s.agents);
     expect(labels.sort()).toEqual(['harness-task-executor', 'main', 'unattributed']);
 
@@ -54,7 +62,7 @@ describe('summary — agents block', () => {
 
   it('counts distinct dispatches as lanes and reports zero lanes for main', () => {
     const h = newHud();
-    const now = new Date();
+    const now = MID_WEEK;
     h.writeConfig({ week_reset: DEFAULT_WEEK });
     h.writeTranscript('main.jsonl', [transcriptLine('m1', hoursAgo(now, 1))]);
     h.writeSubagentTranscript('agent-a.jsonl', [
@@ -75,7 +83,7 @@ describe('summary — agents block', () => {
       }),
     ]);
 
-    const s = refresh(h.paths);
+    const s = refresh(h.paths, MID_WEEK);
     expect(s.agents['harness-task-executor']!.lanes).toBe(2);
     expect(s.agents['harness-task-executor']!.requests).toBe(3);
     expect(s.agents.main!.lanes).toBe(0);
@@ -86,14 +94,14 @@ describe('summary — agents block', () => {
 
   it('reports degraded when subagent spend carries no readable label at all', () => {
     const h = newHud();
-    const now = new Date();
+    const now = MID_WEEK;
     h.writeConfig({ week_reset: DEFAULT_WEEK });
     h.writeTranscript('main.jsonl', [transcriptLine('m1', hoursAgo(now, 1))]);
     h.writeSubagentTranscript('agent-a.jsonl', [
       agentLine('s1', hoursAgo(now, 1), { isSidechain: true, agentId: 'lane-1' }),
     ]);
 
-    const s = refresh(h.paths);
+    const s = refresh(h.paths, MID_WEEK);
     expect(s.attribution.degraded).toBe(true);
     expect(s.attribution.unattributed_units).toBeGreaterThan(0);
     expect(s.attribution.attributed_units).toBe(0);
@@ -101,7 +109,7 @@ describe('summary — agents block', () => {
 
   it('does not report degraded while some subagent spend is still labelled', () => {
     const h = newHud();
-    const now = new Date();
+    const now = MID_WEEK;
     h.writeConfig({ week_reset: DEFAULT_WEEK });
     h.writeSubagentTranscript('agent-a.jsonl', [
       agentLine('s1', hoursAgo(now, 1), {
@@ -112,7 +120,7 @@ describe('summary — agents block', () => {
       agentLine('s2', hoursAgo(now, 1), { isSidechain: true, agentId: 'lane-2' }),
     ]);
 
-    expect(refresh(h.paths).attribution.degraded).toBe(false);
+    expect(refresh(h.paths, MID_WEEK).attribution.degraded).toBe(false);
   });
 
   it('does not report degraded when there is no subagent spend to lose', () => {
@@ -120,9 +128,9 @@ describe('summary — agents block', () => {
     // train the reader to ignore the one alert that matters.
     const h = newHud();
     h.writeConfig({ week_reset: DEFAULT_WEEK });
-    h.writeTranscript('main.jsonl', [transcriptLine('m1', hoursAgo(new Date(), 1))]);
+    h.writeTranscript('main.jsonl', [transcriptLine('m1', hoursAgo(MID_WEEK, 1))]);
 
-    const s = refresh(h.paths);
+    const s = refresh(h.paths, MID_WEEK);
     expect(s.attribution.degraded).toBe(false);
     expect(s.attribution.unattributed_units).toBe(0);
     expect(s.agents.main!.pct_of_week).toBeGreaterThan(0);
@@ -135,7 +143,7 @@ describe('summary — skills block', () => {
     // so both must sum to the week within a unit of per-label rounding — that
     // shared total is what makes the two views reconcile against /usage.
     const h = newHud();
-    const now = new Date();
+    const now = MID_WEEK;
     h.writeConfig({ week_reset: DEFAULT_WEEK });
     h.writeTranscript('main.jsonl', [transcriptLine('m1', hoursAgo(now, 1), { out: 333 })]);
     h.writeSubagentTranscript('agent-a.jsonl', [
@@ -163,7 +171,7 @@ describe('summary — skills block', () => {
       ),
     ]);
 
-    const s = refresh(h.paths);
+    const s = refresh(h.paths, MID_WEEK);
     // Two subagent turns under one skill, plus the main-thread turn which has
     // no readable skill and lands in the honest fallback bucket.
     expect(Object.keys(s.skills).sort()).toEqual(['harness:autopilot', 'unattributed-skill']);
@@ -183,7 +191,7 @@ describe('summary — skills block', () => {
     // to a skill that did run — that would be the fleet-reads-as-free failure
     // in the skill dimension.
     const h = newHud();
-    const now = new Date();
+    const now = MID_WEEK;
     h.writeConfig({ week_reset: DEFAULT_WEEK });
     h.writeSubagentTranscript('agent-a.jsonl', [
       agentLine(
@@ -205,7 +213,7 @@ describe('summary — skills block', () => {
       ),
     ]);
 
-    const s = refresh(h.paths);
+    const s = refresh(h.paths, MID_WEEK);
     expect(s.skills['unattributed-skill']!.units).toBeGreaterThan(0);
     expect(s.skills['harness:autopilot']!.units).toBeGreaterThan(0);
   });
@@ -215,12 +223,12 @@ describe('summary — pre-migration rows', () => {
   /** Seed a 7-column store with a current-week row and roll it up without a scan. */
   function legacyOnly(h: Hud, extraRows: string[] = []): Summary {
     h.writeConfig({ week_reset: DEFAULT_WEEK });
-    const ts = hoursAgo(new Date(), 1).toISOString();
+    const ts = hoursAgo(MID_WEEK, 1).toISOString();
     writeFileSync(
       h.paths.usageTsv,
       `${[`old1\t${ts}\tclaude-opus-5\t500\t10\t0\t0`, ...extraRows].join('\n')}\n`
     );
-    return recompute(h.paths);
+    return recompute(h.paths, MID_WEEK);
   }
 
   it('files a legacy row under pre-migration, not under main or unattributed', () => {
@@ -244,7 +252,7 @@ describe('summary — pre-migration rows', () => {
     // one legacy row would make `attributed === 0` false and silence the
     // alarm for a week whose subagent spend really did lose its labels.
     const h = newHud();
-    const ts = hoursAgo(new Date(), 1).toISOString();
+    const ts = hoursAgo(MID_WEEK, 1).toISOString();
     const s = legacyOnly(h, [`sub1\t${ts}\tclaude-opus-5\t500\t10\t0\t0\tunattributed\tlane-1`]);
     expect(s.attribution.attributed_units).toBe(0);
     expect(s.attribution.degraded).toBe(true);
@@ -254,7 +262,7 @@ describe('summary — pre-migration rows', () => {
     // Possible mid-migration, via the upgrade rule. `attribution.lanes` is a
     // union across labels, deliberately not the sum of per-label lanes.
     const h = newHud();
-    const ts = hoursAgo(new Date(), 1).toISOString();
+    const ts = hoursAgo(MID_WEEK, 1).toISOString();
     const s = legacyOnly(h, [
       `a\t${ts}\tclaude-opus-5\t100\t0\t0\t0\tharness-task-executor\tlane-1`,
       `b\t${ts}\tclaude-opus-5\t100\t0\t0\t0\tunattributed\tlane-1`,

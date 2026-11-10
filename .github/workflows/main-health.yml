@@ -119,7 +119,16 @@ jobs:
       # proven. `HAS_HARNESS_BIN` resolves `dist/` against the cwd, hence the
       # subshell cd into the package — which is also how `turbo run test`
       # invokes it.
+      #
+      # The log is judged by scripts/assert-vitest-ran.mjs, which strips ANSI
+      # before matching (#2353): a raw grep for "Tests N passed" never matched
+      # vitest's colored summary, so this step failed on every run whether or
+      # not the suite ran. NO_COLOR is belt-and-braces; the script does not
+      # depend on it. It fails when the summary is missing, when 0 passed, or
+      # when anything was skipped.
       - name: Assert gated CLI suites outside tests/e2e are reachable
+        env:
+          NO_COLOR: '1'
         run: |
           set -euo pipefail
           test -f packages/cli/dist/bin/harness.js
@@ -127,11 +136,7 @@ jobs:
           grep -rq "HAS_HARNESS_BIN" packages/cli/tests/e2e/support/tiers.ts
           (cd packages/cli && npx vitest run tests/integration/cleanup-duplication-exit-code.e2e.test.ts) \
             2>&1 | tee /tmp/d4-reachability.log
-          grep -qE "Tests +[0-9]+ passed" /tmp/d4-reachability.log
-          if grep -q "skipped" /tmp/d4-reachability.log; then
-            echo "D4 exit-code suite reported SKIPPED tests — the binary gate did not open." >&2
-            exit 1
-          fi
+          node scripts/assert-vitest-ran.mjs /tmp/d4-reachability.log "D4 exit-code suite"
           echo "D4 exit-code suite present, wired to skipUnlessBin, and running."
 
       # Run the gated live suite. Degradation-safe: with no provider credential it
