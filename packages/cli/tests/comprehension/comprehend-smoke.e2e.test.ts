@@ -197,7 +197,7 @@ describe.skipIf(!HAS_BIN || !POSIX)('harness comprehend — E2E semantic with a 
   }
 
   // A fake `claude`. Emits a valid structured_output envelope; when FAKE_CHATTY_ONCE
-  // points at a counter file, the FIRST invocation instead returns prose with no
+  // points at a marker path, the FIRST invocation instead returns prose with no
   // structured_output — the exact shape that broke us live — so the provider's
   // corrective retry is exercised end-to-end (not just in unit mocks).
   function writeFakeClaude(dir: string): void {
@@ -206,9 +206,15 @@ const fs = require('node:fs');
 const ctrl = process.env.FAKE_CHATTY_ONCE;
 let chatty = false;
 if (ctrl) {
-  const n = fs.existsSync(ctrl) ? (parseInt(fs.readFileSync(ctrl, 'utf8'), 10) || 0) : 0;
-  fs.writeFileSync(ctrl, String(n + 1));
-  chatty = n === 0;
+  // First call = the one that CREATES the marker (O_EXCL: atomic, no readback).
+  // EEXIST => a later call. Any other error throws (non-zero exit), so a broken
+  // handoff fails loudly instead of silently defaulting to a branch (#2231).
+  try {
+    fs.closeSync(fs.openSync(ctrl, 'wx'));
+    chatty = true;
+  } catch (e) {
+    if (e.code !== 'EEXIST') throw e;
+  }
 }
 const good = { type: 'result', result: 'done', structured_output: { summary: 'FAKE_SUMMARY: adds two numbers; pure and total.', invariants: ['add(a,b) returns a+b', 'no side effects'] }, usage: { input_tokens: 10, output_tokens: 5 }, model: 'fake-claude' };
 const prose = { type: 'result', result: "I've already called the StructuredOutput tool in my response above.", usage: { input_tokens: 5, output_tokens: 2 }, model: 'fake-claude' };
@@ -289,7 +295,7 @@ process.stdout.write(JSON.stringify(chatty ? prose : good));
 
   it('recovers end-to-end from a chatty first reply (the live bug, now guarded)', () => {
     const fresh = scaffold();
-    const counter = path.join(binDir, 'chatty-counter');
+    const counter = path.join(binDir, 'chatty-first-call.marker');
     try {
       const r = comprehend(fresh, ['--all'], fakeEnv({ FAKE_CHATTY_ONCE: counter }));
       expect(r.status).toBe(0);

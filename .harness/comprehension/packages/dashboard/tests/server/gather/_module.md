@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/dashboard/tests/server/gather'
-sourceHash: '3f4d18dbc800f021b64b25abb9740f96eaa5583b2b83b2d53924298da5b47fbd'
+sourceHash: '7e0118622be3a1c79b1f17dd33f30ecf51e56a7659c8a67dae8497f86e75df6e'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -45,6 +45,7 @@ import { gatherRoadmap } from '../../../src/server/gather/roadmap'
 import { gatherSecurity } from '../../../src/server/gather/security'
 import { gatherSignoffBasis, readExistingSignoff, renderSignoffMarkdown } from '../../../src/server/gather/signoff'
 import { ArchResult, PerfResult, SecurityResult } from '../../../src/shared/types'
+import from 'glob'
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import * as fs, { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'

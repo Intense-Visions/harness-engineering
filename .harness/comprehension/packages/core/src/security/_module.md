@@ -1,11 +1,10 @@
 ---
 schemaVersion: 1
 module: 'packages/core/src/security'
-sourceHash: '6afe1008f6427474be62d25923cf180fd85ebf0b25ec0616625319b4fdc32e33'
-compiledAt: '2026-08-28T01:22:10.592Z'
+sourceHash: '7c079289a48ccdf17d3c4fd80d9730af2fa6e6dc90e776bae36402019d116be9'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
-model: 'claude-haiku-4-5-20251001'
-semantic: present
+model: null
+semantic: absent
 members:
   [
     'config.ts',
@@ -25,23 +24,6 @@ members:
     'types.ts',
   ]
 ---
-
-## Summary
-
-The `security` module is a comprehensive static and runtime security scanning system with three main pillars: rule-based vulnerability detection, prompt injection protection, and session-scoped taint tracking. It scans source code against built-in rules for secrets, injection, XSS, crypto misuse, path traversal, network risks, and deserialization bugs, with stack-specific rules for Node, Express, React, and Go. Rules are modular, pattern-based (regex), and can be overridden via config with wildcard support. It also maintains a security posture timeline for tracking findings and trends over time, plus an OSV integration for pre-launch malware detection (Hermes Phase 2). Suppressions use standard `// harness-ignore SEC-XXX-NNN` comments with optional justification. The taint system is session-scoped and ephemeral (30-minute default expiry); it records injection findings in `.harness/session-taint-{sessionId}.json` and uses fail-open semantics. The injection pattern engine detects four categories of prompt injection attacks but does not strip them—that is handled separately in the connector layer.
-
-## Invariants
-
-- Rule ID format must match `SEC-[A-Z]+-\d+` — the harness-ignore parser uses a regex that strictly enforces this format; malformed IDs are ignored.
-- Wildcard rule overrides use longest-prefix matching — when multiple patterns match (e.g., both `SEC-*` and `SEC-INJ-*`), the longest prefix wins; specific overrides are never shadowed by broader ones regardless of insertion order.
-- `parseHarnessIgnore` is kept dependency-free and re-exported by `scanner.ts` — the parser has no dependencies on the rule registry, config, or graph so it can be reused by the review pipeline without dragging in transitive deps; scanner.ts re-exports it to maintain the stable `security/scanner` import path.
-- Injection pattern engine DETECTS only; stripping is handled elsewhere — the engine reports findings but does not sanitize; `ConnectorUtils.sanitizeExternalText()` is responsible for stripping matched patterns.
-- Taint duration is 30 minutes (TAINT_DURATION_MS); taint files live at `.harness/session-taint-{sessionId}.json` and are session-scoped, not persistent across invocations.
-- Taint uses fail-open semantics — if a taint file is malformed (bad JSON, missing required fields), it is deleted and `readTaint()` returns null; missing files are also treated as no-taint (not an error).
-- `scanContent()` does NOT apply fileGlob filtering; `scanFileContent()` does — `scanContent()` fires every active rule on the given content regardless of path; use `scanFileContent()` to filter by fileGlob rules when scanning a specific file.
-- Stack detection is lazy — rules are all registered at `SecurityScanner` construction; stack filtering only occurs when `configureForProject()` is called; until then, all active rules are available.
-- Rule override resolution follows: exact match > longest wildcard prefix > strict mode promotion — in that order; if strict mode is enabled and no override matches, warnings/info are promoted to error.
-- OSV integration is Phase 2 pre-launch malware guard — the OSV client is separate from the main scanner and used for supply-chain risk (Hermes Phase 2).
 
 ## Interface Contract
 
@@ -161,6 +143,7 @@ import { nodeRules } from './rules/stack/node'
 import { reactRules } from './rules/stack/react'
 import { xssRules } from './rules/xss'
 import { ScanConfigFileResult, ScanConfigFinding, computeOverallSeverity, computeScanExitCode, isDuplicateFinding, mapInjectionFindings, mapSecurityFindings, mapSecuritySeverity } from './scan-config-shared'
+import { SECURITY_SCAN_DEFAULT_IGNORE } from './scan-targets'
 import { extractQuotedSecretValue, isReferenceOnlySecretValue } from './secret-reference'
 import { Direction, EMPTY_SUPPLY_CHAIN, FindingLifecycle, SecurityCategorySnapshot, SecurityTimelineFile, SecurityTimelineFileSchema, SecurityTimelineSnapshot, SecurityTrendLine, SecurityTrendResult, SupplyChainSnapshot, TimeToFixResult, TimeToFixStats, TrendAttribution, securityFindingId } from './security-timeline-types'
 import { detectStack } from './stack-detector'

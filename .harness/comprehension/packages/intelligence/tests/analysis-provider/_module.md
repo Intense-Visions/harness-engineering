@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/intelligence/tests/analysis-provider'
-sourceHash: '2c80920b44628a66f22544d890fbd8ee12158d92c3d8102de3ff12616d7e8d87'
+sourceHash: 'ba6bd800107b0c3b2902d0b3c64fdf6b0ef9df4664bcccd305cea3988066d4f3'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent

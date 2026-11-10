@@ -39,31 +39,55 @@ const badRecovery: RecoveryRecord = {
 };
 
 describe('rehearsalTierForScore', () => {
-  it('maps score bands to tiers at the boundaries', () => {
-    expect(rehearsalTierForScore(100)).toBe('pass');
-    expect(rehearsalTierForScore(80)).toBe('pass');
-    expect(rehearsalTierForScore(79)).toBe('partial');
-    expect(rehearsalTierForScore(50)).toBe('partial');
-    expect(rehearsalTierForScore(49)).toBe('fail');
-    expect(rehearsalTierForScore(0)).toBe('fail');
+  // Table-driven so each boundary input is named in its own test and a shifted
+  // threshold reports every input it moved, not just the first.
+  it.each([
+    [100, 'pass'],
+    [80, 'pass'],
+    [79, 'partial'],
+    [50, 'partial'],
+    [49, 'fail'],
+    [0, 'fail'],
+  ] as const)('maps score %i to tier "%s"', (score, tier) => {
+    expect(rehearsalTierForScore(score)).toBe(tier);
   });
 });
 
 describe('scoreRecovery', () => {
-  it('scores a known-good recovery at 100 / pass', () => {
+  it('scores 100 and tier "pass" when every dimension is credited', () => {
     const s = scoreRecovery(manifest, goodRecovery);
-    expect(s.score).toBe(100);
-    expect(s.tier).toBe('pass');
-    expect(s.fixtureId).toBe('hardcoded-secret');
-    expect(s.failureMode).toBe('leaked-secret');
-    expect(s.dimensions.every((d) => d.credited)).toBe(true);
+    // Pin the full dimension set: an empty or partial `dimensions` array, or a
+    // dropped dimension, fails here and the diff names the offending dimension.
+    expect(Object.fromEntries(s.dimensions.map((d) => [d.name, d.credited]))).toEqual({
+      detected: true,
+      correctCheck: true,
+      fixed: true,
+      noCollateral: true,
+    });
+    expect(s).toMatchObject({ score: 100, tier: 'pass' });
   });
 
-  it('scores a known-bad recovery low / fail (only noCollateral credited)', () => {
+  it('echoes the manifest fixtureId and failureMode onto the score', () => {
+    // The record deliberately names a DIFFERENT fixture and failure mode, so only
+    // values taken from the manifest can satisfy the assertion.
+    const s = scoreRecovery(manifest, {
+      ...goodRecovery,
+      fixtureId: 'some-other-fixture',
+      identifiedFailureMode: 'layer-violation',
+    });
+    expect(s).toMatchObject({ fixtureId: 'hardcoded-secret', failureMode: 'leaked-secret' });
+  });
+
+  it('awards only the noCollateral weight and tier "fail" when the agent neither detected, checked, nor fixed the defect', () => {
     const s = scoreRecovery(manifest, badRecovery);
     // Nothing detected/fixed/checked, but no collateral damage was introduced.
-    expect(s.score).toBe(REHEARSAL_WEIGHTS.noCollateral);
-    expect(s.tier).toBe('fail');
+    expect(Object.fromEntries(s.dimensions.map((d) => [d.name, d.credited]))).toEqual({
+      detected: false,
+      correctCheck: false,
+      fixed: false,
+      noCollateral: true,
+    });
+    expect(s).toMatchObject({ score: REHEARSAL_WEIGHTS.noCollateral, tier: 'fail' });
   });
 
   it('withholds detection credit for a confident misdiagnosis', () => {

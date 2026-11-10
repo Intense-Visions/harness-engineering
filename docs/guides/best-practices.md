@@ -481,9 +481,9 @@ await service.deleteUsers(userIds);
 
 ## Resources
 
-- [Implementation Guide](/docs/standard/implementation.md)
-- [Configuration Reference](/docs/reference/configuration.md)
-- [CLI Reference](/docs/reference/cli.md)
+- [Implementation Guide](../standard/implementation.md)
+- [Configuration Reference](../reference/configuration.md)
+- [CLI Reference](../reference/cli.md)
 
 ---
 

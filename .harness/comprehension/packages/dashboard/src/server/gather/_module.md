@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/dashboard/src/server/gather'
-sourceHash: '659ea5ceef3b0f005bae76baefebf0befd0f04b90ed44369c6632cd9c4e77f52'
+sourceHash: '3474b6fd37b169bf53417f30c1396937720b9933d818d3bef0351f5b9570e761'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -50,10 +50,11 @@ import { isArchData, isPerfData, isSecurityData } from '../../shared/typeGuards'
 import { AnomalyResult, ArchResult, BlastRadiusResult, CIData, CheckResult, DashboardAssignmentRecord, DashboardFeature, FeatureStatus, GraphResult, HealthResult, MilestoneProgress, NodeTypeCount, PerfResult, PerfViolationSummary, RoadmapResult, SecurityResult, SignoffBasis, SignoffBasisSection, SignoffDecision, SignoffItem, SignoffRecord } from '../../shared/types'
 import { GatherCache } from '../gather-cache'
 import { discoverEntryPoints } from './entry-points'
-import { ArchBaselineManager, ArchConfigSchema, EntropyAnalyzer, EntropyConfig, SECURITY_SCAN_DEFAULT_IGNORE, SECURITY_SCAN_GLOB, SecurityScanner, TimelineManager, TrendResult, aggregateBySkill, diff, readAdoptionRecords, resolveRoadmapStore, runAll } from '@harness-engineering/core'
+import { ArchBaselineManager, ArchConfigSchema, EntropyAnalyzer, EntropyConfig, SECURITY_SCAN_DEFAULT_IGNORE, SECURITY_SCAN_GLOB, SecurityScanner, TimelineManager, TrendResult, aggregateBySkill, diff, parseSecurityConfig, readAdoptionRecords, resolveRoadmapStore, runAll } from '@harness-engineering/core'
 import { CascadeSimulator, GraphAnomalyAdapter, GraphStore, NODE_TYPES, queryTraceability } from '@harness-engineering/graph'
 import { AdoptionSnapshot } from '@harness-engineering/types'
 import { glob } from 'glob'
+import { readFileSync } from 'node:fs'
 import { mkdir, readFile, readdir, stat, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 ```

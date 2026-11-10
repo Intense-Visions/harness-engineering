@@ -1,3 +1,11 @@
+---
+type: business_process
+domain: core
+tags: [sessions, search, fts5, bm25, sqlite, archive, hermes-phase-1]
+phase: hermes-phase-1
+status: shipped
+---
+
 # Session Search (Hermes Phase 1)
 
 **Status:** shipped
