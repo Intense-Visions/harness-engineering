@@ -185,25 +185,20 @@ async function runCheckSecurityAction(
     message: `[${f.ruleId}] ${f.severity.toUpperCase()} ${f.message}`,
   }));
 
-  // An empty scan surfaces as an issue rather than a footnote, so it cannot be
-  // read as a clean run in any output mode.
-  if (result.value.scannedNothing) {
-    issues.unshift({
-      file: process.cwd(),
-      message:
-        'ABSTAINED: 0 files scanned — nothing was verified. Check the scan pattern ' +
-        'and `security.exclude` in harness.config.json (use --fail-on-empty to make this fail).',
-    });
-  }
+  const abstention = result.value.scannedNothing
+    ? 'ABSTAINED: 0 files scanned — nothing was verified. Check the scan pattern ' +
+      'and `security.exclude` in harness.config.json (use --fail-on-empty to make this fail).'
+    : undefined;
 
   if (mode === OutputMode.JSON) {
-    // Additive: the denominator ships alongside the verdict so a consumer can tell
-    // "clean" from "read nothing".
+    // An empty scan surfaces as an issue rather than a footnote, so a JSON
+    // consumer cannot read it as a clean run. Additive: the denominator ships
+    // alongside the verdict so a consumer can tell "clean" from "read nothing".
     console.log(
       JSON.stringify(
         {
           valid: result.value.valid,
-          issues,
+          issues: abstention ? [{ file: process.cwd(), message: abstention }, ...issues] : issues,
           scannedNothing: result.value.scannedNothing,
           stats: result.value.stats,
         },
@@ -212,9 +207,16 @@ async function runCheckSecurityAction(
       )
     );
   } else {
+    // The text renderer drops `issues` when `valid` is true, so an abstention
+    // passed as an issue printed "validation passed" over 0 files (#2072). As an
+    // unavailable check it renders "Validation incomplete" (and `[unavailable]`
+    // in QUIET) regardless of the verdict.
     const output = formatter.formatValidation({
       valid: result.value.valid,
       issues,
+      ...(abstention && {
+        unavailableChecks: [{ check: 'security-scan', file: process.cwd(), reason: abstention }],
+      }),
     });
     if (output) {
       console.log(output);
