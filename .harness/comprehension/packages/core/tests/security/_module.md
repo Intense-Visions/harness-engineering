@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/tests/security'
-sourceHash: '6059e74f8ee93af390f488873fb9515d1aca1f55460a979d2cc044424ff1287a'
+sourceHash: '9a38d4e3f209e15fdd38479a9e1265a44a593ea33236bbd9f2316ecef2ef1faf'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -11,8 +11,6 @@ members:
     'injection-patterns.test.ts',
     'integration.test.ts',
     'osv-client.test.ts',
-    'scan-targets-default-ignore.test.ts',
-    'scan-targets-rust.test.ts',
     'scanner-fileglob.test.ts',
     'scanner.test.ts',
     'secret-reference.test.ts',
@@ -35,18 +33,16 @@ members:
 import { SecurityConfigSchema, parseSecurityConfig, resolveRuleSeverity } from '../../src/security/config'
 import { InjectionFinding, getInjectionPatterns, scanForInjection } from '../../src/security/injection-patterns'
 import { createOsvClient } from '../../src/security/osv-client'
-import { SECURITY_SCAN_DEFAULT_IGNORE, SECURITY_SCAN_EXTENSIONS, SECURITY_SCAN_GLOB } from '../../src/security/scan-targets'
 import { SecurityScanner, parseHarnessIgnore } from '../../src/security/scanner'
 import { extractQuotedSecretValue, isReferenceOnlySecretValue } from '../../src/security/secret-reference'
 import { SecurityTimelineManager } from '../../src/security/security-timeline-manager'
 import { EMPTY_SUPPLY_CHAIN, SecurityTimelineFile, securityFindingId } from '../../src/security/security-timeline-types'
 import { detectStack } from '../../src/security/stack-detector'
 import { checkTaint, clearTaint, getTaintFilePath, listTaintedSessions, readTaint, writeTaint } from '../../src/security/taint'
-import { DEFAULT_SECURITY_CONFIG, ScanResult, SecurityCategory, SecurityConfidence, SecurityConfig, SecurityFinding, SecurityRule, SecuritySeverity } from '../../src/security/types'
-import { glob } from 'glob'
-import * as fs, { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { ScanResult, SecurityCategory, SecurityConfidence, SecurityConfig, SecurityFinding, SecurityRule, SecuritySeverity } from '../../src/security/types'
+import * as fs, { existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs'
 import from 'node:fs/promises'
-import * as os, { tmpdir } from 'node:os'
-import * as path, { join, relative } from 'node:path'
-import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import * as os from 'node:os'
+import * as path, { join } from 'node:path'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 ```

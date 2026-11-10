@@ -1,0 +1,18 @@
+{
+  "issues": [2364],
+  "route": "bug",
+  "stages": ["debugging"],
+  "reproducingTest": "packages/cli/tests/mcp/tools/performance-wire.test.ts",
+  "assumptions": [
+    "Exporting toJsonSafeReport from entropy.ts (rather than moving it to a new utils module) is the minimal share; entropy.ts already owns the helper and its rationale doc.",
+    "Stripping snapshot.files[].ast from check_performance output is acceptable for MCP callers, matching the precedent set for detect_entropy in #2315 (ASTs are in-process parse trees no caller can act on).",
+    "The residual documented on toJsonSafeReport applies here too: on a project whose AST-stripped report still exceeds the 4k-token budget the prefix may be cut mid-value; summary and analysis keys are now first so they land inside the delivered prefix. compact:false remains the full-report escape hatch.",
+    "The check_performance row for wire-contract.test.ts (PR #2363) is NOT added here, per the lane brief forbidding edits to that file; the new performance-wire.test.ts covers the same contract."
+  ],
+  "rootCause": "handleCheckPerformance (packages/cli/src/mcp/tools/performance.ts) returned resultToMcpResponse(result) on the raw EntropyReport, whose first key is snapshot carrying full per-file ASTs (~81% of the payload). wrapWithCompaction prefix-truncates at a 4,000-token budget, so the delivered text was pure AST, cut mid-value, and JSON.parse failed; summary/complexity/coupling/sizeBudget were unreachable. detect_entropy had been fixed with toJsonSafeReport (#2315) but check_performance never routed through it. All five type variants (omitted/all/structural/coupling/size) share the single return path.",
+  "reproduction": {
+    "before": "performance-wire.test.ts: 0/6 pass (5x SyntaxError: Unexpected token 'n' from JSON.parse of the delivered body, 1x AssertionError ast present). Duplication-cli-project fixture: raw 50,724 bytes, 12,681 -> 4,016 tokens, delivered truncated mid-AST.",
+    "after": "performance-wire.test.ts: 6/6 pass. Raw 9,406 bytes, 2,352 -> 2,165 tokens (no cut), summary first. packages/cli tests/mcp: 126 files / 1,344 tests pass."
+  },
+  "closingKeyword": "Refs #2364"
+}

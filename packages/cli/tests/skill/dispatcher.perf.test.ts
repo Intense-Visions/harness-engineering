@@ -5,8 +5,14 @@
  *   - scoreSkill() over a 400-entry mock index completes in <50ms
  *   - Full suggest() pass over a 400-entry mock index completes in <100ms
  *
- * Thresholds are not asserted here — baselines are logged to stdout so they
- * can be captured during Phase A execution and referenced in Phase E regression.
+ * Baselines are logged to stdout. The only thresholds asserted are coarse
+ * super-linear-regression guards on the BEST of K warm samples (see bestOf):
+ * a single cold wall-clock sample is a function of runner load and JIT warm-up,
+ * not of the code (#2046). Taking the minimum of K runs of the same
+ * deterministic operation reduces measurement noise — it is not a retry, the
+ * assertion still runs once. The 100ms bounds sit ~35-80x above the local warm
+ * cost (~3ms / ~1.2ms) so transient load cannot trip them, while an accidental
+ * O(n^2) over the 400-entry index (~400x) still fails.
  *
  * Run: npx vitest run packages/cli/tests/skill/dispatcher.perf.test.ts
  */
@@ -39,6 +45,18 @@ function makeLargeIndex(size: number): SkillsIndex {
   return { version: 1, hash: 'perf-hash', generatedAt: new Date().toISOString(), skills };
 }
 
+/** Best (minimum) wall-clock of K runs of fn, after one warm-up run. */
+function bestOf<T>(k: number, fn: () => T): { best: number; result: T } {
+  let result = fn(); // warm-up (JIT) + behavioural result
+  let best = Infinity;
+  for (let i = 0; i < k; i++) {
+    const start = performance.now();
+    result = fn();
+    best = Math.min(best, performance.now() - start);
+  }
+  return { best, result };
+}
+
 describe('Dispatcher performance baselines (400-entry index)', () => {
   const INDEX_SIZE = 400;
   const index = makeLargeIndex(INDEX_SIZE);
@@ -46,31 +64,34 @@ describe('Dispatcher performance baselines (400-entry index)', () => {
   const queryTerms = ['pattern', 'domain', 'keyword'];
 
   it('scoreSkill() over 400 entries records a baseline', () => {
-    const start = performance.now();
-    for (const [name, entry] of Object.entries(index.skills)) {
-      scoreSkill(entry, queryTerms, null, recentFiles, name);
-    }
-    const elapsed = performance.now() - start;
-    console.log(`[perf-baseline] scoreSkill() × ${INDEX_SIZE}: ${elapsed.toFixed(2)}ms`);
+    const { best: elapsed } = bestOf(5, () => {
+      for (const [name, entry] of Object.entries(index.skills)) {
+        scoreSkill(entry, queryTerms, null, recentFiles, name);
+      }
+    });
+    console.log(
+      `[perf-baseline] scoreSkill() × ${INDEX_SIZE}: ${elapsed.toFixed(2)}ms (best of 5)`
+    );
     // Structural assertion: results are numeric
     expect(elapsed).toBeGreaterThan(0);
-    // Order-of-magnitude regression guard. Soft threshold to avoid flaking on
-    // loaded CI runners; real regressions surface as >10x budget in the log.
-    expect(elapsed).toBeLessThan(500);
+    // Super-linear regression guard on the best-of-K sample; see file header.
+    expect(elapsed).toBeLessThan(100);
   });
 
   it('full suggest() pass over 400-entry index records a baseline', () => {
-    const start = performance.now();
-    const result = suggest(index, 'pattern domain keyword', null, recentFiles);
-    const elapsed = performance.now() - start;
-    console.log(`[perf-baseline] suggest() over ${INDEX_SIZE} skills: ${elapsed.toFixed(2)}ms`);
+    const { best: elapsed, result } = bestOf(5, () =>
+      suggest(index, 'pattern domain keyword', null, recentFiles)
+    );
+    console.log(
+      `[perf-baseline] suggest() over ${INDEX_SIZE} skills: ${elapsed.toFixed(2)}ms (best of 5)`
+    );
     // Structural assertions
     expect(Array.isArray(result.autoInjectKnowledge)).toBe(true);
     expect(Array.isArray(result.knowledgeRecommendations)).toBe(true);
     expect(result.autoInjectKnowledge.length).toBeLessThanOrEqual(3);
     expect(result.knowledgeRecommendations.length).toBeLessThanOrEqual(10);
-    // Order-of-magnitude regression guard; see note above.
-    expect(elapsed).toBeLessThan(1000);
+    // Super-linear regression guard on the best-of-K sample; see file header.
+    expect(elapsed).toBeLessThan(100);
   });
 
   it('autoInjectKnowledge cap holds with 400-entry index containing many knowledge skills', () => {

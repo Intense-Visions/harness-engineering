@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/tests/mcp/tools'
-sourceHash: 'c082987180b1e06a9c0e9901201c1bf5a257f0a52a39cdf899e5f9f88fc28117'
+sourceHash: '435761769b47fb117db941edbfe152752cf8ed91fb512e0d28b2a00a428cd3ae'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -60,6 +60,7 @@ members:
     'naming-craft.test.ts',
     'outcome-eval.test.ts',
     'pagination-integration.test.ts',
+    'performance-wire.test.ts',
     'performance.test.ts',
     'persona-handlers.test.ts',
     'persona.security.test.ts',
@@ -104,7 +105,6 @@ members:
     'traceability.test.ts',
     'validate-cov544b.test.ts',
     'validate.test.ts',
-    'wire-contract.test.ts',
     'workflow-e2e.test.ts',
   ]
 ---
