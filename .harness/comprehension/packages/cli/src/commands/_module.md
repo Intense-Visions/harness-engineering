@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/commands'
-sourceHash: 'c3511f84c2fe39b83cf339fbbd78c815061dbdcc05b151d39dd15fd1249210dc'
+sourceHash: '7ee799b7168cf0480866a94236ac1fc92ea2458549d5bf7f250dc1532749e22b'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -137,6 +137,7 @@ export CLEANUP_TARGETS
 export CURSOR_CURATED_TOOLS
 export DEFAULT_FIXTURES_DIR
 export DEFAULT_OPERATIONAL_DRIFT_POLICY
+export GIT_DIFF_MAX_BUFFER
 export GIT_MAX_BUFFER_BYTES
 export INGEST_TOKEN_ENV
 export OUTCOME_BLOCK_ON_LEVELS
@@ -611,7 +612,7 @@ import { createPulseCommand } from './pulse'
 import { createRecommendCommand } from './recommend'
 import { createRehearseCommand } from './rehearse'
 import { RunGit, createFsPort, createGitPort, createReleaseInventoryCommand, runReleaseInventory } from './release-inventory'
-import { RunGit, buildDiffInfo, createReviewCiCommand, resolveDiffRange } from './review-ci'
+import { GIT_MAX_BUFFER_BYTES, RunGit, buildDiffInfo, createReviewCiCommand, defaultRunGit, resolveDiffRange } from './review-ci'
 import { createLocalInvoke } from './review-ci-local-adapter'
 import { createReworkCommand, runReworkCommand } from './rework'
 import { createRoadmapCommand } from './roadmap'
