@@ -1,0 +1,24 @@
+{
+  "issues": [2294],
+  "route": "bug",
+  "stages": ["debugging"],
+  "reproducingTest": "packages/core/tests/entropy/fixers/safe-fixes.test.ts",
+  "additionalTests": [
+    "packages/cli/tests/commands/config-implied-root.test.ts (fix-drift backs a deleted file up inside the -c project, not process.cwd())",
+    "packages/cli/tests/commands/fix-drift.test.ts (applyFixes called with projectRoot)",
+    "packages/cli/tests/mcp/tools/entropy.test.ts (autoFix passes projectRoot)"
+  ],
+  "assumptions": [
+    "The backup belongs under the PROJECT root (the directory owning harness.config.json, i.e. resolveProject().root), not under config.rootDir (the source dir), matching the issue's 'under P'.",
+    "applyFixes keeps process.cwd() as the fallback root ONLY when a library caller supplies no projectRoot, for backward compatibility; every in-repo caller now passes a root.",
+    "An absolute backupDir is honoured as-is (path.resolve semantics).",
+    "Adding '.entropy-backups/' to the repo .gitignore is trivial hygiene; adopter templates were deliberately not touched (scope)."
+  ],
+  "rootCause": "safe-fixes.ts createBackup() joined a bare relative DEFAULT_FIX_CONFIG.backupDir ('.entropy-backups') with no root, so fs resolved it against process.cwd(); neither caller (cli fix-drift.ts, mcp tools/entropy.ts) passed the project root, so deletions happened in the target project while backups landed in the invoking directory.",
+  "reproduction": {
+    "before": "fix reverted: 5 failing (core safe-fixes.test.ts 2/19 failed; cli config-implied-root + fix-drift + entropy scoped run 3/24 failed); the relative-backupDir case leaked a 'custom/' dir into packages/core (the cwd)",
+    "after": "fix applied: 0 failing (core 19/19; cli scoped 24/24; core tests/entropy 303/303)"
+  },
+  "siblingSweep": "core src grep: backupDir was the only bare relative path default. process.cwd() sites (compound-lock, knowledge-map, strategy-seeder, fs-utils, matchers, duplication, feedback/config) are caller-overridable defaults. Real sibling NOT fixed here: performance/benchmark-runner.ts:98 strips process.cwd() rather than options.cwd from result file paths.",
+  "closingKeyword": "Refs #2294"
+}

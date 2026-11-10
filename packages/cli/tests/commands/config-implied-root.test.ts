@@ -25,7 +25,7 @@
  */
 import { describe, it, expect, vi } from 'vitest';
 import { mkdtemp, mkdir, rm, writeFile, readFile } from 'node:fs/promises';
-import { existsSync } from 'node:fs';
+import { existsSync, readdirSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import * as path from 'node:path';
@@ -717,11 +717,8 @@ describe('-c selects the project root, not just the config file (#911 class)', (
    * zero-denominator abstention (#1146) cannot satisfy it.
    *
    * The fixture yields exactly ONE `delete-lines` fix and no `delete-file`
-   * fix, deliberately: `applyFixes` backs a deleted file up to
-   * `.entropy-backups` resolved against `process.cwd()` rather than the
-   * project root, so a `delete-file` fix escapes into the caller's tree even
-   * when the root IS correct. That is a live residual defect, out of scope
-   * here, and the fixture is shaped to not trip it (asserted below).
+   * fix. The `delete-file` path (and where its backup lands, #2294) is pinned
+   * by the next case.
    */
   it('fix-drift rewrites the -c project, and writes only there', async () => {
     await withProject(
@@ -776,6 +773,66 @@ describe('-c selects the project root, not just the config file (#911 class)', (
         // `false`, so a directory some other process left behind cannot red
         // this case for a reason that has nothing to do with the root.
         expect(existsSync(backupDir)).toBe(backupDirExistedBefore);
+      }
+    );
+  });
+
+  /**
+   * #2294: `fix-drift --no-dry-run` DELETES dead files and backs each one up
+   * first. The backup used to resolve a bare relative `.entropy-backups`
+   * against `process.cwd()`, so the deletion happened in the -c project while
+   * its safety net landed in the caller's tree.
+   *
+   * Discriminator: WHERE THE BACKUP LANDED. Asserting that a backup exists
+   * passes in both the right and the wrong case; asserting it is under the
+   * fixture root, holding the deleted file's content, does not.
+   */
+  it('fix-drift backs a deleted file up inside the -c project, not process.cwd()', async () => {
+    await withProject(
+      {
+        rootDir: './fixtureapp',
+        docsDir: './fixturedocs',
+        entropy: { entryPoints: ['main.ts'] },
+      },
+      async (root) => {
+        await mkdir(path.join(root, 'fixtureapp'), { recursive: true });
+        await writeFile(
+          path.join(root, 'fixtureapp/main.ts'),
+          'export const main = (): number => 1;\n'
+        );
+        // Reachable from no entry point: a `delete-file` fix.
+        await writeFile(
+          path.join(root, 'fixtureapp/orphan.ts'),
+          'export const orphan = (): number => 2;\n'
+        );
+      },
+      async (configPath, root) => {
+        const { runFixDrift } = await import('../../src/commands/fix-drift');
+        const cwdBackupDir = path.join(process.cwd(), '.entropy-backups');
+        const cwdBackupExistedBefore = existsSync(cwdBackupDir);
+        try {
+          const result = await runFixDrift({ configPath, dryRun: false });
+          expect(result.ok).toBe(true);
+          if (!result.ok) return;
+
+          const orphan = path.join(root, 'fixtureapp', 'orphan.ts');
+          const deleted = result.value.fixes.filter((f) => f.action === 'delete-file' && f.applied);
+          expect(deleted.map((f) => toPosix(f.file))).toEqual([toPosix(orphan)]);
+          expect(existsSync(orphan)).toBe(false);
+
+          // POSITIVE: the backup is in the project that was fixed, with the
+          // deleted file's content.
+          const backupDir = path.join(root, '.entropy-backups');
+          const backups = readdirSync(backupDir);
+          expect(backups).toHaveLength(1);
+          await expect(readFile(path.join(backupDir, backups[0]!), 'utf-8')).resolves.toBe(
+            'export const orphan = (): number => 2;\n'
+          );
+          // NEGATIVE: nothing escaped into the invoking directory.
+          expect(existsSync(cwdBackupDir)).toBe(cwdBackupExistedBefore);
+        } finally {
+          if (!cwdBackupExistedBefore) await rm(cwdBackupDir, { recursive: true, force: true });
+        }
       }
     );
   });

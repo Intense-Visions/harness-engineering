@@ -4,7 +4,7 @@ import type { EntropyError, DeadCodeReport, Fix, FixConfig, FixResult, FixType }
 import { createEntropyError } from '../../shared/errors';
 import * as fs from 'fs';
 import { promisify } from 'util';
-import { dirname, basename, join } from 'path';
+import { dirname, basename, join, resolve } from 'path';
 
 const readFile = promisify(fs.readFile);
 const writeFile = promisify(fs.writeFile);
@@ -222,7 +222,12 @@ async function applyDeleteFile(
   config: FixConfig
 ): Promise<Result<void, { fix: Fix; error: string }>> {
   if (config.createBackup && config.backupDir) {
-    const backupResult = await createBackup(fix.file, config.backupDir);
+    // Root the backup on the project being fixed, not the invoking directory:
+    // `fix.file` is an absolute path in that project, so a bare relative
+    // backupDir would otherwise put the safety net in a different tree from
+    // the deletion (#2294). `resolve` keeps an absolute backupDir as-is.
+    const backupDir = resolve(config.projectRoot ?? process.cwd(), config.backupDir);
+    const backupResult = await createBackup(fix.file, backupDir);
     if (!backupResult.ok) return Err({ fix, error: backupResult.error.message });
   }
   await unlink(fix.file);

@@ -192,7 +192,11 @@ describe('fix-drift command', () => {
         expect(result.value.fixes).toHaveLength(1);
         expect(result.value.fixes[0].applied).toBe(true);
       }
-      expect(applyFixes).toHaveBeenCalledWith(expect.any(Array), { dryRun: false });
+      // #2294: backups must be rooted on the project being fixed, not process.cwd().
+      expect(applyFixes).toHaveBeenCalledWith(expect.any(Array), {
+        dryRun: false,
+        projectRoot: '/tmp/test',
+      });
     });
 
     it('handles skipped and errored fixes', async () => {

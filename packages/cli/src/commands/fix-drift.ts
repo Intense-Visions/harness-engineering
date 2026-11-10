@@ -115,7 +115,8 @@ export async function runFixDrift(
   const appliedFixes: Array<{ file: string; action: string; applied: boolean }> = [];
 
   if (!dryRun && fixes.length > 0) {
-    const applyResult = await applyFixes(fixes, { dryRun: false });
+    // Back up into the project being fixed, not `process.cwd()` (#2294).
+    const applyResult = await applyFixes(fixes, { dryRun: false, projectRoot: cwd });
     if (!applyResult.ok) {
       return Err(
         new CLIError(`Failed to apply fixes: ${applyResult.error.message}`, ExitCode.ERROR)
