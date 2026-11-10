@@ -85,6 +85,22 @@ export function makeHud(): Hud {
 /** A Monday-UTC week, matching the Python suite's default fixture config. */
 export const DEFAULT_WEEK = { weekday: 0, time: '00:00', tz: 'UTC' };
 
+/**
+ * A fixed instant clear of every week boundary the suite configures:
+ * Wednesday 12:00 UTC, 2.5 days past a DEFAULT_WEEK reset and 12h past a UTC
+ * midnight.
+ *
+ * Any test that writes fixture rows relative to "now" and then asserts on the
+ * week-to-date rollup must pin both to this instant and pass it to
+ * `refresh`/`recompute` — never `new Date()`. Against the wall clock a row
+ * written at `hoursAgo(now, 1)` lands in the PREVIOUS week for the first hour
+ * after every Monday 00:00 UTC reset, so the suite failed on every OS inside
+ * that window and passed on any re-run outside it (#1966). The summary takes
+ * `now` as a parameter precisely so the suite can do this; fake timers are not
+ * used because `refreshIfStale` compares against real file mtimes.
+ */
+export const MID_WEEK = new Date('2026-08-12T12:00:00Z');
+
 export function transcriptLine(
   requestId: string,
   when: Date,
