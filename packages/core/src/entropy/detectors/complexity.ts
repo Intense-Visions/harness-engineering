@@ -32,18 +32,35 @@ interface FunctionInfo {
   body: string;
 }
 
-// Patterns for function-like declarations (module-level to avoid unbalanced
-// braces inside function bodies confusing the brace-counting detector).
-const FUNCTION_PATTERNS = [
+// Function-like declarations, split at the opening `(` of the parameter list
+// (module-level to avoid unbalanced braces inside function bodies confusing the
+// brace-counting detector). The parameter list itself is captured by a
+// balanced-paren scan, so it may contain nested parens; `tail` must then match
+// what follows its closing `)`.
+const FUNCTION_HEADERS: ReadonlyArray<{ head: RegExp; tail: RegExp }> = [
   // function declarations: function name(params) {
-  /^\s*(?:export\s+)?(?:async\s+)?function\s+(\w+)\s*\(([^)]*)\)/,
+  { head: /^\s*(?:export\s+)?(?:async\s+)?function\s+(\w+)\s*\(/, tail: /^/ },
   // method declarations: name(params) {
-  /^\s*(?:async\s+)?(\w+)\s*\(([^)]*)\)\s*(?::\s*[^{]+)?\s*\{/,
+  { head: /^\s*(?:async\s+)?(\w+)\s*\(/, tail: /^\s*(?::\s*[^{]+)?\s*\{/ },
   // arrow functions assigned to const/let/var: const name = (params) =>
-  /^\s*(?:export\s+)?(?:const|let|var)\s+(\w+)\s*=\s*(?:async\s+)?\(([^)]*)\)\s*(?::\s*[^=]+)?\s*=>/,
-  // arrow functions assigned to const/let/var with single param: const name = param =>
-  /^\s*(?:export\s+)?(?:const|let|var)\s+(\w+)\s*=\s*(?:async\s+)?(\w+)\s*=>/,
+  {
+    head: /^\s*(?:export\s+)?(?:const|let|var)\s+(\w+)\s*=\s*(?:async\s+)?\(/,
+    tail: /^\s*(?::\s*[^=]+)?\s*=>/,
+  },
 ];
+
+// arrow functions assigned to const/let/var with single param: const name = param =>
+const SINGLE_PARAM_ARROW =
+  /^\s*(?:export\s+)?(?:const|let|var)\s+(\w+)\s*=\s*(?:async\s+)?(\w+)\s*=>/;
+
+// Statements shaped like `keyword (...) {` that the method header would match.
+const CONTROL_KEYWORDS = new Set(['if', 'for', 'while', 'switch', 'catch', 'with']);
+
+// A parameter list longer than this is treated as unterminated. Held at one line
+// for now: matching multi-line lists makes every prettier-wrapped signature
+// visible to the detector, which surfaces several hundred previously unmeasured
+// findings and needs an explicit baseline decision (#2384).
+const MAX_PARAM_LIST_LINES = 1;
 
 const OPENING_BRACKETS = new Set(['(', '[', '{', '<']);
 const CLOSING_BRACKETS = new Set([')', ']', '}', '>']);
@@ -95,6 +112,57 @@ function countParameters(paramsStr: string): number {
 }
 
 /**
+ * Capture the parameter list whose `(` is at `lines[lineIdx][openCol]`, scanning
+ * to the balancing `)` (across at most MAX_PARAM_LIST_LINES lines). Parens inside
+ * string or template literals and comments do not count. Returns null when the
+ * list does not close within that window.
+ */
+function captureParameterList(
+  lines: string[],
+  lineIdx: number,
+  openCol: number
+): { params: string; endLine: number; rest: string } | null {
+  let depth = 0;
+  let params = '';
+  const lastLine = Math.min(lines.length, lineIdx + MAX_PARAM_LIST_LINES);
+  for (let l = lineIdx; l < lastLine; l++) {
+    const line = lines[l]!;
+    for (let c = l === lineIdx ? openCol : 0; c < line.length; c++) {
+      const ch = line[c]!;
+      if (ch === '/' && line[c + 1] === '/') break;
+      if (QUOTES.has(ch)) {
+        const close = skipStringLiteral(line, c);
+        if (depth > 0) params += line.slice(c, close + 1);
+        c = close;
+        continue;
+      }
+      if (ch === '(') depth++;
+      else if (ch === ')' && --depth === 0) {
+        return { params, endLine: l, rest: line.slice(c + 1) };
+      }
+      if (depth > 0 && !(ch === '(' && depth === 1)) params += ch;
+    }
+    params += '\n';
+  }
+  return null;
+}
+
+/** Match a function-like declaration starting on `lines[i]`. */
+function matchFunctionHeader(lines: string[], i: number): { name: string; params: number } | null {
+  const line = lines[i]!;
+  for (const { head, tail } of FUNCTION_HEADERS) {
+    const match = line.match(head);
+    if (!match || CONTROL_KEYWORDS.has(match[1]!)) continue;
+    const list = captureParameterList(lines, i, match[0].length - 1);
+    if (list && tail.test(list.rest)) {
+      return { name: match[1]!, params: countParameters(list.params) };
+    }
+  }
+  const arrow = line.match(SINGLE_PARAM_ARROW);
+  return arrow ? { name: arrow[1]!, params: countParameters(arrow[2]!) } : null;
+}
+
+/**
  * Extract function boundaries from source code using regex.
  * Handles function declarations, methods, and arrow functions.
  */
@@ -103,30 +171,21 @@ function extractFunctions(content: string): FunctionInfo[] {
   const lines = content.split('\n');
 
   for (let i = 0; i < lines.length; i++) {
-    const line = lines[i]!;
+    const header = matchFunctionHeader(lines, i);
+    if (!header) continue;
 
-    for (const pattern of FUNCTION_PATTERNS) {
-      const match = line.match(pattern);
-      if (match) {
-        const name = match[1] ?? 'anonymous';
-        const paramsStr = match[2] || '';
-        const params = countParameters(paramsStr);
+    // Find the function body by tracking braces
+    const endLine = findFunctionEnd(lines, i);
+    const body = lines.slice(i, endLine + 1).join('\n');
 
-        // Find the function body by tracking braces
-        const endLine = findFunctionEnd(lines, i);
-        const body = lines.slice(i, endLine + 1).join('\n');
-
-        functions.push({
-          name,
-          line: i + 1,
-          params,
-          startLine: i + 1,
-          endLine: endLine + 1,
-          body,
-        });
-        break; // Only match one pattern per line
-      }
-    }
+    functions.push({
+      name: header.name,
+      line: i + 1,
+      params: header.params,
+      startLine: i + 1,
+      endLine: endLine + 1,
+      body,
+    });
   }
 
   return functions;
