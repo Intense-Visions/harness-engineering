@@ -453,7 +453,6 @@
 - [packages/graph/src/store/Serializer.ts](../../packages/graph/src/store/Serializer.ts)
 - [packages/graph/src/store/VectorStore.ts](../../packages/graph/src/store/VectorStore.ts)
 - [packages/graph/src/store/GraphStore.ts](../../packages/graph/src/store/GraphStore.ts)
-- [packages/graph/src/lokijs.d.ts](../../packages/graph/src/lokijs.d.ts)
 - [packages/linter-gen/tests/integration/generate.test.ts](../../packages/linter-gen/tests/integration/generate.test.ts)
 - [packages/linter-gen/tests/parser/config-parser.test.ts](../../packages/linter-gen/tests/parser/config-parser.test.ts)
 - [packages/linter-gen/tests/generator/index-generator.test.ts](../../packages/linter-gen/tests/generator/index-generator.test.ts)

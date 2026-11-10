@@ -1,3 +1,10 @@
+---
+type: business_rule
+domain: orchestrator
+tags: [cost, cost-ceiling, budget, abort, token-usage, pricing, hermes-phase-5]
+phase: hermes-phase-5
+---
+
 # Per-task cost ceiling
 
 **Phase:** Hermes Phase 5 — Dispatch Hardening
