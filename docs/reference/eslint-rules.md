@@ -1,6 +1,6 @@
 # ESLint Rules Reference
 
-Complete reference for all rules provided by `@harness-engineering/eslint-plugin`. The plugin ships 19 rules across 6 categories, enforcing architecture, boundary, documentation, performance, and cross-platform constraints at lint time.
+Complete reference for all rules provided by `@harness-engineering/eslint-plugin`. The plugin ships 21 rules across 8 categories, enforcing architecture, boundary, documentation, performance, cross-platform, security, test-hygiene, and type-safety constraints at lint time.
 
 ## Quick Start
 
@@ -11,16 +11,18 @@ import harness from '@harness-engineering/eslint-plugin';
 export default [harness.configs.recommended];
 ```
 
-The `recommended` config enables architecture rules as errors and all others as warnings. The `strict` config promotes every rule to error severity.
+The `recommended` config enables 18 rules: the architecture, security, and test-hygiene rules it includes (plus `no-spread-in-variadic`) as errors and the rest as warnings. The `strict` config enables 17 rules, all as errors. Three rules (`no-empty-describe`, `no-process-exit`, `no-undefined-optional-assignment`) are in neither preset and must be enabled explicitly. See the [Rule Summary](#rule-summary) for the per-rule breakdown.
 
 ## Configuration
 
 ### Preset Configs
 
-| Config        | Architecture Rules | Other Rules |
-| ------------- | ------------------ | ----------- |
-| `recommended` | `error`            | `warn`      |
-| `strict`      | `error`            | `error`     |
+| Config        | Rules enabled | Severity                                                                                                                                       |
+| ------------- | ------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| `recommended` | 18            | `error` for architecture rules, `no-process-env-in-spawn`, `no-spread-in-variadic`, and the test-hygiene rules it enables; `warn` for the rest |
+| `strict`      | 17            | `error` for every rule it enables (`no-hardcoded-test-count` is not included)                                                                  |
+
+Neither preset enables `no-empty-describe`, `no-process-exit`, or `no-undefined-optional-assignment`.
 
 ### Custom Rule Configuration
 
@@ -102,6 +104,8 @@ Enforces layer boundary imports. Files in one layer can only import from layers 
 | **Fixable**          | No                                      |
 | **Options**          | None                                    |
 
+**Source:** [`no-layer-violation.ts`](../../packages/eslint-plugin/src/rules/no-layer-violation.ts)
+
 **What it detects:** A relative import that crosses from one layer to another layer not listed in the importing layer's `allowedDependencies`.
 
 **Violation:**
@@ -134,6 +138,8 @@ Detects circular import dependencies by building an import graph across the lint
 | **Requires config**  | No           |
 | **Fixable**          | No           |
 | **Options**          | None         |
+
+**Source:** [`no-circular-deps.ts`](../../packages/eslint-plugin/src/rules/no-circular-deps.ts)
 
 **What it detects:** A relative import that creates a cycle in the import graph (A imports B imports C imports A).
 
@@ -170,6 +176,8 @@ Blocks imports that match configurable forbidden patterns. Rules are scoped by s
 | **Requires config**  | Yes (`forbiddenImports` in `harness.config.json`) |
 | **Fixable**          | No                                                |
 | **Options**          | None                                              |
+
+**Source:** [`no-forbidden-imports.ts`](../../packages/eslint-plugin/src/rules/no-forbidden-imports.ts)
 
 **Configuration:** Each entry in `forbiddenImports` specifies:
 
@@ -210,6 +218,8 @@ Requires Zod schema validation in exported functions at API boundaries. Ensures 
 | **Requires config**  | Yes (`boundaries.requireSchema` in `harness.config.json`) |
 | **Fixable**          | No                                                        |
 | **Options**          | None                                                      |
+
+**Source:** [`require-boundary-schema.ts`](../../packages/eslint-plugin/src/rules/require-boundary-schema.ts)
 
 **What it detects:** An `export function` in a boundary file that does not contain a Zod `.parse()` or `.safeParse()` call in its body.
 
@@ -258,6 +268,8 @@ Requires JSDoc comments on all public exports (functions, classes, variables, ty
 | **Fixable**          | No                                     |
 | **Options**          | See below                              |
 
+**Source:** [`enforce-doc-exports.ts`](../../packages/eslint-plugin/src/rules/enforce-doc-exports.ts)
+
 **Options:**
 
 ```js
@@ -305,6 +317,8 @@ Disallows nested loops inside functions annotated with `@perf-critical`. Nested 
 | **Requires config**  | No                                     |
 | **Fixable**          | No                                     |
 | **Options**          | None                                   |
+
+**Source:** [`no-nested-loops-in-critical.ts`](../../packages/eslint-plugin/src/rules/no-nested-loops-in-critical.ts)
 
 **What it detects:** Any loop (`for`, `for...in`, `for...of`, `while`, `do...while`) nested inside another loop within a `@perf-critical` function.
 
@@ -355,6 +369,8 @@ Disallows synchronous `fs` operations (`readFileSync`, `writeFileSync`, `existsS
 | **Fixable**          | No                                     |
 | **Options**          | None                                   |
 
+**Source:** [`no-sync-io-in-async.ts`](../../packages/eslint-plugin/src/rules/no-sync-io-in-async.ts)
+
 **Detected methods:** `readFileSync`, `writeFileSync`, `existsSync`, `readdirSync`, `statSync`, `mkdirSync`, `unlinkSync`, `copyFileSync`, `renameSync`, `accessSync`
 
 **Violation:**
@@ -388,6 +404,8 @@ Disallows 3 or more chained array methods (`filter`, `map`, `reduce`, `sort`, `f
 | **Requires config**  | No                                     |
 | **Fixable**          | No                                     |
 | **Options**          | None                                   |
+
+**Source:** [`no-unbounded-array-chains.ts`](../../packages/eslint-plugin/src/rules/no-unbounded-array-chains.ts)
 
 **Violation:**
 
@@ -423,6 +441,8 @@ Disallows spreading an array into `Math.min` / `Math.max`. Spreading pushes ever
 | **Fixable**          | No          |
 | **Options**          | None        |
 
+**Source:** [`no-spread-in-variadic.ts`](../../packages/eslint-plugin/src/rules/no-spread-in-variadic.ts)
+
 **What it detects:** A `CallExpression` whose callee is the non-computed member `Math.min` or `Math.max` and whose arguments include a spread element (`...`).
 
 **Violation:**
@@ -454,6 +474,8 @@ Disallows `exec()` and `execSync()` calls that contain Unix-specific shell comma
 | **Requires config**  | No                                     |
 | **Fixable**          | No                                     |
 | **Options**          | None                                   |
+
+**Source:** [`no-unix-shell-command.ts`](../../packages/eslint-plugin/src/rules/no-unix-shell-command.ts)
 
 **What it detects:** String arguments to `exec()` or `execSync()` containing Unix commands, including full-path variants like `/bin/rm` or `/usr/bin/cp`. Does not flag `execFile` or `execFileSync`.
 
@@ -489,6 +511,8 @@ Disallows hardcoded Unix path separators (`/dir/`) in `path.*` method calls, `fs
 | **Fixable**          | No                                     |
 | **Options**          | None                                   |
 
+**Source:** [`no-hardcoded-path-separator.ts`](../../packages/eslint-plugin/src/rules/no-hardcoded-path-separator.ts)
+
 **What it detects:** String literals containing `/word/` patterns used as arguments to `path.join()`, `path.resolve()`, `fs.readFileSync()`, `str.includes()`, and similar methods. Ignores URLs (`http://`, `https://`), import/require statements, and strings outside flagged contexts.
 
 **Violation:**
@@ -523,6 +547,8 @@ Requires that `path.relative()` results are normalized with `.replaceAll('\\', '
 | **Fixable**          | No                                     |
 | **Options**          | None                                   |
 
+**Source:** [`require-path-normalization.ts`](../../packages/eslint-plugin/src/rules/require-path-normalization.ts)
+
 **Violation:**
 
 ```ts
@@ -537,6 +563,40 @@ const rel = path.relative(root, file); // ERROR: path.relative() result must be 
 import path from 'path';
 
 const rel = path.relative(root, file).replaceAll('\\', '/');
+```
+
+### `prefer-execfile-over-exec`
+
+Prefers `execFile` / `execFileSync` with an argument array over `exec` / `execSync` with a string command. The string form spawns a shell, which is an injection surface and mishandles exit codes when the command uses shell operators such as `&&` or `>`.
+
+| Property             | Value                                  |
+| -------------------- | -------------------------------------- |
+| **Category**         | Cross-Platform                         |
+| **Default severity** | `warn` (recommended), `error` (strict) |
+| **Requires config**  | No                                     |
+| **Fixable**          | No                                     |
+| **Options**          | None                                   |
+
+**Source:** [`prefer-execfile-over-exec.ts`](../../packages/eslint-plugin/src/rules/prefer-execfile-over-exec.ts)
+
+**What it detects:** A call to `exec` or `execSync` whose first argument is a string literal or template literal. Bare `exec(...)` / `execSync(...)` calls are flagged, as is any member call to `.execSync(...)`. A member call to `.exec(...)` is flagged only when the object is `child_process`, `childProcess`, `cp`, or `child`, so `RegExp.prototype.exec` calls such as `myRegex.exec(input)` are not reported. Calls whose first argument is a variable (`execSync(buildCommand)`) are not flagged.
+
+**Violation:**
+
+```ts
+import { exec, execSync } from 'child_process';
+
+exec('rm -rf dist', callback); // ERROR: Prefer execFile/execFileSync with an argument array
+execSync('tsc && cp a b'); // ERROR
+```
+
+**Correct:**
+
+```ts
+import { execFile, execFileSync } from 'child_process';
+
+execFile('git', ['status'], callback);
+execFileSync('rm', ['-rf', 'dist']);
 ```
 
 ---
@@ -554,6 +614,8 @@ Disallows passing `process.env` directly to `spawn`, `execFile`, `fork`, and the
 | **Requires config**  | No                                      |
 | **Fixable**          | No                                      |
 | **Options**          | None                                    |
+
+**Source:** [`no-process-env-in-spawn.ts`](../../packages/eslint-plugin/src/rules/no-process-env-in-spawn.ts)
 
 **Affected functions:** `spawn`, `spawnSync`, `execFile`, `execFileSync`, `fork` (bare identifiers and `child_process.*` member expressions).
 
@@ -588,45 +650,290 @@ spawn('node', ['script.js'], {
 
 ---
 
+---
+
+### `no-process-exit`
+
+Disallows direct `process.exit()` calls, which terminate the process immediately and bypass graceful shutdown, so pending async cleanup never runs.
+
+| Property             | Value                                          |
+| -------------------- | ---------------------------------------------- |
+| **Category**         | Security                                       |
+| **Default severity** | Off (not enabled by `recommended` or `strict`) |
+| **Requires config**  | No                                             |
+| **Fixable**          | No                                             |
+| **Options**          | None                                           |
+
+**Source:** [`no-process-exit.ts`](../../packages/eslint-plugin/src/rules/no-process-exit.ts)
+
+**What it detects:** A call whose callee is the member expression `process.exit`, with or without an exit code. `foo.exit()`, `bar.process.exit()`, a bare `exit(1)`, and non-call accesses such as `process.env` are not flagged.
+
+**Enable it explicitly:**
+
+```js
+'@harness-engineering/no-process-exit': 'error',
+```
+
+**Violation:**
+
+```ts
+process.exit(1); // ERROR: Direct process.exit() call — use graceful shutdown instead
+```
+
+**Correct:**
+
+```ts
+process.exitCode = 1; // let the event loop drain and pending cleanup finish
+```
+
+---
+
+## Test Hygiene Rules
+
+These rules target test files. They are registered for every file the config applies to, so scope them to your test globs if your non-test code uses identifiers such as `describe`, `it`, or `test`.
+
+### `no-focused-tests`
+
+Disallows focused tests, which must not be committed. A focused test or block mutes every other test in the file, so the suite reports green while most of it never ran.
+
+| Property             | Value                                   |
+| -------------------- | --------------------------------------- |
+| **Category**         | Test Hygiene                            |
+| **Default severity** | `error` (recommended), `error` (strict) |
+| **Requires config**  | No                                      |
+| **Fixable**          | No                                      |
+| **Options**          | None                                    |
+
+**Source:** [`no-focused-tests.ts`](../../packages/eslint-plugin/src/rules/no-focused-tests.ts)
+
+**What it detects:** Any dotted call chain rooted at `describe`, `it`, or `test` that ends in `.only` — the flat Jest/Mocha spellings (`describe.only`, `it.only`, `test.only`) and Playwright's namespaced ones (`test.describe.only`, `test.describe.serial.only`) — plus the `fdescribe()` and `fit()` prefixes.
+
+**Violation:**
+
+```ts
+it.only('creates a user', () => {}); // ERROR: Focused test — remove '.only'/'f' prefix before committing
+fdescribe('users', () => {}); // ERROR
+```
+
+**Correct:**
+
+```ts
+it('creates a user', () => {});
+describe('users', () => {});
+```
+
+---
+
+### `no-skipped-tests`
+
+Disallows skipped tests, which must not be committed. A skipped test never runs and silently drops coverage.
+
+| Property             | Value                                   |
+| -------------------- | --------------------------------------- |
+| **Category**         | Test Hygiene                            |
+| **Default severity** | `error` (recommended), `error` (strict) |
+| **Requires config**  | No                                      |
+| **Fixable**          | No                                      |
+| **Options**          | None                                    |
+
+**Source:** [`no-skipped-tests.ts`](../../packages/eslint-plugin/src/rules/no-skipped-tests.ts)
+
+**What it detects:** Any dotted call chain rooted at `describe`, `it`, or `test` that ends in `.skip` (including Playwright's `test.describe.skip` and `test.describe.serial.skip`), plus the `xdescribe()`, `xit()`, and `xtest()` prefixes. It matches exactly the same calls as [`no-disabled-tests`](#no-disabled-tests); the two differ only in their message id, so enabling both reports each skipped call twice.
+
+**Violation:**
+
+```ts
+it.skip('handles retries', () => {}); // ERROR: Skipped test — it never runs and silently drops coverage
+xdescribe('retries', () => {}); // ERROR
+```
+
+**Correct:**
+
+```ts
+it('handles retries', () => {}); // re-enable it, or delete it
+```
+
+---
+
+### `no-disabled-tests`
+
+Disallows disabled tests, which must not be committed. A disabled test never runs and silently drops coverage.
+
+| Property             | Value                                   |
+| -------------------- | --------------------------------------- |
+| **Category**         | Test Hygiene                            |
+| **Default severity** | `error` (recommended), `error` (strict) |
+| **Requires config**  | No                                      |
+| **Fixable**          | No                                      |
+| **Options**          | None                                    |
+
+**Source:** [`no-disabled-tests.ts`](../../packages/eslint-plugin/src/rules/no-disabled-tests.ts)
+
+**What it detects:** The same calls as [`no-skipped-tests`](#no-skipped-tests): any `describe` / `it` / `test` chain ending in `.skip`, plus `xdescribe()`, `xit()`, and `xtest()`.
+
+**Violation:**
+
+```ts
+test.describe.skip('checkout', () => {}); // ERROR: Disabled test — it never runs and silently drops coverage
+xit('applies a coupon', () => {}); // ERROR
+```
+
+**Correct:**
+
+```ts
+test.describe('checkout', () => {});
+it('applies a coupon', () => {});
+```
+
+---
+
+### `no-empty-describe`
+
+Disallows `describe` blocks whose callback body contains no statements.
+
+| Property             | Value                                          |
+| -------------------- | ---------------------------------------------- |
+| **Category**         | Test Hygiene                                   |
+| **Default severity** | Off (not enabled by `recommended` or `strict`) |
+| **Requires config**  | No                                             |
+| **Fixable**          | No                                             |
+| **Options**          | None                                           |
+
+**Source:** [`no-empty-describe.ts`](../../packages/eslint-plugin/src/rules/no-empty-describe.ts)
+
+**What it detects:** A call to the bare identifier `describe` whose second argument is an arrow function or function expression with an empty block body. Any statement in the body (not only a test) makes it valid, and `describe` calls without a callback are ignored. Member forms such as `test.describe(...)` are not checked.
+
+**Enable it explicitly:**
+
+```js
+'@harness-engineering/no-empty-describe': 'error',
+```
+
+**Violation:**
+
+```ts
+describe('suite', () => {}); // ERROR: Empty describe block — remove or add tests to the describe block
+```
+
+**Correct:**
+
+```ts
+describe('suite', () => {
+  it('test', () => {});
+});
+```
+
+---
+
+### `no-hardcoded-test-count`
+
+Disallows hardcoded numeric literals in test-count assertions. Hardcoded counts drift when items are added or removed; compare against a derived value instead.
+
+| Property             | Value                                          |
+| -------------------- | ---------------------------------------------- |
+| **Category**         | Test Hygiene                                   |
+| **Default severity** | `error` (recommended); not enabled by `strict` |
+| **Requires config**  | No                                             |
+| **Fixable**          | No                                             |
+| **Options**          | None                                           |
+
+**Source:** [`no-hardcoded-test-count.ts`](../../packages/eslint-plugin/src/rules/no-hardcoded-test-count.ts)
+
+**What it detects:** `expect(x).toHaveLength(<number literal>)`, and `expect(x.length).toBe(<number literal>)` when the value under assertion is a `.length` access. Non-literal arguments (`toHaveLength(expected)`, `toBe(items.length)`) are not flagged.
+
+**Violation:**
+
+```ts
+expect(rules).toHaveLength(12); // ERROR: Hardcoded test-count literal
+expect(items.length).toBe(10); // ERROR
+```
+
+**Correct:**
+
+```ts
+expect(rules).toHaveLength(expected);
+expect(x.length).toBe(items.length);
+```
+
+---
+
+## Type Safety Rules
+
+### `no-undefined-optional-assignment`
+
+Disallows assigning a possibly-undefined variable directly to an object property, which breaks `exactOptionalPropertyTypes`. Use a conditional spread instead.
+
+| Property             | Value                                          |
+| -------------------- | ---------------------------------------------- |
+| **Category**         | Type Safety                                    |
+| **Default severity** | Off (not enabled by `recommended` or `strict`) |
+| **Requires config**  | No                                             |
+| **Fixable**          | No                                             |
+| **Options**          | None                                           |
+
+**Source:** [`no-undefined-optional-assignment.ts`](../../packages/eslint-plugin/src/rules/no-undefined-optional-assignment.ts)
+
+**What it detects:** A non-computed object property whose value is an identifier declared with a union type annotation that spells out `undefined` (for example `let v: string | undefined` or a parameter `v: number | undefined`). The check is purely syntactic — it does not use type information — so a variable with no annotation, or a union without `undefined`, is not flagged. A property already guarded by an enclosing `v !== undefined && ...` or `v != null && ...` is not flagged.
+
+**Enable it explicitly:**
+
+```js
+'@harness-engineering/no-undefined-optional-assignment': 'error',
+```
+
+**Violation:**
+
+```ts
+let v: string | undefined;
+const o = { field: v }; // ERROR: Assigning possibly-undefined 'v' directly to 'field' breaks exactOptionalPropertyTypes
+```
+
+**Correct:**
+
+```ts
+let v: string | undefined;
+const o = { ...(v !== undefined && { field: v }) };
+```
+
+---
+
 ## Rule Summary
 
-| Rule                          | Category       | Default | Config Required |
-| ----------------------------- | -------------- | ------- | --------------- |
-| `no-layer-violation`          | Architecture   | `error` | Yes             |
-| `no-circular-deps`            | Architecture   | `error` | No              |
-| `no-forbidden-imports`        | Architecture   | `error` | Yes             |
-| `require-boundary-schema`     | Boundary       | `warn`  | Yes             |
-| `enforce-doc-exports`         | Documentation  | `warn`  | No              |
-| `no-nested-loops-in-critical` | Performance    | `warn`  | No              |
-| `no-sync-io-in-async`         | Performance    | `warn`  | No              |
-| `no-unbounded-array-chains`   | Performance    | `warn`  | No              |
-| `no-unix-shell-command`       | Cross-Platform | `warn`  | No              |
-| `no-hardcoded-path-separator` | Cross-Platform | `warn`  | No              |
-| `require-path-normalization`  | Cross-Platform | `warn`  | No              |
-| `no-process-env-in-spawn`     | Security       | `error` | No              |
+| Rule                               | Category       | `recommended` | `strict` | Fixable | Config Required |
+| ---------------------------------- | -------------- | ------------- | -------- | ------- | --------------- |
+| `no-layer-violation`               | Architecture   | `error`       | `error`  | No      | Yes             |
+| `no-circular-deps`                 | Architecture   | `error`       | `error`  | No      | No              |
+| `no-forbidden-imports`             | Architecture   | `error`       | `error`  | No      | Yes             |
+| `require-boundary-schema`          | Boundary       | `warn`        | `error`  | No      | Yes             |
+| `enforce-doc-exports`              | Documentation  | `warn`        | `error`  | No      | No              |
+| `no-nested-loops-in-critical`      | Performance    | `warn`        | `error`  | No      | No              |
+| `no-sync-io-in-async`              | Performance    | `warn`        | `error`  | No      | No              |
+| `no-unbounded-array-chains`        | Performance    | `warn`        | `error`  | No      | No              |
+| `no-spread-in-variadic`            | Performance    | `error`       | `error`  | No      | No              |
+| `no-unix-shell-command`            | Cross-Platform | `warn`        | `error`  | No      | No              |
+| `no-hardcoded-path-separator`      | Cross-Platform | `warn`        | `error`  | No      | No              |
+| `require-path-normalization`       | Cross-Platform | `warn`        | `error`  | No      | No              |
+| `prefer-execfile-over-exec`        | Cross-Platform | `warn`        | `error`  | No      | No              |
+| `no-process-env-in-spawn`          | Security       | `error`       | `error`  | No      | No              |
+| `no-process-exit`                  | Security       | off           | off      | No      | No              |
+| `no-focused-tests`                 | Test Hygiene   | `error`       | `error`  | No      | No              |
+| `no-skipped-tests`                 | Test Hygiene   | `error`       | `error`  | No      | No              |
+| `no-disabled-tests`                | Test Hygiene   | `error`       | `error`  | No      | No              |
+| `no-empty-describe`                | Test Hygiene   | off           | off      | No      | No              |
+| `no-hardcoded-test-count`          | Test Hygiene   | `error`       | off      | No      | No              |
+| `no-undefined-optional-assignment` | Type Safety    | off           | off      | No      | No              |
 
-**Note:** The `recommended` config enables the architecture, boundary, documentation, cross-platform, and most test/performance rules. Performance rules (`no-nested-loops-in-critical`, `no-sync-io-in-async`, `no-unbounded-array-chains`) are set to `warn` severity. To customize severity:
+Severities come from the `configs` in [`packages/eslint-plugin/src/index.ts`](../../packages/eslint-plugin/src/index.ts). To change a rule's severity, override it in your flat config:
 
 ```js
-'@harness-engineering/no-nested-loops-in-critical': 'warn',
-'@harness-engineering/no-sync-io-in-async': 'warn',
-'@harness-engineering/no-unbounded-array-chains': 'warn',
+'@harness-engineering/no-nested-loops-in-critical': 'error',
+'@harness-engineering/no-process-exit': 'error',
 ```
+
+## Maintaining This List
+
+Rule registration is derived, not hand-written: [`generate-rules-barrel.mjs`](../../packages/eslint-plugin/scripts/generate-rules-barrel.mjs) generates `src/rules/index.ts` from the files in `packages/eslint-plugin/src/rules/`, so dropping a rule file there registers it automatically. Preset membership is still hand-edited in `src/index.ts`. When you add a rule, add a section here and a row to the summary table above.
 
 ---
 
-_Last Updated: 2026-04-18_
-| `no-process-exit` | Security | `error` | No |
-| `no-process-env-in-spawn` | Security | `error` | No |
-
-**Note:** The `recommended` config enables the architecture, boundary, documentation, cross-platform, and most test/performance rules. Performance rules (`no-nested-loops-in-critical`, `no-sync-io-in-async`, `no-unbounded-array-chains`) are set to `warn` severity. To customize severity:
-
-```js
-'@harness-engineering/no-nested-loops-in-critical': 'warn',
-'@harness-engineering/no-sync-io-in-async': 'warn',
-'@harness-engineering/no-unbounded-array-chains': 'warn',
-```
-
----
-
-_Last Updated: 2026-04-18_
+_Last Updated: 2026-11-10_

@@ -211,7 +211,7 @@ importers:
         specifier: ^3.1.10
         version: 3.1.10
       glob:
-        specifier: '>=14.0.3 <15'
+        specifier: ^14.0.3
         version: 14.0.3
       gray-matter:
         specifier: ^4.0.3
@@ -220,7 +220,7 @@ importers:
         specifier: ^4.7.10
         version: 4.7.10
       minimatch:
-        specifier: '>=11.0.1 <12'
+        specifier: ^11.0.4
         version: 11.0.4
       playwright:
         specifier: ^1.48.0
@@ -275,13 +275,13 @@ importers:
         specifier: ^3.1.10
         version: 3.1.10
       glob:
-        specifier: '>=14.0.3 <15'
+        specifier: ^14.0.3
         version: 14.0.3
       gray-matter:
         specifier: ^4.0.3
         version: 4.0.3
       minimatch:
-        specifier: '>=11.0.1 <12'
+        specifier: ^11.0.4
         version: 11.0.4
       tree-sitter-wasms:
         specifier: 0.1.13
@@ -348,7 +348,7 @@ importers:
         specifier: ^12.38.0
         version: 12.38.0(react-dom@18.3.1)(react@18.3.1)
       glob:
-        specifier: '>=14.0.3 <15'
+        specifier: ^14.0.3
         version: 14.0.3
       hono:
         specifier: '>=4.13.11'
@@ -436,7 +436,7 @@ importers:
         specifier: ^8.59.0
         version: 8.59.0(eslint@10.2.1)(typescript@5.9.3)
       minimatch:
-        specifier: '>=11.0.1 <12'
+        specifier: ^11.0.4
         version: 11.0.4
       zod:
         specifier: '>=4.6.6 <5'
@@ -473,7 +473,7 @@ importers:
         specifier: workspace:*
         version: link:../types
       minimatch:
-        specifier: '>=11.0.1 <12'
+        specifier: ^11.0.4
         version: 11.0.4
       zod:
         specifier: '>=4.6.6 <5'
@@ -543,7 +543,7 @@ importers:
         specifier: ^4.7.10
         version: 4.7.10
       minimatch:
-        specifier: '>=11.0.1 <12'
+        specifier: ^11.0.4
         version: 11.0.4
       yaml:
         specifier: ^2.8.3

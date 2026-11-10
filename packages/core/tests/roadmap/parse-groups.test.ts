@@ -87,9 +87,20 @@ describe('parseRoadmap() — the marker is explicit (no inference)', () => {
     expect(result.value.milestones[0]?.groups?.[0]?.body).toBe('- **Status:** cancelled');
   });
 
-  it('does not treat a lowercase or unspaced marker as a group', () => {
-    expect(parseRoadmap(MD('### group: not the marker\n\n- prose\n')).ok).toBe(false);
-    expect(parseRoadmap(MD('### Group:no-space\n\n- prose\n')).ok).toBe(false);
+  // Neither near-miss is the marker, so each falls through to strict feature
+  // validation and is rejected for a missing Status — the same error a plain H3
+  // gets. Asserting the reason (not just `.ok === false`) proves the failure is
+  // "parsed as a feature", not some unrelated parse error.
+  it.each([
+    ['lowercase', '### group: not the marker', 'group: not the marker'],
+    ['unspaced', '### Group:no-space', 'Group:no-space'],
+  ])('does not treat a near-miss %s marker as a group (%s)', (_label, heading, featureName) => {
+    const result = parseRoadmap(MD(`${heading}\n\n- prose\n`));
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.error.message).toContain(
+      `Feature "${featureName}" has invalid status: "(missing)"`
+    );
   });
 
   it('trims the group name so trailing whitespace is not a distinct group', () => {

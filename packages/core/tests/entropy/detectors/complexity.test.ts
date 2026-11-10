@@ -479,3 +479,45 @@ describe('detectComplexityViolations — issue #2037 (braces inside literals)', 
     expect(bigViolation?.value).toBe(20);
   });
 });
+
+describe('detectComplexityViolations — issue #2279 (commas nested inside a parameter)', () => {
+  // Threshold 0 reports every function that has at least one parameter, so the
+  // reported value IS the counted parameter count.
+  const COUNT_EVERYTHING: ComplexityConfig = { thresholds: { parameterCount: { warn: 0 } } };
+
+  async function parameterCountOf(name: string, signature: string): Promise<number> {
+    const content = `export function ${signature} {\n  return 0;\n}\n`;
+    await writeFixture(name, content);
+    const snapshot = makeSnapshot([{ name, content }]);
+
+    const result = await detectComplexityViolations(snapshot, COUNT_EVERYTHING);
+    expect(isOk(result)).toBe(true);
+    if (!isOk(result)) throw new Error('detector failed');
+    expect(result.value.stats.functionsAnalyzed).toBe(1);
+
+    const violation = result.value.violations.find((v) => v.metric === 'parameterCount');
+    return violation ? (violation.value as number) : 0;
+  }
+
+  it.each([
+    [
+      'brace-expansion string default',
+      "discover(root, include = '**/*.{ts,tsx,js,jsx,mjs,cjs,md}')",
+      2,
+    ],
+    ['destructuring pattern', 'f({ alpha, beta, gamma }, next)', 2],
+    ['generic type argument', 'f(a: Map<string, number>, b: string)', 2],
+    ['array default', 'f(xs = [1, 2, 3])', 1],
+    ['single generic parameter', 'f(a: Record<string, unknown>)', 1],
+    ['bare arrow default before a generic', 'f(cb = x => x, m: Map<string, number>, c)', 3],
+    ['double-quoted string with a comma', 'f(sep = ",", b)', 2],
+    ['template literal with a comma', 'f(sep = `a,b`, b)', 2],
+    ['escaped quote inside a string default', "f(sep = 'a\\', b', c)", 2],
+    ['trailing comma', 'f(a, b,)', 2],
+    ['plain parameters', 'f(a, b, c)', 3],
+    ['no parameters', 'f()', 0],
+  ])('counts %s as the declared parameter count', async (_label, signature, expected) => {
+    const file = `param-${signature.replace(/[^a-z0-9]/gi, '_').slice(0, 40)}-${expected}.ts`;
+    expect(await parameterCountOf(file, signature)).toBe(expected);
+  });
+});

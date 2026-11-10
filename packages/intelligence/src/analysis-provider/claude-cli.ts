@@ -183,7 +183,9 @@ export class ClaudeCliAnalysisProvider implements AnalysisProvider {
         reject(new Error(`Claude CLI failed to spawn: ${err.message}`));
       });
 
-      child.on('exit', (code) => {
+      // 'close', not 'exit': Node may emit 'exit' before the stdout pipe has
+      // drained, so parsing on 'exit' can see an empty/partial buffer (#2231).
+      child.on('close', (code) => {
         if (code !== 0) {
           reject(
             new Error(`Claude CLI exited with code ${code}: ${stderr.trim() || stdout.trim()}`)
@@ -254,7 +256,9 @@ export class ClaudeCliAnalysisProvider implements AnalysisProvider {
       child.on('error', (err) => {
         reject(new Error(`Claude CLI failed to spawn: ${err.message}`));
       });
-      child.on('exit', (code) => {
+      // 'close', not 'exit': Node may emit 'exit' before the stdout pipe has
+      // drained, so parsing on 'exit' can see an empty/partial buffer (#2231).
+      child.on('close', (code) => {
         if (code !== 0) {
           reject(
             new Error(`Claude CLI exited with code ${code}: ${stderr.trim() || stdout.trim()}`)

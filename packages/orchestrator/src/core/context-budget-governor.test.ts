@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
+  CHARS_PER_TOKEN,
   ContextBudgetExceededError,
   renderServedUnit,
   computeSourceHash,
@@ -44,31 +45,59 @@ function configWithBudget(maxTokens?: number): WorkflowConfig {
 }
 
 describe('estimateIssueContextTokens', () => {
-  it('is a deterministic chars/4 floor over title + description', () => {
-    const est = estimateIssueContextTokens(
-      issue({ title: 'a'.repeat(40), description: 'b'.repeat(40) })
+  it('is a deterministic chars-per-token ceiling over title + description', () => {
+    const exact = issue({ title: 'a'.repeat(40), description: 'b'.repeat(40) });
+    const est = estimateIssueContextTokens(exact);
+    expect(est, '80 chars of title + description').toBe(Math.ceil(80 / CHARS_PER_TOKEN));
+    expect(estimateIssueContextTokens(exact), 'same issue, same estimate (no I/O, no clock)').toBe(
+      est
     );
-    expect(est).toBe(20); // 80 chars / 4
   });
 
-  it('handles a null description', () => {
-    expect(estimateIssueContextTokens(issue({ title: 'x'.repeat(8), description: null }))).toBe(2);
+  it('rounds a partial token UP, never down (the safe direction for a budget guard)', () => {
+    // 81 chars is not divisible by CHARS_PER_TOKEN, so ceil and floor/trunc/round
+    // disagree. Rounding down would let an over-budget leaf through.
+    const est = estimateIssueContextTokens(
+      issue({ title: 'a'.repeat(41), description: 'b'.repeat(40) })
+    );
+    expect(est, '81 chars must round up to the next whole token').toBe(
+      Math.floor(80 / CHARS_PER_TOKEN) + 1
+    );
+  });
+
+  it('counts only the title when description is null (null is empty text, not "null")', () => {
+    const title = 'x'.repeat(8);
+    const withNull = estimateIssueContextTokens(issue({ title, description: null }));
+    const withEmpty = estimateIssueContextTokens(issue({ title, description: '' }));
+    expect(withNull, 'a null description must contribute exactly what an empty one does').toBe(
+      withEmpty
+    );
+    expect(withNull, '8-char title only; the 4 chars of "null" would add a token').toBe(
+      Math.ceil(title.length / CHARS_PER_TOKEN)
+    );
   });
 });
 
 describe('assertIssueWithinContextBudget (live enforcement caller)', () => {
+  // Over any budget used below, so a no-op pass is the config doing the work,
+  // not a broken estimator returning 0.
+  const oversized = () => issue({ description: 'x'.repeat(1_000_000) });
+
   it('is a no-op when no budget is configured (byte-identical default)', () => {
-    const config = configWithBudget(undefined);
+    // Positive control: the same payload IS rejected once a budget exists.
+    expect(() => assertIssueWithinContextBudget(configWithBudget(1_000), oversized())).toThrow(
+      ContextBudgetExceededError
+    );
     expect(() =>
-      assertIssueWithinContextBudget(config, issue({ description: 'x'.repeat(1_000_000) }))
+      assertIssueWithinContextBudget(configWithBudget(undefined), oversized())
     ).not.toThrow();
   });
 
   it('is a no-op when maxTokens is not positive', () => {
-    const config = configWithBudget(0);
-    expect(() =>
-      assertIssueWithinContextBudget(config, issue({ description: 'x'.repeat(1_000_000) }))
-    ).not.toThrow();
+    expect(() => assertIssueWithinContextBudget(configWithBudget(1_000), oversized())).toThrow(
+      ContextBudgetExceededError
+    );
+    expect(() => assertIssueWithinContextBudget(configWithBudget(0), oversized())).not.toThrow();
   });
 
   it('passes an under-budget leaf', () => {
