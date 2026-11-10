@@ -4,7 +4,7 @@ import * as path from 'node:path';
 import { Command, Option } from 'commander';
 import type { OutcomeVerdict } from '@harness-engineering/intelligence';
 import { resolveAnalysisProvider } from '../mcp/utils/analysis-provider';
-import { resolveDiffRange, type RunGit } from './review-ci';
+import { defaultRunGit, GIT_MAX_BUFFER_BYTES, resolveDiffRange, type RunGit } from './review-ci';
 import { logger } from '../output/logger';
 
 /**
@@ -21,17 +21,23 @@ import { logger } from '../output/logger';
  * `verdict.authority`. The gate blocks (exit 1) iff `--block-on blocking`
  * (the default) and `authority === 'blocking'` (a high-confidence
  * NOT_SATISFIED); every other verdict is advisory and exits 0. The whole path
- * is degrade-safe: a missing spec, missing provider, empty diff, or persistence
- * failure resolves to an INCONCLUSIVE/advisory verdict and exit 0 — it never
- * throws and never blocks on infrastructure noise.
+ * is degrade-safe: a missing spec, missing provider, empty or unreadable diff,
+ * or persistence failure resolves to an INCONCLUSIVE/advisory verdict and exit 0
+ * — it never throws and never blocks on infrastructure noise. An UNREADABLE diff
+ * is never graded as an empty one: the evaluator is skipped and the verdict
+ * names the read failure.
  */
 
 /** The valid `--block-on` levels: block on a blocking verdict, or never. */
 export type OutcomeBlockOn = 'blocking' | 'none';
 export const OUTCOME_BLOCK_ON_LEVELS: OutcomeBlockOn[] = ['blocking', 'none'];
 
-const defaultRunGit: RunGit = (args) =>
-  execFileSync('git', args, { encoding: 'utf-8' }).toString().trim();
+/**
+ * The diff is read through review-ci's shared git seam, which raises Node's 1MB
+ * `maxBuffer` default (an overflow throws ENOBUFS — exactly the large changes this
+ * gate most needs to judge, #2321). Re-exported so the bound is pinned by a test.
+ */
+export const GIT_DIFF_MAX_BUFFER = GIT_MAX_BUFFER_BYTES;
 
 /** The evaluator seam — the subset of `OutcomeEvaluator` this command drives. */
 export interface OutcomeEvaluatorLike {
@@ -91,6 +97,34 @@ function noSpecVerdict(): OutcomeVerdict {
     unmetCriteria: [],
     authority: 'advisory',
   };
+}
+
+/**
+ * The abstention verdict used when the change diff could not be READ (as opposed
+ * to read and found empty). The evaluator is never run on it: grading '' would
+ * produce an "the diff is empty" verdict indistinguishable from an honest one,
+ * so the failure is named instead. INCONCLUSIVE/low → advisory, like every other
+ * infrastructure degradation of this gate.
+ */
+function unreadableDiffVerdict(reason: string): OutcomeVerdict {
+  return {
+    verdict: 'INCONCLUSIVE',
+    confidence: 'low',
+    rationale:
+      `The change diff could not be read (${reason}), so the outcome gate did NOT ` +
+      'judge this change. This is not an empty diff: no criterion was evaluated and ' +
+      'no execution_outcome was recorded. Re-run with a readable --diff range.',
+    judgedAgainst: 'overview',
+    unmetCriteria: [],
+    authority: 'advisory',
+  };
+}
+
+/** Describe a diff-read failure for the verdict (error code first when present). */
+function describeReadFailure(err: unknown): string {
+  const code = (err as { code?: unknown } | null)?.code;
+  const message = err instanceof Error ? err.message : String(err);
+  return typeof code === 'string' && !message.includes(code) ? `${code}: ${message}` : message;
 }
 
 /**
@@ -184,18 +218,21 @@ export function deriveExitCode(verdict: OutcomeVerdict, blockOn: OutcomeBlockOn)
   return blockOn === 'blocking' && verdict.authority === 'blocking' ? 1 : 0;
 }
 
-/** Resolve the raw diff for the range; degrade-safe ('' on any failure). */
+/**
+ * Resolve the raw diff for the range. A failed read is reported as such — never
+ * collapsed into '' — so the caller can tell "could not read" from "empty" (#2321).
+ */
 function resolveDiff(
   opts: OutcomeEvalCiOptions,
   range: string,
   cwd: string,
   runGit: RunGit
-): string {
+): { ok: true; diff: string } | { ok: false; reason: string } {
   const resolveRaw = opts.resolveRaw ?? ((r, _c, g) => g(['diff', r]));
   try {
-    return resolveRaw(range, cwd, runGit);
-  } catch {
-    return '';
+    return { ok: true, diff: resolveRaw(range, cwd, runGit) };
+  } catch (err) {
+    return { ok: false, reason: describeReadFailure(err) };
   }
 }
 
@@ -242,7 +279,13 @@ export async function runOutcomeEvalCi(opts: OutcomeEvalCiOptions): Promise<Outc
     return { verdict, exitCode: deriveExitCode(verdict, blockOn) };
   }
 
-  const diff = resolveDiff(opts, range, cwd, runGit);
+  const diffRead = resolveDiff(opts, range, cwd, runGit);
+  if (!diffRead.ok) {
+    logger.warn(`outcome-eval-ci: could not read the diff for ${range} (${diffRead.reason}).`);
+    const verdict = unreadableDiffVerdict(diffRead.reason);
+    return { verdict, exitCode: deriveExitCode(verdict, blockOn) };
+  }
+  const diff = diffRead.diff;
   const testOutput = resolveTestOutput(opts);
   const commit = opts.commit ?? safeHeadSha(runGit);
 
