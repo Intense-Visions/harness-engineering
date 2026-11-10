@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+import * as path from 'node:path';
 import { BenchmarkRunner } from '../../src/performance/benchmark-runner';
 
 describe('BenchmarkRunner', () => {
@@ -98,6 +99,42 @@ describe('BenchmarkRunner', () => {
         p99Ms: 0,
         marginOfError: 0.05,
       });
+    });
+  });
+
+  describe('file path relativization (#2388)', () => {
+    const benchJson = (name: string) =>
+      JSON.stringify({
+        testResults: [{ name, assertionResults: [{ fullName: 'b', benchmark: { hz: 1 } }] }],
+      });
+
+    // A project root that is NOT process.cwd(): the MCP server / orchestrator /
+    // --cwd case, where the runner is pointed at another project.
+    const projectRoot = path.resolve(process.cwd(), '..', 'some-other-project-2388');
+
+    it('relativizes against the given project root, not process.cwd()', () => {
+      expect(projectRoot).not.toBe(process.cwd());
+      const abs = path.join(projectRoot, 'src', 'utils.bench.ts');
+      const results = runner.parseVitestBenchOutput(benchJson(abs), projectRoot);
+      expect(results).toHaveLength(1);
+      expect(results[0]!.file).toBe('src/utils.bench.ts');
+    });
+
+    it('still relativizes against process.cwd() when no project root is given', () => {
+      const abs = path.join(process.cwd(), 'pkg', 'a.bench.ts');
+      const results = runner.parseVitestBenchOutput(benchJson(abs));
+      expect(results[0]!.file).toBe('pkg/a.bench.ts');
+    });
+
+    it('leaves already-relative paths unchanged', () => {
+      const results = runner.parseVitestBenchOutput(benchJson('src/x.bench.ts'), projectRoot);
+      expect(results[0]!.file).toBe('src/x.bench.ts');
+    });
+
+    it('does not rewrite files outside the project root into ../ paths', () => {
+      const outside = path.resolve(projectRoot, '..', 'elsewhere', 'y.bench.ts');
+      const results = runner.parseVitestBenchOutput(benchJson(outside), projectRoot);
+      expect(results[0]!.file).toBe(outside);
     });
   });
 

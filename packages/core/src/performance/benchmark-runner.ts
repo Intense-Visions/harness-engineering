@@ -1,4 +1,5 @@
 import { execFileSync } from 'node:child_process';
+import * as path from 'node:path';
 import type { BenchmarkResult } from './types';
 
 export interface BenchmarkRunOptions {
@@ -69,13 +70,13 @@ export class BenchmarkRunner {
         stdio: ['pipe', 'pipe', 'pipe'],
       });
 
-      const results = this.parseVitestBenchOutput(rawOutput);
+      const results = this.parseVitestBenchOutput(rawOutput, cwd);
       return { results, rawOutput, success: true };
     } catch (error: unknown) {
       // vitest bench may exit non-zero but still produce output
       const err = error as { stdout?: string; stderr?: string; message?: string };
       const output = err.stdout || err.message || '';
-      const results = this.parseVitestBenchOutput(output);
+      const results = this.parseVitestBenchOutput(output, cwd);
       return {
         results,
         rawOutput: output,
@@ -89,13 +90,14 @@ export class BenchmarkRunner {
    */
   private parseBenchAssertion(
     assertion: { benchmark?: Record<string, number>; fullName?: string; title?: string },
-    file: string
+    file: string,
+    projectRoot: string
   ): BenchmarkResult | null {
     if (!assertion.benchmark) return null;
     const bench = assertion.benchmark;
     return {
       name: assertion.fullName || assertion.title || 'unknown',
-      file: file.replace(process.cwd() + '/', ''),
+      file: relativizeToRoot(file, projectRoot),
       opsPerSec: Math.round(bench.hz || 0),
       meanMs: bench.mean ? bench.mean * 1000 : 0,
       p99Ms: bench.p99 ? bench.p99 * 1000 : bench.mean ? bench.mean * 1000 * 1.5 : 0,
@@ -126,21 +128,26 @@ export class BenchmarkRunner {
         fullName?: string;
         title?: string;
       }>;
-    }>
+    }>,
+    projectRoot: string
   ): BenchmarkResult[] {
     const results: BenchmarkResult[] = [];
     for (const testResult of testResults) {
       const file = testResult.name || testResult.filepath || '';
       const assertions = testResult.assertionResults ?? [];
       for (const assertion of assertions) {
-        const result = this.parseBenchAssertion(assertion, file);
+        const result = this.parseBenchAssertion(assertion, file, projectRoot);
         if (result) results.push(result);
       }
     }
     return results;
   }
 
-  parseVitestBenchOutput(output: string): BenchmarkResult[] {
+  /**
+   * @param projectRoot - Root that absolute benchmark file paths are made
+   *   relative to (the directory vitest ran in). Defaults to `process.cwd()`.
+   */
+  parseVitestBenchOutput(output: string, projectRoot: string = process.cwd()): BenchmarkResult[] {
     try {
       const parsed = this.extractJson(output) as Record<string, unknown> | null;
       if (!parsed) return [];
@@ -156,9 +163,21 @@ export class BenchmarkRunner {
       }>;
       if (!testResults) return [];
 
-      return this.collectAssertionResults(testResults);
+      return this.collectAssertionResults(testResults, projectRoot);
     } catch {
       return [];
     }
   }
+}
+
+/**
+ * Make an absolute benchmark file path relative to `projectRoot`, using `/`
+ * separators so baseline keys match across machines and platforms. Paths that
+ * are already relative, or that fall outside `projectRoot`, are returned as-is.
+ */
+function relativizeToRoot(file: string, projectRoot: string): string {
+  if (!file || !path.isAbsolute(file)) return file;
+  const rel = path.relative(projectRoot, file).replaceAll('\\', '/');
+  if (!rel || rel.startsWith('..') || path.isAbsolute(rel)) return file;
+  return rel;
 }

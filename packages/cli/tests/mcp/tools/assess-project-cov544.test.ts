@@ -219,18 +219,48 @@ describe('handleAssessProject check branches (cov544)', () => {
     expect(c.passed).toBe(false);
   });
 
-  it('perf: violations length used', async () => {
-    vi.mocked(handleCheckPerformance).mockResolvedValue(tool({ violations: [1, 2] }));
+  // `check_performance` returns a JSON-safe `EntropyReport`, whose count lives
+  // at `summary.totalIssues` (#2387). The previous tests fed `{ violations }` /
+  // `{ issues }` — keys the real report never has — so they passed while the
+  // production check reported `passed: true` over every real report.
+  function perfReport(totalIssues: number, errors = 0) {
+    return {
+      summary: {
+        totalIssues,
+        errors,
+        warnings: totalIssues - errors,
+        fixableCount: 0,
+        suggestionCount: 0,
+      },
+      analysisErrors: [],
+      complexity: {
+        violations: Array.from({ length: totalIssues }, (_, i) => ({ file: `f${i}.ts` })),
+      },
+      timestamp: '2026-11-10T00:00:00.000Z',
+      duration: 1,
+    };
+  }
+
+  it('perf: report WITH findings (summary.totalIssues > 0) fails the check', async () => {
+    vi.mocked(handleCheckPerformance).mockResolvedValue(tool(perfReport(3, 1)));
     const c = check(await handleAssessProject({ path: PATH, checks: ['perf'] }), 'perf');
-    expect(c.issueCount).toBe(2);
     expect(c.passed).toBe(false);
+    expect(c.issueCount).toBe(3);
     expect(c.topIssue).toContain('Performance issues');
   });
 
-  it('perf: issues fallback when no violations key', async () => {
-    vi.mocked(handleCheckPerformance).mockResolvedValue(tool({ issues: [1] }));
+  it('perf: warning-only findings still fail the check (issues === 0 gate)', async () => {
+    vi.mocked(handleCheckPerformance).mockResolvedValue(tool(perfReport(2, 0)));
     const c = check(await handleAssessProject({ path: PATH, checks: ['perf'] }), 'perf');
-    expect(c.issueCount).toBe(1);
+    expect(c.passed).toBe(false);
+    expect(c.issueCount).toBe(2);
+  });
+
+  it('perf: output without a numeric summary.totalIssues fails closed, never passes', async () => {
+    vi.mocked(handleCheckPerformance).mockResolvedValue(tool({ violations: [] }));
+    const c = check(await handleAssessProject({ path: PATH, checks: ['perf'] }), 'perf');
+    expect(c.passed).toBe(false);
+    expect(c.topIssue).toContain('summary.totalIssues');
   });
 
   it('perf: sub-tool isError branch', async () => {
@@ -248,7 +278,7 @@ describe('handleAssessProject check branches (cov544)', () => {
   });
 
   it('perf: clean, detailed included', async () => {
-    vi.mocked(handleCheckPerformance).mockResolvedValue(tool({ violations: [] }));
+    vi.mocked(handleCheckPerformance).mockResolvedValue(tool(perfReport(0)));
     const c = check(
       await handleAssessProject({ path: PATH, checks: ['perf'], mode: 'detailed' }),
       'perf'

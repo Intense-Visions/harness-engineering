@@ -190,6 +190,89 @@ async function readGitignorePatterns(rootDir: string): Promise<string[]> {
   return patterns;
 }
 
+// Parameter counting (#2384). Mirrors core's complexity detector
+// (`countParameters` in packages/core/src/entropy/detectors/complexity.ts);
+// graph cannot import core, so the logic is duplicated here.
+const PARAM_OPENING_BRACKETS = new Set(['(', '[', '{', '<']);
+const PARAM_CLOSING_BRACKETS = new Set([')', ']', '}', '>']);
+// A parameter list longer than this is treated as unterminated.
+const MAX_PARAM_LIST_LINES = 50;
+
+/** Quote characters that open a string literal in `lang`. Rust `'` is a lifetime. */
+function quotesFor(lang: string): string {
+  return lang === 'rust' ? '"`' : '\'"`';
+}
+
+/** Index of the quote that closes the literal opened at `open`, honouring escapes. */
+function skipQuoted(text: string, open: number): number {
+  const quote = text[open];
+  let i = open + 1;
+  while (i < text.length && text[i] !== quote) i += text[i] === '\\' ? 2 : 1;
+  return i;
+}
+
+/**
+ * Text between the `(` at `lines[lineIdx][openCol]` and its balancing `)`,
+ * scanning across lines. Parens inside literals and `//` comments do not count.
+ * Returns null when the list never closes.
+ */
+function captureParameterList(
+  lines: string[],
+  lineIdx: number,
+  openCol: number,
+  lang: string
+): string | null {
+  const quotes = quotesFor(lang);
+  let depth = 0;
+  let params = '';
+  const lastLine = Math.min(lines.length, lineIdx + MAX_PARAM_LIST_LINES);
+  for (let l = lineIdx; l < lastLine; l++) {
+    const line = lines[l]!;
+    for (let c = l === lineIdx ? openCol : 0; c < line.length; c++) {
+      const ch = line[c]!;
+      if (lang !== 'python' && ch === '/' && line[c + 1] === '/') break;
+      if (quotes.includes(ch)) {
+        const close = skipQuoted(line, c);
+        params += line.slice(c, close + 1);
+        c = close;
+        continue;
+      }
+      if (ch === '(') depth++;
+      else if (ch === ')' && --depth === 0) return params.slice(1);
+      params += ch;
+    }
+    params += '\n';
+  }
+  return null;
+}
+
+/**
+ * Count the parameters in a captured parameter list. A comma separates
+ * parameters only at bracket depth 0 and outside a string literal; a trailing
+ * comma does not add one, and the `>` of an arrow (`=>`) closes nothing.
+ */
+function countParameterList(paramsStr: string, lang: string): number {
+  const quotes = quotesFor(lang);
+  let depth = 0;
+  let count = 0;
+  let segmentHasContent = false;
+  for (let i = 0; i < paramsStr.length; i++) {
+    const ch = paramsStr[i]!;
+    if (ch === ',' && depth === 0) {
+      if (segmentHasContent) count++;
+      segmentHasContent = false;
+      continue;
+    }
+    if (quotes.includes(ch)) i = skipQuoted(paramsStr, i);
+    else if (PARAM_OPENING_BRACKETS.has(ch)) depth++;
+    else if (PARAM_CLOSING_BRACKETS.has(ch) && !(ch === '>' && paramsStr[i - 1] === '=')) {
+      depth = Math.max(0, depth - 1);
+    }
+    if (!/\s/.test(ch)) segmentHasContent = true;
+  }
+  return segmentHasContent ? count + 1 : count;
+}
+
 /**
  * Ingests source files into the graph via regex-based parsing.
  * Supports TypeScript, JavaScript, Python, Go, Rust, and Java.
@@ -498,7 +581,7 @@ export class CodeIngestor {
           cyclomaticComplexity: this.computeCyclomaticComplexity(lines.slice(i, endLine)),
           nestingDepth: this.computeMaxNesting(lines.slice(i, endLine)),
           lineCount: endLine - i,
-          parameterCount: this.countParameters(line),
+          parameterCount: this.countParameters(lines, i, name, lang),
         },
       },
       edge: { from: fileId, to: id, type: 'contains', provenance: 'EXTRACTED' },
@@ -680,7 +763,7 @@ export class CodeIngestor {
           cyclomaticComplexity: this.computeCyclomaticComplexity(lines.slice(i, endLine)),
           nestingDepth: this.computeMaxNesting(lines.slice(i, endLine)),
           lineCount: endLine - i,
-          parameterCount: this.countParameters(line),
+          parameterCount: this.countParameters(lines, i, methodName, lang),
         },
       },
       edge: { from: classId, to: id, type: 'contains', provenance: 'EXTRACTED' },
@@ -999,17 +1082,18 @@ export class CodeIngestor {
     return Math.max(0, maxDepth - 1);
   }
 
-  private countParameters(declarationLine: string): number {
-    const parenMatch = declarationLine.match(/\(([^)]*)\)/);
-    if (!parenMatch || !parenMatch[1]!.trim()) return 0;
-    let depth = 0;
-    let count = 1;
-    for (const ch of parenMatch[1]!) {
-      if (ch === '<' || ch === '(') depth++;
-      else if (ch === '>' || ch === ')') depth--;
-      else if (ch === ',' && depth === 0) count++;
-    }
-    return count;
+  /**
+   * Count the parameters of the declaration of `name` that starts on
+   * `lines[lineIdx]`. The list opens at the first `(` after the name (so a Go
+   * receiver is not mistaken for it) and may span several lines.
+   */
+  private countParameters(lines: string[], lineIdx: number, name: string, lang: string): number {
+    const line = lines[lineIdx]!;
+    const nameAt = line.search(new RegExp(`\\b${name}\\b\\s*(?:<[^(]*>)?\\s*[(\\[]`));
+    const openCol = line.indexOf('(', nameAt < 0 ? 0 : nameAt + name.length);
+    if (openCol < 0) return 0;
+    const params = captureParameterList(lines, lineIdx, openCol, lang);
+    return params === null ? 0 : countParameterList(params, lang);
   }
 
   private detectLanguage(filePath: string): string {
