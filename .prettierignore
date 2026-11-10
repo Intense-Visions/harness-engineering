@@ -73,3 +73,4 @@ packages/graph/tests/fixtures/solutions/**
 # shards dribbling modified after every commit (see #1697). The shards are
 # already deterministic, so keep prettier out of them entirely.
 .harness/comprehension/**
+.changeset/main-health-d4-ansi-grep-no-release.md
