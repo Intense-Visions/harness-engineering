@@ -102,11 +102,21 @@ export interface GuardCheckResult {
     malicious: OsvAdvisory[];
     other: OsvAdvisory[];
   }>;
+  /**
+   * Set when `.mcp.json` exists but could not be verified at all (unparseable
+   * JSON, or a top level that is not an object). An abstention is NOT a clean
+   * pass: `ok` is `false` and `checked` is empty because nothing was examined.
+   * Absent when the file is missing (nothing to check) or was parsed.
+   */
+  abstained?: { reason: string };
 }
 
 /**
- * Programmatic entry point — used by both the CLI command and by
- * `setup-mcp` to gate config writes.
+ * Programmatic entry point behind `harness mcp-guard check`.
+ *
+ * A missing `.mcp.json` is a legitimate "nothing to check" (`ok: true`). A
+ * present-but-unreadable one is an abstention (`ok: false`, `abstained` set):
+ * the guard verified nothing and must not report that as clean (#2074).
  */
 export async function runMcpGuardCheck(options: GuardCheckOptions = {}): Promise<GuardCheckResult> {
   const cwd = options.cwd ?? process.cwd();
@@ -116,12 +126,17 @@ export async function runMcpGuardCheck(options: GuardCheckOptions = {}): Promise
     return { ok: true, checked: [] };
   }
 
-  let config: McpConfig;
+  let parsed: unknown;
   try {
-    config = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
-  } catch {
-    return { ok: true, checked: [] };
+    parsed = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+  } catch (err) {
+    const detail = err instanceof Error ? err.message : String(err);
+    return abstain(`${configPath} exists but could not be parsed (${detail})`);
   }
+  if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    return abstain(`${configPath} exists but its top level is not a JSON object`);
+  }
+  const config = parsed as McpConfig;
 
   const pkgs = extractNpmPackages(config);
   const cacheDir = path.join(cwd, '.harness', 'cache', 'osv');
@@ -160,7 +175,29 @@ export async function runMcpGuardCheck(options: GuardCheckOptions = {}): Promise
   return { ok, checked };
 }
 
+function abstain(reason: string): GuardCheckResult {
+  return { ok: false, checked: [], abstained: { reason } };
+}
+
+/**
+ * Map a guard result to the process exit code.
+ *
+ * - malicious package found → 2 (block), regardless of `--strict`.
+ * - abstained (unparseable `.mcp.json`) → fail-open `0` by default, matching
+ *   the guard's documented fail-open posture; `--strict` fails closed with
+ *   `ExitCode.ZERO_DENOMINATOR` (3) — "examined nothing", not "clean".
+ * - otherwise → 0.
+ */
+export function guardExitCode(result: GuardCheckResult, strict: boolean): number {
+  if (result.abstained) return strict ? ExitCode.ZERO_DENOMINATOR : ExitCode.SUCCESS;
+  return result.ok ? ExitCode.SUCCESS : 2;
+}
+
 function formatHuman(result: GuardCheckResult): void {
+  if (result.abstained) {
+    console.error(chalk.yellow(`ABSTAINED: ${result.abstained.reason} — nothing was verified.`));
+    return;
+  }
   if (result.checked.length === 0) {
     console.log(chalk.dim('No MCP servers launched via npx detected.'));
     return;
@@ -205,7 +242,10 @@ export function createMcpGuardCommand(): Command {
         console.log('Checking MCP servers against OSV.dev advisories...\n');
         formatHuman(result);
       }
-      process.exit(result.ok ? ExitCode.SUCCESS : 2);
+      if (opts.json && result.abstained) {
+        console.error(`ABSTAINED: ${result.abstained.reason} — nothing was verified.`);
+      }
+      process.exit(guardExitCode(result, opts.strict === true));
     });
 
   command

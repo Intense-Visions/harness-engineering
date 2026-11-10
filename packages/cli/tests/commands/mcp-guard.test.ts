@@ -2,7 +2,13 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
-import { extractNpmPackages, parseNpmSpec, runMcpGuardCheck } from '../../src/commands/mcp-guard';
+import {
+  extractNpmPackages,
+  guardExitCode,
+  parseNpmSpec,
+  runMcpGuardCheck,
+} from '../../src/commands/mcp-guard';
+import { ExitCode } from '../../src/utils/errors';
 
 describe('parseNpmSpec', () => {
   it('parses bare package names', () => {
@@ -127,5 +133,65 @@ describe('runMcpGuardCheck', () => {
     expect(result.ok).toBe(true);
     expect(result.checked).toHaveLength(1);
     expect(result.checked[0]?.malicious).toEqual([]);
+  });
+
+  // #2074: a present-but-unparseable .mcp.json verified NOTHING, so it must
+  // abstain rather than read as the same clean pass as an absent file.
+  it('abstains (not a clean pass) when .mcp.json exists but is malformed JSON', async () => {
+    await fs.promises.writeFile(
+      path.join(cwd, '.mcp.json'),
+      '{ "mcpServers": { "x": { "command": "npx", "args": ["-y","left-pad"] }, } }',
+      'utf-8'
+    );
+    let fetched = 0;
+    const fetchFn = (async () => {
+      fetched++;
+      return { ok: true, status: 200, json: async () => ({ vulns: [] }) } as unknown as Response;
+    }) as unknown as typeof fetch;
+    const result = await runMcpGuardCheck({ cwd, fetchFn });
+    expect(result.ok).toBe(false);
+    expect(result.checked).toEqual([]);
+    expect(result.abstained?.reason).toMatch(/could not be parsed/);
+    expect(fetched).toBe(0);
+  });
+
+  it.each(['null', '[]', '"a string"', '42'])(
+    'abstains when .mcp.json top level is not an object (%s)',
+    async (body) => {
+      await fs.promises.writeFile(path.join(cwd, '.mcp.json'), body, 'utf-8');
+      const result = await runMcpGuardCheck({ cwd });
+      expect(result.ok).toBe(false);
+      expect(result.abstained?.reason).toMatch(/not a JSON object/);
+    }
+  );
+
+  it('does not set abstained when .mcp.json is absent or valid', async () => {
+    expect((await runMcpGuardCheck({ cwd })).abstained).toBeUndefined();
+    await fs.promises.writeFile(path.join(cwd, '.mcp.json'), '{"mcpServers":{}}', 'utf-8');
+    const result = await runMcpGuardCheck({ cwd });
+    expect(result.ok).toBe(true);
+    expect(result.abstained).toBeUndefined();
+  });
+});
+
+describe('guardExitCode', () => {
+  const clean = { ok: true, checked: [] };
+  const malicious = { ok: false, checked: [] };
+  const abstained = { ok: false, checked: [], abstained: { reason: 'x' } };
+
+  it('exits 0 for a clean result regardless of --strict', () => {
+    expect(guardExitCode(clean, false)).toBe(ExitCode.SUCCESS);
+    expect(guardExitCode(clean, true)).toBe(ExitCode.SUCCESS);
+  });
+
+  it('exits 2 when a malicious package is found regardless of --strict', () => {
+    expect(guardExitCode(malicious, false)).toBe(2);
+    expect(guardExitCode(malicious, true)).toBe(2);
+  });
+
+  it('fails open (0) on abstention by default, but exits ZERO_DENOMINATOR under --strict', () => {
+    expect(guardExitCode(abstained, false)).toBe(ExitCode.SUCCESS);
+    expect(guardExitCode(abstained, true)).toBe(ExitCode.ZERO_DENOMINATOR);
+    expect(ExitCode.ZERO_DENOMINATOR).not.toBe(ExitCode.SUCCESS);
   });
 });
