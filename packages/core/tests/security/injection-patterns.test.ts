@@ -258,7 +258,15 @@ describe('scanForInjection', () => {
   });
 
   describe('performance', () => {
-    it('scans 10KB input in under 100ms', () => {
+    // Regression guard against catastrophic (super-linear / backtracking) regex
+    // cost, NOT a latency SLA. A single cold wall-clock sample is a function of
+    // runner load and JIT warm-up — it missed a 100ms budget by 5.5ms on macOS CI
+    // with no code change (#2046). So: warm the regexes once, take the BEST of K
+    // samples of the same deterministic scan (noise reduction of one measurement,
+    // not a retry — the assertion runs once), and bound that minimum at ~150x the
+    // local warm cost (~0.3ms). Transient load cannot inflate a minimum of K; a
+    // backtracking pattern on 10KB costs seconds and still fails.
+    it('scans 10KB input without super-linear regex cost (best of K under 50ms)', () => {
       // Generate 10KB of mixed content with some injection patterns
       const normalText = 'This is a normal line of text for testing performance.\n';
       const lines: string[] = [];
@@ -273,12 +281,17 @@ describe('scanForInjection', () => {
       lines[100] = 'text           lots of whitespace\n';
       const input = lines.join('');
 
-      const start = performance.now();
-      const findings = scanForInjection(input);
-      const elapsed = performance.now() - start;
+      const findings = scanForInjection(input); // warm-up + behavioural result
+      const K = 5;
+      let best = Infinity;
+      for (let k = 0; k < K; k++) {
+        const start = performance.now();
+        scanForInjection(input);
+        best = Math.min(best, performance.now() - start);
+      }
 
-      expect(elapsed).toBeLessThan(100);
       expect(findings.length).toBeGreaterThanOrEqual(3);
+      expect(best).toBeLessThan(50);
     });
   });
 

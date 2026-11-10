@@ -41,11 +41,12 @@ Checking MCP servers against OSV.dev advisories...
 
 Exit codes:
 
-| Code | Meaning                                               |
-| ---- | ----------------------------------------------------- |
-| 0    | All checked packages are clean                        |
-| 1    | Usage error (bad flag, unreadable config)             |
-| 2    | One or more packages carry an active `MAL-*` advisory |
+| Code | Meaning                                                               |
+| ---- | --------------------------------------------------------------------- |
+| 0    | All checked packages are clean (or abstained without `--strict`)      |
+| 1    | Usage error (bad flag)                                                |
+| 2    | One or more packages carry an active `MAL-*` advisory                 |
+| 3    | `--strict` only: abstained — `.mcp.json` unparseable, nothing checked |
 
 The non-zero `2` makes it useful as a `pre-mcp-launch` hook from host
 plugin manifests (Claude Code, Cursor, Codex, Gemini, OpenCode). The
@@ -60,6 +61,18 @@ unblocked when OSV.dev or the network is unreachable.
 
 `--strict` reverses to **fail-closed**: any network failure or non-2xx
 response from OSV becomes a hard error and exits non-zero.
+
+### Abstention on an unreadable `.mcp.json`
+
+A missing `.mcp.json` means there is nothing to check and exits `0`. A
+`.mcp.json` that exists but cannot be parsed (invalid JSON, or a top level
+that is not an object) is different: the guard verified nothing, so it
+**abstains** rather than reporting clean. The result carries
+`abstained: { reason }` with `ok: false`, and the human output prints
+`ABSTAINED: <path> exists but could not be parsed (<error>) — nothing was
+verified.` to stderr. Under the default fail-open posture it still exits
+`0`; with `--strict` it exits `3` (`ExitCode.ZERO_DENOMINATOR`, "examined
+nothing"), which is distinct from both a clean pass and a malicious match.
 
 ## Cache
 

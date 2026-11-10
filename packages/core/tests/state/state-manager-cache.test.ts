@@ -24,23 +24,41 @@ describe('loadRelevantLearnings cache', () => {
     fs.rmSync(tmpDir, { recursive: true });
   });
 
-  it('second call with same mtime returns in <5ms', async () => {
+  // The cache's contract is "an unchanged mtime is served from memory, not
+  // re-read from disk". This used to be asserted as a wall-clock budget
+  // (elapsed < 50ms), which is a function of runner load, not of whether the
+  // cache hit (#2046). Assert the property itself: change the file's CONTENT
+  // behind the cache's back while pinning its mtime. A cache hit returns the
+  // stale in-memory entries; any disk re-read would see the extra entry.
+  it('second call with same mtime is served from cache, not re-read from disk', async () => {
     await appendLearning(tmpDir, 'Learning A', 'harness-tdd', 'success');
     await appendLearning(tmpDir, 'Learning B', 'harness-execution', 'gotcha');
+    const learningsPath = path.join(tmpDir, '.harness', 'learnings.md');
+    // Pin mtime to a whole second so it round-trips exactly through utimes.
+    const pinned = new Date(1_700_000_000_000);
+    fs.utimesSync(learningsPath, pinned, pinned);
 
     // First call populates cache
-    await loadRelevantLearnings(tmpDir);
+    const first = await loadRelevantLearnings(tmpDir);
+    expect(first.ok && first.value.length).toBe(2);
+
+    // Mutate content directly (bypassing appendLearning's invalidation), keep mtime.
+    fs.appendFileSync(learningsPath, '\n- **2026-01-01 [skill:harness-tdd]:** Learning C\n');
+    fs.utimesSync(learningsPath, pinned, pinned);
+    expect(fs.statSync(learningsPath).mtimeMs).toBe(pinned.getTime());
 
     // Second call should be cached
-    const start = performance.now();
     const result = await loadRelevantLearnings(tmpDir);
-    const elapsed = performance.now() - start;
-
-    expect(elapsed).toBeLessThan(50); // CI runners can be slow; cache hit is still orders of magnitude faster than disk
     expect(result.ok).toBe(true);
-    if (result.ok) {
+    if (result.ok && first.ok) {
       expect(result.value.length).toBe(2);
+      expect(result.value).toBe(first.value);
     }
+
+    // Positive control: once mtime moves, the same file IS re-read (3 entries).
+    fs.utimesSync(learningsPath, pinned, new Date(pinned.getTime() + 1000));
+    const reread = await loadRelevantLearnings(tmpDir);
+    expect(reread.ok && reread.value.length).toBe(3);
   });
 
   it('cache filters by skill correctly on cached data', async () => {
@@ -96,22 +114,37 @@ describe('loadFailures cache', () => {
     fs.rmSync(tmpDir, { recursive: true });
   });
 
-  it('second call with same mtime returns in <5ms', async () => {
+  // See the learnings cache test above: assert the cache-hit property
+  // (no disk re-read on an unchanged mtime), not a wall-clock budget (#2046).
+  it('second call with same mtime is served from cache, not re-read from disk', async () => {
     await appendFailure(tmpDir, 'Failure A', 'harness-tdd', 'test-fail');
+    const failuresPath = path.join(tmpDir, '.harness', 'failures.md');
+    const pinned = new Date(1_700_000_000_000);
+    fs.utimesSync(failuresPath, pinned, pinned);
 
     // First call
-    await loadFailures(tmpDir);
+    const first = await loadFailures(tmpDir);
+    expect(first.ok && first.value.length).toBe(1);
+
+    fs.appendFileSync(
+      failuresPath,
+      '\n- **2026-01-01 [skill:harness-tdd] [type:test-fail]:** Failure B\n'
+    );
+    fs.utimesSync(failuresPath, pinned, pinned);
+    expect(fs.statSync(failuresPath).mtimeMs).toBe(pinned.getTime());
 
     // Second call should be cached
-    const start = performance.now();
     const result = await loadFailures(tmpDir);
-    const elapsed = performance.now() - start;
-
-    expect(elapsed).toBeLessThan(50);
     expect(result.ok).toBe(true);
-    if (result.ok) {
+    if (result.ok && first.ok) {
       expect(result.value.length).toBe(1);
+      expect(result.value).toBe(first.value);
     }
+
+    // Positive control: a moved mtime forces a re-read that sees Failure B.
+    fs.utimesSync(failuresPath, pinned, new Date(pinned.getTime() + 1000));
+    const reread = await loadFailures(tmpDir);
+    expect(reread.ok && reread.value.length).toBe(2);
   });
 
   it('invalidates cache when file changes', async () => {
