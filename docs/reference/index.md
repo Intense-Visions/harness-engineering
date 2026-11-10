@@ -64,6 +64,83 @@ The governed, machine-readable `Harness-*` git commit trailer emitted by the aut
 
 Comprehensive source file index for navigating the codebase.
 
+### [The `-fleet` Family Spine](./fleet-family.md)
+
+The shared, stage-agnostic contract every `-fleet` skill builds on — what is common across the family versus what each member defines for itself.
+
+## Package Reference
+
+Per-package source indexes. Each page lists individual source files, links each one, and summarizes its purpose and key exports. Packages with many files are split across numbered pages; each row names the source areas (directories under `src/`) that page covers.
+
+### `@harness-engineering/cli`
+
+| Page                             | Covers                                                                                           |
+| -------------------------------- | ------------------------------------------------------------------------------------------------ |
+| [cli / 1](./packages-cli-1.md)   | `align/`, `audit/`                                                                               |
+| [cli / 2](./packages-cli-2.md)   | `audit/`, `brand/`, `commands/`                                                                  |
+| [cli / 3](./packages-cli-3.md)   | `commands/`                                                                                      |
+| [cli / 4](./packages-cli-4.md)   | `commands/` (incl. roadmap subcommands), `copy-craft/`, `config/`                                |
+| [cli / 5](./packages-cli-5.md)   | `copy-craft/`, `design-craft/`                                                                   |
+| [cli / 6](./packages-cli-6.md)   | `design-craft/`                                                                                  |
+| [cli / 7](./packages-cli-7.md)   | `knowledge-craft/`, `drift/`, `design-pipeline/`, `design-craft/`, `git/`                        |
+| [cli / 8](./packages-cli-8.md)   | `mcp/`, `knowledge-craft/`                                                                       |
+| [cli / 9](./packages-cli-9.md)   | `mcp/` (incl. MCP tools), `naming-craft/`                                                        |
+| [cli / 10](./packages-cli-10.md) | `security-craft/`, `naming-craft/`, `shared/`                                                    |
+| [cli / 11](./packages-cli-11.md) | `spec-craft/`, `shared/` (craft LLM contracts), `slash-commands/`                                |
+| [cli / 12](./packages-cli-12.md) | `test-craft/`, `spec-craft/`                                                                     |
+| [cli / 13](./packages-cli-13.md) | `commands/` (23 command modules)                                                                 |
+| [cli / 14](./packages-cli-14.md) | `design-craft/`, `api-craft/`                                                                    |
+| [cli / 15](./packages-cli-15.md) | `code-craft/`, `docs-craft/`, `cli-ergonomics-craft/`                                            |
+| [cli / 16](./packages-cli-16.md) | `comprehension/`, `test-craft/`, `utils/`, `shared/`, `setup/`, `config/`, and other CLI modules |
+| [cli / 17](./packages-cli-17.md) | `mcp/` (21 MCP modules)                                                                          |
+| [cli / 18](./packages-cli-18.md) | `commands/` (roadmap and burn subcommands)                                                       |
+| [cli / 19](./packages-cli-19.md) | `commands/` (16 command modules)                                                                 |
+
+### `@harness-engineering/core`
+
+| Page                             | Covers                                                                                                               |
+| -------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| [core / 1](./packages-core-1.md) | `harness-strength/`, `pulse/`, `review/`, `proposals/`, `locks/`                                                     |
+| [core / 2](./packages-core-2.md) | `roadmap/`, `review/` (CI parsers)                                                                                   |
+| [core / 3](./packages-core-3.md) | `roadmap/` (incl. roadmap store), `security/`                                                                        |
+| [core / 4](./packages-core-4.md) | `state/`, `solutions/`, `telemetry/`, `validation/`, `strategy/`, `shared/`                                          |
+| [core / 5](./packages-core-5.md) | `validation/`, `deployment/`, `ci/`, `architecture/`, `constraints/`, `compaction/`, `adoption/`                     |
+| [core / 6](./packages-core-6.md) | `waypoint/`, `dictionary/`, `hooks/`, `security/`, `state/`, `rollback/`, `parallelization/`, and other core modules |
+
+### `@harness-engineering/dashboard`
+
+| Page                                       | Covers                                    |
+| ------------------------------------------ | ----------------------------------------- |
+| [dashboard / 1](./packages-dashboard-1.md) | `client/` (components)                    |
+| [dashboard / 2](./packages-dashboard-2.md) | `client/` (components, hooks)             |
+| [dashboard / 3](./packages-dashboard-3.md) | `server/`, `client/` (utils), `shared/`   |
+| [dashboard / 4](./packages-dashboard-4.md) | `client/` (incl. Analyze page components) |
+
+### `@harness-engineering/orchestrator`
+
+| Page                                             | Covers                                                                            |
+| ------------------------------------------------ | --------------------------------------------------------------------------------- |
+| [orchestrator / 1](./packages-orchestrator-1.md) | `agent/`, `auth/`, `core/`, `cost/`                                               |
+| [orchestrator / 2](./packages-orchestrator-2.md) | `maintenance/`, `gateway/`, `proposals/`, `server/`, `routing/`, `notifications/` |
+| [orchestrator / 3](./packages-orchestrator-3.md) | `server/`, `sessions/`, `workflow/`, `tracker/`                                   |
+
+### Other packages
+
+| Page                                       | Covers                                                                                                     |
+| ------------------------------------------ | ---------------------------------------------------------------------------------------------------------- |
+| [graph](./packages-graph.md)               | `@harness-engineering/graph` — `ingest/` and extractor fixtures                                            |
+| [intelligence](./packages-intelligence.md) | `@harness-engineering/intelligence` — `outcome-eval/`, `acceptance-eval/`, `adapters/`                     |
+| [local-models](./packages-local-models.md) | `packages/local-models` — `ranker/`, `hardware/`, `installer/`, `pool/`, `huggingface/`                    |
+| [stats](./packages-stats.md)               | `@harness-engineering/stats` — `bandit/`, `sprt/`, package entry and config                                |
+| [types](./packages-types.md)               | `@harness-engineering/types` — strategy, stats, solutions, pulse, proposals, notifications, auth, and more |
+
+### Repository scripts and examples
+
+| Page                      | Covers                                                                       |
+| ------------------------- | ---------------------------------------------------------------------------- |
+| [scripts](./scripts.md)   | Build and maintenance scripts under `scripts/` (generators, gates, ratchets) |
+| [examples](./examples.md) | `examples/slack-echo-bridge/` source modules                                 |
+
 ## How to Use This Reference
 
 1. **Look up CLI commands** - See [CLI Reference](./cli.md)
