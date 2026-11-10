@@ -1,3 +1,11 @@
+---
+type: business_process
+domain: core
+tags: [sessions, summarization, llm-summary, archive, hooks, hermes-phase-1]
+phase: hermes-phase-1
+status: shipped
+---
+
 # Session Summarization (Hermes Phase 1)
 
 **Status:** shipped
