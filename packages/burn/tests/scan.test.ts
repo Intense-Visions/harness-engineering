@@ -26,6 +26,7 @@ import { units } from '../src/units';
 import { weekBounds } from '../src/window';
 import {
   DEFAULT_WEEK,
+  MID_WEEK,
   daysAgo,
   hoursAgo,
   makeHud,
@@ -52,25 +53,25 @@ describe('dedupe', () => {
     // Transcripts repeat the same usage block ~3x per request. Counting rows
     // instead of requestIds inflates every figure ~3.5x.
     const h = newHud();
-    const now = new Date();
+    const now = MID_WEEK;
     h.writeConfig({ week_reset: DEFAULT_WEEK });
     const line = transcriptLine('req_A', hoursAgo(now, 1), { out: 1000 });
     h.writeTranscript('a.jsonl', [line, line, line]);
 
-    const s = refresh(h.paths);
+    const s = refresh(h.paths, now);
     expect(s.scan.records_total).toBe(1);
     expect(s.wtd.output_tokens).toBe(1000);
   });
 
   it('collapses the same requestId across two transcripts', () => {
     const h = newHud();
-    const now = new Date();
+    const now = MID_WEEK;
     h.writeConfig({ week_reset: DEFAULT_WEEK });
     const line = transcriptLine('req_dup', hoursAgo(now, 1), { out: 500 });
     h.writeTranscript('a.jsonl', [line]);
     h.writeTranscript('b.jsonl', [line]);
 
-    expect(refresh(h.paths).scan.records_total).toBe(1);
+    expect(refresh(h.paths, now).scan.records_total).toBe(1);
   });
 });
 
@@ -154,7 +155,7 @@ describe('abstention', () => {
     // is withheld. Needs prior weeks present, since without a baseline the
     // status is the (also correct) NO_BASELINE abstention instead.
     const h = newHud();
-    const now = new Date();
+    const now = MID_WEEK;
     h.writeConfig({
       week_reset: { weekday: utcIsoWeekday(now), time: '00:00', tz: 'UTC' },
     });
@@ -168,7 +169,7 @@ describe('abstention', () => {
     }
     h.writeTranscript('a.jsonl', lines);
 
-    const s = refresh(h.paths);
+    const s = refresh(h.paths, now);
     expect(s.projection.confidence).toBe('low');
     expect(s.baseline.median_units).not.toBeNull();
     expect(s.status).toBe('EARLY');
@@ -179,14 +180,14 @@ describe('abstention', () => {
     // runway, overflowed Python's timedelta, and killed the scan outright —
     // leaving no summary and a blank HUD.
     const h = newHud();
-    const now = new Date();
+    const now = MID_WEEK;
     h.writeConfig({
       week_reset: { weekday: (utcIsoWeekday(now) + 1) % 7, time: '00:00', tz: 'UTC' },
       weekly_budget_units: 10 ** 15,
     });
     h.writeTranscript('a.jsonl', [transcriptLine('r1', hoursAgo(now, 2), { out: 1 })]);
 
-    const s = refresh(h.paths);
+    const s = refresh(h.paths, now);
     expect(s.budget.exhausts_before_reset).toBeFalsy();
     expect(s.budget.runway_days).toBeDefined();
   });
@@ -195,14 +196,14 @@ describe('abstention', () => {
     // Incurred spend is real whatever the forecast confidence. Only a
     // reassuring verdict is held back — the asymmetry is deliberate.
     const h = newHud();
-    const now = new Date();
+    const now = MID_WEEK;
     h.writeConfig({
       week_reset: { weekday: utcIsoWeekday(now), time: '00:00', tz: 'UTC' },
       weekly_budget_units: 1000,
     });
     h.writeTranscript('a.jsonl', [transcriptLine('r1', minutesAgo(now, 5), { out: 100_000 })]);
 
-    const s = refresh(h.paths);
+    const s = refresh(h.paths, now);
     expect(s.projection.confidence).toBe('low');
     expect(s.status).toBe('CRITICAL');
   });
@@ -210,9 +211,9 @@ describe('abstention', () => {
   it('falls back to defaults on a corrupt config instead of failing', () => {
     const h = newHud();
     writeFileSync(h.paths.config, 'NOT JSON {{{');
-    const now = new Date();
+    const now = MID_WEEK;
     h.writeTranscript('a.jsonl', [transcriptLine('r1', hoursAgo(now, 1))]);
-    expect(refresh(h.paths).status).toBeDefined();
+    expect(refresh(h.paths, now).status).toBeDefined();
   });
 
   it('weights cache reads far below output tokens', () => {

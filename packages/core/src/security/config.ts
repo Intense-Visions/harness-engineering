@@ -1,7 +1,7 @@
 import { z } from 'zod';
-import { skipDirGlobs } from '@harness-engineering/graph';
 import type { SecurityConfig, SecuritySeverity, RuleOverride } from './types';
 import { DEFAULT_SECURITY_CONFIG } from './types';
+import { SECURITY_SCAN_DEFAULT_IGNORE } from './scan-targets';
 
 const RuleOverrideSchema = z.enum(['off', 'error', 'warning', 'info']);
 
@@ -12,7 +12,7 @@ export const SecurityConfigSchema = z.object({
   exclude: z
     .array(z.string())
     .optional()
-    .default([...skipDirGlobs(), '**/*.test.ts', '**/fixtures/**']),
+    .default([...SECURITY_SCAN_DEFAULT_IGNORE]),
   external: z
     .object({
       semgrep: z

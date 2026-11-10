@@ -415,6 +415,102 @@ export class BusinessKnowledgeIngestor {
   }
 }
 
+/**
+ * One frontmatter key and its value, after any continuation lines are folded in.
+ * `list` is set only for a block sequence (`key:` followed by `- item` lines);
+ * every other value — including a flow sequence that spanned several lines — is
+ * a single-line `value` string, so callers keep their existing scalar and
+ * `[a, b]` handling unchanged.
+ */
+interface FrontmatterEntry {
+  key: string;
+  value: string;
+  list?: string[];
+}
+
+const FRONTMATTER_KEY = /^(\w+):\s*(.*)$/;
+const CONTINUATION = /^\s+\S/;
+
+function bracketDepth(text: string): number {
+  let depth = 0;
+  for (const ch of text) {
+    if (ch === '[') depth++;
+    else if (ch === ']') depth--;
+  }
+  return depth;
+}
+
+/**
+ * Split a frontmatter block into top-level `key: value` entries, folding in the
+ * lines a value continues onto.
+ *
+ * The parsers below are hand-rolled rather than YAML ones (the graph layer has
+ * no YAML dependency), and they used to read one physical line at a time. That
+ * silently dropped any list prettier had wrapped (#2369):
+ *
+ *     tags:                       tags: [a, b,
+ *       [a, b,                      c]
+ *        c]
+ *
+ * The first leaves `tags:` with no value, so the key never matched; the second
+ * matched but never closed its bracket on that line. Both now fold into
+ * `tags: [a, b, c]`. A flow sequence is continued until its brackets balance,
+ * and the trailing comma prettier leaves before `]` is dropped. A block
+ * sequence (`key:` then indented `- item` lines) is returned as `list`.
+ * A key with an empty value and no list beneath it is skipped, as before.
+ */
+function readFrontmatterEntries(yamlBlock: string): FrontmatterEntry[] {
+  const lines = yamlBlock.split(/\r?\n/);
+  const entries: FrontmatterEntry[] = [];
+  let i = 0;
+  while (i < lines.length) {
+    const kv = lines[i]!.match(FRONTMATTER_KEY);
+    i++;
+    if (!kv) continue;
+    const continuation: string[] = [];
+    while (i < lines.length && CONTINUATION.test(lines[i]!)) {
+      continuation.push(lines[i]!.trim());
+      i++;
+    }
+    const entry = foldEntry(kv[1]!, kv[2]!.trim(), continuation);
+    if (entry) entries.push(entry);
+  }
+  return entries;
+}
+
+/** Combine a key's own-line value with its continuation lines; null to skip it. */
+function foldEntry(key: string, value: string, continuation: string[]): FrontmatterEntry | null {
+  if (isBlockSequence(value, continuation)) {
+    return { key, value: '', list: continuation.map((l) => l.slice(2).trim()) };
+  }
+  const folded = opensUnclosedFlow(value, continuation)
+    ? foldFlowSequence(value, continuation)
+    : value;
+  return folded === '' ? null : { key, value: folded };
+}
+
+function isBlockSequence(value: string, continuation: string[]): boolean {
+  return value === '' && continuation.length > 0 && continuation.every((l) => l.startsWith('- '));
+}
+
+function opensUnclosedFlow(value: string, continuation: string[]): boolean {
+  if (value === '') return continuation[0]?.startsWith('[') === true;
+  return value.startsWith('[') && bracketDepth(value) > 0;
+}
+
+/** Join continuation lines until the brackets balance; drop prettier's trailing comma. */
+function foldFlowSequence(value: string, continuation: string[]): string {
+  const parts = value === '' ? [] : [value];
+  for (const line of continuation) {
+    parts.push(line);
+    if (bracketDepth(parts.join(' ')) <= 0) break;
+  }
+  return parts
+    .join(' ')
+    .replace(/^\[\s+/, '[')
+    .replace(/,?\s*\]$/, ']');
+}
+
 function parseFrontmatter(raw: string): { frontmatter: Frontmatter; body: string } | null {
   const match = raw.match(/^---\n([\s\S]*?)\n---\n([\s\S]*)$/);
   if (!match) return null;
@@ -423,13 +519,10 @@ function parseFrontmatter(raw: string): { frontmatter: Frontmatter; body: string
   const body = match[2]!;
 
   const frontmatter: Record<string, unknown> = {};
-  for (const line of yamlBlock.split('\n')) {
-    const kvMatch = line.match(/^(\w+):\s*(.+)$/);
-    if (!kvMatch) continue;
-    const key = kvMatch[1]!;
-    const value = kvMatch[2]!.trim();
-
-    if (value.startsWith('[') && value.endsWith(']')) {
+  for (const { key, value, list } of readFrontmatterEntries(yamlBlock)) {
+    if (list) {
+      frontmatter[key] = list;
+    } else if (value.startsWith('[') && value.endsWith(']')) {
       frontmatter[key] = value
         .slice(1, -1)
         .split(',')
@@ -553,12 +646,10 @@ function parseSolutionFrontmatter(
   const yamlBlock = match[1]!;
   const body = match[2]!;
   const frontmatter: Record<string, unknown> = {};
-  for (const line of yamlBlock.split(/\r?\n/)) {
-    const kvMatch = line.match(/^(\w+):\s*(.+)$/);
-    if (!kvMatch) continue;
-    const key = kvMatch[1]!;
-    const value = kvMatch[2]!.trim();
-    if (value.startsWith('[') && value.endsWith(']')) {
+  for (const { key, value, list } of readFrontmatterEntries(yamlBlock)) {
+    if (list) {
+      frontmatter[key] = list.map((s) => unquoteScalar(s)).filter((s) => s !== '');
+    } else if (value.startsWith('[') && value.endsWith(']')) {
       frontmatter[key] = value
         .slice(1, -1)
         .split(',')

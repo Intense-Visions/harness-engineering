@@ -1,0 +1,21 @@
+{
+  "issues": [2147],
+  "route": "bug",
+  "stages": ["debugging"],
+  "reproducingTest": "packages/cli/tests/hooks/block-no-verify.test.ts",
+  "assumptions": [
+    "git commit's parse-options parser aggregates short options, so -nm is -n -m (not confirmed by execution: running it would be the bypass the hook prevents)",
+    "Value-taking git commit short options are F, m, c, C, t, U (required) and S, u (optional, attached only), per `git commit -h`; -mn is message 'n' and is allowed",
+    "A value-taking option at the end of a cluster never swallows a following option-looking token, so a literal `-m -n` is blocked (conservative toward blocking)",
+    "Arguments after `--` are pathspecs and are not scanned",
+    "A `git` token anywhere in a segment (not only at its start) starts a git invocation, preserving the old regex's coverage of prefixes like `sudo git`/`xargs git`",
+    "The standalone --no-verify check stays global (any command), unchanged",
+    ".harness/hooks/block-no-verify.js is a hand-synced committed copy of packages/cli/src/hooks/block-no-verify.js (synced by `harness update` commits, no generator), so both were updated identically"
+  ],
+  "rootCause": "containsHookBypass matched `git ... commit` then `[^\\n]*?` up to any standalone `-n`, so the scan crossed shell separators (; && || |) into later commands, and `(?:^|\\s)-n(?=\\s|$)` only matched -n standing alone, missing aggregated clusters like -nm / -an.",
+  "reproduction": {
+    "before": "11 failed | 25 passed (36) with the fix reverted",
+    "after": "36 passed (36)"
+  },
+  "closingKeyword": "Refs #2147"
+}

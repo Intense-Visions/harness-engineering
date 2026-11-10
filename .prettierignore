@@ -48,13 +48,17 @@ packages/core/tests/fixtures/code-nav/syntax-error.ts
 # Empty changeset no-release marker: its frontmatter must stay `---\n\n---`
 # (blank line between delimiters) so scripts/check-changesets.mjs detects it as
 # empty. Prettier would collapse it to `---\n---`, which the gate rejects.
+.changeset/dashboard-chat-residual-views-tests-no-release.md
 .changeset/maint-arch-refactor-no-release.md
 .changeset/downstream-papercuts-orchestrator-comment-no-release.md
 .changeset/repo-shape-orchestrator-comment-no-release.md
 .changeset/workflow-audit-orchestrator-comment-no-release.md
+.changeset/orchestrator-core-test-quality-no-release.md
 .changeset/stagedecision-jsdoc-comment-no-release.md
 .changeset/codex-test-windows-skip-no-release.md
+.changeset/core-test-quality-2006-1746-no-release.md
 .changeset/dependabot-alert-cleanup-no-release.md
+.changeset/burn-tests-week-reset-window-no-release.md
 
 # Local orchestrator state backups (disposable)
 **/.harness/state-backup-*/
@@ -73,3 +77,4 @@ packages/graph/tests/fixtures/solutions/**
 # shards dribbling modified after every commit (see #1697). The shards are
 # already deterministic, so keep prettier out of them entirely.
 .harness/comprehension/**
+.changeset/main-health-d4-ansi-grep-no-release.md

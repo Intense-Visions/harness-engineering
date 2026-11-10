@@ -261,9 +261,6 @@ too-many-arguments-threshold = 7
   "performance": {
     "enabled": false
   },
-  "security": {
-    "enabled": false
-  },
   "template": {
     "language": "rust",
     "version": 1
@@ -2598,9 +2595,6 @@ too-many-arguments-threshold = 7
     "enabled": false
   },
   "performance": {
-    "enabled": false
-  },
-  "security": {
     "enabled": false
   },
   "template": {

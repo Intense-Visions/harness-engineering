@@ -204,7 +204,9 @@ export class GenericCliAnalysisProvider implements AnalysisProvider {
         reject(new Error(`${this.command} CLI failed to spawn: ${err.message}`));
       });
 
-      child.on('exit', (code) => {
+      // 'close', not 'exit': Node may emit 'exit' before the stdout pipe has
+      // drained, so parsing on 'exit' can see an empty/partial buffer (#2231).
+      child.on('close', (code) => {
         if (code !== 0) {
           reject(
             new Error(

@@ -1,3 +1,10 @@
+---
+type: business_process
+domain: orchestrator
+tags: [maintenance, custom-tasks, scheduler, check-script, context-chaining, hermes-phase-2]
+phase: hermes-phase-2
+---
+
 # Custom maintenance jobs
 
 **Phase:** Hermes Phase 2 — Custom Maintenance Jobs

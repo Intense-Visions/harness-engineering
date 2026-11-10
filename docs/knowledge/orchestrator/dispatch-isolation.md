@@ -1,3 +1,10 @@
+---
+type: business_concept
+domain: orchestrator
+tags: [dispatch, isolation, isolation-tier, routing, backend-router, hermes-phase-5]
+phase: hermes-phase-5
+---
+
 # Dispatch isolation tier
 
 **Phase:** Hermes Phase 5 — Dispatch Hardening
