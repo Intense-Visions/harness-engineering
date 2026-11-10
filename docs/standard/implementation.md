@@ -2,7 +2,7 @@
 
 Build the harness first, then climb.
 
-The tempting way to adopt these practices is to grow _into_ a harness over a quarter: a couple of weeks of documentation, then a few weeks of linters, then a month or two of agent tooling before anything actually catches a bad change. That framing is backwards. A harness only earns its name when it **stops** a bad change with no human watching — the [holiday test from Principle 0](./principles.md#principle-0-the-harness-is-load-bearing-it-catches-when-no-human-is-watching). Until it does that, you have documentation and notifications, not a harness.
+The tempting way to adopt these practices is to grow _into_ a harness over a quarter: a couple of weeks of documentation, then a few weeks of linters, then a month or two of agent tooling before anything actually catches a bad change. That framing is backwards. A harness only earns its name when it **stops** a bad change with no human watching — the [holiday test from Principle 0](./principles.md#principle-0-—-the-harness-is-load-bearing-it-catches-when-no-human-is-watching). Until it does that, you have documentation and notifications, not a harness.
 
 So don't sell yourself weeks of climbing before the rope is attached. Start with the smallest configuration that already passes the holiday test — the **load-bearing minimum** — and scaffold it in one command. Then climb toward the advanced tier only if and when the payoff is real. The adoption tiers are not a mandatory multi-month sequence; they are a floor you stand on and a ceiling you can grow toward.
 

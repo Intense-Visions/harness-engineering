@@ -1,3 +1,11 @@
+---
+type: business_process
+domain: core
+tags: [sessions, summarization, llm-summary, archive, hooks, hermes-phase-1]
+phase: hermes-phase-1
+status: shipped
+---
+
 # Session Summarization (Hermes Phase 1)
 
 **Status:** shipped
@@ -171,5 +179,5 @@ Both participate in the FTS5 index as separate `file_kind`s.
 - [Session search](./session-search.md) — companion FTS5 index that
   includes `llm_summary` as one of its indexable file kinds.
 - [State management](./state-management.md) — session lifecycle.
-- [Intelligence pipeline](../intelligence/pipeline.md) — the
+- [Intelligence pipeline](../intelligence/analysis-pipeline.md) — the
   `AnalysisProvider` interface this hook consumes.

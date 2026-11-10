@@ -1,3 +1,10 @@
+---
+type: business_concept
+domain: orchestrator
+tags: [backends, serverless, oci, container, dispatch, isolation, hermes-phase-5]
+phase: hermes-phase-5
+---
+
 # Serverless agent dispatch backend
 
 **Phase:** Hermes Phase 5 — Dispatch Hardening
