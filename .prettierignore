@@ -48,6 +48,7 @@ packages/core/tests/fixtures/code-nav/syntax-error.ts
 # Empty changeset no-release marker: its frontmatter must stay `---\n\n---`
 # (blank line between delimiters) so scripts/check-changesets.mjs detects it as
 # empty. Prettier would collapse it to `---\n---`, which the gate rejects.
+.changeset/dashboard-chat-residual-views-tests-no-release.md
 .changeset/maint-arch-refactor-no-release.md
 .changeset/downstream-papercuts-orchestrator-comment-no-release.md
 .changeset/repo-shape-orchestrator-comment-no-release.md
@@ -55,7 +56,6 @@ packages/core/tests/fixtures/code-nav/syntax-error.ts
 .changeset/stagedecision-jsdoc-comment-no-release.md
 .changeset/codex-test-windows-skip-no-release.md
 .changeset/dependabot-alert-cleanup-no-release.md
-.changeset/dashboard-chat-residual-views-tests-no-release.md
 
 # Local orchestrator state backups (disposable)
 **/.harness/state-backup-*/
