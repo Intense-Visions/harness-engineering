@@ -135,10 +135,13 @@ export function detectCircularDeps(
   const sccs = tarjanSCC(graph);
 
   const cycles: CircularDependency[] = sccs.map((scc) => {
-    // Add first node at end to show cycle completion
-    const reversed = scc.reverse();
-    const firstNode = reversed[reversed.length - 1]!;
-    const cycle: string[] = [...reversed, firstNode];
+    // Tarjan pops an SCC in reverse discovery order; reversing restores the
+    // order the DFS walked it. Close the chain on its FIRST node so it reads
+    // `b -> a -> b`. Closing on the last node (`b -> a -> a`) invented a
+    // self-edge that does not exist and hid which import closes the loop (#2329).
+    const ordered = [...scc].reverse();
+    const firstNode = ordered[0]!;
+    const cycle: string[] = [...ordered, firstNode];
     return {
       cycle,
       severity: 'error' as const,

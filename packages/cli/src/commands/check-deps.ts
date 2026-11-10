@@ -73,9 +73,12 @@ interface CheckDepsResult {
     message: string;
   }>;
   circularDeps: Array<{
+    /** Absolute module paths; closes on its first node (`a, b, a`) (#2329). */
     cycle: string[];
     /** Posix-relative path of the first module in the cycle (#1188). */
     file: string;
+    /** Human-readable chain in posix-relative paths, matching `file` (#2329). */
+    message: string;
   }>;
 }
 
@@ -296,9 +299,13 @@ export async function runCheckDeps(
       for (const cycle of circularResult.value.cycles) {
         // Attribute each finding to the first module in the cycle as a
         // posix-relative path (not "* unknown") (#1188).
+        const toRelative = (p: string): string => path.relative(rootDir, p).replaceAll('\\', '/');
         const first = cycle.cycle[0] ?? '';
-        const file = first ? path.relative(rootDir, first).replaceAll('\\', '/') : '';
-        result.circularDeps.push({ cycle: cycle.cycle, file });
+        const file = first ? toRelative(first) : '';
+        // Render the chain in the same repo-relative form as `file`, so the
+        // finding's header and its chain agree (#2329). `cycle` stays absolute.
+        const message = `Circular dependency: ${cycle.cycle.map(toRelative).join(' -> ')}`;
+        result.circularDeps.push({ cycle: cycle.cycle, file, message });
       }
     }
   }
@@ -348,7 +355,7 @@ async function runCheckDepsAction(
     })),
     ...result.value.circularDeps.map((c) => ({
       ...(c.file ? { file: c.file } : {}),
-      message: `Circular dependency: ${c.cycle.join(' -> ')}`,
+      message: c.message,
     })),
   ];
 
