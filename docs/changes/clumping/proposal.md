@@ -643,8 +643,14 @@ today.
 **Craft `scope` is an absolute directory, so craft clump ids are machine-local.** `target.file`
 is absolute, so the published id hash is stable per-machine and differs across machines.
 Criterion 7 holds within a run and not between clones. Four families carry a separate
-`target.relative`; relativizing `scope` against the project root is deferred to Phase 6, which
-owns portability. Stated rather than left for a future reader to discover from a mismatched id.
+`target.relative`; fixing this is deferred to Phase 6, which owns portability. Stated rather than
+left for a future reader to discover from a mismatched id.
+
+> **Amended by Phase 6's build.** This paragraph originally proposed the fix as "relativizing
+> `scope` against the project root", and that would NOT have worked: a member id is
+> `code:file:line#ordinal`, so the absolute path reaches the hashed id through the MEMBERS too.
+> Phase 6 relativizes the path ONCE and derives `id`, `scope` and `conflictKeys` from it, and
+> pins the half-fix as its own mutant. See Phase 6 finding 1.
 
 **Note: DEDUP+MERGE is not clumping.** `deduplicate-findings.ts:153` merges findings whose
 `lineRange`s overlap within 3 lines — restatements of ONE finding. Clumping groups DISTINCT
@@ -863,10 +869,65 @@ be the emission-dressed-as-consumption move this phase exists to stop repeating.
 
 <!-- complexity: low -->
 
-The `clumping` block in `harness.config.json`, its schema in `packages/cli/src/config/schema.ts`,
-and the adopter `.hbs` template (never prettier-formatted).
+The `clumping` block in `harness.config.json`, its schema, the adopter `.hbs` template (never
+prettier-formatted), and the craft-`scope` portability defect Phase 3 deferred here.
 
-**Verified by:** no-config degrade test; adopter template validates.
+**Verified by:** no-config degrade test at all three seams, each paired with a positive control
+on the same code path; adopter template validates; a two-root test pinning one clump id across
+clones.
+
+**Seven things this phase's build found wrong, in the same spirit phases 3-5 recorded theirs.**
+
+1. **Relativizing `scope` would not have fixed portability, and the deferral note said it would.**
+   Phase 3 recorded the fix as "relativizing `scope` against the project root". A craft clump id
+   is `sha256([scope, kind, sorted member ids])` and a member id is `code:file:line#ordinal`, so
+   the absolute path reaches the hash through the MEMBERS as well. Measured: the same three
+   findings under `/var/folders/xy/T/alpha` and `/home/zeta/deep/nest/beta` published
+   `clump-1252b222d5c68f3e` and `clump-5552dc07fc8290b2`. The half-fix is pinned as its own
+   mutant: relativizing `scope` alone leaves both the id comparison and the member-id comparison
+   failing. The path is relativized ONCE and `id`, `scope` and `conflictKeys` all derive from it.
+
+2. **`clumpable.ts` carried a comment asserting the very property that was false.** Its
+   `craftScope` doc said "craft findings carry project-relative POSIX paths" — written to justify
+   a hand-rolled split over `path.dirname`. Seven of the eleven families carry an ABSOLUTE
+   `target.file` (`discoverSourceFiles` builds `path.join(projectRoot, …)`,
+   `code-craft/extract/discover.ts:50`). The split-on-`/` reasoning was right; the premise under
+   it was wrong, and nothing could fail because of it. A comment arguing a property is a
+   liability; the property is now a test.
+
+3. **A required parameter found a call site that would have been silently wrong.** `projectRoot`
+   is required on `clumpCraftFindings` rather than defaulted to `process.cwd()`, which turned
+   `runNamingCraft` into a compile error — it destructured `gatherProjectContext` without the
+   root it already computes. A default would have left that one family publishing machine-local
+   ids with every test green.
+
+4. **Four families expose no relative path and one case no root can fix.** api / cli-ergonomics /
+   docs / knowledge declare `target.relative`; it is preferred when present, so those four are
+   portable even from a caller that cannot name a root. The other seven relativize against
+   `projectRoot`. A file OUTSIDE the root keeps its ABSOLUTE path on purpose:
+   `path.relative` would answer `../../../../elsewhere/x.ts`, whose leading `..` count is a
+   function of how deep the root sits, so the relative form is exactly as machine-local. That
+   limit is pinned, and so is its honest consequence.
+
+5. **The spec's claim that `docs/reference/configuration.md` is GENERATED is false.**
+   `scripts/generate-docs.mjs` writes exactly three files — `cli-commands.md`, `mcp-tools.md`,
+   `skills-catalog.md` — and `configuration.md` carries no `AUTO-GENERATED` header. It is
+   hand-written, and was hand-edited here. `pnpm run generate-docs` produced no diff.
+
+6. **The sibling budgets are NOT a config-block precedent.** `fleet/spend-budget` and
+   `fleet/rate-budget` take their envelope from FLAGS and from `AgentConfig.resourceBudgets`
+   respectively; neither has a key in `HarnessConfigSchema`. The followed precedent is instead
+   `ArchConfigSchema` / `GoldenConfigSchema` / `PatternConfigSchema` — Zod schemas defined in
+   core and imported by the cli schema — which is the right shape here because the review seam IS
+   core code, reached through `runReviewPipeline({ config })`.
+
+7. **A new gate found a pre-existing defect in the adopter templates.** Nothing checked that a
+   scaffolded `harness.config.json` is one the CLI accepts, and `.hbs` is exempt from prettier, so
+   the files had no syntax check at all. Rendering each template against `HarnessConfigSchema`
+   showed all four language-base templates declare a ROOT-LEVEL `tooling` block whose schema key
+   is `template.tooling` — a mis-nesting, the exact class the #862 stripped-key warner exists
+   for, shipped by the scaffolds themselves. It is RECORDED per template and per key, with a test
+   proving the record is still true, rather than fixed inside an unrelated phase.
 
 ## Risks
 
