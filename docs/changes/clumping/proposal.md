@@ -101,7 +101,7 @@ convention into a constraint, which is the project's stated bet
 | D5  | Shed items are **counted and reported**; conservation is an executable law, not a comment                                                        | A zero is not evidence — a silent drop and a clean sweep look identical in output                                                                            |
 | D6  | Implementation lives in `core/src/fleet/clumping/`, exported via `fleet/index.ts`                                                                | Sibling of `context-budget` / `spend-budget` / `claims` — the established slot for a spine control                                                           |
 | D7  | The spine `§Clumping` section and one ADR are **deliverables**, not follow-ups                                                                   | A family control absent from `fleet-family.md` is not a family control; adopters read the spine                                                              |
-| D8  | An item with no gradable signal is **never floored**                                                                                             | A fabricated grade is a lie in the queue, exactly as `issue-fleet:202` holds for a fabricated priority                                                       |
+| D8  | An item with no gradable signal is **never floored and never clumped** — it is terminal, set aside for human triage                              | A fabricated grade is a lie in the queue, exactly as `issue-fleet:202` holds for a fabricated priority                                                       |
 | D9  | The cap counts **emitted work units** (clumps + solos), never findings                                                                           | Follows `craft-fleet:89`; counting findings would let a cap be bypassed by scattering                                                                        |
 | D10 | VERIFY assigns one verdict **per clump**; a member that fails is dropped by reverting its own commit, not by failing the clump                   | Commit-per-member is what makes a partial failure cheap; failing the whole clump would make clumping riskier than per-item dispatch                          |
 
@@ -151,8 +151,14 @@ scores 109 and must not. Any single cut-off gets one of those wrong. The floor t
 structure, and `weight` is for ordering only — the same split ADR 0019 already makes ("the raw
 axes remain the authoritative output; this derivation is for stable sort/display ONLY").
 
-**Ungraded is a first-class state.** An item with no gradable signal is **never floored** (D8):
-it passes through and is reported in `ungraded`. The floor does not get to guess.
+**Ungraded is a terminal state.** An item with no gradable signal is **never floored and never
+clumped** (D8): it is set aside in `ungraded` for human triage, exactly as `issue-fleet:202`
+routes an un-scoreable issue to an unranked group rather than inventing a score. The reason it
+is terminal rather than pass-through is mechanical, not stylistic: step 6 ranks and caps emitted
+units **by weight**, so admitting a weightless item to grouping would require fabricating a
+weight — the precise thing D8 exists to forbid. Terminal is also what makes criterion 6's
+five-bucket conservation law well-formed; a pass-through reading would place an item in both
+`ungraded` and `clumps`, and the law could never hold.
 
 ### The floor
 
@@ -186,7 +192,11 @@ already open.
 ### Formation
 
 ```ts
-function formClumps(items: readonly ClumpableItem[], policy?: Partial<ClumpPolicy>): ClumpResult;
+function formClumps(
+  items: readonly ClumpableItem[],
+  policy?: Partial<ClumpPolicy>,
+  ctx?: { touched?: readonly string[] }
+): ClumpResult;
 
 interface Clump {
   id: string; // deterministic hash of scope|kind|sorted member ids
@@ -206,6 +216,18 @@ interface ClumpResult {
   conflictSplits: number;
   counts: ClumpCounts; // every bucket, for the report
 }
+
+/** One count per bucket, so a report can never omit a bucket silently. */
+interface ClumpCounts {
+  input: number; // total items received
+  clumped: number; // members across all clumps
+  clumps: number; // emitted clump units
+  solo: number;
+  floored: number;
+  overCap: number;
+  ungraded: number;
+  conflictSplits: number;
+}
 ```
 
 Order of operations, and why each step sits where it does:
@@ -220,8 +242,11 @@ Order of operations, and why each step sits where it does:
 4. **Split on size.** A sub-clump over `maxPerClump` splits into weight-ordered chunks.
 5. **Solo rule.** A group below `minToClump` members stays as solo items. A one-member clump is
    an item wearing extra ceremony.
-6. **Rank and cap.** Emitted work units (clumps + solos) by `weight` desc; apply `maxClumps`
-   (D9); the remainder is `overCap`.
+6. **Rank and cap.** Emitted work units (clumps + solos) by `weight` desc, **tiebroken by unit
+   id ascending**; apply `maxClumps` (D9); the remainder is `overCap`, which holds the
+   **flattened member items** — not the units — or conservation (criterion 6) cannot hold. The
+   tiebreak is load-bearing, not cosmetic: without it two equal-weight units may swap places
+   between runs and criterion 7's determinism law is unachievable.
 7. **Count every bucket.**
 
 #### Failure modes and edge cases
@@ -311,8 +336,21 @@ defines the vocabulary, cli derives from it, and no cycle is introduced.
 
 ### Registrations Required
 
-- **`scripts/generate-core-barrel.mjs` allowlist edit** — a new core export without it is a
-  silent no-op. This is the single most likely way this build ships broken-but-green.
+- **`packages/core/src/craft/index.ts` — required, or the relocated axis types are unreachable.**
+  `discoverStarModules()` auto-discovers any top-level dir under `packages/core/src/` that has an
+  `index.ts`; a dir without one is skipped, and `packages/core/package.json` exports only `"."`
+  (plus `./architecture/matchers`), so a deep import would not resolve either. Without this the
+  phase ships green with the types unreachable — the spec's own "ships green but dead" risk.
+  **`fleet/clumping` needs no barrel-script edit at all**: `packages/core/src/index.ts:149`
+  already carries `export * from './fleet'`, so clumping reaches the barrel through
+  `fleet/index.ts`.
+- **`Tier` must be published as `CraftTier` via `SELECTIVE_EXPORTS`.**
+  `packages/core/src/harness-strength/types.ts:16` already exports a `Tier`
+  (`'solid' | 'incomplete' | 'at-risk' | 'theatre'`) which `index.ts:300` star-exports; a second
+  star source for that name is **TS2308**. The cli shim renames it back so `axes.ts` stays
+  byte-compatible for its 17 importers. Do **not** "fix" this with an explicit re-export — that
+  exits 0 while silently shadowing the star export, which is a silent public-name redefinition.
+  A compile-time assertion pins `core.Tier === 'solid'` so the collision cannot creep back.
 - `packages/cli/src/config/schema.ts` — `clumping` block.
 - `templates/**/harness.config.json.hbs` — the adopter template. **Never run prettier on it**; it
   mangles JSON-in-hbs.
@@ -399,10 +437,16 @@ seams depend on the Phase 1 primitive existing.
 
 Types (`ClumpableItem`, `Grade`, `ClumpPolicy`, `Clump`, `ClumpResult`), `resolveFloor`,
 `formClumps`, axis types relocated to `packages/core/src/craft/axes.ts` with the cli
-`axes.ts` re-exporting them, and the `generate-core-barrel.mjs` allowlist edit.
+`axes.ts` re-exporting them (as `CraftTier`, see Integration Points), and
+`packages/core/src/craft/index.ts` so the new top-level dir is discoverable.
 
-**Verified by:** unit tests covering success criteria 1-7 and 11-12; `harness validate` clean;
-a resolve check proving the barrel export is actually reachable (not a silent no-op).
+**Verified by:** unit tests covering success criteria 1-7 and 11-12; a runtime resolve check
+proving the barrel export is actually reachable (not a silent no-op); and `harness validate`
+at **no worse than its 495-issue baseline** plus a scoped grep showing no new issue cites a
+Phase-1 path. The gate is baseline-relative because `harness validate` exits 1 on this repo
+today (495 pre-existing issues: roadmap rows lacking spec/plan/assignee, 10 grandfathered ADR
+collisions, design-token findings). A "clean" gate would be unachievable and would get quietly
+downgraded to "we ran it".
 
 ### Phase 2: Spine section and ADR
 
