@@ -295,7 +295,13 @@ describe('LAW — determinism (success criterion 7)', () => {
       );
     });
 
-    it('keeps the SAME tied units under a cap however the input is ordered', () => {
+    // RENAMED, deliberately. This case was called "keeps the SAME tied units under a
+    // cap", which reads as coverage of the unit-id tiebreak — and it is not: input-order
+    // independence here is delivered by the MEMBER tiebreak plus the sorted group keys,
+    // and a mutant removing only the unit tiebreak leaves it green. WHICH tied unit
+    // survives a cap is pinned by identity in form.test.ts
+    // ("a weight tie between units is broken by unit id ascending").
+    it('produces the same capped output over tied units however the input is ordered', () => {
       const forward = tiedUnits(10);
       const a = formClumps(forward, { maxClumps: 3 });
       const b = formClumps([...forward].reverse(), { maxClumps: 3 });

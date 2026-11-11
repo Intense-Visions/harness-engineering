@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/src/fleet/clumping'
-sourceHash: 'bd362eab7311e0c9278b9ebb14880ad3b15ac3abd40516864ce0154f384c4063'
+sourceHash: '543e0e8aaa1f2eade31aa28709233a39e393a8e9735bff9dbe4e1e5c47192bd9'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent

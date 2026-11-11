@@ -306,15 +306,81 @@ describe('formClumps — rank and cap EMITTED WORK UNITS (D9)', () => {
     expect(r.overCap).toHaveLength(4);
   });
 
-  it('breaks a weight tie between units deterministically by unit id', () => {
-    const a = formClumps(
-      groups(4, () => 100),
-      { maxClumps: 2 }
-    );
-    const b = formClumps(
-      groups(4, () => 100),
-      { maxClumps: 2 }
-    );
-    expect(a.clumps.map((c) => c.id)).toEqual(b.clumps.map((c) => c.id));
+  // The unit-id tiebreak at form.ts step 6. What it guarantees is NOT run-to-run
+  // equality — `[...groups.keys()].sort()` already makes the pre-sort unit array a
+  // deterministic function of the input SET, and V8's sort is stable, so two runs
+  // over the same input agree with the tiebreak REMOVED. A test comparing two runs
+  // therefore cannot falsify it. (Measured: a mutant deleting only the unit
+  // tiebreak left all 77 tests green, including a test named for this very
+  // property — it compared two runs over identically-ordered input.)
+  //
+  // The guarantee that IS observable is WHICH tied unit survives the cap: the
+  // lexicographically smallest unit ids among the equal-weight candidates. These
+  // cases pin that identity, and each carries the discrimination assertion that
+  // makes it a probe rather than a tautology — the surviving set must differ from
+  // the arrival-order prefix the suite would see with no tiebreak at all.
+  describe('a weight tie between units is broken by unit id ascending', () => {
+    // Ids ascend as scopes DESCEND, so sorted-by-id and arrival order (group key
+    // ascending, form.ts:137) are exact reverses. Solo unit ids are item ids, so the
+    // survivors can be named outright instead of derived from the implementation.
+    function reversedSolos(): ClumpableItem[] {
+      return ['a', 'b', 'c', 'd', 'e'].map((letter, i) =>
+        mk(`solo-${letter}`, {
+          scope: `src/s${4 - i}`,
+          weight: 100,
+          conflictKeys: [`src/s${4 - i}/f.ts`],
+        })
+      );
+    }
+
+    it('keeps the lexicographically smallest unit ids, not the ones that arrived first', () => {
+      const r = formClumps(reversedSolos(), { maxClumps: 2 });
+      expect(r.solo.map((i) => i.id)).toEqual(['solo-a', 'solo-b']);
+      // ...and the rest are shed, not lost.
+      expect(r.overCap.map((i) => i.id)).toEqual(['solo-c', 'solo-d', 'solo-e']);
+    });
+
+    it('positive control — arrival order really is the reverse, so the case discriminates', () => {
+      // Uncapped, the units still come out id-ascending; what proves the tiebreak did
+      // the work is that the groups were FED in the opposite order.
+      expect(reversedSolos().map((i) => i.scope)).toEqual([
+        'src/s4',
+        'src/s3',
+        'src/s2',
+        'src/s1',
+        'src/s0',
+      ]);
+      expect(formClumps(reversedSolos(), { maxClumps: 5 }).solo.map((i) => i.id)).toEqual([
+        'solo-a',
+        'solo-b',
+        'solo-c',
+        'solo-d',
+        'solo-e',
+      ]);
+    });
+
+    // A clump id is a content hash, so its lexicographic rank cannot be written down
+    // by hand — it is read off an UNCAPPED run and the capped run must agree with it.
+    it('keeps the lexicographically smallest CLUMP ids when every clump weighs the same', () => {
+      const uncapped = formClumps(
+        groups(10, () => 100),
+        { maxClumps: 10 }
+      );
+      // Arrival order: one clump per group, groups visited by sorted group key.
+      const arrival = Array.from(
+        { length: 10 },
+        (_, i) => uncapped.clumps.find((c) => c.members.some((m) => m.id === `g${i}a`))!.id
+      );
+      const smallest = [...arrival].sort().slice(0, 3);
+      const capped = formClumps(
+        groups(10, () => 100),
+        { maxClumps: 3 }
+      );
+      expect(capped.clumps.map((c) => c.id)).toEqual(smallest);
+      // DISCRIMINATION: with no tiebreak the stable sort would keep the first three
+      // ARRIVALS. If the hash order ever coincided with arrival order this case would
+      // pass while proving nothing, so the divergence is asserted, not assumed.
+      expect(smallest).not.toEqual(arrival.slice(0, 3));
+    });
   });
 });
