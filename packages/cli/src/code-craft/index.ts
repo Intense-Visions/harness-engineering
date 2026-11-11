@@ -44,6 +44,7 @@ import {
   CRITIQUE_SYSTEM_PROMPT,
 } from './phases/critique.js';
 import type { CodeCraftOutput, CodeFinding, CodeUnit } from './findings/schema.js';
+import { clumpCraftFindings } from '../shared/craft/findings/clumpable.js';
 
 export type CodeCraftMode = 'inline' | 'in-session';
 
@@ -176,6 +177,7 @@ export async function runCodeCraft(input: CodeCraftInput): Promise<CodeCraftOutp
   const totalCost = sumCosts(provider);
   return {
     findings: acc.findings,
+    clumps: clumpCraftFindings(acc.findings),
     summary: {
       phaseRun: ['critique'],
       mode: 'fast',
@@ -334,6 +336,7 @@ export async function finalizeCodeCraft(input: FinalizeCodeCraftInput): Promise<
 
   return {
     findings,
+    clumps: clumpCraftFindings(findings),
     summary: {
       phaseRun: ['critique'],
       mode: 'fast',

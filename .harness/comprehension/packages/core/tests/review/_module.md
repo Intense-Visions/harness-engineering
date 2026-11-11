@@ -1,13 +1,14 @@
 ---
 schemaVersion: 1
 module: 'packages/core/tests/review'
-sourceHash: '977dab58d90d9c5de607446fc731bee0533b0b910d49e157ae92826a68ecd96c'
+sourceHash: 'e31934a20f65a71c658e225ee89065b953d06b5cf2849234c67e2807c04431fe'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
 members:
   [
     'change-type.test.ts',
+    'clumping-wired.test.ts',
     'context-scoper.test.ts',
     'dedup-confidence-tiebreaker.test.ts',
     'deduplicate-findings.test.ts',

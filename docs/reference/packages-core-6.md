@@ -202,6 +202,14 @@ Enforces two structural invariants at the point review findings are aggregated f
 
 **Exports:** `VulnerabilityClassSpec`, `VULNERABILITY_CLASS_SPECS`, `claimsVulnerabilityClass`, `checkEvidenceClassConsistency`, `ConfidenceBand`, `CONFIDENCE_CEILING_BY_VALIDATION`, `confidenceBand`, `confidenceCeiling`, `EvidenceMismatchAction`, `EnforceFindingIntegrityOptions`, `FindingIntegrityReport`, `emptyIntegrityReport`, `EnforceFindingIntegrityResult`, `enforceFindingIntegrity`, `mergeIntegrityReports`, `formatIntegritySummary`
 
+## packages/core/src/review/output/clump-comments.ts
+
+[`packages/core/src/review/output/clump-comments.ts`](/packages/core/src/review/output/clump-comments.ts)
+
+The review half of clumping's creation seam: formats deduped review findings as inline GitHub comments, keeping `critical` and `important` individually line-anchored while grouping sub-floor `suggestion`s into one comment per `(scope, kind)` that still names every member with its file and line. The diff's changed files are the touched set, which is what makes the floor's `'act'` resolution reachable here. Every finding handed in is represented in exactly one emitted comment — an over-cap group degrades back to individual comments rather than disappearing. See `docs/changes/clumping/proposal.md`, Phase 3.
+
+**Exports:** `scopeOfPath`, `toClumpableFinding`, `formatClumpComment`, `formatClumpedComments`, `ClumpedCommentReport`, `ClumpedCommentResult`, `FormatClumpedCommentsOptions`
+
 ## packages/core/src/rework/rework.ts
 
 [`packages/core/src/rework/rework.ts`](/packages/core/src/rework/rework.ts)

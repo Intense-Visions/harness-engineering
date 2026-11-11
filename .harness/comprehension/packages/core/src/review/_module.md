@@ -1,11 +1,10 @@
 ---
 schemaVersion: 1
 module: 'packages/core/src/review'
-sourceHash: 'dec3f9d34e6774832db0a129141cfa8f0d5c8ea6672b7df18414f10de878f957'
-compiledAt: '2026-08-28T01:22:10.515Z'
+sourceHash: '11b20b36c7c545188197a7947c1edb64e96c8dd981aef91b90b4ea5767397d23'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
-model: 'claude-haiku-4-5-20251001'
-semantic: present
+model: null
+semantic: absent
 members:
   [
     'change-type.ts',
@@ -31,24 +30,6 @@ members:
   ]
 ---
 
-## Summary
-
-`packages/core/src/review` is a multi-agent code review orchestrator that analyzes pull diffs through eight specialized review lenses (security, bug detection, architecture, compliance, frontend races, TypeScript strictness, learnings, adversarial) and produces trust-scored findings. The pipeline detects change type from commit message/diff heuristics, gathers contextual code within budgets (3:1 ratio for <20-line diffs, 1:1 for larger), fan-outs to agents in parallel or stages, validates findings against mechanical checks and graph data, deduplicates with a 3-line tolerance, enforces integrity constraints, and computes trust scores (35% validation method, 30% evidence saturation, 15% cross-agent agreement, 20% domain baselines). Output formats include terminal, GitHub inline comments, and structured JSON.
-
-## Invariants
-
-- Severity rank immutability — critical=2 > important=1 > suggestion=0; used by assessment, deduplication, and output; reordering breaks finding priority logic
-- Trust factor weights sum to 1.0 — {validation: 0.35, evidence: 0.3, agreement: 0.15, historical: 0.2}; changing distribution requires recalibration of all domain baselines
-- Validation method hierarchy — mechanical (1.0) > graph (0.8) > heuristic (0.5); immutable authority ordering for conflict resolution
-- Evidence saturation baseline — 3 items saturate evidence factor to 1.0; >3 items gain no additional trust credit
-- Agreement line-gap tolerance — 3-line window for detecting corroborated findings; must match deduplication threshold to prevent false dedups
-- Context budget ratio — <20-line diffs get 3:1 ratio, ≥20 lines get 1:1 ratio; enforced across import/graph/test paths
-- Domain baseline coverage — all ReviewDomain values (security|bug|architecture|compliance|learnings) must have entries in DOMAIN_BASELINES; missing entry causes NaN trust scores
-- Path traversal gate — all file reads must validate resolved path is within project root via isWithinProject(); CWE-22 escalation if bypassed
-- Finding ID determinism — makeFindingId(domain, file, line, title) must be idempotent for cross-session deduplication and PR comment linking
-- Validation score range [0, 1] — all VALIDATION_SCORES entries and trust factors must stay in [0, 1] to prevent overflow in final computation
-- Conditional subagent order — SUBAGENT_ORDER defines execution sequence; depth calibration and eligibility gates filter this list but must preserve order for reproducible scheduling
-
 ## Interface Contract
 
 ```ts
@@ -65,6 +46,8 @@ export CONFIDENCE_CEILING_BY_VALIDATION
 export CORROBORATED_AGREEMENT
 export CalibrateDepthOptions
 export ChangeType
+export ClumpedCommentReport
+export ClumpedCommentResult
 export CommitHistoryEntry
 export ConditionalAgentResult
 export ConditionalSubagent
@@ -92,6 +75,7 @@ export FindingIntegrityReport
 export FindingIntegrityViolation
 export FindingInvariant
 export FindingSeverity
+export FormatClumpedCommentsOptions
 export GenerateRubricOptions
 export GitHubInlineComment
 export GraphAdapter
@@ -155,6 +139,8 @@ export enforceFindingIntegrity
 export fanOutConditionalSubagents
 export fanOutReview
 export findParallelGroups
+export formatClumpComment
+export formatClumpedComments
 export formatFindingBlock
 export formatGitHubComment
 export formatGitHubSummary
@@ -177,9 +163,11 @@ export runReviewPipeline
 export runSecurityAgent
 export runTypescriptStrictAgent
 export scopeContext
+export scopeOfPath
 export splitBundlesByStage
 export stageDomains
 export tagUncitedFindings
+export toClumpableFinding
 export validateFindings
 ```
 
@@ -216,7 +204,7 @@ import { fanOutConditionalSubagents, fanOutReview } from './fan-out'
 import { EnforceFindingIntegrityOptions, FindingIntegrityReport, enforceFindingIntegrity } from './finding-integrity'
 import { runMechanicalChecks } from './mechanical-checks'
 import { generateRubric } from './meta-judge'
-import { determineAssessment, formatGitHubComment, formatTerminalOutput, getExitCode } from './output'
+import { determineAssessment, formatClumpedComments, formatTerminalOutput, getExitCode } from './output'
 import { computeTrustScores, getTrustLevel } from './trust-score'
 import { splitBundlesByStage } from './two-stage'
 import { AgentReviewResult, ChangeType, CommitHistoryEntry, ContextBundle, ContextFile, ContextScopeOptions, DiffInfo, EligibilityResult, EvidenceCoverageReport, FanOutOptions, FindingIntegrityViolation, FindingSeverity, GitHubInlineComment, GraphAdapter, GraphNode, MechanicalCheckOptions, MechanicalCheckResult, MechanicalCheckStatus, MechanicalFinding, ModelProvider, ModelTier, ModelTierConfig, ParallelGroups, PipelineFlags, PrMetadata, ProviderDefaults, ReviewConfidence, ReviewDomain, ReviewFinding, ReviewPipelineResult, ReviewStage, ReviewStrength, ReviewSubagent, Rubric, RubricItem } from './types'

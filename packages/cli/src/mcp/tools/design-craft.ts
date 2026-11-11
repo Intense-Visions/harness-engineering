@@ -41,6 +41,7 @@ import type { McpToolResponse } from '../utils/result-adapter.js';
 import { runCritique, runVisionCritique } from '../../design-craft/phases/critique.js';
 import type { CritiqueTarget, VisionCritiqueTarget } from '../../design-craft/phases/critique.js';
 import { runPolish } from '../../design-craft/phases/polish.js';
+import { clumpCraftFindings } from '../../shared/craft/findings/clumpable.js';
 import type { PolishTarget } from '../../design-craft/phases/polish.js';
 import { runBenchmark, runVisionBenchmark } from '../../design-craft/phases/benchmark.js';
 import type {
@@ -686,6 +687,11 @@ async function runPipeline(
 
   const output: DesignCraftOutput = {
     findings,
+    // Creation seam (docs/changes/clumping/proposal.md, Phase 3). design-craft
+    // reaches the shared adapter like the other ten families: the family comes
+    // from `code` (`CRAFT-C001` → `CRAFT`), never from `cite`, which here is
+    // `rubricOrPatternId` rather than `rubricId`.
+    clumps: clumpCraftFindings(findings),
     scores,
     summary: {
       phaseRun: phases,

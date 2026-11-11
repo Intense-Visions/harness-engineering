@@ -1,0 +1,8 @@
+{
+  "reason": "clumping Phase 3 creation seam: every craft orchestrator gains one import of shared/craft/findings/clumpable.ts so it can emit grouped work units alongside findings (docs/changes/clumping/proposal.md). test-craft/index.ts was already AT the fanOut threshold of 15, so the uniform 11-file edge trips only there. The alternative was to re-export the adapter through a module test-craft already imports, which lowers the number without lowering the coupling.",
+  "categories": {},
+  "violationIds": [
+    "351883168655a350a664ce0fa14606a612664e0a8392c7317c53a3895b6b8eff"
+  ],
+  "createdFrom": "74826df23"
+}

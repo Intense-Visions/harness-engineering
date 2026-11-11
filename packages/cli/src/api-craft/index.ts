@@ -44,6 +44,7 @@ import {
   CRITIQUE_SYSTEM_PROMPT,
 } from './phases/critique.js';
 import type { ApiCraftOutput, ApiFinding } from './findings/schema.js';
+import { clumpCraftFindings } from '../shared/craft/findings/clumpable.js';
 
 export type ApiCraftMode = 'inline' | 'in-session';
 
@@ -137,6 +138,7 @@ export async function runApiCraft(input: ApiCraftInput): Promise<ApiCraftOutput>
 
   return {
     findings: acc.findings,
+    clumps: clumpCraftFindings(acc.findings),
     summary: buildSummary(provider, acc, Date.now() - startedAt),
   };
 }
@@ -274,6 +276,7 @@ export async function finalizeApiCraft(input: FinalizeApiCraftInput): Promise<Ap
 
   return {
     findings,
+    clumps: clumpCraftFindings(findings),
     summary: {
       phaseRun: ['critique'],
       mode: 'fast',

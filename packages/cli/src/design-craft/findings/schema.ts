@@ -23,6 +23,7 @@
 // design-craft re-exports them for backward compatibility — every
 // historical import path keeps working. The interfaces below ALSO
 // reference these types directly, so we both import and re-export.
+import type { ClumpResult } from '@harness-engineering/core';
 import type { Tier, Impact, Confidence } from '../../shared/craft/findings/axes.js';
 export type { Tier, Impact, Confidence };
 import type { ResponsiveGateResult } from '../../responsive/index.js';
@@ -246,6 +247,16 @@ export interface BenchmarkScore {
  */
 export interface DesignCraftOutput {
   findings: CraftFinding[];
+  /**
+   * The work units this run emits (docs/changes/clumping/proposal.md, Phase 3).
+   *
+   * `findings` stays the authoritative raw output; this is the GROUPED view an
+   * agent files from. design-craft reaches it through the same shared adapter as
+   * the other ten families: the adapter derives the rubric family from `code`
+   * (`CRAFT-C001` → `CRAFT`), never from `cite`, precisely because this family's
+   * `cite` is `rubricOrPatternId` rather than `rubricId`.
+   */
+  clumps: ClumpResult;
   scores: BenchmarkScore[];
   summary: {
     phaseRun: Array<'critique' | 'polish' | 'benchmark'>;

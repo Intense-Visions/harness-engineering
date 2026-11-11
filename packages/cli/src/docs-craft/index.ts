@@ -33,6 +33,7 @@ import {
   CRITIQUE_SYSTEM_PROMPT,
 } from './phases/critique.js';
 import type { DocsCraftOutput, DocsFinding } from './findings/schema.js';
+import { clumpCraftFindings } from '../shared/craft/findings/clumpable.js';
 
 export type DocsCraftMode = 'inline' | 'in-session';
 
@@ -134,6 +135,7 @@ export async function runDocsCraft(input: DocsCraftInput): Promise<DocsCraftOutp
 
   return {
     findings: acc.findings,
+    clumps: clumpCraftFindings(acc.findings),
     summary: buildSummary(provider, acc, Date.now() - startedAt),
   };
 }
@@ -259,6 +261,7 @@ export async function finalizeDocsCraft(input: FinalizeDocsCraftInput): Promise<
 
   return {
     findings,
+    clumps: clumpCraftFindings(findings),
     summary: {
       phaseRun: ['critique'],
       mode: 'fast',

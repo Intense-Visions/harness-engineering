@@ -37,6 +37,7 @@ import type {
   CopySurface,
   ExtractedCopyItem,
 } from './findings/schema.js';
+import { clumpCraftFindings } from '../shared/craft/findings/clumpable.js';
 
 export type CopyCraftMode = 'inline' | 'in-session';
 
@@ -184,6 +185,7 @@ export async function runCopyCraft(input: CopyCraftInput): Promise<CopyCraftOutp
 
   return {
     findings,
+    clumps: clumpCraftFindings(findings),
     summary: {
       phaseRun: ['critique'],
       mode: 'fast',
@@ -303,6 +305,7 @@ export async function finalizeCopyCraft(input: FinalizeCopyCraftInput): Promise<
 
   return {
     findings,
+    clumps: clumpCraftFindings(findings),
     summary: {
       phaseRun: ['critique'],
       mode: 'fast',
