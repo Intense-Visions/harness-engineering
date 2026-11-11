@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/commands/agent'
-sourceHash: '62db7e9e1fbfed1ace98865007e9116f384fa6f920412e8aef950e8794f5668b'
+sourceHash: '7a4872c68fc1bc864f0bfaac9a884aff6827c23bab38faed436d3d3adfa28954'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -28,6 +28,7 @@ import { executeSkill } from '../../persona/skill-executor'
 import { CLIError, ExitCode } from '../../utils/errors'
 import { loadGuardianCoverage } from '../../utils/guardian-context'
 import { resolvePersonasDir } from '../../utils/paths'
+import { GIT_MAX_BUFFER_BYTES, buildDiffInfo } from '../review-ci'
 import { createReviewCommand } from './review'
 import { createRunCommand } from './run'
 import { AgentType, Err, Ok, Result, ReviewPipelineResult, parseDiff, requestPeerReview, runReviewPipeline } from '@harness-engineering/core'
