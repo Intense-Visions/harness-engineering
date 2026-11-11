@@ -658,10 +658,106 @@ better than letting a goal read as met everywhere.
 <!-- complexity: medium -->
 
 A fifth `clump` triage axis in `issue-fleet` beside label / dedup / route / prioritize, and the
-clump table plus shed counts on the existing CONFIRM surface.
+clump table plus shed counts on the existing CONFIRM surface. Delivered as
+`packages/cli/src/commands/fleet/clumpable-issues.ts` (the issue → `ClumpableItem` adapter) and
+`harness fleet clump-issues` (the callable the SKILL invokes), plus the SKILL edit.
 
 **Verified by:** a clump set derived from the live open-issue backlog; conservation holds on
 real data; success criterion 9 observed (exactly one CONFIRM interaction).
+
+**Measured on the live backlog (347 open issues, 2026-11-11):** 16 clumps over 66 issues, 281
+individual queue entries, 164 `unscoped`, 173 untyped, 9 multi-typed, 0 floored, 0 over-cap, 20
+conflict splits. Conservation holds: `347 = 66 + 0 + 0 + 182 + 99`.
+
+**Eight things this phase's build found wrong, in the same spirit Phase 3 recorded its seven.**
+
+1. **The axis had no code to bind to, and establishing that was the first deliverable.**
+   `harness roadmap triage` sounds like the intake path and is not: it parses the roadmap
+   aggregate, filters rows to `planned|backlog` (`triage-feature.ts:23`), and maps each
+   `RoadmapFeature` onto the unified `Issue` model (`triage-feature.ts:27`) — it never reads the
+   tracker. `triage-provider.ts` is only the SEL `AnalysisProvider` resolver for that path. The
+   ONLY code that reads the GitHub issue backlog is
+   `GitHubIssuesSyncAdapter.fetchAllTickets` (`packages/core/src/roadmap/adapters/github-issues.ts:433`)
+   and `GitHubIssuesTrackerAdapter.fetchAll` (`roadmap/tracker/adapters/github-issues.ts:123`,
+   label-filtered to `harness-managed`) — and `ExternalTicketState`
+   (`packages/types/src/tracker-sync.ts:17`) carries no body, so NEITHER can supply the path
+   signal `scope` needs. Enumeration really is `gh` invoked by an agent. The honest answer is
+   therefore a CALLABLE the SKILL invokes, sibling of `harness fleet budget-check`, which exists
+   for exactly this reason — not a SKILL.md paragraph, which is the set-but-never-read trap D1
+   was written to prevent.
+
+2. **The floor is structurally inert at this seam; formation is the half that binds.** The
+   floor's question is "is this worth the ceremony cost of being FILED, or acted on in place?"
+   and an issue at intake is ALREADY filed. `issue-fleet`'s Iron Law forbids unfiling it (no
+   close without explicit human authorization), and intake is not an in-flight diff, so D4's
+   `'act'` has no touched set to resolve against. `floored` is 0 BY CONSTRUCTION. This is the
+   intake twin of Phase 3's "Goal 3 is structurally unreachable at the craft seam", and it is
+   recorded for the same reason: a zero and a disabled check look identical in output. The floor
+   is left ENABLED and a positive control pins that a `suggestion`-graded item is still shed
+   under the intake policy.
+
+3. **`Grade` has no issue dialect, and the obvious reading made the phase inert.** An issue
+   carries neither craft axes nor review severity, so the tempting mapping is `ungraded` — and
+   `ungraded` is TERMINAL (D8), checked unconditionally at step 1 of `formClumps` BEFORE the
+   floor, so `floorEnabled: false` does not rescue it. Grading every issue `ungraded` yields
+   zero clumps while every test stays green. The mapping is instead: a single type label ⇒
+   `severity: 'important'` (above the floor, which at this seam is structural rather than a
+   judgment); no single type label ⇒ `ungraded`, which turns D8 into the code form of the
+   SKILL's existing "an un-scoreable issue goes to an unranked group" rule. Zero type labels and
+   two type labels both land there and are counted SEPARATELY, because "nobody typed it" and
+   "two people typed it differently — a routing fork" are different human actions.
+
+4. **The primitive's `maxClumps: 20` default is wrong here, for the reason the review seam
+   already gave.** D9's cap bounds EMITTED WORK UNITS at a seam that CREATES work. Intake creates
+   none — every issue was filed before the axis ran — so a cap of 20 over 347 issues would shed
+   ~300 already-filed issues into a bucket, the silent drop this control exists to prevent. The
+   intake policy is uncapped by default; a caller-set cap is honoured and an over-cap unit
+   degrades to individual queue entries, exactly as an over-cap review unit degrades to
+   individual comments.
+
+5. **The `unscoped` sentinel can collide with a real directory, and the Risks table does not say
+   how that is prevented.** "`unscoped` never co-clumps with scoped" is enforced only by the
+   `(scope, kind)` group key, so a repository directory named `unscoped` would silently join the
+   genuinely-unscoped group. Every derived scope is therefore rendered WITH a trailing `/`
+   (`packages/cli/`), which no sentinel-free reading can produce — structural, not a special
+   case, and pinned by a test.
+
+6. **The largest measured source of false affinity was our own tracker bookkeeping.** 40 of the
+   347 open issues name a `docs/roadmap.d/` shard and no other path — the roadmap row that
+   TRACKS the issue, not a file the work must edit. Unfiltered they produce four bogus
+   twelve-member `docs/roadmap.d/` "clumps" of unrelated roadmap features. The adapter drops
+   paths under a configurable tracker-bookkeeping prefix list and those issues become honestly
+   `unscoped` (which is why the measured unscoped count is 164 rather than 124). A second
+   measured false positive: `docs/roadmap.d` itself matched a looser path pattern as a FILE with
+   a one-letter extension, scoping issues to `docs/`.
+
+7. **`weight` can only be the prioritize axis's score, and the SKILL's displayed "Rank" is not
+   it.** The spec says `weight` is "the existing rank". The rank the SKILL PRINTS is an ordinal
+   (rank 1 is best), and `weight` is higher-is-more-urgent, so feeding the ordinal in would
+   invert the cap and keep the least urgent units. The adapter reads the three
+   `RankableCandidate` inputs the prioritize axis already produces and calls the existing
+   `pilotScore`; a partial trio scores 0 rather than being filled from defaults, because a score
+   computed from defaults is a fabricated rank wearing a real function's name. A raw `gh` dump
+   carries no ranking at all, so the clump set over an untriaged backlog is unranked — which is
+   correct, and only affects cap order.
+
+8. **Criterion 9 needed to become a gate rather than a hope.** "Exactly one CONFIRM interaction"
+   is a success criterion of `issue-fleet` and the whole point of putting the clump table on the
+   existing round. It is now written into the SKILL's Gates as a violation ("Never add a second
+   CONFIRM for the clump set"), alongside "never infer a scope an issue does not state" and
+   "never drop a clumped issue from the queue", because a criterion stated only in a Success
+   Criteria list is advice.
+
+**What this phase does NOT close.** Nothing downstream consumes the clump assignment yet: the
+axis emits a clump set an agent reads, and the `clumpId` on `IssueCandidate` is carried to
+CONFIRM and no further. Phase 5 is what makes a clump the lane unit, and until it lands the
+intake seam proves emission, not consumption — the same honest limit Phase 3 recorded for craft.
+
+**One arch allowance.** `clump-issues.ts` trips `couplingRatio=0.857` as a NEW violation.
+The metric is `fanOut/(fanIn+fanOut)`, so a leaf command imported only by its group index cannot
+reach 0.7 without dropping to two imports; 445 coupling violations are already baselined and
+every cli command module is among them, including `fleet/budget-check.ts` at 0.833. Recorded on
+the branch allowance with the measurement, not by editing `baselines.json`.
 
 ### Phase 5: Execution seam
 
