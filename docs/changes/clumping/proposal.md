@@ -247,8 +247,15 @@ Order of operations, and why each step sits where it does:
 6. **Rank and cap.** Emitted work units (clumps + solos) by `weight` desc, **tiebroken by unit
    id ascending**; apply `maxClumps` (D9); the remainder is `overCap`, which holds the
    **flattened member items** — not the units — or conservation (criterion 6) cannot hold. The
-   tiebreak is load-bearing, not cosmetic: without it two equal-weight units may swap places
-   between runs and criterion 7's determinism law is unachievable.
+   **member** tiebreak is load-bearing and is proven so by a mutant. The **unit** tiebreak is
+   defence-in-depth, NOT load-bearing for run-to-run equality: `[...groups.keys()].sort()`
+   already makes the pre-sort unit array a deterministic function of the input _set_, and V8's
+   sort is stable, so two runs agree with or without it. Its real guarantee is **which** tied
+   unit survives the cap — the lexicographically smallest unit id among a tied set — and that
+   is the property a test must pin. An earlier draft of this spec called the unit tiebreak
+   load-bearing for criterion 7; verification refuted that (a mutant removing it left all 77
+   tests green), and the over-claim is recorded here rather than quietly deleted because it is
+   exactly the shape that produces a vacuous test.
 7. **Count every bucket.**
 
 #### Failure modes and edge cases
@@ -444,8 +451,8 @@ seams depend on the Phase 1 primitive existing.
 
 Types (`ClumpableItem`, `Grade`, `ClumpPolicy`, `Clump`, `ClumpResult`), `resolveFloor`,
 `formClumps`, axis types relocated to `packages/core/src/craft/axes.ts` with the cli
-`axes.ts` re-exporting them (as `CraftTier`, see Integration Points), and
-`packages/core/src/craft/index.ts` so the new top-level dir is discoverable.
+`axes.ts` re-exporting them (as `CraftTier`, see Integration Points). `craft/` needs no
+`index.ts` — it is a `SELECTIVE_EXPORTS` key and therefore in `SKIP_DIRS` by design.
 
 **Verified by:** unit tests covering success criteria 1-7 and 11-12; a runtime resolve check
 proving the barrel export is actually reachable (not a silent no-op); and `harness validate`
