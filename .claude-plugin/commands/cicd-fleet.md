@@ -1,7 +1,7 @@
 ---
 name: harness:cicd-fleet
 description: Autonomous CI/CD-remediation orchestrator — triage the red CI/CD-run and flaky-test backlog by cause, fan out worktree-isolated subagents that run the real deflake/heal pipeline, independently verify each fix by artifact and deterministic all-OS CI, and hand back a batch of remediation PRs for one bulk human review. Never auto-merges and never hides a failure to clear the board.
-argument-hint: '[--path <path>] [----concurrency <--concurrency>] [----report-only <--report-only>] [----dry-run <--dry-run>]'
+argument-hint: '[--path <path>] [--concurrency <concurrency>] [--report-only <report-only>] [--dry-run <dry-run>]'
 allowed-tools:
   - Bash
   - Read

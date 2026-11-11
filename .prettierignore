@@ -53,6 +53,7 @@ packages/core/tests/fixtures/code-nav/syntax-error.ts
 .changeset/wall-clock-elapsed-assertions-no-release.md
 .changeset/downstream-papercuts-orchestrator-comment-no-release.md
 .changeset/test-runner-split-guard-no-release.md
+.changeset/skill-node-test-ci-runner-no-release.md
 .changeset/repo-shape-orchestrator-comment-no-release.md
 .changeset/workflow-audit-orchestrator-comment-no-release.md
 .changeset/orchestrator-core-test-quality-no-release.md

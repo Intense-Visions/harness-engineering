@@ -1007,6 +1007,56 @@ describe('-c selects the project root, not just the config file (#911 class)', (
   });
 
   /**
+   * `design-pipeline` used to ignore `-c` entirely: it never read the global
+   * flag, rooted every phase on `process.cwd()`, and the verifiers then loaded
+   * `design.*` from `<cwd>/harness.config.json`. So `-c` selected neither the
+   * scan tree nor the design config (#2319). Because the command never read
+   * `-c`, the class guard below could not see it either.
+   *
+   * Driven through the real command and the real engine. FRESHEN and FILL are
+   * skipped so an unfixed run cannot write bootstrap inputs into `packages/cli`.
+   *
+   * Discriminator: exactly one drift finding, naming `#ff00aa`, at a path that
+   * exists only in the tmpdir. A scan of `packages/cli` yields hundreds of
+   * findings, none under the fixture root.
+   */
+  it('design-pipeline scans the -c project', async () => {
+    await withProject(
+      {},
+      async (root) => {
+        await mkdir(path.join(root, 'design-system'), { recursive: true });
+        await writeFile(
+          path.join(root, 'design-system/tokens.json'),
+          JSON.stringify({ color: { brand: { $type: 'color', $value: '#112233' } } })
+        );
+        await writeFile(
+          path.join(root, 'src/zorblax-card.tsx'),
+          "export const ZorblaxCard = () => <div style={{ color: '#ff00aa' }}>hi</div>;\n"
+        );
+      },
+      async (configPath, root) => {
+        const { createDesignPipelineCommand } = await import('../../src/commands/design-pipeline');
+        const { runCommand, parseJsonStdout } = await import('./design-command-harness');
+        const run = await runCommand(
+          createDesignPipelineCommand(),
+          ['-c', configPath, '--json'],
+          ['--no-freshen', '--no-fill']
+        );
+        const payload = parseJsonStdout(run) as {
+          driftFindings: Array<{ code: string; file: string; message: string }>;
+        };
+
+        expect(payload.driftFindings).toHaveLength(1);
+        expect(payload.driftFindings[0]?.code).toBe('DRIFT-T001');
+        expect(payload.driftFindings[0]?.message).toContain('#ff00aa');
+        expect(toPosix(payload.driftFindings[0]?.file ?? '')).toBe(
+          toPosix(path.join(root, 'src', 'zorblax-card.tsx'))
+        );
+      }
+    );
+  });
+
+  /**
    * `check-operational-drift` reads the HEAD side of its threshold diff off
    * disk at the resolved root (`readJsonFromDisk(cwd, policy.configFile)`),
    * while the base side comes from git. The root therefore decides whose

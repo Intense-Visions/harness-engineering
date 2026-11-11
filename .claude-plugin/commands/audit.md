@@ -1,7 +1,7 @@
 ---
 name: harness:audit
 description: Cross-dimensional codebase audit orchestrator — classify repo shape, fan out parallel read-only audit agents, dedup and severity-rank findings against existing issues, publish grouped tracking issues
-argument-hint: '[--path <path>] [----dimensions <--dimensions>] [----report-only <--report-only>] [----fix <--fix>] [----max-agents <--max-agents>] [----ci <--ci>]'
+argument-hint: '[--path <path>] [--dimensions <dimensions>] [--report-only <report-only>] [--fix <fix>] [--max-agents <max-agents>] [--ci <ci>]'
 allowed-tools:
   - Bash
   - Read

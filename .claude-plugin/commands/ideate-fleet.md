@@ -1,7 +1,7 @@
 ---
 name: harness:ideate-fleet
 description: Strategy-grounded ideation fan-out at the head of the fleet spine — derive a queue of disjoint themes from STRATEGY.md tracks and supplied opportunity areas, confirm the batch once, fan out worktree-isolated subagents that each run the real harness-ideate pipeline for one theme to its ranked artifact, collect every artifact verbatim out of its worktree, verify by artifact provenance plus an independently re-derived ranking rather than a self-report, and hand back one curated ranked shortlist for a human to pick from. Files nothing — no issue, roadmap row, spec, plan, ADR, or PR — and commits, stages, and pushes nothing.
-argument-hint: '[--path <path>] [----themes <--themes>] [----count <--count>] [----cut <--cut>] [----cap <--cap>] [----concurrency <--concurrency>] [----lookback <--lookback>] [----dry-run <--dry-run>]'
+argument-hint: '[--path <path>] [--themes <themes>] [--count <count>] [--cut <cut>] [--cap <cap>] [--concurrency <concurrency>] [--lookback <lookback>] [--dry-run <dry-run>]'
 allowed-tools:
   - Bash
   - Read

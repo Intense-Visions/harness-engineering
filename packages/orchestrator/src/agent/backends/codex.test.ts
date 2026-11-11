@@ -2,6 +2,8 @@ import { describe, it, expect } from 'vitest';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
+import { once } from 'node:events';
+import type { ChildProcess } from 'node:child_process';
 import { CodexBackend, buildMcpConfigArgs } from './codex';
 import { createBackend, isLocalExecutionBackend, isLocalEndpointBackend } from '../backend-factory';
 import { BackendDefSchema } from '../../workflow/schema';
@@ -164,10 +166,8 @@ exit 3`);
   itPosix(
     'stopSession kills the live child so a stage-deadline abort actually terminates codex',
     async () => {
-      // Fixture: emit one line, then sleep far longer than the test timeout. The
-      // backend's own timeoutMs is huge (mimicking the 30-min default), so if
-      // stopSession does NOT kill the child, draining blocks on the sleep and the
-      // test times out — reproducing the bug where a stage deadline could not stop codex.
+      // Fixture: emit one line, then sleep. The backend's own timeoutMs is huge
+      // (mimicking the 30-min default) so only stopSession can end the child early.
       const cmd = fakeCodex(`echo '{"type":"session.created"}'
 sleep 30`);
       const b = new CodexBackend({ model: 'm', command: cmd, timeoutMs: 30 * 60_000 });
@@ -177,10 +177,25 @@ sleep 30`);
       } as TurnParams);
       // Pull the first event so the child is spawned + registered in activeChildren.
       await gen.next();
+      const child = (
+        b as unknown as { activeChildren: Map<string, { child: ChildProcess }> }
+      ).activeChildren.get(SESSION.sessionId)?.child;
+      expect(child).toBeDefined();
+      // Synchronize on the child's real exit event, not on a wall-clock budget
+      // (#2118): the verdict is HOW the child ended, however long a loaded runner
+      // takes to deliver it. Listener attached before the kill so it can't be missed.
+      // Awaiting exit BEFORE draining also pins the #2118 hang: by then stdout has
+      // closed, and a lazily-created readline iterator in runTurn never ended.
+      const exited = once(child!, 'exit') as Promise<[number | null, NodeJS.Signals | null]>;
       // The runner invokes stopSession when a stage's wall-clock deadline aborts.
       const stopped = await b.stopSession(SESSION);
       expect(stopped.ok).toBe(true);
-      // Draining now completes promptly (child SIGKILLed) instead of hanging on sleep 30.
+      // Killed by SIGKILL. Had stopSession not killed it, the fixture would exit 0
+      // on its own after `sleep 30` (signal null) — an assertion failure, not a hang.
+      const [code, signal] = await exited;
+      expect(signal).toBe('SIGKILL');
+      expect(code).toBeNull();
+      // The turn then drains to a failed result (killed by signal → not success).
       let result: TurnResult | undefined;
       for (;;) {
         const n = await gen.next();
@@ -189,9 +204,10 @@ sleep 30`);
           break;
         }
       }
-      expect(result!.success).toBe(false); // killed by signal → non-zero exit
-    },
-    10_000
+      expect(result!.success).toBe(false);
+    }
+    // No per-test timeout: the package testTimeout (vitest.config.mts) is only a
+    // hang backstop for a loaded runner; correctness is asserted on the exit event.
   );
 
   it('stopSession is a safe no-op for a session with no live child', async () => {

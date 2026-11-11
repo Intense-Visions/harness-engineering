@@ -1,7 +1,15 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, afterEach } from 'vitest';
+import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
+import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
-import { describeStaleBuildError, isHashedChunk, packageJsonPath } from './stale-build.js';
+import {
+  describeStaleBuildError,
+  installedVersion,
+  isHashedChunk,
+  packageJsonPath,
+} from './stale-build.js';
 
 /**
  * The transcript this was written from (2026-09-14), reproduced rather than
@@ -180,5 +188,43 @@ describe('packageJsonPath', () => {
     // `packages/` has a manifest, and it is not ours. Walking past it is the
     // whole point; answering with it would be the original bug in a new shape.
     expect(packageJsonPath(at('packages', 'other', 'src'), readName)).toBeNull();
+  });
+});
+
+describe('the manifest is read from disk, not from the require cache (#2271)', () => {
+  // The server `require`s its own package.json at startup (the version check),
+  // and Node's require cache is process-wide and keyed by resolved filename. So
+  // after an upgrade, `require(samePath)` hands back the manifest as it was at
+  // startup: the OLD, running version, reported as "installed on disk". Each
+  // test below primes the cache the same way the server does, rewrites the
+  // file the way an upgrade does, and asserts the reader sees the rewrite.
+  const tmpDirs: string[] = [];
+  afterEach(() => {
+    for (const dir of tmpDirs.splice(0)) fs.rmSync(dir, { recursive: true, force: true });
+  });
+
+  function primedManifest(initial: { name: string; version: string }): {
+    dir: string;
+    rewrite: (next: { name: string; version: string }) => void;
+  } {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'stale-build-manifest-'));
+    tmpDirs.push(dir);
+    const manifest = path.join(dir, 'package.json');
+    fs.writeFileSync(manifest, JSON.stringify(initial));
+    // Prime the cache exactly as the running server would have at startup.
+    expect(createRequire(import.meta.url)(manifest)).toMatchObject(initial);
+    return { dir, rewrite: (next) => fs.writeFileSync(manifest, JSON.stringify(next)) };
+  }
+
+  it('installedVersion reports the version now on disk, not the cached one', () => {
+    const { dir, rewrite } = primedManifest({ name: '@harness-engineering/cli', version: '1.0.0' });
+    rewrite({ name: '@harness-engineering/cli', version: '2.0.0' });
+    expect(installedVersion(dir)).toBe('2.0.0');
+  });
+
+  it('packageJsonPath identifies the package by the name now on disk', () => {
+    const { dir, rewrite } = primedManifest({ name: 'not-this-package', version: '1.0.0' });
+    rewrite({ name: '@harness-engineering/cli', version: '1.0.0' });
+    expect(packageJsonPath(dir)).toBe(path.join(dir, 'package.json'));
   });
 });

@@ -104,7 +104,11 @@ describe('webhooks end-to-end: subscribe → event → signed POST → HMAC veri
     fanoutOff();
     await delivery.stop();
     queue.close();
-    (server as unknown as { httpServer: http.Server }).httpServer.close();
+    await new Promise<void>((resolve) => {
+      (server as unknown as { httpServer: http.Server }).httpServer.close(() => resolve());
+    });
+    // Drain the fire-and-forget audit write before its directory goes (#2265).
+    await server.flushAudit();
     await new Promise<void>((r) => receiver.close(() => r()));
     rmSync(dir, { recursive: true, force: true });
     delete process.env['HARNESS_TOKENS_PATH'];

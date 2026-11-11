@@ -237,4 +237,46 @@ describe('block-no-verify', () => {
       expect(runHook(input).exitCode).toBe(expected);
     });
   });
+
+  // Issue #2389: spellings of the git command and of the bypass that git
+  // honours but the hook did not recognise.
+  describe('git spelling and hooksPath bypasses (issue #2389)', () => {
+    const cases: Array<{ command: string; expected: 0 | 2 }> = [
+      // The four rows from the issue table.
+      { command: '\\git commit -n -m x', expected: 2 },
+      { command: 'git.exe commit -n -m x', expected: 2 },
+      { command: 'git commit --no-verif -m x', expected: 2 },
+      { command: 'git -c core.hooksPath=/dev/null commit -m x', expected: 2 },
+      // Command-name normalisation.
+      { command: '/usr/bin/git commit -n -m x', expected: 2 },
+      { command: 'C:\\Git\\cmd\\git.exe commit -n -m x', expected: 2 },
+      { command: 'GIT.EXE commit -nm x', expected: 2 },
+      { command: '\\git commit -m x', expected: 0 },
+      { command: 'git.exe commit -m x', expected: 0 },
+      { command: 'gitk --all', expected: 0 },
+      // Abbreviations of --no-verify, down to --no-v, on any git subcommand.
+      { command: 'git commit --no-v -m x', expected: 2 },
+      { command: 'git commit --no-veri -m x', expected: 2 },
+      { command: 'git push --no-verif', expected: 2 },
+      { command: 'git commit --no-edit -m x', expected: 0 },
+      { command: 'git commit --no- -m x', expected: 0 },
+      { command: 'git commit --verify -m x', expected: 0 },
+      { command: 'git commit -m x -- --no-verif', expected: 0 },
+      // Relocating the hooks directory on a hook-running subcommand.
+      { command: 'git -c core.hookspath=/tmp/empty commit -m x', expected: 2 },
+      { command: 'git -c core.hooksPath= push', expected: 2 },
+      { command: 'git --config-env core.hooksPath=EMPTY commit -m x', expected: 2 },
+      { command: 'git --config-env=core.hooksPath=EMPTY merge main', expected: 2 },
+      { command: 'git -C /tmp/repo -c core.hooksPath=/dev/null rebase main', expected: 2 },
+      { command: 'git -c user.name=bot commit -m x', expected: 0 },
+      { command: 'git -c core.hooksPath=/dev/null log --oneline', expected: 0 },
+      // A redirection written `>&` is not a separator either.
+      { command: 'git commit -m x >&/dev/null -n', expected: 2 },
+    ];
+
+    it.each(cases)('$command -> exit $expected', ({ command, expected }) => {
+      const input = JSON.stringify({ tool_name: 'Bash', tool_input: { command } });
+      expect(runHook(input).exitCode).toBe(expected);
+    });
+  });
 });

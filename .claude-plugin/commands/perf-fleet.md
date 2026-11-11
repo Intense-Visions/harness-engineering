@@ -1,7 +1,7 @@
 ---
 name: harness:perf-fleet
 description: Autonomous performance-budget/regression remediation sweep — enumerate the perf-budget-violation and runtime-regression backlog by composing the existing perf detectors (check_performance, harness-perf, benchmark baselines), fold it into independent remediation targets, rank them by severity value, confirm the batch once, fan out worktree-isolated subagents that each run the real per-target measure-remediate-remeasure pipeline gated by a measured before/after, independently verify each result by a re-measurement that proves the budget is met plus updated baselines plus all-OS CI, and hand back a tiered batch of perf-fix PRs and filed redesign issues for one bulk human review. No measured before/after, no fix. Never auto-merges and never rebaselines a regression away.
-argument-hint: '[--path <path>] [----concurrency <--concurrency>] [----report-only <--report-only>] [----dry-run <--dry-run>] [----safe-only <--safe-only>]'
+argument-hint: '[--path <path>] [--concurrency <concurrency>] [--report-only <report-only>] [--dry-run <dry-run>] [--safe-only <safe-only>]'
 allowed-tools:
   - Bash
   - Read

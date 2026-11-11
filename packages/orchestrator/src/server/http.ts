@@ -869,6 +869,16 @@ export class OrchestratorServer {
     return this.port;
   }
 
+  /**
+   * Drain in-flight audit-log writes. Audit appends are fire-and-forget on the
+   * request path (best-effort, never awaited by the handler); call this after
+   * the HTTP server has closed and before removing the audit log's directory,
+   * so a late write cannot outlive it (#2265). Never rejects.
+   */
+  public flushAudit(): Promise<void> {
+    return this.auditLogger.flush();
+  }
+
   public stop(): void {
     this.orchestrator.removeListener('state_change', this.stateChangeListener);
     this.orchestrator.removeListener('agent_event', this.agentEventListener);

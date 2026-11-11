@@ -194,6 +194,59 @@ describe('runOutcomeEvalCi — the gate fires and honors the verdict authority',
   });
 });
 
+describe('runOutcomeEvalCi — an unreadable diff is never graded as an empty diff (#2321)', () => {
+  /** An exec stub that behaves like execFileSync overflowing its maxBuffer. */
+  function enobufsRunGit(): ReturnType<typeof vi.fn> {
+    return vi.fn((args: string[]) => {
+      if (args[0] === 'diff') {
+        const err = new Error('spawnSync git ENOBUFS') as NodeJS.ErrnoException;
+        err.code = 'ENOBUFS';
+        throw err;
+      }
+      return 'abc123';
+    });
+  }
+
+  it('does not hand the evaluator an empty diff when git diff throws ENOBUFS', async () => {
+    const stub = stubEvaluator(verdict());
+    const store = { save: vi.fn().mockResolvedValue(undefined) };
+    const res = await runOutcomeEvalCi({
+      cwd: '/repo',
+      diffRange: 'main...HEAD',
+      specPath: 'docs/changes/f/proposal.md',
+      runGit: enobufsRunGit(),
+      makeEvaluator: async () => stub.evaluator,
+      store,
+    });
+    // The evaluator must not run: grading '' would read as "the diff is empty".
+    expect(stub.calls).toHaveLength(0);
+    // Nothing judged ⇒ no execution_outcome node is persisted for this sha.
+    expect(store.save).not.toHaveBeenCalled();
+    expect(res.verdict.verdict).toBe('INCONCLUSIVE');
+    expect(res.verdict.authority).toBe('advisory');
+    expect(res.exitCode).toBe(0);
+    // The verdict names the failure — distinguishable from an honest empty diff.
+    expect(res.verdict.rationale).toMatch(/could not be read/i);
+    expect(res.verdict.rationale).toContain('ENOBUFS');
+    expect(res.verdict.rationale).not.toMatch(/diff is empty/i);
+  });
+
+  it('still grades a genuinely empty diff (the read succeeded)', async () => {
+    const stub = stubEvaluator(verdict());
+    await runOutcomeEvalCi({
+      cwd: '/repo',
+      diffRange: 'main...HEAD',
+      specPath: 'docs/changes/f/proposal.md',
+      runGit: vi.fn().mockReturnValue('abc123'),
+      resolveRaw: () => '',
+      makeEvaluator: async () => stub.evaluator,
+      store: { save: vi.fn().mockResolvedValue(undefined) },
+    });
+    expect(stub.calls).toHaveLength(1);
+    expect(stub.calls[0].diff).toBe('');
+  });
+});
+
 describe('buildOutcomeBody', () => {
   it('renders a blocking verdict with the unmet criteria', () => {
     const body = buildOutcomeBody(

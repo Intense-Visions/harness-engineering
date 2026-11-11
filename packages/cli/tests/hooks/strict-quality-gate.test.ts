@@ -13,9 +13,15 @@ const isPosix = process.platform !== 'win32';
 
 function runHook(
   stdinData: string,
-  opts: { cwd?: string; extraPath?: string } = {}
+  opts: { cwd?: string; extraPath?: string; timeoutMs?: number } = {}
 ): { exitCode: number; stderr: string } {
-  const env = { ...process.env };
+  // A generous formatter timeout by default, so machine load cannot turn the
+  // fake formatter's verdict into a timeout (#2337). Timeout behaviour itself
+  // is exercised explicitly with a short `timeoutMs`.
+  const env: NodeJS.ProcessEnv = {
+    ...process.env,
+    HARNESS_FORMAT_CHECK_TIMEOUT_MS: String(opts.timeoutMs ?? 50000),
+  };
   if (opts.extraPath) {
     env.PATH = `${opts.extraPath}:${process.env.PATH ?? ''}`;
   }
@@ -27,7 +33,8 @@ function runHook(
     timeout: 60000,
   });
   return {
-    exitCode: result.signal ? 0 : (result.status ?? 1),
+    // A hook killed by a signal has no verdict; never read that as a pass (0).
+    exitCode: result.status ?? -1,
     stderr: result.stderr ?? '',
   };
 }
@@ -83,6 +90,21 @@ describe('strict-quality-gate', { timeout: 60000 }, () => {
     const { exitCode, stderr } = runHook(GO_EDIT, { cwd: tmpDir, extraPath: binDir });
     expect(exitCode).toBe(0);
     expect(stderr).toContain('failing open');
+  });
+
+  // #2337: a formatter that times out produced no verdict. The strict gate used
+  // to fail open (exit 0) here, which under load let a genuine violation through.
+  it.skipIf(!isPosix)('blocks (exit 2) when the formatter times out', () => {
+    // `exec` so the timeout's SIGTERM reaches the sleeping process itself.
+    const binDir = installFakeGofmt(tmpDir, 'exec sleep 30');
+    const { exitCode, stderr } = runHook(GO_EDIT, {
+      cwd: tmpDir,
+      extraPath: binDir,
+      timeoutMs: 200,
+    });
+    expect(exitCode).toBe(2);
+    expect(stderr).toContain('BLOCKED');
+    expect(stderr).toContain('timed out');
   });
 
   it.skipIf(!isPosix)('exits 0 (clean) when the formatter reports no issues', () => {
