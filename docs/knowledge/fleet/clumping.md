@@ -33,8 +33,9 @@ work. The second-order effect is the worse one: a small item is _tractable_, so 
 choice picks it, and a backlog of small items quietly crowds out the work that moves the
 project. This concept **generalizes past this repo** — it holds for any process whose per-item
 overhead is constant and whose item size is shrinking — and it is the reusable half of the
-insight. Measured instance: 15 of the last 25 merged PRs in this repo were
-`chore: refresh baselines after merge`, one per merged PR, carrying no payload at all.
+insight. Measured instance (2026-11-10, and re-measured 2026-11-11 at 16): 15 of the last 25 merged PRs
+in this repo were `chore: refresh baselines after merge` — one per merged PR, carrying no payload
+at all. The figure drifts; the ratio is what the concept names.
 
 **`clumping-is-not-dedup`** — dedup removes **restatements of one thing**; clumping groups
 **distinct things** that demand the same judgment over the same scope. The two axes are

@@ -21,8 +21,11 @@ Every work item in this repo carries a **fixed ceremony cost** — an issue, a b
 a 3-OS CI matrix, a review pass, a merge, and a baseline-refresh PR — and that cost is invariant
 to the size of the payload. Agents emit findings at a rate humans never did, and the findings
 skew small. When the emission rate rises and the payload shrinks, the ceremony becomes the work.
-The spec's measured evidence: 361 open issues, and **15 of the last 25 merged PRs** were
-`chore: refresh baselines after merge` — pure per-merge overhead.
+The spec's measured evidence, dated **2026-11-10**: 361 open issues, and **15 of the last 25
+merged PRs** were `chore: refresh baselines after merge` — pure per-merge overhead. Both figures
+are relayed from the spec and both drift: re-measured here on 2026-11-11 they are 347 open and
+16 of the last 25. The ratio is the argument, and an undated count in a living document is how
+an argument quietly becomes false.
 
 The principle that answers this was already **proven in exactly one place and enforced nowhere**.
 `craft-fleet/SKILL.md:218` carries both the rationale ("forty naming fixes as forty PRs is a
