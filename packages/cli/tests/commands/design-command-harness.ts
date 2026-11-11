@@ -85,6 +85,7 @@ export async function runCommand(
   subArgv: string[]
 ): Promise<CommandRun> {
   const parent = new Command('harness')
+    .option('-c, --config <path>', 'path to config file')
     .option('--json', 'JSON output')
     .option('--quiet', 'quiet output')
     .option('--verbose', 'verbose output')
