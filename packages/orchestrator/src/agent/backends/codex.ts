@@ -351,6 +351,13 @@ export class CodexBackend implements AgentBackend {
       input: child.stdout,
       terminal: false,
     });
+    // Attach the line iterator NOW, before the first `yield` hands control to the
+    // consumer. A readline async iterator created lazily (at the `for await` below)
+    // drops lines emitted before it exists and, if the interface has already
+    // closed by then, never ends — so a consumer slower than the child (or one
+    // that awaits the child's exit before pulling again) would hang this turn
+    // forever (#2118). Created eagerly, it buffers both the lines and the close.
+    const lines = rl[Symbol.asyncIterator]();
     const errRl = readline.createInterface({
       input: child.stderr,
       terminal: false,
@@ -382,7 +389,7 @@ export class CodexBackend implements AgentBackend {
     // truncated to 2000 chars and never captured as `run.output`, which is why a
     // design stage's generated proposal/plan was produced but never persisted.
     let lastAgentMessage = '';
-    for await (const line of rl) {
+    for await (const line of { [Symbol.asyncIterator]: () => lines }) {
       const trimmed = line.trim();
       if (!trimmed) continue;
       let subtype = 'codex_output';

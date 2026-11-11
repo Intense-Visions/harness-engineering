@@ -72,6 +72,31 @@ describe('DepDepthCollector', () => {
     expect(servicesResult!.violations[0]!.id).toMatch(/^[a-f0-9]{64}$/);
   });
 
+  // #2290: harness.config.json supplies `{ "max": N }`, not a bare number.
+  it('honours the object-shaped { max } threshold from harness.config.json', async () => {
+    const objectShaped: ArchConfig = {
+      ...baseConfig,
+      thresholds: { 'dependency-depth': { max: 1 } },
+    };
+    const results = await collector.collect(objectShaped, tempDir);
+    const servicesResult = results.find((r) => r.scope.includes('services'));
+    expect(servicesResult).toBeDefined();
+    expect(servicesResult!.value).toBe(2);
+    expect(servicesResult!.violations).toHaveLength(1);
+    expect(servicesResult!.violations[0]!.detail).toBe('Import chain depth is 2 (threshold: 1)');
+  });
+
+  it('does not fire an object-shaped threshold the chain stays within', async () => {
+    const objectShaped: ArchConfig = {
+      ...baseConfig,
+      thresholds: { 'dependency-depth': { max: 2 } },
+    };
+    const results = await collector.collect(objectShaped, tempDir);
+    const servicesResult = results.find((r) => r.scope.includes('services'));
+    expect(servicesResult!.value).toBe(2);
+    expect(servicesResult!.violations).toHaveLength(0);
+  });
+
   it('includes metadata with longestChain', async () => {
     const results = await collector.collect(baseConfig, tempDir);
     const servicesResult = results.find((r) => r.scope.includes('services'));

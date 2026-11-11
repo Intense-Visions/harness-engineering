@@ -26,4 +26,16 @@ describe('buildArgumentHint', () => {
       ])
     ).toBe('--target <target> [--path <path>]');
   });
+
+  // #1969: skill.yaml cli.args names may already carry their leading `--`
+  // (every fleet skill does). The hint must not double the prefix into
+  // `[----fleets <--fleets>]`.
+  it('does not double the dash prefix when the arg name already carries it', () => {
+    expect(
+      buildArgumentHint([
+        { name: '--fleets', description: 'Fleets', required: false },
+        { name: '--target', description: 'Target', required: true },
+      ])
+    ).toBe('[--fleets <fleets>] --target <target>');
+  });
 });

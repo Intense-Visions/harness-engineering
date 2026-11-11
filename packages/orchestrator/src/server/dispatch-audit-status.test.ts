@@ -81,6 +81,8 @@ describe('dispatchAuthedRequest audit captures wire-final status', () => {
     await new Promise<void>((resolve) => {
       (server as unknown as { httpServer: http.Server }).httpServer.close(() => resolve());
     });
+    // Drain the fire-and-forget audit write before its directory goes (#2265).
+    await server.flushAudit();
     rmSync(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 });
     delete process.env['HARNESS_TOKENS_PATH'];
     delete process.env['HARNESS_AUDIT_PATH'];
@@ -117,5 +119,22 @@ describe('dispatchAuthedRequest audit captures wire-final status', () => {
     const last = JSON.parse(log[log.length - 1] ?? '') as { status: number; route: string };
     expect(last.status).toBe(404);
     expect(last.route).toBe('/api/streams/does-not-exist');
+  });
+
+  // #2265: the audit append is fire-and-forget on the request path, so a test
+  // that removes its temp dir in teardown could race a still-in-flight write,
+  // whose late `console.warn` then lands after the vitest worker tore down and
+  // fails an otherwise-green run with an unowned error. flushAudit() gives the
+  // owner of the directory a way to drain the write before removing it.
+  it('flushAudit() drains the request audit write so teardown cannot race it', async () => {
+    const res = await req('/api/streams/does-not-exist');
+    expect(res.status).toBe(404);
+    await new Promise<void>((resolve) => {
+      (server as unknown as { httpServer: http.Server }).httpServer.close(() => resolve());
+    });
+    await server.flushAudit();
+    // No polling: once flushAudit() resolves the line must already be on disk.
+    const lines = readFileSync(join(dir, 'audit.log'), 'utf-8').trim().split('\n');
+    expect(JSON.parse(lines[lines.length - 1] ?? '').route).toBe('/api/streams/does-not-exist');
   });
 });

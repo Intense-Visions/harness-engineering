@@ -92,14 +92,24 @@ function computeLongestChain(
   return maxDepth;
 }
 
+/**
+ * Resolve the configured dependency-depth limit. Accepts both the bare-number
+ * shape (`"dependency-depth": 7`) and the object shape used by
+ * harness.config.json (`"dependency-depth": { "max": 7 }`). Returns null when
+ * no limit is configured.
+ */
+function resolveDepthThreshold(config: ArchConfig): number | null {
+  const raw = config.thresholds['dependency-depth'];
+  if (typeof raw === 'number') return raw;
+  if (typeof raw === 'object' && raw !== null && typeof raw.max === 'number') return raw.max;
+  return null;
+}
+
 export class DepDepthCollector implements Collector {
   readonly category = 'dependency-depth' as const;
 
   getRules(config: ArchConfig, _rootDir: string): ConstraintRule[] {
-    const threshold =
-      typeof config.thresholds['dependency-depth'] === 'number'
-        ? config.thresholds['dependency-depth']
-        : null;
+    const threshold = resolveDepthThreshold(config);
 
     const desc =
       threshold !== null
@@ -148,10 +158,7 @@ export class DepDepthCollector implements Collector {
     const moduleMap = this.buildModuleMap(allFiles, rootDir);
 
     const memo = new Map<string, number>();
-    const threshold =
-      typeof config.thresholds['dependency-depth'] === 'number'
-        ? config.thresholds['dependency-depth']
-        : Infinity;
+    const threshold = resolveDepthThreshold(config) ?? Infinity;
 
     const results: MetricResult[] = [];
 

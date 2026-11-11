@@ -44,4 +44,33 @@ describe('AuditLogger', () => {
     expect(warnSpy).toHaveBeenCalled();
     warnSpy.mockRestore();
   });
+
+  it('flush() also drains writes enqueued while it is waiting (#2265)', async () => {
+    const path = join(dir, 'audit.log');
+    const logger = new AuditLogger(path);
+    await logger.append({ tokenId: 'a', route: '/api/x', method: 'GET', status: 200 });
+    const flushed = logger.flush();
+    // Enqueued AFTER flush() was called — e.g. a response 'finish' handler
+    // firing during teardown. flush() must still own it, or the write lands
+    // after the caller has removed the directory.
+    await logger.append({ tokenId: 'b', route: '/api/x', method: 'GET', status: 200 });
+    await flushed;
+    const lines = readFileSync(path, 'utf8').trim().split('\n');
+    expect(lines.map((l) => JSON.parse(l).tokenId)).toEqual(['a', 'b']);
+  });
+
+  it('a failed write after the directory is removed never rejects (#2265)', async () => {
+    const path = join(dir, 'audit.log');
+    const logger = new AuditLogger(path);
+    await logger.append({ tokenId: 'a', route: '/api/x', method: 'GET', status: 200 });
+    await logger.flush();
+    rmSync(dir, { recursive: true, force: true });
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    await expect(
+      logger.append({ tokenId: 'b', route: '/api/x', method: 'GET', status: 200 })
+    ).resolves.toBeUndefined();
+    await expect(logger.flush()).resolves.toBeUndefined();
+    expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('[audit] write failed'));
+    warnSpy.mockRestore();
+  });
 });

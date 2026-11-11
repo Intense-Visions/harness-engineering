@@ -1,7 +1,7 @@
 ---
 name: harness:cleanup-fleet
 description: Autonomous entropy/hotspot remediation sweep — enumerate the entropy/hotspot backlog by composing the existing detection skills, rank the targets, confirm the batch once, fan out worktree-isolated subagents that each run the real per-target cleanup pipeline, independently verify each result by convergence artifact and all-OS CI, and hand back a batch of scoped cleanup PRs for one bulk human review. Never auto-merges.
-argument-hint: '[--path <path>] [----concurrency <--concurrency>] [----report-only <--report-only>] [----dry-run <--dry-run>] [----safe-only <--safe-only>]'
+argument-hint: '[--path <path>] [--concurrency <concurrency>] [--report-only <report-only>] [--dry-run <dry-run>] [--safe-only <safe-only>]'
 allowed-tools:
   - Bash
   - Read

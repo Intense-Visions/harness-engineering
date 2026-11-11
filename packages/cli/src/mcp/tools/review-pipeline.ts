@@ -2,6 +2,7 @@ import { paginate } from '@harness-engineering/core';
 import { sanitizePath } from '../utils/sanitize-path.js';
 import { sortFindingsBySeverity } from '../utils/severity.js';
 import { loadGuardianCoverage } from '../../utils/guardian-context.js';
+import { buildDiffInfo } from '../../commands/review-ci.js';
 
 // ============ run_code_review ============
 
@@ -94,23 +95,13 @@ export async function handleRunCodeReview(input: {
       };
     }
 
-    const codeChanges = parseResult.value;
     const projectRoot = sanitizePath(input.path);
 
-    // Build DiffInfo from parsed diff
-    const diffInfo = {
-      changedFiles: codeChanges.files.map((f: { path: string }) => f.path),
-      newFiles: codeChanges.files
-        .filter((f: { path: string; status?: string }) => f.status === 'added')
-        .map((f: { path: string }) => f.path),
-      deletedFiles: codeChanges.files
-        .filter((f: { path: string; status?: string }) => f.status === 'deleted')
-        .map((f: { path: string }) => f.path),
-      totalDiffLines: input.diff.split('\n').length,
-      fileDiffs: new Map(
-        codeChanges.files.map((f: { path: string; diff?: string }) => [f.path, f.diff ?? ''])
-      ),
-    };
+    // Build DiffInfo from the raw diff. `parseDiff` returns file metadata only
+    // (path/status/counts) — no per-file diff text — so `fileDiffs` must be
+    // split from the raw diff, or depth calibration and keyword detection run
+    // against empty strings and report `changedLines: 0` (#2213).
+    const diffInfo = buildDiffInfo(input.diff);
 
     // Advisory guardian diff-coverage input (#914): read + render from the
     // project's .harness/analyses/ archive; undefined when absent (degrade-safe).

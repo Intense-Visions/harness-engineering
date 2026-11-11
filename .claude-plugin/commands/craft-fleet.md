@@ -1,7 +1,7 @@
 ---
 name: harness:craft-fleet
 description: Ceiling-raising code-quality elevation sweep — compose the eleven craft skills into ranked (scope, domain) targets, drop the noise floor, route each finding elevate/file/route by a mechanical boundary, confirm one batch with a taste-calibration sample of verbatim findings, fan out worktree-isolated subagents that each run the real harness-refactoring pipeline over one target's cited findings, then independently verify every item by critique provenance plus the step-granular refactoring commit trail plus a two-run re-critique that proves net improvement, and hand back a tiered batch of elevation PRs and filed roadmap items. No cited finding, no rewrite. Never auto-merges.
-argument-hint: '[--path <path>] [----concurrency <--concurrency>] [----domains <--domains>] [----report-only <--report-only>] [----dry-run <--dry-run>] [----file-only <--file-only>]'
+argument-hint: '[--path <path>] [--concurrency <concurrency>] [--domains <domains>] [--report-only <report-only>] [--dry-run <dry-run>] [--file-only <file-only>]'
 allowed-tools:
   - Bash
   - Read

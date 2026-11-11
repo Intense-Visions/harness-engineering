@@ -1,7 +1,7 @@
 ---
 name: harness:adr-fleet
 description: Autonomous decide-stage orchestrator — sweep the backlog of pending architectural decisions, fan out worktree-isolated subagents that each run the real architecture-advisor pipeline to draft one ADR, independently verify every draft is a well-formed record, and hand the human one batch sign-off pass. Never auto-accepts.
-argument-hint: '[--path <path>] [----concurrency <--concurrency>] [----report-only <--report-only>] [----dry-run <--dry-run>]'
+argument-hint: '[--path <path>] [--concurrency <concurrency>] [--report-only <report-only>] [--dry-run <dry-run>]'
 allowed-tools:
   - Bash
   - Read
