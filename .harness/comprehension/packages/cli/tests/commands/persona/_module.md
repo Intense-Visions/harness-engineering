@@ -43,6 +43,6 @@ import { generateRuntime } from '../../../src/persona/generators/runtime'
 import { loadPersona } from '../../../src/persona/loader'
 import { resolveProjectPersonasDir } from '../../../src/utils/paths'
 import { Command } from 'commander'
-import from 'fs'
+import 'fs'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 ```

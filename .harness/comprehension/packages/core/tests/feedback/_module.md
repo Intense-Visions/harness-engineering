@@ -32,7 +32,8 @@ The feedback test module (`packages/core/tests/feedback`) validates the feedback
 ## Dependency Slice
 
 ```
-import * as feedback, { ChecklistBuilder, analyzeDiff, createSelfReview, parseDiff } from '../../src/feedback'
+import { ChecklistBuilder, analyzeDiff, createSelfReview, parseDiff } from '../../src/feedback'
+import * as feedback from '../../src/feedback'
 import { configureFeedback, getFeedbackConfig, resetFeedbackConfig } from '../../src/feedback/config'
 import { ActionContext, ActionEvent, ActionEventType, ActionResult, ActionType, AgentAction, AgentConfig, AgentProcess, AgentType, ChangedFile, CodeChanges, CustomRule, CustomRuleResult, ExecutorHealth, FeedbackError, ForbiddenPattern, GraphHarnessCheckData, GraphImpactData, LogEntry, LogFilter, Metric, PeerReview, PeerReviewOptions, ReviewChecklist, ReviewComment, ReviewContext, ReviewItem, SelfReviewConfig, Span, SpanEvent, TelemetryHealth, TimeRange, Trace } from '../../src/feedback/types'
 import { beforeEach, describe, expect, it } from 'vitest'

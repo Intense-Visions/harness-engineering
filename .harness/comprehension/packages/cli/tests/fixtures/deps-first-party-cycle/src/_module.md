@@ -30,6 +30,6 @@ export b
 ## Dependency Slice
 
 ```
-import from './a'
-import from './b'
+import './a'
+import './b'
 ```

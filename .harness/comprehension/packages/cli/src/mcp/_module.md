@@ -35,7 +35,7 @@ export startServer
 
 ```
 import { ensureComprehensionSearchIgnore, ensureHarnessGitignore } from '../templates/post-write.js'
-import from '../version.js'
+import '../version.js'
 import { agentsMdEntry, gatherContextSurface, hooksEntry, mcpToolEntries, skillTreeEntries, toolDefinitionText } from './context-surface'
 import { getToolDefinitions } from './index.js'
 import { applyCompaction } from './middleware/compaction.js'

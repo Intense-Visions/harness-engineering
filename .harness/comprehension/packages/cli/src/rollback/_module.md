@@ -58,7 +58,7 @@ export windowStart
 
 ```
 import { HarnessConfig } from '../config/schema'
-import from '../mcp/utils/graph-loader.js'
+import '../mcp/utils/graph-loader.js'
 import { LaterMerge, ResolvedTarget, RollbackDecision, RollbackIO } from '@harness-engineering/core'
 import { SignalId, SignalPoint, SignalTimelineStore } from '@harness-engineering/signals'
 import { execFileSync } from 'node:child_process'

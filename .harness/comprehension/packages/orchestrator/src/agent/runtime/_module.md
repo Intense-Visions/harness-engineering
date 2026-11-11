@@ -33,5 +33,5 @@ export DockerRuntime
 ```
 import { ContainerCreateOpts, ContainerError, ContainerExecOpts, ContainerHandle, ContainerRuntime, Err, Ok, Result } from '@harness-engineering/types'
 import { execFile, spawn } from 'node:child_process'
-import from 'node:readline'
+import 'node:readline'
 ```

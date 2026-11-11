@@ -47,7 +47,7 @@ members:
 import { DataCache } from '../../src/server/cache'
 import { ServerContext } from '../../src/server/context'
 import { GatherCache } from '../../src/server/gather-cache'
-import from '../../src/server/gather/security'
+import '../../src/server/gather/security'
 import { clearIdentityCache, resolveIdentity, resolveRole } from '../../src/server/identity'
 import { app } from '../../src/server/index'
 import { formatProxyErrorMessage } from '../../src/server/orchestrator-proxy'

@@ -38,7 +38,7 @@ export acquireCompoundLock
 import { ALL_SOLUTION_CATEGORIES } from '../solutions/schema'
 import { CompoundLockHeldError, acquireCompoundLock } from './compound-lock'
 import { SolutionCategory } from '@harness-engineering/types'
-import from 'node:child_process'
+import 'node:child_process'
 import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'

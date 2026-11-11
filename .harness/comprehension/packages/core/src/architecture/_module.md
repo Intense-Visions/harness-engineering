@@ -193,7 +193,9 @@ import { ArchBaseline, ArchBaselineSchema, ArchConfig, ArchConfigSchema, ArchDep
 import { minimatch } from 'minimatch'
 import { execFileSync } from 'node:child_process'
 import { randomBytes } from 'node:crypto'
-import * as fs, { existsSync, mkdirSync, readFileSync, readdirSync, renameSync, writeFileSync } from 'node:fs'
-import * as path, { dirname, join, resolve } from 'node:path'
+import { existsSync, mkdirSync, readFileSync, readdirSync, renameSync, writeFileSync } from 'node:fs'
+import * as fs from 'node:fs'
+import { dirname, join, resolve } from 'node:path'
+import * as path from 'node:path'
 import { z } from 'zod'
 ```

@@ -42,7 +42,7 @@ members:
 ```
 import { _findProjectRoot, _flushTelemetryBackground, _resetForTest, _resolveCommandName, _writeCommandRecordSync, installCommandTelemetry, truncateAdoptionFile } from '../../src/bin/command-telemetry'
 import { printFreshnessNotification, runFreshnessCheckAtStartup } from '../../src/bin/freshness-check-hooks'
-import from '../../src/bin/harness'
+import '../../src/bin/harness'
 import { _resetConfigCache, printUpdateNotification, runUpdateCheckAtStartup } from '../../src/bin/update-check-hooks'
 import { findConfigFile, loadConfig } from '../../src/config/loader'
 import { printFirstRunWelcome } from '../../src/utils/first-run'

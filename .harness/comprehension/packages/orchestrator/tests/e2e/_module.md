@@ -31,6 +31,6 @@ members: ["telemetry-otel-collector.e2e.test.ts"]
 
 ```
 import { OTLPExporter, SpanKind, TraceSpan } from '@harness-engineering/core'
-import from 'testcontainers'
+import 'testcontainers'
 import { describe, expect, it } from 'vitest'
 ```

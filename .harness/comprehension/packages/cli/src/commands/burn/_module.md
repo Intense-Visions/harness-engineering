@@ -45,7 +45,7 @@ import { createReportCommand, printFullReport, printReport, renderReport } from 
 import { createResetDayCommand, parseWeekday, setResetDay } from './reset-day'
 import { createWeeksCommand, printWeeks } from './weeks'
 import { AgentBlock, BuildCostReportInput, Calibration, CostReport, SkillBlock, Summary, buildCostReport, checkCostBands, human, linkPrs, loadConfig, readProvenance, readRawConfig, readRecords, readSummary, refresh, resolvePaths, saveRawConfig, units, weekBounds, writeCostReport } from '@harness-engineering/burn'
-import from '@harness-engineering/core'
+import '@harness-engineering/core'
 import chalk from 'chalk'
 import { Command } from 'commander'
 import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'

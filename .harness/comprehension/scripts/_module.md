@@ -96,6 +96,6 @@ import { createRequire } from 'node:module'
 import { tmpdir } from 'node:os'
 import path, { basename, dirname, extname, join, relative, resolve, sep } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
-import from 'playwright'
+import 'playwright'
 import { parseYaml } from 'yaml'
 ```

@@ -36,14 +36,14 @@ export createTelemetryCommand
 
 ```
 import { POSTHOG_API_KEY } from '../../bin/command-telemetry'
-import from '../../mcp/utils/graph-loader.js'
+import '../../mcp/utils/graph-loader.js'
 import { logger } from '../../output/logger'
 import { createIdentifyCommand } from './identify'
 import { createStatusCommand } from './status'
 import { createSynthesizeCommand } from './synthesize'
 import { createTestCommand } from './test'
 import { getOrCreateInstallId, readIdentity, resolveConsent } from '@harness-engineering/core'
-import from '@harness-engineering/intelligence'
+import '@harness-engineering/intelligence'
 import { EffectivenessSection, InsightsReport, SkillInvocationRecord, TELEMETRY_SYNTHESIS_SECTIONS, TelemetrySynthesisSection, UsageRecord } from '@harness-engineering/types'
 import { Command } from 'commander'
 import * as fs from 'node:fs'

@@ -51,7 +51,7 @@ import { printFreshnessNotification, runFreshnessCheckAtStartup } from './freshn
 import { DEFAULT_INTERVAL_MS, printUpdateNotification, readConfigInterval, runUpdateCheckAtStartup } from './update-check-hooks'
 import { getUpdateNotification, isUpdateCheckEnabled, readCheckState, shouldRunCheck, spawnBackgroundCheck } from '@harness-engineering/core'
 import { Command } from 'commander'
-import from 'dotenv/config'
+import 'dotenv/config'
 import * as fs from 'fs'
 import { spawn } from 'node:child_process'
 import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'

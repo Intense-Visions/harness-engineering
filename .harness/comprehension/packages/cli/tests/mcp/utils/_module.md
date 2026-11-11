@@ -21,7 +21,7 @@ members:
 import { AnalysisCliConfig, isClaudeCliAvailable, isCliAvailable, resolveAnalysisProvider, resolveProviderKind } from '../../../src/mcp/utils/analysis-provider.js'
 import { globFiles } from '../../../src/mcp/utils/glob-helper'
 import { clearGraphStoreCache, loadGraphStore } from '../../../src/mcp/utils/graph-loader.js'
-import from '../../../src/utils/paths.js'
+import '../../../src/utils/paths.js'
 import * as fs from 'fs'
 import * as fss from 'node:fs'
 import * as fs from 'node:fs/promises'

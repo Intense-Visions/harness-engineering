@@ -52,7 +52,7 @@ import { MAX_PROVIDERS, PROBE_BUDGET_MS, evaluateEntry, invalidateFreshnessState
 import { SkillSource, readLockfile } from '../../registry/lockfile'
 import { NpmSearchResult, extractSkillName, searchNpmRegistry } from '../../registry/npm-client'
 import { validateForPublish } from '../../registry/validator'
-import from '../../shared/state-events.js'
+import '../../shared/state-events.js'
 import { Complexity, detectComplexity } from '../../skill/complexity'
 import { derivePackageJson } from '../../skill/package-json'
 import { SkillCapabilities, SkillCapabilityRoles, SkillMetadata, SkillMetadataSchema, capabilityDriftErrors, capabilityRoleErrors } from '../../skill/schema'

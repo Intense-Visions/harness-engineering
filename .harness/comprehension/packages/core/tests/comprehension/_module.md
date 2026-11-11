@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/tests/comprehension'
-sourceHash: '6744a494436d063a5a24acfbe629aca1be7b37ccd98ec25cea11f73bd0ecb59b'
+sourceHash: '8bdecad6a5d01b7bfc6a5178a7c6484a0f65bdf8b0ef154978a35034b184cc67'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -51,8 +51,10 @@ import { createStaticExtractor, isStaticSupported, renderDependencySlice, render
 import { COMPREHENSION_ROOT, ComprehensionIO, ComprehensionStore, UNIT_FILE } from '../../src/comprehension/store'
 import { COMPILER_VERSION, ComprehensionUnit, DEFAULT_SOURCE_EXTENSIONS, ExtractStatic, GenerateSemantic, SCHEMA_VERSION, SourceFile } from '../../src/comprehension/types'
 import { ComprehensionListing, ComprehensionSourceFile, ComprehensionUnit, Err, ExtractStatic, GenerateSemantic, Ok, computeSourceHash } from '@harness-engineering/core'
+import { parse } from '@typescript-eslint/typescript-estree'
 import * as fsp from 'node:fs/promises'
 import * as os from 'node:os'
-import * as path, { join } from 'node:path'
+import { join } from 'node:path'
+import * as path from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 ```

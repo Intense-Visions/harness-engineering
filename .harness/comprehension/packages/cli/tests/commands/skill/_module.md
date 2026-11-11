@@ -20,7 +20,7 @@ members: ['list-cov544b.test.ts', 'provider-update.test.ts', 'validate-skill.tes
 import { runInstall } from '../../../src/commands/install'
 import { collectSkills, createListCommand } from '../../../src/commands/skill/list'
 import { ProbedProvider, probeProviders, updateProviders } from '../../../src/commands/skill/provider-update'
-import from '../../../src/commands/skill/validate.js'
+import '../../../src/commands/skill/validate.js'
 import { prompt } from '../../../src/output/prompt'
 import { MAX_PROVIDERS, invalidateFreshnessState } from '../../../src/registry/freshness-checker'
 import { readLockfile } from '../../../src/registry/lockfile'
