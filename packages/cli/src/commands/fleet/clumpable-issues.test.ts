@@ -143,8 +143,13 @@ describe('toClumpableIssues', () => {
       issue(7, 'bug', 'packages/cli/src/b.ts'),
     ];
     const items = toClumpableIssues(dup);
-    expect(items.map((i) => i.id)).toEqual(['issue-7#0', 'issue-7#1']);
+    // The PROPERTY first, then the encoding that delivers it — in the other
+    // order a mutant that removes the ordinal fails on the id string and the
+    // no-crash claim is never reached, so the test would pass for the wrong
+    // reason the day someone relaxed the string assertion.
     expect(() => formClumps(items)).not.toThrow();
+    expect(new Set(items.map((i) => i.id)).size).toBe(items.length);
+    expect(items.map((i) => i.id)).toEqual(['issue-7#0', 'issue-7#1']);
     // Positive control: strip the ordinal and the same input DOES throw, so the
     // not-throw above is the ordinal working rather than formClumps tolerating
     // duplicates.
