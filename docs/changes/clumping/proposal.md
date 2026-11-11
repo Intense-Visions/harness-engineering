@@ -592,6 +592,17 @@ GitHub comment per finding (`format-github.ts:64`). The spec's own Overview says
 is "proven in exactly one place and enforced nowhere", and this phase then assumed the code seam
 the Overview says is absent. Each path therefore gets the gate its own terminal act can bear:
 
+- **Craft — group at EMISSION.** The gate is "N findings over N DISTINCT files within one
+  `(scope, kind)` fold into one unit", not "N findings fold into one unit": `conflictKeys =
+[target.file]` means two findings on the same file may never co-clump. A real `runCodeCraft`
+  over 4 peer files yields 28 findings in 7 clumps of 4 — a 4x reduction in work units, not a
+  28x one. Each uniform family has TWO terminal sites (`run*Craft` inline and `finalize*Craft`
+  in-session) — 21 sites across 11 families, and the in-session path is the one the craft skills
+  actually use. design-craft has no `index.ts` orchestrator; its terminal builder is `runPipeline`
+  in `packages/cli/src/mcp/tools/design-craft.ts:687`.
+
+  (original wording follows)
+
 - **Craft — group at EMISSION.** Each craft orchestrator (11 of them, e.g.
   `packages/cli/src/code-craft/index.ts:145`) emits `clumps` alongside `findings`. Gate: a run
   over N same-`(scope, kind)` findings emits **one work unit**, plus a grep proving a production
@@ -605,6 +616,31 @@ the Overview says is absent. Each path therefore gets the gate its own terminal 
   comments, because a line anchor is the whole value of an inline comment. `suggestion`-severity
   findings — the floor's natural target — group into **one** comment per `(scope, kind)`. Gate:
   N same-`(scope, kind)` suggestions produce 1 comment, not N, with criticals untouched.
+
+**The floor and the formation are two separate steps at the review seam, and conflating them
+makes the seam inert.** `suggestion` grades BELOW the floor, so passing the suggestions to
+`formClumps` with the floor still enabled floors them a second time, yields zero clumps, and
+leaves the seam wired, green and doing nothing. The correct composition is `resolveFloor` to
+route each finding, then `formClumps(candidates, { ...policy, floorEnabled: false }, ctx)` over
+the below-floor set. This is the single most dangerous omission the build found: it passes every
+mechanical gate.
+
+**Seam adapters own id uniqueness.** `ReviewFinding.id` is `domain-file-line` and is NOT unique —
+DEDUP only merges ranges overlapping within 3 lines, so twins survive. Criterion 12's
+reject-rather-than-collapse is right when the output is a filed issue and is a _crash_ when the
+output is a review comment, so each adapter appends an occurrence ordinal. Craft findings carry
+no id at all and need the same.
+
+**An over-cap unit at the review seam degrades to individual comments.** The cap counts emitted
+work units; shedding one at this seam would mean a LOST review comment, which is the silent drop
+this control exists to prevent. Over-cap findings fall back to their own comments — no worse than
+today.
+
+**Craft `scope` is an absolute directory, so craft clump ids are machine-local.** `target.file`
+is absolute, so the published id hash is stable per-machine and differs across machines.
+Criterion 7 holds within a run and not between clones. Four families carry a separate
+`target.relative`; relativizing `scope` against the project root is deferred to Phase 6, which
+owns portability. Stated rather than left for a future reader to discover from a mismatched id.
 
 **Note: DEDUP+MERGE is not clumping.** `deduplicate-findings.ts:153` merges findings whose
 `lineRange`s overlap within 3 lines — restatements of ONE finding. Clumping groups DISTINCT
