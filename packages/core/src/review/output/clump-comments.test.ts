@@ -3,6 +3,7 @@
 
 import { describe, expect, it } from 'vitest';
 
+import { formClumps } from '../../fleet/clumping';
 import type { ReviewFinding } from '../types';
 import { formatClumpedComments, scopeOfPath, toClumpableFinding } from './clump-comments';
 
@@ -215,6 +216,33 @@ describe('LAW: every finding is represented in exactly one comment', () => {
     expect(report.overCapFindings).toBe(10);
     expect(comments).toHaveLength(20 + 10);
     for (const f of population) expect(represented(comments, f)).toBe(1);
+  });
+});
+
+describe('a repeated finding id neither throws nor drops a comment', () => {
+  // `ReviewFinding.id` is `domain-file-line` and is NOT unique after fan-out.
+  // `formClumps` throws on a duplicate id rather than collapsing two items,
+  // which is right for filed issues and wrong here: it would turn a review that
+  // found something into a crash.
+  const twins = [
+    finding({ id: 'bug-src/auth/f.ts-10', file: 'src/auth/f.ts', title: 'first#' }),
+    finding({ id: 'bug-src/auth/f.ts-10', file: 'src/auth/f.ts', title: 'second#' }),
+  ];
+
+  it('emits one comment per finding and does not throw', () => {
+    expect(() => formatClumpedComments(twins, { touched: ['src/auth/f.ts'] })).not.toThrow();
+    const { comments, report } = formatClumpedComments(twins, { touched: ['src/auth/f.ts'] });
+    expect(comments).toHaveLength(2);
+    expect(report.findings).toBe(2);
+    expect(comments.filter((c) => c.body.includes('first#'))).toHaveLength(1);
+    expect(comments.filter((c) => c.body.includes('second#'))).toHaveLength(1);
+  });
+
+  it('POSITIVE CONTROL: core still rejects a duplicate id when it is handed one', () => {
+    // Proves the ordinal is what keeps the throw unreachable here, rather than
+    // the throw having quietly been removed from the primitive.
+    const item = toClumpableFinding(twins[0]!);
+    expect(() => formClumps([item, { ...item }])).toThrow(/duplicate ClumpableItem id/);
   });
 });
 

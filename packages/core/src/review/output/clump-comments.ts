@@ -54,10 +54,22 @@ export function scopeOfPath(file: string): string {
   return cut === -1 ? '.' : file.slice(0, cut);
 }
 
-/** A review finding as the seam-neutral candidate core's clumping control reads. */
-export function toClumpableFinding(finding: ReviewFinding): ClumpableItem {
+/**
+ * A review finding as the seam-neutral candidate core's clumping control reads.
+ *
+ * `ordinal` disambiguates a repeated `finding.id`. `ReviewFinding.id` is
+ * documented as `domain-file-line` and is therefore NOT guaranteed unique after
+ * fan-out: two agents in one domain can land on the same line of the same file,
+ * and DEDUP only merges findings whose line ranges overlap within 3 lines.
+ * `formClumps` THROWS on a duplicate id rather than collapsing two items, which
+ * is right when the output is filed issues and wrong here — it would turn a
+ * review that found something into a crash. The ordinal keeps the throw
+ * unreachable from this seam without weakening it anywhere else, and matches
+ * what the craft adapter does for the same reason.
+ */
+export function toClumpableFinding(finding: ReviewFinding, ordinal = 0): ClumpableItem {
   return {
-    id: finding.id,
+    id: `${finding.id}#${ordinal}`,
     scope: scopeOfPath(finding.file),
     // The review domain IS "the kind of judgment the item demands" — a `bug`
     // suggestion and a `style` suggestion on the same directory are not one
@@ -98,8 +110,8 @@ export function formatClumpComment(
   clump: Clump,
   resolutions: ReadonlyMap<string, string>
 ): GitHubInlineComment {
-  const members = clump.members.map(findingOf);
-  const head = members[0]!;
+  const head = findingOf(clump.members[0]!);
+  const members = clump.members;
   const lines: string[] = [
     `**SUGGESTION × ${members.length}** [${clump.kind}] in \`${clump.scope}\``,
     '',
@@ -107,9 +119,13 @@ export function formatClumpComment(
       `so they cost one read rather than ${members.length}. Each is listed with its own location:`,
     '',
   ];
-  for (const member of members) {
-    const resolution = resolutions.get(member.id);
+  for (const item of members) {
+    // Keyed by the ITEM id, not the finding id: the item id carries the
+    // occurrence ordinal that makes a repeated `finding.id` distinguishable, so
+    // keying on the finding would silently hand two twins one resolution.
+    const resolution = resolutions.get(item.id);
     const suffix = resolution === undefined ? '' : ` _(${resolution})_`;
+    const member = findingOf(item);
     // `sanitizeMarkdown` for the same CWE-79 reason `formatGitHubComment` uses
     // it: a title is agent-authored text that lands in a rendered GitHub comment.
     lines.push(
@@ -177,21 +193,20 @@ export function formatClumpedComments(
 
   // 1. The floor decides the ROUTE, per finding: above it, the finding keeps its
   //    own anchor; below it, the finding is a grouping candidate.
-  const aboveFloor: ReviewFinding[] = [];
   const candidates: ClumpableItem[] = [];
   const resolutions = new Map<string, string>();
+  const seen = new Map<string, number>();
   let act = 0;
   let file = 0;
   for (const finding of findings) {
-    const item = toClumpableFinding(finding);
+    const ordinal = seen.get(finding.id) ?? 0;
+    seen.set(finding.id, ordinal + 1);
+    const item = toClumpableFinding(finding, ordinal);
     const verdict = resolveFloor(item, ctx, policy);
-    if (!verdict.below) {
-      aboveFloor.push(finding);
-      continue;
-    }
+    if (!verdict.below) continue;
     if (verdict.resolution === 'act') act += 1;
     else file += 1;
-    resolutions.set(finding.id, `${verdict.resolution}: ${verdict.reason}`);
+    resolutions.set(item.id, `${verdict.resolution}: ${verdict.reason}`);
     candidates.push(item);
   }
 
@@ -201,28 +216,38 @@ export function formatClumpedComments(
   //    escape hatch, not a workaround. The floor already ran one loop up and is
   //    what SELECTED this set; letting `formClumps` run it a second time would
   //    floor every one of these items again, return zero clumps, and leave the
-  //    grouping silently doing nothing — green, wired, and inert. The route
-  //    decision happens once, here, where the resolution is also recorded.
+  //    grouping silently doing nothing — wired, green and inert. The route
+  //    decision happens once, above, where the resolution is also recorded.
   const result = formClumps(candidates, { ...policy, floorEnabled: false }, ctx);
 
-  // 3. Emit. A solo (a (scope, kind) group below `minToClump`) keeps its own
-  //    anchor: one suggestion does not need a group wrapper around it. An
-  //    over-cap unit degrades to individual comments rather than disappearing —
-  //    the cap's job is to stop a flood of WORK ITEMS, and a comment is not one.
+  // 3. Emit under ONE rule: a finding is either folded into a clump or it keeps
+  //    its own anchored comment.
+  //
+  //    Written as a complement over the input rather than as a loop per shed
+  //    bucket (`solo`, `overCap`, `ungraded`, `floored`). The per-bucket form
+  //    read as more careful and was strictly worse: two of those buckets are
+  //    unreachable from this seam, so they were branches no test could ever
+  //    exercise, and adding a SIXTH bucket upstream would have dropped its
+  //    findings on the floor with every existing test still green. Here, a new
+  //    bucket is covered the moment it exists. This is what makes "every
+  //    finding appears in exactly one comment" a structural property rather
+  //    than an enumeration that has to be kept in sync.
+  const clumpedIds = new Set(result.clumps.flatMap((c) => c.members.map((m) => m.id)));
   const comments: GitHubInlineComment[] = [];
-  for (const finding of aboveFloor) comments.push(formatGitHubComment(finding));
   for (const clump of result.clumps) comments.push(formatClumpComment(clump, resolutions));
-  for (const item of result.solo) comments.push(formatGitHubComment(findingOf(item)));
-  for (const item of result.overCap) comments.push(formatGitHubComment(findingOf(item)));
-  for (const item of result.ungraded) comments.push(formatGitHubComment(findingOf(item)));
+  const seenAgain = new Map<string, number>();
+  for (const finding of findings) {
+    const ordinal = seenAgain.get(finding.id) ?? 0;
+    seenAgain.set(finding.id, ordinal + 1);
+    if (!clumpedIds.has(`${finding.id}#${ordinal}`)) comments.push(formatGitHubComment(finding));
+  }
 
   return {
     comments,
     report: {
       findings: findings.length,
       comments: comments.length,
-      individual:
-        aboveFloor.length + result.solo.length + result.overCap.length + result.ungraded.length,
+      individual: findings.length - result.counts.clumped,
       clumps: result.clumps.length,
       grouped: result.counts.clumped,
       act,
