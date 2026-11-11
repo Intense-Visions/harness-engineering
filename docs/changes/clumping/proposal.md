@@ -220,12 +220,14 @@ interface ClumpResult {
 /** One count per bucket, so a report can never omit a bucket silently. */
 interface ClumpCounts {
   input: number; // total items received
-  clumped: number; // members across all clumps
   clumps: number; // emitted clump units
-  solo: number;
+  clumped: number; // members summed across emitted clumps
   floored: number;
+  flooredAct: number; // sub-tally of floored — see note
+  flooredFile: number; // sub-tally of floored — see note
   overCap: number;
   ungraded: number;
+  solo: number;
   conflictSplits: number;
 }
 ```
@@ -261,6 +263,12 @@ Order of operations, and why each step sits where it does:
   it claims no hunk.
 - **A group where every member conflicts with every other** ⇒ degenerates to N solo items, and
   `conflictSplits` records it. Correct, not a failure.
+
+`flooredAct` and `flooredFile` are a **sub-tally** of `floored` (`flooredAct + flooredFile ===
+floored`) and deliberately do **not** participate in the conservation sum — adding them would
+double-count every floored item and make criterion 6 unsatisfiable. They exist because the act
+-versus-file split is the single most useful number in the report: it says how much of the tail
+was absorbed in place rather than turned into tracker entries.
 
 ### Policy
 
@@ -336,14 +344,13 @@ defines the vocabulary, cli derives from it, and no cycle is introduced.
 
 ### Registrations Required
 
-- **`packages/core/src/craft/index.ts` — required, or the relocated axis types are unreachable.**
-  `discoverStarModules()` auto-discovers any top-level dir under `packages/core/src/` that has an
-  `index.ts`; a dir without one is skipped, and `packages/core/package.json` exports only `"."`
-  (plus `./architecture/matchers`), so a deep import would not resolve either. Without this the
-  phase ships green with the types unreachable — the spec's own "ships green but dead" risk.
-  **`fleet/clumping` needs no barrel-script edit at all**: `packages/core/src/index.ts:149`
-  already carries `export * from './fleet'`, so clumping reaches the barrel through
-  `fleet/index.ts`.
+- **The `SELECTIVE_EXPORTS` block IS the registration for `craft/` — it needs no `index.ts`.**
+  `generate-core-barrel.mjs:141` sets `SKIP_DIRS = new Set(Object.keys(SELECTIVE_EXPORTS))`, so a
+  directory named there is deliberately excluded from `discoverStarModules()` and is published
+  only through its explicit block. (An earlier draft of this spec claimed an `index.ts` was
+  required; that is false, and the two bullets contradicted each other.) **`fleet/clumping` needs
+  no barrel-script edit at all**: `packages/core/src/index.ts:149` already carries
+  `export * from './fleet'`, so clumping reaches the barrel through `fleet/index.ts`.
 - **`Tier` must be published as `CraftTier` via `SELECTIVE_EXPORTS`.**
   `packages/core/src/harness-strength/types.ts:16` already exports a `Tier`
   (`'solid' | 'incomplete' | 'at-risk' | 'theatre'`) which `index.ts:300` star-exports; a second
