@@ -11,6 +11,7 @@ import {
   DEFAULT_NON_TARGET_PATH_PREFIXES,
   INTAKE_CLUMP_POLICY,
   UNSCOPED,
+  isUnscoped,
   clumpIssues,
   issueKind,
   issueScope,
@@ -120,21 +121,28 @@ describe('mentionedPaths', () => {
 
 describe('issueScope', () => {
   it('is the directory of the first mentioned path, rendered as a directory', () => {
-    expect(issueScope(['packages/cli/src/a.ts', 'packages/core/src/b.ts'])).toBe(
+    expect(issueScope(['packages/cli/src/a.ts', 'packages/core/src/b.ts'], 'issue-1#0')).toBe(
       'packages/cli/src/'
     );
   });
 
-  it('is the UNSCOPED sentinel when the issue names no path', () => {
-    expect(issueScope([])).toBe(UNSCOPED);
+  it('is this issue OWN unscoped scope when it names no path, never a shared sentinel', () => {
+    // Per-issue, so two path-less issues cannot share a group key. The shared
+    // `'unscoped'` string this replaces WAS a group key, which is how the
+    // sentinel that exists to prevent false affinity came to manufacture it.
+    expect(issueScope([], 'issue-10#0')).toBe('unscoped#issue-10#0');
+    expect(issueScope([], 'issue-11#0')).toBe('unscoped#issue-11#0');
+    expect(issueScope([], 'issue-10#0')).not.toBe(issueScope([], 'issue-11#0'));
+    expect(issueScope([], 'issue-10#0')).not.toBe(UNSCOPED);
+    expect(isUnscoped(issueScope([], 'issue-10#0'))).toBe(true);
   });
 
-  it('can never collide with the UNSCOPED sentinel, even for a directory named `unscoped`', () => {
-    // The trailing `/` is what makes the sentinel unreachable. Without it this
+  it('can never collide with the unscoped FAMILY, even for a directory named `unscoped`', () => {
+    // The trailing `/` is what makes the family unreachable. Without it this
     // issue would group with the genuinely-unscoped ones — the exact false
-    // affinity the sentinel exists to prevent.
-    expect(issueScope(['unscoped/foo.ts'])).toBe('unscoped/');
-    expect(issueScope(['unscoped/foo.ts'])).not.toBe(UNSCOPED);
+    // affinity the family exists to prevent.
+    expect(issueScope(['unscoped/foo.ts'], 'issue-1#0')).toBe('unscoped/');
+    expect(isUnscoped(issueScope(['unscoped/foo.ts'], 'issue-1#0'))).toBe(false);
   });
 
   it('a path with NO directory scopes to `./`, not to a path that does not exist', () => {
@@ -143,12 +151,12 @@ describe('issueScope', () => {
     // last character", so `README.md` answered `'README.m/'` — a scope that
     // looks like a directory, is not one, and would have silently grouped two
     // root-level issues under a name neither of them names.
-    expect(issueScope(['README.md'])).toBe('./');
+    expect(issueScope(['README.md'], 'issue-1#0')).toBe('./');
     // POSITIVE CONTROL at the same scope: one directory in, the answer is the
     // directory, so the guard is on the boundary and not an answer for all.
-    expect(issueScope(['x/README.md'])).toBe('x/');
-    // …and it still cannot collide with the sentinel.
-    expect(issueScope(['README.md'])).not.toBe(UNSCOPED);
+    expect(issueScope(['x/README.md'], 'issue-1#0')).toBe('x/');
+    // …and it still cannot collide with the unscoped family.
+    expect(isUnscoped(issueScope(['README.md'], 'issue-1#0'))).toBe(false);
   });
 
   it('is UNREACHABLE from issue text today, which is why the signature had to be fixed', () => {
@@ -287,44 +295,60 @@ describe('unscoped issues', () => {
     { number: 11, title: 'slow startup', body: 'no path here either', labels: ['bug'] },
   ];
 
-  it('never co-clump with a scoped issue of the same kind', () => {
+  it('THE LAW: no emitted clump is unscoped — not with a scoped issue, not with each other', () => {
+    // Grouping on the ABSENCE of a signal is not grouping. Measured live before
+    // this changed: four unscoped clumps of 12 + 12 + 7 + 3 = 34 members, 52% of
+    // the clumped output, and `#1306` and `#1836` share nothing but the fact
+    // that neither names a file. D8 already makes an item with no GRADABLE
+    // signal terminal; this is the same rule in the other coordinate.
     const { result } = clumpIssues([...scoped, ...unscoped]);
     for (const clump of result.clumps) {
-      const scopes = new Set(clump.members.map((m) => m.scope));
-      expect(scopes.size).toBe(1);
-      if (clump.scope === UNSCOPED) {
-        expect(clump.members.map((m) => m.id).sort()).toEqual(['issue-10#0', 'issue-11#0']);
-      } else {
-        expect(clump.members.every((m) => m.id.startsWith('issue-'))).toBe(true);
-        expect(clump.members.map((m) => m.id)).not.toContain('issue-10#0');
-        expect(clump.members.map((m) => m.id)).not.toContain('issue-11#0');
-      }
+      expect(isUnscoped(clump.scope), clump.scope).toBe(false);
+      for (const member of clump.members) expect(isUnscoped(member.scope)).toBe(false);
     }
+    // POSITIVE CONTROL at the same scope: the SCOPED three in the same call DO
+    // clump, so the absence above is the unscoped rule and not a run that
+    // grouped nothing.
+    expect(result.clumps).toHaveLength(1);
+    expect(result.clumps[0]!.scope).toBe('packages/cli/src/');
+    expect(result.clumps[0]!.members.map((m) => m.id)).toEqual([
+      'issue-1#0',
+      'issue-2#0',
+      'issue-3#0',
+    ]);
   });
 
-  it('group only with other unscoped issues OF THE SAME KIND', () => {
-    const mixed = [
-      ...unscoped,
-      { number: 12, title: 'document the thing', body: 'no path', labels: ['documentation'] },
-    ];
-    const { result } = clumpIssues(mixed);
-    const unscopedClumps = result.clumps.filter((c) => c.scope === UNSCOPED);
-    expect(unscopedClumps).toHaveLength(1);
-    expect(unscopedClumps[0]!.kind).toBe('bug');
-    // The lone `documentation` issue is below `minToClump` and stays solo.
-    expect(result.solo.map((i) => i.id)).toEqual(['issue-12#0']);
+  it('two path-less issues of the SAME kind land in solo, one each', () => {
+    // The pre-fix behaviour this replaces: these two were a `2 × bug unscoped`
+    // clump. They are now two queue entries, which is where an unclumpable
+    // issue belongs — still triaged, still routed, still ranked, only unclumped.
+    const { result } = clumpIssues(unscoped);
+    expect(result.clumps).toEqual([]);
+    expect(result.solo.map((i) => i.id)).toEqual(['issue-10#0', 'issue-11#0']);
+    expect(new Set(result.solo.map((i) => i.scope)).size).toBe(2);
   });
 
-  it('stay solo when there is no second unscoped issue of their kind', () => {
-    const { result, report } = clumpIssues([...scoped, unscoped[0]!]);
-    expect(result.clumps.every((c) => c.scope !== UNSCOPED)).toBe(true);
-    expect(result.solo.map((i) => i.id)).toEqual(['issue-10#0']);
-    expect(report.unscoped).toBe(1);
+  it('are gradeable, so they are NOT routed to the terminal `ungraded` bucket', () => {
+    // The mechanism choice, pinned. A path-less issue carrying a type label has
+    // a grade; `ungraded` means "no gradable signal" and is a human-triage queue
+    // for issues NOBODY TYPED (`report.ungraded === untyped + multiTyped`).
+    // Grading these `ungraded` would have been simpler and would have made the
+    // report's own vocabulary false.
+    const { result, report } = clumpIssues(unscoped);
+    expect(result.ungraded).toEqual([]);
+    expect(report.ungraded).toBe(0);
+    expect(report.untyped).toBe(0);
+    expect(result.solo.every((i) => i.grade.kind === 'severity')).toBe(true);
   });
 
-  it('are COUNTED, never hidden', () => {
+  it('are COUNTED, never hidden — the count survives the per-issue scope', () => {
+    // The count is what the spec promises goes to CONFIRM. A per-issue scope
+    // would have silently zeroed an `=== UNSCOPED` tally, so the report reads
+    // the FAMILY. This is the test that fails if that regresses.
     const { report } = clumpIssues([...scoped, ...unscoped]);
     expect(report.unscoped).toBe(2);
+    expect(clumpIssues([...scoped, unscoped[0]!]).report.unscoped).toBe(1);
+    expect(clumpIssues(scoped).report.unscoped).toBe(0);
   });
 });
 

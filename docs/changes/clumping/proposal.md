@@ -348,16 +348,22 @@ Core knows nothing about findings, issues, or PRs. Each seam owns a small adapte
 | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------ | -------------------------------------------------------------- | --------------------- |
 | **Creation — craft**          | directory of `target.file` (the granularity craft-fleet already files at: `craft-code-packages-cli-src-commands`)                                | rubric family — the prefix of `code`, e.g. `CODE-R004` | `[target.file]`                                                | `derivePriority(...)` |
 | **Creation — review**         | directory of `file`                                                                                                                              | `domain` tag                                           | `[file:lineRange]` — built by the adapter; nothing computes it | severity rank         |
-| **Intake — `issue-fleet`**    | path signal from title/body, else `'unscoped'`                                                                                                   | `type` label (`bug` / `enhancement` / `documentation`) | mentioned paths                                                | existing rank         |
+| **Intake — `issue-fleet`**    | path signal from title/body, else a per-issue `unscoped#<id>` (ungroupable)                                                                      | `type` label (`bug` / `enhancement` / `documentation`) | mentioned paths                                                | existing rank         |
 | **Execution — fleet members** | consumes a `Clump` as the lane unit — via `harness fleet clump-dispatch`, since all four members are SKILL.md files with no dispatcher to change | —                                                      | —                                                              | —                     |
 
 File-level `conflictKeys` at the craft creation seam is the honest granularity: a craft elevation
 rewrites whole units, so line-level keys would under-report conflicts. Line-level refinement for
 the review seam is already available and used there.
 
-**An `unscoped` issue never co-clumps with a scoped one.** It groups only with other unscoped
-items of the same kind, or stays solo, and the unscoped count is reported. Inferring a scope that
-isn't there manufactures exactly the false affinity that makes a clump unreviewable.
+**An `unscoped` issue is NOT GROUPABLE — not with a scoped issue, and not with another unscoped
+one.** It stays solo, and the unscoped count is reported. Inferring a scope that isn't there
+manufactures exactly the false affinity that makes a clump unreviewable, and so does grouping on
+the absence of the signal: a shared `'unscoped'` sentinel was itself a group key, which measured
+live produced four unscoped clumps of 12 + 12 + 7 + 3 = 34 members — 52% of the clumped output,
+and no two members of any of them related. Each path-less issue therefore carries its own
+`unscoped#<item id>` scope, so non-groupability is structural rather than a rule core has to
+know. The item is still GRADED (it carries a type label), so it is not routed to D8's terminal
+`ungraded` bucket; it is only unclumped.
 
 ### The one-PR-per-clump contract
 
@@ -732,14 +738,35 @@ conflict splits. Conservation holds: `347 = 66 + 0 + 0 + 182 + 99`.
    (`packages/cli/`), which no sentinel-free reading can produce — structural, not a special
    case, and pinned by a test.
 
+   _Amended in the review round: the sentinel was still a GROUP KEY, which is the defect one
+   level up from the collision._ A sentinel whose doc comment says it exists to prevent false
+   affinity cannot also be the thing items are grouped by. Measured live (347 open issues,
+   2026-11-11): four unscoped clumps, 12 + 12 + 7 + 3 = 34 members, 52% of the 66 clumped issues.
+   Each path-less issue now carries `unscoped#<item id>` — unique per issue, so grouping is
+   structurally impossible and the item lands in `solo`, where an unclumpable issue belongs. The
+   count stays in the report (`isUnscoped` reads the FAMILY, so a per-issue scope does not
+   silently zero the tally). Grading it `ungraded` was the other candidate and was rejected: the
+   issue IS gradeable, `report.ungraded === untyped + multiTyped` is an asserted identity, and
+   the bucket is a human-triage queue for issues nobody typed — "no scope" and "no grade" are
+   different absences and conflating them makes the report's own vocabulary false.
+
 6. **The largest measured source of false affinity was our own tracker bookkeeping.** 40 of the
    347 open issues name a `docs/roadmap.d/` shard and no other path — the roadmap row that
    TRACKS the issue, not a file the work must edit. Unfiltered they produce four bogus
    twelve-member `docs/roadmap.d/` "clumps" of unrelated roadmap features. The adapter drops
-   paths under a configurable tracker-bookkeeping prefix list and those issues become honestly
+   paths under a configurable non-target prefix list and those issues become honestly
    `unscoped` (which is why the measured unscoped count is 164 rather than 124). A second
    measured false positive: `docs/roadmap.d` itself matched a looser path pattern as a FILE with
    a one-letter extension, scoping issues to `docs/`.
+
+   _Amended in the review round: build artifacts are the same defect from a second source._
+   Measured live: `4 × bug dist/ [#2146, #2169, #2189, #2324]` — four unrelated bugs grouped
+   because each body pastes a stack trace through a tsup bundle chunk, so `dist/chunk-*.js` was
+   the first path each one named. It was also supplying the `conflictKeys`, which means D2's
+   non-conflict precondition was reasoning about build output. `dist/`, `node_modules/`,
+   `coverage/` and `.turbo/` joined the list, which is now
+   `DEFAULT_NON_TARGET_PATH_PREFIXES` — it describes both classes, where
+   `DEFAULT_TRACKER_PATH_PREFIXES` described one.
 
 7. **`weight` can only be the prioritize axis's score, and the SKILL's displayed "Rank" is not
    it.** The spec says `weight` is "the existing rank". The rank the SKILL PRINTS is an ordinal
@@ -934,7 +961,7 @@ clones.
 | Risk                                                                                                                                                | Mitigation                                                                                                                                                                                                                  |
 | --------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Over-clumping is worse than no clumping.** Twelve mixed fixes in one PR is harder to review than twelve PRs if the members aren't genuinely alike | `maxPerClump` 12 + the homogeneity key; the human splits at CONFIRM; commit-per-member keeps a drop cheap                                                                                                                   |
-| **Issue `scope` derivation is weak** — many issues carry no path signal                                                                             | `unscoped` never co-clumps with scoped; the count is reported, never hidden                                                                                                                                                 |
+| **Issue `scope` derivation is weak** — many issues carry no path signal                                                                             | an `unscoped` issue is ungroupable (a per-issue `unscoped#<id>` scope, so it cannot group with a scoped issue OR with another unscoped one); the count is reported, never hidden                                            |
 | **One bad member blocks N good ones** in a single PR                                                                                                | D10: one commit per member, failing member reverted, clump proceeds                                                                                                                                                         |
 | **`'act'` hides work inside unrelated diffs**                                                                                                       | Touched-set precondition; outside it, degrade to `'file'`                                                                                                                                                                   |
 | **Phase 1 ships green but dead** — the barrel allowlist is a silent no-op                                                                           | Phase 1 gate includes a resolve check; phases 3–5 gate on WIRED, not EXISTS                                                                                                                                                 |

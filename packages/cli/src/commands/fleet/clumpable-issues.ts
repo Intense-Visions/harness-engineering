@@ -40,16 +40,68 @@ import {
 import { pilotScore } from '@harness-engineering/intelligence';
 
 /**
- * The scope of an issue that names no path.
+ * The scope-sentinel FAMILY for an issue that names no path.
  *
- * A sentinel, and the sentinel can NEVER collide with a derived scope: every
+ * `unscoped` alone is never a scope any more — see {@link unscopedScope}. It is
+ * the family prefix, and it can NEVER collide with a derived scope: every
  * derived scope is a directory rendered WITH a trailing `/` (`packages/cli/`),
  * so no repository directory — including one literally named `unscoped` —
- * produces this string. That matters because an `unscoped` issue that
- * co-clumped with a scoped one would be exactly the false affinity this
- * sentinel exists to prevent, and a collision would create it silently.
+ * produces this string or anything under this prefix.
  */
 export const UNSCOPED = 'unscoped';
+
+/**
+ * The scope of ONE issue that names no path: `unscoped#<item id>`, unique per
+ * issue, so an unscoped issue is STRUCTURALLY ungroupable.
+ *
+ * WHY A SHARED `'unscoped'` SENTINEL WAS WRONG. It was a group key, and
+ * `formClumps` groups on `(scope, kind)` — so the sentinel that exists to
+ * prevent false affinity became the thing that manufactured it: every
+ * path-less `bug` co-clumped with every other path-less `bug`. Measured on the
+ * live backlog (347 open issues, 2026-11-11): FOUR unscoped clumps of 12 + 12 +
+ * 7 + 3 = 34 members, 52% of the 66 clumped issues, and not one of them a unit
+ * any human would work as one. Grouping on the ABSENCE of a signal is not
+ * grouping; `#1306` and `#1836` share nothing but the fact that neither names a
+ * file.
+ *
+ * D8 already settles the principle in the other coordinate: an item with no
+ * gradable signal is TERMINAL, because a fabricated grade is a lie in the
+ * queue. A fabricated affinity is the same lie about scope.
+ *
+ * THE MECHANISM, and why this one rather than grading it `ungraded`. The item
+ * IS gradeable — it carries a type label — it is only unscopeable, and
+ * `ungraded` means "no gradable signal" everywhere else in this control
+ * (`report.ungraded === untyped + multiTyped` is an asserted identity, and the
+ * bucket is a human-triage queue for issues NOBODY TYPED). Routing a typed
+ * issue there would conflate two different absences, inflate a terminal bucket
+ * with items that are ready to work, and make the report's own vocabulary
+ * false. A per-issue scope instead leaves the grade honest and lets the item
+ * land where it belongs — `solo`, its own queue entry, which is exactly where
+ * an unclumpable issue goes. The count stays reported either way.
+ *
+ * Keyed on the item ID, which `withOrdinals` already makes unique within one
+ * call, so the uniqueness of the scope is the uniqueness of the id rather than
+ * a second thing that has to be kept true.
+ *
+ * Core stays generic: `form.ts` knows nothing about this sentinel and is not
+ * asked to. Non-groupability is produced by the ordinary `(scope, kind)` key
+ * over distinct scopes — the same mechanism that keeps two different
+ * directories apart.
+ */
+export function unscopedScope(itemId: string): string {
+  return `${UNSCOPED}#${itemId}`;
+}
+
+/**
+ * Does this scope belong to the unscoped family?
+ *
+ * Exists so the report can COUNT unscoped issues after they stopped sharing one
+ * string. The count is the thing the spec promises goes to CONFIRM rather than
+ * being hidden, and a per-issue scope would have silently zeroed it.
+ */
+export function isUnscoped(scope: string): boolean {
+  return scope === UNSCOPED || scope.startsWith(`${UNSCOPED}#`);
+}
 
 /**
  * The type-label vocabulary the `kind` axis reads, in no significant order.
@@ -199,7 +251,10 @@ export function mentionedPaths(text: string, options: IntakeAdapterOptions = {})
 
 /**
  * The unit a triager holds in their head at once: the directory of the FIRST
- * path the issue names, or {@link UNSCOPED}.
+ * path the issue names, or this issue's own {@link unscopedScope}.
+ *
+ * `unscopedKey` is REQUIRED rather than defaulted, so no caller can accidentally
+ * produce the shared, groupable sentinel that this argument exists to replace.
  *
  * First-mention because an issue's opening paragraph names its subject and its
  * later paragraphs name the evidence; picking a different member of the list
@@ -218,11 +273,11 @@ export function mentionedPaths(text: string, options: IntakeAdapterOptions = {})
  *
  * Only the TRAILING SLASH is this seam's own, and it stays here because it is
  * this seam's convention: it is what keeps a real scope from ever colliding
- * with the `unscoped` sentinel (see {@link UNSCOPED}).
+ * with the `unscoped` family (see {@link UNSCOPED}).
  */
-export function issueScope(paths: readonly string[]): string {
+export function issueScope(paths: readonly string[], unscopedKey: string): string {
   const first = paths[0];
-  if (first === undefined) return UNSCOPED;
+  if (first === undefined) return unscopedScope(unscopedKey);
   return `${scopeOfPath(first)}/`;
 }
 
@@ -286,9 +341,13 @@ export function toClumpableIssues(
   return withOrdinals(issues, (issue) => String(issue.number)).map(({ item: issue, ordinal }) => {
     const paths = mentionedPaths(`${issue.title}\n${issue.body ?? ''}`, options);
     const kind = issueKind(issue.labels, options);
+    const id = `issue-${issue.number}#${ordinal}`;
     return {
-      id: `issue-${issue.number}#${ordinal}`,
-      scope: issueScope(paths),
+      id,
+      // A path-less issue is scoped to ITSELF (`unscoped#<id>`), which makes it
+      // ungroupable through the ordinary (scope, kind) key rather than through a
+      // special case in core. See `unscopedScope`.
+      scope: issueScope(paths, id),
       kind: kind ?? '',
       // An issue with no single type label has NO gradable signal, and D8 makes
       // `ungraded` terminal: never floored, never clumped, always reported. That
@@ -318,7 +377,7 @@ export interface IntakeClumpReport {
   clumped: number;
   /** Issues that stayed their own queue entry. Always `issues - clumped`. */
   individual: number;
-  /** Issues naming no repository path — they never co-clump with a scoped one. */
+  /** Issues naming no repository path. NEVER grouped — with a scoped issue or with each other. */
   unscoped: number;
   /** Issues carrying no type label (terminal: reported, never clumped). */
   untyped: number;
@@ -385,7 +444,9 @@ export function clumpIssues(
   const clumpedIds = new Set(result.clumps.flatMap((c) => c.members.map((m) => m.id)));
   const individual = items.filter((item) => !clumpedIds.has(item.id));
 
-  const unscoped = items.filter((item) => item.scope === UNSCOPED).length;
+  // `isUnscoped`, not `=== UNSCOPED`: each unscoped issue carries its own scope
+  // (`unscoped#<id>`) so it cannot group, and an equality test would report 0.
+  const unscoped = items.filter((item) => isUnscoped(item.scope)).length;
   // Counted from the labels directly rather than derived by subtracting one
   // tally from another: `untyped` and `multiTyped` are DIFFERENT human actions
   // (nobody typed it vs. two people typed it differently) and a subtraction

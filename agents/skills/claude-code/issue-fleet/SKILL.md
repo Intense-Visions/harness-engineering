@@ -64,7 +64,7 @@ The five-phase spine, the concurrency governor, the independent-verification dis
    **Clumping is NOT dedup, and conflating them is the likeliest misreading of this skill.** Dedup REMOVES restatements of one issue — #C and #B are the same issue told twice, so one of them closes. Clumping GROUPS distinct issues — #1904 and #1905 are two different defects that both live in `packages/cli/src/skill/`, so both survive and both get fixed, in one work unit. **Both axes run**, in that order: dedup first (so a clump never carries a duplicate of its own member), then clump over what survives. A clump member is never closed for being a clump member.
 
    Three rules the clump axis does not get to bend:
-   - **An `unscoped` issue never co-clumps with a scoped one.** An issue that names no repository path has no scope; it groups only with other `unscoped` issues of the same type, or stays solo. Inferring a scope from a vague title manufactures exactly the false affinity that makes a clump unreviewable, and the measured `unscoped` count goes to CONFIRM rather than being hidden.
+   - **An `unscoped` issue is not groupable at all.** An issue that names no repository path has no scope, so it never co-clumps with a scoped issue AND never co-clumps with another unscoped one — it stays its own queue entry. Inferring a scope from a vague title manufactures exactly the false affinity that makes a clump unreviewable, and grouping on the ABSENCE of the signal does the same thing: measured on this repo's 347-issue backlog, grouping unscoped issues together produced four "clumps" of 12 + 12 + 7 + 3 = 34 issues that shared nothing but naming no file. The measured `unscoped` count goes to CONFIRM rather than being hidden. Paths nobody edits do not count as a scope signal either: the tracker's own roadmap shards, and build artifacts under `dist/` / `node_modules/` / `coverage/` / `.turbo/` that arrive in pasted stack traces, are dropped before the scope is derived.
    - **An issue with no single type label is terminal.** Zero type labels means no signal to group on; two type labels is a FORK, not a guess. Either way the issue is reported and never clumped — the same rule that sends an un-scoreable issue to the unranked group.
    - **Two issues that name the same file never co-clump.** They would collide in one branch; the conflict rule splits them and reports the split.
 
@@ -85,7 +85,7 @@ The five-phase spine, the concurrency governor, the independent-verification dis
      canonicalRef,      // set when dedup = duplicate-of (issue/PR citation)
      route,             // downstream fleet: adr | roadmap | pr | cicd | test | cleanup | docs | security | perf | craft
      score,             // roadmap-pilot impact score (for ranking)
-     scope,             // clump axis: the directory the issue names, or "unscoped"
+     scope,             // clump axis: the directory the issue names, else its own "unscoped#<id>" (ungroupable)
      clumpId,           // clump axis: the work unit this issue belongs to, or null (solo/terminal)
      closeAuthorized,   // set in CONFIRM (human destructive-close authorization)
      forks,             // detected known label/route forks (may be empty)
@@ -182,7 +182,7 @@ The route enum and this list must together account for **every** member of the f
 - No mutation is applied on a subagent self-report — every label, route, and close is independently re-derived from the issue's own signals.
 - Duplicate issues are **closed with citations, not silently**; non-duplicate issues are never closed.
 - Triage applies the project's **existing** label vocabulary and never invents new labels.
-- The clump axis emits a set of work units in which every issue appears **exactly once** — as a clump member or as its own queue entry — with every shed count and the conservation arithmetic reported on the same single CONFIRM round. No `unscoped` issue shares a clump with a scoped one.
+- The clump axis emits a set of work units in which every issue appears **exactly once** — as a clump member or as its own queue entry — with every shed count and the conservation arithmetic reported on the same single CONFIRM round. No `unscoped` issue shares a clump with anything — not a scoped issue, not another unscoped one.
 - It **degrades gracefully**: missing `gh` auth, an un-scoreable issue, or a single slice's failed triage is reported while the batch continues.
 - Concurrency never exceeds the confirmed governor (default 2, max ~3).
 
@@ -194,7 +194,7 @@ The route enum and this list must together account for **every** member of the f
 - **A self-report is never verification.** Accepting "this is a duplicate / these labels are right" without independently re-deriving it from the issue's signals = gate violation. Re-derive independently.
 - **Never invent labels.** Triage applies the project's existing label vocabulary; minting a new label to fit an issue = gate violation.
 - **Never add a second CONFIRM for the clump set.** The clump table and its shed counts go on the existing round. A second gate = gate violation; it costs the attention the axis exists to save.
-- **Never infer a scope an issue does not state.** An issue that names no repository path is `unscoped` and the count is reported. Reading a scope out of a vague title to make a clump bigger = gate violation.
+- **Never infer a scope an issue does not state.** An issue that names no repository path is `unscoped`, is not clumped with anything, and the count is reported. Reading a scope out of a vague title — or out of a `dist/` frame in a pasted stack trace — to make a clump bigger = gate violation.
 - **Never drop a clumped issue from the queue.** Every issue is either a clump member or its own queue entry; a clump shed by a cap degrades to individual entries, never to nothing. A conservation breach = gate violation.
 - **Never exceed the concurrency governor.** More than ~3 concurrent subagents is the machine-storm zone; do not raise the cap to "go faster."
 - **Never `--no-verify`.** No subagent bypasses the pre-push gates; a `.claude/`-nested worktree pushes via the GitHub API or a non-nested worktree instead.
@@ -222,7 +222,7 @@ The route enum and this list must together account for **every** member of the f
 | "This route is close enough — I'll skip re-deriving it and trust the subagent's call" | Every mutation is re-derived from the issue's own signals in VERIFY. An un-grounded route sends work to the wrong fleet; a route with no basis is rejected, not applied. |
 | "I'll assign this un-scoreable issue a middle priority to keep the ranking clean"     | A fabricated priority is a lie in the queue. Report un-scoreable issues in an unranked group for human triage; do not invent a score.                                    |
 | "These two issues say similar things — clump them and close one"                      | That conflates the two axes. Dedup closes a restatement of ONE issue; clumping groups DISTINCT issues and closes nothing. A clump member is never closed for being one.  |
-| "This issue has no path, but the title sounds like it's about the parser — clump it"  | An inferred scope is a fabricated one. `unscoped` groups only with `unscoped`; the count goes to CONFIRM. A clump built on a guessed scope is unreviewable.              |
+| "This issue has no path, but the title sounds like it's about the parser — clump it"  | An inferred scope is a fabricated one. An `unscoped` issue groups with NOTHING — grouping on the absence of a signal is not grouping; the count goes to CONFIRM.         |
 | "The clump set changed after CONFIRM — I'll ask the human once more"                  | A second gate is exactly the ceremony the clump axis removes. The clump set is agreed once, on the single CONFIRM round; carry it forward or park the affected issue.    |
 | "Bumping concurrency to six will clear the backlog sooner"                            | Beyond ~3 concurrent subagents is the machine-storm zone — compound load produces flaky failures that cost more in re-runs than the extra parallelism saves.             |
 
@@ -263,7 +263,7 @@ Phase 1: SELECT
       clump-9f2a  bug / src/auth/  ->  [#A, #E]
         (two DISTINCT defects over one scope — neither is a duplicate of the
          other; both get fixed, in one unit, one commit per member)
-    Shed counts: individual 6 · unscoped 2 (#B, #I) · untyped 2 (#F, #G)
+    Shed counts: individual 6 · unscoped 2 (#B, #I — never grouped) · untyped 2 (#F, #G)
                  multi-typed 0 · floored 0 · over-cap 0 · conflict splits 0
     Conservation: 8 = 2 clumped + 0 floored + 0 over-cap + 2 ungraded + 4 solo  OK
   Detected forks: 1 — "#I: roadmap-fleet (build feature) or adr-fleet (decide refactor)?"

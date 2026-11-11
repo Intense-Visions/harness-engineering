@@ -30,8 +30,8 @@ import { Command } from 'commander';
 import { findConfigFile, resolveConfig } from '../../config/loader';
 import {
   INTAKE_CLUMP_POLICY,
-  UNSCOPED,
   clumpIssues,
+  isUnscoped,
   type IntakeClumpReport,
   type IntakeIssue,
 } from './clumpable-issues';
@@ -220,7 +220,7 @@ function renderShedCounts(report: IntakeClumpReport): string[] {
     `  ${label.padEnd(28)}${String(value).padStart(5)}`;
   return [
     pad('individual queue entries', report.individual),
-    pad('unscoped', report.unscoped),
+    `${pad('unscoped', report.unscoped)}   ${chalk.dim('(never grouped — each is its own queue entry)')}`,
     pad('untyped (no type label)', report.untyped),
     pad('multi-typed (routing fork)', report.multiTyped),
     `${pad('floored', report.floored)}   ${chalk.dim('(0 by construction at intake — the item is already filed)')}`,
@@ -242,7 +242,13 @@ export function renderHuman(outcome: ReturnType<typeof clumpIssues>): string {
     lines.push(chalk.dim('  no clumps — every issue stays its own queue entry'));
   }
   for (const clump of result.clumps) {
-    const scope = clump.scope === UNSCOPED ? chalk.yellow(UNSCOPED) : clump.scope;
+    // An emitted clump can no longer be unscoped — each path-less issue carries
+    // its own `unscoped#<id>` scope and so cannot group (see `unscopedScope`).
+    // Reported rather than rendered in yellow: a highlight for a case that
+    // cannot occur reads as though it does, and the LAW is the thing worth
+    // stating, so `clumpable-issues.test.ts` asserts no clump is unscoped and
+    // this line says loudly if one ever is.
+    const scope = isUnscoped(clump.scope) ? chalk.red(`BUG: grouped ${clump.scope}`) : clump.scope;
     lines.push(
       `  ${chalk.cyan(String(clump.members.length).padStart(2))} × ${chalk.bold(clump.kind.padEnd(14))} ${scope}`
     );
