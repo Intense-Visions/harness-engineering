@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/tests/commands'
-sourceHash: '30629d39aac2ed05432fdae1baadbe92c5171d471a00e56b762aff24ccc4fdc6'
+sourceHash: 'bbd05a66e8697f40e0865b865bbcf8a12cae74fc5e0aa076419300bec76127fe'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -130,6 +130,7 @@ members:
     'naming-craft-command.test.ts',
     'naming-craft-cov544.test.ts',
     'outcome-eval-ci-cov544b.test.ts',
+    'outcome-eval-ci-maxbuffer.test.ts',
     'outcome-eval-ci.test.ts',
     'perf.test.ts',
     'persona-list.test.ts',
@@ -321,7 +322,7 @@ import { createBackendsSubcommand, runMigrateBackends } from '../../src/commands
 import { createModelsCommand, refreshExitCode, runModelsApprove, runModelsProbe, runModelsProposals, runModelsRefresh, runModelsReject } from '../../src/commands/models'
 import { createNamingCraftCommand } from '../../src/commands/naming-craft'
 import '../../src/commands/naming-craft.js'
-import { OutcomeEvaluatorLike, buildOutcomeBody, createOutcomeEvalCiCommand, deriveExitCode, emitOutcomeEvalCi, resolveSpecPath, runOutcomeEvalCi } from '../../src/commands/outcome-eval-ci'
+import { GIT_DIFF_MAX_BUFFER, OutcomeEvaluatorLike, buildOutcomeBody, createOutcomeEvalCiCommand, deriveExitCode, emitOutcomeEvalCi, resolveSpecPath, runOutcomeEvalCi } from '../../src/commands/outcome-eval-ci'
 import { createPerfCommand } from '../../src/commands/perf'
 import { createPersonaCommand } from '../../src/commands/persona/index'
 import { createListCommand } from '../../src/commands/persona/list'

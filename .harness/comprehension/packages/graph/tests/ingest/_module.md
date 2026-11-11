@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/graph/tests/ingest'
-sourceHash: '9821074d270ee224876c82839ee1582449a67ec58fc861ea2ece068f28ae1eda'
+sourceHash: '5907e7a28977e28b00d9fbeda83252097aece5cf020834e910465ceb3d368936'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -14,6 +14,7 @@ members:
     'CodeIngestor-req-annotation.test.ts',
     'CodeIngestor-skip-dirs.test.ts',
     'CodeIngestor.multi-lang.test.ts',
+    'CodeIngestor.parameter-count.test.ts',
     'CodeIngestor.test.ts',
     'ContradictionDetector.test.ts',
     'CoverageScorer.test.ts',
@@ -73,5 +74,5 @@ import * as os from 'node:os'
 import { join } from 'node:path'
 import * as path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 ```

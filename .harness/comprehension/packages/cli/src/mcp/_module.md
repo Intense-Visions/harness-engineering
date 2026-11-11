@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/mcp'
-sourceHash: '9af4db8f10c7e5accce1ced9b634245552fe4ae5aac49f616580897c37fec273'
+sourceHash: 'b2ccc9fc28c5e1be5c3631f1b10927bcb359febaec5e3018213285bc4c6dd2de'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -49,7 +49,7 @@ import { getProjectResource } from './resources/project.js'
 import { getRulesResource } from './resources/rules.js'
 import { getSkillsResource } from './resources/skills.js'
 import { getStateResource } from './resources/state.js'
-import { describeStaleBuildError, isHashedChunk, packageJsonPath } from './stale-build.js'
+import { describeStaleBuildError, installedVersion, isHashedChunk, packageJsonPath } from './stale-build.js'
 import { TOOL_CAPABILITY_DECLARATIONS } from './tool-capability-declarations.js'
 import { CORE_TOOL_NAMES, STANDARD_TOOL_NAMES } from './tool-tiers'
 import { CORE_TOOL_NAMES, McpToolTier, STANDARD_TOOL_NAMES } from './tool-tiers.js'
@@ -134,9 +134,9 @@ import { ContextSurfaceEntry } from '@harness-engineering/core'
 import { Server } from '@modelcontextprotocol/sdk/server/index.js'
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { CallToolRequestSchema, ListResourcesRequestSchema, ListToolsRequestSchema, ReadResourceRequestSchema } from '@modelcontextprotocol/sdk/types.js'
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
+import fs, { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
-import { tmpdir } from 'node:os'
+import os, { tmpdir } from 'node:os'
 import path, { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'

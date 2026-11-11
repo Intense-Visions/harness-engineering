@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/orchestrator/src/agent/backends'
-sourceHash: 'ebaf7b37b168dca95dae286b62d292c729690081f1ccb3db96b24c0701f3373f'
+sourceHash: '422597d0cf526c64ac0645120726822a887330822417319042c3beb47c3c8eaa'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -77,6 +77,7 @@ import { Transport } from '@modelcontextprotocol/sdk/shared/transport.js'
 import { ChildProcess, ChildProcessWithoutNullStreams, spawn } from 'node:child_process'
 import * as childProcess from 'node:child_process'
 import { randomUUID } from 'node:crypto'
+import { once } from 'node:events'
 import * as fs from 'node:fs'
 import * as fs from 'node:fs/promises'
 import * as os from 'node:os'
