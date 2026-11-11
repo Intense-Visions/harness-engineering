@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'tests/scripts'
-sourceHash: '788287e34b1a8c8717a70e43bc7f8cc657bbc25926389f0fca96c09534e53a0f'
+sourceHash: 'dcace24bb704a5d5c0b1ba98907c6d9d74d3938186b4023913cba3b62eae78ab'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -18,6 +18,7 @@ members:
     'main-health-check.test.mjs',
     'plugin-antigravity-target.test.mjs',
     'plugin-pin-sync.test.mjs',
+    'precommit-plugin-stage.test.mjs',
     'prepush-tag-only.test.mjs',
     'release-publish.test.mjs',
     'test-runner-split.test.mjs',
@@ -41,12 +42,12 @@ import { mergeBenchmarkBaselines } from '../../scripts/benchmark-check.mjs'
 import { parseChangesetFrontmatter } from '../../scripts/check-changesets.mjs'
 import { evaluateCoverage, mergeCoverageBaselines, pruneCoverageSummaries, toleranceFor } from '../../scripts/coverage-ratchet.mjs'
 import { baseUrl, pageFiles, parseTargetFiles, slugForFile } from '../../scripts/design-capture.mjs'
-import { getConfig } from '../../scripts/lib/plugin-config.mjs'
+import { PLUGIN_CONFIGS, getConfig } from '../../scripts/lib/plugin-config.mjs'
 import { ALARM_LABEL, ALARM_MARKER, EXIT, decideAction, deliverAlarm, evaluateHealth, fetchRuns, findOpenAlarmIssue, renderIssueBody, renderSummary, selectDecisiveRuns } from '../../scripts/main-health-check.mjs'
 import { classifyPublish, parsePublishOutput, registryUrl, runRelease, waitForVisibility } from '../../scripts/release-publish.mjs'
 import { MANIFEST_PATHS, findPinnedVersion, readCliVersion, syncManifestContent } from '../../scripts/sync-plugin-pin.mjs'
 import assert from 'node:assert/strict'
-import { spawnSync } from 'node:child_process'
+import { execFileSync, spawnSync } from 'node:child_process'
 import { chmodSync, copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path, { dirname, join, resolve } from 'node:path'
