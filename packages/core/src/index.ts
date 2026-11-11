@@ -149,6 +149,12 @@ export * from './comprehension';
 export * from './fleet';
 
 /**
+ * Craft axes — the canonical 3-axis craft vocabulary (ADR 0019), relocated from cli so core/fleet/clumping can read it without a cli dependency. `Tier` is exported as `CraftTier` to avoid a TS2308 collision with harness-strength Tier.
+ */
+export type { Impact, Confidence } from './craft/axes';
+export type { Tier as CraftTier } from './craft/axes';
+
+/**
  * Rollback module — post-ship revert-readiness classification (pure, IO-injected).
  */
 export * from './rollback';
