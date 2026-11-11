@@ -1,8 +1,42 @@
-import { paginate } from '@harness-engineering/core';
+import { paginate, reportIgnoredClumpingBlock } from '@harness-engineering/core';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
+
+import { resolveProjectConfig } from '../utils/config-resolver.js';
 import { sanitizePath } from '../utils/sanitize-path.js';
 import { sortFindingsBySeverity } from '../utils/severity.js';
 import { loadGuardianCoverage } from '../../utils/guardian-context.js';
 import { buildDiffInfo } from '../../commands/review-ci.js';
+
+/**
+ * The project's config, for `runReviewPipeline`'s `config` field.
+ *
+ * `runReviewPipeline` has three production callers and this was one of two that
+ * omitted `config` entirely. The pipeline reads that object for the review
+ * seam's clump policy (`pipeline-orchestrator.ts`, Phase 6), so omitting it
+ * made the documented escape hatch `clumping.floorEnabled: false` a no-op on
+ * the MCP path specifically — the path an agent reaches review through. The
+ * goal read as met because the ONE caller that passed it was the one anybody
+ * checked.
+ *
+ * Read from EXACTLY `<projectRoot>/harness.config.json`, the same rule the
+ * craft seam follows and for the same reason: `projectRoot` is already the
+ * project, so a walk could only find a different project's config and tune this
+ * review by it.
+ *
+ * An ABSENT config is the ordinary case and says nothing. A config that is
+ * THERE and will not parse is a degrade, and it is reported rather than
+ * swallowed — the swallow is the defect this change already had to fix at three
+ * other seams.
+ */
+function reviewConfigFor(projectRoot: string): { config?: Record<string, unknown> } {
+  const loaded = resolveProjectConfig(projectRoot);
+  if (loaded.ok) return { config: loaded.value as Record<string, unknown> };
+  if (fs.existsSync(path.join(projectRoot, 'harness.config.json'))) {
+    reportIgnoredClumpingBlock([loaded.error.message]);
+  }
+  return {};
+}
 
 // ============ run_code_review ============
 
@@ -118,6 +152,7 @@ export async function handleRunCodeReview(input: {
         noMechanical: input.noMechanical ?? false,
         ...(input.depth != null ? { depth: input.depth } : {}),
       },
+      ...reviewConfigFor(projectRoot),
       ...(input.repo != null ? { repo: input.repo } : {}),
       ...(guardianCoverage != null ? { guardianCoverage } : {}),
     });

@@ -70,6 +70,17 @@ export interface RunCiReviewOptions {
    * floor pipeline and applied to the LLM tier's own findings before the merge.
    */
   findingIntegrity?: EnforceFindingIntegrityOptions;
+  /**
+   * The project's harness config, forwarded to the floor pipeline.
+   *
+   * `runReviewPipeline` reads it for the review seam's clump policy (Phase 6 of
+   * docs/changes/clumping/proposal.md), so a caller that omits it silently
+   * disables the documented `clumping` escape hatch. Omitted here until now,
+   * which was INERT rather than harmless: this orchestrator hardcodes
+   * `comment: false` and the clump policy is only read on the comment path, so
+   * the omission was a defect waiting for the day someone turns comments on.
+   */
+  config?: Record<string, unknown>;
 }
 
 export interface CiReviewResult {
@@ -349,6 +360,7 @@ export async function runCiReview(options: RunCiReviewOptions): Promise<CiReview
     commitMessage,
     flags: { ci: true, comment: false, deep: false, noMechanical: false },
     ...(options.findingIntegrity != null ? { findingIntegrity: options.findingIntegrity } : {}),
+    ...(options.config != null ? { config: options.config } : {}),
   });
   // SUG-5: a `skipped` floor (PR-eligibility gate declined to run, when a future
   // caller wires prMetadata) returns exitCode 0 with no findings. Treating that as a
