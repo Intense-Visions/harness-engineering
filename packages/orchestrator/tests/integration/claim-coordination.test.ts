@@ -178,6 +178,10 @@ describe('Multi-Orchestrator Claim Coordination', () => {
         expect(aDispatched || bDispatched).toBe(true);
         expect(aDispatched && bDispatched).toBe(false);
       } finally {
+        // Await the fire-and-forget agent runs (and their git worktree cleanup)
+        // before stop + tmpDir removal — see orchestrator-sentinel.test.ts (#2089).
+        await orchA.waitForBackgroundTasks();
+        await orchB.waitForBackgroundTasks();
         await orchA.stop();
         await orchB.stop();
       }
@@ -265,6 +269,7 @@ describe('Multi-Orchestrator Claim Coordination', () => {
           (snapshot.completed as string[]).includes('issue-stale-1');
         expect(dispatched).toBe(true);
       } finally {
+        await orch.waitForBackgroundTasks();
         await orch.stop();
       }
     });
@@ -320,6 +325,7 @@ describe('Multi-Orchestrator Claim Coordination', () => {
         // claimIssue was called (optimistic claim attempt)
         expect(tracker.claimIssue).toHaveBeenCalledWith('issue-race-1', 'orch-loser');
       } finally {
+        await orch.waitForBackgroundTasks();
         await orch.stop();
       }
     });
@@ -354,6 +360,7 @@ describe('Multi-Orchestrator Claim Coordination', () => {
         const snapshot = orch.getSnapshot();
         expect((snapshot.claimed as string[]).includes('issue-err-1')).toBe(false);
       } finally {
+        await orch.waitForBackgroundTasks();
         await orch.stop();
       }
     });
