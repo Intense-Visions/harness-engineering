@@ -972,6 +972,10 @@ export class Orchestrator extends EventEmitter {
    *  before the stop effect executes (e.g., stall_detected removes the entry first). */
   private abortControllers: Map<string, { controller: AbortController; pid: number | null }> =
     new Map();
+  /** In-flight `runAgentInBackgroundTask` promises (each never rejects), so
+   *  {@link waitForBackgroundTasks} can await the fire-and-forget agent runs —
+   *  including their completion-path git worktree cleanup. */
+  private backgroundTasks = new Set<Promise<void>>();
   /** Guards against overlapping ticks when a tick takes longer than the polling interval */
   private tickInProgress = false;
   /** Phase 4 (DLane-5): lanes read back from the durable log on first tick, for
@@ -3046,7 +3050,7 @@ export class Orchestrator extends EventEmitter {
     const isCurrentAttempt = (): boolean =>
       this.abortControllers.get(issue.id)?.controller === abortController;
 
-    (async () => {
+    const task = (async () => {
       try {
         this.logger.info(`Calling runner.runSession for ${issue.identifier}`);
         const sessionGen = activeRunner.runSession(issue, workspacePath, prompt);
@@ -3113,6 +3117,23 @@ export class Orchestrator extends EventEmitter {
     })().catch((err) => {
       this.logger.error('Fatal error in background task', { error: String(err) });
     });
+    this.backgroundTasks.add(task);
+    void task.then(() => this.backgroundTasks.delete(task));
+  }
+
+  /**
+   * Resolve once every fire-and-forget agent run dispatched so far — and any run
+   * one of them dispatches while settling — has fully finished, including the
+   * completion path's `git worktree` cleanup. `stop()` deliberately does NOT
+   * await these (a real agent session can run for a long time), so callers that
+   * must not race the background work — e.g. a test removing the workspace root,
+   * which Windows refuses while a git child still holds handles under it
+   * (#2089) — call this first. Never rejects.
+   */
+  public async waitForBackgroundTasks(): Promise<void> {
+    while (this.backgroundTasks.size > 0) {
+      await Promise.all([...this.backgroundTasks]);
+    }
   }
 
   /**

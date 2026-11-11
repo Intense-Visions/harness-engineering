@@ -5,6 +5,8 @@ import * as os from 'node:os';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { runValidate } from '../../src/commands/validate';
+// eslint-disable-next-line import/no-relative-packages -- shared repo-root test helper (#2089)
+import { removeTempDirSafely } from '../../../../tests/helpers/remove-temp-dir';
 
 /**
  * A check whose input exists but cannot be consumed must ABSTAIN — it must not
@@ -73,16 +75,9 @@ function runCli(dir: string): { code: number; stdout: string } {
 describe('runValidate — check abstention', () => {
   let dir: string;
   afterEach(() => {
-    if (!dir) return;
     // Windows holds a transient handle on the temp tree after the spawned CLI
-    // exits, so a plain rmSync intermittently throws EBUSY and fails an
-    // otherwise-passing test. Retry, then give up — leaking an OS temp dir is
-    // harmless, failing a green assertion in teardown is not.
-    try {
-      fs.rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 });
-    } catch {
-      /* temp dir cleanup is best-effort */
-    }
+    // exits — the helper awaits the settle. See tests/helpers/remove-temp-dir.ts.
+    removeTempDirSafely(dir);
   });
 
   it('abstains on the aggregate-drift doctor when the shards cannot be regenerated', async () => {
