@@ -204,8 +204,20 @@ export function formClumps(
   units.sort((a, b) => {
     const delta = unitWeight(b) - unitWeight(a);
     if (delta !== 0) return delta;
-    // The tiebreak is load-bearing for determinism (criterion 7): without it,
-    // two equal-weight units could swap places between runs.
+    // What this tiebreak guarantees is WHICH tied unit survives the cap: the
+    // lexicographically smallest unit ids among the equal-weight candidates. It is
+    // NOT load-bearing for run-to-run equality — `[...groups.keys()].sort()` above
+    // already makes the pre-sort unit array a deterministic function of the input
+    // SET, and V8's sort is stable, so two runs over the same input agree with this
+    // tiebreak REMOVED. An earlier version of this comment claimed otherwise;
+    // verification refuted it (a mutant deleting only these three lines left all 77
+    // tests green, including a test named for the property — it compared two runs
+    // over identically-ordered input). The over-claim is recorded here rather than
+    // quietly deleted because it is exactly the shape that produces a vacuous test:
+    // a reader who believes it will write the two-run comparison again. The real
+    // guarantee is pinned by form.test.ts, "a weight tie between units is broken by
+    // unit id ascending", whose cases assert the surviving set differs from the
+    // arrival-order prefix the suite would see with no tiebreak at all.
     const ia = unitId(a);
     const ib = unitId(b);
     return ia < ib ? -1 : ia > ib ? 1 : 0;
