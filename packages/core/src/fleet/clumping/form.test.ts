@@ -1,6 +1,8 @@
+import { createHash } from 'node:crypto';
+
 import { describe, expect, it } from 'vitest';
 
-import { formClumps } from './form';
+import { buildClump, formClumps } from './form';
 import type { ClumpableItem, Grade } from './types';
 
 const ABOVE: Grade = { kind: 'axes', tier: 'foundational', impact: 'large', confidence: 'high' };
@@ -382,5 +384,43 @@ describe('formClumps — rank and cap EMITTED WORK UNITS (D9)', () => {
       // pass while proving nothing, so the divergence is asserted, not assumed.
       expect(smallest).not.toEqual(arrival.slice(0, 3));
     });
+  });
+});
+
+// The id's order-independence is NOT reachable through `formClumps`: members are
+// already in canonical order by the time a clump is built (form.ts step 3), so a
+// mutant dropping the `.sort()` in `buildClump` leaves the whole public-surface suite
+// green. Measured: it did — 77/77. The helper is therefore tested DIRECTLY, with
+// members handed in orders `formClumps` would never produce, which is the only way
+// the sort's contribution can be observed at all.
+describe('buildClump — the id hashes the member SET, not the order it arrived in', () => {
+  const trio = () => [mk('b'), mk('c'), mk('a')];
+
+  it('gives one id for one member set, whatever order the members are in', () => {
+    const asGiven = buildClump(trio()).id;
+    expect(buildClump([...trio()].reverse()).id).toBe(asGiven);
+    expect(buildClump([mk('c'), mk('a'), mk('b')]).id).toBe(asGiven);
+    expect(buildClump([mk('a'), mk('b'), mk('c')]).id).toBe(asGiven);
+  });
+
+  it('matches the id formula types.ts publishes: sha256(scope|kind|sorted ids)', () => {
+    const digest = createHash('sha256').update('src/api|CODE|a,b,c').digest('hex').slice(0, 16);
+    expect(buildClump(trio()).id).toBe(`clump-${digest}`);
+  });
+
+  // POSITIVE CONTROL: the id can differ. If `buildClump` returned a constant, or if
+  // the comparisons above were somehow comparing one value with itself, they would
+  // pass while proving nothing.
+  it('positive control — a different member set, scope or kind gives a different id', () => {
+    const base = buildClump(trio()).id;
+    expect(buildClump([mk('b'), mk('c'), mk('d')]).id).not.toBe(base);
+    expect(buildClump(trio().map((m) => ({ ...m, scope: 'src/other' }))).id).not.toBe(base);
+    expect(buildClump(trio().map((m) => ({ ...m, kind: 'NAME' }))).id).not.toBe(base);
+  });
+
+  // The ID ignores member order; the MEMBER LIST does not. `formClumps` relies on that
+  // — it hands in weight-ordered members and the clump reports them in that order.
+  it('keeps the members in the order it was given them', () => {
+    expect(buildClump(trio()).members.map((m) => m.id)).toEqual(['b', 'c', 'a']);
   });
 });

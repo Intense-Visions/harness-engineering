@@ -63,9 +63,27 @@ function splitOnConflict(ordered: readonly ClumpableItem[]): ClumpableItem[][] {
   return subs.map((sub) => sub.members);
 }
 
-function buildClump(members: readonly ClumpableItem[]): Clump {
+/**
+ * Build one clump from members that already share a (scope, kind).
+ *
+ * EXPORTED FOR ITS OWN TEST, and deliberately NOT re-exported from ./index.ts —
+ * callers get `formClumps`. The reason is the `.sort()` below: the id hashes the
+ * member ids sorted, so it is a function of the member SET, but every path that
+ * reaches here through `formClumps` has already ordered members canonically
+ * (`byWeightDescIdAsc`, applied at step 3 before any split), so the sort's
+ * contribution is unobservable from outside. A `.sort()` whose removal changes no
+ * test, guarded by a comment claiming it makes the id stable, is a comment
+ * asserting a property nothing can falsify — the liability this repo keeps
+ * rediscovering. Exporting the helper makes the claim testable instead, which
+ * `form.test.ts` ("buildClump — the id hashes the member SET") does by handing in
+ * deliberately unsorted members. The property is worth keeping rather than
+ * deleting because `types.ts` publishes the id as
+ * `sha256(scope|kind|sorted member ids)`: phases 3-5 bind three seams to this
+ * primitive, and an id that silently depended on arrival order would make that
+ * published contract false the first time a caller reordered anything.
+ */
+export function buildClump(members: readonly ClumpableItem[]): Clump {
   const head = members[0]!;
-  // Hash over SORTED ids so the id is stable no matter how members were ordered.
   const sortedIds = members
     .map((m) => m.id)
     .slice()

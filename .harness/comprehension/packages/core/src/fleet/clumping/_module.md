@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/src/fleet/clumping'
-sourceHash: '543e0e8aaa1f2eade31aa28709233a39e393a8e9735bff9dbe4e1e5c47192bd9'
+sourceHash: '498ee3ce4250f49d0cbcf38fa8e67415bc4aca4efe2c054e5ba79bc072212a3a'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -32,7 +32,7 @@ export resolveFloor
 ```
 import { Confidence, Impact, Tier } from '../../craft/axes'
 import { DEFAULT_CLUMP_POLICY, resolveClumpPolicy, resolveFloor } from './floor'
-import { formClumps } from './form'
+import { buildClump, formClumps } from './form'
 import { Clump, ClumpCounts, ClumpPolicy, ClumpResult, ClumpableItem, FloorContext, FloorVerdict, FlooredItem, Grade } from './types'
 import { createHash } from 'node:crypto'
 import { describe, expect, it } from 'vitest'
