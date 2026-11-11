@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/tests/commands'
-sourceHash: 'bbd05a66e8697f40e0865b865bbcf8a12cae74fc5e0aa076419300bec76127fe'
+sourceHash: '2d7d956f470bb2240eb9055a378ea2af35a93e632bed919e647d34793161dda7'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -235,6 +235,7 @@ export stubProcessExit
 ## Dependency Slice
 
 ```
+import { removeTempDirSafely } from '../../../../tests/helpers/remove-temp-dir'
 import { AlignDesignSystemOutput, runAlignDesignSystem } from '../../src/align/index.js'
 import { ApiCraftOutput, ApiFinding } from '../../src/api-craft/findings/schema.js'
 import { ApiCraftInput, runApiCraft } from '../../src/api-craft/index.js'
