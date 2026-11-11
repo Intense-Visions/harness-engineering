@@ -142,7 +142,7 @@ export async function runNamingCraft(input: NamingCraftInput): Promise<NamingCra
     );
   }
 
-  const { files, perFile, convention } = gatherProjectContext(input);
+  const { projectRoot, files, perFile, convention } = gatherProjectContext(input);
   const rubrics = SEED_RUBRICS;
   const findings: NamingFinding[] = [];
 
@@ -165,7 +165,7 @@ export async function runNamingCraft(input: NamingCraftInput): Promise<NamingCra
   const totalCost = sumCosts(provider);
   return {
     findings,
-    clumps: clumpCraftFindings(findings),
+    clumps: clumpCraftFindings(findings, projectRoot),
     summary: {
       phaseRun: ['critique'],
       mode: 'fast',
@@ -329,7 +329,7 @@ export async function finalizeNamingCraft(
 
   return {
     findings,
-    clumps: clumpCraftFindings(findings),
+    clumps: clumpCraftFindings(findings, projectRoot),
     summary: {
       phaseRun: ['critique'],
       mode: 'fast',

@@ -152,7 +152,7 @@ export async function runSpecCraft(input: SpecCraftInput): Promise<SpecCraftOutp
   const totalCost = sumCosts(provider);
   return {
     findings,
-    clumps: clumpCraftFindings(findings),
+    clumps: clumpCraftFindings(findings, projectRoot),
     summary: {
       phaseRun: ['critique'],
       mode: 'fast',
@@ -291,7 +291,7 @@ export async function finalizeSpecCraft(input: FinalizeSpecCraftInput): Promise<
 
   return {
     findings,
-    clumps: clumpCraftFindings(findings),
+    clumps: clumpCraftFindings(findings, projectRoot),
     summary: {
       phaseRun: ['critique'],
       mode: 'fast',

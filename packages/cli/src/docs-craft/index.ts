@@ -135,7 +135,7 @@ export async function runDocsCraft(input: DocsCraftInput): Promise<DocsCraftOutp
 
   return {
     findings: acc.findings,
-    clumps: clumpCraftFindings(acc.findings),
+    clumps: clumpCraftFindings(acc.findings, projectRoot),
     summary: buildSummary(provider, acc, Date.now() - startedAt),
   };
 }
@@ -261,7 +261,7 @@ export async function finalizeDocsCraft(input: FinalizeDocsCraftInput): Promise<
 
   return {
     findings,
-    clumps: clumpCraftFindings(findings),
+    clumps: clumpCraftFindings(findings, projectRoot),
     summary: {
       phaseRun: ['critique'],
       mode: 'fast',

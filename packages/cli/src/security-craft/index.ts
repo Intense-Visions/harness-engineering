@@ -153,7 +153,7 @@ export async function runSecurityCraft(input: SecurityCraftInput): Promise<Secur
   const totalCost = sumCosts(provider);
   return {
     findings,
-    clumps: clumpCraftFindings(findings),
+    clumps: clumpCraftFindings(findings, projectRoot),
     summary: {
       phaseRun: ['critique'],
       mode: 'fast',
@@ -293,7 +293,7 @@ export async function finalizeSecurityCraft(
 
   return {
     findings,
-    clumps: clumpCraftFindings(findings),
+    clumps: clumpCraftFindings(findings, projectRoot),
     summary: {
       phaseRun: ['critique'],
       mode: 'fast',

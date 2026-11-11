@@ -174,7 +174,7 @@ export async function runTestCraft(input: TestCraftInput): Promise<TestCraftOutp
 
   const output: TestCraftOutput = {
     findings,
-    clumps: clumpCraftFindings(findings),
+    clumps: clumpCraftFindings(findings, projectRoot),
     summary: buildSummary({ provider, rubrics, files, extraction, startedAt, critiqueErrors }),
   };
 
@@ -295,7 +295,7 @@ export async function finalizeTestCraft(input: FinalizeTestCraftInput): Promise<
 
   return {
     findings,
-    clumps: clumpCraftFindings(findings),
+    clumps: clumpCraftFindings(findings, projectRoot),
     summary: buildFinalizeSummary(state.meta, input.runId, input.responses.length, startedAt),
   };
 }

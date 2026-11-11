@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/naming-craft'
-sourceHash: '743c28b8a02d090c9b024aaf4b77bcd8c28b8defe5bdc7c25a9cc86c6c82a96c'
+sourceHash: 'e259b81cae521f200d79e1f76706053e3d4f4748a5688f4b54c090c5a71c1ede'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent

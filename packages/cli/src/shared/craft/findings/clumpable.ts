@@ -17,6 +17,8 @@
 // same three things this needs: a `CODE-R\d{3}`-shaped `code`, a `target.file`,
 // and the ADR-0019 axis trio.
 
+import * as path from 'node:path';
+
 import {
   formClumps,
   type ClumpPolicy,
@@ -44,13 +46,18 @@ import { derivePriority } from './derived.js';
  *
  * `target.line` is optional because api / cli-ergonomics / docs / knowledge
  * findings have no line — their target is a whole file or surface.
+ *
+ * `target.relative` is optional because exactly four families declare it
+ * (api / cli-ergonomics / docs / knowledge, each as
+ * `path.relative(projectRoot, full).replaceAll('\\', '/')`). It is read when
+ * present and derived from `projectRoot` otherwise — see {@link craftPath}.
  */
 export interface CraftClumpableFinding {
   code: string;
   tier: Tier;
   impact: Impact;
   confidence: Confidence;
-  target: { file: string; line?: number };
+  target: { file: string; line?: number; relative?: string };
 }
 
 /**
@@ -68,12 +75,59 @@ export function craftKind(code: string): string {
 }
 
 /**
+ * The PROJECT-RELATIVE POSIX path a clump is keyed on.
+ *
+ * THIS IS THE PORTABILITY FIX the proposal defers here from Phase 3, and the
+ * defect it answers was measured, not assumed: `discoverSourceFiles`
+ * (`code-craft/extract/discover.ts:50`) builds `path.join(projectRoot, ...)`, so
+ * seven of the eleven families put an ABSOLUTE `target.file` on every finding —
+ * e.g. `/var/folders/xy/T/alpha/packages/api/src/a.ts`. That path reaches the
+ * published clump id twice: once through `scope` and once through each member
+ * `id`, both of which `formClumps` hashes. Two clones of the same repo at
+ * different absolute roots therefore published DIFFERENT ids for the SAME
+ * finding set — success criterion 7 (determinism) held inside one clone and
+ * failed across clones, which is the only place the id is actually exchanged.
+ *
+ * Relativizing `scope` ALONE would not have fixed it; the member ids carry the
+ * path too. So the path is relativized ONCE, here, and `id`, `scope` and
+ * `conflictKeys` are all derived from the result.
+ *
+ * Three cases, in order, and the last one is the honest limit:
+ *
+ *   1. `target.relative` when the family declares one. Exactly four do (api,
+ *      cli-ergonomics, docs, knowledge), each already
+ *      `path.relative(projectRoot, full)` in POSIX form. Preferring it means
+ *      those four are portable even from a caller that cannot name a root.
+ *   2. Otherwise, `path.relative(projectRoot, file)` in POSIX form — the answer
+ *      for the seven families that expose NO relative path. `projectRoot` is
+ *      required by {@link clumpCraftFindings} rather than optional precisely so
+ *      a call site that forgets it is a COMPILE error instead of a silently
+ *      machine-local id.
+ *   3. The path is returned UNCHANGED when it is already relative (nothing to
+ *      do) or when it is absolute but OUTSIDE `projectRoot`. The second is not
+ *      laziness: `path.relative` would answer `../../other/x.ts`, whose leading
+ *      `..` count is a function of how deep the root sits, so the "relative"
+ *      form is just as machine-local as the absolute one. A finding on a file
+ *      outside the project is not portable by any encoding, and pretending
+ *      otherwise would hide that behind a plausible-looking path.
+ */
+export function craftPath(finding: CraftClumpableFinding, projectRoot: string): string {
+  const declared = finding.target.relative;
+  if (declared !== undefined && declared !== '') return declared;
+  const file = finding.target.file;
+  if (projectRoot === '' || !path.isAbsolute(file)) return file;
+  const rel = path.relative(projectRoot, file).replaceAll('\\', '/');
+  if (rel === '' || rel === '..' || rel.startsWith('../')) return file;
+  return rel;
+}
+
+/**
  * The directory the finding lives in.
  *
- * Split on `/` explicitly rather than `path.dirname`: craft findings carry
- * project-relative POSIX paths, and `path.dirname` on win32 would additionally
- * split on `\`, so the same finding would produce a different scope per
- * platform and the emitted clump ids would differ between CI legs.
+ * Split on `/` explicitly rather than `path.dirname`: this is handed the POSIX
+ * path {@link craftPath} produced, and `path.dirname` on win32 would
+ * additionally split on `\`, so the same finding would produce a different
+ * scope per platform and the emitted clump ids would differ between CI legs.
  */
 export function craftScope(file: string): string {
   const cut = file.lastIndexOf('/');
@@ -91,10 +145,15 @@ export function craftScope(file: string): string {
  * occurrence ordinal disambiguates. The ordinal is a function of the findings
  * array, so the mapping stays deterministic for a given run.
  */
-export function toClumpableItems(findings: readonly CraftClumpableFinding[]): ClumpableItem[] {
+export function toClumpableItems(
+  findings: readonly CraftClumpableFinding[],
+  projectRoot: string
+): ClumpableItem[] {
   const seen = new Map<string, number>();
   return findings.map((finding) => {
-    const file = finding.target.file;
+    // The relative path, NOT `target.file`. It feeds the member `id`, the
+    // `scope` and the `conflictKeys` — every input the clump id is hashed from.
+    const file = craftPath(finding, projectRoot);
     const stem = `${finding.code}:${file}:${finding.target.line ?? '-'}`;
     const ordinal = seen.get(stem) ?? 0;
     seen.set(stem, ordinal + 1);
@@ -131,10 +190,18 @@ export function toClumpableItems(findings: readonly CraftClumpableFinding[]): Cl
  * is better than letting a goal read as met everywhere, and
  * `clumpable.test.ts` asserts it so it cannot drift to `'act'` silently the day
  * someone threads a plausible-looking file list through here.
+ *
+ * `projectRoot` is REQUIRED, not optional with a defaulted fallback. Every one
+ * of the eleven families' call sites already has the root in scope, and a
+ * required parameter makes an omission a compile error — the alternative, a
+ * default of `process.cwd()`, would let a forgotten call site keep publishing
+ * machine-local clump ids while every test stayed green. Pass `''` only when
+ * the findings genuinely carry project-relative paths already.
  */
 export function clumpCraftFindings(
   findings: readonly CraftClumpableFinding[],
+  projectRoot: string,
   policy?: Partial<ClumpPolicy>
 ): ClumpResult {
-  return formClumps(toClumpableItems(findings), policy);
+  return formClumps(toClumpableItems(findings, projectRoot), policy);
 }

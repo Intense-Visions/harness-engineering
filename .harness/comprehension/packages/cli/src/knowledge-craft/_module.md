@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/knowledge-craft'
-sourceHash: 'ad32a25e3047e098921214ffe84998597d9438c5a3717c93e4041cbd45ab70c2'
+sourceHash: 'ec8d6bab2f5c0afcc6dbca05ab168f114597d02279d9cdcda060342949cc5c12'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent

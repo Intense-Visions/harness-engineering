@@ -177,7 +177,7 @@ export async function runCodeCraft(input: CodeCraftInput): Promise<CodeCraftOutp
   const totalCost = sumCosts(provider);
   return {
     findings: acc.findings,
-    clumps: clumpCraftFindings(acc.findings),
+    clumps: clumpCraftFindings(acc.findings, projectRoot),
     summary: {
       phaseRun: ['critique'],
       mode: 'fast',
@@ -336,7 +336,7 @@ export async function finalizeCodeCraft(input: FinalizeCodeCraftInput): Promise<
 
   return {
     findings,
-    clumps: clumpCraftFindings(findings),
+    clumps: clumpCraftFindings(findings, projectRoot),
     summary: {
       phaseRun: ['critique'],
       mode: 'fast',

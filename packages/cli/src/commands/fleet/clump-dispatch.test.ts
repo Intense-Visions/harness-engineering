@@ -60,7 +60,7 @@ function craftRunOutput(n: number): { findings: CraftClumpableFinding[]; clumps:
     confidence: 'high',
     target: { file: `packages/cli/src/commands/a${i}.ts`, line: 10 + i },
   }));
-  return { findings, clumps: clumpCraftFindings(findings) };
+  return { findings, clumps: clumpCraftFindings(findings, '') };
 }
 
 describe('extractClumps — what a lane may hand in', () => {
@@ -69,7 +69,7 @@ describe('extractClumps — what a lane may hand in', () => {
     expect('gap' in craft, JSON.stringify(craft)).toBe(false);
     expect((craft as readonly unknown[]).length).toBe(1);
 
-    const bare = clumpCraftFindings(craftRunOutput(4).findings);
+    const bare = clumpCraftFindings(craftRunOutput(4).findings, '');
     expect(extractClumps(bare)).toHaveLength(1);
 
     const issues: IntakeIssue[] = [1, 2, 3].map((n) => ({
@@ -94,7 +94,7 @@ describe('extractClumps — what a lane may hand in', () => {
   it('distinguishes a genuinely empty clump set from a missing one', () => {
     // The positive control for the rejection above: a run that legitimately
     // grouped nothing is an empty ARRAY, never a gap.
-    const empty = clumpCraftFindings([]);
+    const empty = clumpCraftFindings([], '');
     const got = extractClumps({ findings: [], clumps: empty });
     expect('gap' in (got as object)).toBe(false);
     expect(got).toHaveLength(0);
@@ -150,7 +150,7 @@ describe('runClumpDispatch — DISPATCH: one PR plan per clump, one commit per m
       plans: { commits: unknown[]; branch: string; title: string }[];
     };
     // The PROPERTY: one plan per clump, one commit per member, one branch each.
-    const emitted = clumpCraftFindings(run.findings);
+    const emitted = clumpCraftFindings(run.findings, '');
     expect(plans).toHaveLength(emitted.clumps.length);
     for (const [i, plan] of plans.entries()) {
       expect(plan.commits).toHaveLength(emitted.clumps[i]!.members.length);
@@ -187,7 +187,7 @@ describe('runClumpDispatch — DISPATCH: one PR plan per clump, one commit per m
 
 describe('runClumpDispatch — VERIFY: one verdict per clump, D10 drops (criterion 14)', () => {
   const run = craftRunOutput(4);
-  const emitted = clumpCraftFindings(run.findings);
+  const emitted = clumpCraftFindings(run.findings, '');
   const clumpId = emitted.clumps[0]!.id;
   const memberIds = emitted.clumps[0]!.members.map((m) => m.id);
 

@@ -162,7 +162,7 @@ export async function runKnowledgeCraft(input: KnowledgeCraftInput): Promise<Kno
   const totalCost = sumCosts(provider);
   return {
     findings,
-    clumps: clumpCraftFindings(findings),
+    clumps: clumpCraftFindings(findings, projectRoot),
     summary: {
       phaseRun: ['critique'],
       mode: 'fast',
@@ -300,7 +300,7 @@ export async function finalizeKnowledgeCraft(
 
   return {
     findings,
-    clumps: clumpCraftFindings(findings),
+    clumps: clumpCraftFindings(findings, projectRoot),
     summary: {
       phaseRun: ['critique'],
       mode: 'fast',

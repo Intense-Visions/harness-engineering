@@ -691,7 +691,7 @@ async function runPipeline(
     // reaches the shared adapter like the other ten families: the family comes
     // from `code` (`CRAFT-C001` → `CRAFT`), never from `cite`, which here is
     // `rubricOrPatternId` rather than `rubricId`.
-    clumps: clumpCraftFindings(findings),
+    clumps: clumpCraftFindings(findings, measurementRoot),
     scores,
     summary: {
       phaseRun: phases,

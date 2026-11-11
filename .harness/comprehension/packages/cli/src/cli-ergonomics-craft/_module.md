@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/cli-ergonomics-craft'
-sourceHash: 'ef94f2cf55db7180b74efb212b3e083b51c2745d1689c85e3a0aeb9769cfb92c'
+sourceHash: '52efc659437907ef928707b3eab9792f633b4cf383f57312d7a6788a342b7fd6'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent

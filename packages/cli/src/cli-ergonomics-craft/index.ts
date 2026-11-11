@@ -130,7 +130,7 @@ export async function runCliErgonomicsCraft(
 
   return {
     findings: acc.findings,
-    clumps: clumpCraftFindings(acc.findings),
+    clumps: clumpCraftFindings(acc.findings, projectRoot),
     summary: buildSummary(provider, acc, Date.now() - startedAt),
   };
 }
@@ -270,7 +270,7 @@ export async function finalizeCliErgonomicsCraft(
 
   return {
     findings,
-    clumps: clumpCraftFindings(findings),
+    clumps: clumpCraftFindings(findings, projectRoot),
     summary: {
       phaseRun: ['critique'],
       mode: 'fast',

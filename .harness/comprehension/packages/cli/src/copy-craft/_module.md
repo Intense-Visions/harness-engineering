@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/copy-craft'
-sourceHash: 'bf5a62d9dd0c20c8152f36aaa81bf0cbe6b2d2459c75061748e38f45ca1c8d9f'
+sourceHash: '07640a1f8ef949653ce55a6f7023a2ba2c6ec60e4f25266defe9dca9744d8824'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent

@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/api-craft'
-sourceHash: 'd82aadf57b4215b3328dce8976d1d7c09f6e07ed8214476843b0506b7d143db2'
+sourceHash: '25ecdce1573e7ff5909d7bad61cbb75f9b8590a8d4965b5266c6f27aa1f3efe1'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent

@@ -138,7 +138,7 @@ export async function runApiCraft(input: ApiCraftInput): Promise<ApiCraftOutput>
 
   return {
     findings: acc.findings,
-    clumps: clumpCraftFindings(acc.findings),
+    clumps: clumpCraftFindings(acc.findings, projectRoot),
     summary: buildSummary(provider, acc, Date.now() - startedAt),
   };
 }
@@ -276,7 +276,7 @@ export async function finalizeApiCraft(input: FinalizeApiCraftInput): Promise<Ap
 
   return {
     findings,
-    clumps: clumpCraftFindings(findings),
+    clumps: clumpCraftFindings(findings, projectRoot),
     summary: {
       phaseRun: ['critique'],
       mode: 'fast',

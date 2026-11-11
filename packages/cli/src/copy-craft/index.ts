@@ -185,7 +185,7 @@ export async function runCopyCraft(input: CopyCraftInput): Promise<CopyCraftOutp
 
   return {
     findings,
-    clumps: clumpCraftFindings(findings),
+    clumps: clumpCraftFindings(findings, projectRoot),
     summary: {
       phaseRun: ['critique'],
       mode: 'fast',
@@ -305,7 +305,7 @@ export async function finalizeCopyCraft(input: FinalizeCopyCraftInput): Promise<
 
   return {
     findings,
-    clumps: clumpCraftFindings(findings),
+    clumps: clumpCraftFindings(findings, projectRoot),
     summary: {
       phaseRun: ['critique'],
       mode: 'fast',

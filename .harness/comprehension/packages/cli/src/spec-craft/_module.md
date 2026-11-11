@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/spec-craft'
-sourceHash: '707dd6dd26efcd3d2350d323d00fe660629d239d4884445695b690ff15c7629e'
+sourceHash: '32bb5fa3ba5333ae28fdb9d4a804744251e9ad7ec7af651008814cadd647d53a'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
