@@ -16,7 +16,6 @@ import {
   craftClumpingConfig,
   craftKind,
   craftPath,
-  craftScope,
   toClumpableItems,
   type CraftClumpableFinding,
 } from './clumpable.js';
@@ -115,20 +114,29 @@ describe("design-craft's cite shape never reaches `kind`", () => {
   });
 });
 
-describe('craftScope — the directory, identically on every platform', () => {
+describe('the craft scope is the shared rule, identically on every platform', () => {
+  // `craftScope` was a byte-identical copy of core's `scopeOfPath` and is gone;
+  // the rule has ONE home now (`fleet/clumping/scope.ts`, where its own test
+  // lives). What is asserted HERE is the thing deleting a function can break:
+  // that the craft adapter still reaches that rule, with the path `craftPath`
+  // produced. Asserting the helper again instead of the wiring would have been
+  // a test of core from cli.
+  const scopeOf = (file: string): string =>
+    toClumpableItems([finding({ code: 'CODE-R001', file })], '')[0]!.scope;
+
   it('is the directory of the target file', () => {
-    expect(craftScope('packages/cli/src/a.ts')).toBe('packages/cli/src');
+    expect(scopeOf('packages/cli/src/a.ts')).toBe('packages/cli/src');
   });
 
   it("a root-level file scopes to '.'", () => {
-    expect(craftScope('README.md')).toBe('.');
+    expect(scopeOf('README.md')).toBe('.');
   });
 
   it('does NOT split on a backslash — a win32 run must produce the same scope as a POSIX one', () => {
     // `path.dirname` on win32 would return `a\\b` here and `a/b\\c.ts` stays
     // whole on POSIX, so the same finding would emit two different clump ids
     // across the CI matrix.
-    expect(craftScope('a\\b\\c.ts')).toBe('.');
+    expect(scopeOf('a\\b\\c.ts')).toBe('.');
   });
 });
 

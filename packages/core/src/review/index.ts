@@ -125,7 +125,6 @@ export {
   formatClumpedComments,
   formatClumpComment,
   toClumpableFinding,
-  scopeOfPath,
 } from './output';
 export type {
   ClumpedCommentResult,

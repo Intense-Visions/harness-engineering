@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/shared/craft/findings'
-sourceHash: 'bb94e4c77e45258c21eb16b70290cd06357de1d420e9597040928f8f3672b728'
+sourceHash: 'fb46fc1df1d698371af389f53d0b470689ba9da8a3544ab4e9d12c66e8a3ca19'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -20,7 +20,6 @@ export craftClumpView
 export craftClumpingConfig
 export craftKind
 export craftPath
-export craftScope
 export derivePriority
 export toClumpableItems
 ```
@@ -31,9 +30,9 @@ export toClumpableItems
 import { CodeFinding } from '../../../code-craft/findings/schema.js'
 import { CraftFinding } from '../../../design-craft/findings/schema.js'
 import { Confidence, Impact, Tier } from './axes.js'
-import { CraftClumpableFinding, clumpCraftFindings, craftClumpView, craftClumpingConfig, craftKind, craftPath, craftScope, toClumpableItems } from './clumpable.js'
+import { CraftClumpableFinding, clumpCraftFindings, craftClumpView, craftClumpingConfig, craftKind, craftPath, toClumpableItems } from './clumpable.js'
 import { derivePriority } from './derived.js'
-import { ClumpPolicy, ClumpResult, ClumpView, ClumpableItem, ClumpingConfig, Confidence, CraftTier, Impact, clumpingFromConfig, formClumps, reportIgnoredClumpingBlock, resolveSeamClumpPolicy, toClumpView } from '@harness-engineering/core'
+import { ClumpPolicy, ClumpResult, ClumpView, ClumpableItem, ClumpingConfig, Confidence, CraftTier, Impact, clumpingFromConfig, formClumps, reportIgnoredClumpingBlock, resolveSeamClumpPolicy, scopeOfPath, toClumpView, withOrdinals } from '@harness-engineering/core'
 import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'

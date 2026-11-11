@@ -5,7 +5,8 @@ import { describe, expect, it } from 'vitest';
 
 import { formClumps } from '../../fleet/clumping';
 import type { ReviewFinding } from '../types';
-import { formatClumpedComments, scopeOfPath, toClumpableFinding } from './clump-comments';
+import { formatClumpedComments, toClumpableFinding } from './clump-comments';
+import { scopeOfPath } from '../../fleet/clumping';
 
 function finding(over: Partial<ReviewFinding> & { id: string; file: string }): ReviewFinding {
   return {
@@ -236,6 +237,38 @@ describe('a repeated finding id neither throws nor drops a comment', () => {
     expect(report.findings).toBe(2);
     expect(comments.filter((c) => c.body.includes('first#'))).toHaveLength(1);
     expect(comments.filter((c) => c.body.includes('second#'))).toHaveLength(1);
+  });
+
+  it('a repeated id whose FIRST occurrence is above the floor is still reported once', () => {
+    // The case the two numbering loops had to agree on, built so a
+    // disagreement is actually observable. The twins above share a file, so the
+    // conflict rule splits them and neither is ever clumped: `clumpedIds` is
+    // empty and the complement's ordinals are never consulted. And twins that
+    // BOTH clump are no better — a complement stuck on ordinal 0 finds `#0` in
+    // the set and stays silent, so the drift hides.
+    //
+    // Here `#0` is a CRITICAL, which keeps its own anchored comment and never
+    // becomes a candidate, while `#1` and `#2` are suggestions on distinct
+    // files that fold into one clump. So `clumpedIds` holds `#1` and `#2` but
+    // NOT `#0` — and a complement that numbered independently and drifted to 0
+    // would look up `#0` for all three, miss twice, and emit two duplicate
+    // comments for findings already inside the clump.
+    const id = 'bug-src/auth-10';
+    const population = [
+      finding({ id, file: 'src/auth/a.ts', severity: 'critical', title: 'alpha#' }),
+      finding({ id, file: 'src/auth/b.ts', title: 'beta#' }),
+      finding({ id, file: 'src/auth/c.ts', title: 'gamma#' }),
+    ];
+    const { comments, report } = formatClumpedComments(population, {
+      touched: population.map((f) => f.file),
+    });
+    expect(report.clumps).toBe(1);
+    expect(report.grouped).toBe(2);
+    // One clump comment plus one anchored comment for the critical. No more.
+    expect(comments).toHaveLength(2);
+    for (const f of population) {
+      expect(comments.filter((c) => c.body.includes(f.title)).length).toBe(1);
+    }
   });
 
   it('POSITIVE CONTROL: core still rejects a duplicate id when it is handed one', () => {

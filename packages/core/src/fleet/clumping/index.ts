@@ -26,6 +26,8 @@ export {
 } from './config';
 export type { ClumpingConfig, ClumpSeam } from './config';
 export { formClumps } from './form';
+export { scopeOfPath } from './scope';
+export { withOrdinals } from './ordinals';
 export { toClumpView } from './view';
 export { planClumpPR, settleClumpVerdict, checkVerdictPartition } from './dispatch';
 export type {
@@ -43,6 +45,7 @@ export type {
   FlooredItemView,
   Grade,
 } from './types';
+export type { Numbered } from './ordinals';
 export type {
   ClumpCommit,
   ClumpDrop,

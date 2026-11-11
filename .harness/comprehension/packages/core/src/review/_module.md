@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/src/review'
-sourceHash: 'f22022f86a832a653c12ca2d075ceea85f7749a4ec34d5df3e9be082a435c6c0'
+sourceHash: '7c1f76da67e63d2d70cb0510860bdab6d778911fffc821a08537d7c1f49469cf'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -163,7 +163,6 @@ export runReviewPipeline
 export runSecurityAgent
 export runTypescriptStrictAgent
 export scopeContext
-export scopeOfPath
 export splitBundlesByStage
 export stageDomains
 export tagUncitedFindings

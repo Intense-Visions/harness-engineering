@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/src/review/output'
-sourceHash: 'be4158148111461234164b634debb0710f63dc6b27926486a085bcb4b80ad9d5'
+sourceHash: '614f167973b666ce31a1ef0ecd85b4350b9020d9a452e5a1f56e7e82e9d75166'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -33,20 +33,19 @@ export formatIntegritySection
 export formatTerminalOutput
 export getExitCode
 export isSmallSuggestion
-export scopeOfPath
 export toClumpableFinding
 ```
 
 ## Dependency Slice
 
 ```
-import { Clump, ClumpPolicy, ClumpableItem, formClumps, resolveFloor } from '../../fleet/clumping'
+import { Clump, ClumpPolicy, ClumpableItem, formClumps, resolveFloor, scopeOfPath, withOrdinals } from '../../fleet/clumping'
 import { SEVERITY_LABELS, SEVERITY_ORDER, SEVERITY_RANK } from '../constants'
 import { DepthCalibration } from '../depth-calibrator'
 import { FindingIntegrityReport } from '../finding-integrity'
 import { EvidenceCoverageReport, FindingSeverity, GitHubInlineComment, ReviewAssessment, ReviewFinding, ReviewStrength } from '../types'
 import { determineAssessment } from './assessment'
-import { formatClumpedComments, scopeOfPath, toClumpableFinding } from './clump-comments'
+import { formatClumpedComments, toClumpableFinding } from './clump-comments'
 import { formatGitHubComment, sanitizeMarkdown } from './format-github'
 import { describe, expect, it } from 'vitest'
 ```

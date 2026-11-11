@@ -94,6 +94,33 @@ describe('issueScope', () => {
     expect(issueScope(['unscoped/foo.ts'])).toBe('unscoped/');
     expect(issueScope(['unscoped/foo.ts'])).not.toBe(UNSCOPED);
   });
+
+  it('a path with NO directory scopes to `./`, not to a path that does not exist', () => {
+    // This function used to be its own copy of the path rule, MINUS the
+    // `cut === -1` guard its two siblings had: `slice(0, -1)` is "all but the
+    // last character", so `README.md` answered `'README.m/'` — a scope that
+    // looks like a directory, is not one, and would have silently grouped two
+    // root-level issues under a name neither of them names.
+    expect(issueScope(['README.md'])).toBe('./');
+    // POSITIVE CONTROL at the same scope: one directory in, the answer is the
+    // directory, so the guard is on the boundary and not an answer for all.
+    expect(issueScope(['x/README.md'])).toBe('x/');
+    // …and it still cannot collide with the sentinel.
+    expect(issueScope(['README.md'])).not.toBe(UNSCOPED);
+  });
+
+  it('is UNREACHABLE from issue text today, which is why the signature had to be fixed', () => {
+    // The guard above is unreachable through `mentionedPaths`: PATH_PATTERN
+    // requires at least one `/`, so a bare `README.md` in an issue body is
+    // never extracted as a path and `issueScope` is handed `[]` instead. That
+    // is exactly what made the defect survive — the function is EXPORTED with a
+    // signature advertising no such precondition, so the precondition is pinned
+    // here rather than assumed.
+    expect(mentionedPaths('see README.md for details')).toEqual([]);
+    // POSITIVE CONTROL: the same sentence with a directory IS extracted, so the
+    // emptiness above is the pattern's slash rule and not a broken fixture.
+    expect(mentionedPaths('see docs/README.md for details')).toEqual(['docs/README.md']);
+  });
 });
 
 describe('issueKind', () => {

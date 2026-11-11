@@ -22,7 +22,7 @@
 // findings that happen to be alike. Both run, in that order, and conflating them
 // is the likeliest misreading of this module.
 
-import { formClumps, resolveFloor } from '../../fleet/clumping';
+import { formClumps, resolveFloor, scopeOfPath, withOrdinals } from '../../fleet/clumping';
 import type { Clump, ClumpPolicy, ClumpableItem } from '../../fleet/clumping';
 import { SEVERITY_RANK } from '../constants';
 import type { GitHubInlineComment, ReviewFinding } from '../types';
@@ -38,20 +38,6 @@ import { formatGitHubComment, sanitizeMarkdown } from './format-github';
  */
 function weightOf(finding: ReviewFinding): number {
   return SEVERITY_RANK[finding.severity] * 100 + (finding.trustScore ?? 0);
-}
-
-/**
- * The directory a reviewer holds in their head at once.
- *
- * Hand-written rather than `node:path.posix.dirname` because review findings
- * carry project-relative POSIX paths from the diff on every platform, and
- * `path.dirname` on win32 would additionally split on `\`. Keeping the split
- * explicit means this returns the same scope on win32 as on POSIX for the same
- * finding, which is what makes the comment set platform-independent.
- */
-export function scopeOfPath(file: string): string {
-  const cut = file.lastIndexOf('/');
-  return cut === -1 ? '.' : file.slice(0, cut);
 }
 
 /**
@@ -193,14 +179,18 @@ export function formatClumpedComments(
 
   // 1. The floor decides the ROUTE, per finding: above it, the finding keeps its
   //    own anchor; below it, the finding is a grouping candidate.
+  //
+  //    The findings are numbered ONCE, here, and the same numbering is reused by
+  //    the complement loop below. Both loops used to number independently — two
+  //    `new Map()`s that had to agree — and a disagreement would have emitted a
+  //    second comment for a finding already inside a clump. Sharing the array
+  //    makes the agreement structural instead of a convention.
+  const numbered = withOrdinals(findings, (finding) => finding.id);
   const candidates: ClumpableItem[] = [];
   const resolutions = new Map<string, string>();
-  const seen = new Map<string, number>();
   let act = 0;
   let file = 0;
-  for (const finding of findings) {
-    const ordinal = seen.get(finding.id) ?? 0;
-    seen.set(finding.id, ordinal + 1);
+  for (const { item: finding, ordinal } of numbered) {
     const item = toClumpableFinding(finding, ordinal);
     const verdict = resolveFloor(item, ctx, policy);
     if (!verdict.below) continue;
@@ -235,10 +225,7 @@ export function formatClumpedComments(
   const clumpedIds = new Set(result.clumps.flatMap((c) => c.members.map((m) => m.id)));
   const comments: GitHubInlineComment[] = [];
   for (const clump of result.clumps) comments.push(formatClumpComment(clump, resolutions));
-  const seenAgain = new Map<string, number>();
-  for (const finding of findings) {
-    const ordinal = seenAgain.get(finding.id) ?? 0;
-    seenAgain.set(finding.id, ordinal + 1);
+  for (const { item: finding, ordinal } of numbered) {
     if (!clumpedIds.has(`${finding.id}#${ordinal}`)) comments.push(formatGitHubComment(finding));
   }
 

@@ -27,8 +27,14 @@
 // clumping groups DISTINCT issues that happen to be alike. Both axes run, and
 // conflating them is the likeliest misreading of this module.
 
-import { formClumps } from '@harness-engineering/core';
-import type { ClumpPolicy, ClumpResult, ClumpableItem } from '@harness-engineering/core';
+import {
+  formClumps,
+  scopeOfPath,
+  withOrdinals,
+  type ClumpPolicy,
+  type ClumpResult,
+  type ClumpableItem,
+} from '@harness-engineering/core';
 import { pilotScore } from '@harness-engineering/intelligence';
 
 /**
@@ -171,16 +177,23 @@ export function mentionedPaths(text: string, options: IntakeAdapterOptions = {})
  * reporter was. Rendered WITH a trailing `/` so it can never collide with the
  * `unscoped` sentinel — see {@link UNSCOPED}.
  *
- * Split on `/` explicitly rather than `path.dirname`, matching the craft and
- * review adapters: issue text carries POSIX paths on every platform, and
- * `path.dirname` on win32 would additionally split on `\`, so the same issue
- * would produce a different scope — and therefore a different clump id — per
- * platform.
+ * The path logic is core's `scopeOfPath`, shared with the craft and review
+ * adapters rather than written a third time. Written a third time, it was
+ * WRONG: this function used to be `first.slice(0, first.lastIndexOf('/'))`
+ * with no `cut === -1` guard, so `issueScope(['README.md'])` answered
+ * `'README.m/'` — `slice(0, -1)` drops the last character instead of meaning
+ * "no directory". Unreachable through `mentionedPaths`, whose PATH_PATTERN
+ * requires a slash, but this is EXPORTED with a signature that advertises no
+ * such precondition. A root-level path now scopes to `'./'`.
+ *
+ * Only the TRAILING SLASH is this seam's own, and it stays here because it is
+ * this seam's convention: it is what keeps a real scope from ever colliding
+ * with the `unscoped` sentinel (see {@link UNSCOPED}).
  */
 export function issueScope(paths: readonly string[]): string {
   const first = paths[0];
   if (first === undefined) return UNSCOPED;
-  return `${first.slice(0, first.lastIndexOf('/'))}/`;
+  return `${scopeOfPath(first)}/`;
 }
 
 /**
@@ -240,10 +253,7 @@ export function toClumpableIssues(
   issues: readonly IntakeIssue[],
   options: IntakeAdapterOptions = {}
 ): ClumpableItem[] {
-  const seen = new Map<number, number>();
-  return issues.map((issue) => {
-    const ordinal = seen.get(issue.number) ?? 0;
-    seen.set(issue.number, ordinal + 1);
+  return withOrdinals(issues, (issue) => String(issue.number)).map(({ item: issue, ordinal }) => {
     const paths = mentionedPaths(`${issue.title}\n${issue.body ?? ''}`, options);
     const kind = issueKind(issue.labels, options);
     return {

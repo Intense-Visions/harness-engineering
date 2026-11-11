@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/src/fleet/clumping'
-sourceHash: '70fe56be0f0a0429b49dfe0e1bc5e724aca6b7e28e1b25af9f6cc85190b86eec'
+sourceHash: '6b031465bf5149f1fca263146474f03b260eefd0037c2f451bc992dd07f6dc6e'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -17,6 +17,10 @@ members:
     'form.ts',
     'index.ts',
     'laws.test.ts',
+    'ordinals.test.ts',
+    'ordinals.ts',
+    'scope.test.ts',
+    'scope.ts',
     'types.ts',
     'view.test.ts',
     'view.ts',
@@ -50,6 +54,7 @@ export FloorVerdict
 export FlooredItem
 export FlooredItemView
 export Grade
+export Numbered
 export PlannableClump
 export PlannableMember
 export PostDropBuild
@@ -61,8 +66,10 @@ export reportIgnoredClumpingBlock
 export resolveClumpPolicy
 export resolveFloor
 export resolveSeamClumpPolicy
+export scopeOfPath
 export settleClumpVerdict
 export toClumpView
+export withOrdinals
 ```
 
 ## Dependency Slice
@@ -73,6 +80,8 @@ import { ClumpingConfig, ClumpingConfigSchema, clumpingFromConfig, reportIgnored
 import { ClumpMemberOutcome, checkVerdictPartition, planClumpPR, settleClumpVerdict } from './dispatch'
 import { DEFAULT_CLUMP_POLICY, resolveClumpPolicy, resolveFloor } from './floor'
 import { buildClump, formClumps } from './form'
+import { withOrdinals } from './ordinals'
+import { scopeOfPath } from './scope'
 import { Clump, ClumpCounts, ClumpPolicy, ClumpResult, ClumpView, ClumpableItem, FloorContext, FloorVerdict, FlooredItem, Grade } from './types'
 import { toClumpView } from './view'
 import { createHash } from 'node:crypto'

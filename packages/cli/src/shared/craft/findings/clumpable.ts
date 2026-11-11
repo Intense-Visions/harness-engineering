@@ -25,6 +25,8 @@ import {
   formClumps,
   reportIgnoredClumpingBlock,
   resolveSeamClumpPolicy,
+  scopeOfPath,
+  withOrdinals,
   toClumpView,
   type ClumpPolicy,
   type ClumpResult,
@@ -129,19 +131,6 @@ export function craftPath(finding: CraftClumpableFinding, projectRoot: string): 
 }
 
 /**
- * The directory the finding lives in.
- *
- * Split on `/` explicitly rather than `path.dirname`: this is handed the POSIX
- * path {@link craftPath} produced, and `path.dirname` on win32 would
- * additionally split on `\`, so the same finding would produce a different
- * scope per platform and the emitted clump ids would differ between CI legs.
- */
-export function craftScope(file: string): string {
-  const cut = file.lastIndexOf('/');
-  return cut === -1 ? '.' : file.slice(0, cut);
-}
-
-/**
  * Normalize one run's findings into the seam-neutral candidates core reads.
  *
  * Taken as a batch, not one at a time, because `ClumpableItem.id` MUST be
@@ -156,17 +145,17 @@ export function toClumpableItems(
   findings: readonly CraftClumpableFinding[],
   projectRoot: string
 ): ClumpableItem[] {
-  const seen = new Map<string, number>();
-  return findings.map((finding) => {
-    // The relative path, NOT `target.file`. It feeds the member `id`, the
-    // `scope` and the `conflictKeys` — every input the clump id is hashed from.
+  // The relative path, NOT `target.file`. It feeds the member `id`, the `scope`
+  // and the `conflictKeys` — every input the clump id is hashed from.
+  const staged = findings.map((finding) => {
     const file = craftPath(finding, projectRoot);
-    const stem = `${finding.code}:${file}:${finding.target.line ?? '-'}`;
-    const ordinal = seen.get(stem) ?? 0;
-    seen.set(stem, ordinal + 1);
+    return { finding, file, stem: `${finding.code}:${file}:${finding.target.line ?? '-'}` };
+  });
+  return withOrdinals(staged, (entry) => entry.stem).map(({ item, ordinal }) => {
+    const { finding, file, stem } = item;
     return {
       id: `${stem}#${ordinal}`,
-      scope: craftScope(file),
+      scope: scopeOfPath(file),
       kind: craftKind(finding.code),
       grade: {
         kind: 'axes',
