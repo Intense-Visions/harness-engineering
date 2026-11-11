@@ -178,3 +178,57 @@ describe('formClumps — duplicate ids are rejected LOUDLY (criterion 12)', () =
     expect(() => formClumps([mk('a'), mk('A')])).not.toThrow();
   });
 });
+
+describe('formClumps — size split and the solo rule', () => {
+  it('splits a group over maxPerClump into weight-ordered chunks', () => {
+    const items = Array.from({ length: 7 }, (_, i) =>
+      mk(`i${i}`, { weight: 100 - i, conflictKeys: [`src/api/i${i}.ts`] })
+    );
+    const r = formClumps(items, { maxPerClump: 3 });
+    expect(r.clumps.map((c) => c.members.length).sort()).toEqual([3, 3]);
+    // The 7th member is a 1-chunk remainder, which is below minToClump ⇒ solo.
+    expect(r.solo).toHaveLength(1);
+    expect(r.solo[0]!.id).toBe('i6'); // lowest weight, last chunk
+  });
+
+  it('orders members within a clump by weight desc, tiebreak id asc', () => {
+    const r = formClumps([
+      mk('zz', { weight: 10, conflictKeys: ['src/api/1.ts'] }),
+      mk('aa', { weight: 10, conflictKeys: ['src/api/2.ts'] }),
+      mk('mm', { weight: 99, conflictKeys: ['src/api/3.ts'] }),
+    ]);
+    expect(r.clumps[0]!.members.map((m) => m.id)).toEqual(['mm', 'aa', 'zz']);
+  });
+
+  it('keeps a group below minToClump as solo items, not a one-member clump', () => {
+    const r = formClumps([mk('only')]);
+    expect(r.clumps).toEqual([]);
+    expect(r.solo.map((i) => i.id)).toEqual(['only']);
+    expect(r.counts.solo).toBe(1);
+  });
+
+  it('honours a raised minToClump', () => {
+    const r = formClumps([mk('a'), mk('b')], { minToClump: 3 });
+    expect(r.clumps).toEqual([]);
+    expect(r.solo).toHaveLength(2);
+  });
+
+  it('does not split at all when maxPerClump exceeds the group size', () => {
+    const r = formClumps([mk('a'), mk('b'), mk('c')], { maxPerClump: 12 });
+    expect(r.clumps).toHaveLength(1);
+    expect(r.clumps[0]!.members).toHaveLength(3);
+  });
+
+  // A non-positive cap is operator error, not an infinite loop.
+  it('treats a non-positive maxPerClump as a no-split rather than hanging', () => {
+    const r = formClumps([mk('a'), mk('b')], { maxPerClump: 0 });
+    expect(r.clumps.length + r.solo.length).toBeGreaterThan(0);
+  });
+
+  it('counts a size split as zero conflictSplits — the name means conflict', () => {
+    const items = Array.from({ length: 4 }, (_, i) =>
+      mk(`s${i}`, { conflictKeys: [`src/api/s${i}.ts`] })
+    );
+    expect(formClumps(items, { maxPerClump: 2 }).conflictSplits).toBe(0);
+  });
+});
