@@ -40,7 +40,7 @@ import type {
   TestFramework,
   ExtractedTest,
 } from './findings/schema.js';
-import { clumpCraftFindings } from '../shared/craft/findings/clumpable.js';
+import { craftClumpView } from '../shared/craft/findings/clumpable.js';
 
 export interface TestCraftInput {
   path: string;
@@ -174,7 +174,7 @@ export async function runTestCraft(input: TestCraftInput): Promise<TestCraftOutp
 
   const output: TestCraftOutput = {
     findings,
-    clumps: clumpCraftFindings(findings, projectRoot),
+    clumps: craftClumpView(findings, projectRoot),
     summary: buildSummary({ provider, rubrics, files, extraction, startedAt, critiqueErrors }),
   };
 
@@ -295,7 +295,7 @@ export async function finalizeTestCraft(input: FinalizeTestCraftInput): Promise<
 
   return {
     findings,
-    clumps: clumpCraftFindings(findings, projectRoot),
+    clumps: craftClumpView(findings, projectRoot),
     summary: buildFinalizeSummary(state.meta, input.runId, input.responses.length, startedAt),
   };
 }

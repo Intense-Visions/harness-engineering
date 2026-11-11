@@ -26,6 +26,7 @@ export {
 } from './config';
 export type { ClumpingConfig, ClumpSeam } from './config';
 export { formClumps } from './form';
+export { toClumpView } from './view';
 export { planClumpPR, settleClumpVerdict, checkVerdictPartition } from './dispatch';
 export type {
   Clump,
@@ -35,7 +36,11 @@ export type {
   ClumpableItem,
   FloorContext,
   FloorVerdict,
+  ClumpMemberView,
+  ClumpUnitView,
+  ClumpView,
   FlooredItem,
+  FlooredItemView,
   Grade,
 } from './types';
 export type {
@@ -46,5 +51,7 @@ export type {
   ClumpPlanOptions,
   ClumpVerdict,
   ClumpVerdictOptions,
+  PlannableClump,
+  PlannableMember,
   PostDropBuild,
 } from './dispatch';

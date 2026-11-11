@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/code-craft/findings'
-sourceHash: '6539b220ab8e2cd08304cbf01276714290a8f01636318365d1c63b19c0e90092'
+sourceHash: '79bc50f14fb60654b329a087f870cc608b185ebc517cf0e28e455b2c0558ee66'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -20,5 +20,5 @@ export Tier
 
 ```
 import { Confidence, Impact, Tier } from '../../shared/craft/findings/axes.js'
-import { ClumpResult } from '@harness-engineering/core'
+import { ClumpView } from '@harness-engineering/core'
 ```

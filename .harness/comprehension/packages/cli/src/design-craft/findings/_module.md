@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/design-craft/findings'
-sourceHash: '88d383bfc46ef8f6282e5c8af7e63f6e01669d8a39574a2d0bfa767e05bc0dd2'
+sourceHash: 'ab6c3dc00d285360ad10b78f482ad8f337bfdd72923044353cc70fc7c15eb838'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -22,5 +22,5 @@ export derivePriority
 ```
 import { ResponsiveGateResult } from '../../responsive/index.js'
 import { Confidence, Impact, Tier } from '../../shared/craft/findings/axes.js'
-import { ClumpResult } from '@harness-engineering/core'
+import { ClumpView } from '@harness-engineering/core'
 ```

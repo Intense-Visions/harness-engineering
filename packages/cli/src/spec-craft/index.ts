@@ -29,7 +29,7 @@ import {
   CRITIQUE_SYSTEM_PROMPT,
 } from './phases/critique.js';
 import type { SpecCraftOutput, SpecFinding } from './findings/schema.js';
-import { clumpCraftFindings } from '../shared/craft/findings/clumpable.js';
+import { craftClumpView } from '../shared/craft/findings/clumpable.js';
 
 export type SpecCraftMode = 'inline' | 'in-session';
 
@@ -152,7 +152,7 @@ export async function runSpecCraft(input: SpecCraftInput): Promise<SpecCraftOutp
   const totalCost = sumCosts(provider);
   return {
     findings,
-    clumps: clumpCraftFindings(findings, projectRoot),
+    clumps: craftClumpView(findings, projectRoot),
     summary: {
       phaseRun: ['critique'],
       mode: 'fast',
@@ -291,7 +291,7 @@ export async function finalizeSpecCraft(input: FinalizeSpecCraftInput): Promise<
 
   return {
     findings,
-    clumps: clumpCraftFindings(findings, projectRoot),
+    clumps: craftClumpView(findings, projectRoot),
     summary: {
       phaseRun: ['critique'],
       mode: 'fast',

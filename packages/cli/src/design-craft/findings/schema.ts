@@ -23,7 +23,7 @@
 // design-craft re-exports them for backward compatibility — every
 // historical import path keeps working. The interfaces below ALSO
 // reference these types directly, so we both import and re-export.
-import type { ClumpResult } from '@harness-engineering/core';
+import type { ClumpView } from '@harness-engineering/core';
 import type { Tier, Impact, Confidence } from '../../shared/craft/findings/axes.js';
 export type { Tier, Impact, Confidence };
 import type { ResponsiveGateResult } from '../../responsive/index.js';
@@ -256,7 +256,7 @@ export interface DesignCraftOutput {
    * (`CRAFT-C001` → `CRAFT`), never from `cite`, precisely because this family's
    * `cite` is `rubricOrPatternId` rather than `rubricId`.
    */
-  clumps: ClumpResult;
+  clumps: ClumpView;
   scores: BenchmarkScore[];
   summary: {
     phaseRun: Array<'critique' | 'polish' | 'benchmark'>;

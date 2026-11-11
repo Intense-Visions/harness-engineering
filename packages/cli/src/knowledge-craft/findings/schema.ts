@@ -7,7 +7,7 @@
  *   (Outputs → KnowledgeFinding).
  */
 
-import type { ClumpResult } from '@harness-engineering/core';
+import type { ClumpView } from '@harness-engineering/core';
 import type { Tier, Impact, Confidence } from '../../shared/craft/findings/axes.js';
 
 export type { Tier, Impact, Confidence };
@@ -54,5 +54,5 @@ export interface KnowledgeCraftOutput {
    * than N issues. Built by `shared/craft/findings/clumpable.ts` at the single
    * boundary a craft run owns: emission.
    */
-  clumps: ClumpResult;
+  clumps: ClumpView;
 }

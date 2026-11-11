@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/naming-craft/findings'
-sourceHash: 'd8b6f23d7d8189d910b587f33da880fe4ac8c0b51b1533a71b2596780b48b422'
+sourceHash: 'be4a74d3aa44694d57072a7a34a1837883a3b083a8dae63f8556c2138305d678'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -21,5 +21,5 @@ export derivePriority
 
 ```
 import { Confidence, Impact, Tier } from '../../shared/craft/findings/axes.js'
-import { ClumpResult } from '@harness-engineering/core'
+import { ClumpView } from '@harness-engineering/core'
 ```

@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/commands/fleet'
-sourceHash: '9c860390772fc1ef37176964716cc6f6379fbc2b165051bea91eb1c9d41ce30b'
+sourceHash: '8edc5e79a4b072ea450e0504c45a04da49afce295d7f09da985930eaed9d2b23'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -29,14 +29,14 @@ export createFleetCommand
 
 ```
 import { findConfigFile, resolveConfig } from '../../config/loader'
-import { CraftClumpableFinding, clumpCraftFindings } from '../../shared/craft/findings/clumpable'
+import { CraftClumpableFinding, clumpCraftFindings, craftClumpView } from '../../shared/craft/findings/clumpable'
 import { BUDGET_EXHAUSTED_EXIT_CODE, createBudgetCheckCommand, envelopeFromOptions, observedSpendFromSummary, runBudgetCheck } from './budget-check'
 import { CLUMP_FAILED_EXIT_CODE, NO_CLUMPS_INPUT_EXIT_CODE, VERDICT_PARTITION_BREACH_EXIT_CODE, createClumpDispatchCommand, describeMember, extractClumps, runClumpDispatch } from './clump-dispatch'
 import { BACKLOG_UNAVAILABLE_EXIT_CODE, CONSERVATION_BREACH_EXIT_CODE, buildGhArgs, checkConservation, createClumpIssuesCommand, policyFromOptions, readBacklog, runClumpIssues } from './clump-issues'
 import { DEFAULT_ISSUE_TYPE_LABELS, DEFAULT_TRACKER_PATH_PREFIXES, INTAKE_CLUMP_POLICY, IntakeClumpReport, IntakeIssue, UNSCOPED, clumpIssues, issueKind, issueScope, issueWeight, labelNames, mentionedPaths, toClumpableIssues } from './clumpable-issues'
 import './index'
 import { Summary, human, readSummary, refresh, resolvePaths } from '@harness-engineering/burn'
-import { Clump, ClumpCounts, ClumpMemberOutcome, ClumpPRPlan, ClumpPolicy, ClumpResult, ClumpVerdict, ClumpableItem, PostDropBuild, checkVerdictPartition, clumpingFromConfig, evaluateSpendEnvelope, formClumps, planClumpPR, reportIgnoredClumpingBlock, resolveFloor, resolveSeamClumpPolicy, settleClumpVerdict } from '@harness-engineering/core'
+import { ClumpCounts, ClumpMemberOutcome, ClumpPRPlan, ClumpPolicy, ClumpResult, ClumpVerdict, ClumpableItem, PlannableClump, PlannableMember, PostDropBuild, checkVerdictPartition, clumpingFromConfig, evaluateSpendEnvelope, formClumps, planClumpPR, reportIgnoredClumpingBlock, resolveFloor, resolveSeamClumpPolicy, settleClumpVerdict } from '@harness-engineering/core'
 import { pilotScore } from '@harness-engineering/intelligence'
 import { ObservedSpend, SpendEnvelope, SpendEnvelopeVerdict } from '@harness-engineering/types'
 import chalk from 'chalk'

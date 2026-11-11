@@ -12,6 +12,7 @@ import type { CraftFinding } from '../../../design-craft/findings/schema.js';
 import type { CodeFinding } from '../../../code-craft/findings/schema.js';
 import {
   clumpCraftFindings,
+  craftClumpView,
   craftClumpingConfig,
   craftKind,
   craftPath,
@@ -604,5 +605,116 @@ describe('the craft seam REPORTS the degrades it takes', () => {
     config(JSON.stringify({ version: 1, name: 'a', clumping: { maxPerClump: 2 } }));
     expect(craftClumpingConfig(dir)).toEqual({ maxPerClump: 2 });
     expect(stderr.join('')).toBe('');
+  });
+});
+
+/**
+ * THE PROPERTY: emitting the grouped view must not cost more than the grouping
+ * saves.
+ *
+ * The craft MCP tools serialize their whole result with
+ * `JSON.stringify(result, null, 2)`. `clumps` used to be a full `ClumpResult`,
+ * whose every `ClumpableItem` keeps the entire finding on `ref`; conservation
+ * puts every finding in EXACTLY one bucket, so every finding crossed the wire
+ * twice plus a wrapper. Measured on the spec's own worked example — a
+ * `runCodeCraft` over 4 peer files yielding 28 findings in 7 clumps of 4
+ * (`docs/changes/clumping/proposal.md`) — the response went
+ * 21,496 -> 63,930 bytes: 2.97x. A control whose thesis is "ceremony cost
+ * dominates" cannot triple the surface agents read.
+ *
+ * The bound below is a RATIO on a reconstruction of that example, not a byte
+ * count: byte counts drift with every field added to a finding, while the
+ * property "the grouped view is a small addition to the findings it groups"
+ * does not. 1.5x would have failed at 2.97x and passes at the measured 1.28x.
+ */
+describe('the emitted clump view does not re-serialize the findings', () => {
+  /** The worked example: 7 rubric families × 4 PEER files, all above the floor. */
+  function workedExample(): CraftClumpableFinding[] {
+    const files = [
+      'src/craft/index.ts',
+      'src/craft/discover.ts',
+      'src/craft/schema.ts',
+      'src/craft/catalog.ts',
+    ];
+    const axes: Array<
+      [
+        CraftClumpableFinding['tier'],
+        CraftClumpableFinding['impact'],
+        CraftClumpableFinding['confidence'],
+      ]
+    > = [
+      ['foundational', 'large', 'high'],
+      ['foundational', 'medium', 'high'],
+      ['foundational', 'small', 'high'],
+      ['polish', 'large', 'high'],
+      ['polish', 'medium', 'high'],
+      ['polish', 'medium', 'medium'],
+      ['polish', 'small', 'high'],
+    ];
+    return axes.flatMap(([tier, impact, confidence], i) =>
+      files.map((file, j) => ({
+        code: `CODE-R00${i + 1}`,
+        tier,
+        impact,
+        confidence,
+        target: { file, line: 10 + i * 7 + j },
+        // The bulk of a real finding is prose, and the prose is what was being
+        // sent twice. A fixture of bare codes would hide the whole defect.
+        message:
+          'The rubric fires on this unit: the declaration reads as one thing and does ' +
+          'another, and a reader has to run the body to find out which. Narrow the name to the ' +
+          'single effect the unit has, or split it so each half can be named honestly.',
+        cite: { rubricId: `r-0${i}`, source: 'docs/craft/code-rubrics.md' },
+      }))
+    ) as CraftClumpableFinding[];
+  }
+
+  it('reproduces the worked example: 28 findings over 4 peer files, 7 clumps of 4', () => {
+    // The fixture is only evidence if it is the example the ratio was measured
+    // on. A fixture that grouped differently would make the ratio below a
+    // number about some other input.
+    const result = clumpCraftFindings(workedExample(), '');
+    expect(workedExample()).toHaveLength(28);
+    expect(result.clumps).toHaveLength(7);
+    for (const clump of result.clumps) expect(clump.members).toHaveLength(4);
+  });
+
+  it('adds under 1.5x to the serialized response, where the full result added 2.97x', () => {
+    const findings = workedExample();
+    const bytes = (value: unknown): number => JSON.stringify(value, null, 2).length;
+    const baseline = bytes({ findings });
+    const withView = bytes({ findings, clumps: craftClumpView(findings, '') });
+    const withResult = bytes({ findings, clumps: clumpCraftFindings(findings, '') });
+    // POSITIVE CONTROL in the same assertion: the shape this replaced is still
+    // measurable and still over the bound, so a bound nothing can fail is not
+    // what is being asserted here.
+    expect(withResult / baseline).toBeGreaterThan(2.5);
+    expect(withView / baseline).toBeLessThan(1.5);
+  });
+
+  it('carries the member ids — the findings stay locatable from the view', () => {
+    const findings = workedExample();
+    const view = craftClumpView(findings, '');
+    const wire = JSON.stringify(view);
+    expect(wire).not.toContain('"ref"');
+    // Every member id names the code, the file and the line of its finding, so
+    // nothing had to be duplicated for the view to stay useful.
+    for (const clump of view.clumps) {
+      for (const member of clump.members) {
+        expect(member.id).toMatch(/^CODE-R00\d:src\/craft\/[a-z]+\.ts:\d+#0$/);
+      }
+    }
+  });
+
+  it('clumpCraftFindings still carries `ref` for IN-PROCESS callers', () => {
+    // The view is for the wire; the result is for callers that hold the
+    // findings. Dropping `ref` everywhere would have been a different fix.
+    const findings = workedExample();
+    const result = clumpCraftFindings(findings, '');
+    expect(result.clumps[0]!.members[0]!.ref).toBe(
+      findings.find(
+        (f) => `${f.code}:${f.target.file}:${f.target.line}#0` === result.clumps[0]!.members[0]!.id
+      )
+    );
   });
 });

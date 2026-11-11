@@ -18,8 +18,6 @@
 // Pure — no fs, no network, no clock, no git. It plans and it settles; running
 // the plan belongs to the caller.
 
-import type { Clump, ClumpableItem } from './types';
-
 /** How a clump member's own commit is described, so the trail stays granular. */
 export interface ClumpCommit {
   /** The member this commit belongs to. One commit per member, no more, no fewer. */
@@ -52,6 +50,29 @@ export interface ClumpPRPlan {
   commits: readonly ClumpCommit[];
 }
 
+/**
+ * What `planClumpPR` actually reads off a member.
+ *
+ * Declared rather than taking a whole `ClumpableItem`, because the thing a lane
+ * hands in is usually a SERIALIZED clump set (`ClumpView`), whose members carry
+ * an id and nothing else. Typing the parameter as the full item would have been
+ * a claim the input cannot meet — and it would have been enforced nowhere,
+ * since the lane's input arrives as JSON through a cast.
+ */
+export interface PlannableMember {
+  id: string;
+  /** The native record, when the caller still has one. Absent on the wire. */
+  ref?: unknown;
+}
+
+/** What `planClumpPR` actually reads off a clump. Both `Clump` and `ClumpUnitView` satisfy it. */
+export interface PlannableClump {
+  id: string;
+  scope: string;
+  kind: string;
+  members: readonly PlannableMember[];
+}
+
 /** What a caller knows about a clump that core cannot derive. */
 export interface ClumpPlanOptions {
   /** Conventional-commit type for the title. Default `fix`. */
@@ -66,7 +87,7 @@ export interface ClumpPlanOptions {
    * ITEM, never of the index, so a reordered input cannot change what a commit
    * says about a member.
    */
-  describe?: (item: ClumpableItem) => { subject: string; citation: string };
+  describe?: (item: PlannableMember) => { subject: string; citation: string };
 }
 
 /** A character class git refs tolerate; everything else collapses to `-`. */
@@ -92,7 +113,7 @@ function slug(value: string): string {
  * fabricated-clump failure the formation layer already refuses to produce, and
  * accepting one here would reintroduce it one layer down.
  */
-export function planClumpPR(clump: Clump, options: ClumpPlanOptions = {}): ClumpPRPlan {
+export function planClumpPR(clump: PlannableClump, options: ClumpPlanOptions = {}): ClumpPRPlan {
   if (clump.members.length === 0) {
     throw new Error(
       `planClumpPR: clump ${clump.id} has no members; a clump is a work unit, and an empty PR is ceremony with no payload`
@@ -101,7 +122,7 @@ export function planClumpPR(clump: Clump, options: ClumpPlanOptions = {}): Clump
   const commitType = options.commitType ?? 'fix';
   const branchPrefix = options.branchPrefix ?? 'clump';
   const describe =
-    options.describe ?? ((item: ClumpableItem) => ({ subject: item.id, citation: item.id }));
+    options.describe ?? ((item: PlannableMember) => ({ subject: item.id, citation: item.id }));
 
   const commits: ClumpCommit[] = clump.members.map((member) => {
     const { subject, citation } = describe(member);

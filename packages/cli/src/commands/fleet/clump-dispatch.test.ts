@@ -10,7 +10,7 @@ import { mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { formClumps, type ClumpableItem } from '@harness-engineering/core';
+import { formClumps, type ClumpableItem, type PlannableMember } from '@harness-engineering/core';
 import { describe, expect, it } from 'vitest';
 
 import { clumpIssues, type IntakeIssue } from './clumpable-issues';
@@ -24,6 +24,7 @@ import {
 } from './clump-dispatch';
 import {
   clumpCraftFindings,
+  craftClumpView,
   type CraftClumpableFinding,
 } from '../../shared/craft/findings/clumpable';
 
@@ -51,7 +52,16 @@ function capture(fn: () => number): { code: number; out: string; err: string } {
   }
 }
 
-/** A real craft run's output shape: findings PLUS the grouped view Phase 3 wired. */
+/**
+ * A real craft run's output shape: findings PLUS the grouped view Phase 3 wired.
+ *
+ * `craftClumpView`, NOT `clumpCraftFindings` — the view is what the eleven
+ * families actually put on `output.clumps` and therefore what a lane actually
+ * reads off disk. Building the fixture from the in-process `ClumpResult` would
+ * have fed these tests a `ref` production never serializes, so every
+ * `describeMember` assertion below would have passed on a shape no lane ever
+ * sees.
+ */
 function craftRunOutput(n: number): { findings: CraftClumpableFinding[]; clumps: unknown } {
   const findings: CraftClumpableFinding[] = Array.from({ length: n }, (_, i) => ({
     code: 'CODE-R004',
@@ -60,7 +70,7 @@ function craftRunOutput(n: number): { findings: CraftClumpableFinding[]; clumps:
     confidence: 'high',
     target: { file: `packages/cli/src/commands/a${i}.ts`, line: 10 + i },
   }));
-  return { findings, clumps: clumpCraftFindings(findings, '') };
+  return { findings, clumps: craftClumpView(findings, '') };
 }
 
 describe('extractClumps — what a lane may hand in', () => {
@@ -69,8 +79,10 @@ describe('extractClumps — what a lane may hand in', () => {
     expect('gap' in craft, JSON.stringify(craft)).toBe(false);
     expect((craft as readonly unknown[]).length).toBe(1);
 
-    const bare = clumpCraftFindings(craftRunOutput(4).findings, '');
+    const bare = craftClumpView(craftRunOutput(4).findings, '');
     expect(extractClumps(bare)).toHaveLength(1);
+    // …and the IN-PROCESS `ClumpResult`, which still carries `ref`, too.
+    expect(extractClumps(clumpCraftFindings(craftRunOutput(4).findings, ''))).toHaveLength(1);
 
     const issues: IntakeIssue[] = [1, 2, 3].map((n) => ({
       number: n,
@@ -94,7 +106,7 @@ describe('extractClumps — what a lane may hand in', () => {
   it('distinguishes a genuinely empty clump set from a missing one', () => {
     // The positive control for the rejection above: a run that legitimately
     // grouped nothing is an empty ARRAY, never a gap.
-    const empty = clumpCraftFindings([], '');
+    const empty = craftClumpView([], '');
     const got = extractClumps({ findings: [], clumps: empty });
     expect('gap' in (got as object)).toBe(false);
     expect(got).toHaveLength(0);
@@ -103,41 +115,26 @@ describe('extractClumps — what a lane may hand in', () => {
 
 describe('describeMember — the citation in the PR body', () => {
   it('names the issue at intake and the rubric cite at creation, and degrades to the id', () => {
-    expect(
-      describeMember({
-        id: 'x',
-        scope: 's',
-        kind: 'k',
-        grade: { kind: 'ungraded' },
-        weight: 0,
-        conflictKeys: [],
-        ref: { number: 42, title: 'the title' },
-      })
-    ).toEqual({ subject: 'the title', citation: '#42 — the title' });
+    expect(describeMember({ id: 'x', ref: { number: 42, title: 'the title' } })).toEqual({
+      subject: 'the title',
+      citation: '#42 — the title',
+    });
 
     expect(
-      describeMember({
-        id: 'x',
-        scope: 's',
-        kind: 'k',
-        grade: { kind: 'ungraded' },
-        weight: 0,
-        conflictKeys: [],
-        ref: { code: 'CODE-R004', target: { file: 'a/b.ts', line: 7 } },
-      })
+      describeMember({ id: 'x', ref: { code: 'CODE-R004', target: { file: 'a/b.ts', line: 7 } } })
     ).toEqual({ subject: 'CODE-R004 at a/b.ts:7', citation: 'CODE-R004 — a/b.ts:7' });
 
     // An unrecognized ref falls back to the id; it never fabricates a citation.
-    const bare: ClumpableItem = {
-      id: 'the-id',
-      scope: 's',
-      kind: 'k',
-      grade: { kind: 'ungraded' },
-      weight: 0,
-      conflictKeys: [],
-      ref: { something: 'else' },
-    };
+    const bare: PlannableMember = { id: 'the-id', ref: { something: 'else' } };
     expect(describeMember(bare)).toEqual({ subject: 'the-id', citation: 'the-id' });
+
+    // NO `ref` at all — the common case once a craft run serializes the compact
+    // view. The craft id carries the code, the file and the line, so the
+    // citation still identifies the finding rather than naming an opaque token.
+    expect(describeMember({ id: 'CODE-R004:a/b.ts:7#0' })).toEqual({
+      subject: 'CODE-R004:a/b.ts:7#0',
+      citation: 'CODE-R004:a/b.ts:7#0',
+    });
   });
 });
 
@@ -150,7 +147,7 @@ describe('runClumpDispatch — DISPATCH: one PR plan per clump, one commit per m
       plans: { commits: unknown[]; branch: string; title: string }[];
     };
     // The PROPERTY: one plan per clump, one commit per member, one branch each.
-    const emitted = clumpCraftFindings(run.findings, '');
+    const emitted = craftClumpView(run.findings, '');
     expect(plans).toHaveLength(emitted.clumps.length);
     for (const [i, plan] of plans.entries()) {
       expect(plan.commits).toHaveLength(emitted.clumps[i]!.members.length);

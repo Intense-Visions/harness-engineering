@@ -41,3 +41,4 @@ security/*
 !security/timeline.json
 state.events.jsonl
 state.snapshot.json
+cache/

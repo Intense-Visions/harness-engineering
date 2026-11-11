@@ -25,8 +25,10 @@ import {
   formClumps,
   reportIgnoredClumpingBlock,
   resolveSeamClumpPolicy,
+  toClumpView,
   type ClumpPolicy,
   type ClumpResult,
+  type ClumpView,
   type ClumpableItem,
   type ClumpingConfig,
 } from '@harness-engineering/core';
@@ -262,6 +264,32 @@ export function craftClumpingConfig(projectRoot: string): ClumpingConfig | undef
     return undefined;
   }
   return clumpingFromConfig(parsed);
+}
+
+/**
+ * The grouped view a craft run EMITS, as distinct from the one it computes.
+ *
+ * This is what the eleven families put on `output.clumps`, and the distinction
+ * is measured rather than stylistic. The craft MCP tools serialize their whole
+ * result with `JSON.stringify(result, null, 2)`, and `ClumpableItem.ref` holds
+ * the ENTIRE finding; conservation puts every finding in exactly one bucket, so
+ * every finding crossed the wire TWICE plus a wrapper. On the spec's own worked
+ * example — 28 findings over 4 peer files, 7 clumps of 4
+ * (`docs/changes/clumping/proposal.md`) — the response measured
+ * 21,496 -> 63,930 bytes, 2.97x. With the view: 27,597 bytes, 1.28x.
+ *
+ * A control whose thesis is "ceremony cost dominates" must not triple the
+ * surface agents read. Nothing is lost: a craft member id is
+ * `code:path:line#ordinal`, which locates the finding in the sibling `findings`
+ * array exactly. {@link clumpCraftFindings} still returns the full
+ * `ClumpResult` for IN-PROCESS callers that want `ref`.
+ */
+export function craftClumpView(
+  findings: readonly CraftClumpableFinding[],
+  projectRoot: string,
+  policy?: Partial<ClumpPolicy>
+): ClumpView {
+  return toClumpView(clumpCraftFindings(findings, projectRoot, policy));
 }
 
 /** The craft seam's policy. No seam baseline — craft runs on the primitive's defaults. */

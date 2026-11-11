@@ -141,3 +141,58 @@ export interface ClumpResult {
   conflictSplits: number;
   counts: ClumpCounts;
 }
+
+/**
+ * A clump member as it crosses a wire: the id, and nothing else.
+ *
+ * MEASURED, not assumed. The craft seam emits its `ClumpResult` inside the
+ * object the craft MCP tools serialize whole (`JSON.stringify(result, null, 2)`),
+ * and `ref` carries the ENTIRE finding. Conservation puts every finding in
+ * exactly one bucket, so every finding was serialized twice — once under
+ * `findings`, once under `clumps` — plus the item wrapper around it. On the
+ * spec's own worked example (28 findings over 4 peer files, 7 clumps of 4) the
+ * response went 21,496 -> 63,930 bytes, 2.97x.
+ *
+ * A control whose thesis is "ceremony cost dominates" cannot add 3x to the
+ * surface agents read. The id is enough: at the craft seam it is
+ * `code:path:line#ordinal`, which locates the finding in the sibling `findings`
+ * array exactly, and at the intake seam it is `issue-<number>#ordinal`.
+ */
+export interface ClumpMemberView {
+  id: string;
+}
+
+/** One emitted work unit, without its members' native records. */
+export interface ClumpUnitView {
+  id: string;
+  scope: string;
+  kind: string;
+  weight: number;
+  conflictKeys: readonly string[];
+  members: readonly ClumpMemberView[];
+}
+
+/** A shed sub-floor item on the wire: which item, what to do, and why. */
+export interface FlooredItemView {
+  id: string;
+  resolution: 'act' | 'file';
+  reason: string;
+}
+
+/**
+ * The SERIALIZED form of a {@link ClumpResult}.
+ *
+ * Same five buckets, same conservation law, same counts — `ref` is the only
+ * thing missing, and the three flat buckets collapse to id arrays because an
+ * item with no `ref` is its id. Callers that need the native record keep using
+ * `ClumpResult` IN-PROCESS; this is what goes out of the process.
+ */
+export interface ClumpView {
+  clumps: readonly ClumpUnitView[];
+  floored: readonly FlooredItemView[];
+  overCap: readonly string[];
+  ungraded: readonly string[];
+  solo: readonly string[];
+  conflictSplits: number;
+  counts: ClumpCounts;
+}

@@ -37,11 +37,11 @@ import {
   checkVerdictPartition,
   planClumpPR,
   settleClumpVerdict,
-  type Clump,
   type ClumpMemberOutcome,
   type ClumpPRPlan,
   type ClumpVerdict,
-  type ClumpableItem,
+  type PlannableClump,
+  type PlannableMember,
   type PostDropBuild,
 } from '@harness-engineering/core';
 import chalk from 'chalk';
@@ -92,14 +92,14 @@ export interface ClumpInputGap {
  * perfectly ordinary and entirely different outcome.
  */
 /** The clump array nested one level under a `clumps` field, if there is one. */
-function nestedClumps(value: unknown): readonly Clump[] | null {
-  if (Array.isArray(value)) return value as readonly Clump[];
+function nestedClumps(value: unknown): readonly PlannableClump[] | null {
+  if (Array.isArray(value)) return value as readonly PlannableClump[];
   if (value === null || typeof value !== 'object') return null;
   const inner = (value as Record<string, unknown>).clumps;
-  return Array.isArray(inner) ? (inner as readonly Clump[]) : null;
+  return Array.isArray(inner) ? (inner as readonly PlannableClump[]) : null;
 }
 
-export function extractClumps(parsed: unknown): readonly Clump[] | ClumpInputGap {
+export function extractClumps(parsed: unknown): readonly PlannableClump[] | ClumpInputGap {
   if (parsed === null || typeof parsed !== 'object') {
     return { gap: 'input is not a JSON object' };
   }
@@ -127,11 +127,17 @@ export function extractClumps(parsed: unknown): readonly Clump[] | ClumpInputGap
  * Reads the native record the seam left on `ref` — core never inspects it, so
  * this is the only layer that can. Shape-sniffed rather than told which seam it
  * is, because the command's input is a JSON dump with no seam tag on it, and
- * inventing a `--seam` flag would let a lane mislabel its own output. An
- * unrecognized `ref` degrades to the item id, which is always present and
- * always identifying; it never fabricates a citation.
+ * inventing a `--seam` flag would let a lane mislabel its own output.
+ *
+ * `ref` is OPTIONAL and routinely absent, which is the honest typing rather
+ * than a defensive one: a craft run serializes the compact `ClumpView`, whose
+ * members carry an id and nothing else, so the no-`ref` path is the COMMON one
+ * for a lane dispatching from a craft dump. It degrades to the item id, which
+ * is always present and always identifying — and at the craft seam the id is
+ * `code:path:line#ordinal`, so the citation still names the code, the file and
+ * the line. It never fabricates one.
  */
-export function describeMember(item: ClumpableItem): { subject: string; citation: string } {
+export function describeMember(item: PlannableMember): { subject: string; citation: string } {
   const ref = item.ref;
   if (ref !== null && typeof ref === 'object') {
     const record = ref as Record<string, unknown>;

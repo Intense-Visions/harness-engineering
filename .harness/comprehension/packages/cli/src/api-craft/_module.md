@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/api-craft'
-sourceHash: '25ecdce1573e7ff5909d7bad61cbb75f9b8590a8d4965b5266c6f27aa1f3efe1'
+sourceHash: 'cf1d4bdc7042beee1900eccb45fc26fac4976ac27bfc832e5c4873197599e1b1'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -30,7 +30,7 @@ export runApiCraft
 
 ```
 import { sanitizePath } from '../mcp/utils/sanitize-path.js'
-import { clumpCraftFindings } from '../shared/craft/findings/clumpable.js'
+import { craftClumpView } from '../shared/craft/findings/clumpable.js'
 import { InSessionLlmProvider, LlmProvider, getProvider } from '../shared/craft/llm/provider.js'
 import { deleteRunState, loadRunState, pruneOldRuns, saveRunState } from '../shared/craft/runs/store.js'
 import { SEED_EXEMPLARS } from './catalog/exemplars/index.js'

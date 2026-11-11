@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/docs-craft'
-sourceHash: 'ed1637e4de77ff62a09bead1cc3b5744cd2208fa9b54a786aa00a385368cfa37'
+sourceHash: 'd657c9a86247fd6abb8bf32b29bc5e85e407695b2c835a399b6cf77cc408f9c3'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -29,7 +29,7 @@ export runDocsCraft
 
 ```
 import { sanitizePath } from '../mcp/utils/sanitize-path.js'
-import { clumpCraftFindings } from '../shared/craft/findings/clumpable.js'
+import { craftClumpView } from '../shared/craft/findings/clumpable.js'
 import { InSessionLlmProvider, LlmProvider, getProvider } from '../shared/craft/llm/provider.js'
 import { deleteRunState, loadRunStateOrThrow, pruneOldRuns, saveRunState } from '../shared/craft/runs/store.js'
 import { SEED_EXEMPLARS } from './catalog/exemplars/index.js'

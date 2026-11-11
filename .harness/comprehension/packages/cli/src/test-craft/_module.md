@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/test-craft'
-sourceHash: 'aedf6d0e00c4bda8b12a63e784a29d1b15fa2b1d513c790f6618c665dd1aa8f0'
+sourceHash: 'da483e7e12851026652aa48df86627cf9bef2d7715908afe8bec2cf44abaa0c5'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -33,7 +33,7 @@ export toTestVerdicts
 ```
 import { sanitizePath } from '../mcp/utils/sanitize-path.js'
 import { Tier } from '../shared/craft/findings/axes.js'
-import { clumpCraftFindings } from '../shared/craft/findings/clumpable.js'
+import { craftClumpView } from '../shared/craft/findings/clumpable.js'
 import { InSessionLlmProvider, LlmProvider, getProvider } from '../shared/craft/llm/provider.js'
 import { deleteRunState, loadRunState, pruneOldRuns, saveRunState } from '../shared/craft/runs/store.js'
 import { SEED_RUBRICS, TestRubric } from './catalog/rubrics/index.js'

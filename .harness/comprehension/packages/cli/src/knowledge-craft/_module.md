@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/knowledge-craft'
-sourceHash: 'ec8d6bab2f5c0afcc6dbca05ab168f114597d02279d9cdcda060342949cc5c12'
+sourceHash: 'a26fd470b6501fa41efc9a9e36b622706147886cb0d450f1772a4871ba699111'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -25,7 +25,7 @@ export runKnowledgeCraft
 
 ```
 import { sanitizePath } from '../mcp/utils/sanitize-path.js'
-import { clumpCraftFindings } from '../shared/craft/findings/clumpable.js'
+import { craftClumpView } from '../shared/craft/findings/clumpable.js'
 import { InSessionLlmProvider, LlmProvider, getProvider } from '../shared/craft/llm/provider.js'
 import { deleteRunState, loadRunStateOrThrow, pruneOldRuns, saveRunState } from '../shared/craft/runs/store.js'
 import { KnowledgeRubric, SEED_RUBRICS } from './catalog/rubrics/index.js'

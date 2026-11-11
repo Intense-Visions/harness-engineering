@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/cli-ergonomics-craft/findings'
-sourceHash: 'b8209c71ff546eaecf0ed4d506d3d7f6c0f26990cc1b3e93de2a52fccec3c0c4'
+sourceHash: '73658fca745cbec986d1dd783487038c8bc0653da3c26137666d2db4c2b7ae7e'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -21,5 +21,5 @@ export Tier
 ```
 import { Confidence, Impact, Tier } from '../../shared/craft/findings/axes.js'
 import { CommandKind } from '../catalog/rubrics/types.js'
-import { ClumpResult } from '@harness-engineering/core'
+import { ClumpView } from '@harness-engineering/core'
 ```

@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/naming-craft'
-sourceHash: 'e259b81cae521f200d79e1f76706053e3d4f4748a5688f4b54c090c5a71c1ede'
+sourceHash: 'aebfd04274755648bae8b08e9cf6532b0b72137162b5d19a03fbc6ee80d3799a'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -25,7 +25,7 @@ export runNamingCraft
 
 ```
 import { sanitizePath } from '../mcp/utils/sanitize-path.js'
-import { clumpCraftFindings } from '../shared/craft/findings/clumpable.js'
+import { craftClumpView } from '../shared/craft/findings/clumpable.js'
 import { deleteRunState, loadRunState, pruneOldRuns, saveRunState } from '../shared/craft/runs/store.js'
 import { NamingRubric, SEED_RUBRICS } from './catalog/rubrics/index.js'
 import { sampleConventions } from './extract/convention.js'

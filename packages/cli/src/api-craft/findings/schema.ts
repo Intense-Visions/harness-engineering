@@ -7,7 +7,7 @@
  * craft family's per-skill finding types.
  */
 
-import type { ClumpResult } from '@harness-engineering/core';
+import type { ClumpView } from '@harness-engineering/core';
 import type { Tier, Impact, Confidence } from '../../shared/craft/findings/axes.js';
 import type { ApiSurfaceKind } from '../catalog/rubrics/types.js';
 
@@ -56,5 +56,5 @@ export interface ApiCraftOutput {
    * than N issues. Built by `shared/craft/findings/clumpable.ts` at the single
    * boundary a craft run owns: emission.
    */
-  clumps: ClumpResult;
+  clumps: ClumpView;
 }
