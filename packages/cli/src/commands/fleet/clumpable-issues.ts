@@ -68,21 +68,46 @@ export const DEFAULT_ISSUE_TYPE_LABELS = [
 ] as const;
 
 /**
- * Path prefixes that are TRACKER BOOKKEEPING rather than work targets.
+ * Path prefixes that are NOT WORK TARGETS, in two measured classes.
  *
- * `conflictKeys` is documented as "what this item must edit". An issue does not
- * edit its own roadmap shard — the shard is the row that tracks it — so a shard
- * path in an issue body is the tracker talking about itself, not a signal from
- * the issue. Measured on this repo's live backlog (347 open issues, 2026-11-11):
- * 40 issues name a `docs/roadmap.d/` shard and NO other path, so without this
+ * `conflictKeys` is documented as "what this item must edit", and `scope` is
+ * the unit a triager holds in their head. A path that satisfies neither
+ * manufactures affinity between issues that have nothing to do with each other,
+ * and both classes below were found by RUNNING the axis over this repo's live
+ * backlog (347 open issues, 2026-11-11) rather than by reasoning about it.
+ *
+ * TRACKER BOOKKEEPING — the tracker talking about itself. An issue does not
+ * edit its own roadmap shard; the shard is the row that TRACKS it. Measured: 40
+ * issues name a `docs/roadmap.d/` shard and NO other path, so without the
  * filter all 40 fold into one bogus `docs/roadmap.d/` family — forty unrelated
- * roadmap features presented as one coherent work unit. With it they are
- * honestly `unscoped`.
+ * roadmap features presented as one coherent work unit.
+ *
+ * BUILD ARTIFACTS — a path from a pasted stack trace. Measured: `4 × bug
+ * dist/ [#2146, #2169, #2189, #2324]`, four entirely unrelated bugs (roadmap
+ * type labels, check-docs coverage, the dead-code detector, an entropy stub)
+ * grouped because each body pastes a trace through a tsup bundle chunk and
+ * `dist/chunk-*.js` is therefore the FIRST path each one names. Nobody edits a
+ * bundle chunk, and the damage is not only cosmetic: those chunk paths also
+ * became the `conflictKeys`, so D2's non-conflict precondition — the thing that
+ * is supposed to guarantee two members of a clump do not collide — was
+ * reasoning about build output. `dist/`, `node_modules/`, `coverage/` and
+ * `.turbo/` are the four generated trees this repo's traces run through.
+ * Filtered, #2189 scopes honestly to `packages/shared/src/schemas/` (the path
+ * its body actually names) and the other three become `unscoped`.
  *
  * A prefix list rather than a hardcoded constant so an adopter with a different
- * roadmap store location can say so.
+ * roadmap store or a different build directory can say so. NOT named
+ * `*_TRACKER_*` any more: it stopped being only about the tracker the moment
+ * the artifact class was added, and a name that describes half its contents is
+ * how the other half gets dropped on the next edit.
  */
-export const DEFAULT_TRACKER_PATH_PREFIXES = ['docs/roadmap.d/'] as const;
+export const DEFAULT_NON_TARGET_PATH_PREFIXES = [
+  'docs/roadmap.d/',
+  'dist/',
+  'node_modules/',
+  'coverage/',
+  '.turbo/',
+] as const;
 
 /**
  * A repository-relative path mentioned in text.
@@ -138,8 +163,8 @@ export interface IntakeIssue {
 export interface IntakeAdapterOptions {
   /** Type-label vocabulary. Default {@link DEFAULT_ISSUE_TYPE_LABELS}. */
   typeLabels?: readonly string[];
-  /** Bookkeeping path prefixes. Default {@link DEFAULT_TRACKER_PATH_PREFIXES}. */
-  trackerPathPrefixes?: readonly string[];
+  /** Non-target path prefixes. Default {@link DEFAULT_NON_TARGET_PATH_PREFIXES}. */
+  nonTargetPathPrefixes?: readonly string[];
 }
 
 /** Normalize `gh`'s label objects and bare label names to one list of names. */
@@ -154,9 +179,12 @@ export function labelNames(labels: readonly IssueLabel[] | undefined): string[] 
  *
  * De-duplication is load-bearing rather than tidiness: these become
  * `conflictKeys`, and a repeated path would be a repeated key.
+ *
+ * "With tracker bookkeeping removed" was the original wording and it is now
+ * {@link DEFAULT_NON_TARGET_PATH_PREFIXES}: bookkeeping AND build artifacts.
  */
 export function mentionedPaths(text: string, options: IntakeAdapterOptions = {}): string[] {
-  const prefixes = options.trackerPathPrefixes ?? DEFAULT_TRACKER_PATH_PREFIXES;
+  const prefixes = options.nonTargetPathPrefixes ?? DEFAULT_NON_TARGET_PATH_PREFIXES;
   const out: string[] = [];
   const seen = new Set<string>();
   for (const match of text.matchAll(PATH_PATTERN)) {

@@ -8,7 +8,7 @@ import type { ClumpableItem } from '@harness-engineering/core';
 
 import {
   DEFAULT_ISSUE_TYPE_LABELS,
-  DEFAULT_TRACKER_PATH_PREFIXES,
+  DEFAULT_NON_TARGET_PATH_PREFIXES,
   INTAKE_CLUMP_POLICY,
   UNSCOPED,
   clumpIssues,
@@ -66,13 +66,55 @@ describe('mentionedPaths', () => {
     // Positive control at the SAME scope: with the prefix list emptied, the very
     // same text yields the path, so the empty result above is the filter working
     // rather than the pattern failing to match.
-    expect(mentionedPaths(text, { trackerPathPrefixes: [] })).toEqual([
+    expect(mentionedPaths(text, { nonTargetPathPrefixes: [] })).toEqual([
       'docs/roadmap.d/capacity-shadow-pricing.md',
     ]);
   });
 
-  it('exposes the default tracker prefix list', () => {
-    expect([...DEFAULT_TRACKER_PATH_PREFIXES]).toEqual(['docs/roadmap.d/']);
+  it('drops BUILD ARTIFACTS — a pasted stack trace is not a work target', () => {
+    // Measured on the live backlog: `4 × bug dist/ [#2146, #2169, #2189, #2324]`,
+    // four unrelated bugs grouped because each body pastes a trace through a
+    // tsup bundle chunk, so `dist/chunk-*.js` was both the scope AND the
+    // conflictKeys — D2's non-conflict precondition reasoning about build output.
+    const trace =
+      'at run (dist/chunk-CSAHAM4B.js:12:9)\n' +
+      '  node_modules/vitest/dist/index.js:3\n' +
+      '  coverage/tmp/coverage-1.json, .turbo/cache/x.log\n' +
+      'the real target is packages/core/src/roadmap/sync.ts';
+    expect(mentionedPaths(trace)).toEqual(['packages/core/src/roadmap/sync.ts']);
+    // Positive control at the SAME scope: emptied, the same text yields all five,
+    // so the four absences above are the filter and not a pattern that missed.
+    expect(mentionedPaths(trace, { nonTargetPathPrefixes: [] })).toEqual([
+      'dist/chunk-CSAHAM4B.js',
+      'node_modules/vitest/dist/index.js',
+      'coverage/tmp/coverage-1.json',
+      '.turbo/cache/x.log',
+      'packages/core/src/roadmap/sync.ts',
+    ]);
+  });
+
+  it('exposes the default non-target prefix list — bookkeeping AND build artifacts', () => {
+    expect([...DEFAULT_NON_TARGET_PATH_PREFIXES]).toEqual([
+      'docs/roadmap.d/',
+      'dist/',
+      'node_modules/',
+      'coverage/',
+      '.turbo/',
+    ]);
+  });
+
+  it('four issues whose only path is a bundle chunk do NOT become one clump', () => {
+    // The end-to-end property, as the live backlog produced it: the four bodies
+    // below name no path but a `dist/` chunk each, and they are four DIFFERENT
+    // bugs. Pre-fix they formed `4 × bug dist/`.
+    const traced: IntakeIssue[] = [2146, 2169, 2189, 2324].map((number, i) => ({
+      number,
+      title: `unrelated bug ${i}`,
+      body: `stack: dist/chunk-AAAA${i}.js:1:1`,
+      labels: ['bug'],
+    }));
+    const { result } = clumpIssues(traced);
+    expect(result.clumps.filter((c) => c.scope === 'dist/')).toEqual([]);
   });
 });
 
