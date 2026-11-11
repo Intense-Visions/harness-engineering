@@ -518,13 +518,45 @@ over `docs/knowledge/`, this concept materializes on exactly the same terms as t
    `clumps ∪ floored ∪ overCap ∪ ungraded ∪ solo`. _(Goal 4)_
 7. Two runs of `formClumps` over the same input shall produce identical output, including clump
    ids and member order. _(Goal 1)_
-8. Each of the three seams shall have at least one **live** caller of `formClumps` reachable from
-   a real entry point — grep-verifiable; zero callers is a failed phase. _(Goals 2, 6)_
+8. Each seam that FORMS a clump shall have at least one **live** caller of `formClumps`
+   reachable from a real entry point — grep-verifiable; zero callers is a failed phase. Those
+   seams are the three `ClumpSeam` values (`config.ts`): **craft creation**
+   (`cli/src/shared/craft/findings/clumpable.ts`), **review creation**
+   (`core/src/review/output/clump-comments.ts`) and **intake**
+   (`cli/src/commands/fleet/clumpable-issues.ts`). _(Goals 2, 6)_
+
+   _Amended in the review round: this criterion said "each of the three seams", and the triple it
+   was satisfied at is not the triple Goal 2 and ADR 0135 D1 name._ D1's triple is creation /
+   intake / **execution**; `formClumps`'s three live callers are craft / review / intake —
+   creation counts twice, because findings become work at two different creation surfaces. The
+   **execution seam has zero `formClumps` callers and correctly so: it CONSUMES a clump rather
+   than forming one.** Its wiring evidence is therefore a different thing, and this is it: a
+   live, registered consumer with integration tests —
+   `harness fleet clump-dispatch` (`cli/src/commands/fleet/clump-dispatch.ts`), registered on the
+   `fleet` command group (`cli/src/commands/fleet/index.ts`) and pinned by
+   `clump-dispatch.test.ts`'s "WIRED" suite, which asserts both the registration and that the
+   command plans over real `formClumps` output rather than a hand-built fixture, plus
+   `agents/skills/tests/fleet-clump-lane-unit.test.ts`, which pins that all four members' prose
+   points at the callable in every platform copy. Counting the execution seam by `formClumps`
+   callers would have made the criterion unsatisfiable by construction, which is the shape that
+   gets a criterion quietly reinterpreted instead of amended.
+
 9. When `issue-fleet` reaches CONFIRM, it shall emit **exactly one** CONFIRM interaction, and that
    surface shall carry the clump table with per-clump member counts and every shed count.
    _(Goal 5)_
-10. When a fleet member dispatches a clump, it shall produce exactly one PR carrying one commit
-    per member. _(Goal 5)_
+10. When a fleet member dispatches a clump, `harness fleet clump-dispatch` shall produce exactly
+    one PR **PLAN** per clump — one branch, one title, one body citing every member, and
+    `plan.commits.length === clump.members.length` in member order — and shall reject a
+    member-less clump rather than plan an empty PR. _(Goal 5)_
+
+    _Amended in the review round: the criterion read as though a PR is produced, and no phase of
+    this spec opens one._ The limit was disclosed in three places in the prose (Phase 5's "What
+    this phase does NOT close", the one-PR-per-clump contract section, and the Risks table) while
+    the criterion itself still claimed the PR. What is proved is the PLAN: running it is the
+    lane's job, the lane is a SKILL.md, and claiming the PR would be the
+    emission-dressed-as-consumption move Phase 5 exists to stop repeating. The disclosure stands;
+    the criterion now says what is actually verified.
+
 11. If every input item falls below the floor, then the system shall emit zero clumps and shall
     not fabricate one. _(Goal 4)_
 12. If two input items share an `id`, then `formClumps` shall reject the input rather than collapse

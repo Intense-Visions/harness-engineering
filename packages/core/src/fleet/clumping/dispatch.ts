@@ -46,7 +46,7 @@ export interface ClumpPRPlan {
   title: string;
   /** Markdown body: one line per member, each with its citation. */
   body: string;
-  /** EXACTLY one entry per member, in member order (success criterion 10). */
+  /** EXACTLY one entry per member, in member order (success criterion 10 — proved of the PLAN). */
   commits: readonly ClumpCommit[];
 }
 

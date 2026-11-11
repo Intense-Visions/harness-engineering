@@ -1,5 +1,7 @@
 // The review creation seam, proved at the PIPELINE, not at the formatter
-// (docs/changes/clumping/proposal.md, Phase 3, success criterion 8).
+// (docs/changes/clumping/proposal.md, Phase 3, success criterion 8 — one of the
+// THREE `formClumps`-forming seams: craft creation, review creation, intake.
+// The execution seam forms nothing and is wired as a consumer instead).
 //
 // `clump-comments.test.ts` pins the formatter in isolation. This suite drives
 // the real `runReviewPipeline` with a stubbed FAN-OUT and asserts the comments

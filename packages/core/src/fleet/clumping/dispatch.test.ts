@@ -1,8 +1,10 @@
 // packages/core/src/fleet/clumping/dispatch.test.ts
 //
-// The execution seam's contract (Phase 5): one PR per clump with one commit per
-// member (success criterion 10), and ONE verdict per clump with a failing member
-// dropped by reverting its own commit (success criterion 14 / D10).
+// The execution seam's contract (Phase 5): one PR PLAN per clump with one commit
+// per member (success criterion 10 as amended — no phase of this spec opens a
+// PR, so the plan is what is proved and the lane runs it), and ONE verdict per
+// clump with a failing member dropped by reverting its own commit (success
+// criterion 14 / D10).
 //
 // Every law here is asserted as a PROPERTY first and only then as an encoding,
 // because an assertion on the encoding alone passes for the wrong reason the day
@@ -39,7 +41,7 @@ function realClump(ids: readonly string[]): Clump {
   return result.clumps[0]!;
 }
 
-describe('planClumpPR — the one-PR-per-clump contract (criterion 10)', () => {
+describe('planClumpPR — the one-PR-per-clump contract, as a PLAN (criterion 10)', () => {
   it('emits exactly one commit per member, in member order', () => {
     const clump = realClump(['a', 'b', 'c', 'd']);
     const plan = planClumpPR(clump);
