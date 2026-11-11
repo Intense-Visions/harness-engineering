@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/commands/agent'
-sourceHash: 'f60042e6bccb032d9c9a1c79ae319d43d05669a2170b1b2af0f53574a18782db'
+sourceHash: '7a4872c68fc1bc864f0bfaac9a884aff6827c23bab38faed436d3d3adfa28954'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent

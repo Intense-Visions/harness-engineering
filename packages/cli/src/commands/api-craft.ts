@@ -43,7 +43,14 @@ function buildInput(cwd: string, opts: ApiCraftCliOptions): ApiCraftInput {
   if (opts.routesDir !== undefined) input.routesDir = opts.routesDir;
   if (opts.specFile !== undefined) input.specFile = opts.specFile;
   if (opts.excludeDirs !== undefined) input.excludeDirs = opts.excludeDirs;
-  if (opts.maxFiles !== undefined) input.maxFiles = parseInt(opts.maxFiles, 10);
+  if (opts.maxFiles !== undefined) {
+    const maxFiles = parseInt(opts.maxFiles, 10);
+    // A NaN cap scopes the sweep to nothing and reads as a clean run (#1929).
+    if (Number.isNaN(maxFiles)) {
+      throw new Error(`--max-files must be a number, got "${opts.maxFiles}"`);
+    }
+    input.maxFiles = maxFiles;
+  }
   return input;
 }
 

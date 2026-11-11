@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/tests/state/event-sourcing'
-sourceHash: '15f25bd8bf9b3960de4f5601683e9821cd7fbeefaa8ed96332912a4cbd828bf5'
+sourceHash: 'a51aad871f694950a8649370432a1c037210d19b32e93a9aa698613a7c136083'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -10,6 +10,7 @@ members:
     'concurrency.test.ts',
     'events.test.ts',
     'lane-machine.test.ts',
+    'log-blob-race.test.ts',
     'log.test.ts',
     'migrate.test.ts',
     'replay-order.test.ts',

@@ -185,7 +185,15 @@ function spillIfNeeded(
   if (!fs.existsSync(blobPath)) {
     const tmp = `${blobPath}.${process.pid}.tmp`;
     fs.writeFileSync(tmp, json);
-    fs.renameSync(tmp, blobPath); // atomic; blob durable BEFORE the referencing line
+    try {
+      fs.renameSync(tmp, blobPath); // atomic; blob durable BEFORE the referencing line
+    } catch (err) {
+      // Lost a race with another writer spilling the same payload (Windows throws
+      // EPERM on a rename onto an existing file). The blob is content-addressed,
+      // so an existing target is identical by construction — drop our temp (#2218).
+      if (!fs.existsSync(blobPath)) throw err;
+      fs.rmSync(tmp, { force: true });
+    }
   }
   return { [BLOB_REF_KEY]: hash };
 }

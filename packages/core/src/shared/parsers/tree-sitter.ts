@@ -383,8 +383,24 @@ export class TreeSitterParser implements LanguageParser {
       );
     }
 
+    // A grammar that fails to load is the parser being unavailable, not the
+    // file being malformed — report it as such so graph builders fail closed
+    // instead of skipping every file in the language as a syntax error (#2299).
+    let parser: Parser;
     try {
-      const parser = await getParser(this.lang);
+      parser = await getParser(this.lang);
+    } catch (e) {
+      return Err(
+        createParseError(
+          'PARSER_UNAVAILABLE',
+          `tree-sitter ${this.lang} grammar not available: ${(e as Error).message}`,
+          { parser: this.lang, path },
+          ['Reinstall dependencies (e.g. `pnpm install`)']
+        )
+      );
+    }
+
+    try {
       const tree = parser.parse(contentResult.value);
       return Ok({
         type: 'Program',

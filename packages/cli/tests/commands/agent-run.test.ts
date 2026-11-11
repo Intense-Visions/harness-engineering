@@ -50,6 +50,7 @@ import { runAgentTask, createRunCommand } from '../../src/commands/agent/run';
 import { CLIError, ExitCode } from '../../src/utils/errors';
 import { loadPersona } from '../../src/persona/loader';
 import { runPersona } from '../../src/persona/runner';
+import { logger } from '../../src/output/logger';
 
 const mockedResolveConfig = vi.mocked(resolveConfig);
 const mockedRequestPeerReview = vi.mocked(requestPeerReview);
@@ -419,5 +420,31 @@ describe('action handler', () => {
 
     expect(mockExit).toHaveBeenCalledWith(0);
     expect(mockConsoleLog).toHaveBeenCalledWith(expect.stringContaining('artifact'));
+  });
+
+  it('rejects an unknown --trigger instead of running it as manual (#1917)', async () => {
+    vi.mocked(loadPersona).mockReturnValue({
+      ok: true,
+      value: { name: 'p', skills: [], triggers: ['manual'], steps: [] },
+    });
+    vi.mocked(runPersona).mockResolvedValue({ persona: 'p', status: 'pass', steps: [] });
+
+    const program = makeProgram();
+    await safeParseAsync(program, [
+      'node',
+      'test',
+      'agent',
+      'run',
+      '--persona',
+      'p',
+      '--trigger',
+      'on_push',
+    ]);
+
+    expect(mockExit).toHaveBeenCalledWith(ExitCode.ERROR);
+    expect(vi.mocked(logger.error)).toHaveBeenCalledWith(
+      expect.stringMatching(/^Unknown trigger: on_push\. Available: .*on_pr/)
+    );
+    expect(vi.mocked(runPersona)).not.toHaveBeenCalled();
   });
 });

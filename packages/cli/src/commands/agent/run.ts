@@ -86,7 +86,7 @@ const VALID_TRIGGERS = new Set([
 
 function resolveTrigger(triggerOpt: string): TriggerContext | 'auto' {
   if (triggerOpt === 'auto') return 'auto';
-  return VALID_TRIGGERS.has(triggerOpt) ? (triggerOpt as TriggerContext) : 'manual';
+  return triggerOpt as TriggerContext;
 }
 
 function createCommandExecutor(): CommandExecutor {
@@ -107,6 +107,12 @@ async function runPersonaMode(
   opts: { persona: string; trigger: string },
   quiet: boolean
 ): Promise<void> {
+  // Reject rather than silently run under a different trigger's steps (#1917).
+  if (!VALID_TRIGGERS.has(opts.trigger)) {
+    logger.error(`Unknown trigger: ${opts.trigger}. Available: ${[...VALID_TRIGGERS].join(', ')}`);
+    process.exit(ExitCode.ERROR);
+  }
+
   const personasDir = resolvePersonasDir();
   const filePath = path.join(personasDir, `${opts.persona}.yaml`);
   const personaResult = loadPersona(filePath);

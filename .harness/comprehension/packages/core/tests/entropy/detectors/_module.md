@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/tests/entropy/detectors'
-sourceHash: '27351ee909ecc29ea7f4d2e09b7584d135a188be60c8037fdf95b04ccb3d4df9'
+sourceHash: 'fbd0c76db77d055132625221931a5f3f699f9459d3d2609ebc4f4d4dab29fb98'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
