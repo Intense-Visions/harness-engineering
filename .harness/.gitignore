@@ -43,6 +43,8 @@ webhook-queue.sqlite-wal
 webhook-queue.sqlite-shm
 # Maintenance task run history (regenerated each tick)
 maintenance/
+# cache/: regenerated tool caches (OSV advisories, CI verdicts, pricing, insights)
+cache/
 # craft/: generated craft-run records
 craft/
 # spill/: generated overflow/spill artifacts

@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/tests/ci'
-sourceHash: 'f4993eb705b1a4b616995a613f94d7f5c18f6bbb23306c6f95a44297cf47c8d1'
+sourceHash: '24ab9d968a2d8e63c4e97a3bbf3cefb8f28a1b6bb7a70daac6df06d80357d4f4'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -10,6 +10,7 @@ members:
     'baseline-diff-guard.test.ts',
     'check.test.ts',
     'diff-scope-guard.test.ts',
+    'harness-cache-ignore.test.ts',
     'harness-metrics-ignore.test.ts',
     'init.test.ts',
     'notify.test.ts',
