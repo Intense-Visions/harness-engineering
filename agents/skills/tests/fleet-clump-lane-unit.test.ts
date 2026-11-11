@@ -213,13 +213,22 @@ describe('the spine states the contract once for the family', () => {
     expect(body).toMatch(/reverting its own commit/i);
   });
 
-  it('the spine names the execution callable, so the contract is checkable code', () => {
+  it('the CONTRACT paragraph itself names the execution callable', () => {
     // The sibling of the `budget-check` precedent: a contract the spine states
     // and nothing can run is a contract nothing is held to.
+    //
+    // Scoped to the contract PARAGRAPH, not to the section. A section-wide
+    // `toContain` passed a mutant that stripped the callable from this very
+    // paragraph, because the "Current state" paragraph further down happens to
+    // name it too — a second mention elsewhere is not the same property, and a
+    // check two different sentences can satisfy cannot tell which one is gone.
     const body = section(
       readFileSync(FAMILY_MD, 'utf8'),
       '## The clumping floor (work-unit granularity)'
     );
-    expect(body).toContain('harness fleet clump-dispatch');
+    const contract = /\*\*The one-PR-per-clump contract\.\*\*[\s\S]*?\n\n/.exec(body);
+    expect(contract, 'the one-PR-per-clump contract paragraph is missing').not.toBeNull();
+    expect(contract![0]).toContain('harness fleet clump-dispatch');
+    expect(contract![0]).toMatch(/--verdict/);
   });
 });
