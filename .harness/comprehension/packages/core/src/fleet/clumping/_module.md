@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/src/fleet/clumping'
-sourceHash: '6b031465bf5149f1fca263146474f03b260eefd0037c2f451bc992dd07f6dc6e'
+sourceHash: '57f249936738ee38ce78fae324f69afc12758fbdadc690e4e962c6c64092fefe'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -39,6 +39,7 @@ export ClumpMemberView
 export ClumpPRPlan
 export ClumpPlanOptions
 export ClumpPolicy
+export ClumpPolicyOverlay
 export ClumpResult
 export ClumpSeam
 export ClumpUnitView
@@ -61,6 +62,7 @@ export PostDropBuild
 export checkVerdictPartition
 export clumpingFromConfig
 export formClumps
+export overlayClumpPolicy
 export planClumpPR
 export reportIgnoredClumpingBlock
 export resolveClumpPolicy
@@ -78,7 +80,7 @@ export withOrdinals
 import { Confidence, Impact, Tier } from '../../craft/axes'
 import { ClumpingConfig, ClumpingConfigSchema, clumpingFromConfig, reportIgnoredClumpingBlock, resolveSeamClumpPolicy } from './config'
 import { ClumpMemberOutcome, checkVerdictPartition, planClumpPR, settleClumpVerdict } from './dispatch'
-import { DEFAULT_CLUMP_POLICY, resolveClumpPolicy, resolveFloor } from './floor'
+import { DEFAULT_CLUMP_POLICY, overlayClumpPolicy, resolveClumpPolicy, resolveFloor } from './floor'
 import { buildClump, formClumps } from './form'
 import { withOrdinals } from './ordinals'
 import { scopeOfPath } from './scope'

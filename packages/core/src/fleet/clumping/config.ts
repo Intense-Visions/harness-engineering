@@ -17,6 +17,7 @@
 
 import { z } from 'zod';
 
+import { overlayClumpPolicy } from './floor';
 import type { ClumpPolicy } from './types';
 
 /**
@@ -98,26 +99,20 @@ type ClumpPolicyOverride = z.infer<typeof ClumpPolicyOverrideSchema>;
 /**
  * Overlay `over` onto `under`, SKIPPING every `undefined` field.
  *
- * `??` per field rather than an object spread, and for the reason `floor.ts`
- * gives for the same choice one module over: `{ ...under, ...over }` lets an
- * explicitly-`undefined` key — ordinary output from a config loader, from
- * `JSON.parse` of `{"maxClumps": null}` after a schema strip, or from an
- * optional TS field — clobber a real value with `undefined`. The seam baseline
- * it would clobber is `INTAKE_CLUMP_POLICY`, whose whole purpose is to stop
- * ~300 filed issues being shed, so the difference is not cosmetic.
+ * `overlayClumpPolicy` rather than a fourth hand-written copy of the same
+ * five-field merge: this module used to carry its own, the two seam entry
+ * points used an object SPREAD instead, and a spread is the defect the merge
+ * exists to avoid (see `floor.ts`). A rule written four times is how the copies
+ * get to disagree.
+ *
+ * `ClumpPolicyOverride` is `Partial<ClumpPolicy>` over exactly these five
+ * fields, so the two types meet structurally and no cast is needed.
  */
 function overlay(
   under: Partial<ClumpPolicy>,
   over: ClumpPolicyOverride | undefined
 ): Partial<ClumpPolicy> {
-  if (over === undefined) return under;
-  const out: Partial<ClumpPolicy> = { ...under };
-  if (over.maxPerClump !== undefined) out.maxPerClump = over.maxPerClump;
-  if (over.maxClumps !== undefined) out.maxClumps = over.maxClumps;
-  if (over.minToClump !== undefined) out.minToClump = over.minToClump;
-  if (over.floorResolution !== undefined) out.floorResolution = over.floorResolution;
-  if (over.floorEnabled !== undefined) out.floorEnabled = over.floorEnabled;
-  return out;
+  return overlayClumpPolicy(under, over);
 }
 
 /**

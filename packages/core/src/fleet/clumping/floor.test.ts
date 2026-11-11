@@ -1,7 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
 import type { Confidence, Impact, Tier } from '../../craft/axes';
-import { DEFAULT_CLUMP_POLICY, resolveClumpPolicy, resolveFloor } from './floor';
+import {
+  DEFAULT_CLUMP_POLICY,
+  overlayClumpPolicy,
+  resolveClumpPolicy,
+  resolveFloor,
+} from './floor';
 import type { ClumpPolicy, ClumpableItem, Grade } from './types';
 
 function item(grade: Grade, conflictKeys: readonly string[] = ['src/a.ts']): ClumpableItem {
@@ -222,5 +227,80 @@ describe('resolveClumpPolicy — absent config applies defaults and never errors
     resolved.maxPerClump = 3;
     expect(resolved.maxPerClump).toBe(3);
     expect(DEFAULT_CLUMP_POLICY.maxPerClump).toBe(12);
+  });
+});
+
+/**
+ * THE PROPERTY: a field the caller did not set cannot erase a field the
+ * baseline did.
+ *
+ * `{ ...baseline, ...policy }` copies a key that is PRESENT AND `undefined`,
+ * and `undefined` then fails every `<` comparison downstream in silence. Two
+ * seam entry points used that spread while sitting two modules away from the
+ * comments explaining why it is wrong, and the stake at intake is
+ * `INTAKE_CLUMP_POLICY`'s uncapped `maxClumps` — restoring the primitive's 20
+ * sheds ~300 already-filed issues into a bucket.
+ *
+ * `exactOptionalPropertyTypes` is why this needed a test rather than a type:
+ * under it, `Partial<ClumpPolicy>` does NOT admit `{ maxClumps: undefined }`,
+ * so the defect is unreachable from a TYPED caller and reachable from every
+ * other one — the zod config block types each field `T | undefined`, and these
+ * are exported functions.
+ */
+describe('overlayClumpPolicy — an undefined field never clobbers a baseline', () => {
+  const INTAKE: Partial<ClumpPolicy> = { maxClumps: Number.MAX_SAFE_INTEGER };
+
+  it('skips a key that is PRESENT and undefined', () => {
+    expect(overlayClumpPolicy(INTAKE, { maxClumps: undefined })).toEqual(INTAKE);
+    // The spread this replaces, for contrast — it produces the clobbered value
+    // and therefore the primitive's cap of 20 one resolution later.
+    expect({ ...INTAKE, ...{ maxClumps: undefined } }.maxClumps).toBeUndefined();
+    expect(resolveClumpPolicy({ ...INTAKE, ...{ maxClumps: undefined } }).maxClumps).toBe(20);
+    // …while the overlay keeps the baseline all the way through resolution.
+    expect(resolveClumpPolicy(overlayClumpPolicy(INTAKE, { maxClumps: undefined })).maxClumps).toBe(
+      Number.MAX_SAFE_INTEGER
+    );
+  });
+
+  it('POSITIVE CONTROL: a DEFINED field does override the baseline', () => {
+    // Without this, a merge that ignored `over` entirely passes the test above.
+    expect(overlayClumpPolicy(INTAKE, { maxClumps: 5 })).toEqual({ maxClumps: 5 });
+  });
+
+  it('keeps a legitimate `false`, which a `||` would drop', () => {
+    expect(overlayClumpPolicy({ floorEnabled: true }, { floorEnabled: false })).toEqual({
+      floorEnabled: false,
+    });
+  });
+
+  it('covers EVERY tunable, not just the ones a caller happened to test', () => {
+    // A field added to `ClumpPolicy` and forgotten in the merge would silently
+    // never override. Asserted over the whole shape rather than field by field.
+    const under: Partial<ClumpPolicy> = {
+      maxPerClump: 1,
+      maxClumps: 1,
+      minToClump: 2,
+      floorResolution: 'act',
+      floorEnabled: true,
+    };
+    const over: ClumpPolicy = {
+      maxPerClump: 9,
+      maxClumps: 9,
+      minToClump: 9,
+      floorResolution: 'file',
+      floorEnabled: false,
+    };
+    expect(overlayClumpPolicy(under, over)).toEqual(over);
+    expect(Object.keys(over).sort()).toEqual(Object.keys(DEFAULT_CLUMP_POLICY).sort());
+  });
+
+  it('an absent `over` returns a COPY of the baseline, not the baseline itself', () => {
+    // `DEFAULT_CLUMP_POLICY` is frozen and seam baselines are module constants;
+    // handing back the same object would let one caller's later mutation move
+    // every other caller's policy.
+    const under: Partial<ClumpPolicy> = { maxClumps: 3 };
+    const out = overlayClumpPolicy(under, undefined);
+    expect(out).toEqual(under);
+    expect(out).not.toBe(under);
   });
 });

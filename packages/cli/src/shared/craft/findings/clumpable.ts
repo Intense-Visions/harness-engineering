@@ -23,12 +23,14 @@ import * as path from 'node:path';
 import {
   clumpingFromConfig,
   formClumps,
+  overlayClumpPolicy,
   reportIgnoredClumpingBlock,
   resolveSeamClumpPolicy,
   scopeOfPath,
   withOrdinals,
   toClumpView,
   type ClumpPolicy,
+  type ClumpPolicyOverlay,
   type ClumpResult,
   type ClumpView,
   type ClumpableItem,
@@ -197,12 +199,18 @@ export function toClumpableItems(
 export function clumpCraftFindings(
   findings: readonly CraftClumpableFinding[],
   projectRoot: string,
-  policy?: Partial<ClumpPolicy>
+  policy?: ClumpPolicyOverlay
 ): ClumpResult {
-  return formClumps(toClumpableItems(findings, projectRoot), {
-    ...craftClumpPolicy(projectRoot),
-    ...policy,
-  });
+  // `overlayClumpPolicy`, NOT `{ ...baseline, ...policy }`. The spread copies a
+  // key that is PRESENT AND `undefined` — which `floor.ts` and `config.ts` both
+  // argue at length is a defect, two modules away from this line, while this
+  // line did it anyway. `exactOptionalPropertyTypes` hides the reachability
+  // from a typed caller and from nothing else: the zod config block types every
+  // field `T | undefined`, and `policy` here is an EXPORTED parameter.
+  return formClumps(
+    toClumpableItems(findings, projectRoot),
+    overlayClumpPolicy(craftClumpPolicy(projectRoot), policy)
+  );
 }
 
 /**
@@ -276,7 +284,7 @@ export function craftClumpingConfig(projectRoot: string): ClumpingConfig | undef
 export function craftClumpView(
   findings: readonly CraftClumpableFinding[],
   projectRoot: string,
-  policy?: Partial<ClumpPolicy>
+  policy?: ClumpPolicyOverlay
 ): ClumpView {
   return toClumpView(clumpCraftFindings(findings, projectRoot, policy));
 }

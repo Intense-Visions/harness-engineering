@@ -18,6 +18,7 @@ import * as fs from 'node:fs';
 
 import {
   clumpingFromConfig,
+  overlayClumpPolicy,
   reportIgnoredClumpingBlock,
   resolveSeamClumpPolicy,
   type ClumpCounts,
@@ -187,10 +188,14 @@ function clumpingBlockFor(options: ClumpIssuesOptions): ReturnType<typeof clumpi
  * for overriding.
  */
 function resolveIntakePolicy(options: ClumpIssuesOptions): Partial<ClumpPolicy> {
-  return {
-    ...resolveSeamClumpPolicy(clumpingBlockFor(options), 'intake', INTAKE_CLUMP_POLICY),
-    ...policyFromOptions(options),
-  };
+  // Per-field, like the two seams below it. `policyFromOptions` only ever
+  // ASSIGNS defined values, so a spread here happens to be safe today — but
+  // that is a precondition held in another function's body and enforced by
+  // nothing, which is the same shape as the two spreads this change had to fix.
+  return overlayClumpPolicy(
+    resolveSeamClumpPolicy(clumpingBlockFor(options), 'intake', INTAKE_CLUMP_POLICY),
+    policyFromOptions(options)
+  );
 }
 
 /**

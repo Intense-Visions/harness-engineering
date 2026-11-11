@@ -726,3 +726,39 @@ describe('the emitted clump view does not re-serialize the findings', () => {
     );
   });
 });
+
+/**
+ * THE PROPERTY: a policy field the caller left `undefined` must not erase the
+ * adopter's config.
+ *
+ * `clumpCraftFindings` used to merge with `{ ...craftClumpPolicy(root),
+ * ...policy }`. A spread COPIES a key that is present and `undefined`, so a
+ * caller that built its policy as `{ maxPerClump: opts.maxPerClump }` silently
+ * discarded whatever the project's `clumping` block said.
+ */
+describe('an undefined policy field does not clobber the craft config', () => {
+  let dir: string;
+  beforeEach(() => {
+    dir = fs.mkdtempSync(path.join(os.tmpdir(), 'craft-clump-overlay-'));
+    fs.writeFileSync(
+      path.join(dir, 'harness.config.json'),
+      JSON.stringify({ version: 1, name: 'a', clumping: { maxPerClump: 2 } })
+    );
+  });
+  afterEach(() => fs.rmSync(dir, { recursive: true, force: true }));
+
+  const five = (): CraftClumpableFinding[] =>
+    Array.from({ length: 5 }, (_, i) => finding({ code: 'CODE-R001', file: `src/a${i}.ts` }));
+
+  it("`{ maxPerClump: undefined }` leaves the config's cap of 2 standing", () => {
+    const r = clumpCraftFindings(five(), dir, { maxPerClump: undefined });
+    expect(r.clumps.length).toBeGreaterThan(1);
+    for (const clump of r.clumps) expect(clump.members.length).toBeLessThanOrEqual(2);
+  });
+
+  it('POSITIVE CONTROL: a DEFINED cap still wins over the config', () => {
+    const r = clumpCraftFindings(five(), dir, { maxPerClump: 5 });
+    expect(r.clumps).toHaveLength(1);
+    expect(r.clumps[0]!.members).toHaveLength(5);
+  });
+});

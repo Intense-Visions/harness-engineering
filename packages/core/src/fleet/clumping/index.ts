@@ -17,7 +17,12 @@
 // harness.config.json and the per-seam policy resolution the three seams read,
 // held in core because the review seam IS core code.
 
-export { resolveFloor, resolveClumpPolicy, DEFAULT_CLUMP_POLICY } from './floor';
+export {
+  resolveFloor,
+  resolveClumpPolicy,
+  overlayClumpPolicy,
+  DEFAULT_CLUMP_POLICY,
+} from './floor';
 export {
   ClumpingConfigSchema,
   clumpingFromConfig,
@@ -46,6 +51,7 @@ export type {
   Grade,
 } from './types';
 export type { Numbered } from './ordinals';
+export type { ClumpPolicyOverlay } from './floor';
 export type {
   ClumpCommit,
   ClumpDrop,

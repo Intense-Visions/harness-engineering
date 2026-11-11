@@ -388,3 +388,39 @@ describe('clumpIssues', () => {
     expect(seen).toEqual(['issue-1#0', 'issue-2#0', 'issue-3#0', 'issue-4#0']);
   });
 });
+
+/**
+ * THE PROPERTY: a policy field the caller left `undefined` must not erase the
+ * intake baseline.
+ *
+ * `clumpIssues` used to merge with `{ ...INTAKE_CLUMP_POLICY, ...policy }`, and
+ * a spread COPIES a key that is present and `undefined`. The field at stake is
+ * the one this seam exists to protect: `INTAKE_CLUMP_POLICY.maxClumps` is
+ * uncapped because the primitive's cap of 20 would push ~300 already-filed
+ * issues into a bucket on the measured backlog.
+ *
+ * Reachable because `policy` is an exported parameter and the project compiles
+ * with `exactOptionalPropertyTypes` — which makes the bad value unconstructible
+ * by a TYPED caller and perfectly constructible by the zod-inferred config
+ * block, by `JSON.parse`, and by any JS caller.
+ */
+describe('an undefined policy field does not clobber the intake baseline', () => {
+  /** 25 single-issue scopes: 25 would-be work units, well past the primitive's 20. */
+  const wide = (): IntakeIssue[] =>
+    Array.from({ length: 25 }, (_, i) => [
+      issue(i * 2 + 1, 'bug', `packages/p${i}/src/a.ts`),
+      issue(i * 2 + 2, 'bug', `packages/p${i}/src/b.ts`),
+    ]).flat();
+
+  it('`{ maxClumps: undefined }` leaves intake UNCAPPED', () => {
+    expect(clumpIssues(wide(), { maxClumps: undefined }).result.clumps).toHaveLength(25);
+    // The same input with NO policy at all, as the reference.
+    expect(clumpIssues(wide()).result.clumps).toHaveLength(25);
+  });
+
+  it('POSITIVE CONTROL: a DEFINED cap still applies', () => {
+    // Without this, a merge that ignored `policy` entirely passes the test
+    // above — and the cap is the thing the seam is supposed to honour.
+    expect(clumpIssues(wide(), { maxClumps: 5 }).result.clumps).toHaveLength(5);
+  });
+});

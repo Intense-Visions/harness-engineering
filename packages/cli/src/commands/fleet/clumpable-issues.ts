@@ -29,9 +29,11 @@
 
 import {
   formClumps,
+  overlayClumpPolicy,
   scopeOfPath,
   withOrdinals,
   type ClumpPolicy,
+  type ClumpPolicyOverlay,
   type ClumpResult,
   type ClumpableItem,
 } from '@harness-engineering/core';
@@ -340,11 +342,17 @@ export const INTAKE_CLUMP_POLICY: Partial<ClumpPolicy> = { maxClumps: Number.MAX
  */
 export function clumpIssues(
   issues: readonly IntakeIssue[],
-  policy: Partial<ClumpPolicy> = {},
+  policy: ClumpPolicyOverlay = {},
   options: IntakeAdapterOptions = {}
 ): IntakeClumpOutcome {
   const items = toClumpableIssues(issues, options);
-  const result = formClumps(items, { ...INTAKE_CLUMP_POLICY, ...policy });
+  // `overlayClumpPolicy`, NOT `{ ...INTAKE_CLUMP_POLICY, ...policy }`. The
+  // spread copies a key that is PRESENT AND `undefined`, and the baseline it
+  // would clobber is the uncapped `maxClumps` that exists to stop ~300
+  // already-filed issues being shed into a bucket by the primitive's cap of 20.
+  // That stake is named in the comment on INTAKE_CLUMP_POLICY directly above
+  // this function, which did the unsafe thing anyway.
+  const result = formClumps(items, overlayClumpPolicy(INTAKE_CLUMP_POLICY, policy));
 
   const clumpedIds = new Set(result.clumps.flatMap((c) => c.members.map((m) => m.id)));
   const individual = items.filter((item) => !clumpedIds.has(item.id));

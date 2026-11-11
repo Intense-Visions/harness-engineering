@@ -50,6 +50,69 @@ function withDefault<K extends keyof ClumpPolicy>(
   return policy?.[key] ?? DEFAULT_CLUMP_POLICY[key];
 }
 
+/** Every tunable, once, so a merge cannot silently miss a field added later. */
+const CLUMP_POLICY_FIELDS = [
+  'maxPerClump',
+  'maxClumps',
+  'minToClump',
+  'floorResolution',
+  'floorEnabled',
+] as const;
+
+/**
+ * A policy as it arrives from an UNTYPED boundary: any field may be present
+ * and `undefined`.
+ *
+ * Distinct from `Partial<ClumpPolicy>`, and the distinction is the whole point.
+ * This repo compiles with `exactOptionalPropertyTypes`, under which
+ * `Partial<ClumpPolicy>` does NOT admit `{ maxClumps: undefined }` — so a TYPED
+ * caller cannot build the value that breaks a spread, and the defect looks
+ * impossible from inside TypeScript. It is not: the zod-inferred config block
+ * types every field as `T | undefined`, `JSON.parse` produces whatever the
+ * adopter wrote, and a JS caller is unconstrained. Naming the loose type is how
+ * the reachable case becomes expressible — including in a test.
+ */
+export type ClumpPolicyOverlay = { [K in keyof ClumpPolicy]?: ClumpPolicy[K] | undefined };
+
+/** Copy one field, SKIPPING `undefined`. Typed per key so `out[key] = value` stays sound. */
+function overlayField<K extends keyof ClumpPolicy>(
+  out: Partial<ClumpPolicy>,
+  over: ClumpPolicyOverlay,
+  key: K
+): void {
+  const value = over[key];
+  if (value !== undefined) out[key] = value;
+}
+
+/**
+ * Layer `over` onto `under`, field by field, SKIPPING every `undefined`.
+ *
+ * THE SPREAD THIS REPLACES IS A DEFECT, not a style preference, and the module
+ * stake is named rather than hypothetical. `{ ...under, ...over }` copies a key
+ * that is PRESENT AND `undefined` — ordinary output from a config loader, from
+ * `JSON.parse` of `{"maxClumps": null}` after a schema strip, or from an
+ * optional TS field a caller built with `{ maxClumps: opts.maxClumps }` — and
+ * that `undefined` then clobbers a real value. The seam baseline it clobbers at
+ * intake is `INTAKE_CLUMP_POLICY`, whose entire purpose is to stop ~300
+ * already-filed issues being shed into a bucket by the primitive's cap of 20.
+ *
+ * `??` per field also leaves a legitimate `false` (`floorEnabled`) alone, which
+ * a `||` would not.
+ *
+ * ONE implementation. Two seam entry points and the config layer each wrote
+ * their own version of this merge, and two of the three used the spread while
+ * sitting next to a comment explaining why the spread is wrong.
+ */
+export function overlayClumpPolicy(
+  under: Partial<ClumpPolicy>,
+  over: ClumpPolicyOverlay | undefined
+): Partial<ClumpPolicy> {
+  const out: Partial<ClumpPolicy> = { ...under };
+  if (over === undefined) return out;
+  for (const key of CLUMP_POLICY_FIELDS) overlayField(out, over, key);
+  return out;
+}
+
 /** Fill a partial policy from the defaults. Absent config ⇒ defaults, never an error. */
 export function resolveClumpPolicy(policy?: Partial<ClumpPolicy>): ClumpPolicy {
   return {

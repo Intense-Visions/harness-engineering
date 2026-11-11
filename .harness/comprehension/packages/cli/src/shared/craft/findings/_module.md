@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/shared/craft/findings'
-sourceHash: 'fb46fc1df1d698371af389f53d0b470689ba9da8a3544ab4e9d12c66e8a3ca19'
+sourceHash: '563ea8e5f08ee6f9bbd4024e99a2f4764947b27ee659e976dacf4ddca2264c19'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -32,7 +32,7 @@ import { CraftFinding } from '../../../design-craft/findings/schema.js'
 import { Confidence, Impact, Tier } from './axes.js'
 import { CraftClumpableFinding, clumpCraftFindings, craftClumpView, craftClumpingConfig, craftKind, craftPath, toClumpableItems } from './clumpable.js'
 import { derivePriority } from './derived.js'
-import { ClumpPolicy, ClumpResult, ClumpView, ClumpableItem, ClumpingConfig, Confidence, CraftTier, Impact, clumpingFromConfig, formClumps, reportIgnoredClumpingBlock, resolveSeamClumpPolicy, scopeOfPath, toClumpView, withOrdinals } from '@harness-engineering/core'
+import { ClumpPolicy, ClumpPolicyOverlay, ClumpResult, ClumpView, ClumpableItem, ClumpingConfig, Confidence, CraftTier, Impact, clumpingFromConfig, formClumps, overlayClumpPolicy, reportIgnoredClumpingBlock, resolveSeamClumpPolicy, scopeOfPath, toClumpView, withOrdinals } from '@harness-engineering/core'
 import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
