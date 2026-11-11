@@ -1,7 +1,7 @@
 ---
 name: harness:security-fleet
 description: Autonomous security backlog sweep — enumerate risk-ranked code areas plus the resolved dependency tree, discard every candidate that cannot produce concrete evidence, confirm one ranked batch with the human, then route each survivor by a bounded-fix test — safe bounded fixes are built through the real pipeline into independently verified PRs, risky or structural findings are filed with their evidence packet instead of force-fixed. Never auto-merges, never closes a finding by suppression, and never reports a secret's value.
-argument-hint: '[--path <path>] [----concurrency <--concurrency>] [----report-only <--report-only>] [----dry-run <--dry-run>]'
+argument-hint: '[--path <path>] [--concurrency <concurrency>] [--report-only <report-only>] [--dry-run <dry-run>]'
 allowed-tools:
   - Bash
   - Read
