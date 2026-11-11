@@ -196,6 +196,20 @@ asserts it appears as `<local> as CraftTier` and never as `<local> as Tier`.
   clumps + solos ranked by weight; the remainder is `overCap`. Counting findings would let the
   cap be bypassed by scattering — one finding per scope defeats a finding-counted cap entirely.
   This follows `craft-fleet:89`, which already counts emitted items.
+- **The intake seam runs UNCAPPED, and the figure that justified it was wrong.** The spec, this
+  repo's config reference and four code comments put the stake at "a cap of 20 would shed ~300
+  already-filed issues into a bucket". That was relayed, never measured, and impossible by
+  construction: 182 of the 347 open issues are `ungraded` and never enter a unit, so the ceiling
+  is 165. **Measured 2026-11-11** (`harness fleet clump-issues --max-clumps 20`): `overCap` is
+  **128**, and the emitted clump set is identical to the uncapped run — 11 clumps, 28 clumped —
+  because an over-cap issue degrades to the queue entry it already had. _On this backlog, at 20,
+  the cap is inert._ The uncapped baseline is kept for the two cases that are not inert, both
+  measured: a cap below the number of formed units sheds grouped issues outright
+  (`--max-clumps 5`: 11 clumps become 5, 12 grouped issues pushed back out), and on a RANKED
+  backlog a solo can outrank a clump and take its slot (weights are 0 today only because a raw
+  `gh` dump carries no rank). An undated, unmeasured number in a living document is how an
+  argument quietly becomes false — the same failure this ADR's opening paragraph names about the
+  361/15-of-25 figures it re-measured.
 - **Over-cap units are flattened to their member items, and that is load-bearing.** `overCap` is
   an _item_ bucket because conservation partitions items, not units. Pushing a shed clump in as a
   unit would lose its members from the partition — a silent drop, inside the control whose

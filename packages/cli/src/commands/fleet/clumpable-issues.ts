@@ -407,11 +407,19 @@ export interface IntakeClumpOutcome {
  * the same one the review seam gives for degrading an over-cap unit to
  * individual comments rather than shedding it. D9's cap bounds EMITTED WORK
  * UNITS at a seam that CREATES work. Intake creates nothing — every issue in
- * the backlog was filed before this ran — so there is no creation to bound, and
- * a cap of 20 over a 347-issue backlog would shed ~300 ALREADY-FILED issues
- * into a bucket, which is the silent drop this whole control exists to prevent.
- * The cap is still honoured when a caller sets one, and an over-cap issue
- * degrades to its own queue entry (where it already was) rather than vanishing.
+ * the backlog was filed before this ran — so there is no creation to bound.
+ *
+ * THE FIGURE, MEASURED (2026-11-11, `--max-clumps 20` over the 347-issue
+ * backlog): `overCap` 128, and the emitted clump set IDENTICAL to the uncapped
+ * run — because an over-cap issue degrades to its own queue entry, which is
+ * where it already was. So at 20 the cap is currently INERT for grouping on
+ * this backlog, and the uncapped baseline is worth keeping for the cases where
+ * it is not: a cap below the number of formed units sheds grouped issues
+ * outright (measured `--max-clumps 5`: 11 clumps become 5, 12 grouped issues
+ * pushed back out), and on a RANKED backlog a solo can outrank a clump and take
+ * its slot. This comment used to say "~300", which was never measured and was
+ * impossible: 182 of the 347 are `ungraded` and never enter a unit, so the
+ * ceiling is 165.
  */
 export const INTAKE_CLUMP_POLICY: Partial<ClumpPolicy> = { maxClumps: Number.MAX_SAFE_INTEGER };
 
@@ -435,10 +443,9 @@ export function clumpIssues(
   const items = toClumpableIssues(issues, options);
   // `overlayClumpPolicy`, NOT `{ ...INTAKE_CLUMP_POLICY, ...policy }`. The
   // spread copies a key that is PRESENT AND `undefined`, and the baseline it
-  // would clobber is the uncapped `maxClumps` that exists to stop ~300
-  // already-filed issues being shed into a bucket by the primitive's cap of 20.
-  // That stake is named in the comment on INTAKE_CLUMP_POLICY directly above
-  // this function, which did the unsafe thing anyway.
+  // would clobber is the uncapped `maxClumps` whose measured stake is named in
+  // the comment on INTAKE_CLUMP_POLICY directly above this function — which did
+  // the unsafe thing anyway.
   const result = formClumps(items, overlayClumpPolicy(INTAKE_CLUMP_POLICY, policy));
 
   const clumpedIds = new Set(result.clumps.flatMap((c) => c.members.map((m) => m.id)));

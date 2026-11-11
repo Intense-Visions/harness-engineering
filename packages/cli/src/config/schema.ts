@@ -1478,8 +1478,9 @@ export const HarnessConfigSchema = z.object({
    * family shares (`docs/changes/clumping/proposal.md`). The top-level fields
    * apply to all three seams; `seams.{craft,review,intake}` narrows an override
    * to one, which matters because the seams have different correct defaults
-   * (intake runs UNCAPPED, because a cap of 20 over a 347-issue backlog would
-   * bucket ~300 already-filed issues).
+   * (intake runs UNCAPPED: measured 2026-11-11, a cap of 20 over the 347-issue
+   * backlog buckets 128 already-filed issues as `overCap`, and a cap below the
+   * formed-unit count sheds grouped issues outright).
    *
    * Defined in `@harness-engineering/core` beside the primitive, alongside
    * `ArchConfigSchema` and `GoldenConfigSchema`, because the review seam is

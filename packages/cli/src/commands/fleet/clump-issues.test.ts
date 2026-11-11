@@ -275,7 +275,7 @@ describe('runClumpIssues', () => {
 // The intake baseline is the case that makes "absent ⇒ defaults" a non-trivial
 // claim here: intake is UNCAPPED by measurement, so "defaults apply" must not
 // quietly mean "the primitive's maxClumps of 20 is restored" — on the measured
-// 347-issue backlog that would bucket ~300 already-filed issues.
+// 347-issue backlog that buckets a measured 128 already-filed issues.
 // ─────────────────────────────────────────────────────────────────────────────
 
 describe('the clumping config block reaches the intake seam', () => {

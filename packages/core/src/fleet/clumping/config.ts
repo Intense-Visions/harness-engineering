@@ -63,8 +63,14 @@ const ClumpPolicyOverrideSchema = z.object({
  *
  * - `intake` runs UNCAPPED (`INTAKE_CLUMP_POLICY`). D9's `maxClumps` bounds
  *   emitted work units at a seam that CREATES work; intake creates nothing —
- *   every issue was filed before it ran — and a cap of 20 over the measured
- *   347-issue backlog would push ~300 already-filed issues into a bucket.
+ *   every issue was filed before it ran. Measured 2026-11-11, a cap of 20 over
+ *   the 347-issue backlog puts 128 already-filed issues in `overCap` while
+ *   emitting the same clump set as the uncapped run (an over-cap unit degrades
+ *   back to the queue entry the issue already had), so at 20 the cap is
+ *   currently inert here; below the formed-unit count it is not — at
+ *   `--max-clumps 5`, 11 clumps become 5 and 12 grouped issues are pushed back
+ *   out. (An earlier "~300" in this comment was never measured and was
+ *   impossible: 182 of the 347 are `ungraded` and never enter a unit.)
  * - `review` runs with the floor already applied (`floorEnabled: false` at the
  *   `formClumps` call), because the floor ran one loop earlier and is what
  *   SELECTED the candidate set; running it twice would return zero clumps.

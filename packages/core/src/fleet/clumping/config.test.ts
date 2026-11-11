@@ -60,8 +60,10 @@ describe('criterion 13 — absent config ⇒ defaults apply and nothing errors',
 
   it('an absent block leaves a seam baseline intact', () => {
     // The case that matters: intake is uncapped BY MEASUREMENT (a cap of 20
-    // over the measured 347-issue backlog would bucket ~300 filed issues), so
-    // "defaults apply" must not mean "the primitive's 20 is restored".
+    // over the measured 347-issue backlog buckets 128 filed issues as `overCap`
+    // — measured 2026-11-11, inert for grouping at 20 and a real shed below the
+    // formed-unit count), so "defaults apply" must not mean "the primitive's 20
+    // is restored".
     expect(resolveSeamClumpPolicy(undefined, 'intake', INTAKE_BASELINE)).toEqual({
       maxClumps: Number.MAX_SAFE_INTEGER,
     });
@@ -172,7 +174,7 @@ describe('a per-seam override is expressible — the seams have different correc
   it('a field the adopter did NOT write never clobbers the seam baseline with undefined', () => {
     // The spread bug this module exists to avoid: `{...baseline, ...block}`
     // where `block.maxClumps` is an explicitly-`undefined` key restores the
-    // primitive's 20 at intake and sheds ~300 filed issues.
+    // primitive's 20 at intake (measured: 128 filed issues into `overCap`).
     const cfg: ClumpingConfig = { maxPerClump: 6, maxClumps: undefined };
     expect(resolveSeamClumpPolicy(cfg, 'intake', INTAKE_BASELINE)).toEqual({
       maxPerClump: 6,

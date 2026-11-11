@@ -237,9 +237,12 @@ describe('resolveClumpPolicy — absent config applies defaults and never errors
  * `{ ...baseline, ...policy }` copies a key that is PRESENT AND `undefined`,
  * and `undefined` then fails every `<` comparison downstream in silence. Two
  * seam entry points used that spread while sitting two modules away from the
- * comments explaining why it is wrong, and the stake at intake is
- * `INTAKE_CLUMP_POLICY`'s uncapped `maxClumps` — restoring the primitive's 20
- * sheds ~300 already-filed issues into a bucket.
+ * comments explaining why it is wrong. The loud stake is the review seam's
+ * `floorEnabled: false` (an `undefined` restores `true` and re-runs the floor
+ * over the set the floor already selected); at intake, restoring the
+ * primitive's 20 is measured rather than guessed — `overCap` 128 on the
+ * 347-issue backlog (2026-11-11), inert for grouping at 20 and a real shed
+ * below the formed-unit count.
  *
  * `exactOptionalPropertyTypes` is why this needed a test rather than a type:
  * under it, `Partial<ClumpPolicy>` does NOT admit `{ maxClumps: undefined }`,

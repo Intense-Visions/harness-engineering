@@ -725,11 +725,22 @@ conflict splits. Conservation holds: `347 = 66 + 0 + 0 + 182 + 99`.
 
 4. **The primitive's `maxClumps: 20` default is wrong here, for the reason the review seam
    already gave.** D9's cap bounds EMITTED WORK UNITS at a seam that CREATES work. Intake creates
-   none — every issue was filed before the axis ran — so a cap of 20 over 347 issues would shed
-   ~300 already-filed issues into a bucket, the silent drop this control exists to prevent. The
-   intake policy is uncapped by default; a caller-set cap is honoured and an over-cap unit
-   degrades to individual queue entries, exactly as an over-cap review unit degrades to
-   individual comments.
+   none — every issue was filed before the axis ran. The intake policy is uncapped by default; a
+   caller-set cap is honoured and an over-cap unit degrades to individual queue entries, exactly
+   as an over-cap review unit degrades to individual comments.
+
+   _Amended in the review round: the figure this note used was wrong, and the consequence it
+   claimed is currently inert._ The note said a cap of 20 "would shed ~300 already-filed issues
+   into a bucket". That was never measured, and it is impossible by construction: 182 of the 347
+   open issues are `ungraded` and never enter a unit, so the ceiling is 165. Measured 2026-11-11
+   with `harness fleet clump-issues --max-clumps 20`: `overCap` is **128**, and the emitted clump
+   set is IDENTICAL to the uncapped run — 11 clumps, 28 clumped — because an over-cap issue
+   degrades to the queue entry it already had. At 20, on this backlog, **the cap is inert**. The
+   uncapped baseline earns its place on the cases where it is not inert, and both are measured: a
+   cap below the number of formed units sheds grouped issues outright (`--max-clumps 5`: 11
+   clumps become 5, 12 grouped issues pushed back out), and on a ranked backlog a solo can
+   outrank a clump and take its slot — the weights are 0 today only because a raw `gh` dump
+   carries no rank.
 
 5. **The `unscoped` sentinel can collide with a real directory, and the Risks table does not say
    how that is prevented.** "`unscoped` never co-clumps with scoped" is enforced only by the

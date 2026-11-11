@@ -162,8 +162,8 @@ describe('the clumping block ships in the templates that carry tuning blocks', (
     it(`${name} does NOT set a global maxClumps — the one field whose right value is per-seam`, () => {
       // `maxClumps` bounds EMITTED WORK UNITS at a seam that CREATES work.
       // Intake creates nothing, so its baseline is uncapped; a template that
-      // wrote a global 20 would re-impose the cap that buckets ~300 filed
-      // issues, and would do it by scaffold rather than by decision.
+      // wrote a global 20 would re-impose the cap that buckets a measured 128
+      // filed issues, and would do it by scaffold rather than by decision.
       const file = path.join(TEMPLATES_DIR, name, 'harness.config.json.hbs');
       const parsed = JSON.parse(render(fs.readFileSync(file, 'utf-8'))) as {
         clumping?: Record<string, unknown>;

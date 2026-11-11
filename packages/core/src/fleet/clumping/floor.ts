@@ -92,9 +92,25 @@ function overlayField<K extends keyof ClumpPolicy>(
  * that is PRESENT AND `undefined` — ordinary output from a config loader, from
  * `JSON.parse` of `{"maxClumps": null}` after a schema strip, or from an
  * optional TS field a caller built with `{ maxClumps: opts.maxClumps }` — and
- * that `undefined` then clobbers a real value. The seam baseline it clobbers at
- * intake is `INTAKE_CLUMP_POLICY`, whose entire purpose is to stop ~300
- * already-filed issues being shed into a bucket by the primitive's cap of 20.
+ * that `undefined` then clobbers a real value.
+ *
+ * THE STAKE, MEASURED RATHER THAN ASSERTED. The loud one is the review seam's
+ * `floorEnabled: false`: an `undefined` there restores the primitive's `true`
+ * and re-runs the floor over the set the floor already selected. The intake one
+ * is `INTAKE_CLUMP_POLICY`'s uncapped `maxClumps`, and this comment used to put
+ * it at "~300 already-filed issues shed into a bucket". That number was never
+ * measured and was impossible by construction: 182 of the 347 open issues are
+ * `ungraded` and never enter a unit at all, so the ceiling is 165. Measured on
+ * 2026-11-11 with `harness fleet clump-issues --max-clumps 20`: `overCap` is
+ * 128, and the emitted clump set is IDENTICAL to the uncapped run, because an
+ * over-cap unit degrades back to the queue entry the issue already had. So at
+ * 20 the cap is currently INERT for grouping on this backlog. It is not inert
+ * in general, which is what makes the baseline worth protecting: it bites the
+ * moment the cap drops below the number of formed units (measured
+ * `--max-clumps 5`: 11 clumps become 5, and 12 grouped issues are pushed back
+ * out of their units), and it bites on a RANKED backlog, where a solo can
+ * outrank a clump and take its slot — weights are 0 here only because a raw
+ * `gh` dump carries no rank.
  *
  * `??` per field also leaves a legitimate `false` (`floorEnabled`) alone, which
  * a `||` would not.

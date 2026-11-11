@@ -462,7 +462,7 @@ describe('clumpIssues', () => {
  * `clumpIssues` used to merge with `{ ...INTAKE_CLUMP_POLICY, ...policy }`, and
  * a spread COPIES a key that is present and `undefined`. The field at stake is
  * the one this seam exists to protect: `INTAKE_CLUMP_POLICY.maxClumps` is
- * uncapped because the primitive's cap of 20 would push ~300 already-filed
+ * uncapped because the primitive's cap of 20 would push 128 already-filed
  * issues into a bucket on the measured backlog.
  *
  * Reachable because `policy` is an exported parameter and the project compiles
