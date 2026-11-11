@@ -8,9 +8,13 @@ import { Command } from 'commander';
  * isolated / no-mechanical), and the guardianCoverage inclusion branch.
  */
 
-vi.mock('child_process', () => ({ execSync: vi.fn() }));
+vi.mock('child_process', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('child_process')>()),
+  execSync: vi.fn(),
+}));
 vi.mock('../../../src/config/loader', () => ({ resolveConfig: vi.fn() }));
-vi.mock('@harness-engineering/core', () => ({
+vi.mock('@harness-engineering/core', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@harness-engineering/core')>()),
   Ok: (val: unknown) => ({ ok: true, value: val }),
   Err: (err: unknown) => ({ ok: false, error: err }),
   parseDiff: vi.fn(),

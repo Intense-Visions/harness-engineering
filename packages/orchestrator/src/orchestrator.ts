@@ -2758,8 +2758,13 @@ export class Orchestrator extends EventEmitter {
           this.state.running.set(issue.id, { ...entry, workflow: workflowPlan, workspacePath });
         }
         // Fire-and-forget like runAgentInBackgroundTask; the engine drives the single
-        // terminal transition via the settle callbacks above.
-        void executeWorkflow(ctx, workflowPlan);
+        // terminal transition via the settle callbacks above. Tracked so
+        // waitForBackgroundTasks also covers staged runs (#2457).
+        this.trackBackgroundTask(
+          executeWorkflow(ctx, workflowPlan).catch((err) => {
+            this.logger.error('Fatal error in staged workflow', { error: String(err) });
+          })
+        );
         return;
       }
 
@@ -3117,6 +3122,12 @@ export class Orchestrator extends EventEmitter {
     })().catch((err) => {
       this.logger.error('Fatal error in background task', { error: String(err) });
     });
+    this.trackBackgroundTask(task);
+  }
+
+  /** Register a fire-and-forget promise (which must never reject) with
+   *  {@link waitForBackgroundTasks}. */
+  private trackBackgroundTask(task: Promise<void>): void {
     this.backgroundTasks.add(task);
     void task.then(() => this.backgroundTasks.delete(task));
   }

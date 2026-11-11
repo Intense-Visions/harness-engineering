@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/tests/commands'
-sourceHash: '2d7d956f470bb2240eb9055a378ea2af35a93e632bed919e647d34793161dda7'
+sourceHash: '1f1f972b64b8ab67538090efcba987786567e533513b981d61387821b1e797c3'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -11,6 +11,7 @@ members:
     'add.test.ts',
     'adoption-retrospective.test.ts',
     'adoption.test.ts',
+    'agent-review-file-diffs.test.ts',
     'agent-review.test.ts',
     'agent-run-persona.test.ts',
     'agent-run.test.ts',
@@ -137,6 +138,7 @@ members:
     'persona.test.ts',
     'pre-merge-brief-cov544.test.ts',
     'pre-merge-brief-guardian.test.ts',
+    'pre-merge-brief-maxbuffer.test.ts',
     'pre-merge-brief.test.ts',
     'predict.test.ts',
     'proposals-cov544b.test.ts',

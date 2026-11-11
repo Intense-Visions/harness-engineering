@@ -135,3 +135,8 @@ fi
 
 pnpm run generate-docs --check
 pnpm run generate:tool-catalog:check
+# Generated plugin artifacts (claude/cursor/gemini/codex/antigravity) must match
+# their sources — CI's check, run here so drift fails before the push (#2460).
+# Unscoped on purpose: ~18s, and a path filter would have to track every input
+# the generator reads; a missed one would silently skip the check.
+pnpm run generate:plugin:check

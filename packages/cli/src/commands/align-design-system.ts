@@ -13,6 +13,7 @@ import type { OutputModeType } from '../output/formatter';
 import { resolveOutputMode } from '../utils/output';
 import { logger } from '../output/logger';
 import { ExitCode } from '../utils/errors';
+import { resolveCommandRoot } from '../config/loader';
 import {
   runAlignDesignSystem,
   type AlignInput,
@@ -59,9 +60,21 @@ export function createAlignDesignSystemCommand(): Command {
       const globalOpts = cmd.optsWithGlobals();
       const outputMode = resolveOutputMode(globalOpts);
       const formatter = new OutputFormatter(outputMode);
-      const cwd = (globalOpts.cwd as string | undefined) ?? process.cwd();
+      const root = resolveCommandRoot(
+        globalOpts.config as string | undefined,
+        globalOpts.cwd as string | undefined
+      );
+      if (!root.ok) {
+        if (outputMode === OutputMode.JSON) {
+          console.log(JSON.stringify({ error: root.error.message }));
+        } else {
+          logger.error(`align-design-system failed: ${root.error.message}`);
+        }
+        process.exit(ExitCode.ERROR);
+        return;
+      }
 
-      const input: AlignInput = { path: cwd };
+      const input: AlignInput = { path: root.value };
       if (opts.dryRun === true) input.dryRun = true;
       if (opts.files !== undefined) input.files = opts.files;
       if (opts.mode !== undefined) input.mode = opts.mode;
