@@ -9,6 +9,8 @@ import { checkTaint } from '@harness-engineering/core';
 import type { WorkflowConfig, Issue } from '@harness-engineering/types';
 import { Ok } from '@harness-engineering/types';
 import { noopExecFile } from '../helpers/noop-exec-file';
+// eslint-disable-next-line import/no-relative-packages -- shared repo-root test helper (#2089)
+import { removeTempDirSafely } from '../../../../tests/helpers/remove-temp-dir';
 
 describe('Orchestrator Sentinel Integration', () => {
   let tmpDir: string;
@@ -86,18 +88,17 @@ describe('Orchestrator Sentinel Integration', () => {
 
   afterEach(async () => {
     if (orchestrator) {
+      // The dispatched agent run is fire-and-forget and `stop()` does not await
+      // it: its completion path is still running `git worktree remove` against
+      // `<tmpDir>/h-sentinel-1` well after the test's 300ms wait. Removing tmpDir
+      // under a live git child is a permanent EBUSY on Windows (#2089), so wait
+      // for the background work to finish first.
+      await orchestrator.waitForBackgroundTasks();
       await orchestrator.stop();
     }
-    // On Windows, git worktree processes may hold file locks briefly after stop.
-    // Retry cleanup to avoid EBUSY failures in CI.
-    for (let i = 0; i < 3; i++) {
-      try {
-        fs.rmSync(tmpDir, { recursive: true, force: true });
-        break;
-      } catch {
-        if (i < 2) await new Promise((r) => setTimeout(r, 500));
-      }
-    }
+    // On Windows, a just-exited git child may still hold handles briefly —
+    // the helper awaits the settle. See tests/helpers/remove-temp-dir.ts.
+    removeTempDirSafely(tmpDir);
   });
 
   it('aborts dispatch when workspace has high-severity CLAUDE.md', async () => {
@@ -271,6 +272,48 @@ describe('Orchestrator Sentinel Integration', () => {
       (snapshot.claimed as string[]).includes(mockIssue.id) ||
       (snapshot.completed as string[]).includes(mockIssue.id);
     expect(dispatchHappened).toBe(true);
+  });
+
+  it('waitForBackgroundTasks resolves only after the dispatched run released its worktree', async () => {
+    let lastClaimedAssignee: string | null = null;
+    mockTracker = {
+      fetchCandidateIssues: vi.fn().mockResolvedValue(Ok([mockIssue])),
+      fetchIssuesByStates: vi.fn().mockResolvedValue(Ok([])),
+      fetchIssueStatesByIds: vi.fn().mockImplementation((ids: string[]) => {
+        const map = new Map<string, Issue>();
+        for (const id of ids) {
+          if (id === mockIssue.id) {
+            map.set(id, { ...mockIssue, assignee: lastClaimedAssignee });
+          }
+        }
+        return Promise.resolve(Ok(map));
+      }),
+      markIssueComplete: vi.fn().mockResolvedValue(Ok(undefined)),
+      claimIssue: vi.fn().mockImplementation((_id: string, orchestratorId: string) => {
+        lastClaimedAssignee = orchestratorId;
+        return Promise.resolve(Ok(undefined));
+      }),
+      releaseIssue: vi.fn().mockResolvedValue(Ok(undefined)),
+    };
+    mockBackend = new MockBackend();
+    orchestrator = new Orchestrator(createConfig(tmpDir), 'Prompt', {
+      tracker: mockTracker,
+      backend: mockBackend,
+      execFileFn: noopExecFile,
+    });
+
+    const workspacePath = path.join(tmpDir, 'h-sentinel-1');
+    await orchestrator.tick();
+    // tick() returns with the agent run still in flight on its worktree — this
+    // is the window the teardown used to race (#2089).
+    expect(fs.existsSync(workspacePath)).toBe(true);
+
+    await orchestrator.waitForBackgroundTasks();
+
+    // The run finished and its completion path removed the worktree, so no git
+    // child is left holding handles under tmpDir.
+    expect(fs.existsSync(workspacePath)).toBe(false);
+    expect(orchestrator.getSnapshot().completed as string[]).toContain(mockIssue.id);
   });
 
   it('continues normally when no config files exist in workspace', async () => {

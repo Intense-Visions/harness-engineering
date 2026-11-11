@@ -3,6 +3,8 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
 import { runMechanicalGate } from '../../src/state';
+// eslint-disable-next-line import/no-relative-packages -- shared repo-root test helper (#2089)
+import { removeTempDirSafely } from '../../../../tests/helpers/remove-temp-dir';
 
 describe('runMechanicalGate', () => {
   let tmpDir: string;
@@ -13,12 +15,9 @@ describe('runMechanicalGate', () => {
 
   afterEach(() => {
     // Windows: a just-exited `npm` subprocess (spawned by runMechanicalGate via
-    // execSync) can briefly retain handles on files under tmpDir, so a plain
-    // recursive rmSync intermittently throws EBUSY / ENOTEMPTY / EPERM. `force`
-    // + `maxRetries`/`retryDelay` makes Node retry until the OS releases the
-    // handles ("await the settle"), removing the teardown-race nondeterminism.
-    // A no-op on POSIX, where handles are released synchronously on exit.
-    fs.rmSync(tmpDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+    // execSync) can briefly retain handles on files under tmpDir — the helper
+    // awaits the settle. See tests/helpers/remove-temp-dir.ts.
+    removeTempDirSafely(tmpDir);
   });
 
   it('should return passed=true with no checks when project type is undetectable', async () => {

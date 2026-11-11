@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/tests/comprehension'
-sourceHash: 'e449a91b4320dbb48a7496034f6f5338d2122a540f09eb8f92b7550a53dc888a'
+sourceHash: 'fa756dab8d342d409fd86ea517242fb576bbe838701ff494f6a5d9146481934e'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -29,6 +29,7 @@ members:
 ## Dependency Slice
 
 ```
+import { removeTempDirSafely } from '../../../../tests/helpers/remove-temp-dir'
 import { createComprehendCommand, formatCompiledUnits, resolveChangedScope, resolveCompileProvider, resolveMode, resolveStaticOnlyPosture, stageCompiledUnits } from '../../src/commands/comprehend'
 import { ChangedSurface } from '../../src/commands/validate-scope'
 import { ComprehendRunResult, runComprehend, runComprehendCheck, runComprehendStats } from '../../src/comprehension/compile-run'
