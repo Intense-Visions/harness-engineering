@@ -192,9 +192,19 @@ describe('craft-fleet READS the clumps its craft skills emit', () => {
         skill(platform, 'craft-fleet'),
         '### Phase 1: SELECT — Compose the Craft Skills, Floor, Route, Rank'
       );
-      // `target.file` is absolute ⇒ craft clump scope and id are not portable.
-      expect(body).toMatch(/absolute/);
-      expect(body).toMatch(/not portable between machines/i);
+      // THE LIMIT IS NOW THE FILE OUTSIDE THE ROOT, not the absolute path.
+      //
+      // This assertion used to demand the words "not portable between
+      // machines", which Phase 6's `craftPath` had already made FALSE —
+      // measured: two clones at `/Users/alice/clone-a` and
+      // `/var/folders/xy/T/clone-b` publish the SAME scope and the SAME clump
+      // id. A test that requires the SKILL to state a refuted claim does not
+      // protect the claim, it pins it, and an agent reads this prose as fact.
+      expect(body).toMatch(/portable between clones/i);
+      expect(body).not.toMatch(/not portable between machines/i);
+      // The limit that IS real, and the positive control for the line above:
+      // a finding outside the project root has no portable form.
+      expect(body).toMatch(/outside\*{0,2} the project root/i);
       // No touched set at this seam ⇒ `'act'` is structurally unreachable.
       expect(body).toMatch(/never `'act'`/);
     });
