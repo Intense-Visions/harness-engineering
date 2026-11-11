@@ -12,9 +12,11 @@ import { HOOK_SCRIPTS } from './profiles';
  * duplicates collapse, first-seen order is preserved).
  */
 describe('HOOK_SUPPORT_FILES registry', () => {
-  it('maps the format-check-dependent hooks to their shared support module', () => {
-    expect(HOOK_SUPPORT_FILES['quality-warner']).toEqual(['format-check.js']);
-    expect(HOOK_SUPPORT_FILES['strict-quality-gate']).toEqual(['format-check.js']);
+  it('maps the format-check-dependent hooks to their shared support modules', () => {
+    // Both also read stdin through read-hook-stdin.js since #2337.
+    const shared = ['format-check.js', 'read-hook-stdin.js'];
+    expect(HOOK_SUPPORT_FILES['quality-warner']).toEqual(shared);
+    expect(HOOK_SUPPORT_FILES['strict-quality-gate']).toEqual(shared);
   });
 
   it('maps the read-hook-stdin-dependent hooks to their shared support module', () => {
@@ -72,14 +74,17 @@ describe('registry covers every sibling import in the hook sources', () => {
 
 describe('supportFilesFor', () => {
   it('returns the support files for a single registered hook', () => {
-    expect(supportFilesFor(['quality-warner'])).toEqual(['format-check.js']);
+    expect(supportFilesFor(['quality-warner'])).toEqual(['format-check.js', 'read-hook-stdin.js']);
     expect(supportFilesFor(['block-no-verify'])).toEqual(['read-hook-stdin.js']);
   });
 
   it('deduplicates support files shared across multiple active hooks', () => {
     // Both hooks depend on the same support module; the installer should be told
     // to ship it exactly once.
-    expect(supportFilesFor(['quality-warner', 'strict-quality-gate'])).toEqual(['format-check.js']);
+    expect(supportFilesFor(['quality-warner', 'strict-quality-gate'])).toEqual([
+      'format-check.js',
+      'read-hook-stdin.js',
+    ]);
     expect(supportFilesFor(['block-no-verify', 'protect-config', 'sentinel-pre'])).toEqual([
       'read-hook-stdin.js',
     ]);
