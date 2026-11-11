@@ -1,11 +1,11 @@
 ---
 schemaVersion: 1
 module: 'packages/core/src/fleet/clumping'
-sourceHash: '6e9ad39a90d3cd9517cc23c76d79dab6e67ac80a61598792c975b56c9c8b6c22'
+sourceHash: '9fc3355eb20ca3e8ed9017a1e32501e180a57bdef5d846b512d5fb9eba676ebd'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
-members: ['floor.test.ts', 'floor.ts', 'form.test.ts', 'form.ts', 'types.ts']
+members: ['floor.test.ts', 'floor.ts', 'form.test.ts', 'form.ts', 'laws.test.ts', 'types.ts']
 ---
 
 ## Interface Contract
