@@ -138,6 +138,15 @@ describe('ensureHarnessGitignore', () => {
     expect(lines).toContain('spill/');
     expect(lines).toContain('tokens.json*');
   });
+
+  // Issue #2094: core writes regenerated caches under .harness/cache/ (OSV advisories,
+  // CI verdicts, LiteLLM pricing, insights impact) in adopter projects too.
+  it('ignores the cache/ directory of regenerated tool caches', () => {
+    ensureHarnessGitignore(tmpDir);
+    const content = fs.readFileSync(path.join(tmpDir, '.harness', '.gitignore'), 'utf-8');
+    const lines = content.split(/\r?\n/);
+    expect(lines).toContain('cache/');
+  });
 });
 
 // Issue #1692: committed compiled-comprehension units are TRACKED (so the LLM-free
