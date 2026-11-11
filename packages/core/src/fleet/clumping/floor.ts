@@ -44,7 +44,7 @@ export const DEFAULT_CLUMP_POLICY: Readonly<ClumpPolicy> = Object.freeze({
  * threshold (measured: 17 vs. 15). The semantics are identical.
  */
 function withDefault<K extends keyof ClumpPolicy>(
-  policy: Partial<ClumpPolicy> | undefined,
+  policy: ClumpPolicyOverlay | undefined,
   key: K
 ): ClumpPolicy[K] {
   return policy?.[key] ?? DEFAULT_CLUMP_POLICY[key];
@@ -113,8 +113,17 @@ export function overlayClumpPolicy(
   return out;
 }
 
-/** Fill a partial policy from the defaults. Absent config ⇒ defaults, never an error. */
-export function resolveClumpPolicy(policy?: Partial<ClumpPolicy>): ClumpPolicy {
+/**
+ * Fill a partial policy from the defaults. Absent config ⇒ defaults, never an error.
+ *
+ * Takes `ClumpPolicyOverlay`, not `Partial<ClumpPolicy>`, for the same reason that type
+ * exists at all. Under `exactOptionalPropertyTypes` a `Partial` does not admit
+ * `{ maxClumps: undefined }` — but that value is exactly what an object spread, a zod-inferred
+ * config block, or `JSON.parse` hands this function in practice, and `??` already resolves it
+ * to the default correctly. Narrowing the signature would not stop the value arriving; it would
+ * only stop a TYPED caller — including a test — from expressing the case that actually occurs.
+ */
+export function resolveClumpPolicy(policy?: ClumpPolicyOverlay): ClumpPolicy {
   return {
     maxPerClump: withDefault(policy, 'maxPerClump'),
     maxClumps: withDefault(policy, 'maxClumps'),
