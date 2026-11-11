@@ -1102,7 +1102,7 @@ Verify a page actually renders (the only authority on render correctness)
 
 ## Fleet Commands
 
-Fleet-family callables (spend-envelope budget consult #1600; intake clump axis)
+Fleet-family callables (spend-envelope budget consult #1600; intake clump axis; clump lane unit)
 
 ### `harness fleet budget-check`
 
@@ -1115,6 +1115,18 @@ Consult the fleet spend envelope at DISPATCH (#1600): compare burn-observed spen
 - `--fleet-envelope` — per-fleet sub-allocation for --fleet, in burn units
 - `--json` — emit the verdict as JSON
 - `--no-refresh` — use the cached burn summary without rescanning
+
+### `harness fleet clump-dispatch`
+
+Take a CLUMP as the lane unit (fleet-family DISPATCH): read the clump set a run emitted and print one PR plan per clump with one commit per member. With --verdict, settle ONE verdict per clump under D10 — a failing member is dropped by reverting its own commit and the clump proceeds with the rest. Read-only.
+
+**Options:**
+
+- `--input` — the emitted clump set: a craft run's JSON output, a `clump-issues --json` dump, or a bare ClumpResult (`-` = stdin)
+- `--verdict` — member outcomes per clump id; settles the D10 verdict
+- `--post-drop-build` — whether the tree still builds after the drops were reverted (green | red | unknown)
+- `--commit-type` — conventional-commit type for the title and subjects (default: "fix")
+- `--json` — emit the plans or verdicts as JSON
 
 ### `harness fleet clump-issues`
 

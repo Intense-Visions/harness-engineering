@@ -25,7 +25,7 @@ function item(id: string, over: Partial<ClumpableItem> = {}): ClumpableItem {
     id,
     scope: 'packages/core/src/fleet',
     kind: 'CODE',
-    grade: { kind: 'axes', tier: 'solid', impact: 'medium', confidence: 'high' },
+    grade: { kind: 'axes', tier: 'foundational', impact: 'medium', confidence: 'high' },
     weight: 100,
     conflictKeys: [`${id}.ts`],
     ...over,
