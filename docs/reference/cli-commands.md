@@ -1102,7 +1102,7 @@ Verify a page actually renders (the only authority on render correctness)
 
 ## Fleet Commands
 
-Fleet-family dispatch callables (spend-envelope budget consult, #1600)
+Fleet-family callables (spend-envelope budget consult #1600; intake clump axis)
 
 ### `harness fleet budget-check`
 
@@ -1115,6 +1115,21 @@ Consult the fleet spend envelope at DISPATCH (#1600): compare burn-observed spen
 - `--fleet-envelope` — per-fleet sub-allocation for --fleet, in burn units
 - `--json` — emit the verdict as JSON
 - `--no-refresh` — use the cached burn summary without rescanning
+
+### `harness fleet clump-issues`
+
+Form the intake clump set over the open-issue backlog (issue-fleet's fifth triage axis): group DISTINCT issues of the same type over the same scope into one work unit, and report every shed count plus the conservation check. Read-only.
+
+**Options:**
+
+- `--input` — read a `gh issue list --json` dump instead of calling gh (`-` = stdin)
+- `--state` — issue state to enumerate (open | closed | all) (default: "open")
+- `--limit` — max issues to enumerate (default: "1000")
+- `--repo` — repository override passed through to gh
+- `--max-clumps` — cap on emitted work units (default: uncapped at intake)
+- `--max-per-clump` — max members in one clump (default 12)
+- `--min-to-clump` — a group below this many members stays solo (default 2)
+- `--json` — emit the clump set as JSON
 
 ## Gateway Commands
 

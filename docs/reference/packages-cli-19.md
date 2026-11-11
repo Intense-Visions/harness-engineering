@@ -50,6 +50,22 @@ Backs `harness fleet budget-check`, the dispatch-time spend gate for fleet runs.
 
 **Exports:** `BUDGET_EXHAUSTED_EXIT_CODE`, `BudgetCheckOptions`, `observedSpendFromSummary`, `envelopeFromOptions`, `BudgetCostOverlay`, `costOverlayFromSummary`, `runBudgetCheck`, `createBudgetCheckCommand`
 
+## packages/cli/src/commands/fleet/clump-issues.ts
+
+[`packages/cli/src/commands/fleet/clump-issues.ts`](/packages/cli/src/commands/fleet/clump-issues.ts)
+
+Backs `harness fleet clump-issues`, the runnable surface of clumping's intake seam and `issue-fleet`'s fifth triage axis. It enumerates the open-issue backlog (`gh issue list`, or a dump via `--input`), forms the clump set through the shared `formClumps` primitive, and prints the clump table, every shed count, and the conservation arithmetic — the exact rows `issue-fleet` carries onto its single CONFIRM round. Read-only; a missing `gh` auth reports the gap and simulates nothing, and a conservation breach exits with its own code rather than printing a clean-looking report.
+
+**Exports:** `CONSERVATION_BREACH_EXIT_CODE`, `BACKLOG_UNAVAILABLE_EXIT_CODE`, `ClumpIssuesOptions`, `buildGhArgs`, `BacklogGap`, `readBacklog`, `policyFromOptions`, `checkConservation`, `renderHuman`, `ClumpIssuesDeps`, `runClumpIssues`, `createClumpIssuesCommand`
+
+## packages/cli/src/commands/fleet/clumpable-issues.ts
+
+[`packages/cli/src/commands/fleet/clumpable-issues.ts`](/packages/cli/src/commands/fleet/clumpable-issues.ts)
+
+The intake half of clumping's three seams: normalizes an open-issue backlog into core's seam-neutral `ClumpableItem`. Scope is the directory of the first repository path the issue names (rendered with a trailing slash so it can never collide with the `unscoped` sentinel), kind is the issue's single type label, the conflict keys are every path it names, and weight is the prioritize axis's existing pilot score. An issue with no single type label is terminal — reported, never clumped — and the floor sheds nothing here by construction, because an issue at intake is already filed. See `docs/changes/clumping/proposal.md`, Phase 4.
+
+**Exports:** `UNSCOPED`, `DEFAULT_ISSUE_TYPE_LABELS`, `DEFAULT_TRACKER_PATH_PREFIXES`, `IssueLabel`, `IntakeIssue`, `IntakeAdapterOptions`, `labelNames`, `mentionedPaths`, `issueScope`, `issueKind`, `issueWeight`, `toClumpableIssues`, `IntakeClumpReport`, `IntakeClumpOutcome`, `INTAKE_CLUMP_POLICY`, `clumpIssues`
+
 ## packages/cli/src/commands/golden-build/runners.ts
 
 [`packages/cli/src/commands/golden-build/runners.ts`](/packages/cli/src/commands/golden-build/runners.ts)
