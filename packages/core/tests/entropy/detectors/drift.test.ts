@@ -708,3 +708,53 @@ describe('drift detector — issue #1326 structure-drift forward-looking exclusi
     expect(structureDrifts).toHaveLength(0);
   });
 });
+
+// Regression: github issue #1873. A root-absolute (`/packages/...`) link is a
+// site-root link; it was resolved against the filesystem root, so every such
+// link reported NOT_FOUND even when the file existed in the project.
+describe('drift detector — root-absolute links (#1873)', () => {
+  const parser = new TypeScriptParser();
+  let projectDir: string;
+
+  beforeEach(async () => {
+    projectDir = await mkdtemp(join(tmpdir(), 'drift-1873-'));
+    await mkdir(join(projectDir, 'src'), { recursive: true });
+    await mkdir(join(projectDir, 'docs', 'reference'), { recursive: true });
+    await writeFile(join(projectDir, 'src', 'index.ts'), 'export const x = 1;\n');
+  });
+
+  afterEach(async () => {
+    await rm(projectDir, { recursive: true, force: true });
+  });
+
+  async function structureDrifts(doc: string) {
+    await writeFile(join(projectDir, 'docs', 'reference', 'index.md'), doc);
+    const snapshotResult = await buildSnapshot({
+      rootDir: projectDir,
+      parser,
+      analyze: { drift: true },
+      include: ['src/**/*.ts'],
+      docPaths: ['docs/**/*.md'],
+    });
+    if (!snapshotResult.ok) throw new Error('snapshot failed');
+    const result = await detectDocDrift(snapshotResult.value, {
+      checkApiSignatures: false,
+      checkExamples: false,
+      checkStructure: true,
+      docPaths: [],
+      ignorePatterns: [],
+    });
+    if (!result.ok) throw new Error('drift detection failed');
+    return result.value.drifts.filter((d) => d.type === 'structure');
+  }
+
+  it('resolves a root-absolute link against the project root', async () => {
+    expect(await structureDrifts('[index](/src/index.ts)\n')).toHaveLength(0);
+  });
+
+  it('still reports a root-absolute link whose target is missing', async () => {
+    const drifts = await structureDrifts('[gone](/src/missing.ts)\n');
+    expect(drifts).toHaveLength(1);
+    expect(drifts[0]?.issue).toBe('NOT_FOUND');
+  });
+});

@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/tests/roadmap'
-sourceHash: '33054aeeaf26d0ee2d0bf7c594fc11e21e8f01378dd3f35f58fe4483755839f1'
+sourceHash: '167d879c200ead11072227aadb242c8dcb9caa47b62b514e86e8c133a21af1d2'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -10,6 +10,8 @@ members:
     'assignee-lifecycle-waypoint.test.ts',
     'assignee-lifecycle.test.ts',
     'assignment-history-round-trip.test.ts',
+    'bugfleet-crlf-roadmap-parse.test.ts',
+    'bugfleet-milestone-backlog-prefix-roundtrip.test.ts',
     'bugfleet-plan-path-suffix-crosstalk.test.ts',
     'bugfleet-preservation-history-keys-leak.test.ts',
     'derive-repo.test.ts',

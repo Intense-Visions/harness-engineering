@@ -101,6 +101,13 @@ describe('api-craft command', () => {
       expect(inputPassedToEngine().maxFiles).toBe(7);
     });
 
+    it('rejects a non-numeric --max-files as a usage error instead of a clean run (#1929)', async () => {
+      const result = await run(['--max-files', 'abc']);
+      expect(result.exitCode).toBe(2);
+      expect(result.stderrText).toContain('--max-files must be a number, got "abc"');
+      expect(runApiCraft).not.toHaveBeenCalled();
+    });
+
     it('collects --files as a variadic list', async () => {
       await run(['--files', 'a/openapi.yaml', 'b/routes.ts']);
       expect(inputPassedToEngine().files).toEqual(['a/openapi.yaml', 'b/routes.ts']);

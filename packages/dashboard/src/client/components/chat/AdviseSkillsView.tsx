@@ -89,7 +89,7 @@ function SkillCard({ match, dim }: { match: SkillMatch; dim?: boolean }) {
         <span className="rounded bg-primary-500/10 border border-primary-500/20 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-primary-300">
           {match.when}
         </span>
-        {match.reasons.map((reason, i) => (
+        {(match.reasons ?? []).map((reason, i) => (
           <span
             key={i}
             className="rounded bg-neutral-bg/60 border border-neutral-border/40 px-1.5 py-0.5 text-[9px] text-neutral-muted"

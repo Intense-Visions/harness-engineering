@@ -46,7 +46,11 @@ const VALID_PRIORITIES: ReadonlySet<string> = new Set(['P0', 'P1', 'P2', 'P3']);
  * Parse a roadmap markdown string into a structured Roadmap object.
  * Returns Result<Roadmap> — Err on invalid input.
  */
-export function parseRoadmap(markdown: string): Result<Roadmap> {
+export function parseRoadmap(rawMarkdown: string): Result<Roadmap> {
+  // Every anchor below is LF-only, so normalize CRLF / CR line endings first —
+  // adopter checkouts on Windows may be CRLF (#1900).
+  const markdown = rawMarkdown.replace(/\r\n?/g, '\n');
+
   // --- Frontmatter ---
   const fmMatch = markdown.match(/^---\n([\s\S]*?)\n---/);
   if (!fmMatch) {
@@ -151,8 +155,10 @@ function parseMilestones(body: string): Result<RoadmapMilestone[]> {
     const nextStart = i + 1 < h2Matches.length ? h2Matches[i + 1]!.startIndex : bodyEnd;
     const sectionBody = body.slice(h2.startIndex + h2.fullMatch.length, nextStart);
 
-    const isBacklog = h2.heading === 'Backlog';
-    const milestoneName = isBacklog ? 'Backlog' : h2.heading.replace(/^Milestone:\s*/, '');
+    // Classify after stripping the `Milestone: ` prefix: the serializer drops it,
+    // so `## Milestone: Backlog` must already parse as the backlog (#1901).
+    const milestoneName = h2.heading.replace(/^Milestone:\s*/, '');
+    const isBacklog = milestoneName === 'Backlog';
 
     const sectionsResult = parseMilestoneSections(sectionBody, milestoneName);
     if (!sectionsResult.ok) return sectionsResult;

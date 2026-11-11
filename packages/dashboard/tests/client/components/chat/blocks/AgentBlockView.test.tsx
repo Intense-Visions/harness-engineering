@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { expectRenderedOnce, expectNotRendered } from './render-assertions';
 import React from 'react';
@@ -190,28 +190,22 @@ describe('AgentBlockView', () => {
     });
   });
 
-  describe('KNOWN DEFECT (characterized, not fixed)', () => {
+  describe('advise-skills payload whose matches omit "reasons" (#2017)', () => {
     /**
      * `parseAdviseSkillsResult` accepts a match validated only as
-     * `{ skill: string, score: number }` (see `looksLikeMatches`), but
-     * `SkillCard` then dereferences `match.reasons` unguarded. An
-     * advise_skills result whose matches omit `reasons` therefore throws
-     * during render and takes the whole chat message down with it.
-     *
-     * This test pins the CURRENT (broken) behavior so the crash cannot change
-     * silently. It is NOT an endorsement — see the PR's parked-defects note.
+     * `{ skill: string, score: number }` (see `looksLikeMatches`), so
+     * `SkillCard` must tolerate a missing `reasons` rather than throw during
+     * render and take the whole chat message down with it.
      */
-    it('throws while rendering an advise-skills payload whose matches omit "reasons"', () => {
-      // React logs the boundary-less render failure; silence it so the expected
-      // throw does not look like a broken test run.
-      const quiet = vi.spyOn(console, 'error').mockImplementation(() => {});
+    it('renders the skill card instead of throwing', () => {
       const missingReasons = JSON.stringify({
         featureName: 'checkout flow',
         apply: [{ skill: 'harness-tdd', score: 0.9 }],
       });
       expect(() =>
         render(<AgentBlockView block={agentBlock({ result: missingReasons })} />)
-      ).toThrow(/reading 'map'/);
+      ).not.toThrow();
+      expectRenderedOnce('harness-tdd');
     });
   });
 

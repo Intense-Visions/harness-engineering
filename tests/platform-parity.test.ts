@@ -17,7 +17,10 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, '..');
 
 const EXCLUDE_DIRS = ['node_modules', 'dist', 'coverage', '.harness', '.git', '.turbo', '.husky'];
-const GLOB_EXCLUDE = EXCLUDE_DIRS.map((d) => `**/${d}/**`);
+// A function, not an array of globs: `globSync` only accepts the array form on
+// later Node 22 patches, and older ones throw at collection time (#2149).
+const GLOB_EXCLUDE = (p: string): boolean =>
+  p.split(/[\\/]/).some((segment) => EXCLUDE_DIRS.includes(segment));
 
 function findFiles(pattern: string): string[] {
   return globSync(pattern, { cwd: ROOT, exclude: GLOB_EXCLUDE }).map((f) => resolve(ROOT, f));

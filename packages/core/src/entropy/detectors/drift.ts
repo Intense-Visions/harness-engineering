@@ -487,7 +487,11 @@ async function checkStructureDrift(
     const fileLinks = extractFileLinks(doc.content);
 
     for (const link of fileLinks) {
-      const resolvedPath = resolve(dirname(doc.path), link.path);
+      // A root-absolute link (`/packages/...`) is site-root relative, so resolve
+      // it against the project root rather than the filesystem root (#1873).
+      const resolvedPath = link.path.startsWith('/')
+        ? resolve(snapshot.rootDir, `.${link.path}`)
+        : resolve(dirname(doc.path), link.path);
       const exists = await fileExists(resolvedPath);
 
       if (!exists) {

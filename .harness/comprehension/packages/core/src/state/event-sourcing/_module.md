@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/src/state/event-sourcing'
-sourceHash: '1100787cd5cc8ba3b4be19d2bb8d77ac36a1d5088f4c76ee6d5af8ca1523db81'
+sourceHash: 'd70e6f2a882403108cf8c58312bb3ea7b7000427a61d2cc7e73ac0201b13301b'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent

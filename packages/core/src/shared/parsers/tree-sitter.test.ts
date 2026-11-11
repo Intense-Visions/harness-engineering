@@ -141,6 +141,21 @@ describe('TreeSitterParser.parseFile', () => {
     expect(result.error.code).toBe('SYNTAX_ERROR');
     expect(result.error.message).toContain('boom');
   });
+
+  // #2299: a grammar that fails to load is the parser being unavailable, not
+  // the file being malformed — graph builders fail closed only on this code.
+  it('returns PARSER_UNAVAILABLE (not SYNTAX_ERROR) when the grammar cannot load', async () => {
+    mockReadFileContent.mockResolvedValue({ ok: true, value: 'x = 1\n' });
+    mockGetParser.mockRejectedValue(new Error('wasm grammar missing'));
+    const parser = createTreeSitterParser('python')!;
+
+    const result = await parser.parseFile('/ok.py');
+
+    expect(result.ok).toBe(false);
+    if (result.ok) throw new Error('expected error');
+    expect(result.error.code).toBe('PARSER_UNAVAILABLE');
+    expect(result.error.message).toContain('wasm grammar missing');
+  });
 });
 
 describe('TreeSitterParser.health', () => {
