@@ -17,8 +17,16 @@ arithmetic, and exits non-zero if the buckets ever stop partitioning the input. 
 
 Clumping is NOT dedup, and the two axes run independently: dedup removes restatements of
 ONE issue; clumping groups DISTINCT issues and closes nothing. Three rules the adapter
-does not bend — an `unscoped` issue (one naming no repository path) never co-clumps with
-a scoped one; an issue with no single type label is terminal, reported and never clumped;
-and two issues naming the same file never share a clump. Every count is reported on
-`issue-fleet`'s EXISTING single CONFIRM round, because a second gate would cost exactly
-the review attention the axis exists to save.
+does not bend — an `unscoped` issue (one naming no repository path) is not groupable at
+all, with a scoped issue or with another unscoped one, because grouping on the ABSENCE of
+a signal is not grouping; an issue with no single type label is terminal, reported and
+never clumped; and two issues naming the same file never share a clump. Paths nobody
+edits are not a scope signal either: the tracker's own roadmap shards, and build
+artifacts under `dist/` / `node_modules/` / `coverage/` / `.turbo/` arriving in pasted
+stack traces, are dropped before the scope and the conflict keys are derived. Every count
+is reported on `issue-fleet`'s EXISTING single CONFIRM round, because a second gate would
+cost exactly the review attention the axis exists to save.
+
+`--json` emits the dispatchable dump: each clump member is `{ id, ref: { number, title } }`
+— the shape `harness fleet clump-dispatch --input` reads — so the advertised
+intake-to-dispatch path produces real commit subjects and real citations.
