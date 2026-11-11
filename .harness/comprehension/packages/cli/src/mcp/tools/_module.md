@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/mcp/tools'
-sourceHash: '715259077adf2dc97975bc57dfa06d0461ce5cac5e56a4850212f2c600b0e37b'
+sourceHash: '72a7a774abe4109e919e89155facdc2465d963a3ad04da891ca46b1cacfbf6b7'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -462,6 +462,7 @@ import from '../../commands/check-phase-gate.js'
 import from '../../commands/create-skill.js'
 import from '../../commands/generate-agent-definitions.js'
 import { generateSlashCommands } from '../../commands/generate-slash-commands.js'
+import { buildDiffInfo } from '../../commands/review-ci.js'
 import from '../../commands/validate-cross-check.js'
 import from '../../commands/validate.js'
 import { runComprehend } from '../../comprehension/compile-run'
