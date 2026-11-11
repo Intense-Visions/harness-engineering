@@ -17,7 +17,6 @@
 
 import { z } from 'zod';
 
-import { DEFAULT_CLUMP_POLICY } from './floor';
 import type { ClumpPolicy } from './types';
 
 /**
@@ -42,7 +41,7 @@ import type { ClumpPolicy } from './types';
  * WHOLE config load over one misspelled clumping field, taking down commands
  * that never read this block.
  */
-export const ClumpPolicyOverrideSchema = z.object({
+const ClumpPolicyOverrideSchema = z.object({
   /** Max members in one clump. Absent ⇒ 12. */
   maxPerClump: z.number().int().min(1).optional(),
   /** Max EMITTED WORK UNITS (clumps + solos), never findings (D9). Absent ⇒ the seam's own default. */
@@ -94,7 +93,7 @@ export const ClumpingConfigSchema = ClumpPolicyOverrideSchema.extend({
 });
 
 export type ClumpingConfig = z.infer<typeof ClumpingConfigSchema>;
-export type ClumpPolicyOverride = z.infer<typeof ClumpPolicyOverrideSchema>;
+type ClumpPolicyOverride = z.infer<typeof ClumpPolicyOverrideSchema>;
 
 /**
  * Overlay `over` onto `under`, SKIPPING every `undefined` field.
@@ -176,19 +175,4 @@ export function clumpingFromConfig(config: unknown): ClumpingConfig | undefined 
   if (block === undefined) return undefined;
   const parsed = ClumpingConfigSchema.safeParse(block);
   return parsed.success ? parsed.data : undefined;
-}
-
-/**
- * The fully-resolved policy for a seam, with every field populated.
- *
- * Exists so a caller can REPORT what it is running under. `resolveFloor` and
- * `formClumps` each resolve defaults internally, which is right for them and
- * useless for a `--json` surface that has to say what the cap actually was.
- */
-export function describeSeamClumpPolicy(
-  clumping: ClumpingConfig | undefined,
-  seam: ClumpSeam,
-  seamBaseline: Partial<ClumpPolicy> = {}
-): ClumpPolicy {
-  return { ...DEFAULT_CLUMP_POLICY, ...resolveSeamClumpPolicy(clumping, seam, seamBaseline) };
 }

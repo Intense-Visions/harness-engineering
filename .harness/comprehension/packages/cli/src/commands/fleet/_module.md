@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/commands/fleet'
-sourceHash: 'c3f7bcc704d404f6f7e899234c31e8a03365ec3a887f1495c0f8620b47b46d51'
+sourceHash: 'd4b091cd189e542215e058c35f3967995c6f00c45b5d8e342a7cb960e9fb22d5'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent

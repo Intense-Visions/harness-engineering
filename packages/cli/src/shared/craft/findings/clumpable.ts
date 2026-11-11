@@ -250,6 +250,6 @@ export function craftClumpingConfig(projectRoot: string): ClumpingConfig | undef
 }
 
 /** The craft seam's policy. No seam baseline — craft runs on the primitive's defaults. */
-export function craftClumpPolicy(projectRoot: string): Partial<ClumpPolicy> {
+function craftClumpPolicy(projectRoot: string): Partial<ClumpPolicy> {
   return resolveSeamClumpPolicy(craftClumpingConfig(projectRoot), 'craft');
 }

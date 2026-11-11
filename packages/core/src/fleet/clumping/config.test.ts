@@ -19,7 +19,6 @@ import { describe, expect, it } from 'vitest';
 import {
   ClumpingConfigSchema,
   clumpingFromConfig,
-  describeSeamClumpPolicy,
   resolveSeamClumpPolicy,
   type ClumpingConfig,
 } from './config';
@@ -28,6 +27,27 @@ import type { ClumpPolicy } from './types';
 
 /** The intake seam's built-in baseline, mirrored so core's test does not import cli. */
 const INTAKE_BASELINE: Partial<ClumpPolicy> = { maxClumps: Number.MAX_SAFE_INTEGER };
+
+/**
+ * The resolution a SEAM actually performs: the partial from the config, handed
+ * to the same `resolveClumpPolicy` every seam's `formClumps`/`resolveFloor`
+ * call reaches.
+ *
+ * Written here rather than exported from `config.ts` on purpose. An earlier
+ * draft shipped this as a public `describeSeamClumpPolicy`, and its only caller
+ * was this file — an export whose sole consumer is its own test is dead code
+ * wearing an API costume, which is the exact defect class this spec keeps
+ * catching. Composing the two real functions instead means these assertions run
+ * through the production path rather than a parallel one that could drift from
+ * it.
+ */
+function seamPolicy(
+  clumping: ClumpingConfig | undefined,
+  seam: Parameters<typeof resolveSeamClumpPolicy>[1],
+  baseline: Partial<ClumpPolicy> = {}
+): ClumpPolicy {
+  return resolveClumpPolicy(resolveSeamClumpPolicy(clumping, seam, baseline));
+}
 
 describe('criterion 13 — absent config ⇒ defaults apply and nothing errors', () => {
   it('an entirely absent block resolves to the seam baseline and does not throw', () => {
@@ -55,11 +75,11 @@ describe('criterion 13 — absent config ⇒ defaults apply and nothing errors',
   });
 
   it('the resolved policy equals DEFAULT_CLUMP_POLICY when nothing is configured', () => {
-    expect(describeSeamClumpPolicy(undefined, 'craft')).toEqual(DEFAULT_CLUMP_POLICY);
-    expect(describeSeamClumpPolicy(undefined, 'review')).toEqual(DEFAULT_CLUMP_POLICY);
+    expect(seamPolicy(undefined, 'craft')).toEqual(DEFAULT_CLUMP_POLICY);
+    expect(seamPolicy(undefined, 'review')).toEqual(DEFAULT_CLUMP_POLICY);
     // …and that is the same object `resolveClumpPolicy` would hand back for an
     // absent partial, so the config path and the no-config path agree.
-    expect(describeSeamClumpPolicy(undefined, 'craft')).toEqual(resolveClumpPolicy(undefined));
+    expect(seamPolicy(undefined, 'craft')).toEqual(resolveClumpPolicy(undefined));
   });
 
   it('an EMPTY block behaves exactly as an absent one — `{}` is not "configured"', () => {
@@ -94,7 +114,7 @@ describe('POSITIVE CONTROL — the block is actually read when present', () => {
         floorEnabled: false,
       },
     })!;
-    expect(describeSeamClumpPolicy(cfg, 'craft')).toEqual({
+    expect(seamPolicy(cfg, 'craft')).toEqual({
       maxPerClump: 3,
       maxClumps: 5,
       minToClump: 7,
@@ -103,7 +123,7 @@ describe('POSITIVE CONTROL — the block is actually read when present', () => {
     });
     // Pinned as a COMPLEMENT over the policy's own keys, so a sixth field added
     // to ClumpPolicy fails here rather than being silently unconfigurable.
-    expect(Object.keys(describeSeamClumpPolicy(cfg, 'craft')).sort()).toEqual(
+    expect(Object.keys(seamPolicy(cfg, 'craft')).sort()).toEqual(
       Object.keys(DEFAULT_CLUMP_POLICY).sort()
     );
   });
@@ -111,7 +131,7 @@ describe('POSITIVE CONTROL — the block is actually read when present', () => {
   it('`floorEnabled: false` survives — the field `||` would have eaten', () => {
     const cfg = clumpingFromConfig({ clumping: { floorEnabled: false } })!;
     expect(resolveSeamClumpPolicy(cfg, 'review').floorEnabled).toBe(false);
-    expect(describeSeamClumpPolicy(cfg, 'review').floorEnabled).toBe(false);
+    expect(seamPolicy(cfg, 'review').floorEnabled).toBe(false);
   });
 });
 

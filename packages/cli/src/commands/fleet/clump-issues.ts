@@ -160,9 +160,7 @@ export function policyFromOptions(options: ClumpIssuesOptions): Partial<ClumpPol
  * here, because a config that EXISTS and is malformed has already been reported
  * on stderr by the loader's own validation before this returns.
  */
-export function clumpingBlockFor(
-  options: ClumpIssuesOptions
-): ReturnType<typeof clumpingFromConfig> {
+function clumpingBlockFor(options: ClumpIssuesOptions): ReturnType<typeof clumpingFromConfig> {
   const loaded = resolveConfig(options.config);
   return loaded.ok ? clumpingFromConfig(loaded.value) : undefined;
 }
@@ -175,7 +173,7 @@ export function clumpingBlockFor(
  * bottom because it is a built-in default, which is precisely what config is
  * for overriding.
  */
-export function resolveIntakePolicy(options: ClumpIssuesOptions): Partial<ClumpPolicy> {
+function resolveIntakePolicy(options: ClumpIssuesOptions): Partial<ClumpPolicy> {
   return {
     ...resolveSeamClumpPolicy(clumpingBlockFor(options), 'intake', INTAKE_CLUMP_POLICY),
     ...policyFromOptions(options),

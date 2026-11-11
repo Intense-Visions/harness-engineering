@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/shared/craft/findings'
-sourceHash: 'eb555e72efc44bc1abe63a7d04c212385aaad5727bb60f3a8cbe18532008393c'
+sourceHash: '25c1f202e69bfb3a573e7b5c52348453d20ed186ae08e89b9d77d514c44731aa'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -16,7 +16,6 @@ export Confidence
 export Impact
 export Tier
 export clumpCraftFindings
-export craftClumpPolicy
 export craftClumpingConfig
 export craftKind
 export craftPath
