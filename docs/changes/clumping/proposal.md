@@ -410,7 +410,13 @@ defines the vocabulary, cli derives from it, and no cycle is introduced.
   star source for that name is **TS2308**. The cli shim renames it back so `axes.ts` stays
   byte-compatible for its 17 importers. Do **not** "fix" this with an explicit re-export — that
   exits 0 while silently shadowing the star export, which is a silent public-name redefinition.
-  A compile-time assertion pins `core.Tier === 'solid'` so the collision cannot creep back.
+  The gate is a probe over the BUILT declaration surface, asserting the craft union appears as
+  `<local> as CraftTier` and never as `<local> as Tier`. An earlier draft of this spec promised
+  "a compile-time assertion pins `core.Tier === 'solid'`"; a line of that shape exists but is
+  **inert** — `packages/cli/tsconfig.json` excludes `tests`, so `tsc --noEmit` never sees it and
+  vitest strips types without checking them. It was measured still compiling under a deliberate
+  shadowing with the cli typecheck exiting 0. A type-level assertion in an excluded directory is
+  not a gate, and recording that here is cheaper than rediscovering it.
 - `packages/cli/src/config/schema.ts` — `clumping` block.
 - `templates/**/harness.config.json.hbs` — the adopter template. **Never run prettier on it**; it
   mangles JSON-in-hbs.
