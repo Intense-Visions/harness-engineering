@@ -11,14 +11,25 @@
 
 import type { ClumpPolicy, ClumpableItem, FloorContext, FloorVerdict } from './types';
 
-/** Defaults matching craft-fleet's existing caps. Absent config ⇒ these apply, no error. */
-export const DEFAULT_CLUMP_POLICY: ClumpPolicy = {
+/**
+ * Defaults matching craft-fleet's existing caps. Absent config ⇒ these apply, no error.
+ *
+ * FROZEN, not frozen-by-convention. This constant is re-exported from the package
+ * barrel, so without the freeze any consumer — including the three seams phases 3-5
+ * bind — could write `DEFAULT_CLUMP_POLICY.maxPerClump = 999` and move the floor's
+ * defaults process-wide for every OTHER caller, with nothing in the output to say
+ * so. Every module here is an ESM/TS module and therefore strict, so the freeze
+ * turns that write into a thrown `TypeError` rather than a silent no-op, which is
+ * what makes the violation loud. `resolveClumpPolicy` still returns a fresh mutable
+ * object; only the shared constant is sealed, and `floor.test.ts` pins both halves.
+ */
+export const DEFAULT_CLUMP_POLICY: Readonly<ClumpPolicy> = Object.freeze({
   maxPerClump: 12,
   maxClumps: 20,
   minToClump: 2,
   floorResolution: 'act',
   floorEnabled: true,
-};
+});
 
 /**
  * One field, defaulted.

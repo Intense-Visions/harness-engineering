@@ -140,7 +140,29 @@ describe('resolveClumpPolicy — absent config applies defaults and never errors
     const fromLoader = { maxClumps: undefined } as unknown as Partial<ClumpPolicy>;
     expect(resolveClumpPolicy(fromLoader).maxClumps).toBe(20);
   });
-  it('exposes the defaults as a frozen-by-convention constant', () => {
+  // The test NAME claims a property, so it asserts that property. It used to assert
+  // only `DEFAULT_CLUMP_POLICY.maxPerClump === 12` — a duplicate of the defaults case
+  // above, and a line that passes identically against a mutable object every consumer
+  // of the barrel can rewrite process-wide. Measured before the fix:
+  // `Object.isFrozen(DEFAULT_CLUMP_POLICY)` was `false` and the assignment succeeded.
+  it('exposes the defaults as a frozen constant, not a mutable shared object', () => {
+    expect(Object.isFrozen(DEFAULT_CLUMP_POLICY)).toBe(true);
+    // Strict mode (every module here is ESM/TS) makes the write THROW rather than
+    // silently no-op, which is what keeps a violation loud instead of invisible.
+    expect(() => {
+      (DEFAULT_CLUMP_POLICY as ClumpPolicy).maxPerClump = 999;
+    }).toThrow(TypeError);
+    expect(DEFAULT_CLUMP_POLICY.maxPerClump).toBe(12);
+  });
+
+  // POSITIVE CONTROL for the freeze: sealing the shared constant must not seal what
+  // callers get back. A resolved policy is a fresh object they may own and mutate.
+  it('positive control — a resolved policy is a fresh mutable object, not the constant', () => {
+    const resolved = resolveClumpPolicy();
+    expect(resolved).not.toBe(DEFAULT_CLUMP_POLICY);
+    expect(Object.isFrozen(resolved)).toBe(false);
+    resolved.maxPerClump = 3;
+    expect(resolved.maxPerClump).toBe(3);
     expect(DEFAULT_CLUMP_POLICY.maxPerClump).toBe(12);
   });
 });

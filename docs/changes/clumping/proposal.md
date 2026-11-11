@@ -313,6 +313,12 @@ defaults, no error — the same posture as `context-budget` and `spend-budget`. 
 exists for the same reason `--no-claim` does: a mechanical control the operator cannot switch
 off is one they will work around instead.
 
+`DEFAULT_CLUMP_POLICY` is exported from the package barrel and is **frozen**. A shared mutable
+default is a process-wide write: any one consumer — including the three seam adapters — could
+set `DEFAULT_CLUMP_POLICY.maxPerClump` and move the floor's defaults for every other caller,
+with nothing in any report to say it happened. `resolveClumpPolicy` still hands back a fresh
+mutable object, so callers own what they get.
+
 ### Seam adapters
 
 Core knows nothing about findings, issues, or PRs. Each seam owns a small adapter:
