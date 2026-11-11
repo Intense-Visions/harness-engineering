@@ -452,9 +452,37 @@ describe('buildClump — the id hashes the member SET, not the order it arrived 
     expect(buildClump([mk('a'), mk('b'), mk('c')]).id).toBe(asGiven);
   });
 
-  it('matches the id formula types.ts publishes: sha256(scope|kind|sorted ids)', () => {
-    const digest = createHash('sha256').update('src/api|CODE|a,b,c').digest('hex').slice(0, 16);
+  it('matches the id formula types.ts publishes: sha256(JSON([scope, kind, sorted ids]))', () => {
+    const digest = createHash('sha256')
+      .update(JSON.stringify(['src/api', 'CODE', ['a', 'b', 'c']]))
+      .digest('hex')
+      .slice(0, 16);
     expect(buildClump(trio()).id).toBe(`clump-${digest}`);
+  });
+
+  // C2 REGRESSION. The id used to hash `scope|kind|ids.join(',')`. The three fields
+  // are fixed-arity so that join is safe, but the id LIST is not: a comma inside an
+  // id moves the boundary, and both member sets below encode to `a,b,z`. `types.ts`
+  // calls `id` "stable identity in the source system" — review-finding ids and issue
+  // titles routinely contain commas — so this was reachable from every seam. These
+  // are the exact pairs from the review, which collided on `clump-662b0302268d9f47`.
+  it('gives different ids to member sets that a comma-joined id list conflates', () => {
+    expect(buildClump([mk('a,b'), mk('z')]).id).not.toBe(buildClump([mk('a'), mk('b,z')]).id);
+  });
+
+  it('is reachable through the public API, not just the exported helper', () => {
+    const left = formClumps([mk('a,b'), mk('z')]);
+    const right = formClumps([mk('a'), mk('b,z')]);
+    expect(left.clumps).toHaveLength(1);
+    expect(right.clumps).toHaveLength(1);
+    expect(left.clumps[0]!.id).not.toBe(right.clumps[0]!.id);
+  });
+
+  // POSITIVE CONTROL for the two cases above: they would also pass if every call
+  // returned a fresh random id. The SAME member set must still hash to one id, with
+  // the commas still in place.
+  it('positive control — the same comma-bearing member set still hashes to one id', () => {
+    expect(buildClump([mk('a,b'), mk('z')]).id).toBe(buildClump([mk('z'), mk('a,b')]).id);
   });
 
   // POSITIVE CONTROL: the id can differ. If `buildClump` returned a constant, or if

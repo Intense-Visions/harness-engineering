@@ -75,7 +75,13 @@ export type FloorVerdict =
 
 /** One emitted work unit: like items over one coherent scope. */
 export interface Clump {
-  /** Deterministic: `clump-<sha256(scope|kind|sorted member ids) first 16 hex>`. */
+  /**
+   * Deterministic: `clump-<first 16 hex of sha256(JSON.stringify([scope, kind,
+   * sorted member ids]))>`. The encoding is JSON, not a joined string, because it
+   * must be injective for arbitrary caller strings — `id` is whatever the source
+   * system calls stable, and a comma inside one id used to shift the boundary
+   * between ids and collide two different member sets onto one clump id.
+   */
   id: string;
   scope: string;
   kind: string;

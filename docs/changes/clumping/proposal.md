@@ -199,7 +199,7 @@ function formClumps(
 ): ClumpResult;
 
 interface Clump {
-  id: string; // deterministic hash of scope|kind|sorted member ids
+  id: string; // sha256(JSON.stringify([scope, kind, sorted member ids])), first 16 hex
   scope: string;
   kind: string;
   members: readonly ClumpableItem[];
@@ -231,6 +231,15 @@ interface ClumpCounts {
   conflictSplits: number;
 }
 ```
+
+**The clump id is JSON-encoded, not joined.** The hash input must be injective for arbitrary
+caller strings, and the member-id list is variable-arity: an earlier implementation hashed
+`scope|kind|ids.join(',')`, so a comma inside an `id` shifted the boundary between ids and two
+different member sets — `['a,b', 'z']` and `['a', 'b,z']` — produced the SAME clump id. `id` is
+"stable identity in the source system", and review-finding ids and issue titles routinely
+contain commas, so the collision was reachable from every seam. `JSON.stringify` length-delimits
+each element, so no field can reach outside itself; `JSON.parse` recovers the exact triple,
+which is what makes the property checkable rather than assumed.
 
 Order of operations, and why each step sits where it does:
 

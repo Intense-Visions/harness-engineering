@@ -92,9 +92,18 @@ function splitOnConflict(ordered: readonly ClumpableItem[]): ClumpableItem[][] {
  * `form.test.ts` ("buildClump — the id hashes the member SET") does by handing in
  * deliberately unsorted members. The property is worth keeping rather than
  * deleting because `types.ts` publishes the id as
- * `sha256(scope|kind|sorted member ids)`: phases 3-5 bind three seams to this
- * primitive, and an id that silently depended on arrival order would make that
- * published contract false the first time a caller reordered anything.
+ * `sha256(JSON.stringify([scope, kind, sorted member ids]))`: phases 3-5 bind three
+ * seams to this primitive, and an id that silently depended on arrival order would
+ * make that published contract false the first time a caller reordered anything.
+ *
+ * The hash input is JSON-encoded for the same reason the group key is: it must be
+ * INJECTIVE for arbitrary caller strings, and `JSON.parse` recovers the exact
+ * triple. The ids are variable-arity, so an earlier `sortedIds.join(',')` let a
+ * comma INSIDE an id move the boundary — `['a,b','z']` and `['a','b,z']` both
+ * encoded to `a,b,z` and hashed to the same clump id for different member sets.
+ * `types.ts` calls `id` a "stable identity in the source system", and review-finding
+ * ids and issue titles routinely contain commas, so this was reachable from every
+ * seam. JSON length-delimits each element, so no id can reach outside itself.
  */
 export function buildClump(members: readonly ClumpableItem[]): Clump {
   const head = members[0]!;
@@ -103,7 +112,7 @@ export function buildClump(members: readonly ClumpableItem[]): Clump {
     .slice()
     .sort();
   const digest = createHash('sha256')
-    .update(`${head.scope}|${head.kind}|${sortedIds.join(',')}`)
+    .update(JSON.stringify([head.scope, head.kind, sortedIds]))
     .digest('hex')
     .slice(0, 16);
   return {
