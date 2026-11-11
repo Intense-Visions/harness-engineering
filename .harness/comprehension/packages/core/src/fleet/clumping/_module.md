@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/src/fleet/clumping'
-sourceHash: '535182f16de801aae652dd7fa335ae20a3459f2bce5256a6d901f3941352a5e9'
+sourceHash: 'e1f572c831cc7a9a776aa0320005480dafc96c18dfc9e74e7bdbe81d55d73337'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -49,6 +49,7 @@ export checkVerdictPartition
 export clumpingFromConfig
 export formClumps
 export planClumpPR
+export reportIgnoredClumpingBlock
 export resolveClumpPolicy
 export resolveFloor
 export resolveSeamClumpPolicy
@@ -59,12 +60,12 @@ export settleClumpVerdict
 
 ```
 import { Confidence, Impact, Tier } from '../../craft/axes'
-import { ClumpingConfig, ClumpingConfigSchema, clumpingFromConfig, resolveSeamClumpPolicy } from './config'
+import { ClumpingConfig, ClumpingConfigSchema, clumpingFromConfig, reportIgnoredClumpingBlock, resolveSeamClumpPolicy } from './config'
 import { ClumpMemberOutcome, checkVerdictPartition, planClumpPR, settleClumpVerdict } from './dispatch'
 import { DEFAULT_CLUMP_POLICY, resolveClumpPolicy, resolveFloor } from './floor'
 import { buildClump, formClumps } from './form'
 import { Clump, ClumpCounts, ClumpPolicy, ClumpResult, ClumpableItem, FloorContext, FloorVerdict, FlooredItem, Grade } from './types'
 import { createHash } from 'node:crypto'
-import { describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { z } from 'zod'
 ```

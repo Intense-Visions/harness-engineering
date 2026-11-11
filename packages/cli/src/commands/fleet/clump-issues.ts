@@ -18,6 +18,7 @@ import * as fs from 'node:fs';
 
 import {
   clumpingFromConfig,
+  reportIgnoredClumpingBlock,
   resolveSeamClumpPolicy,
   type ClumpCounts,
   type ClumpPolicy,
@@ -25,7 +26,7 @@ import {
 import chalk from 'chalk';
 import { Command } from 'commander';
 
-import { resolveConfig } from '../../config/loader';
+import { findConfigFile, resolveConfig } from '../../config/loader';
 import {
   INTAKE_CLUMP_POLICY,
   UNSCOPED,
@@ -148,6 +149,11 @@ export function policyFromOptions(options: ClumpIssuesOptions): Partial<ClumpPol
   return policy;
 }
 
+/** Is there a config file to fail at, or genuinely none? Structural, not a message match. */
+function configExists(configPath: string | undefined): boolean {
+  return configPath === undefined ? findConfigFile().ok : fs.existsSync(configPath);
+}
+
 /**
  * The `clumping` block, or `undefined` when there is no config to read.
  *
@@ -155,14 +161,21 @@ export function policyFromOptions(options: ClumpIssuesOptions): Partial<ClumpPol
  * this seam: `harness fleet clump-issues` is a read-only reporting command an
  * agent runs from wherever it happens to be standing, and refusing to run
  * because no `harness.config.json` was found above the cwd would be a new
- * failure mode in exchange for a tuning field nobody set. `resolveConfig`'s
- * `Err` is therefore swallowed — but ONLY the not-found/unreadable case reaches
- * here, because a config that EXISTS and is malformed has already been reported
- * on stderr by the loader's own validation before this returns.
+ * failure mode in exchange for a tuning field nobody set.
+ *
+ * A config that EXISTS and does not load is a different thing, and it is
+ * REPORTED. This comment used to claim such a config "has already been reported
+ * on stderr by the loader's own validation"; `resolveConfig` returns
+ * `Err(CLIError)` and prints nothing, so a project whose `clumping` block was
+ * written correctly but whose config failed validation elsewhere ran on the
+ * defaults with no way to tell. Absent is distinguished STRUCTURALLY, not by
+ * matching the error message, which would go quiet on a reword.
  */
 function clumpingBlockFor(options: ClumpIssuesOptions): ReturnType<typeof clumpingFromConfig> {
   const loaded = resolveConfig(options.config);
-  return loaded.ok ? clumpingFromConfig(loaded.value) : undefined;
+  if (loaded.ok) return clumpingFromConfig(loaded.value);
+  if (configExists(options.config)) reportIgnoredClumpingBlock([loaded.error.message]);
+  return undefined;
 }
 
 /**

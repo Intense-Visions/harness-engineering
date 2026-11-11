@@ -4,7 +4,7 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 
-import { describe, it, expect, vi, afterEach } from 'vitest';
+import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
 
 import { clumpIssues } from './clumpable-issues';
 import {
@@ -310,7 +310,12 @@ describe('the clumping config block reaches the intake seam', () => {
   });
 
   it('a MALFORMED block degrades to the baseline rather than failing the command', () => {
-    expect(clumpsUnder({ maxClumps: 'twenty' })).toBe(25);
+    const quiet = vi.spyOn(process.stderr, 'write').mockImplementation((): boolean => true);
+    try {
+      expect(clumpsUnder({ maxClumps: 'twenty' })).toBe(25);
+    } finally {
+      quiet.mockRestore();
+    }
   });
 
   it('an unreadable config path is not an error — intake is a read-only report', () => {
@@ -327,5 +332,92 @@ describe('the clumping config block reaches the intake seam', () => {
     expect(
       (JSON.parse(String(log.mock.calls[0]![0])) as { clumps: unknown[] }).clumps
     ).toHaveLength(25);
+  });
+});
+
+/**
+ * THE PROPERTY: a config this command DECLINED TO USE must say so.
+ *
+ * `clump-issues` swallows `resolveConfig`'s `Err` on purpose — it is a
+ * read-only report an agent runs from wherever it is standing, and refusing to
+ * run for want of a tuning field would be a worse failure than running on
+ * defaults. The swallow was defended by a comment claiming the loader "has
+ * already reported" a malformed config on stderr. It had not: `resolveConfig`
+ * returns `Err(CLIError)` and prints nothing, so a project whose `clumping`
+ * block was written CORRECTLY but whose config failed validation somewhere else
+ * entirely ran on the baseline with no way to find out.
+ *
+ * The absent-config silence is the positive control. It is also the case the
+ * swallow exists for, so it has to keep working.
+ */
+describe('a config that exists and does not load is REPORTED', () => {
+  let stderr: string[];
+  let spy: ReturnType<typeof vi.spyOn>;
+  let log: ReturnType<typeof vi.spyOn>;
+
+  beforeEach(() => {
+    stderr = [];
+    spy = vi
+      .spyOn(process.stderr, 'write')
+      .mockImplementation((chunk: unknown): boolean => (stderr.push(String(chunk)), true));
+    log = vi.spyOn(console, 'log').mockImplementation(() => {});
+  });
+  afterEach(() => {
+    spy.mockRestore();
+    log.mockRestore();
+  });
+
+  /** One issue, one scope: the run always succeeds, so only stderr is under test. */
+  const one = [{ number: 1, title: 'a', body: 'packages/p/src/a.ts', labels: ['bug'] }];
+
+  it('names the failing field when the clumping block itself is malformed', () => {
+    withDump(
+      one,
+      (file, config) => {
+        expect(runClumpIssues({ input: file, json: true, config })).toBe(0);
+      },
+      { maxClumps: 0 }
+    );
+    expect(stderr.join('')).toMatch(/IGNORED WHOLE/);
+    expect(stderr.join('')).toContain('clumping.maxClumps');
+  });
+
+  it('reports a VALID clumping block lost to an unrelated config error', () => {
+    // The case the old comment could not have covered even if the loader did
+    // print: the `clumping` block here is perfectly good. The config fails
+    // validation elsewhere, and the block goes down with it.
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'clump-issues-badcfg-'));
+    const file = path.join(dir, 'backlog.json');
+    const config = path.join(dir, 'harness.config.json');
+    fs.writeFileSync(file, JSON.stringify(one));
+    fs.writeFileSync(config, JSON.stringify({ version: 'one', clumping: { maxClumps: 3 } }));
+    try {
+      expect(runClumpIssues({ input: file, json: true, config })).toBe(0);
+      expect(stderr.join('')).toMatch(/IGNORED WHOLE/);
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('POSITIVE CONTROL: a loadable config and an ABSENT config are both silent', () => {
+    withDump(
+      one,
+      (file, config) => {
+        expect(runClumpIssues({ input: file, json: true, config })).toBe(0);
+      },
+      { maxClumps: 3 }
+    );
+    expect(stderr.join('')).toBe('');
+
+    withDump(one, (file) => {
+      expect(
+        runClumpIssues({
+          input: file,
+          json: true,
+          config: path.join(os.tmpdir(), 'no-such-config-7b21.json'),
+        })
+      ).toBe(0);
+    });
+    expect(stderr.join('')).toBe('');
   });
 });

@@ -152,6 +152,45 @@ export function resolveSeamClumpPolicy(
   return overlay(overlay({ ...seamBaseline }, clumping), clumping.seams?.[seam]);
 }
 
+/** `clumping.seams.craft.maxClumps: <message>`, or bare `clumping` when the block itself is wrong. */
+function describeIssue(issue: z.ZodIssue): string {
+  const where = issue.path.length === 0 ? 'clumping' : `clumping.${issue.path.join('.')}`;
+  return `${where}: ${issue.message}`;
+}
+
+/**
+ * Say, on stderr, that a `clumping` block was ignored — and why.
+ *
+ * THE DEGRADE IS WHOLE-BLOCK, which is the part worth saying out loud: zod's
+ * `safeParse` has no partial success, so a block setting `minToClump` correctly
+ * and `maxClumps` to 0 loses BOTH. Measured before this existed:
+ * `{"clumping":{"minToClump":4,"maxClumps":0}}` made `harness fleet clump-issues`
+ * clump a 3-issue group that `minToClump: 4` forbids, exit 0, nothing on stderr.
+ *
+ * ONE reporter for all three seams, because all three were separately believed
+ * to be covered by one of the others and none of them reported anything.
+ *
+ * stderr, never stdout: `clump-issues --json` and the craft MCP tools put
+ * machine-readable output there. `HARNESS_SUPPRESS_CONFIG_WARNINGS` is the cli
+ * loader's own opt-out (#862), so one switch silences config diagnostics.
+ */
+export function reportIgnoredClumpingBlock(reasons: readonly string[]): void {
+  if (process.env.HARNESS_SUPPRESS_CONFIG_WARNINGS === '1') return;
+  const lines = [
+    'harness: the `clumping` config block was IGNORED WHOLE; this run used the built-in defaults.',
+  ];
+  for (const reason of reasons) {
+    // A reason can arrive multi-line — `CLIError`'s "Invalid config:" already
+    // carries its own indented issue list — so only its FIRST line takes a
+    // bullet. Bulleting every line produced `- Invalid config:` followed by
+    // `- clumping.maxClumps: …`, which reads as two unrelated problems.
+    const [head, ...rest] = reason.split('\n');
+    lines.push(`  - ${head ?? ''}`);
+    for (const line of rest) lines.push(`    ${line.trim()}`);
+  }
+  process.stderr.write(`${lines.join('\n')}\n`);
+}
+
 /**
  * Read the `clumping` block out of a loose config object and validate it.
  *
@@ -165,14 +204,19 @@ export function resolveSeamClumpPolicy(
  * money past a cap the adopter asked for. A bad clumping block has no such
  * downside — the seam falls back to its baseline, which is exactly the
  * behaviour of a project with no block at all — and throwing here would take
- * down a whole review run over a mistyped tuning number. The cli loader has
- * already reported the malformation by the time this runs, so the error is
- * surfaced; it just is not fatal twice.
+ * down a whole review run over a mistyped tuning number.
+ *
+ * The degrade is REPORTED by {@link reportIgnoredClumpingBlock}, not swallowed.
+ * This comment used to claim the cli loader "has already reported" it; it had
+ * not — `resolveConfig` returns `Err(CLIError)` and prints nothing, and the
+ * craft seam never reaches the loader at all.
  */
 export function clumpingFromConfig(config: unknown): ClumpingConfig | undefined {
   if (config === null || typeof config !== 'object') return undefined;
   const block = (config as Record<string, unknown>)['clumping'];
   if (block === undefined) return undefined;
   const parsed = ClumpingConfigSchema.safeParse(block);
-  return parsed.success ? parsed.data : undefined;
+  if (parsed.success) return parsed.data;
+  reportIgnoredClumpingBlock(parsed.error.issues.map(describeIssue));
+  return undefined;
 }

@@ -18,7 +18,12 @@
 // held in core because the review seam IS core code.
 
 export { resolveFloor, resolveClumpPolicy, DEFAULT_CLUMP_POLICY } from './floor';
-export { ClumpingConfigSchema, clumpingFromConfig, resolveSeamClumpPolicy } from './config';
+export {
+  ClumpingConfigSchema,
+  clumpingFromConfig,
+  reportIgnoredClumpingBlock,
+  resolveSeamClumpPolicy,
+} from './config';
 export type { ClumpingConfig, ClumpSeam } from './config';
 export { formClumps } from './form';
 export { planClumpPR, settleClumpVerdict, checkVerdictPartition } from './dispatch';

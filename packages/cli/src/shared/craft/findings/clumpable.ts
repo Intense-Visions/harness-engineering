@@ -21,8 +21,9 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 
 import {
-  ClumpingConfigSchema,
+  clumpingFromConfig,
   formClumps,
+  reportIgnoredClumpingBlock,
   resolveSeamClumpPolicy,
   type ClumpPolicy,
   type ClumpResult,
@@ -227,26 +228,40 @@ export function clumpCraftFindings(
  *
  * Every failure mode resolves to `undefined` — no file, unreadable file,
  * invalid JSON, malformed block — so a craft run never fails because of a
- * tuning field, which is success criterion 13 at this seam. The cli config
- * loader reports a malformed config on its own paths; a craft sweep is not the
- * place to surface it a second time by crashing.
+ * tuning field, which is success criterion 13 at this seam.
+ *
+ * THREE of those four are REPORTED on stderr rather than swallowed. This
+ * comment used to say the cli loader reports a malformed config "on its own
+ * paths"; that was false twice over — the loader returns an `Err` and prints
+ * nothing, and this seam, reached through the craft MCP tools, never invokes it
+ * at all. The one silent case is an ABSENT file, which is not a degrade.
+ *
+ * Validation goes through core's `clumpingFromConfig` rather than a second
+ * local `safeParse`, so this seam and the review seam cannot drift apart.
  */
 export function craftClumpingConfig(projectRoot: string): ClumpingConfig | undefined {
   if (projectRoot === '') return undefined;
+  const file = path.join(projectRoot, 'harness.config.json');
   let raw: string;
   try {
-    raw = fs.readFileSync(path.join(projectRoot, 'harness.config.json'), 'utf-8');
-  } catch {
+    raw = fs.readFileSync(file, 'utf-8');
+  } catch (error) {
+    // ENOENT is the ordinary "no config here" case and says nothing. Anything
+    // else — a directory at that path, a permission denial — is a config the
+    // adopter wrote and this run could not read, which is a degrade.
+    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+      reportIgnoredClumpingBlock([`${file} could not be read — ${(error as Error).message}`]);
+    }
     return undefined;
   }
+  let parsed: unknown;
   try {
-    const parsed = ClumpingConfigSchema.safeParse(
-      (JSON.parse(raw) as Record<string, unknown>)['clumping']
-    );
-    return parsed.success ? parsed.data : undefined;
-  } catch {
+    parsed = JSON.parse(raw);
+  } catch (error) {
+    reportIgnoredClumpingBlock([`${file} is not valid JSON — ${(error as Error).message}`]);
     return undefined;
   }
+  return clumpingFromConfig(parsed);
 }
 
 /** The craft seam's policy. No seam baseline — craft runs on the primitive's defaults. */

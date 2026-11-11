@@ -14,11 +14,12 @@
 // Without the pair, an ignored block and a correctly-defaulting one are
 // indistinguishable in output.
 
-import { describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
   ClumpingConfigSchema,
   clumpingFromConfig,
+  reportIgnoredClumpingBlock,
   resolveSeamClumpPolicy,
   type ClumpingConfig,
 } from './config';
@@ -181,6 +182,14 @@ describe('a per-seam override is expressible — the seams have different correc
 });
 
 describe('a malformed block degrades to the baseline instead of taking the run down', () => {
+  // Every case below is a malformed block, which now REPORTS on stderr (see the
+  // next describe). Silenced here so these assertions stay about the degrade.
+  let spy: ReturnType<typeof vi.spyOn>;
+  beforeEach(() => {
+    spy = vi.spyOn(process.stderr, 'write').mockImplementation((): boolean => true);
+  });
+  afterEach(() => spy.mockRestore());
+
   it('a bad field type yields undefined, not a throw', () => {
     expect(() => clumpingFromConfig({ clumping: { maxPerClump: 'twelve' } })).not.toThrow();
     expect(clumpingFromConfig({ clumping: { maxPerClump: 'twelve' } })).toBeUndefined();
@@ -215,5 +224,81 @@ describe('a malformed block degrades to the baseline instead of taking the run d
     const parsed = ClumpingConfigSchema.safeParse({ maxPerClump: 4, maxPerClamp: 9 });
     expect(parsed.success).toBe(true);
     expect(parsed.data).toEqual({ maxPerClump: 4 });
+  });
+});
+
+/**
+ * THE PROPERTY: a `clumping` block that is thrown away must SAY SO.
+ *
+ * Stated before the encoding, because the encoding is the easy half. zod's
+ * `safeParse` has no partial success, so ONE bad field discards the WHOLE block
+ * — a config that sets `minToClump` correctly and `maxClumps` to 0 loses both
+ * and the seam silently runs on its baseline. Measured on the shipped binary
+ * before this existed: `harness fleet clump-issues` with
+ * `{"clumping":{"minToClump":4,"maxClumps":0}}` clumped a 3-issue group that
+ * `minToClump: 4` forbids, exit 0, and wrote nothing to stderr about it. Three
+ * separate comments in this change claimed the cli loader had already reported
+ * it; the loader returns an `Err` and prints nothing, and the craft seam never
+ * reaches the loader at all.
+ *
+ * So: the report is the property, the field name is the evidence, and the
+ * SILENCE on a valid block is the positive control that separates "reports a
+ * degrade" from "prints on every call".
+ */
+describe('an ignored block is REPORTED, not swallowed', () => {
+  let stderr: string[];
+  let spy: ReturnType<typeof vi.spyOn>;
+
+  beforeEach(() => {
+    stderr = [];
+    spy = vi
+      .spyOn(process.stderr, 'write')
+      .mockImplementation((chunk: unknown): boolean => (stderr.push(String(chunk)), true));
+  });
+  afterEach(() => {
+    spy.mockRestore();
+    delete process.env.HARNESS_SUPPRESS_CONFIG_WARNINGS;
+  });
+
+  it('names the field that failed AND says the whole block was ignored', () => {
+    expect(clumpingFromConfig({ clumping: { minToClump: 4, maxClumps: 0 } })).toBeUndefined();
+    const text = stderr.join('');
+    expect(text).toContain('clumping.maxClumps');
+    expect(text).toMatch(/IGNORED WHOLE/);
+  });
+
+  it('POSITIVE CONTROL: a block that parses prints nothing at all', () => {
+    // Without this, a reporter that fires unconditionally passes the test above.
+    expect(clumpingFromConfig({ clumping: { minToClump: 4 } })).toEqual({ minToClump: 4 });
+    expect(stderr.join('')).toBe('');
+    // …and so does an absent block, and a config that is not an object.
+    expect(clumpingFromConfig({})).toBeUndefined();
+    expect(clumpingFromConfig(null)).toBeUndefined();
+    expect(stderr.join('')).toBe('');
+  });
+
+  it('reports the BLOCK itself when the block is not an object', () => {
+    // `issue.path` is empty here, so a naive `clumping.${path.join('.')}` would
+    // print a bare trailing dot and name no field.
+    expect(clumpingFromConfig({ clumping: 7 })).toBeUndefined();
+    const text = stderr.join('');
+    expect(text).toContain('clumping:');
+    expect(text).not.toContain('clumping.:');
+  });
+
+  it("honours HARNESS_SUPPRESS_CONFIG_WARNINGS, the cli loader's own opt-out", () => {
+    process.env.HARNESS_SUPPRESS_CONFIG_WARNINGS = '1';
+    expect(clumpingFromConfig({ clumping: { maxClumps: 0 } })).toBeUndefined();
+    expect(stderr.join('')).toBe('');
+  });
+
+  it('is ONE reporter the other two seams call with their own reason', () => {
+    // The craft and intake seams degrade for reasons zod never sees (an
+    // unreadable file, a config that failed schema validation elsewhere), so
+    // they hand in their own text and get the same headline.
+    reportIgnoredClumpingBlock(['/p/harness.config.json is not valid JSON — Unexpected token']);
+    const text = stderr.join('');
+    expect(text).toMatch(/IGNORED WHOLE/);
+    expect(text).toContain('is not valid JSON');
   });
 });

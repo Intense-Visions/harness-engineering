@@ -6,7 +6,7 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 
 import { formClumps } from '@harness-engineering/core';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { CraftFinding } from '../../../design-craft/findings/schema.js';
 import type { CodeFinding } from '../../../code-craft/findings/schema.js';
@@ -513,10 +513,17 @@ describe('the clumping config block reaches the craft seam', () => {
   });
 
   it('a malformed config never takes a craft run down', () => {
-    for (const bad of ['{ not json', JSON.stringify({ clumping: { maxPerClump: 'two' } })]) {
-      fs.writeFileSync(path.join(dir, 'harness.config.json'), bad);
-      expect(() => clumpCraftFindings(five(), dir)).not.toThrow();
-      expect(clumpCraftFindings(five(), dir).clumps[0]!.members).toHaveLength(5);
+    // Both inputs now REPORT on stderr (see the next describe); silenced here
+    // so this assertion stays about the degrade and not about the message.
+    const quiet = vi.spyOn(process.stderr, 'write').mockImplementation((): boolean => true);
+    try {
+      for (const bad of ['{ not json', JSON.stringify({ clumping: { maxPerClump: 'two' } })]) {
+        fs.writeFileSync(path.join(dir, 'harness.config.json'), bad);
+        expect(() => clumpCraftFindings(five(), dir)).not.toThrow();
+        expect(clumpCraftFindings(five(), dir).clumps[0]!.members).toHaveLength(5);
+      }
+    } finally {
+      quiet.mockRestore();
     }
   });
 
@@ -531,5 +538,71 @@ describe('the clumping config block reaches the craft seam', () => {
     expect(clumpCraftFindings(five(), nested).clumps[0]!.members).toHaveLength(5);
     // POSITIVE CONTROL: the very same block IS read one directory up.
     expect(craftClumpingConfig(dir)).toEqual({ maxPerClump: 2 });
+  });
+});
+
+/**
+ * THE PROPERTY: the craft seam is the seam FURTHEST from the cli config loader
+ * — reached through the MCP tools it never invokes the loader at all — so every
+ * degrade it takes is its own to report or to lose.
+ *
+ * This describe exists because three separate comments in this change asserted
+ * that "the cli loader has already reported" a malformed block. At this seam
+ * that was not merely unproven, it was structurally impossible. The assertions
+ * below are about what reaches stderr; the paired silences are what keep them
+ * from passing against a function that prints on every call.
+ */
+describe('the craft seam REPORTS the degrades it takes', () => {
+  let dir: string;
+  let stderr: string[];
+  let spy: ReturnType<typeof vi.spyOn>;
+
+  beforeEach(() => {
+    dir = fs.mkdtempSync(path.join(os.tmpdir(), 'craft-clump-report-'));
+    stderr = [];
+    spy = vi
+      .spyOn(process.stderr, 'write')
+      .mockImplementation((chunk: unknown): boolean => (stderr.push(String(chunk)), true));
+  });
+  afterEach(() => {
+    spy.mockRestore();
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+
+  const config = (raw: string): void =>
+    fs.writeFileSync(path.join(dir, 'harness.config.json'), raw);
+
+  it('names the field and says the block was ignored, for a malformed block', () => {
+    config(JSON.stringify({ version: 1, name: 'a', clumping: { maxPerClump: 0 } }));
+    expect(craftClumpingConfig(dir)).toBeUndefined();
+    expect(stderr.join('')).toContain('clumping.maxPerClump');
+    expect(stderr.join('')).toMatch(/IGNORED WHOLE/);
+  });
+
+  it('names the FILE for a config that is not valid JSON', () => {
+    config('{ not json');
+    expect(craftClumpingConfig(dir)).toBeUndefined();
+    expect(stderr.join('')).toContain('harness.config.json');
+    expect(stderr.join('')).toContain('not valid JSON');
+  });
+
+  it('reports a config file it cannot read', () => {
+    // A DIRECTORY where the config should be: EISDIR on POSIX, EISDIR/EPERM on
+    // win32 — either way not ENOENT, so it is a config the adopter put there
+    // and this run could not read. `chmod` is deliberately not used: it does not
+    // revoke read access on win32, so the test would pass there for no reason.
+    fs.mkdirSync(path.join(dir, 'harness.config.json'));
+    expect(craftClumpingConfig(dir)).toBeUndefined();
+    expect(stderr.join('')).toContain('could not be read');
+  });
+
+  it('POSITIVE CONTROL: an ABSENT config and a VALID block are both silent', () => {
+    // Without this pair, a reporter that fires on every call passes everything
+    // above. An absent config is the ordinary case, not a degrade.
+    expect(craftClumpingConfig(dir)).toBeUndefined();
+    expect(stderr.join('')).toBe('');
+    config(JSON.stringify({ version: 1, name: 'a', clumping: { maxPerClump: 2 } }));
+    expect(craftClumpingConfig(dir)).toEqual({ maxPerClump: 2 });
+    expect(stderr.join('')).toBe('');
   });
 });
