@@ -1,7 +1,7 @@
 ---
 name: harness:docs-fleet
 description: Autonomous documentation-drift remediation sweep — enumerate the doc-drift/undocumented backlog by composing the existing documentation-floor detectors, rank the areas by staleness value, confirm the batch once, fan out worktree-isolated subagents that each run the real per-area harness-docs-pipeline to convergence, independently verify each result by a clean doc re-scan and all-OS CI, and hand back a batch of scoped doc-fix PRs for one bulk human review. Never auto-merges.
-argument-hint: '[--path <path>] [----concurrency <--concurrency>] [----report-only <--report-only>] [----dry-run <--dry-run>] [----safe-only <--safe-only>]'
+argument-hint: '[--path <path>] [--concurrency <concurrency>] [--report-only <report-only>] [--dry-run <dry-run>] [--safe-only <safe-only>]'
 allowed-tools:
   - Bash
   - Read

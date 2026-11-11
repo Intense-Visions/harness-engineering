@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/hooks'
-sourceHash: '88d7420198effc92a4bd0a331f70315672eed5d996660513215bb65bc1e77a45'
+sourceHash: '4f07fe7509d19f42142bc59c9c3a91d68c051fca1fe4cb12714d255f65c826f2'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -43,7 +43,7 @@ export detectFormatter
 export installAgentRetrospectHooks
 export isRetrospectionEnabled
 export parseCodexNotifyPayload
-export readHookInput
+export parseHookInput
 export readHookStdin
 export retrospectLogLine
 export retrospectSession
@@ -57,7 +57,7 @@ export writeGeminiSessionEndHook
 ## Dependency Slice
 
 ```
-import { readHookInput, runFormatCheck } from './format-check.js'
+import { parseHookInput, runFormatCheck } from './format-check.js'
 import { HOOK_SCRIPTS } from './profiles'
 import { readHookStdin } from './read-hook-stdin.js'
 import { parseCodexNotifyPayload, readHookStdin, retrospectLogLine, retrospectSession } from './session-retrospect-core.js'

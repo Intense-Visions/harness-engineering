@@ -290,6 +290,21 @@ describe('design-pipeline command → engine failure', () => {
   });
 });
 
+describe('design-pipeline command → -c that cannot be loaded (#2319)', () => {
+  // An unloadable -c must stop the run. Falling back to process.cwd() would
+  // scan a project the operator did not name, which is the #2319 defect.
+  it('exits ERROR without running the engine, and names the failure', async () => {
+    const res = await runCommand(
+      createDesignPipelineCommand(),
+      ['-c', '/nonexistent-2319/harness.config.json', '--json'],
+      []
+    );
+    expect(res.exitCode).toBe(2);
+    expect(runDesignPipeline).not.toHaveBeenCalled();
+    expect((parseJsonStdout(res) as { error: string }).error).toMatch(/nonexistent-2319/);
+  });
+});
+
 describe('design-pipeline command → verdict to exit-code mapping', () => {
   it('exits VALIDATION_FAILED (1) on a fail verdict', async () => {
     engineReturns(context({ verdict: 'fail' }));

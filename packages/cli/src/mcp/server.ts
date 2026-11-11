@@ -791,7 +791,7 @@ export async function handleReadResource(
     // and the three graph resources reach `@harness-engineering/graph` and
     // `@harness-engineering/core` through a lazy `import()`, so a CLI upgraded
     // under a running server leaves them resolving against deleted chunks. The
-    // tool seam below got this translation; without it here, a resource read
+    // tool seam above got this translation; without it here, a resource read
     // still answers with the opaque two-hashed-filenames error.
     //
     // Resources have no `isError` envelope — the protocol carries a thrown

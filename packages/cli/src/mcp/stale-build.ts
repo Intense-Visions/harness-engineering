@@ -1,4 +1,4 @@
-import { createRequire } from 'node:module';
+import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -133,15 +133,28 @@ function isInsideOwnDist(missing: string): boolean {
 /** The npm name of the package this module ships inside. */
 const PACKAGE_NAME = '@harness-engineering/cli';
 
-const requireHere = createRequire(import.meta.url);
-
-/** A candidate manifest's `name`, or `null` where there is no readable manifest. */
-function manifestName(manifestPath: string): string | null {
+/**
+ * A manifest's parsed contents, read fresh from disk, or `null` where there is
+ * no readable manifest.
+ *
+ * Deliberately not `require()`. Node's require cache is process-wide and keyed
+ * by resolved filename, and the server has already required this package's own
+ * `package.json` at startup (the version check). So after an upgrade, `require`
+ * hands back the manifest as it was when the process started — the old,
+ * *running* version — which is exactly the wrong answer to "what is installed
+ * on disk now?" (#2271). Reading the bytes cannot be served from that cache.
+ */
+function readManifest(manifestPath: string): { name?: string; version?: string } | null {
   try {
-    return (requireHere(manifestPath) as { name?: string }).name ?? null;
+    return JSON.parse(readFileSync(manifestPath, 'utf8')) as { name?: string; version?: string };
   } catch {
     return null;
   }
+}
+
+/** A candidate manifest's `name`, or `null` where there is no readable manifest. */
+function manifestName(manifestPath: string): string | null {
+  return readManifest(manifestPath)?.name ?? null;
 }
 
 /**
@@ -187,15 +200,15 @@ export function packageJsonPath(
  * Reading it from disk is what makes the message useful: the version bundled
  * into *this* (stale) build is the old one, and the whole point is to tell the
  * operator what they are now running versus what this process still is.
+ * "Fresh" means read through {@link readManifest}, never `require()`.
+ *
+ * @param startDir where to begin the manifest walk. Defaults to this module's
+ *   own directory; injectable so the require-cache skew can be pinned by a test.
  */
-function installedVersion(): string | null {
-  try {
-    const manifest = packageJsonPath(moduleDir());
-    if (!manifest) return null;
-    return (requireHere(manifest) as { version?: string }).version ?? null;
-  } catch {
-    return null;
-  }
+export function installedVersion(startDir: string = moduleDir()): string | null {
+  const manifest = packageJsonPath(startDir);
+  if (!manifest) return null;
+  return readManifest(manifest)?.version ?? null;
 }
 
 /**

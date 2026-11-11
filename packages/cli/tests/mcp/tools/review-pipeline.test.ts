@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+import { parseDiff } from '@harness-engineering/core';
 import {
   runCodeReviewDefinition,
   handleRunCodeReview,
@@ -79,6 +80,44 @@ describe('run_code_review tool', () => {
       const parsed = JSON.parse(response.content[0].text);
       expect(parsed.findings).toHaveLength(0);
       expect(parsed.pagination.hasMore).toBe(false);
+    });
+  });
+
+  describe('diff content reaches the pipeline (#2213)', () => {
+    // A real unified diff: 3 additions + 1 deletion in a non-excluded source path.
+    const realDiff = [
+      'diff --git a/src/widget.ts b/src/widget.ts',
+      'index 1234567..abcdefg 100644',
+      '--- a/src/widget.ts',
+      '+++ b/src/widget.ts',
+      '@@ -1,3 +1,5 @@',
+      ' export const a = 1;',
+      '-export const b = 2;',
+      '+export const b = 3;',
+      '+export const c = 4;',
+      '+export const d = 5;',
+      ' export const e = 6;',
+    ].join('\n');
+
+    it('the real parseDiff output carries no per-file diff text (why the handler must not read f.diff)', () => {
+      const parsed = parseDiff(realDiff);
+      expect(parsed.ok).toBe(true);
+      if (!parsed.ok) return;
+      expect(parsed.value.files).toHaveLength(1);
+      expect(parsed.value.files[0]).not.toHaveProperty('diff');
+    });
+
+    it('reports changedLines > 0 for a non-empty diff', async () => {
+      const response = await handleRunCodeReview({
+        path: '/nonexistent/project-pipeline-test',
+        diff: realDiff,
+        noMechanical: true,
+      });
+      expect(response.isError).toBeFalsy();
+      const parsed = JSON.parse(response.content[0].text);
+      expect(parsed.depthCalibration).toBeDefined();
+      // 3 '+' lines and 1 '-' line in src/widget.ts.
+      expect(parsed.depthCalibration.changedLines).toBe(4);
     });
   });
 });
