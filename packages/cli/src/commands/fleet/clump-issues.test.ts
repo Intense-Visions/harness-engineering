@@ -206,15 +206,30 @@ describe('runClumpIssues', () => {
     const payload = JSON.parse(String(log.mock.calls[0]![0])) as {
       report: { issues: number; clumps: number };
       conservation: { holds: boolean };
-      clumps: Array<{ members: number[]; scope: string; kind: string }>;
+      clumps: Array<{
+        members: Array<{ id: string; ref: { number: number; title: string } }>;
+        scope: string;
+        kind: string;
+      }>;
       individual: number[];
     };
     expect(payload.report.issues).toBe(2);
     expect(payload.conservation.holds).toBe(true);
     expect(payload.clumps).toHaveLength(1);
-    expect(payload.clumps[0]!.members).toEqual([1, 2]);
+    // A member is `{ id, ref }`, NOT a bare issue number. `--json`'s own help
+    // names this command as a producer for `clump-dispatch --input`, and
+    // dispatch keys every commit and every verdict on `member.id`; serialized
+    // as numbers, every planned commit subject came out `undefined`. The
+    // end-to-end proof is in `clump-dispatch.test.ts`, which now round-trips
+    // THIS producer. Here the wire shape itself is pinned.
+    expect(payload.clumps[0]!.members).toEqual([
+      { id: 'issue-1#0', ref: { number: 1, title: 'a' } },
+      { id: 'issue-2#0', ref: { number: 2, title: 'b' } },
+    ]);
     expect(payload.clumps[0]!.scope).toBe('packages/cli/src/');
     expect(payload.clumps[0]!.kind).toBe('bug');
+    // `individual` and `ungraded` stay NUMBER lists: they are report-only, so
+    // nothing dispatches them and the issue number is what a human reads.
     expect(payload.individual).toEqual([]);
   });
 

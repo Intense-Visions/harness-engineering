@@ -16,12 +16,14 @@ import { describe, expect, it } from 'vitest';
 import { clumpIssues, type IntakeIssue } from './clumpable-issues';
 import {
   CLUMP_FAILED_EXIT_CODE,
+  MALFORMED_CLUMP_INPUT_EXIT_CODE,
   NO_CLUMPS_INPUT_EXIT_CODE,
   VERDICT_PARTITION_BREACH_EXIT_CODE,
   describeMember,
   extractClumps,
   runClumpDispatch,
 } from './clump-dispatch';
+import { checkConservation, intakeClumpDump } from './clump-issues';
 import {
   clumpCraftFindings,
   craftClumpView,
@@ -73,8 +75,35 @@ function craftRunOutput(n: number): { findings: CraftClumpableFinding[]; clumps:
   return { findings, clumps: craftClumpView(findings, '') };
 }
 
+/** Three issues over one scope, so intake forms exactly one clump. */
+const INTAKE_ISSUES: IntakeIssue[] = [1, 2, 3].map((n) => ({
+  number: n,
+  title: `fix packages/cli/src/thing${n}.ts`,
+  body: 'touches packages/cli/src/',
+  labels: [{ name: 'bug' }],
+}));
+
+/**
+ * `harness fleet clump-issues --json` AS A LANE READS IT: through the real
+ * producer, then through JSON.
+ *
+ * The round-trip is the whole point. This suite's `extractClumps` test was
+ * named for "a clump-issues dump" and handed in `clumpIssues(...).result` — the
+ * IN-PROCESS `ClumpResult`, whose members are whole `ClumpableItem`s carrying
+ * `id` and `ref`. The serialized dump carried neither: it was
+ * `members.map((m) => m.ref.number)`, a bare number. So the test passed on a
+ * shape no lane ever sees, and the shape every lane DOES see produced 66
+ * commits subjected `fix(<scope>): undefined`. Nothing between the producer and
+ * this fixture is hand-written, because the hand-written replica is what hid it.
+ */
+function intakeDump(issues: IntakeIssue[] = INTAKE_ISSUES): unknown {
+  const outcome = clumpIssues(issues);
+  const dump = intakeClumpDump(outcome, checkConservation(outcome.result.counts));
+  return JSON.parse(JSON.stringify(dump));
+}
+
 describe('extractClumps — what a lane may hand in', () => {
-  it('reads the clump set out of a craft run output, a clump-issues dump and a bare ClumpResult alike', () => {
+  it('reads the clump set out of a craft run output, a SERIALIZED clump-issues dump and a bare ClumpResult alike', () => {
     const craft = extractClumps(craftRunOutput(4));
     expect('gap' in craft, JSON.stringify(craft)).toBe(false);
     expect((craft as readonly unknown[]).length).toBe(1);
@@ -84,14 +113,83 @@ describe('extractClumps — what a lane may hand in', () => {
     // …and the IN-PROCESS `ClumpResult`, which still carries `ref`, too.
     expect(extractClumps(clumpCraftFindings(craftRunOutput(4).findings, ''))).toHaveLength(1);
 
-    const issues: IntakeIssue[] = [1, 2, 3].map((n) => ({
-      number: n,
-      title: `fix packages/cli/src/thing${n}.ts`,
-      body: 'touches packages/cli/src/',
-      labels: [{ name: 'bug' }],
-    }));
-    const intake = clumpIssues(issues);
-    expect(extractClumps(intake.result)).toHaveLength(intake.result.clumps.length);
+    // The ADVERTISED intake path: the dump on disk, not the in-process result.
+    const dump = extractClumps(intakeDump());
+    expect('gap' in (dump as object), JSON.stringify(dump)).toBe(false);
+    expect(dump).toHaveLength(1);
+  });
+
+  it('the SERIALIZED intake dump plans commits that name their issues, not `undefined`', () => {
+    // THE PROPERTY, asserted before any encoding of it: a plan built from the
+    // advertised producer's output names every member and every issue. Both
+    // halves of the symptom are pinned — `memberId` present (it was absent from
+    // `--json` entirely) and the subject naming the issue (it read `undefined`).
+    const { code, out } = capture(() =>
+      runClumpDispatch({ input: tmpJson(intakeDump()), json: true })
+    );
+    expect(code).toBe(0);
+    const plans = JSON.parse(out).plans as Array<{
+      commits: Array<{ memberId: string; subject: string; citation: string }>;
+    }>;
+    expect(plans).toHaveLength(1);
+    expect(plans[0]!.commits).toHaveLength(3);
+    for (const commit of plans[0]!.commits) {
+      expect(commit.subject).not.toMatch(/undefined/);
+      expect(commit.memberId).toMatch(/^issue-\d+#\d+$/);
+    }
+    expect(plans[0]!.commits.map((c) => c.subject)).toEqual(
+      INTAKE_ISSUES.map((issue) => `fix(packages/cli/src/): ${issue.title}`)
+    );
+    expect(plans[0]!.commits.map((c) => c.citation)).toEqual(
+      INTAKE_ISSUES.map((issue) => `#${issue.number} — ${issue.title}`)
+    );
+  });
+
+  it('REJECTS a `clumps` field whose members are bare numbers, with its OWN exit code', () => {
+    // The defence-in-depth half: the producer is fixed, and a payload from any
+    // OTHER producer that is not dispatchable is refused rather than cast past.
+    // The fixture is the exact pre-fix serialization — members as issue numbers.
+    const stale = {
+      clumps: [
+        { id: 'clump-deadbeefdeadbeef', scope: 'packages/cli/src/', kind: 'bug', members: [1, 2] },
+      ],
+    };
+    const gap = extractClumps(stale);
+    expect(gap).toHaveProperty('gap');
+    expect((gap as { gap: string }).gap).toMatch(/clumps\[0\]\.members\[0\] is 1, not an object/);
+    expect((gap as { exit: number }).exit).toBe(MALFORMED_CLUMP_INPUT_EXIT_CODE);
+
+    // …and the command exits on it rather than printing a plan of `undefined`.
+    const { code, out, err } = capture(() => runClumpDispatch({ input: tmpJson(stale) }));
+    expect(code).toBe(MALFORMED_CLUMP_INPUT_EXIT_CODE);
+    expect(code).not.toBe(NO_CLUMPS_INPUT_EXIT_CODE);
+    expect(err).toMatch(/not a dispatchable clump set/);
+    expect(out).not.toMatch(/undefined/);
+    expect(out).toBe('');
+  });
+
+  it('REJECTS a member object with no usable `id`, and a clump missing scope or kind', () => {
+    // Each guard on its own, so a single over-broad check cannot satisfy all of
+    // them: the positive control is the test above, where the real dump passes.
+    const clump = { id: 'c', scope: 's', kind: 'k', members: [{ id: 'm' }] };
+    expect(extractClumps({ clumps: [clump] })).toHaveLength(1);
+
+    const cases: Array<[unknown, RegExp]> = [
+      [{ ...clump, members: [{ id: '' }] }, /members\[0\]\.id is "", not a non-empty string/],
+      [{ ...clump, members: [{ ref: { number: 1 } }] }, /members\[0\]\.id is undefined/],
+      [{ ...clump, members: 'two' }, /members is "two", not an array/],
+      [{ ...clump, scope: undefined }, /clumps\[0\]\.scope is undefined, not a string/],
+      [{ ...clump, kind: 7 }, /clumps\[0\]\.kind is 7, not a string/],
+      [{ ...clump, id: null }, /clumps\[0\]\.id is null, not a string/],
+      [null, /clumps\[0\] is null, not a clump object/],
+      [42, /clumps\[0\] is 42, not a clump object/],
+    ];
+    for (const [bad, expected] of cases) {
+      const got = extractClumps({ clumps: [bad] });
+      expect(got, JSON.stringify(bad)).toHaveProperty('gap');
+      expect((got as { gap: string }).gap, JSON.stringify(bad)).toMatch(expected);
+      expect((got as { exit: number }).exit).toBe(MALFORMED_CLUMP_INPUT_EXIT_CODE);
+    }
   });
 
   it('REJECTS a findings-only input rather than reporting zero plans', () => {

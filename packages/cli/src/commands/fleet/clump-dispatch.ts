@@ -56,6 +56,17 @@ export const NO_CLUMPS_INPUT_EXIT_CODE = 14;
 /** Exit code for a D10 partition breach — a member fell out of the verdict. */
 export const VERDICT_PARTITION_BREACH_EXIT_CODE = 15;
 
+/**
+ * Exit code for a payload that HAS a `clumps` field of the wrong shape.
+ *
+ * Distinct from {@link NO_CLUMPS_INPUT_EXIT_CODE} on purpose. "You gave me no
+ * clump set" and "you gave me a clump set I cannot read" are different lane
+ * mistakes with different fixes, and a shared code would make the second
+ * indistinguishable from the first in CI output. Both are refusals; neither is
+ * an empty plan list.
+ */
+export const MALFORMED_CLUMP_INPUT_EXIT_CODE = 16;
+
 export interface ClumpDispatchOptions {
   /** The emitted clump set: a craft run's JSON output, a `clump-issues --json` dump, or a bare ClumpResult. `-` = stdin. */
   input: string;
@@ -68,9 +79,86 @@ export interface ClumpDispatchOptions {
   json?: boolean;
 }
 
-/** An input that carried no clump set, with the gap named rather than simulated. */
+/** An input that carried no usable clump set, with the gap named rather than simulated. */
 export interface ClumpInputGap {
   gap: string;
+  /**
+   * The exit code this gap settles on. Absent ⇒ {@link NO_CLUMPS_INPUT_EXIT_CODE}.
+   *
+   * Carried on the value rather than decided at the print site, because the
+   * print site cannot tell the two refusals apart once the message is a string.
+   */
+  exit?: number;
+}
+
+/** The clump array nested one level under a `clumps` field, if there is one. */
+function nestedClumps(value: unknown): readonly unknown[] | null {
+  if (Array.isArray(value)) return value;
+  if (value === null || typeof value !== 'object') return null;
+  const inner = (value as Record<string, unknown>).clumps;
+  return Array.isArray(inner) ? inner : null;
+}
+
+/** What a value is, for a gap message: `3`, `"x"`, `null`, `an array`, `an object`. */
+function describeValue(value: unknown): string {
+  if (value === null) return 'null';
+  if (Array.isArray(value)) return 'an array';
+  if (typeof value === 'object') return 'an object';
+  // `JSON.stringify` answers `undefined` for `undefined`, a function and a
+  // symbol; naming the type beats coercing a value whose `toString` is unknown.
+  return JSON.stringify(value) ?? typeof value;
+}
+
+/** Does this value satisfy `PlannableMember` — an object with a string `id`? */
+function memberGap(member: unknown, where: string): string | null {
+  if (member === null || typeof member !== 'object' || Array.isArray(member)) {
+    return `${where} is ${describeValue(member)}, not an object carrying an \`id\``;
+  }
+  const id = (member as Record<string, unknown>).id;
+  if (typeof id !== 'string' || id === '') {
+    return `${where}.id is ${describeValue(id)}, not a non-empty string`;
+  }
+  return null;
+}
+
+/**
+ * Does this value satisfy `PlannableClump`, or what is wrong with it?
+ *
+ * THE CAST THIS REPLACES IS THE DEFECT, measured rather than hypothesized.
+ * `extractClumps` used to cast whatever array it found straight to
+ * `readonly PlannableClump[]`, and the only producer available to three of the
+ * four fleet members (`harness fleet clump-issues --json`) serialized members
+ * as bare issue NUMBERS. `planClumpPR` then read `member.id` off a number and
+ * every commit subject in every plan came out `fix(<scope>): undefined`, over a
+ * header reading "16 clumps, 66 commits, one PR each". The producer is fixed
+ * too — this is the second half, and it is the half that holds for the NEXT
+ * producer, including an adopter's.
+ *
+ * The precedent for refusing rather than degrading is in this file already: a
+ * findings-only craft output exits `NO_CLUMPS_INPUT_EXIT_CODE` rather than
+ * printing zero plans, because zero plans is a perfectly ordinary outcome. A
+ * plan full of `undefined` is worse than either — it is a SUCCESSFUL-looking
+ * plan that names no work.
+ */
+function clumpGap(clump: unknown, index: number): string | null {
+  const where = `clumps[${index}]`;
+  if (clump === null || typeof clump !== 'object' || Array.isArray(clump)) {
+    return `${where} is ${describeValue(clump)}, not a clump object`;
+  }
+  const record = clump as Record<string, unknown>;
+  for (const field of ['id', 'scope', 'kind'] as const) {
+    if (typeof record[field] !== 'string') {
+      return `${where}.${field} is ${describeValue(record[field])}, not a string`;
+    }
+  }
+  if (!Array.isArray(record.members)) {
+    return `${where}.members is ${describeValue(record.members)}, not an array`;
+  }
+  for (const [i, member] of record.members.entries()) {
+    const gap = memberGap(member, `${where}.members[${i}]`);
+    if (gap !== null) return gap;
+  }
+  return null;
 }
 
 /**
@@ -90,13 +178,29 @@ export interface ClumpInputGap {
  * grouped view, and in both cases the correct response is to say so. Returning
  * an empty plan list would read as "this run had nothing to group", which is a
  * perfectly ordinary and entirely different outcome.
+ *
+ * The field is read and then CHECKED (`clumpGap`), not cast. Shape-checking is
+ * the half of this that holds for a producer that does not exist yet, and the
+ * half that was missing: the cast let a dump whose members were bare issue
+ * numbers through to `planClumpPR`, which printed 66 commits all subjected
+ * `fix(<scope>): undefined`. A malformed payload now refuses with its own exit
+ * code ({@link MALFORMED_CLUMP_INPUT_EXIT_CODE}), so it is distinguishable from
+ * both a successful plan and an absent clump set.
  */
-/** The clump array nested one level under a `clumps` field, if there is one. */
-function nestedClumps(value: unknown): readonly PlannableClump[] | null {
-  if (Array.isArray(value)) return value as readonly PlannableClump[];
-  if (value === null || typeof value !== 'object') return null;
-  const inner = (value as Record<string, unknown>).clumps;
-  return Array.isArray(inner) ? (inner as readonly PlannableClump[]) : null;
+/** The whole array, or the FIRST thing wrong with it. One gap, named precisely. */
+function clumpSetGap(clumps: readonly unknown[]): ClumpInputGap | null {
+  for (const [index, clump] of clumps.entries()) {
+    const gap = clumpGap(clump, index);
+    if (gap === null) continue;
+    return {
+      gap:
+        `the \`clumps\` field is not a dispatchable clump set — ${gap}. ` +
+        'A member needs at least an `id`: it is what each commit and each verdict ' +
+        'is keyed on. `harness fleet clump-issues --json` emits that shape.',
+      exit: MALFORMED_CLUMP_INPUT_EXIT_CODE,
+    };
+  }
+  return null;
 }
 
 export function extractClumps(parsed: unknown): readonly PlannableClump[] | ClumpInputGap {
@@ -108,7 +212,9 @@ export function extractClumps(parsed: unknown): readonly PlannableClump[] | Clum
   // A bare ClumpResult, a craft run's output, or clump-issues --json — all three
   // under the same field name, so a fourth producer needs no case here.
   const clumps = nestedClumps(record.clumps);
-  if (clumps !== null) return clumps;
+  if (clumps !== null) {
+    return clumpSetGap(clumps) ?? (clumps as readonly PlannableClump[]);
+  }
 
   if (Array.isArray(record.findings)) {
     return {
@@ -301,6 +407,7 @@ function loadPlans(options: ClumpDispatchOptions): readonly ClumpPRPlan[] | Clum
       gap:
         `no clump set to dispatch — ${clumps.gap}\n` +
         '  Nothing was planned. Pass a run whose output carries `clumps`.',
+      ...(clumps.exit === undefined ? {} : { exit: clumps.exit }),
     };
   }
   return clumps.map((clump) =>
@@ -337,7 +444,7 @@ export function runClumpDispatch(options: ClumpDispatchOptions): number {
   const plans = loadPlans(options);
   if ('gap' in plans) {
     console.error(chalk.yellow(`clump-dispatch: ${plans.gap}`));
-    return NO_CLUMPS_INPUT_EXIT_CODE;
+    return plans.exit ?? NO_CLUMPS_INPUT_EXIT_CODE;
   }
 
   if (options.verdict === undefined) {

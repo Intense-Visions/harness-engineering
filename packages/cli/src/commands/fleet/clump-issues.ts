@@ -279,6 +279,89 @@ export interface ClumpIssuesDeps {
 }
 
 /**
+ * One clump member as the `--json` dump carries it.
+ *
+ * `{ id, ref }` and NOT a bare issue number, because `--json`'s own help names
+ * this command as a producer for `harness fleet clump-dispatch --input`, and
+ * dispatch reads `member.id` for every commit and every verdict key. It used to
+ * serialize `clump.members.map((m) => m.ref.number)`, and the consequence was
+ * measured on the live backlog (2026-11-11): all 16 plans and all 66 commits
+ * read `fix(<scope>): undefined`, `memberId` was absent from `--json`, and
+ * nothing failed — the dispatch path's only producer emitted a shape its
+ * consumer could not read, SILENTLY. The three members whose SKILL.md now
+ * instructs `clump-dispatch --input` (`roadmap-fleet`, `bug-fleet`,
+ * `cleanup-fleet`) have no other producer.
+ *
+ * `ref` is projected to the two fields `describeMember` reads rather than
+ * carried whole: a full `IntakeIssue` drags every issue BODY onto the wire, and
+ * a dump a lane cannot open is its own failure mode.
+ */
+export interface IntakeClumpDumpMember {
+  /** `ClumpableItem.id` — what dispatch keys each commit and each verdict on. */
+  id: string;
+  /** Enough of the issue for the commit subject and the PR-body citation. */
+  ref: { number: number; title: string };
+}
+
+/** One clump as the `--json` dump carries it. Structurally a `PlannableClump`. */
+export interface IntakeClumpDumpUnit {
+  id: string;
+  scope: string;
+  kind: string;
+  weight: number;
+  members: readonly IntakeClumpDumpMember[];
+}
+
+/** The `--json` payload. `clumps` is dispatchable; the other two are report-only. */
+export interface IntakeClumpDump {
+  report: IntakeClumpReport;
+  conservation: ReturnType<typeof checkConservation>;
+  clumps: readonly IntakeClumpDumpUnit[];
+  /**
+   * Issues that kept their own queue entry, as numbers. Report-only: a queue
+   * entry is not a work unit, so nothing dispatches these and the issue number
+   * is the identifier a human reads. Stated because the asymmetry with
+   * `clumps[].members` is otherwise a thing to wonder about.
+   */
+  individual: readonly number[];
+  /** Terminal `ungraded` issues (D8), as numbers. Report-only, as above. */
+  ungraded: readonly number[];
+}
+
+/**
+ * The `--json` payload, as a value.
+ *
+ * Extracted from `runClumpIssues` so the serialized shape is reachable from a
+ * test WITHOUT rebuilding it by hand. A hand-built replica of this dump is what
+ * let the `undefined` defect ship: `clump-dispatch.test.ts` claimed to cover "a
+ * clump-issues dump" and passed the IN-PROCESS `ClumpResult`, whose members
+ * still carry a whole `ref`. The producer and the consumer now meet on one
+ * exported function.
+ */
+export function intakeClumpDump(
+  outcome: ReturnType<typeof clumpIssues>,
+  conservation: ReturnType<typeof checkConservation>
+): IntakeClumpDump {
+  const issueOf = (item: { ref?: unknown }): IntakeIssue => item.ref as IntakeIssue;
+  return {
+    report: outcome.report,
+    conservation,
+    clumps: outcome.result.clumps.map((clump) => ({
+      id: clump.id,
+      scope: clump.scope,
+      kind: clump.kind,
+      weight: clump.weight,
+      members: clump.members.map((m) => ({
+        id: m.id,
+        ref: { number: issueOf(m).number, title: issueOf(m).title },
+      })),
+    })),
+    individual: outcome.individual.map((item) => issueOf(item).number),
+    ungraded: outcome.result.ungraded.map((item) => issueOf(item).number),
+  };
+}
+
+/**
  * Enumerate the backlog, form the clump set, print it. Returns the exit code.
  *
  * Read-only: it calls `gh issue list` and nothing else. The clump set it prints
@@ -300,21 +383,7 @@ export function runClumpIssues(options: ClumpIssuesOptions, deps: ClumpIssuesDep
   const conservation = checkConservation(outcome.result.counts);
 
   if (options.json) {
-    console.log(
-      JSON.stringify({
-        report: outcome.report,
-        conservation,
-        clumps: outcome.result.clumps.map((clump) => ({
-          id: clump.id,
-          scope: clump.scope,
-          kind: clump.kind,
-          weight: clump.weight,
-          members: clump.members.map((m) => (m.ref as IntakeIssue).number),
-        })),
-        individual: outcome.individual.map((item) => (item.ref as IntakeIssue).number),
-        ungraded: outcome.result.ungraded.map((item) => (item.ref as IntakeIssue).number),
-      })
-    );
+    console.log(JSON.stringify(intakeClumpDump(outcome, conservation)));
   } else {
     console.log(renderHuman(outcome));
   }

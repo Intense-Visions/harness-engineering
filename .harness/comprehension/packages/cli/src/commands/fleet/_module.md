@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/commands/fleet'
-sourceHash: 'e621d79551f10fc0f38fd8f9cd8f4dc164372ed36705a17e116d43c1a336e864'
+sourceHash: '47127987eb01820cdd21afcb3998e345ac903732fc19d591fb658876ba3503c4'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -31,8 +31,8 @@ export createFleetCommand
 import { findConfigFile, resolveConfig } from '../../config/loader'
 import { CraftClumpableFinding, clumpCraftFindings, craftClumpView } from '../../shared/craft/findings/clumpable'
 import { BUDGET_EXHAUSTED_EXIT_CODE, createBudgetCheckCommand, envelopeFromOptions, observedSpendFromSummary, runBudgetCheck } from './budget-check'
-import { CLUMP_FAILED_EXIT_CODE, NO_CLUMPS_INPUT_EXIT_CODE, VERDICT_PARTITION_BREACH_EXIT_CODE, createClumpDispatchCommand, describeMember, extractClumps, runClumpDispatch } from './clump-dispatch'
-import { BACKLOG_UNAVAILABLE_EXIT_CODE, CONSERVATION_BREACH_EXIT_CODE, buildGhArgs, checkConservation, createClumpIssuesCommand, policyFromOptions, readBacklog, runClumpIssues } from './clump-issues'
+import { CLUMP_FAILED_EXIT_CODE, MALFORMED_CLUMP_INPUT_EXIT_CODE, NO_CLUMPS_INPUT_EXIT_CODE, VERDICT_PARTITION_BREACH_EXIT_CODE, createClumpDispatchCommand, describeMember, extractClumps, runClumpDispatch } from './clump-dispatch'
+import { BACKLOG_UNAVAILABLE_EXIT_CODE, CONSERVATION_BREACH_EXIT_CODE, buildGhArgs, checkConservation, createClumpIssuesCommand, intakeClumpDump, policyFromOptions, readBacklog, runClumpIssues } from './clump-issues'
 import { DEFAULT_ISSUE_TYPE_LABELS, DEFAULT_TRACKER_PATH_PREFIXES, INTAKE_CLUMP_POLICY, IntakeClumpReport, IntakeIssue, UNSCOPED, clumpIssues, issueKind, issueScope, issueWeight, labelNames, mentionedPaths, toClumpableIssues } from './clumpable-issues'
 import './index'
 import { Summary, human, readSummary, refresh, resolvePaths } from '@harness-engineering/burn'
