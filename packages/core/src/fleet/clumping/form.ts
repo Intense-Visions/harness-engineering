@@ -62,6 +62,10 @@ function groupKey(scope: string, kind: string): string {
  * sub-clump whose key set is disjoint from its own, else a new one. Greedy is
  * sufficient here and, with the id tiebreak upstream, deterministic. An item with
  * no conflict keys is vacuously disjoint and joins the first sub-clump.
+ *
+ * That vacuity STAYS here, and is deliberately NOT mirrored by `narrow` in floor.ts,
+ * where a keyless item degrades to `'file'` instead: joining a clump claims no hunk
+ * and harms no one, while resolving to `'act'` authorizes a write.
  */
 function splitOnConflict(ordered: readonly ClumpableItem[]): ClumpableItem[][] {
   const subs: Array<{ members: ClumpableItem[]; keys: Set<string> }> = [];

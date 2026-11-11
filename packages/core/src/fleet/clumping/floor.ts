@@ -105,11 +105,24 @@ function classify(item: ClumpableItem): { below: boolean; reason: string } {
  * already open. Outside the touched set — or with no touched set at all — acting is
  * diff creep wearing a bias-for-action costume, so the resolution degrades to
  * `'file'` (D4).
+ *
+ * ASSUMPTION, named here so the code and `floor.test.ts` agree rather than each
+ * stating half of it: an item with NO conflict keys ALSO degrades to `'file'`. The
+ * guard is explicit because `every` over an empty array is vacuously true, so the
+ * unguarded reading handed the MOST permissive resolution to the item that justifies
+ * it least — a keyless item resolved to `'act'` the moment any unrelated file was
+ * touched, contradicting the rationale one line above. You cannot act in place on a
+ * file you cannot name.
+ *
+ * The asymmetry with `splitOnConflict` in form.ts, where the same vacuity stands, is
+ * DELIBERATE: a keyless item joining a clump claims no hunk and harms no one, while
+ * resolving it to `'act'` authorizes a write.
  */
 function narrow(item: ClumpableItem, ctx: FloorContext, policy: ClumpPolicy): 'act' | 'file' {
   if (policy.floorResolution === 'file') return 'file';
   const touched = ctx.touched;
   if (touched === undefined || touched.length === 0) return 'file';
+  if (item.conflictKeys.length === 0) return 'file';
   return item.conflictKeys.every((key) => touched.includes(key)) ? 'act' : 'file';
 }
 

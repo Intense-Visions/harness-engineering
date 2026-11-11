@@ -189,6 +189,15 @@ item's `conflictKeys` to already be inside `ctx.touched`. Absent a touched set, 
 the resolution is `'file'`. Fixing a small item in place is cheap precisely because the file is
 already open.
 
+**A sub-floor item with NO conflict keys degrades to `'file'`.** This is stated rather than left
+to fall out of the code, because it does not: `every` over an empty array is vacuously true, so
+the plain reading hands the _most_ permissive resolution to the item that justifies it least — a
+keyless item would resolve to `'act'` the moment any unrelated file was touched, contradicting
+the rationale above. You cannot act in place on a file you cannot name. The asymmetry with
+formation, where a keyless item _is_ treated as vacuously disjoint and joins the first
+sub-clump, is deliberate: joining a clump claims no hunk and harms no one, while resolving to
+`'act'` authorizes a write.
+
 ### Formation
 
 ```ts
@@ -276,7 +285,8 @@ Order of operations, and why each step sits where it does:
 - **Duplicate `id`** ⇒ **reject loudly.** Silently collapsing two items is precisely the silent
   drop this spec exists to prevent.
 - **An item whose `conflictKeys` is empty** ⇒ co-groupable with anything in its `(scope, kind)`;
-  it claims no hunk.
+  it claims no hunk. At the **floor**, the same emptiness cuts the other way: it resolves to
+  `'file'`, never `'act'` (see "The floor").
 - **A group where every member conflicts with every other** ⇒ degenerates to N solo items, and
   `conflictSplits` records it. Correct, not a failure.
 - **A `scope` or `kind` containing whatever character the key is built from** ⇒ still its own

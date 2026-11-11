@@ -97,10 +97,25 @@ describe('resolveFloor — floorResolution is a CEILING the touched set narrows'
   });
 
   // ASSUMPTION A3, asserted explicitly so the interpretation is visible rather
-  // than accidental: an item claiming NO hunk is vacuously inside any touched set.
-  it('treats an item with no conflict keys as vacuously inside a non-empty touched set', () => {
+  // than accidental: an item claiming NO hunk CANNOT be acted on in place — you
+  // cannot act on a file you cannot name — so it degrades to 'file' even inside a
+  // non-empty touched set. The guard in `narrow` is explicit because `every` over an
+  // empty array is vacuously TRUE: without it, the keyless item got the MOST
+  // permissive resolution available, 'act', the moment any unrelated file was
+  // touched — the opposite of the rationale the function's own doc comment gives.
+  it("degrades an item with no conflict keys to 'file' even inside a touched set", () => {
     const noKeys = item(axes('aspirational', 'small', 'high'), []);
     expect(resolveFloor(noKeys, { touched: ['src/z.ts'] })).toMatchObject({
+      below: true,
+      resolution: 'file',
+    });
+  });
+
+  // POSITIVE CONTROL: the keyless rule must not have become a blanket 'file'. A
+  // keyed item inside the SAME touched set still resolves to 'act'.
+  it("positive control — a keyed item inside that same touched set still acts", () => {
+    const keyed = item(axes('aspirational', 'small', 'high'), ['src/z.ts']);
+    expect(resolveFloor(keyed, { touched: ['src/z.ts'] })).toMatchObject({
       below: true,
       resolution: 'act',
     });
