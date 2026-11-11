@@ -34,6 +34,22 @@ Loads tsconfig `paths` aliases and expands an aliased import specifier into cand
 
 **Exports:** `PathAlias`, `loadPathAliases`, `resolveAliasCandidates`
 
+## packages/core/src/fleet/clumping/floor.ts
+
+[`packages/core/src/fleet/clumping/floor.ts`](/packages/core/src/fleet/clumping/floor.ts)
+
+The clumping floor: whether a work candidate is worth the fixed ceremony cost of being filed, or should be acted on in place instead. Carries the grouped axes rule (`small` and (`aspirational` or `low`), never the flattened reading), the frozen default policy, and the touched-set precondition that narrows the `'act'` ceiling to an actual resolution. Pure: a transform over data the caller already has. See `docs/reference/fleet-family.md`, "The clumping floor", and ADR 0135.
+
+**Exports:** `DEFAULT_CLUMP_POLICY`, `resolveClumpPolicy`, `resolveFloor`
+
+## packages/core/src/fleet/clumping/form.ts
+
+[`packages/core/src/fleet/clumping/form.ts`](/packages/core/src/fleet/clumping/form.ts)
+
+Clump formation: N like findings become one work unit rather than N. Grades and floors, groups survivors by `(scope, kind)` under a JSON-encoded injective key, splits on conflicting hunks and on size, keeps sub-threshold groups solo, then ranks and caps emitted work units (clumps plus solos, never findings) and counts every shed bucket. Pure apart from a deterministic content hash. See `docs/reference/fleet-family.md`, "The clumping floor", and ADR 0135.
+
+**Exports:** `buildClump`, `formClumps`
+
 ## packages/core/src/fleet/lane-state-isolation.ts
 
 [`packages/core/src/fleet/lane-state-isolation.ts`](/packages/core/src/fleet/lane-state-isolation.ts)
