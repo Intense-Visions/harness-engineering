@@ -18,7 +18,7 @@ import type { OutputModeType } from '../output/formatter';
 import { resolveOutputMode } from '../utils/output';
 import { logger } from '../output/logger';
 import { ExitCode } from '../utils/errors';
-import { resolveProject } from '../config/loader';
+import { resolveCommandRoot } from '../config/loader';
 import {
   runDesignPipeline,
   type DesignPipelineContext,
@@ -74,15 +74,15 @@ export function createDesignPipelineCommand(): Command {
       const globalOpts = cmd.optsWithGlobals();
       const outputMode = resolveOutputMode(globalOpts);
       const formatter = new OutputFormatter(outputMode);
-      const root = resolvePipelineRoot(
+      const root = resolveCommandRoot(
         globalOpts.config as string | undefined,
         globalOpts.cwd as string | undefined
       );
       if (!root.ok) {
         if (outputMode === OutputMode.JSON) {
-          console.log(JSON.stringify({ error: root.error }));
+          console.log(JSON.stringify({ error: root.error.message }));
         } else {
-          logger.error(`design-pipeline failed: ${root.error}`);
+          logger.error(`design-pipeline failed: ${root.error.message}`);
         }
         process.exit(ExitCode.ERROR);
         return;
@@ -122,24 +122,6 @@ export function createDesignPipelineCommand(): Command {
       const code = result.verdict === 'fail' ? ExitCode.VALIDATION_FAILED : ExitCode.SUCCESS;
       process.exit(code);
     });
-}
-
-/**
- * Root the pipeline on the project that owns `-c`, not `process.cwd()`. Every
- * phase scans `input.path` and the verifiers read `design.*` from
- * `<input.path>/harness.config.json`, so a cwd root made `-c` select neither
- * the tree nor the config (#2319, #911's class). Without `-c` the root stays
- * the current directory: the pipeline does not require a config to run.
- */
-function resolvePipelineRoot(
-  configPath: string | undefined,
-  cwdOverride: string | undefined
-): { ok: true; value: string } | { ok: false; error: string } {
-  if (configPath === undefined) return { ok: true, value: cwdOverride ?? process.cwd() };
-  const project = resolveProject(configPath, cwdOverride);
-  return project.ok
-    ? { ok: true, value: project.value.root }
-    : { ok: false, error: project.error.message };
 }
 
 function printPipelineResult(

@@ -175,3 +175,18 @@ export function resolveProject(
     root: cwdOverride ?? path.dirname(resolvedConfigPath),
   });
 }
+
+/**
+ * The root a command should scan when a config is optional: the project that
+ * owns `-c` when one is given, otherwise the explicit override or the current
+ * directory. An unloadable `-c` is an error rather than a fallback to cwd —
+ * silently scanning a project the operator did not name is the #2319 defect.
+ */
+export function resolveCommandRoot(
+  configPath: string | undefined,
+  cwdOverride: string | undefined
+): Result<string, CLIError> {
+  if (configPath === undefined) return Ok(cwdOverride ?? process.cwd());
+  const project = resolveProject(configPath, cwdOverride);
+  return project.ok ? Ok(project.value.root) : project;
+}

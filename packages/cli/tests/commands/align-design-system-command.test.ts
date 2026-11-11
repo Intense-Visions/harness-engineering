@@ -508,3 +508,18 @@ describe('align-design-system command → summary line', () => {
     expect((await run([])).stdout).not.toContain('dry-run');
   });
 });
+
+describe('align-design-system command → -c that cannot be loaded (#2463)', () => {
+  // Same contract as design-pipeline (#2319): an unloadable -c stops the run
+  // instead of falling back to process.cwd() and aligning the wrong tree.
+  it('exits ERROR without running the engine, and names the failure', async () => {
+    const res = await runCommand(
+      createAlignDesignSystemCommand(),
+      ['-c', '/nonexistent-2463/harness.config.json', '--json'],
+      []
+    );
+    expect(res.exitCode).toBe(2);
+    expect(runAlignDesignSystem).not.toHaveBeenCalled();
+    expect((parseJsonStdout(res) as { error: string }).error).toMatch(/nonexistent-2463/);
+  });
+});

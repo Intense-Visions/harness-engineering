@@ -397,6 +397,23 @@ describe('dispatchIssue workflow branch (SC4 identity / D13 / workflow entry)', 
     expect(bgSpy).toHaveBeenCalledTimes(1);
   });
 
+  it('waitForBackgroundTasks awaits a staged run to its settle (#2457)', async () => {
+    orch = makeDispatchOrch([
+      { name: 'w', match: { identifierPrefix: 'REV-' }, stages: twoStages },
+    ]);
+    const successSpy = vi.spyOn(
+      orch as unknown as { settleWorkflowSuccess: (...a: unknown[]) => Promise<void> },
+      'settleWorkflowSuccess'
+    );
+
+    await dispatch(orch, makeIssue({ identifier: 'REV-1' }));
+    // No polling: if the staged run were untracked, this would resolve at once
+    // and the settle below would not have happened yet.
+    await orch.waitForBackgroundTasks();
+
+    expect(successSpy).toHaveBeenCalledTimes(1);
+  });
+
   it('workflow entry: a matching 2-stage decl → executeWorkflow runs; single-agent path NOT taken', async () => {
     orch = makeDispatchOrch([
       { name: 'w', match: { identifierPrefix: 'REV-' }, stages: twoStages },
