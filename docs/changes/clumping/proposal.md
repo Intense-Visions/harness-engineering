@@ -278,7 +278,11 @@ Order of operations, and why each step sits where it does:
 
 #### Failure modes and edge cases
 
-- **Empty input** ⇒ an empty result with all counts zero. Not an error.
+- **Empty input** ⇒ an empty result with all counts zero. Not an error. That is the contract of
+  `formClumps`, which answers "no items, no units". The clump CONSTRUCTOR is the opposite case
+  and **rejects** an empty member list by name: a clump reports the scope, kind and weight _of
+  its members_, so with none there is no answer to give, and the same loudness the duplicate-`id`
+  rule gets applies.
 - **Every item floored** ⇒ **zero clumps is a valid result.** The system shall not fabricate a
   clump so a sweep does not look wasted — the same restraint `craft-fleet:53` applies to a quiet
   target.

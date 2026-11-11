@@ -110,7 +110,19 @@ function splitOnConflict(ordered: readonly ClumpableItem[]): ClumpableItem[][] {
  * seam. JSON length-delimits each element, so no id can reach outside itself.
  */
 export function buildClump(members: readonly ClumpableItem[]): Clump {
-  const head = members[0]!;
+  // A clump reports the scope, kind and weight OF ITS MEMBERS, so an empty member
+  // list has no answer to give. Unreachable through `formClumps` — but this helper
+  // is exported precisely so it can be reached from outside, and `formClumps`
+  // already sets this module's standard by throwing a named, actionable error on a
+  // duplicate id rather than letting the condition surface as a crash. `members[0]!`
+  // surfaced it as `TypeError: Cannot read properties of undefined`, which names
+  // neither the helper nor the mistake.
+  const head = members[0];
+  if (head === undefined) {
+    throw new Error(
+      'buildClump: refusing to build a clump with no members — a clump reports the scope, kind and weight of its members, and an empty list has none'
+    );
+  }
   const sortedIds = members
     .map((m) => m.id)
     .slice()
@@ -124,7 +136,7 @@ export function buildClump(members: readonly ClumpableItem[]): Clump {
     scope: head.scope,
     kind: head.kind,
     members: [...members],
-    weight: members.reduce((max, m) => (m.weight > max ? m.weight : max), -Infinity),
+    weight: members.reduce((max, m) => (m.weight > max ? m.weight : max), head.weight),
     conflictKeys: [...new Set(members.flatMap((m) => [...m.conflictKeys]))].sort(),
   };
 }

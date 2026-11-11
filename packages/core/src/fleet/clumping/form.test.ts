@@ -442,6 +442,24 @@ describe('formClumps — rank and cap EMITTED WORK UNITS (D9)', () => {
 // green. Measured: it did — 77/77. The helper is therefore tested DIRECTLY, with
 // members handed in orders `formClumps` would never produce, which is the only way
 // the sort's contribution can be observed at all.
+// I6 REGRESSION. `buildClump` is unreachable with an empty list through `formClumps`,
+// but it is EXPORTED precisely so it can be reached from outside, and `members[0]!`
+// surfaced the condition as `TypeError: Cannot read properties of undefined` — which
+// names neither the helper nor the mistake. `formClumps` already sets this module's
+// standard by throwing a named error on a duplicate id.
+describe('buildClump — an empty member list is refused by name, not crashed through', () => {
+  it('throws an error naming the helper and what it cannot answer', () => {
+    expect(() => buildClump([])).toThrow(/buildClump: refusing to build a clump with no members/);
+  });
+
+  // The DISCRIMINATING half: `expect(...).toThrow()` alone passed against the old
+  // code too, because the old code threw as well — just opaquely. What changed is
+  // WHICH error, so the test pins that it is no longer the undefined-property crash.
+  it('is no longer the opaque TypeError the subscript produced', () => {
+    expect(() => buildClump([])).not.toThrow(TypeError);
+  });
+});
+
 describe('buildClump — the id hashes the member SET, not the order it arrived in', () => {
   const trio = () => [mk('b'), mk('c'), mk('a')];
 
@@ -493,6 +511,20 @@ describe('buildClump — the id hashes the member SET, not the order it arrived 
     expect(buildClump([mk('b'), mk('c'), mk('d')]).id).not.toBe(base);
     expect(buildClump(trio().map((m) => ({ ...m, scope: 'src/other' }))).id).not.toBe(base);
     expect(buildClump(trio().map((m) => ({ ...m, kind: 'NAME' }))).id).not.toBe(base);
+  });
+
+  // I6 follow-on. The max-reduce is now seeded with `members[0].weight` rather than
+  // `-Infinity`, so a clump whose heaviest member is NOT first is the ONLY input that
+  // can tell `max(members)` apart from `members[0].weight`. Through `formClumps`
+  // members always arrive weight-desc, so confusing the two would be invisible from
+  // there — which is the kind of gap exporting this helper exists to close.
+  it('reports the MAX member weight even when the heaviest member is not first', () => {
+    const c = buildClump([
+      mk('a', { weight: 5 }),
+      mk('b', { weight: 900 }),
+      mk('c', { weight: 50 }),
+    ]);
+    expect(c.weight).toBe(900);
   });
 
   // The ID ignores member order; the MEMBER LIST does not. `formClumps` relies on that
