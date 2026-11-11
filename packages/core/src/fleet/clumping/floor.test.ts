@@ -113,7 +113,7 @@ describe('resolveFloor — floorResolution is a CEILING the touched set narrows'
 
   // POSITIVE CONTROL: the keyless rule must not have become a blanket 'file'. A
   // keyed item inside the SAME touched set still resolves to 'act'.
-  it("positive control — a keyed item inside that same touched set still acts", () => {
+  it('positive control — a keyed item inside that same touched set still acts', () => {
     const keyed = item(axes('aspirational', 'small', 'high'), ['src/z.ts']);
     expect(resolveFloor(keyed, { touched: ['src/z.ts'] })).toMatchObject({
       below: true,
