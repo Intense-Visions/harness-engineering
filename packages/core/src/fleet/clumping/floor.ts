@@ -61,7 +61,23 @@ export function resolveClumpPolicy(policy?: Partial<ClumpPolicy>): ClumpPolicy {
   };
 }
 
-const ABOVE: FloorVerdict = { below: false };
+/**
+ * The single above-floor verdict, shared by both above-floor paths.
+ *
+ * FROZEN for the same reason `DEFAULT_CLUMP_POLICY` is, and it is the same decision:
+ * a shared object handed to every caller is a process-wide write surface. Measured
+ * before the freeze — two `resolveFloor` calls on DIFFERENT items returned the same
+ * object identity, `Object.isFrozen` was `false`, and one consumer writing
+ * `verdict.below = true` made every SUBSEQUENT above-floor verdict report
+ * `below: true`, turning the floor into a silent delete for critical items. That is
+ * reachable from all three seams phases 3-5 bind and needs no cast in plain JS.
+ *
+ * Sharing one immutable value is fine — the above-floor verdict carries no per-item
+ * data. The BELOW-floor path keeps returning a FRESH object per call because it
+ * carries a per-item `reason`, and `floor.test.ts` pins that half as the positive
+ * control so the freeze cannot quietly become a shared below-floor verdict too.
+ */
+const ABOVE: Readonly<FloorVerdict> = Object.freeze({ below: false } as const);
 
 /**
  * Is the item below the floor, and why?

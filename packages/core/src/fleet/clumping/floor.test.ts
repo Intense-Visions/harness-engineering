@@ -129,6 +129,49 @@ describe('resolveFloor — floorEnabled is the escape hatch', () => {
   });
 });
 
+describe('resolveFloor — the shared above-floor verdict is FROZEN', () => {
+  // Both above-floor paths (floor disabled, and classify says not below) return ONE
+  // shared object. Measured before the freeze: two calls on DIFFERENT items returned
+  // the same identity, `Object.isFrozen` was false, and after a single
+  // `verdict.below = true` a CRITICAL item's verdict read `{ below: true }` — the
+  // floor silently converted into a process-wide delete, with nothing in any output
+  // to say so, and reachable from all three seams phases 3-5 bind.
+  const critical = item({ kind: 'severity', severity: 'critical' });
+
+  it('hands back a frozen verdict, so a write THROWS instead of poisoning the next caller', () => {
+    const v = resolveFloor(critical, {});
+    expect(Object.isFrozen(v)).toBe(true);
+    // Strict mode (every module here is ESM/TS) makes the write throw rather than
+    // silently no-op, which is what keeps the violation loud.
+    expect(() => {
+      (v as { below: boolean }).below = true;
+    }).toThrow(TypeError);
+    expect(v.below).toBe(false);
+    // The property that actually matters: the NEXT caller is unaffected.
+    expect(resolveFloor(item({ kind: 'severity', severity: 'critical' }), {}).below).toBe(false);
+    expect(
+      resolveFloor(item(axes('aspirational', 'small', 'low')), {}, { floorEnabled: false }).below
+    ).toBe(false);
+  });
+
+  // POSITIVE CONTROL for the freeze: sealing the shared ABOVE verdict must not have
+  // sealed — or shared — the BELOW-floor verdict, which carries a per-item `reason`
+  // and must therefore stay a fresh object per call. If this ever goes red, the fix
+  // over-reached and two different floored items are sharing one reason.
+  it('positive control — a below-floor verdict is still a fresh object per call', () => {
+    const first = resolveFloor(item(axes('aspirational', 'small', 'high'), ['src/a.ts']), {});
+    const second = resolveFloor(item(axes('polish', 'small', 'low'), ['src/b.ts']), {});
+    expect(first.below).toBe(true);
+    expect(second.below).toBe(true);
+    expect(first).not.toBe(second);
+    expect(Object.isFrozen(first)).toBe(false);
+    if (first.below && second.below) {
+      expect(first.reason).toBe('small impact with aspirational tier');
+      expect(second.reason).toBe('small impact with low confidence');
+    }
+  });
+});
+
 describe('resolveClumpPolicy — absent config applies defaults and never errors', () => {
   it('returns the documented defaults for no argument', () => {
     expect(resolveClumpPolicy()).toEqual({

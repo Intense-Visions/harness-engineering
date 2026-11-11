@@ -333,6 +333,13 @@ set `DEFAULT_CLUMP_POLICY.maxPerClump` and move the floor's defaults for every o
 with nothing in any report to say it happened. `resolveClumpPolicy` still hands back a fresh
 mutable object, so callers own what they get.
 
+The same decision covers the above-floor verdict. `resolveFloor` returns ONE shared object for
+every item it passes, so it too is **frozen**. Measured before the freeze: two calls on different
+items returned the same identity, and a single `verdict.below = true` by one consumer made every
+subsequent above-floor verdict report `below: true` — the floor silently becoming a delete for
+critical items. The below-floor verdict stays a fresh object per call, because it carries a
+per-item `reason`.
+
 ### Seam adapters
 
 Core knows nothing about findings, issues, or PRs. Each seam owns a small adapter:
