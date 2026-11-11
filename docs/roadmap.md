@@ -835,6 +835,17 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 - **Blockers:** —
 - **Plan:** —
 
+### clumping
+
+- **Status:** planned
+- **Spec:** docs/changes/clumping/proposal.md
+- **Summary:** Clumping — a mechanical floor-and-group control for the fleet spine
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#2467
+
 ### Budget governor for unattended dispatch
 
 - **Status:** planned
