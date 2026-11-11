@@ -83,6 +83,55 @@ describe('formClumps — one clump per (scope, kind) with disjoint keys (criteri
   });
 });
 
+// C1 REGRESSION. The group key was `${scope} ${kind}`, guarded by a comment asserting
+// "` ` cannot appear in a scope or kind" that nothing enforced. `scope` is documented
+// as a directory (types.ts) and directories contain spaces, so a caller can FORGE one
+// group key out of a different (scope, kind) pair. These are the exact colliding pairs,
+// at the DEFAULT policy. Each case asserts the forged item's own scope and kind as
+// well as the split, because the damage is not only an over-merged group: `buildClump`
+// takes the emitted scope and kind off `members[0]`, so under the old key the third
+// item was filed under a scope and a kind that were not its own.
+describe('formClumps — the (scope, kind) key cannot be forged by a space in either field', () => {
+  it("keeps 'src/my api'|'CODE' apart from 'src/my'|'api CODE'", () => {
+    const r = formClumps([
+      mk('a', { scope: 'src/my api', kind: 'CODE' }),
+      mk('b', { scope: 'src/my api', kind: 'CODE' }),
+      mk('c', { scope: 'src/my', kind: 'api CODE' }),
+    ]);
+    expect(r.clumps).toHaveLength(1);
+    expect(r.clumps[0]!.members.map((m) => m.id)).toEqual(['a', 'b']);
+    expect(r.clumps[0]!.scope).toBe('src/my api');
+    expect(r.clumps[0]!.kind).toBe('CODE');
+    expect(r.solo.map((i) => i.id)).toEqual(['c']);
+  });
+
+  it("keeps 'My Documents'|'a b' apart from 'My'|'Documents a b'", () => {
+    const r = formClumps([
+      mk('a', { scope: 'My Documents', kind: 'a b' }),
+      mk('b', { scope: 'My Documents', kind: 'a b' }),
+      mk('c', { scope: 'My', kind: 'Documents a b' }),
+    ]);
+    expect(r.clumps).toHaveLength(1);
+    expect(r.clumps[0]!.members.map((m) => m.id)).toEqual(['a', 'b']);
+    expect(r.clumps[0]!.scope).toBe('My Documents');
+    expect(r.clumps[0]!.kind).toBe('a b');
+    expect(r.solo.map((i) => i.id)).toEqual(['c']);
+  });
+
+  // POSITIVE CONTROL: the two cases above would also pass if `formClumps` never
+  // grouped anything. Items that genuinely share a (scope, kind) must still clump.
+  it('positive control — a genuinely shared (scope, kind) still forms one clump', () => {
+    const r = formClumps([
+      mk('a', { scope: 'src/my api', kind: 'CODE' }),
+      mk('b', { scope: 'src/my api', kind: 'CODE' }),
+      mk('c', { scope: 'src/my api', kind: 'CODE' }),
+    ]);
+    expect(r.clumps).toHaveLength(1);
+    expect(r.clumps[0]!.members.map((m) => m.id)).toEqual(['a', 'b', 'c']);
+    expect(r.solo).toEqual([]);
+  });
+});
+
 describe('formClumps — conflict split (criterion 2)', () => {
   it('never places two items sharing a conflict key in the same clump', () => {
     const shared = ['src/api/router.ts'];

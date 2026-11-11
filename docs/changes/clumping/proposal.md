@@ -270,6 +270,16 @@ Order of operations, and why each step sits where it does:
   it claims no hunk.
 - **A group where every member conflicts with every other** ⇒ degenerates to N solo items, and
   `conflictSplits` records it. Correct, not a failure.
+- **A `scope` or `kind` containing whatever character the key is built from** ⇒ still its own
+  group. The group key is `JSON.stringify([scope, kind])`, which is injective for arbitrary
+  caller strings (`JSON.parse` recovers the exact pair), so no pair can forge another pair's
+  key. This is stated as a property rather than as a restriction on callers on purpose: an
+  earlier implementation joined the two fields on a space under a comment asserting a space
+  "cannot appear in a scope or kind", which nothing enforced — `scope` is a directory, and
+  directories contain spaces. `{scope: 'src/my api', kind: 'CODE'}` and
+  `{scope: 'src/my', kind: 'api CODE'}` collided, and because a clump reports the scope and
+  kind of its first member, the forged item was filed under a scope and a kind that were not
+  its own.
 
 `flooredAct` and `flooredFile` are a **sub-tally** of `floored` (`flooredAct + flooredFile ===
 floored`) and deliberately do **not** participate in the conservation sum — adding them would

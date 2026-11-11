@@ -38,9 +38,23 @@ function byWeightDescIdAsc(a: ClumpableItem, b: ClumpableItem): number {
   return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
 }
 
-/** ` ` cannot appear in a scope or kind, so the key is unambiguous. */
+/**
+ * The (scope, kind) group key, JSON-encoded.
+ *
+ * `JSON.stringify([scope, kind])` rather than a joined string, because the encoding
+ * has to be INJECTIVE for arbitrary caller strings: `JSON.parse` recovers the exact
+ * pair from the key, so no premise about the caller's data is needed and none is
+ * asserted. An earlier version joined on a space under a comment claiming "` `
+ * cannot appear in a scope or kind" that NOTHING enforced — `scope` is documented
+ * as a directory (types.ts) and directories contain spaces, so
+ * `{scope:'src/my api', kind:'CODE'}` and `{scope:'src/my', kind:'api CODE'}`
+ * produced the SAME key. The symptom was worse than an over-merged group:
+ * `buildClump` reports the scope and kind of `members[0]`, so every other member
+ * shipped under a scope and a kind that were not its own. `form.test.ts` pins both
+ * forging pairs.
+ */
 function groupKey(scope: string, kind: string): string {
-  return `${scope} ${kind}`;
+  return JSON.stringify([scope, kind]);
 }
 
 /**
