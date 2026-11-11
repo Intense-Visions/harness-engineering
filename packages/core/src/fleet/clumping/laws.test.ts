@@ -43,12 +43,22 @@ function assertConservation(items: readonly ClumpableItem[], r: ClumpResult): vo
       `conservation: counts disagree — input=${counts.input}, tallied=${tallied}, actual=${items.length}`
     );
   }
-  // SUB-TALLY IDENTITY (types.ts: `flooredAct`/`flooredFile` partition `floored`).
-  // Checked HERE, inside the law, rather than only in the hardcoded count
-  // expectations: those pin one corpus at 39 floored items, so a defect that only
-  // appears at intake-seam scale — a cut-off, an off-by-one over a larger batch —
-  // is invisible to them. Every conservation case above now carries this check,
-  // and one of them runs the corpus at a scale no hardcoded case reaches.
+  assertFlooredSubTally(r);
+}
+
+/**
+ * SUB-TALLY IDENTITY (types.ts: `flooredAct`/`flooredFile` partition `floored`).
+ *
+ * Called from `assertConservation`, so EVERY conservation case carries it — rather
+ * than living only in the hardcoded count expectations, which pin one corpus at 39
+ * floored items and so cannot see a defect that appears past some larger batch size.
+ * One conservation case above runs the corpus at a scale no hardcoded case reaches.
+ *
+ * Its own function because the arch check flags `assertConservation` for complexity
+ * once this is inlined, and a law nobody can read is a law nobody maintains.
+ */
+function assertFlooredSubTally(r: ClumpResult): void {
+  const { counts } = r;
   if (counts.flooredAct + counts.flooredFile !== counts.floored) {
     throw new Error(
       `conservation: floored sub-tally disagrees — act=${counts.flooredAct} + file=${counts.flooredFile} !== floored=${counts.floored}`
