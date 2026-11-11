@@ -232,3 +232,89 @@ describe('formClumps — size split and the solo rule', () => {
     expect(formClumps(items, { maxPerClump: 2 }).conflictSplits).toBe(0);
   });
 });
+
+describe('formClumps — rank and cap EMITTED WORK UNITS (D9)', () => {
+  /** n independent (scope, kind) groups of 2, so each group yields exactly one clump. */
+  function groups(n: number, weightOf: (i: number) => number): ClumpableItem[] {
+    return Array.from({ length: n }, (_, i) => [
+      mk(`g${i}a`, {
+        scope: `src/s${i}`,
+        weight: weightOf(i),
+        conflictKeys: [`src/s${i}/a.ts`],
+      }),
+      mk(`g${i}b`, {
+        scope: `src/s${i}`,
+        weight: weightOf(i),
+        conflictKeys: [`src/s${i}/b.ts`],
+      }),
+    ]).flat();
+  }
+
+  it('caps the number of units, counting clumps and solos together — not findings', () => {
+    const r = formClumps(
+      groups(5, (i) => 100 - i),
+      { maxClumps: 2 }
+    );
+    expect(r.clumps).toHaveLength(2);
+    expect(r.counts.clumps).toBe(2);
+    // 3 dropped clumps x 2 members = 6 items, FLATTENED (A1).
+    expect(r.overCap).toHaveLength(6);
+    expect(r.counts.overCap).toBe(6);
+  });
+
+  it('keeps the heaviest units and sheds the lightest', () => {
+    const r = formClumps(
+      groups(3, (i) => (i === 0 ? 1 : i === 1 ? 500 : 50)),
+      {
+        maxClumps: 1,
+      }
+    );
+    expect(r.clumps).toHaveLength(1);
+    expect(r.clumps[0]!.weight).toBe(500);
+    expect(r.overCap.map((i) => i.id).sort()).toEqual(['g0a', 'g0b', 'g2a', 'g2b']);
+  });
+
+  it('flattens an over-cap CLUMP into its member items, never a unit', () => {
+    const r = formClumps(
+      groups(2, () => 100),
+      { maxClumps: 1 }
+    );
+    for (const shed of r.overCap) expect(typeof shed.id).toBe('string');
+    expect(r.overCap.some((i) => (i as { members?: unknown }).members !== undefined)).toBe(false);
+  });
+
+  // Three single-item groups: each is below the default minToClump of 2, so all
+  // three are SOLOS. The cap counts them as work units alongside clumps (D9).
+  it('sheds solos over the cap too — the cap counts units, not clumps', () => {
+    const r = formClumps(
+      [mk('a', { scope: 'src/x' }), mk('b', { scope: 'src/y' }), mk('c', { scope: 'src/z' })],
+      { maxClumps: 1 }
+    );
+    expect(r.clumps).toEqual([]);
+    expect(r.solo).toHaveLength(1);
+    expect(r.overCap).toHaveLength(2);
+    expect(r.counts.solo).toBe(1);
+  });
+
+  it('emits nothing and sheds everything at maxClumps 0', () => {
+    const r = formClumps(
+      groups(2, () => 100),
+      { maxClumps: 0 }
+    );
+    expect(r.clumps).toEqual([]);
+    expect(r.solo).toEqual([]);
+    expect(r.overCap).toHaveLength(4);
+  });
+
+  it('breaks a weight tie between units deterministically by unit id', () => {
+    const a = formClumps(
+      groups(4, () => 100),
+      { maxClumps: 2 }
+    );
+    const b = formClumps(
+      groups(4, () => 100),
+      { maxClumps: 2 }
+    );
+    expect(a.clumps.map((c) => c.id)).toEqual(b.clumps.map((c) => c.id));
+  });
+});

@@ -149,21 +149,67 @@ export function formClumps(
     }
   }
 
-  // 6-7 arrive in Task 9. Until then every unit is emitted and nothing is capped.
-  const clumped = clumps.reduce((n, c) => n + c.members.length, 0);
+  // 6. Rank and cap EMITTED WORK UNITS (clumps + solos), never findings (D9) —
+  //    counting findings would let the cap be bypassed by scattering.
+  type Unit =
+    | { readonly kind: 'clump'; readonly clump: Clump }
+    | { readonly kind: 'solo'; readonly item: ClumpableItem };
+  const units: Unit[] = [
+    ...clumps.map((clump) => ({ kind: 'clump' as const, clump })),
+    ...solo.map((item) => ({ kind: 'solo' as const, item })),
+  ];
+  const unitWeight = (u: Unit): number => (u.kind === 'clump' ? u.clump.weight : u.item.weight);
+  const unitId = (u: Unit): string => (u.kind === 'clump' ? u.clump.id : u.item.id);
+  units.sort((a, b) => {
+    const delta = unitWeight(b) - unitWeight(a);
+    if (delta !== 0) return delta;
+    // The tiebreak is load-bearing for determinism (criterion 7): without it,
+    // two equal-weight units could swap places between runs.
+    const ia = unitId(a);
+    const ib = unitId(b);
+    return ia < ib ? -1 : ia > ib ? 1 : 0;
+  });
+
+  const cap = Math.max(0, resolved.maxClumps);
+  const keptClumps: Clump[] = [];
+  const keptSolo: ClumpableItem[] = [];
+  // An over-cap unit is FLATTENED to its member ITEMS: `overCap` is an item bucket
+  // and conservation (criterion 6) partitions ITEMS, not units. Pushing a clump here
+  // as a unit would lose its members from the partition — a silent drop.
+  const overCap: ClumpableItem[] = [];
+  units.forEach((unit, index) => {
+    const kept = index < cap;
+    if (unit.kind === 'clump') {
+      if (kept) keptClumps.push(unit.clump);
+      else overCap.push(...unit.clump.members);
+    } else if (kept) keptSolo.push(unit.item);
+    else overCap.push(unit.item);
+  });
+
+  // 7. Count every bucket (D5): shed items are counted and reported, never silently
+  //    discarded — a zero and a silent drop look identical in output.
+  const clumped = keptClumps.reduce((n, c) => n + c.members.length, 0);
   const counts: ClumpCounts = {
     input: items.length,
-    clumps: clumps.length,
+    clumps: keptClumps.length,
     clumped,
     floored: floored.length,
     flooredAct: floored.filter((f) => f.resolution === 'act').length,
     flooredFile: floored.filter((f) => f.resolution === 'file').length,
-    overCap: 0,
+    overCap: overCap.length,
     ungraded: ungraded.length,
-    solo: solo.length,
+    solo: keptSolo.length,
     conflictSplits,
   };
-  return { clumps, floored, overCap: [], ungraded, solo, conflictSplits, counts };
+  return {
+    clumps: keptClumps,
+    floored,
+    overCap,
+    ungraded,
+    solo: keptSolo,
+    conflictSplits,
+    counts,
+  };
 }
 
 /** Fixed-size chunks. A non-positive size would loop forever, so it is a no-split. */
