@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'tests/scripts'
-sourceHash: '788287e34b1a8c8717a70e43bc7f8cc657bbc25926389f0fca96c09534e53a0f'
+sourceHash: 'dcb8dead4d295aa60e15f1a7b70260ef593f24ff9835f844bc38e8ba1c6a4f26'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent

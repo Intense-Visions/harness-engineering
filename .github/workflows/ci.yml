@@ -127,6 +127,16 @@ jobs:
         if: matrix.os == 'ubuntu-latest'
         run: node --test 'tests/scripts/*.test.mjs'
 
+      # Skill-local node:test suites (e.g. harness-branch-buster's
+      # scripts/__tests__). Neither vitest config collects .mjs, so without this
+      # step they are run by nothing (#2367). claude-code only: the codex /
+      # cursor / gemini-cli trees mirror it, so running them would repeat the
+      # same tests 4x. tests/scripts/test-runner-split.test.mjs fails if a
+      # claude-code .test.mjs falls outside this glob.
+      - name: Skill script node:test suites
+        if: matrix.os == 'ubuntu-latest'
+        run: node --test 'agents/skills/claude-code/**/*.test.mjs'
+
       - name: Verify generated docs are fresh
         if: matrix.os == 'ubuntu-latest'
         run: pnpm run generate-docs --check

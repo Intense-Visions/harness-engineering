@@ -4,14 +4,17 @@
  *   - vitest (`pnpm test:root`, root `vitest.config.mts`) collects
  *     `tests/**\/*.test.ts`.
  *   - node:test (`.github/workflows/*.yml`, `node --test '<glob>'`) runs
- *     `tests/**\/*.test.mjs`.
+ *     `tests/**\/*.test.mjs` and the skill-local node:test suites under
+ *     `agents/skills/claude-code/**\/*.test.mjs` (#2367). The codex / cursor /
+ *     gemini-cli skill trees are generated mirrors of claude-code, so only the
+ *     claude-code copy is owed a runner.
  *
  * Each runner reports "no test files found" — not an error — over the other's
  * files, so a `.test.mjs` that no workflow glob reaches is run by NOTHING and
  * still reads as clean. These tests make that split fail loudly instead:
  *
- *   1. every `tests/**\/*.test.mjs` file is matched by some workflow
- *      `node --test` glob;
+ *   1. every `tests/**\/*.test.mjs` and `agents/skills/claude-code/**\/*.test.mjs`
+ *      file is matched by some workflow `node --test` glob;
  *   2. the vitest root `include` claims no `.test.mjs` file (the two runners
  *      own disjoint sets);
  *   3. `vitest.config.mts` itself says so, so the split is legible where a
@@ -32,12 +35,25 @@ const VITEST_CONFIG = path.join(ROOT, 'vitest.config.mts');
 /** posix matcher: globs and paths are repo-relative with `/` on every OS. */
 const matches = (file, glob) => path.posix.matchesGlob(file, glob);
 
+/** Repo-relative, `/`-separated paths of every `*.test.mjs` under `dir`. */
+function listTestMjsUnder(dir) {
+  return readdirSync(path.join(ROOT, ...dir.split('/')), { recursive: true })
+    .map((entry) => `${dir}/${String(entry).split(path.sep).join('/')}`)
+    .filter((file) => file.endsWith('.test.mjs'));
+}
+
 /** Repo-relative, `/`-separated paths of every `*.test.mjs` under `tests/`. */
 function listNodeTestFiles() {
-  return readdirSync(path.join(ROOT, 'tests'), { recursive: true })
-    .map((entry) => `tests/${String(entry).split(path.sep).join('/')}`)
-    .filter((file) => file.endsWith('.test.mjs'))
-    .sort();
+  return listTestMjsUnder('tests').sort();
+}
+
+/**
+ * Skill-local node:test suites (#2367). Only the claude-code tree: the other
+ * platform trees are mirrors of it, and running them too would run the same
+ * tests four times.
+ */
+function listSkillNodeTestFiles() {
+  return listTestMjsUnder('agents/skills/claude-code').sort();
 }
 
 /**
@@ -108,6 +124,26 @@ test('every tests/**/*.test.mjs file is run by some workflow `node --test` glob'
     orphans,
     [],
     `these node:test files are run by NO workflow (vitest skips .mjs, so nothing runs them). ` +
+      `Workflow node --test globs: ${JSON.stringify(globs)}`
+  );
+});
+
+test('every agents/skills/claude-code/**/*.test.mjs file is run by some workflow `node --test` glob', () => {
+  const files = listSkillNodeTestFiles();
+  const globs = listWorkflowNodeTestGlobs();
+  // Denominator: harness-branch-buster ships node:test suites today (#2367);
+  // an empty walk means the walk broke, not that the tree is clean.
+  assert.ok(
+    files.length > 0,
+    'found no agents/skills/claude-code/**/*.test.mjs files — the walk is broken'
+  );
+  assert.ok(globs.length > 0, 'found no `node --test` invocation in .github/workflows/*.yml');
+
+  const orphans = files.filter((file) => !globs.some((glob) => matches(file, glob)));
+  assert.deepEqual(
+    orphans,
+    [],
+    `these skill node:test files are run by NO workflow (agents/skills vitest collects only tests/**/*.test.ts). ` +
       `Workflow node --test globs: ${JSON.stringify(globs)}`
   );
 });
