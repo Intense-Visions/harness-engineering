@@ -43,6 +43,28 @@ function assertConservation(items: readonly ClumpableItem[], r: ClumpResult): vo
       `conservation: counts disagree — input=${counts.input}, tallied=${tallied}, actual=${items.length}`
     );
   }
+  // SUB-TALLY IDENTITY (types.ts: `flooredAct`/`flooredFile` partition `floored`).
+  // Checked HERE, inside the law, rather than only in the hardcoded count
+  // expectations: those pin one corpus at 39 floored items, so a defect that only
+  // appears at intake-seam scale — a cut-off, an off-by-one over a larger batch —
+  // is invisible to them. Every conservation case above now carries this check,
+  // and one of them runs the corpus at a scale no hardcoded case reaches.
+  if (counts.flooredAct + counts.flooredFile !== counts.floored) {
+    throw new Error(
+      `conservation: floored sub-tally disagrees — act=${counts.flooredAct} + file=${counts.flooredFile} !== floored=${counts.floored}`
+    );
+  }
+  // ...and the sub-tally must agree with the floored BUCKET, not merely with itself:
+  // two mutually consistent lies still sum correctly.
+  const actual = {
+    act: r.floored.filter((f) => f.resolution === 'act').length,
+    file: r.floored.filter((f) => f.resolution === 'file').length,
+  };
+  if (counts.flooredAct !== actual.act || counts.flooredFile !== actual.file) {
+    throw new Error(
+      `conservation: floored sub-tally disagrees with the bucket — counts act=${counts.flooredAct}/file=${counts.flooredFile}, bucket act=${actual.act}/file=${actual.file}`
+    );
+  }
 }
 
 const GRADES: Grade[] = [
@@ -61,12 +83,12 @@ const GRADES: Grade[] = [
  * bucket, conflict splits, size splits, the solo rule and the cap in one pass.
  * No RNG — a law that only sometimes runs its hard case is not a law.
  */
-function corpus(): ClumpableItem[] {
+function corpus(n = 90): ClumpableItem[] {
   const items: ClumpableItem[] = [];
-  for (let i = 0; i < 90; i += 1) {
+  for (let i = 0; i < n; i += 1) {
     const scope = `src/s${i % 6}`;
     items.push({
-      id: `item-${String(i).padStart(3, '0')}`,
+      id: `item-${String(i).padStart(4, '0')}`,
       scope,
       kind: ['CODE', 'NAME', 'SPEC'][i % 3]!,
       grade: GRADES[i % GRADES.length]!,
@@ -115,6 +137,20 @@ describe('LAW — conservation (success criterion 6)', () => {
     expect(() => assertConservation([], formClumps([]))).not.toThrow();
   });
 
+  // INTAKE-SEAM SCALE. The default corpus floors 39 items, and every hardcoded count
+  // expectation in this file sits at or below that, so a defect conditioned on batch
+  // size (a cut-off, a cap, an off-by-one past some threshold) cannot be seen by any
+  // of them. Phases 3-5 hand this primitive a whole review pass at once; the law must
+  // hold there too. Asserted, not just run: see the shape assertion below.
+  it('holds at intake-seam scale, where far more than 50 items are floored', () => {
+    const items = corpus(420);
+    expect(() => assertConservation(items, formClumps(items, { maxClumps: 8 }))).not.toThrow();
+  });
+
+  it('positive control — the scale case really floors more than 50 items', () => {
+    expect(formClumps(corpus(420), { maxClumps: 8 }).counts.floored).toBeGreaterThan(50);
+  });
+
   // POSITIVE CONTROL: the law can FAIL. A clean run and a check that cannot see a
   // violation look identical in output, so prove the checker rejects each shape of
   // violation at the SAME scope it is applied at.
@@ -131,6 +167,25 @@ describe('LAW — conservation (success criterion 6)', () => {
       const r = formClumps(items);
       const doubled: ClumpResult = { ...r, solo: [...r.solo, ...r.ungraded.slice(0, 1)] };
       expect(() => assertConservation(items, doubled)).toThrow(/more than once/);
+    });
+
+    it('rejects a floored sub-tally that does not sum to `floored`', () => {
+      const r = formClumps(items);
+      const lying: ClumpResult = {
+        ...r,
+        counts: { ...r.counts, flooredFile: r.counts.flooredFile - 1 },
+      };
+      expect(() => assertConservation(items, lying)).toThrow(/floored sub-tally disagrees —/);
+    });
+
+    it('rejects a floored sub-tally that sums correctly but contradicts the bucket', () => {
+      const r = formClumps(items);
+      // Act and file SWAPPED: the identity still holds, the bucket says otherwise.
+      const lying: ClumpResult = {
+        ...r,
+        counts: { ...r.counts, flooredAct: r.counts.flooredFile, flooredFile: r.counts.flooredAct },
+      };
+      expect(() => assertConservation(items, lying)).toThrow(/disagrees with the bucket/);
     });
 
     it('rejects counts that disagree with the buckets', () => {
