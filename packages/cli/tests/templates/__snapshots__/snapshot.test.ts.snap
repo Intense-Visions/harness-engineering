@@ -157,6 +157,11 @@ See [architecture.md](./architecture.md) for architectural decisions.
       }
     }
   },
+  "clumping": {
+    "maxPerClump": 12,
+    "minToClump": 2,
+    "floorEnabled": true
+  },
   "template": {
     "level": "advanced",
     "version": 1
@@ -1913,6 +1918,11 @@ export default [
         }
       }
     }
+  },
+  "clumping": {
+    "maxPerClump": 12,
+    "minToClump": 2,
+    "floorEnabled": true
   },
   "template": {
     "level": "load-bearing-minimum",

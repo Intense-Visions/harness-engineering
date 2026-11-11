@@ -17,13 +17,17 @@
 // same three things this needs: a `CODE-R\d{3}`-shaped `code`, a `target.file`,
 // and the ADR-0019 axis trio.
 
+import * as fs from 'node:fs';
 import * as path from 'node:path';
 
 import {
+  ClumpingConfigSchema,
   formClumps,
+  resolveSeamClumpPolicy,
   type ClumpPolicy,
   type ClumpResult,
   type ClumpableItem,
+  type ClumpingConfig,
 } from '@harness-engineering/core';
 
 import type { Confidence, Impact, Tier } from './axes.js';
@@ -203,5 +207,49 @@ export function clumpCraftFindings(
   projectRoot: string,
   policy?: Partial<ClumpPolicy>
 ): ClumpResult {
-  return formClumps(toClumpableItems(findings, projectRoot), policy);
+  return formClumps(toClumpableItems(findings, projectRoot), {
+    ...craftClumpPolicy(projectRoot),
+    ...policy,
+  });
+}
+
+/**
+ * The `clumping` block of the project's `harness.config.json`, read from
+ * EXACTLY `<projectRoot>/harness.config.json`.
+ *
+ * Not `findConfigFile`'s walk toward the filesystem root, and the difference
+ * is load-bearing rather than stylistic. `projectRoot` here is already the
+ * project — every family computes it as `sanitizePath(input.path)` — so a walk
+ * could only ever find a DIFFERENT project's config above this one and tune
+ * this run by it. It would also make these tests machine-dependent: a fixture
+ * root under `/var/folders/...` would pick up whatever config happens to sit
+ * above the temp directory on the running machine.
+ *
+ * Every failure mode resolves to `undefined` — no file, unreadable file,
+ * invalid JSON, malformed block — so a craft run never fails because of a
+ * tuning field, which is success criterion 13 at this seam. The cli config
+ * loader reports a malformed config on its own paths; a craft sweep is not the
+ * place to surface it a second time by crashing.
+ */
+export function craftClumpingConfig(projectRoot: string): ClumpingConfig | undefined {
+  if (projectRoot === '') return undefined;
+  let raw: string;
+  try {
+    raw = fs.readFileSync(path.join(projectRoot, 'harness.config.json'), 'utf-8');
+  } catch {
+    return undefined;
+  }
+  try {
+    const parsed = ClumpingConfigSchema.safeParse(
+      (JSON.parse(raw) as Record<string, unknown>)['clumping']
+    );
+    return parsed.success ? parsed.data : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/** The craft seam's policy. No seam baseline — craft runs on the primitive's defaults. */
+export function craftClumpPolicy(projectRoot: string): Partial<ClumpPolicy> {
+  return resolveSeamClumpPolicy(craftClumpingConfig(projectRoot), 'craft');
 }

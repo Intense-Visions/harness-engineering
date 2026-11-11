@@ -1,12 +1,14 @@
 ---
 schemaVersion: 1
 module: 'packages/core/src/fleet/clumping'
-sourceHash: '4ebadeaa09a44349dcadf2d4ba27d90590e51bf2f22d8760941c4d24afc59d1c'
+sourceHash: 'f2ac0b856d437f4657ab16faca482a56bae69fe35ae716177850dfa40e2b1a37'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
 members:
   [
+    'config.test.ts',
+    'config.ts',
     'dispatch.test.ts',
     'dispatch.ts',
     'floor.test.ts',
@@ -30,10 +32,15 @@ export ClumpMemberOutcome
 export ClumpPRPlan
 export ClumpPlanOptions
 export ClumpPolicy
+export ClumpPolicyOverride
+export ClumpPolicyOverrideSchema
 export ClumpResult
+export ClumpSeam
 export ClumpVerdict
 export ClumpVerdictOptions
 export ClumpableItem
+export ClumpingConfig
+export ClumpingConfigSchema
 export DEFAULT_CLUMP_POLICY
 export FloorContext
 export FloorVerdict
@@ -41,10 +48,13 @@ export FlooredItem
 export Grade
 export PostDropBuild
 export checkVerdictPartition
+export clumpingFromConfig
+export describeSeamClumpPolicy
 export formClumps
 export planClumpPR
 export resolveClumpPolicy
 export resolveFloor
+export resolveSeamClumpPolicy
 export settleClumpVerdict
 ```
 
@@ -52,10 +62,12 @@ export settleClumpVerdict
 
 ```
 import { Confidence, Impact, Tier } from '../../craft/axes'
+import { ClumpingConfig, ClumpingConfigSchema, clumpingFromConfig, describeSeamClumpPolicy, resolveSeamClumpPolicy } from './config'
 import { ClumpMemberOutcome, checkVerdictPartition, planClumpPR, settleClumpVerdict } from './dispatch'
 import { DEFAULT_CLUMP_POLICY, resolveClumpPolicy, resolveFloor } from './floor'
 import { buildClump, formClumps } from './form'
 import { Clump, ClumpCounts, ClumpPolicy, ClumpResult, ClumpableItem, FloorContext, FloorVerdict, FlooredItem, Grade } from './types'
 import { createHash } from 'node:crypto'
 import { describe, expect, it } from 'vitest'
+import { z } from 'zod'
 ```

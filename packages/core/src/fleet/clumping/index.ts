@@ -13,9 +13,19 @@
 // Phase 5 execution — `dispatch.ts` carries the one-PR-per-clump contract and
 // D10's one-verdict-per-clump drop semantics as callables, because the four
 // members whose lane unit a clump becomes are SKILL.md files with no code
-// behind their DISPATCH.
+// behind their DISPATCH. Phase 6 added `config.ts` — the `clumping` block of
+// harness.config.json and the per-seam policy resolution the three seams read,
+// held in core because the review seam IS core code.
 
 export { resolveFloor, resolveClumpPolicy, DEFAULT_CLUMP_POLICY } from './floor';
+export {
+  ClumpingConfigSchema,
+  ClumpPolicyOverrideSchema,
+  clumpingFromConfig,
+  describeSeamClumpPolicy,
+  resolveSeamClumpPolicy,
+} from './config';
+export type { ClumpingConfig, ClumpPolicyOverride, ClumpSeam } from './config';
 export { formClumps } from './form';
 export { planClumpPR, settleClumpVerdict, checkVerdictPartition } from './dispatch';
 export type {

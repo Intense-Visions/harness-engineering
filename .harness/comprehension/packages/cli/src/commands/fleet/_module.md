@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/commands/fleet'
-sourceHash: 'f3a6793ac8cc9e18659f8e9336a66cf3001ba972540c211e62064767d80fd25f'
+sourceHash: 'c3f7bcc704d404f6f7e899234c31e8a03365ec3a887f1495c0f8620b47b46d51'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -28,6 +28,7 @@ export createFleetCommand
 ## Dependency Slice
 
 ```
+import { resolveConfig } from '../../config/loader'
 import { CraftClumpableFinding, clumpCraftFindings } from '../../shared/craft/findings/clumpable'
 import { BUDGET_EXHAUSTED_EXIT_CODE, createBudgetCheckCommand, envelopeFromOptions, observedSpendFromSummary, runBudgetCheck } from './budget-check'
 import { CLUMP_FAILED_EXIT_CODE, NO_CLUMPS_INPUT_EXIT_CODE, VERDICT_PARTITION_BREACH_EXIT_CODE, createClumpDispatchCommand, describeMember, extractClumps, runClumpDispatch } from './clump-dispatch'
@@ -35,7 +36,7 @@ import { BACKLOG_UNAVAILABLE_EXIT_CODE, CONSERVATION_BREACH_EXIT_CODE, buildGhAr
 import { DEFAULT_ISSUE_TYPE_LABELS, DEFAULT_TRACKER_PATH_PREFIXES, INTAKE_CLUMP_POLICY, IntakeClumpReport, IntakeIssue, UNSCOPED, clumpIssues, issueKind, issueScope, issueWeight, labelNames, mentionedPaths, toClumpableIssues } from './clumpable-issues'
 import './index'
 import { Summary, human, readSummary, refresh, resolvePaths } from '@harness-engineering/burn'
-import { Clump, ClumpCounts, ClumpMemberOutcome, ClumpPRPlan, ClumpPolicy, ClumpResult, ClumpVerdict, ClumpableItem, PostDropBuild, checkVerdictPartition, evaluateSpendEnvelope, formClumps, planClumpPR, resolveFloor, settleClumpVerdict } from '@harness-engineering/core'
+import { Clump, ClumpCounts, ClumpMemberOutcome, ClumpPRPlan, ClumpPolicy, ClumpResult, ClumpVerdict, ClumpableItem, PostDropBuild, checkVerdictPartition, clumpingFromConfig, evaluateSpendEnvelope, formClumps, planClumpPR, resolveFloor, resolveSeamClumpPolicy, settleClumpVerdict } from '@harness-engineering/core'
 import { pilotScore } from '@harness-engineering/intelligence'
 import { ObservedSpend, SpendEnvelope, SpendEnvelopeVerdict } from '@harness-engineering/types'
 import chalk from 'chalk'

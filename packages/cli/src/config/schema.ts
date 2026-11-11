@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import {
   ArchConfigSchema,
+  ClumpingConfigSchema,
   GoldenConfigSchema,
   PatternConfigSchema,
 } from '@harness-engineering/core';
@@ -1472,6 +1473,24 @@ export const HarnessConfigSchema = z.object({
   releaseInventory: ReleaseInventoryConfigSchema.optional(),
   /** Knowledge-pipeline domain-inference settings */
   knowledge: KnowledgeConfigSchema.optional(),
+  /**
+   * Clumping tunables — the mechanical floor-and-group control the `-fleet`
+   * family shares (`docs/changes/clumping/proposal.md`). The top-level fields
+   * apply to all three seams; `seams.{craft,review,intake}` narrows an override
+   * to one, which matters because the seams have different correct defaults
+   * (intake runs UNCAPPED, because a cap of 20 over a 347-issue backlog would
+   * bucket ~300 already-filed issues).
+   *
+   * Defined in `@harness-engineering/core` beside the primitive, alongside
+   * `ArchConfigSchema` and `GoldenConfigSchema`, because the review seam is
+   * core code reached through `runReviewPipeline({ config })` and must read the
+   * same block this validates — a second copy here would be two halves of one
+   * shape, free to drift.
+   *
+   * Absent ⇒ every seam runs on its own defaults and no path errors
+   * (success criterion 13).
+   */
+  clumping: ClumpingConfigSchema.optional(),
   /** Adoption telemetry settings */
   adoption: z
     .object({

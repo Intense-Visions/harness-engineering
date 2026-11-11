@@ -16,11 +16,18 @@
 import { execFileSync } from 'node:child_process';
 import * as fs from 'node:fs';
 
-import type { ClumpCounts, ClumpPolicy } from '@harness-engineering/core';
+import {
+  clumpingFromConfig,
+  resolveSeamClumpPolicy,
+  type ClumpCounts,
+  type ClumpPolicy,
+} from '@harness-engineering/core';
 import chalk from 'chalk';
 import { Command } from 'commander';
 
+import { resolveConfig } from '../../config/loader';
 import {
+  INTAKE_CLUMP_POLICY,
   UNSCOPED,
   clumpIssues,
   type IntakeClumpReport,
@@ -47,6 +54,8 @@ export interface ClumpIssuesOptions {
   maxClumps?: string;
   maxPerClump?: string;
   minToClump?: string;
+  /** The global `-c/--config` path. Absent ⇒ discovered from the cwd upward. */
+  config?: string;
 }
 
 /**
@@ -122,7 +131,7 @@ export function readBacklog(options: ClumpIssuesOptions): IntakeIssue[] | Backlo
   return parsed as IntakeIssue[];
 }
 
-/** A partial clump policy from the flags. Absent flags ⇒ the intake defaults. */
+/** A partial clump policy from the flags. Absent flags ⇒ whatever is under them. */
 export function policyFromOptions(options: ClumpIssuesOptions): Partial<ClumpPolicy> {
   const policy: Partial<ClumpPolicy> = {};
   const n = (raw: string | undefined): number | undefined => {
@@ -137,6 +146,40 @@ export function policyFromOptions(options: ClumpIssuesOptions): Partial<ClumpPol
   if (maxPerClump !== undefined) policy.maxPerClump = maxPerClump;
   if (minToClump !== undefined) policy.minToClump = minToClump;
   return policy;
+}
+
+/**
+ * The `clumping` block, or `undefined` when there is no config to read.
+ *
+ * A MISSING config is not an error here, and that is success criterion 13 at
+ * this seam: `harness fleet clump-issues` is a read-only reporting command an
+ * agent runs from wherever it happens to be standing, and refusing to run
+ * because no `harness.config.json` was found above the cwd would be a new
+ * failure mode in exchange for a tuning field nobody set. `resolveConfig`'s
+ * `Err` is therefore swallowed — but ONLY the not-found/unreadable case reaches
+ * here, because a config that EXISTS and is malformed has already been reported
+ * on stderr by the loader's own validation before this returns.
+ */
+export function clumpingBlockFor(
+  options: ClumpIssuesOptions
+): ReturnType<typeof clumpingFromConfig> {
+  const loaded = resolveConfig(options.config);
+  return loaded.ok ? clumpingFromConfig(loaded.value) : undefined;
+}
+
+/**
+ * The policy this run uses: the intake baseline, then the config, then flags.
+ *
+ * Flags win over config for the reason flags always win over config — they are
+ * the narrower, more deliberate statement — and the intake baseline sits at the
+ * bottom because it is a built-in default, which is precisely what config is
+ * for overriding.
+ */
+export function resolveIntakePolicy(options: ClumpIssuesOptions): Partial<ClumpPolicy> {
+  return {
+    ...resolveSeamClumpPolicy(clumpingBlockFor(options), 'intake', INTAKE_CLUMP_POLICY),
+    ...policyFromOptions(options),
+  };
 }
 
 /**
@@ -237,7 +280,7 @@ export function runClumpIssues(options: ClumpIssuesOptions, deps: ClumpIssuesDep
     return BACKLOG_UNAVAILABLE_EXIT_CODE;
   }
 
-  const outcome = (deps.clump ?? clumpIssues)(backlog, policyFromOptions(options));
+  const outcome = (deps.clump ?? clumpIssues)(backlog, resolveIntakePolicy(options));
   const conservation = checkConservation(outcome.result.counts);
 
   if (options.json) {
@@ -285,6 +328,15 @@ export function createClumpIssuesCommand(): Command {
       // `--json` is also a GLOBAL option on the root program, so merge globals in
       // (a bare `harness --json fleet clump-issues` sets it on the parent).
       const globals = cmd.optsWithGlobals() as ClumpIssuesOptions;
-      process.exitCode = runClumpIssues({ ...opts, json: Boolean(opts.json ?? globals.json) });
+      const configPath = opts.config ?? globals.config;
+      process.exitCode = runClumpIssues({
+        ...opts,
+        json: Boolean(opts.json ?? globals.json),
+        // `-c/--config` is a ROOT option, so it only ever arrives through the
+        // globals — reading `opts.config` alone would silently ignore it.
+        // Spread rather than assigned: under `exactOptionalPropertyTypes` an
+        // explicit `config: undefined` is NOT the same as an absent key.
+        ...(configPath === undefined ? {} : { config: configPath }),
+      });
     });
 }

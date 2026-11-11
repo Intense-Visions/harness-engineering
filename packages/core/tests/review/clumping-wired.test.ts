@@ -67,12 +67,13 @@ const DIFF: DiffInfo = {
 
 const FLAGS: PipelineFlags = { comment: true, ci: false, deep: false, noMechanical: true };
 
-async function run() {
+async function run(config?: Record<string, unknown>) {
   return runReviewPipeline({
     projectRoot: '/tmp/clumping-wired',
     diff: DIFF,
     commitMessage: 'feat: wired',
     flags: FLAGS,
+    ...(config === undefined ? {} : { config }),
   });
 }
 
@@ -128,5 +129,71 @@ describe('runReviewPipeline groups sub-floor comments at Phase 7', () => {
       const hits = result.githubComments.filter((c) => c.body.includes(f.title));
       expect(hits).toHaveLength(1);
     }
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Phase 6: the `clumping` block of harness.config.json, proved AT THE PIPELINE.
+//
+// THE PROPERTY: an adopter tunes the review seam from `harness.config.json`
+// without a code change, and a project with no block behaves exactly as it did
+// before the block existed.
+//
+// Both halves must be asserted together on the SAME code path. "No config ⇒ 2
+// comments" is true of a pipeline that never looks at the config at all, so it
+// is paired here with a run that differs ONLY in the config object.
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('the clumping config block reaches the review seam', () => {
+  it('CRITERION 13: no `clumping` block ⇒ the pre-Phase-6 behaviour, and no error', async () => {
+    const absent = await run();
+    const emptyConfig = await run({ version: 1, name: 'adopter' });
+    const emptyBlock = await run({ clumping: {} });
+
+    for (const result of [absent, emptyConfig, emptyBlock]) {
+      expect(result.githubComments).toHaveLength(2);
+      expect(result.githubComments.some((c) => c.body.includes('harness-clump:'))).toBe(true);
+    }
+  });
+
+  it('POSITIVE CONTROL: a `clumping` block CHANGES the comments the pipeline returns', async () => {
+    // `minToClump: 5` over 4 sub-floor suggestions means no group forms, so
+    // each keeps its own anchored comment: 4 + 1 critical = 5 comments, and no
+    // clump marker anywhere. Nothing is lost — the conservation law one
+    // describe up still holds, which is what makes this a tuning knob rather
+    // than a drop switch.
+    const tuned = await run({ clumping: { minToClump: 5 } });
+
+    expect(tuned.githubComments).toHaveLength(SUGGESTIONS.length + 1);
+    expect(tuned.githubComments.some((c) => c.body.includes('harness-clump:'))).toBe(false);
+
+    // The SAME pipeline with no block groups them. Asserted here, in the same
+    // test, so the two cannot drift apart.
+    const untuned = await run();
+    expect(untuned.githubComments).toHaveLength(2);
+
+    // …and every finding is still represented exactly once under the override.
+    for (const f of tuned.findings) {
+      expect(tuned.githubComments.filter((c) => c.body.includes(f.title))).toHaveLength(1);
+    }
+  });
+
+  it('a `seams.review` override wins over the top-level field', async () => {
+    const result = await run({
+      clumping: { minToClump: 2, seams: { review: { minToClump: 5 } } },
+    });
+    expect(result.githubComments).toHaveLength(SUGGESTIONS.length + 1);
+  });
+
+  it('a `seams.intake` override does NOT reach the review seam', async () => {
+    // The negative half of the per-seam law: if `seams` leaked, this would
+    // read 5 comments instead of 2.
+    const result = await run({ clumping: { seams: { intake: { minToClump: 5 } } } });
+    expect(result.githubComments).toHaveLength(2);
+  });
+
+  it('a MALFORMED block degrades to the defaults rather than failing the review', async () => {
+    const result = await run({ clumping: { minToClump: 'five' } });
+    expect(result.githubComments).toHaveLength(2);
   });
 });

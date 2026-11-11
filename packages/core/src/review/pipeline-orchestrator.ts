@@ -27,6 +27,7 @@ import { buildExclusionSet, ExclusionSet } from './exclusion-set';
 import { scopeContext } from './context-scoper';
 import { fanOutReview, fanOutConditionalSubagents } from './fan-out';
 import { validateFindings } from './validate-findings';
+import { clumpingFromConfig, resolveSeamClumpPolicy } from '../fleet/clumping';
 import { deduplicateFindings } from './deduplicate-findings';
 import { generateRubric } from './meta-judge';
 import { splitBundlesByStage } from './two-stage';
@@ -402,10 +403,16 @@ export async function runReviewPipeline(
   // makes D4's `'act'` resolution reachable here, and a craft sweep has no
   // equivalent. Grouping runs AFTER dedup on purpose: dedup merges restatements
   // of one finding, clumping groups distinct findings that are alike.
+  //
+  // Phase 6: the policy comes from the `clumping` block of harness.config.json
+  // (`config` is the raw object `harness agent review` already passes in), so an
+  // adopter tunes the cap without a code change. An absent block resolves to
+  // `{}`, which is byte-identical to the pre-Phase-6 call.
   let githubComments: GitHubInlineComment[] = [];
   if (flags.comment) {
     githubComments = formatClumpedComments(dedupedFindings, {
       touched: diff.changedFiles,
+      policy: resolveSeamClumpPolicy(clumpingFromConfig(config), 'review'),
     }).comments;
   }
 

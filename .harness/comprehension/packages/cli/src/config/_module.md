@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/config'
-sourceHash: '06a0ec96ab54c4b692df4835853a9952f88cbccdbc066461b29cc177997d91a3'
+sourceHash: 'ddf25368372b28112b498d66d79d91b54ed112af19603c6dfb6a98410a0a45d1'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -100,7 +100,7 @@ import { IngestConfigSchema } from './ingest-schema.js'
 import { loadConfig } from './loader'
 import { AgentConfigSchema, HarnessConfig, HarnessConfigSchema } from './schema'
 import { collectStrippedKeys, formatStrippedKeyWarnings } from './stripped-keys'
-import { ArchConfig, ArchConfigSchema, Err, GoldenConfigSchema, Ok, PatternConfigSchema, Result, withDependencyRulesCore } from '@harness-engineering/core'
+import { ArchConfig, ArchConfigSchema, ClumpingConfigSchema, Err, GoldenConfigSchema, Ok, PatternConfigSchema, Result, withDependencyRulesCore } from '@harness-engineering/core'
 import { skipDirGlobs } from '@harness-engineering/graph'
 import { BackendDefSchema, RoutingConfigSchema } from '@harness-engineering/orchestrator'
 import * as fs from 'fs'

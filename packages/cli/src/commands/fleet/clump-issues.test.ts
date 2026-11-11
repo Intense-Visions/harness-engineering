@@ -127,18 +127,42 @@ describe('checkConservation', () => {
   });
 });
 
-describe('runClumpIssues', () => {
-  function withDump(body: unknown, run: (file: string) => void): void {
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'clump-issues-'));
-    const file = path.join(dir, 'backlog.json');
-    fs.writeFileSync(file, JSON.stringify(body));
-    try {
-      run(file);
-    } finally {
-      fs.rmSync(dir, { recursive: true, force: true });
-    }
+/**
+ * A backlog dump AND a config beside it, with the config path handed to the
+ * run.
+ *
+ * The config is written even when the test is about something else, and that
+ * is deliberate: without `-c`, `resolveConfig` discovers `harness.config.json`
+ * by walking up from the CWD, so every assertion here would silently depend
+ * on the config of whatever repository the suite happens to run inside — and
+ * would start failing the day THIS repo adds a `clumping` block. Pointing
+ * each run at a config it owns makes the suite hermetic.
+ */
+function withDump(
+  body: unknown,
+  run: (file: string, configPath: string) => void,
+  clumping?: unknown
+): void {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'clump-issues-'));
+  const file = path.join(dir, 'backlog.json');
+  const configPath = path.join(dir, 'harness.config.json');
+  fs.writeFileSync(file, JSON.stringify(body));
+  fs.writeFileSync(
+    configPath,
+    JSON.stringify({
+      version: 1,
+      name: 'fixture',
+      ...(clumping === undefined ? {} : { clumping }),
+    })
+  );
+  try {
+    run(file, configPath);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
   }
+}
 
+describe('runClumpIssues', () => {
   it('exits BACKLOG_UNAVAILABLE and says nothing was simulated when the source fails', () => {
     const err = vi.spyOn(console, 'error').mockImplementation(() => {});
     const code = runClumpIssues({ input: path.join(os.tmpdir(), 'no-such-9f3a.json') });
@@ -154,8 +178,8 @@ describe('runClumpIssues', () => {
         { number: 2, title: 'b', body: 'packages/cli/src/b.ts', labels: [{ name: 'bug' }] },
         { number: 3, title: 'c', body: 'no path', labels: [] },
       ],
-      (file) => {
-        expect(runClumpIssues({ input: file })).toBe(0);
+      (file, config) => {
+        expect(runClumpIssues({ input: file, config })).toBe(0);
       }
     );
     const out = log.mock.calls.map((c) => String(c[0])).join('\n');
@@ -175,8 +199,8 @@ describe('runClumpIssues', () => {
         { number: 1, title: 'a', body: 'packages/cli/src/a.ts', labels: ['bug'] },
         { number: 2, title: 'b', body: 'packages/cli/src/b.ts', labels: ['bug'] },
       ],
-      (file) => {
-        expect(runClumpIssues({ input: file, json: true })).toBe(0);
+      (file, config) => {
+        expect(runClumpIssues({ input: file, json: true, config })).toBe(0);
       }
     );
     const payload = JSON.parse(String(log.mock.calls[0]![0])) as {
@@ -210,8 +234,8 @@ describe('runClumpIssues', () => {
         },
       };
     };
-    withDump([{ number: 1, title: 'a', body: 'no path', labels: ['bug'] }], (file) => {
-      expect(runClumpIssues({ input: file }, { clump: losesOne })).toBe(
+    withDump([{ number: 1, title: 'a', body: 'no path', labels: ['bug'] }], (file, config) => {
+      expect(runClumpIssues({ input: file, config }, { clump: losesOne })).toBe(
         CONSERVATION_BREACH_EXIT_CODE
       );
     });
@@ -220,8 +244,88 @@ describe('runClumpIssues', () => {
 
   it('POSITIVE CONTROL: the same path exits 0 with the real former', () => {
     vi.spyOn(console, 'log').mockImplementation(() => {});
-    withDump([{ number: 1, title: 'a', body: 'no path', labels: ['bug'] }], (file) => {
-      expect(runClumpIssues({ input: file })).toBe(0);
+    withDump([{ number: 1, title: 'a', body: 'no path', labels: ['bug'] }], (file, config) => {
+      expect(runClumpIssues({ input: file, config })).toBe(0);
     });
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Phase 6: the `clumping` block at the INTAKE seam.
+//
+// THE PROPERTY: an adopter tunes intake from `harness.config.json` without a
+// code change; a project with no block gets the intake baseline it had before
+// the block existed (criterion 13); and a flag still beats both.
+//
+// The intake baseline is the case that makes "absent ⇒ defaults" a non-trivial
+// claim here: intake is UNCAPPED by measurement, so "defaults apply" must not
+// quietly mean "the primitive's maxClumps of 20 is restored" — on the measured
+// 347-issue backlog that would bucket ~300 already-filed issues.
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('the clumping config block reaches the intake seam', () => {
+  /** 25 single-issue scopes: 25 would-be work units, well past the primitive's 20. */
+  const wide = () =>
+    Array.from({ length: 25 }, (_, i) => [
+      { number: i * 2 + 1, title: `a${i}`, body: `packages/p${i}/src/a.ts`, labels: ['bug'] },
+      { number: i * 2 + 2, title: `b${i}`, body: `packages/p${i}/src/b.ts`, labels: ['bug'] },
+    ]).flat();
+
+  function clumpsUnder(clumping?: unknown, flags: Record<string, string> = {}): number {
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {});
+    let out = -1;
+    withDump(
+      wide(),
+      (file, config) => {
+        expect(runClumpIssues({ input: file, json: true, config, ...flags })).toBe(0);
+        out = (JSON.parse(String(log.mock.calls[0]![0])) as { clumps: unknown[] }).clumps.length;
+      },
+      clumping
+    );
+    log.mockRestore();
+    return out;
+  }
+
+  it('CRITERION 13: no `clumping` block ⇒ the intake baseline, uncapped, and no error', () => {
+    // 25 units emitted, NOT 20. If the config path had restored the primitive's
+    // default this would read 20 and five already-filed pairs would be bucketed.
+    expect(clumpsUnder(undefined)).toBe(25);
+    expect(clumpsUnder({})).toBe(25);
+  });
+
+  it('POSITIVE CONTROL: a `clumping` block CHANGES the emitted work units', () => {
+    expect(clumpsUnder({ maxClumps: 20 })).toBe(20);
+  });
+
+  it('a `seams.intake` override wins over the top-level field', () => {
+    expect(clumpsUnder({ maxClumps: 20, seams: { intake: { maxClumps: 5 } } })).toBe(5);
+  });
+
+  it('a `seams.craft` override does NOT reach the intake seam', () => {
+    expect(clumpsUnder({ seams: { craft: { maxClumps: 5 } } })).toBe(25);
+  });
+
+  it('a flag still beats the config — the narrower statement wins', () => {
+    expect(clumpsUnder({ maxClumps: 20 }, { maxClumps: '3' })).toBe(3);
+  });
+
+  it('a MALFORMED block degrades to the baseline rather than failing the command', () => {
+    expect(clumpsUnder({ maxClumps: 'twenty' })).toBe(25);
+  });
+
+  it('an unreadable config path is not an error — intake is a read-only report', () => {
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {});
+    withDump(wide(), (file) => {
+      expect(
+        runClumpIssues({
+          input: file,
+          json: true,
+          config: path.join(os.tmpdir(), 'no-such-config-9f3a.json'),
+        })
+      ).toBe(0);
+    });
+    expect(
+      (JSON.parse(String(log.mock.calls[0]![0])) as { clumps: unknown[] }).clumps
+    ).toHaveLength(25);
   });
 });

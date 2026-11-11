@@ -1,13 +1,18 @@
 // Laws for the CRAFT half of the creation seam
 // (docs/changes/clumping/proposal.md, Phase 3).
 
+import * as fs from 'node:fs';
+import * as os from 'node:os';
+import * as path from 'node:path';
+
 import { formClumps } from '@harness-engineering/core';
-import { describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import type { CraftFinding } from '../../../design-craft/findings/schema.js';
 import type { CodeFinding } from '../../../code-craft/findings/schema.js';
 import {
   clumpCraftFindings,
+  craftClumpingConfig,
   craftKind,
   craftPath,
   craftScope,
@@ -416,5 +421,115 @@ describe('craftPath — what each family gets, and what no root can fix', () => 
     // root is not consulted at all for an outside file.
     expect(a.clumps[0]!.id).toBe(b.clumps[0]!.id);
     expect(a.clumps[0]!.scope).toBe('/elsewhere');
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Phase 6: the `clumping` block of harness.config.json at the CRAFT seam.
+//
+// THE PROPERTY: an adopter tunes craft grouping from `harness.config.json`
+// without a code change, and a project with no config behaves exactly as it did
+// before the block existed (success criterion 13).
+//
+// Asserted on a REAL directory rather than a mocked `fs`, because the thing
+// under test is "does this code path read the file that is actually there" and
+// a mock answers a different question. Each "absent ⇒ defaults" case sits next
+// to a positive control on the same root, so a block nobody reads cannot pass.
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('the clumping config block reaches the craft seam', () => {
+  let dir: string;
+
+  beforeEach(() => {
+    dir = fs.mkdtempSync(path.join(os.tmpdir(), 'craft-clump-config-'));
+  });
+
+  afterEach(() => {
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+
+  /** Five findings over one (scope, kind): one clump of five, on the defaults. */
+  const five = () =>
+    Array.from({ length: 5 }, (_, i) =>
+      finding({ code: 'CODE-R004', file: `packages/cli/src/f${i}.ts`, line: i + 1 })
+    );
+
+  const write = (block: unknown) =>
+    fs.writeFileSync(
+      path.join(dir, 'harness.config.json'),
+      JSON.stringify({
+        version: 1,
+        name: 'adopter',
+        ...(block === undefined ? {} : { clumping: block }),
+      })
+    );
+
+  it('CRITERION 13: no harness.config.json at all ⇒ the defaults, and no throw', () => {
+    expect(() => clumpCraftFindings(five(), dir)).not.toThrow();
+    const r = clumpCraftFindings(five(), dir);
+    expect(r.clumps).toHaveLength(1);
+    expect(r.clumps[0]!.members).toHaveLength(5);
+  });
+
+  it('a config with NO clumping block ⇒ the same defaults', () => {
+    write(undefined);
+    const r = clumpCraftFindings(five(), dir);
+    expect(r.clumps).toHaveLength(1);
+    expect(r.clumps[0]!.members).toHaveLength(5);
+  });
+
+  it('POSITIVE CONTROL: the block CHANGES the clump set', () => {
+    // `maxPerClump: 2` splits the five into capped units. The assertion is on
+    // the MEMBER COUNT, the thing the cap names — not on the clump count, which
+    // a shed would also change.
+    write({ maxPerClump: 2 });
+    const r = clumpCraftFindings(five(), dir);
+    expect(r.clumps.length).toBeGreaterThan(1);
+    for (const clump of r.clumps) expect(clump.members.length).toBeLessThanOrEqual(2);
+    // …and nothing was lost doing it.
+    expect(
+      r.counts.clumped + r.counts.floored + r.counts.overCap + r.counts.ungraded + r.counts.solo
+    ).toBe(5);
+  });
+
+  it('a `seams.craft` override wins over the top-level field', () => {
+    write({ maxPerClump: 2, seams: { craft: { maxPerClump: 5 } } });
+    const r = clumpCraftFindings(five(), dir);
+    expect(r.clumps).toHaveLength(1);
+    expect(r.clumps[0]!.members).toHaveLength(5);
+  });
+
+  it('a `seams.review` override does NOT reach the craft seam', () => {
+    // The negative half: if `seams` leaked, this would cap at 2.
+    write({ seams: { review: { maxPerClump: 2 } } });
+    const r = clumpCraftFindings(five(), dir);
+    expect(r.clumps[0]!.members).toHaveLength(5);
+  });
+
+  it("an explicit `policy` argument still wins over the config — a caller's word is narrower", () => {
+    write({ maxPerClump: 5 });
+    const r = clumpCraftFindings(five(), dir, { maxPerClump: 2 });
+    for (const clump of r.clumps) expect(clump.members.length).toBeLessThanOrEqual(2);
+  });
+
+  it('a malformed config never takes a craft run down', () => {
+    for (const bad of ['{ not json', JSON.stringify({ clumping: { maxPerClump: 'two' } })]) {
+      fs.writeFileSync(path.join(dir, 'harness.config.json'), bad);
+      expect(() => clumpCraftFindings(five(), dir)).not.toThrow();
+      expect(clumpCraftFindings(five(), dir).clumps[0]!.members).toHaveLength(5);
+    }
+  });
+
+  it('the config is read from the ROOT ITSELF, never walked up to a parent project', () => {
+    // A walk would tune this run by a DIFFERENT project's config, and would
+    // make this very test machine-dependent — it would pick up whatever
+    // happens to sit above the OS temp directory.
+    const nested = path.join(dir, 'sub', 'project');
+    fs.mkdirSync(nested, { recursive: true });
+    write({ maxPerClump: 2 });
+    expect(craftClumpingConfig(nested)).toBeUndefined();
+    expect(clumpCraftFindings(five(), nested).clumps[0]!.members).toHaveLength(5);
+    // POSITIVE CONTROL: the very same block IS read one directory up.
+    expect(craftClumpingConfig(dir)).toEqual({ maxPerClump: 2 });
   });
 });
