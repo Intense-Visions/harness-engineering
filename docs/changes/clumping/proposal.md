@@ -439,13 +439,48 @@ member reverted). The axis-type relocation is recorded as a note inside it, not 
 
 ### Knowledge Impact
 
-- The **clumping principle** as a graph node, with edges to its two siblings — the concurrency
-  governor and the per-leaf context budget — under the shared concept of a _fleet control_.
+**Owned by Phase 2**, alongside the spine section and the ADR. No other phase claimed it, and an
+unclaimed deliverable is a dropped one.
+
+Three concepts are recorded, all in one authored document,
+**`docs/knowledge/fleet/clumping.md`**:
+
+- The **clumping principle** as a **fleet control**, related to its two siblings — the
+  concurrency governor and the per-leaf context budget (plus the global spend envelope) — as the
+  one that caps how many work units the queue is made of, where the others cap how many leaves
+  run, how much each loads, and how much a run spends.
 - The concept **"ceremony cost is invariant to payload size"** — what makes high-rate
   small-finding emission pathological. It generalizes past this repo and is the reusable half of
   the insight.
 - The relationship **clumping ≠ dedup**: dedup removes restatements of one thing, clumping groups
   distinct things. Both axes run; conflating them is the likeliest misreading.
+
+**The channel, stated accurately.** This repo records authored domain concepts as prose files
+under `docs/knowledge/<domain>/` carrying `type: business_concept` frontmatter. That channel is
+real and in use: **34** such documents exist across 14 domains, `gather_context` reads them as its
+`businessKnowledge` constituent, and `harness-brainstorming` treats them as a first-class source.
+`docs/knowledge/fleet/` is a new domain directory; no allowlist gates domain names
+(`BusinessKnowledgeIngestor` derives the domain from frontmatter, falling back to the path), and
+`docs/knowledge/**/*.md` is already inside this repo's configured `drift.docPaths`.
+
+**What "recorded in the knowledge graph" does and does not mean here — corrected.** Earlier
+drafts of this section (and the dedup-confusion mitigation in Risks) said these concepts would be
+recorded _as graph nodes_. That overstates what is true today, so it is corrected rather than
+left to look materialized:
+
+- A scoped grep of `.harness/knowledge/`, `.harness/learnings.md` and `.harness/decisions/` for
+  the two sibling concepts ("concurrency governor", "per-leaf context budget") returns **zero**.
+  The authored-concept-node channel those sections are supposedly recorded in **has no instances
+  anywhere in this repo**. Nothing was invented to fill it.
+- `packages/graph/src/ingest/BusinessKnowledgeIngestor.ts` _would_ ingest a `business_concept`
+  document as a `bk:<domain>:<filename>` node. But this repo's own graph store
+  (`.harness/graph/graph.json` in the primary clone, ~2.0M records) currently contains **zero**
+  `business_concept` nodes — the 34 existing concept documents have never been materialized into
+  it either. Graph materialization is therefore an available capability, not a current fact, and
+  this spec does not claim it.
+
+The honest statement is: **the document is the record**; if and when the knowledge pipeline is run
+over `docs/knowledge/`, this concept materializes on exactly the same terms as the other 34.
 
 ---
 
@@ -514,11 +549,25 @@ downgraded to "we ran it".
 
 A `§Clumping` section in `docs/reference/fleet-family.md` written as a peer of
 `§The concurrency governor` and `§The per-leaf context budget`, plus one ADR carrying D1, D2,
-D4, D8 and D10. Update `fleet-family.md:220`, which defers per-leaf batching under #1524 on
-token-cost grounds.
+D4, D8 and D10 (with the axis-type relocation and the `CraftTier` collision as a note inside it,
+not as a second ADR). Update `fleet-family.md:220`, which defers per-leaf batching under #1524 on
+token-cost grounds — this spec supersedes its review-attention half and leaves the token-cost half
+tracked there.
 
-**Verified by:** section exists as a peer control; ADR numbered against `origin/main`;
-reference docs fresh.
+**This phase also owns the Knowledge Impact deliverable**, which no other phase claimed: the three
+concepts above, recorded in the channel this repo actually uses for authored domain concepts, with
+the limits of that channel stated rather than papered over.
+
+**Also in scope:** the `docs/reference/` index entries that clear the two
+`Undocumented: packages/core/src/fleet/clumping/{form,floor}.ts` warnings left by Phase 1. Doc
+coverage is **link-based on basenames** (`packages/core/src/context/doc-coverage.ts`): a source
+file counts as documented only when some markdown file under `docs/` carries a link whose path or
+basename matches it. Prose in the spine section does not clear them; an index entry linking the
+file does.
+
+**Verified by:** section exists as a peer control; ADR numbered against `origin/main`; the three
+concepts recorded; the two `Undocumented:` warnings confirmed gone by re-running `harness ci
+check`; reference docs fresh.
 
 ### Phase 3: Creation seam
 
@@ -561,12 +610,12 @@ and the adopter `.hbs` template (never prettier-formatted).
 
 ## Risks
 
-| Risk                                                                                                                                                | Mitigation                                                                                                 |
-| --------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
-| **Over-clumping is worse than no clumping.** Twelve mixed fixes in one PR is harder to review than twelve PRs if the members aren't genuinely alike | `maxPerClump` 12 + the homogeneity key; the human splits at CONFIRM; commit-per-member keeps a drop cheap  |
-| **Issue `scope` derivation is weak** — many issues carry no path signal                                                                             | `unscoped` never co-clumps with scoped; the count is reported, never hidden                                |
-| **One bad member blocks N good ones** in a single PR                                                                                                | D10: one commit per member, failing member reverted, clump proceeds                                        |
-| **`'act'` hides work inside unrelated diffs**                                                                                                       | Touched-set precondition; outside it, degrade to `'file'`                                                  |
-| **Phase 1 ships green but dead** — the barrel allowlist is a silent no-op                                                                           | Phase 1 gate includes a resolve check; phases 3–5 gate on WIRED, not EXISTS                                |
-| **The floor becomes a silent delete** under a future edit                                                                                           | Conservation test (criterion 6) fails loudly if any bucket loses an item                                   |
-| **Clumping is mistaken for dedup** by a future implementer                                                                                          | Stated as a non-goal, recorded in the knowledge graph, and the two axes run independently in `issue-fleet` |
+| Risk                                                                                                                                                | Mitigation                                                                                                                                                                                                                  |
+| --------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Over-clumping is worse than no clumping.** Twelve mixed fixes in one PR is harder to review than twelve PRs if the members aren't genuinely alike | `maxPerClump` 12 + the homogeneity key; the human splits at CONFIRM; commit-per-member keeps a drop cheap                                                                                                                   |
+| **Issue `scope` derivation is weak** — many issues carry no path signal                                                                             | `unscoped` never co-clumps with scoped; the count is reported, never hidden                                                                                                                                                 |
+| **One bad member blocks N good ones** in a single PR                                                                                                | D10: one commit per member, failing member reverted, clump proceeds                                                                                                                                                         |
+| **`'act'` hides work inside unrelated diffs**                                                                                                       | Touched-set precondition; outside it, degrade to `'file'`                                                                                                                                                                   |
+| **Phase 1 ships green but dead** — the barrel allowlist is a silent no-op                                                                           | Phase 1 gate includes a resolve check; phases 3–5 gate on WIRED, not EXISTS                                                                                                                                                 |
+| **The floor becomes a silent delete** under a future edit                                                                                           | Conservation test (criterion 6) fails loudly if any bucket loses an item                                                                                                                                                    |
+| **Clumping is mistaken for dedup** by a future implementer                                                                                          | Stated as a non-goal, recorded as an authored concept in `docs/knowledge/fleet/clumping.md` (see Knowledge Impact for what that channel does and does not materialize), and the two axes run independently in `issue-fleet` |
