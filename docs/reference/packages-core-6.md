@@ -34,6 +34,14 @@ Loads tsconfig `paths` aliases and expands an aliased import specifier into cand
 
 **Exports:** `PathAlias`, `loadPathAliases`, `resolveAliasCandidates`
 
+## packages/core/src/fleet/clumping/dispatch.ts
+
+[`packages/core/src/fleet/clumping/dispatch.ts`](/packages/core/src/fleet/clumping/dispatch.ts)
+
+The execution seam of clumping: the one-PR-per-clump contract and D10's verdict semantics as values rather than as SKILL.md paragraphs. `planClumpPR` emits one branch, one PR and exactly one commit per member, with the title naming the clump and the body citing each member; `settleClumpVerdict` settles ONE verdict per clump, dropping a failing member by reverting its own commit and proceeding with the rest, and failing only when the post-drop remainder is empty or no longer builds — an unrun post-drop build is a failure for want of proof, never a green. `checkVerdictPartition` is the sibling of formation's conservation law: every planned member appears exactly once across the remainder and the drops. Pure. See `docs/reference/fleet-family.md`, "The clumping floor", and ADR 0135.
+
+**Exports:** `ClumpCommit`, `ClumpPRPlan`, `ClumpPlanOptions`, `planClumpPR`, `ClumpMemberOutcome`, `ClumpDrop`, `PostDropBuild`, `ClumpVerdict`, `ClumpVerdictOptions`, `settleClumpVerdict`, `checkVerdictPartition`
+
 ## packages/core/src/fleet/clumping/floor.ts
 
 [`packages/core/src/fleet/clumping/floor.ts`](/packages/core/src/fleet/clumping/floor.ts)

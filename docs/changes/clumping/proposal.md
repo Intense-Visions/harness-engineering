@@ -344,12 +344,12 @@ per-item `reason`.
 
 Core knows nothing about findings, issues, or PRs. Each seam owns a small adapter:
 
-| Seam                          | `scope`                                                                                                           | `kind`                                                 | `conflictKeys`                                                 | `weight`              |
-| ----------------------------- | ----------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------ | -------------------------------------------------------------- | --------------------- |
-| **Creation — craft**          | directory of `target.file` (the granularity craft-fleet already files at: `craft-code-packages-cli-src-commands`) | rubric family — the prefix of `code`, e.g. `CODE-R004` | `[target.file]`                                                | `derivePriority(...)` |
-| **Creation — review**         | directory of `file`                                                                                               | `domain` tag                                           | `[file:lineRange]` — built by the adapter; nothing computes it | severity rank         |
-| **Intake — `issue-fleet`**    | path signal from title/body, else `'unscoped'`                                                                    | `type` label (`bug` / `enhancement` / `documentation`) | mentioned paths                                                | existing rank         |
-| **Execution — fleet members** | consumes a `Clump` as the lane unit                                                                               | —                                                      | —                                                              | —                     |
+| Seam                          | `scope`                                                                                                                                          | `kind`                                                 | `conflictKeys`                                                 | `weight`              |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------ | -------------------------------------------------------------- | --------------------- |
+| **Creation — craft**          | directory of `target.file` (the granularity craft-fleet already files at: `craft-code-packages-cli-src-commands`)                                | rubric family — the prefix of `code`, e.g. `CODE-R004` | `[target.file]`                                                | `derivePriority(...)` |
+| **Creation — review**         | directory of `file`                                                                                                                              | `domain` tag                                           | `[file:lineRange]` — built by the adapter; nothing computes it | severity rank         |
+| **Intake — `issue-fleet`**    | path signal from title/body, else `'unscoped'`                                                                                                   | `type` label (`bug` / `enhancement` / `documentation`) | mentioned paths                                                | existing rank         |
+| **Execution — fleet members** | consumes a `Clump` as the lane unit — via `harness fleet clump-dispatch`, since all four members are SKILL.md files with no dispatcher to change | —                                                      | —                                                              | —                     |
 
 File-level `conflictKeys` at the craft creation seam is the honest granularity: a craft elevation
 rewrites whole units, so line-level keys would under-report conflicts. Line-level refinement for
@@ -392,7 +392,11 @@ defines the vocabulary, cli derives from it, and no cycle is introduced.
 - `packages/core/src/craft/axes.ts` — relocated axis types.
 - Three adapter modules: craft findings, review findings, `issue-fleet` triage.
 - `issue-fleet` SELECT — a fifth triage axis, `clump`, beside label / dedup / route / prioritize.
-- DISPATCH lane unit in four members: `roadmap-fleet`, `bug-fleet`, `cleanup-fleet`, `craft-fleet`.
+- `packages/core/src/fleet/clumping/dispatch.ts` — the one-PR-per-clump plan and the D10 verdict.
+- `packages/cli/src/commands/fleet/clump-dispatch.ts` — `harness fleet clump-dispatch`, the callable the four
+  members' DISPATCH and VERIFY invoke (their lane units are prose; there is no dispatcher to change).
+- DISPATCH lane unit and VERIFY D10 in four members: `roadmap-fleet`, `bug-fleet`, `cleanup-fleet`, `craft-fleet`;
+  `craft-fleet` SELECT additionally READS `output.clumps` instead of re-folding findings.
 - `harness.config.json` — new `clumping` block.
 
 ### Registrations Required
@@ -768,6 +772,92 @@ the one-PR-per-clump contract; and the VERIFY drop semantics from D10.
 
 **Verified by:** dry-run dispatch emits one PR plan per clump with commit-per-member; success
 criterion 14 exercised.
+
+**The lane unit was PROSE, and the spec never said so.** This table row —
+"Execution — fleet members | consumes a `Clump` as the lane unit" — reads as though there were a
+dispatcher to change. There is not. All four members are a `SKILL.md` plus a `skill.yaml` and
+nothing else; a repo-wide search for `DISPATCH` in TypeScript finds 37 hits and not one of them
+schedules a `-fleet` lane. The only code a lane touches is the one it was told to run. So
+"takes a `Clump` as the lane unit" could not be implemented as a code change, and four prose
+paragraphs would have been emission dressed as consumption for the third phase running.
+
+What shipped instead is the Phase 4 answer applied one layer further out. The contract became a
+pair of core callables (`planClumpPR`, `settleClumpVerdict` in `fleet/clumping/dispatch.ts`) and
+a command, **`harness fleet clump-dispatch`**, the third sibling of `fleet budget-check` and
+`fleet clump-issues`. The prose then points at the command, and
+`agents/skills/tests/fleet-clump-lane-unit.test.ts` pins that it does, across 4 platforms x 4
+members. A SKILL.md paragraph still cannot be executed — but it can now be refuted, and the
+thing it instructs an agent to run can be.
+
+**What Phase 5's build found wrong.**
+
+1. **`craft-fleet` SELECT was telling the agent to re-derive the grouping.** Step 2 read "Fold
+   the findings into targets", which is precisely the step `clumpCraftFindings` already performs
+   at all 21 emission sites. That is worse than a duplicated rule: an agent's restatement of
+   `(scope x kind)` plus the conflict precondition plus `maxPerClump` plus the solo rule plus the
+   unit cap produces a DIFFERENT grouping that still looks right, and nothing downstream can tell
+   the two apart. Step 2 now reads the targets off `output.clumps` and names hand-folding as the
+   failure it exists to prevent.
+
+2. **The honest limit had to be stated as "report the gap", not "fall back".** A craft run
+   carrying `findings` and no `clumps` is the shape that would silently restore the old
+   behaviour. Both the SKILL and the command refuse it — the command with its own exit code (14)
+   rather than with an empty plan list, because zero plans over a findings-only input is
+   indistinguishable from a run that genuinely grouped nothing. The genuinely-empty case is still
+   an empty array, and a test pins the two apart.
+
+3. **`bug-fleet`'s terminal act directly contradicted the contract.** "One fix PR per verified
+   bounded-safe bug... One bug per PR, so each is independently reviewable and independently
+   revertible." Adding a one-PR-per-clump rule beside that sentence would have left two
+   incompatible instructions in one SKILL. Reconciled rather than stacked: the granularity a
+   bulk review actually needs is the **commit**, not the PR, which is why commit-per-member lets
+   the clump be the PR at no cost to the reviewer — and is the same property D10's drop depends
+   on. The other three members had no equivalent conflict.
+
+4. **D10 is under-specified in exactly the place it decides a verdict.** "The whole clump fails
+   only when the post-drop remainder is empty or no longer builds" presumes a post-drop build
+   result exists. Nothing says what to do when the drops happened and nobody re-checked the tree.
+   Treating that as green is the silent pass this family keeps rediscovering, so `postDropBuild`
+   is a three-valued input and `'unknown'` after a drop FAILS the clump — craft-fleet's own
+   standard that a demanded proof which could not be produced is a rejection, not a graceful
+   skip. The positive control at the same scope (identical outcomes, green build => pass) is what
+   keeps that from being "fail every clump that ever dropped anything".
+
+5. **D10 needed a conservation law of its own, and the spec names none.** Formation has one
+   (criterion 6); the verdict had nothing, even though a drop is exactly where a member can fall
+   out of both the remainder and the drop list and leave a clean-looking verdict behind.
+   `checkVerdictPartition` is the sibling law — every planned member appears exactly once across
+   `remainder` and `drops` — with a lost, a double-placed and a FOREIGN member each refuted. The
+   foreign case matters because a bare count comparison waves it through, which is how the first
+   version of that check was written.
+
+6. **Three inputs had to be rejected rather than defaulted.** A verdict naming a member the PR
+   does not carry (it cannot be reverted), a member with no outcome at all (the convenient
+   default turns an unrun check into a green one), and a failure with no reason (D10 says the
+   drop is recorded WITH its reason; a reasonless drop is a silent delete wearing a verdict).
+   None of the three is mentioned in the spec, and each reads as an edge case until you notice
+   that all three produce output identical to success.
+
+7. **A section-wide assertion passed a mutant that gutted the paragraph it was about.**
+   `toContain('harness fleet clump-dispatch')` over the whole spine section survived a mutant
+   that stripped the command from the one-PR-per-clump contract paragraph, because the "Current
+   state" paragraph further down names it too. Two sentences could satisfy one check. Scoped to
+   the contract paragraph, the same mutant fails. This is the fourth phase in a row where running
+   a mutant found an assertion that was passing for the wrong reason.
+
+8. **No arch allowance was needed, unlike Phase 4.** `check-arch` first reported
+   `cyclomaticComplexity=23 in runClumpDispatch` as a NEW **error** — a real finding, answered by
+   splitting the function (23 -> 11), not by a baseline entry. Dropping one unused type re-export
+   took `fanOut` from 5 to 4 and the coupling warning with it, so this phase adds zero new
+   violations and `.harness/arch/allowances/spec-clumping.json` is untouched.
+
+**What this phase does NOT close.** The command reads a clump set from a FILE or stdin, and a
+craft run's output reaches an agent as an MCP tool response rather than as a file on disk — so a
+lane has to write the run output out before it can dispatch from it. That is a one-line step, but
+it is a step the SKILL instructs rather than a pipe something enforces. Criterion 10 ("exactly
+one PR carrying one commit per member") is therefore proved at the level of the PLAN, not of a
+PR that exists on GitHub; no phase of this spec creates a real PR, and claiming otherwise would
+be the emission-dressed-as-consumption move this phase exists to stop repeating.
 
 ### Phase 6: Config surface and portability
 

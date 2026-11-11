@@ -50,6 +50,14 @@ Backs `harness fleet budget-check`, the dispatch-time spend gate for fleet runs.
 
 **Exports:** `BUDGET_EXHAUSTED_EXIT_CODE`, `BudgetCheckOptions`, `observedSpendFromSummary`, `envelopeFromOptions`, `BudgetCostOverlay`, `costOverlayFromSummary`, `runBudgetCheck`, `createBudgetCheckCommand`
 
+## packages/cli/src/commands/fleet/clump-dispatch.ts
+
+[`packages/cli/src/commands/fleet/clump-dispatch.ts`](/packages/cli/src/commands/fleet/clump-dispatch.ts)
+
+Backs `harness fleet clump-dispatch`, the runnable surface of clumping's execution seam. It exists because the four members whose lane unit a clump becomes — `roadmap-fleet`, `bug-fleet`, `cleanup-fleet`, `craft-fleet` — are SKILL.md files with nothing scheduling their lanes, so without a callable the one-PR-per-clump contract would be prose nothing could be held to. `--input` reads the clump set a run emitted (a craft run's own JSON output, a `clump-issues --json` dump, or a bare `ClumpResult`) and prints one PR plan per clump with one commit per member; a findings-only input is refused with its own exit code rather than reported as zero plans, because an empty plan list is also what a run that genuinely grouped nothing produces. `--verdict` settles ONE verdict per clump under D10 and exits non-zero only when a clump's post-drop remainder is empty or no longer builds. Read-only. See `docs/changes/clumping/proposal.md`, Phase 5.
+
+**Exports:** `CLUMP_FAILED_EXIT_CODE`, `NO_CLUMPS_INPUT_EXIT_CODE`, `VERDICT_PARTITION_BREACH_EXIT_CODE`, `ClumpDispatchOptions`, `ClumpInputGap`, `extractClumps`, `describeMember`, `VerdictFile`, `runClumpDispatch`, `createClumpDispatchCommand`
+
 ## packages/cli/src/commands/fleet/clump-issues.ts
 
 [`packages/cli/src/commands/fleet/clump-issues.ts`](/packages/cli/src/commands/fleet/clump-issues.ts)
