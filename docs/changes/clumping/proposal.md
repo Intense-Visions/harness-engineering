@@ -344,12 +344,12 @@ per-item `reason`.
 
 Core knows nothing about findings, issues, or PRs. Each seam owns a small adapter:
 
-| Seam                          | `scope`                                                                                                             | `kind`                                                 | `conflictKeys`                                                   | `weight`              |
-| ----------------------------- | ------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------ | ---------------------------------------------------------------- | --------------------- |
-| **Creation — craft**          | directory of `location.file` (the granularity craft-fleet already files at: `craft-code-packages-cli-src-commands`) | rubric family (`CODE`, `NAME`, `SPEC`)                 | `[file]`                                                         | `derivePriority(...)` |
-| **Creation — review**         | directory of file                                                                                                   | domain tag                                             | `[file:lineRange]` — code-review already computes this at `:499` | severity rank         |
-| **Intake — `issue-fleet`**    | path signal from title/body, else `'unscoped'`                                                                      | `type` label (`bug` / `enhancement` / `documentation`) | mentioned paths                                                  | existing rank         |
-| **Execution — fleet members** | consumes a `Clump` as the lane unit                                                                                 | —                                                      | —                                                                | —                     |
+| Seam                          | `scope`                                                                                                           | `kind`                                                 | `conflictKeys`                                                 | `weight`              |
+| ----------------------------- | ----------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------ | -------------------------------------------------------------- | --------------------- |
+| **Creation — craft**          | directory of `target.file` (the granularity craft-fleet already files at: `craft-code-packages-cli-src-commands`) | rubric family — the prefix of `code`, e.g. `CODE-R004` | `[target.file]`                                                | `derivePriority(...)` |
+| **Creation — review**         | directory of `file`                                                                                               | `domain` tag                                           | `[file:lineRange]` — built by the adapter; nothing computes it | severity rank         |
+| **Intake — `issue-fleet`**    | path signal from title/body, else `'unscoped'`                                                                    | `type` label (`bug` / `enhancement` / `documentation`) | mentioned paths                                                | existing rank         |
+| **Execution — fleet members** | consumes a `Clump` as the lane unit                                                                               | —                                                      | —                                                              | —                     |
 
 File-level `conflictKeys` at the craft creation seam is the honest granularity: a craft elevation
 rewrites whole units, so line-level keys would under-report conflicts. Line-level refinement for
@@ -579,11 +579,43 @@ check`; reference docs fresh.
 
 <!-- complexity: medium -->
 
-Craft-finding and review-finding adapters to `ClumpableItem`, and group-before-file at the
-emission points so N findings become one filed item.
+Craft-finding and review-finding adapters to `ClumpableItem`, and clump formation at each
+path's real terminal boundary.
 
-**Verified by:** WIRED — non-zero importers **and** an integration test proving 20 same-kind
-findings file exactly 1 issue.
+**The original gate for this phase was unsatisfiable, and the reason is worth recording.** It
+read "an integration test proving 20 same-kind findings file exactly 1 issue". Neither path can
+satisfy that. `craft-fleet` is a `SKILL.md`, not code — a scoped grep for it across
+`packages/**/*.ts` returns one hit, a comment — so filing happens when an _agent_ calls
+`manage_roadmap`, and there is no code point between craft emission and filing to group at. The
+review path never files anything at all: its terminal act is a terminal report plus one inline
+GitHub comment per finding (`format-github.ts:64`). The spec's own Overview says this principle
+is "proven in exactly one place and enforced nowhere", and this phase then assumed the code seam
+the Overview says is absent. Each path therefore gets the gate its own terminal act can bear:
+
+- **Craft — group at EMISSION.** Each craft orchestrator (11 of them, e.g.
+  `packages/cli/src/code-craft/index.ts:145`) emits `clumps` alongside `findings`. Gate: a run
+  over N same-`(scope, kind)` findings emits **one work unit**, plus a grep proving a production
+  importer of `formClumps`. This is honestly weaker than "files 1 issue" — it proves emission,
+  not consumption — so **Phase 5 makes `craft-fleet/SKILL.md` read the emitted clumps**, and
+  that cross-phase pair is what closes the set-but-never-read risk. Phase 5 is not optional for
+  this reason.
+- **Review — group the sub-floor comments.** The chokepoint is `runReviewPipeline`
+  (`packages/core/src/review/pipeline-orchestrator.ts:125`, three production callers), after
+  DEDUP+MERGE at `:382`. `critical` and `important` findings keep their individual inline
+  comments, because a line anchor is the whole value of an inline comment. `suggestion`-severity
+  findings — the floor's natural target — group into **one** comment per `(scope, kind)`. Gate:
+  N same-`(scope, kind)` suggestions produce 1 comment, not N, with criticals untouched.
+
+**Note: DEDUP+MERGE is not clumping.** `deduplicate-findings.ts:153` merges findings whose
+`lineRange`s overlap within 3 lines — restatements of ONE finding. Clumping groups DISTINCT
+findings. Both run; conflating them is the likeliest misreading of this phase.
+
+**`ctx.touched` has a supplier on only one path, and Goal 3 is correspondingly narrower.** Review
+has a natural one (the diff's changed files), so D4's `'act'` resolution is reachable there. A
+craft sweep is not an in-flight diff and has no touched set, so **every sub-floor craft item
+degrades to `'file'`** — by the keyless/absent-touched-set rule, not by accident. Goal 3 is
+satisfied at the review seam and is structurally unreachable at the craft seam. Recording that is
+better than letting a goal read as met everywhere.
 
 ### Phase 4: Intake seam
 
