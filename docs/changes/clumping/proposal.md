@@ -388,18 +388,72 @@ member reverted). The axis-type relocation is recorded as a note inside it, not 
 
 ---
 
-## Implementation order
+## Implementation Order
 
-| Phase | Deliverable                                                                                               | Independently verified by                                                                                                    |
-| ----- | --------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
-| 1     | Core primitive: types, `resolveFloor`, `formClumps`, axis types relocated + re-exported, barrel allowlist | Unit tests covering criteria 1–7 and 11–12; `harness validate` clean; a resolve check proving the barrel export is reachable |
-| 2     | Spine `§Clumping` + ADR                                                                                   | Section exists as a peer control; ADR numbered vs `origin/main`; reference docs fresh                                        |
-| 3     | Creation seam — craft + review adapters, group-before-file                                                | WIRED: non-zero importers **and** an integration test that 20 same-kind findings file 1 issue                                |
-| 4     | Intake seam — `issue-fleet` `clump` axis + CONFIRM surface                                                | Clump set derived from the live open-issue backlog; conservation holds on real data; criterion 9 observed                    |
-| 5     | Execution seam — `Clump` as lane unit in 4 members, one-PR-per-clump contract, VERIFY drop semantics      | Dry-run dispatch emits one PR plan per clump with commit-per-member; criterion 14 exercised                                  |
-| 6     | Config surface + portability                                                                              | Schema + `.hbs` template; no-config degrade test; adopter template validates                                                 |
+Each phase is independently verifiable and leaves the tree green. Phases run in order; later
+seams depend on the Phase 1 primitive existing.
 
----
+### Phase 1: Core primitive
+
+<!-- complexity: medium -->
+
+Types (`ClumpableItem`, `Grade`, `ClumpPolicy`, `Clump`, `ClumpResult`), `resolveFloor`,
+`formClumps`, axis types relocated to `packages/core/src/craft/axes.ts` with the cli
+`axes.ts` re-exporting them, and the `generate-core-barrel.mjs` allowlist edit.
+
+**Verified by:** unit tests covering success criteria 1-7 and 11-12; `harness validate` clean;
+a resolve check proving the barrel export is actually reachable (not a silent no-op).
+
+### Phase 2: Spine section and ADR
+
+<!-- complexity: low -->
+
+A `§Clumping` section in `docs/reference/fleet-family.md` written as a peer of
+`§The concurrency governor` and `§The per-leaf context budget`, plus one ADR carrying D1, D2,
+D4, D8 and D10. Update `fleet-family.md:220`, which defers per-leaf batching under #1524 on
+token-cost grounds.
+
+**Verified by:** section exists as a peer control; ADR numbered against `origin/main`;
+reference docs fresh.
+
+### Phase 3: Creation seam
+
+<!-- complexity: medium -->
+
+Craft-finding and review-finding adapters to `ClumpableItem`, and group-before-file at the
+emission points so N findings become one filed item.
+
+**Verified by:** WIRED — non-zero importers **and** an integration test proving 20 same-kind
+findings file exactly 1 issue.
+
+### Phase 4: Intake seam
+
+<!-- complexity: medium -->
+
+A fifth `clump` triage axis in `issue-fleet` beside label / dedup / route / prioritize, and the
+clump table plus shed counts on the existing CONFIRM surface.
+
+**Verified by:** a clump set derived from the live open-issue backlog; conservation holds on
+real data; success criterion 9 observed (exactly one CONFIRM interaction).
+
+### Phase 5: Execution seam
+
+<!-- complexity: medium -->
+
+`Clump` as the lane unit in `roadmap-fleet`, `bug-fleet`, `cleanup-fleet` and `craft-fleet`;
+the one-PR-per-clump contract; and the VERIFY drop semantics from D10.
+
+**Verified by:** dry-run dispatch emits one PR plan per clump with commit-per-member; success
+criterion 14 exercised.
+
+### Phase 6: Config surface and portability
+
+<!-- complexity: low -->
+
+The `clumping` block in `harness.config.json`, its schema in `packages/cli/src/config/schema.ts`,
+and the adopter `.hbs` template (never prettier-formatted).
+
+**Verified by:** no-config degrade test; adopter template validates.
 
 ## Risks
 
