@@ -90,6 +90,16 @@ describe('Collector.getRules()', () => {
     expect(rules[0]!.description).toContain('5');
   });
 
+  it('DepDepthCollector names the limit for an object-shaped { max } threshold (#2290)', () => {
+    const config: ArchConfig = {
+      ...defaultConfig,
+      thresholds: { 'dependency-depth': { max: 7 } },
+    };
+    const collector = new DepDepthCollector();
+    const rules = collector.getRules(config, '/tmp/test');
+    expect(rules[0]!.description).toBe('Dependency chain depth must not exceed 7');
+  });
+
   it('all collectors produce deterministic rule IDs', () => {
     const collectors = [
       new CircularDepsCollector(),
