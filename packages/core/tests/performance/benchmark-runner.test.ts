@@ -1,3 +1,5 @@
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { describe, it, expect } from 'vitest';
 import * as path from 'node:path';
 import { BenchmarkRunner } from '../../src/performance/benchmark-runner';
@@ -9,6 +11,24 @@ describe('BenchmarkRunner', () => {
     it('returns empty array when no bench files exist', () => {
       const files = runner.discover('/tmp/nonexistent-dir-xyz');
       expect(files).toEqual([]);
+    });
+
+    // #2461: the old substring test turned 'a/**/foo-*.bench.ts' into
+    // 'a//foo-.bench.ts', which matched nothing, and shelled out to `find`.
+    it('matches a mid-path wildcard glob and skips node_modules', () => {
+      const root = mkdtempSync(path.join(tmpdir(), 'bench-discover-'));
+      try {
+        for (const f of ['a/x.bench.ts', 'a/b/foo-1.bench.ts', 'node_modules/z/foo-2.bench.ts']) {
+          mkdirSync(path.join(root, path.dirname(f)), { recursive: true });
+          writeFileSync(path.join(root, f), '');
+        }
+        const rel = (files: string[]) =>
+          files.map((f) => path.relative(root, f).replaceAll('\\', '/'));
+        expect(rel(runner.discover(root, 'a/**/foo-*.bench.ts'))).toEqual(['a/b/foo-1.bench.ts']);
+        expect(rel(runner.discover(root))).toEqual(['a/b/foo-1.bench.ts', 'a/x.bench.ts']);
+      } finally {
+        rmSync(root, { recursive: true, force: true });
+      }
     });
   });
 

@@ -8,6 +8,7 @@ import { OutputMode, type OutputModeType } from '../../output/formatter';
 import { logger } from '../../output/logger';
 import { CLIError, ExitCode } from '../../utils/errors';
 import { loadGuardianCoverage } from '../../utils/guardian-context';
+import { buildDiffInfo, GIT_MAX_BUFFER_BYTES } from '../review-ci';
 
 interface ReviewOptions {
   configPath?: string;
@@ -42,9 +43,11 @@ export async function runAgentReview(options: ReviewOptions): Promise<
   // Get git diff
   let diff: string;
   try {
-    diff = execSync('git diff --cached', { encoding: 'utf-8' });
+    // Node's 1MB default maxBuffer throws ENOBUFS on a large diff (#2454).
+    const execOpts = { encoding: 'utf-8' as const, maxBuffer: GIT_MAX_BUFFER_BYTES };
+    diff = execSync('git diff --cached', execOpts);
     if (!diff) {
-      diff = execSync('git diff', { encoding: 'utf-8' });
+      diff = execSync('git diff', execOpts);
     }
   } catch {
     return Err(new CLIError('Failed to get git diff', ExitCode.ERROR));
@@ -63,8 +66,6 @@ export async function runAgentReview(options: ReviewOptions): Promise<
     return Err(new CLIError(parsedDiffResult.error.message, ExitCode.ERROR));
   }
 
-  const codeChanges = parsedDiffResult.value;
-
   // Get commit message
   let commitMessage = '';
   try {
@@ -73,14 +74,9 @@ export async function runAgentReview(options: ReviewOptions): Promise<
     // No commit message available
   }
 
-  // Build DiffInfo
-  const diffInfo = {
-    changedFiles: codeChanges.files.map((f) => f.path),
-    newFiles: codeChanges.files.filter((f) => f.status === 'added').map((f) => f.path),
-    deletedFiles: codeChanges.files.filter((f) => f.status === 'deleted').map((f) => f.path),
-    totalDiffLines: diff.split('\n').length,
-    fileDiffs: new Map(codeChanges.files.map((f) => [f.path, ''])),
-  };
+  // buildDiffInfo splits the raw diff per file. Mapping every file to '' gave
+  // the pipeline an empty diff to review (#2454, the #2213 defect).
+  const diffInfo = buildDiffInfo(diff);
 
   // Advisory guardian diff-coverage input (#914): read + render from the
   // project's .harness/analyses/ archive; undefined when absent (degrade-safe).

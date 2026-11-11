@@ -1,5 +1,6 @@
 import { execFileSync } from 'node:child_process';
 import * as path from 'node:path';
+import { globSync } from 'glob';
 import type { BenchmarkResult } from './types';
 
 export interface BenchmarkRunOptions {
@@ -10,33 +11,20 @@ export interface BenchmarkRunOptions {
 
 export class BenchmarkRunner {
   /**
-   * Discover .bench.ts files matching the glob pattern.
+   * Discover .bench.ts files matching the glob pattern (relative to `cwd`).
+   *
+   * A real glob match in Node, not `find` plus a substring test: the substring
+   * test silently matched nothing for any glob with a mid-path wildcard, and
+   * `find` does not exist on Windows (#2461). Returns absolute paths.
    */
   discover(cwd: string, glob?: string): string[] {
     try {
-      // Use execFileSync to avoid shell injection via cwd
-      const result = execFileSync(
-        'find',
-        [
-          cwd,
-          '-name',
-          '*.bench.ts',
-          '-not',
-          '-path',
-          '*/node_modules/*',
-          '-not',
-          '-path',
-          '*/dist/*',
-        ],
-        { encoding: 'utf-8', timeout: 5000 }
-      ).trim();
-      if (!result) return [];
-      const files = result.split('\n').filter(Boolean);
-      if (glob && glob !== '**/*.bench.ts') {
-        // Filter by glob pattern — simple substring match for practical use
-        return files.filter((f) => f.includes(glob.replace(/\*/g, '')));
-      }
-      return files;
+      return globSync(glob ?? '**/*.bench.ts', {
+        cwd,
+        absolute: true,
+        nodir: true,
+        ignore: ['**/node_modules/**', '**/dist/**'],
+      }).sort();
     } catch {
       return [];
     }

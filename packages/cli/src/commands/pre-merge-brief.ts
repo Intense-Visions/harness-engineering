@@ -14,7 +14,7 @@ import {
   guardianFlags,
   guardianFileLines,
 } from '@harness-engineering/intelligence';
-import { buildDiffInfo, resolveDiffRange, type RunGit } from './review-ci';
+import { buildDiffInfo, defaultRunGit, resolveDiffRange, type RunGit } from './review-ci';
 
 /** Hidden HTML marker used to find + upsert the sticky comment. */
 export const BRIEF_MARKER = '<!-- harness:pre-merge-brief -->';
@@ -484,8 +484,9 @@ export interface PreMergeBriefOptions {
  */
 export async function runPreMergeBrief(opts: PreMergeBriefOptions): Promise<{ body: string }> {
   const cwd = opts.cwd ?? process.cwd();
-  const runGit =
-    opts.runGit ?? ((args) => execFileSync('git', args, { encoding: 'utf-8' }).toString().trim());
+  // review-ci's runner carries the raised maxBuffer: Node's 1MB default throws
+  // ENOBUFS on a large PR's diff (#2455, #2321's class).
+  const runGit = opts.runGit ?? defaultRunGit;
   const range = resolveDiffRange({
     ...(opts.diffRange ? { range: opts.diffRange } : {}),
     cwd,
@@ -539,10 +540,7 @@ export function createPreMergeBriefCommand(): Command {
     .option('--head <sha>', 'head commit sha for the outcome lookup (default: git rev-parse HEAD)')
     .action(async (opts: Record<string, unknown>) => {
       const cwd = process.cwd();
-      // Reuse the RunGit seam pattern already used by the orchestrator instead
-      // of adding a new raw exec.
-      const runGit: RunGit = (args) =>
-        execFileSync('git', args, { encoding: 'utf-8' }).toString().trim();
+      const runGit: RunGit = defaultRunGit;
       // Resolve the head sha (default: `git rev-parse HEAD`), degrading to
       // undefined (→ "not yet evaluated") if git can't resolve it.
       let headSha = opts.head as string | undefined;

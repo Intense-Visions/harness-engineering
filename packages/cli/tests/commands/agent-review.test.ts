@@ -2,7 +2,8 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 // ── Mocks ──────────────────────────────────────────────────────────────────
 
-vi.mock('child_process', () => ({
+vi.mock('child_process', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('child_process')>()),
   execSync: vi.fn(),
 }));
 
@@ -10,7 +11,8 @@ vi.mock('../../src/config/loader', () => ({
   resolveConfig: vi.fn(),
 }));
 
-vi.mock('@harness-engineering/core', () => ({
+vi.mock('@harness-engineering/core', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@harness-engineering/core')>()),
   Ok: (val: unknown) => ({ ok: true, value: val }),
   Err: (err: unknown) => ({ ok: false, error: err }),
   parseDiff: vi.fn(),
@@ -234,7 +236,10 @@ describe('runAgentReview', () => {
     const result = await runAgentReview({});
     expect(result.ok).toBe(true);
     // Should have called git diff (unstaged) after empty cached
-    expect(mockedExecSync).toHaveBeenCalledWith('git diff', { encoding: 'utf-8' });
+    expect(mockedExecSync).toHaveBeenCalledWith(
+      'git diff',
+      expect.objectContaining({ encoding: 'utf-8' })
+    );
   });
 
   it('gracefully handles missing commit message', async () => {
