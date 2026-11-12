@@ -162,7 +162,7 @@
       }
     },
     "modules": {},
-    "excludePatterns": ["**/tests/fixtures/**", "templates/rehearsal-fixtures/**"]
+    "excludePatterns": ["**/tests/fixtures/**", "templates/rehearsal-fixtures/**", "_wt/**"]
   },
   "agentsMapPath": "./AGENTS.md",
   "docsDir": "./docs",
