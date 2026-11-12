@@ -1,5 +1,110 @@
 # @harness-engineering/orchestrator
 
+## 0.29.0
+
+### Minor Changes
+
+- a6f5f19: Move every package from `zod ^3.25.76` to `zod ^4.6.6` for GHSA-mrhx-c7xc-m3w5
+  (high: zod can exhaust memory while validating oversized constrained collections).
+  The advisory covers every `zod < 4.6.6` and no patched 3.x exists, so this is a major
+  upgrade of the validator rather than a floor bump. Root `pnpm.overrides` gains
+  `"zod": ">=4.6.6 <5"` so transitive dependents (`@mistralai/mistralai`, the MCP SDK,
+  `openai`, `@anthropic-ai/sdk`) resolve the same patched copy; the lockfile has no
+  `zod@3` left. `@asteasolutions/zod-to-openapi` moves `^7.3.0` -> `^8.5.0` (its zod 4
+  line); `docs/api/openapi.yaml` regenerates byte-identical.
+
+  **Silent allowance bug this exposed.** In zod 4 an enum-keyed `z.record` is
+  exhaustive. `ArchAllowanceSchema.categories` used one, so an allowance listing only the
+  categories it acknowledges (the normal case) failed `safeParse`, and
+  `loadArchAllowances` skipped it without a word — the acknowledged regression stopped
+  counting. Every enum-keyed record (allowance categories, baseline/timeline metrics,
+  threshold config, trend/prediction categories and deltas, the routing
+  `complexityTierMatrix`, the GitHub tracker `statusMap`) is now `z.partialRecord`, which
+  is what zod 3 did at runtime and what their inferred types already said.
+
+  Other zod 4 semantics ported rather than shimmed (no `zod/v3` imports):
+  - Object `.default({})` / array-of-object defaults that relied on zod 3 parsing the
+    default through the inner schema are now `.prefault()`, so nested defaults still fill.
+  - `skillHooks` stays `undefined` when absent (zod 4 applies an inner `.default()` even
+    under `.optional()`).
+  - The JSON-schema converter used by the analysis providers and the
+    `harness.config.json` stripped-key walker read zod 3 internals (`_def.typeName`);
+    under zod 4 they would have emitted `{}` / reported no dropped keys. Both are ported
+    to `_zod.def`, and the converter gains tests.
+  - `validateConfig` no longer misreports a missing field as a type mismatch (zod 4
+    dropped `received` from `invalid_type` issues).
+  - Single-argument `z.record(v)` -> `z.record(z.string(), v)`; `errorMap` -> `error`.
+
+  Bump level is `minor`: these packages export zod schemas, and a consumer that composes
+  them with its own zod 3 instance will not interoperate. User-visible validation
+  messages also change wording (e.g. "Invalid input: expected number, received string").
+
+### Patch Changes
+
+- 58bd1ac: `AuditLogger.flush()` now drains writes enqueued while it is waiting, not just the
+  ones queued when it was called, and `OrchestratorServer` exposes `flushAudit()` so the
+  owner of the audit log's directory can drain the fire-and-forget request-path write
+  before removing it. The audit contract is unchanged: appends stay best-effort, are
+  never awaited by the request handler, and a failed write only warns.
+
+  Before this, a test that closed the server and removed its temp dir could leave an
+  audit write in flight; its late `[audit] write failed` warning landed after the vitest
+  worker tore down and failed an otherwise-green run with an error blamed on an
+  unrelated test file (#2265). The server test teardowns now drain the audit write first.
+
+- ed24d7d: Guard every child-process stdin that is written to with an `'error'` listener. A child that exits before draining its stdin (crash, early exit, kill) made the pending write fail with `EPIPE`; with no listener that error was unhandled and crashed the host process — and intermittently failed `@harness-engineering/core#test:coverage` with every test passing (#2298). Closed-pipe errors (`EPIPE`, `ECONNRESET`, `EOF`, `ERR_STREAM_DESTROYED`) are now ignored because the child's exit status already decides the outcome; any other stdin error still fails the call (core CI review runner, intelligence CLI analysis providers, orchestrator ssh/serverless backends). The fire-and-forget telemetry flush ignores all stdin errors.
+- c1a2e11: The codex backend no longer hangs a turn when the consumer pulls the next event after
+  codex's stdout has already closed. `runTurn` created its readline line iterator lazily,
+  after yielding its first event, and a readline iterator created on a closed interface
+  never ends. A killed or fast-exiting codex could therefore stall the stage forever. The
+  iterator is now attached before the first yield, so it buffers both the lines and the close.
+- 4b89e1d: Add `Orchestrator.waitForBackgroundTasks()`, which resolves once every fire-and-forget
+  agent run dispatched so far has fully finished, including the `git worktree` cleanup
+  on its completion path. `stop()` still does not wait for these runs, because a real
+  agent session can be long-lived. A caller that must not race the background work can
+  now await it explicitly instead of sleeping for a guessed interval. The orchestrator's
+  integration tests use this before removing their temp workspace. That removal used to
+  fail with a permanent `EBUSY` on Windows while a git child was still running in the
+  worktree (#2089).
+- 7b6d66d: Small fixes from the round-2 fleet follow-ups:
+  - `align-design-system` now aligns the project named by `-c` instead of the current directory, and stops with an error if that config can't be loaded (#2463). `design-pipeline` uses the same shared root resolver.
+  - `harness agent review` now gives the review pipeline each file's real diff text; before, every file mapped to an empty string (#2454).
+  - `agent review` and `pre-merge-brief` read git output with a raised `maxBuffer`, so a diff over 1MB no longer throws `ENOBUFS` (#2454, #2455).
+  - `Orchestrator.waitForBackgroundTasks()` now also waits for staged workflow runs (#2457).
+  - The benchmark runner's `discover()` uses a real glob match instead of `find` plus a substring test, so mid-path wildcards work and it runs on Windows (#2461).
+
+- Updated dependencies [a6f5f19]
+- Updated dependencies [ea5c3ca]
+- Updated dependencies [d7c9d31]
+- Updated dependencies [8f9db1c]
+- Updated dependencies [ed24d7d]
+- Updated dependencies [effcc4c]
+- Updated dependencies [b19f746]
+- Updated dependencies [a3fefcb]
+- Updated dependencies [0ef499d]
+- Updated dependencies [7c3729c]
+- Updated dependencies [ed36a56]
+- Updated dependencies [586cd38]
+- Updated dependencies [b53c95d]
+- Updated dependencies [b53c95d]
+- Updated dependencies [b53c95d]
+- Updated dependencies [4038425]
+- Updated dependencies [7d69d52]
+- Updated dependencies [6423d8d]
+- Updated dependencies [f298c0b]
+- Updated dependencies [b5b0395]
+- Updated dependencies [8110b23]
+- Updated dependencies [7b6d66d]
+- Updated dependencies [d7132fb]
+- Updated dependencies [0e95b0d]
+- Updated dependencies [0e95b0d]
+- Updated dependencies [a6f5f19]
+  - @harness-engineering/core@0.56.0
+  - @harness-engineering/intelligence@0.15.0
+  - @harness-engineering/graph@0.16.0
+  - @harness-engineering/types@0.36.0
+  - @harness-engineering/local-models@0.8.0
+
 ## 0.28.0
 
 ### Minor Changes

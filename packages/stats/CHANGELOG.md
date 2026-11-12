@@ -1,5 +1,13 @@
 # @harness-engineering/stats
 
+## 0.2.1
+
+### Patch Changes
+
+- Updated dependencies [4038425]
+- Updated dependencies [a6f5f19]
+  - @harness-engineering/types@0.36.0
+
 ## 0.2.0
 
 ### Minor Changes
