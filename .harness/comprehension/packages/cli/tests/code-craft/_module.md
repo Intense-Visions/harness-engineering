@@ -1,13 +1,14 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/tests/code-craft'
-sourceHash: '3068b34ab37573183e2578b0407be5c3fe5a8a662af1626620bc8bc412c5a4a8'
+sourceHash: 'eccfd568908f44e8c9f43fba0fa41843a4a0e25f1e97b670afebc618709f99d3'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
 members:
   [
     'catalog.test.ts',
+    'clumping.test.ts',
     'critique-prompt.test.ts',
     'critique.test.ts',
     'discover.test.ts',

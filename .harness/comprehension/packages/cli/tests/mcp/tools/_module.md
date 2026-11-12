@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/tests/mcp/tools'
-sourceHash: 'f20e0337c7f1a0215977722c2f340ab1ab93e18b5cc6570fd2e427a1d70a52ef'
+sourceHash: '79950e50c01bdcc1f234b736d0eea7eab67a771e75f8e7827696d6934a6efd52'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -72,6 +72,7 @@ members:
     'refinement-telemetry.test.ts',
     'review-changes-cov544.test.ts',
     'review-changes.test.ts',
+    'review-pipeline-config.test.ts',
     'review-pipeline.test.ts',
     'roadmap-auto-sync.test.ts',
     'roadmap-cov544.test.ts',

@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/tests/integration'
-sourceHash: '8240aa512f242de14e6a0b4ce347c70741aaa20e215e57583f07ece8ea57c5d9'
+sourceHash: '8433488c8d68f288463ba3652d3759064f3537bcdaa1b9930283d8ad22e56fa5'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -11,6 +11,7 @@ members:
     'cleanup-duplication-exit-code.e2e.test.ts',
     'cli.test.ts',
     'community-skill-discovery.test.ts',
+    'core-clumping-export.test.ts',
     'init-design-roadmap-matrix.test.ts',
     'init-design-roadmap-yes-yes-e2e.test.ts',
     'init.test.ts',
@@ -46,13 +47,15 @@ import { TemplateEngine } from '../../src/templates/engine'
 import { resolveTemplatesDir } from '../../src/utils/paths'
 import { runHarness, skipUnlessBin } from '../e2e/support'
 import { scaffoldInitFixture } from './_helpers/init-fixture'
-import { ALLOWED_FIELD_KEYS, PII_FIELD_DENYLIST, clearPulseAdapters, parseRoadmap, registerMockAdapter, registerPulseAdapter } from '@harness-engineering/core'
+import { ALLOWED_FIELD_KEYS, Clump, ClumpResult, ClumpableItem, Confidence, CraftTier, DEFAULT_CLUMP_POLICY, Grade, Impact, PII_FIELD_DENYLIST, clearPulseAdapters, formClumps, parseRoadmap, registerMockAdapter, registerPulseAdapter, resolveFloor } from '@harness-engineering/core'
+import * as core from '@harness-engineering/core'
 import { PulseAdapter, SanitizedResult } from '@harness-engineering/types'
 import { spawnSync } from 'child_process'
 import * as fs from 'fs'
 import fs, { mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import os, { tmpdir } from 'node:os'
 import path, { join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import * as os from 'os'
 import * as path from 'path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'

@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/tests/templates'
-sourceHash: '9b6c669ada697f0d212e647415bdbed03dfb89a33eb6b811225b2151c802ad3a'
+sourceHash: '8fca1a738be407a0b02c0e260b1a703f44e425397e707b46937f6410355e688b'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -10,6 +10,7 @@ members:
     'agents-append.test.ts',
     'ci-pre-merge-brief.test.ts',
     'ci-required-review.test.ts',
+    'config-template-validates.test.ts',
     'engine-cov544.test.ts',
     'engine.test.ts',
     'merger.test.ts',
@@ -32,6 +33,7 @@ members:
 
 ```
 import { HarnessConfigSchema } from '../../src/config/schema'
+import { collectStrippedKeys } from '../../src/config/stripped-keys'
 import { appendFrameworkSection, buildFrameworkSection } from '../../src/templates/agents-append'
 import { TemplateContext, TemplateEngine } from '../../src/templates/engine'
 import { deepMergeJson, mergePackageJson } from '../../src/templates/merger'

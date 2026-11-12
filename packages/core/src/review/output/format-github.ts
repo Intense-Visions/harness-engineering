@@ -12,8 +12,14 @@ const SMALL_SUGGESTION_LINE_LIMIT = 10;
 /**
  * Sanitize text for safe inclusion in GitHub markdown comments.
  * Escapes characters that could be used for markdown/HTML injection (CWE-79).
+ *
+ * EXPORTED so `clump-comments.ts` escapes finding text on exactly the same
+ * terms. A grouped comment carries the title of every one of its members, so an
+ * unescaped grouping path would be a second, wider instance of the same CWE-79
+ * surface this function exists to close — and it would be invisible, because the
+ * individual path next to it is correct.
  */
-function sanitizeMarkdown(text: string): string {
+export function sanitizeMarkdown(text: string): string {
   return text.replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 

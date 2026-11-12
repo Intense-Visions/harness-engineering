@@ -32,6 +32,7 @@ import type {
   ProjectConvention,
   IdentifierKind,
 } from './findings/schema.js';
+import { craftClumpView } from '../shared/craft/findings/clumpable.js';
 
 export type NamingCraftMode = 'inline' | 'in-session';
 
@@ -141,7 +142,7 @@ export async function runNamingCraft(input: NamingCraftInput): Promise<NamingCra
     );
   }
 
-  const { files, perFile, convention } = gatherProjectContext(input);
+  const { projectRoot, files, perFile, convention } = gatherProjectContext(input);
   const rubrics = SEED_RUBRICS;
   const findings: NamingFinding[] = [];
 
@@ -164,6 +165,7 @@ export async function runNamingCraft(input: NamingCraftInput): Promise<NamingCra
   const totalCost = sumCosts(provider);
   return {
     findings,
+    clumps: craftClumpView(findings, projectRoot),
     summary: {
       phaseRun: ['critique'],
       mode: 'fast',
@@ -327,6 +329,7 @@ export async function finalizeNamingCraft(
 
   return {
     findings,
+    clumps: craftClumpView(findings, projectRoot),
     summary: {
       phaseRun: ['critique'],
       mode: 'fast',

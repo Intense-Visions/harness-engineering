@@ -6,6 +6,7 @@
  * of knowledge-craft's KnowledgeFinding.
  */
 
+import type { ClumpView } from '@harness-engineering/core';
 import type { Tier, Impact, Confidence } from '../../shared/craft/findings/axes.js';
 import type { DocKind } from '../catalog/rubrics/types.js';
 
@@ -46,4 +47,13 @@ export interface DocsCraftSummary {
 export interface DocsCraftOutput {
   findings: DocsFinding[];
   summary: DocsCraftSummary;
+  /**
+   * The work units this run emits (docs/changes/clumping/proposal.md, Phase 3).
+   *
+   * `findings` stays the authoritative raw output; this is the GROUPED view an
+   * agent files from — N like findings over one scope as one work unit rather
+   * than N issues. Built by `shared/craft/findings/clumpable.ts` at the single
+   * boundary a craft run owns: emission.
+   */
+  clumps: ClumpView;
 }

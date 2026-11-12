@@ -1,48 +1,26 @@
 /**
  * Shared 3-axis primitives for the craft skill family (ADR 0019).
  *
- * Extracted from packages/cli/src/design-craft/findings/schema.ts on the
- * 2nd-non-design-craft-consumer trigger (spec-craft). naming-craft was
- * the first non-design consumer and imported from design-craft directly;
- * with spec-craft landing, we move to a shared home so future craft
- * skills (test-craft, code-craft, copy-craft, etc.) all import from one
- * canonical location.
+ * The three axis TYPES now live in `packages/core/src/craft/axes.ts`. Core cannot
+ * import from cli, and `core/src/fleet/clumping`'s floor reads the axes
+ * (docs/changes/clumping/proposal.md, "One layering change"), so core defines the
+ * vocabulary and cli derives from it.
  *
- * design-craft's per-skill CraftFinding type — which has design-specific
- * fields (component, page) — stays in design-craft. Only the primitive
- * axes move to shared.
+ * This module stays the canonical IMPORT PATH for every craft consumer: its export
+ * surface is unchanged, so no consumer edit is required. Do not "clean this up" by
+ * pointing consumers at core directly — the indirection is what made the relocation
+ * a zero-diff change for 17 files.
+ *
+ * `Tier` arrives from core as `CraftTier`: core's barrel already exports a DIFFERENT
+ * `Tier` from `harness-strength`, and two `export *` sources for one name is a hard
+ * TS2308 error. The alias is undone here, so craft consumers still see `Tier`.
+ *
+ * `CONFIDENCE_RANK` and `derivePriority` (./derived.ts) deliberately stayed in cli:
+ * ADR 0019 keeps the raw axes authoritative and the derivation sort-only.
  */
+import type { CraftTier, Impact, Confidence } from '@harness-engineering/core';
 
-/**
- * The "tier" axis of the 3-axis craft model (ADR 0019).
- *
- * - `foundational`: prerequisite craft — without it the artifact fails its
- *   basic job (design: hierarchy unreadable; spec: load-bearing decision
- *   missing; naming: silent unit).
- * - `polish`: above-floor craft that makes a competent artifact feel
- *   considered.
- * - `aspirational`: ceiling-raising craft that distinguishes excellent work
- *   from merely good.
- */
-export type Tier = 'foundational' | 'polish' | 'aspirational';
-
-/**
- * The "impact" axis of the 3-axis craft model (ADR 0019).
- *
- * How much the finding moves the perceived quality of the target if
- * addressed. NOT a frequency or severity measure.
- */
-export type Impact = 'small' | 'medium' | 'large';
-
-/**
- * The "confidence" axis of the 3-axis craft model (ADR 0019).
- *
- * Honesty about the LLM's certainty in the judgment. Essential for LLM-
- * judgment outputs: a low-confidence finding should be visually distinct
- * in downstream reporting and may be filtered at higher autoCapture
- * strictnesses.
- */
-export type Confidence = 'high' | 'medium' | 'low';
+export type { CraftTier as Tier, Impact, Confidence };
 
 /**
  * Numeric ranking of the confidence axis (higher = more confident).

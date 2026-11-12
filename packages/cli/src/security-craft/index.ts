@@ -31,6 +31,7 @@ import {
   CRITIQUE_SYSTEM_PROMPT,
 } from './phases/critique.js';
 import type { SecurityCraftOutput, SecurityFinding, SecuritySignal } from './findings/schema.js';
+import { craftClumpView } from '../shared/craft/findings/clumpable.js';
 
 export type SecurityCraftMode = 'inline' | 'in-session';
 
@@ -152,6 +153,7 @@ export async function runSecurityCraft(input: SecurityCraftInput): Promise<Secur
   const totalCost = sumCosts(provider);
   return {
     findings,
+    clumps: craftClumpView(findings, projectRoot),
     summary: {
       phaseRun: ['critique'],
       mode: 'fast',
@@ -291,6 +293,7 @@ export async function finalizeSecurityCraft(
 
   return {
     findings,
+    clumps: craftClumpView(findings, projectRoot),
     summary: {
       phaseRun: ['critique'],
       mode: 'fast',

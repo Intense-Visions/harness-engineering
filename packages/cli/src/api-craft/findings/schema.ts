@@ -7,6 +7,7 @@
  * craft family's per-skill finding types.
  */
 
+import type { ClumpView } from '@harness-engineering/core';
 import type { Tier, Impact, Confidence } from '../../shared/craft/findings/axes.js';
 import type { ApiSurfaceKind } from '../catalog/rubrics/types.js';
 
@@ -47,4 +48,13 @@ export interface ApiCraftSummary {
 export interface ApiCraftOutput {
   findings: ApiFinding[];
   summary: ApiCraftSummary;
+  /**
+   * The work units this run emits (docs/changes/clumping/proposal.md, Phase 3).
+   *
+   * `findings` stays the authoritative raw output; this is the GROUPED view an
+   * agent files from — N like findings over one scope as one work unit rather
+   * than N issues. Built by `shared/craft/findings/clumpable.ts` at the single
+   * boundary a craft run owns: emission.
+   */
+  clumps: ClumpView;
 }

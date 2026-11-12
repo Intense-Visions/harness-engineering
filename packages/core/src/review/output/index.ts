@@ -6,3 +6,9 @@ export {
   formatIntegritySection,
 } from './format-terminal';
 export { formatGitHubComment, formatGitHubSummary, isSmallSuggestion } from './format-github';
+export { formatClumpedComments, formatClumpComment, toClumpableFinding } from './clump-comments';
+export type {
+  ClumpedCommentResult,
+  ClumpedCommentReport,
+  FormatClumpedCommentsOptions,
+} from './clump-comments';

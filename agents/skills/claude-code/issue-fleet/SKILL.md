@@ -1,6 +1,6 @@
 # Issue Fleet
 
-> Autonomous open-issue-backlog **intake** orchestrator — enumerate the open-issue queue, triage each issue (label, dedup, route, prioritize), confirm the destructive closes with the human in one up-front round, fan out concurrency-governed triage subagents over queue slices, independently re-derive every mutation from the issue's own signals, and hand the downstream fleets a clean, ranked, deduped, routed queue. The fleet never silently closes an issue and never trusts a subagent's self-report.
+> Autonomous open-issue-backlog **intake** orchestrator — enumerate the open-issue queue, triage each issue (label, dedup, route, prioritize, clump), confirm the destructive closes with the human in one up-front round, fan out concurrency-governed triage subagents over queue slices, independently re-derive every mutation from the issue's own signals, and hand the downstream fleets a clean, ranked, deduped, routed queue. The fleet never silently closes an issue and never trusts a subagent's self-report.
 
 An open-issue backlog is the raw, unsorted mouth of the SDLC pipeline. Before any downstream fleet can build, decide, or land, every open issue has to be hand-triaged — labeled by type and area, checked for whether it duplicates an issue already filed, routed to the stage that should own it, and ranked against the rest. For a backlog of dozens the sorting is pure attention tax, paid before the first line of real work begins. `issue-fleet` is the **intake** stage of the `-fleet` family conveyor (**intake** → decide → build → land) and its **entry point**: it turns the backlog into a queue the downstream fleets can consume. It is the sibling of `roadmap-fleet` (build) and `pr-fleet` (land): all three fan out over a work-queue with a concurrency governor and independent verification, then hand to a human. The difference is the queue and the terminal act — `issue-fleet` consumes the **open-issue backlog** and its terminal act is a **clean, ranked, deduped, routed queue**; it produces no code and merges nothing. The shared, stage-agnostic scaffolding all three build on is documented in the `-fleet` family spine reference (`docs/reference/fleet-family.md`).
 
@@ -42,23 +42,31 @@ Phase 1: SELECT --> Phase 2: CONFIRM --> Phase 3: DISPATCH
 
 | Phase               | Purpose                                                                        | Exit Condition                                                              |
 | ------------------- | ------------------------------------------------------------------------------ | --------------------------------------------------------------------------- |
-| 1. SELECT           | Enumerate the backlog, triage each issue on four axes, snapshot for dedup      | Triaged `IssueCandidate[]` with label/dedup/route/rank and detected forks   |
-| 2. CONFIRM          | One up-front human round that carries the **destructive-close authorization**  | Human-checked close set, answered forks, agreed concurrency                 |
+| 1. SELECT           | Enumerate the backlog, triage each issue on five axes, snapshot for dedup      | Triaged `IssueCandidate[]` with label/dedup/route/rank/clump and forks      |
+| 2. CONFIRM          | One up-front human round that carries the **destructive-close authorization**  | Human-checked close set, agreed clump set, answered forks, concurrency      |
 | 3. DISPATCH         | Queue-slice-partitioned, concurrency-governed triage subagents finalize triage | Every slice returned finalized triage, parked an issue, or failed           |
 | 4. VERIFY           | Re-derive every mutation from the issue's signals, never self-report           | Each mutation marked apply-ready / rejected; each close confirmed-duplicate |
 | 5. HANDOFF + REPORT | Apply verified labels/routes, close authorized+verified duplicates, emit queue | Routed queue emitted; report delivered; duplicates closed with citations    |
 
-The five-phase spine, the concurrency governor, the independent-verification discipline, the worktree fan-out with its push-path caveat, and the never-silent invariant are the family-shared scaffolding — stated once in `docs/reference/fleet-family.md`. This skill states only what is specific to the **intake** stage: the open-issue queue, the label/dedup/route/prioritize triage taxonomy, and the human destructive-close gate.
+The five-phase spine, the concurrency governor, the independent-verification discipline, the worktree fan-out with its push-path caveat, and the never-silent invariant are the family-shared scaffolding — stated once in `docs/reference/fleet-family.md`. This skill states only what is specific to the **intake** stage: the open-issue queue, the label/dedup/route/prioritize/clump triage taxonomy, and the human destructive-close gate.
 
 ### Phase 1: SELECT — Enumerate, Triage, Snapshot, Detect Forks
 
 1. **Enumerate the open-issue backlog.** List open issues via `gh issue list --state open`. Missing `gh` auth degrades to reporting the gap rather than aborting — with no queue there is nothing to triage. Additionally fetch issues carrying the `fleet:claimed` label and their claim comments — this piggybacks the same enumeration (no extra `gh` call). An issue carrying a **live claim lease written by another run** is dropped as **claimed-elsewhere** (a soft reservation — another run is already triaging it); a **stale** lease is ignored and the issue stays triageable. The claim record, staleness (server `updated_at`), and reclaim tiebreak are defined once in the **§Cross-run claim lease** section of `docs/reference/fleet-family.md` — do not restate them here. If the `fleet:claimed` scan is unavailable, **degrade to triaging without the cross-run drop** and log the degradation (issue-fleet already stops when `gh` auth is wholly absent — there is then no queue to triage).
 
-2. **Triage each issue on the four axes** from its own signals (title, body, existing labels, linked refs):
+2. **Triage each issue on the five axes** from its own signals (title, body, existing labels, linked refs):
    - **label** — assign the project's existing type/area labels (e.g. `bug`, `enhancement`/`feature`, `documentation`, `question`) from the issue's content. Never invent a new label.
    - **dedup** — detect whether the issue restates an already-open issue or one already resolved by a merged PR. Classify `novel` or `duplicate-of <ref>`. A duplicate carries a **canonical citation**; it is flagged for closure, never for a downstream build.
    - **route** — assign the downstream fleet that should own the issue: a decision-shaped issue → `adr-fleet`; a build-shaped feature/enhancement → `roadmap-fleet`; a CI-red / flaky-run issue → `cicd-fleet`; a coverage gap → `test-fleet`; an entropy/hotspot issue → `cleanup-fleet`; a doc-drift / stale-documentation issue → `docs-fleet`; a vulnerability or supply-chain issue → `security-fleet`; a measured perf-budget violation or runtime regression → `perf-fleet`; a code-quality / craft issue → `craft-fleet`. An issue that plausibly fits two stages is a **fork**, not a guess. The routable set is exactly the family roster minus the declared **§Non-destinations** — if a member is neither, that is a gap in this skill, not a licence to guess.
    - **prioritize** — score the surviving, routed issues by impact. Do not rank ad-hoc; reuse `harness-roadmap-pilot`-style impact scoring so the order is principled and reproducible.
+   - **clump** — group the surviving, routed issues into **work units**: a set of DISTINCT issues of the same type over the same scope becomes one unit rather than N, because a fixed ceremony cost (branch, worktree, 3-OS matrix, review pass, merge, baseline refresh) is paid per unit regardless of payload size. Do not derive this by eye — run `harness fleet clump-issues --json` (see §Harness Integration), which is the same `formClumps` primitive the craft and review seams use, so all three seams group identically. Its output carries the clump set, every shed count, and the conservation check; carry them to CONFIRM verbatim.
+
+   **Clumping is NOT dedup, and conflating them is the likeliest misreading of this skill.** Dedup REMOVES restatements of one issue — #C and #B are the same issue told twice, so one of them closes. Clumping GROUPS distinct issues — #1904 and #1905 are two different defects that both live in `packages/cli/src/skill/`, so both survive and both get fixed, in one work unit. **Both axes run**, in that order: dedup first (so a clump never carries a duplicate of its own member), then clump over what survives. A clump member is never closed for being a clump member.
+
+   Three rules the clump axis does not get to bend:
+   - **An `unscoped` issue is not groupable at all.** An issue that names no repository path has no scope, so it never co-clumps with a scoped issue AND never co-clumps with another unscoped one — it stays its own queue entry. Inferring a scope from a vague title manufactures exactly the false affinity that makes a clump unreviewable, and grouping on the ABSENCE of the signal does the same thing: measured on this repo's 347-issue backlog, grouping unscoped issues together produced four "clumps" of 12 + 12 + 7 + 3 = 34 issues that shared nothing but naming no file. The measured `unscoped` count goes to CONFIRM rather than being hidden. Paths nobody edits do not count as a scope signal either: the tracker's own roadmap shards, and build artifacts under `dist/` / `node_modules/` / `coverage/` / `.turbo/` that arrive in pasted stack traces, are dropped before the scope is derived.
+   - **An issue with no single type label is terminal.** Zero type labels means no signal to group on; two type labels is a FORK, not a guess. Either way the issue is reported and never clumped — the same rule that sends an un-scoreable issue to the unranked group.
+   - **Two issues that name the same file never co-clump.** They would collide in one branch; the conflict rule splits them and reports the split.
 
 3. **Snapshot the full open-issue list** as a shared read-only reference so slice-partitioned triage subagents (DISPATCH) still detect duplicates **across** slices, not only within one.
 
@@ -77,6 +85,8 @@ The five-phase spine, the concurrency governor, the independent-verification dis
      canonicalRef,      // set when dedup = duplicate-of (issue/PR citation)
      route,             // downstream fleet: adr | roadmap | pr | cicd | test | cleanup | docs | security | perf | craft
      score,             // roadmap-pilot impact score (for ranking)
+     scope,             // clump axis: the directory the issue names, else its own "unscoped#<id>" (ungroupable)
+     clumpId,           // clump axis: the work unit this issue belongs to, or null (solo/terminal)
      closeAuthorized,   // set in CONFIRM (human destructive-close authorization)
      forks,             // detected known label/route forks (may be empty)
    }
@@ -87,8 +97,12 @@ The five-phase spine, the concurrency governor, the independent-verification dis
 1. **Present the triaged queue in one round.** This is the **only guaranteed human touchpoint** and the **seat of the destructive-close decision** — everything downstream runs autonomously. Present, together, in a single surface:
    - The triaged issues, ranked by impact, each with its proposed labels, route, and dedup verdict.
    - Duplicates **flagged for closure** with their canonical citation — the human confirms closing; the fleet never closes them otherwise.
+   - **The clump table**: one row per emitted work unit — members, type, scope — so the human can see what would be built together and split any unit that is not genuinely alike. Over-clumping is worse than no clumping, and this is where it gets caught.
+   - **Every shed count from the clump axis, none hidden**: individual queue entries, `unscoped`, untyped, multi-typed (routing forks), floored, over-cap, and conflict splits — plus the conservation line proving the buckets partition the backlog exactly. A zero and a silent drop look identical in output; the arithmetic is what tells them apart.
    - Every detected known label/route fork as a **multiple-choice question** with a recommended default.
    - The **proposed concurrency** (default 2, capped at ~3).
+
+   **This is the only CONFIRM round, and the clump set does not get a second one.** The clump table, the shed counts and the conservation line are additional ROWS on this surface, never an additional gate. A fleet that stops twice has given back exactly the attention the clump axis was added to save, and "exactly one up-front human decision round" is a success criterion of this skill — a second clump gate violates it.
 
 2. **The human explicitly checks which duplicates to close.** This checked set is the **destructive-close authorization** — captured once for the batch. The human may also trim, answer forks, and adjust routes in this same gate. A duplicate the human does not check is never closed, no matter how clear the match looks. Non-destructive mutations (labels, routes, the ranked order) proceed autonomously after this gate.
 
@@ -96,7 +110,7 @@ The five-phase spine, the concurrency governor, the independent-verification dis
 
 ### Phase 3: DISPATCH — Queue-Slice Triage Fan-Out With a Concurrency Governor
 
-1. **Partition the backlog into disjoint slices; one triage subagent per slice.** issue-fleet's per-item pipeline is _triage_, which produces issue-metadata mutations (labels, routes, dedup closes) via `gh`, not code — so it needs no git worktree per issue. The worktree isolation the spine mandates for the code-mutating build/land members degrades here to **queue-slice partitioning**: each subagent owns a disjoint slice of the backlog and finalizes label/dedup/route/prioritize for it. Each subagent reads the shared dedup snapshot from SELECT so duplicates are caught across slices, not only within one. Feed answered forks from CONFIRM into every brief so a subagent never re-asks a settled question.
+1. **Partition the backlog into disjoint slices; one triage subagent per slice.** issue-fleet's per-item pipeline is _triage_, which produces issue-metadata mutations (labels, routes, dedup closes) via `gh`, not code — so it needs no git worktree per issue. The worktree isolation the spine mandates for the code-mutating build/land members degrades here to **queue-slice partitioning**: each subagent owns a disjoint slice of the backlog and finalizes label/dedup/route/prioritize for it. **Clump is NOT sliced**: a clump is formed over the WHOLE backlog in SELECT and agreed in CONFIRM, because a slice-local clump set would group only what happened to land in the same slice — the same defect slice-local dedup has. Subagents inherit the agreed clump assignment; they do not re-form it. Each subagent reads the shared dedup snapshot from SELECT so duplicates are caught across slices, not only within one. Feed answered forks from CONFIRM into every brief so a subagent never re-asks a settled question.
 
 2. **Cap concurrency at the governor (default 2, max ~3).** This is the machine-storm limit shared across the family: beyond roughly three concurrent subagents the compound load produces flaky failures indistinguishable from real ones. Never exceed the confirmed concurrency to "go faster" — a stormed batch is slower once you account for re-runs.
 
@@ -153,6 +167,7 @@ The route enum and this list must together account for **every** member of the f
 
 - **`harness skill run issue-fleet`** — Run the full five-phase intake pipeline.
 - **`harness-roadmap-pilot`** — Its impact scoring is reused in SELECT for the `prioritize` axis so the ranked queue is principled and reproducible.
+- **`harness fleet clump-issues`** — The `clump` axis, as a callable rather than a paragraph. Read-only: it enumerates the backlog (`gh issue list`, or `--input <dump.json>`), forms the clump set through the shared `formClumps` primitive in `@harness-engineering/core` (`fleet/clumping`), and prints the clump table, every shed count, and the conservation check. `--json` for the machine-readable form SELECT carries into CONFIRM. A missing `gh` auth reports the gap and simulates nothing.
 - **`gh`** — Enumerate open issues and read their signals (SELECT), apply labels and record routes (HANDOFF), and close confirmed-duplicate issues with citations (HANDOFF/REPORT).
 - **The downstream fleets** — `adr-fleet`, `roadmap-fleet`, `pr-fleet`, `cicd-fleet`, `test-fleet`, `cleanup-fleet`, `docs-fleet`, `security-fleet`, `perf-fleet`, `craft-fleet` — consume the routed queue issue-fleet emits; issue-fleet routes to them and never does their work.
 - **`docs/reference/fleet-family.md`** — The shared `-fleet` spine this skill builds on (five-phase skeleton, governor, verification discipline, worktree fan-out, never-silent invariant); issue-fleet is listed there as the intake member.
@@ -167,6 +182,7 @@ The route enum and this list must together account for **every** member of the f
 - No mutation is applied on a subagent self-report — every label, route, and close is independently re-derived from the issue's own signals.
 - Duplicate issues are **closed with citations, not silently**; non-duplicate issues are never closed.
 - Triage applies the project's **existing** label vocabulary and never invents new labels.
+- The clump axis emits a set of work units in which every issue appears **exactly once** — as a clump member or as its own queue entry — with every shed count and the conservation arithmetic reported on the same single CONFIRM round. No `unscoped` issue shares a clump with anything — not a scoped issue, not another unscoped one.
 - It **degrades gracefully**: missing `gh` auth, an un-scoreable issue, or a single slice's failed triage is reported while the batch continues.
 - Concurrency never exceeds the confirmed governor (default 2, max ~3).
 
@@ -177,6 +193,9 @@ The route enum and this list must together account for **every** member of the f
 - **Never silently close.** The fleet closes only what the human authorized and verification confirmed. Speculative or bare closing = gate violation.
 - **A self-report is never verification.** Accepting "this is a duplicate / these labels are right" without independently re-deriving it from the issue's signals = gate violation. Re-derive independently.
 - **Never invent labels.** Triage applies the project's existing label vocabulary; minting a new label to fit an issue = gate violation.
+- **Never add a second CONFIRM for the clump set.** The clump table and its shed counts go on the existing round. A second gate = gate violation; it costs the attention the axis exists to save.
+- **Never infer a scope an issue does not state.** An issue that names no repository path is `unscoped`, is not clumped with anything, and the count is reported. Reading a scope out of a vague title — or out of a `dist/` frame in a pasted stack trace — to make a clump bigger = gate violation.
+- **Never drop a clumped issue from the queue.** Every issue is either a clump member or its own queue entry; a clump shed by a cap degrades to individual entries, never to nothing. A conservation breach = gate violation.
 - **Never exceed the concurrency governor.** More than ~3 concurrent subagents is the machine-storm zone; do not raise the cap to "go faster."
 - **Never `--no-verify`.** No subagent bypasses the pre-push gates; a `.claude/`-nested worktree pushes via the GitHub API or a non-nested worktree instead.
 
@@ -187,6 +206,8 @@ The route enum and this list must together account for **every** member of the f
 - **A dedup citation does not hold up:** report the issue as not-a-confirmed-duplicate with the failing citation named; never close it. Do not downgrade a shaky match into "probably a duplicate".
 - **An issue plausibly fits two downstream stages:** surface it as a routing fork in CONFIRM, or park it if discovered mid-flight; never force-route it to one stage by guessing.
 - **An issue is un-scoreable (no signal to rank on):** report it in an "unranked" group for human triage rather than assigning a fabricated priority.
+- **An issue names no path, or carries no single type label:** report it with the `unscoped` / untyped / multi-typed counts and leave it as its own queue entry. It is still triaged, still routed, still ranked — it is only unclumped.
+- **A clump looks wrong to the human at CONFIRM:** they split it there, in that same round. Do not re-run SELECT and come back with a second gate.
 - **The backlog appears coupled (one issue's triage depends on another's outcome):** triage them in dependency order or, if the coupling needs human sequencing, report it; fan-out assumes independence.
 
 ## Rationalizations to Reject
@@ -200,17 +221,22 @@ The route enum and this list must together account for **every** member of the f
 | "Each slice only needs to dedup within itself"                                        | Slice-local dedup misses duplicates that land in different slices. Every triage subagent checks the shared full-backlog snapshot so cross-slice duplicates are caught.   |
 | "This route is close enough — I'll skip re-deriving it and trust the subagent's call" | Every mutation is re-derived from the issue's own signals in VERIFY. An un-grounded route sends work to the wrong fleet; a route with no basis is rejected, not applied. |
 | "I'll assign this un-scoreable issue a middle priority to keep the ranking clean"     | A fabricated priority is a lie in the queue. Report un-scoreable issues in an unranked group for human triage; do not invent a score.                                    |
+| "These two issues say similar things — clump them and close one"                      | That conflates the two axes. Dedup closes a restatement of ONE issue; clumping groups DISTINCT issues and closes nothing. A clump member is never closed for being one.  |
+| "This issue has no path, but the title sounds like it's about the parser — clump it"  | An inferred scope is a fabricated one. An `unscoped` issue groups with NOTHING — grouping on the absence of a signal is not grouping; the count goes to CONFIRM.         |
+| "The clump set changed after CONFIRM — I'll ask the human once more"                  | A second gate is exactly the ceremony the clump axis removes. The clump set is agreed once, on the single CONFIRM round; carry it forward or park the affected issue.    |
 | "Bumping concurrency to six will clear the backlog sooner"                            | Beyond ~3 concurrent subagents is the machine-storm zone — compound load produces flaky failures that cost more in re-runs than the extra parallelism saves.             |
 
 ## Red Flags
 
-| Flag                                                                 | Corrective Action                                                                                              |
-| -------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
-| "I'll close it based on the subagent's dedup call"                   | STOP. Independently confirm the citation exists and covers the issue. A dedup call is not a verification.      |
-| "It's clearly a duplicate, I'll close it even unauthorized"          | STOP. The human authorizes each close in CONFIRM. Unauthorized duplicates are reported, never closed.          |
-| "No label fits — I'll invent one"                                    | STOP. Apply the existing vocabulary. Report the taxonomy gap; never mint a new label mid-batch.                |
-| "This route is ambiguous but I'll guess to keep moving"              | STOP. Ambiguous routes are forks — surface in CONFIRM or park. Guessing corrupts the downstream queue.         |
-| "The pre-push gate is failing in this worktree — I'll `--no-verify`" | STOP. Never bypass. Push via the GitHub API or a non-`.claude` worktree; the gate is part of the verification. |
+| Flag                                                                 | Corrective Action                                                                                               |
+| -------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| "I'll close it based on the subagent's dedup call"                   | STOP. Independently confirm the citation exists and covers the issue. A dedup call is not a verification.       |
+| "It's clearly a duplicate, I'll close it even unauthorized"          | STOP. The human authorizes each close in CONFIRM. Unauthorized duplicates are reported, never closed.           |
+| "No label fits — I'll invent one"                                    | STOP. Apply the existing vocabulary. Report the taxonomy gap; never mint a new label mid-batch.                 |
+| "This route is ambiguous but I'll guess to keep moving"              | STOP. Ambiguous routes are forks — surface in CONFIRM or park. Guessing corrupts the downstream queue.          |
+| "I'll eyeball the clumps instead of running `clump-issues`"          | STOP. An eyeballed grouping is not reproducible and reports no shed counts. Run the callable; carry its output. |
+| "The clump set is big — I'll show the human just the top units"      | STOP. Every shed count is reported. A hidden bucket and an empty one look identical to the reader.              |
+| "The pre-push gate is failing in this worktree — I'll `--no-verify`" | STOP. Never bypass. Push via the GitHub API or a non-`.claude` worktree; the gate is part of the verification.  |
 
 ## Examples
 
@@ -221,7 +247,7 @@ $ harness skill run issue-fleet --concurrency 2
 
 Phase 1: SELECT
   Enumerated: 9 open issues (gh issue list).
-  Triage (label / dedup / route / prioritize):
+  Triage (label / dedup / route / prioritize / clump):
     - #A "crash on empty config"      -> bug        / novel                / cicd-fleet   / rank 1
     - #B "add dark mode"              -> enhancement / novel                / roadmap-fleet/ rank 3
     - #C "dark theme support"         -> enhancement / duplicate-of #B      / (close)      / —
@@ -232,12 +258,24 @@ Phase 1: SELECT
     - #H "typo in README"             -> documentation / novel              / roadmap-fleet/ rank 8
     - #I "feature X or refactor Y?"   -> enhancement / novel                / FORK         / —
   Snapshotted full backlog for cross-slice dedup.
+  Clump axis (harness fleet clump-issues --json), over the 8 survivors:
+    1 work unit formed:
+      clump-9f2a  bug / src/auth/  ->  [#A, #E]
+        (two DISTINCT defects over one scope — neither is a duplicate of the
+         other; both get fixed, in one unit, one commit per member)
+    Shed counts: individual 6 · unscoped 2 (#B, #I — never grouped) · untyped 2 (#F, #G)
+                 multi-typed 0 · floored 0 · over-cap 0 · conflict splits 0
+    Conservation: 8 = 2 clumped + 0 floored + 0 over-cap + 2 ungraded + 4 solo  OK
   Detected forks: 1 — "#I: roadmap-fleet (build feature) or adr-fleet (decide refactor)?"
 
-Phase 2: CONFIRM  [checkpoint:human-verify]
+Phase 2: CONFIRM  [checkpoint:human-verify]   <- the ONLY round; the clump
+                                                 table is a row on it, never
+                                                 a second gate
   Triaged queue presented. #C flagged for closure (duplicate-of #B).
+  Clump table + every shed count + the conservation line presented here.
   Human checks to CLOSE: #C  (the destructive-close authorization).
-  Human answers fork: #I -> adr-fleet. Concurrency confirmed: 2.
+  Human accepts clump-9f2a as one unit. Answers fork: #I -> adr-fleet.
+  Concurrency confirmed: 2.
 
 Phase 3: DISPATCH (governor = 2)
   Backlog partitioned into 2 slices; 2 triage subagents finalize triage
@@ -252,10 +290,22 @@ Phase 5: HANDOFF + REPORT
   Applied labels + routes for 8 surviving issues.
   Closed #C as duplicate, citing #B.
   Emitted routed queue:
-    adr-fleet: [#D, #I]   roadmap-fleet: [#B, #H]   cicd-fleet: [#A, #E]
-    test-fleet: [#F]      cleanup-fleet: [#G]
+    adr-fleet: [#D, #I]   roadmap-fleet: [#B, #H]
+    cicd-fleet: [clump-9f2a = #A + #E]   test-fleet: [#F]   cleanup-fleet: [#G]
+  8 issues, 7 work units — the clump is one unit carrying two issues.
   Never closed an unauthorized or unverified issue.
 ```
+
+### Example: Two issues that look alike — one is a duplicate, one is a clump member
+
+`#C "dark theme support"` restates `#B "add dark mode"`: ONE issue told twice,
+so dedup flags it and, with the human's authorization, closes it citing #B.
+`#A "crash on empty config"` and `#E "flaky auth test"` also look alike — same
+type, same directory — but they are TWO defects, and closing either would lose
+real work. The clump axis groups them into one work unit and closes nothing.
+The distinction is not "how similar is the text": it is whether fixing one
+fixes the other. Both axes run on every issue; a clump member is never closed
+for being a clump member.
 
 ### Example: Refusing to close a clear-but-unauthorized duplicate
 

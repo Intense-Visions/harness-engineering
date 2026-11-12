@@ -1181,6 +1181,79 @@ To disable adoption tracking:
 }
 ```
 
+## `clumping`
+
+- **Type:** `ClumpingConfig`
+- **Required:** No
+
+Tunables for **clumping** — the mechanical floor-and-group control the `-fleet` family shares. A finding below the floor is acted on in place rather than filed, and a set of like findings becomes one work item rather than N. See `docs/changes/clumping/proposal.md`.
+
+Absent, every seam runs on its own defaults and no path errors.
+
+### ClumpingConfig Object
+
+| Field             | Type                           | Default                   | Description                                                                          |
+| ----------------- | ------------------------------ | ------------------------- | ------------------------------------------------------------------------------------ |
+| `maxPerClump`     | `integer` ≥ 1                  | `12`                      | Maximum members in one clump                                                         |
+| `maxClumps`       | `integer` ≥ 1                  | `20` (uncapped at intake) | Maximum **emitted work units** (clumps + solos) — never findings                     |
+| `minToClump`      | `integer` ≥ 2                  | `2`                       | A group below this many members stays as individual items                            |
+| `floorResolution` | `"act"` \| `"file"`            | `"act"`                   | The **ceiling** a sub-floor item may resolve to; the caller's touched set narrows it |
+| `floorEnabled`    | `boolean`                      | `true`                    | Escape hatch — `false` disables the floor entirely                                   |
+| `seams`           | `{ craft?, review?, intake? }` | —                         | Per-seam overrides; a seam's entry wins over the top-level field of the same name    |
+
+### Per-seam overrides
+
+The top-level fields apply to all three seams. `seams.<name>` narrows an override to one, and that distinction matters because the seams have **different correct defaults**:
+
+| Seam     | Where it runs                                               | How its default differs                                                                                                               |
+| -------- | ----------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| `craft`  | a craft run's emitted findings (`clumpCraftFindings`)       | the primitive's defaults; no touched set, so every sub-floor item resolves to `file`                                                  |
+| `review` | a review's inline GitHub comments (`formatClumpedComments`) | the floor has already run and selected the candidate set, so formation runs with it off; the diff's changed files are the touched set |
+| `intake` | `harness fleet clump-issues`                                | **uncapped** — `maxClumps` bounds work units at a seam that _creates_ work, and intake creates nothing                                |
+
+`maxClumps` is the field to be careful with. It bounds emitted work units at a seam that creates work; intake creates nothing (every issue was filed before it ran). Measured on this repo's backlog on 2026-11-11, a global cap of 20 puts 128 already-filed issues in `overCap` and emits exactly the clump set the uncapped run emits, because an over-cap unit degrades back to the queue entry the issue already had — at 20, on this backlog, the cap is inert. It stops being inert the moment it falls below the number of formed units (`--max-clumps 5`: 11 clumps become 5, and 12 grouped issues are pushed back out), or the moment the backlog carries a rank, where a solo can outrank a clump and take its slot. Nothing is ever lost — both the review and intake seams degrade an over-cap unit back to individual comments/entries rather than dropping it — but the grouping you asked for stops happening. Set `maxClumps` under `seams` rather than at the top level unless you mean it everywhere.
+
+### Precedence
+
+Innermost wins:
+
+```
+built-in defaults
+  → the seam's own baseline (e.g. intake is uncapped)
+    → clumping.<field>
+      → clumping.seams.<seam>.<field>
+        → an explicit CLI flag (e.g. `--max-clumps`)
+```
+
+A field you do not write never overrides anything — an omitted `maxClumps` leaves the intake baseline intact.
+
+### Example
+
+```json
+{
+  "clumping": {
+    "maxPerClump": 12,
+    "minToClump": 2,
+    "floorEnabled": true,
+    "seams": {
+      "intake": { "maxClumps": 40 }
+    }
+  }
+}
+```
+
+To turn the floor off while keeping grouping:
+
+```json
+{
+  "clumping": {
+    "floorEnabled": false
+  }
+}
+```
+
+A malformed `clumping` block is reported by the config loader and then ignored: the seams fall back to their defaults rather than failing the run.
+
 ## `phaseGates`
 
 - **Type:** `PhaseGatesConfig`

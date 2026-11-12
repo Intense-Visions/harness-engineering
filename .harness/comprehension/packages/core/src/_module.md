@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/src'
-sourceHash: '3f87581758e4b48c5e5a21b31e7ca7442181879390af539d6d71c8fc641dd979'
+sourceHash: '43fdc843e956df282b69833844cbaaaf5dba91dc44a5be95757ae2160000f2cb'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -19,8 +19,10 @@ export BranchValidationResult
 export BranchingConfig
 export CacheMetricsRecorder
 export CacheMetricsRecorderOptions
+export Confidence
 export ConstraintError
 export ContextError
+export CraftTier
 export DEFAULT_FIND_FILES_IGNORE
 export DailyAdoption
 export EntropyError
@@ -28,6 +30,7 @@ export Export
 export FeedbackError
 export FiringDecision
 export HealthCheckResult
+export Impact
 export Import
 export LanguageParser
 export OTLPExporter

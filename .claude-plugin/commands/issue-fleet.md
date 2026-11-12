@@ -1,6 +1,6 @@
 ---
 name: harness:issue-fleet
-description: Autonomous open-issue-backlog intake orchestrator — enumerate the open-issue queue, triage each issue (label, dedup, route, prioritize), confirm the destructive closes with the human in one up-front round, fan out concurrency-governed triage subagents over queue slices, independently re-derive every mutation from the issue's own signals, and hand the downstream fleets a clean, ranked, deduped, routed queue. Never silently closes an issue.
+description: Autonomous open-issue-backlog intake orchestrator — enumerate the open-issue queue, triage each issue (label, dedup, route, prioritize, clump), confirm the destructive closes with the human in one up-front round, fan out concurrency-governed triage subagents over queue slices, independently re-derive every mutation from the issue's own signals, and hand the downstream fleets a clean, ranked, deduped, routed queue. Never silently closes an issue.
 argument-hint: '[--path <path>] [--concurrency <concurrency>] [--report-only <report-only>] [--dry-run <dry-run>] [--lease-seconds <lease-seconds>] [--no-claim <no-claim>]'
 allowed-tools:
   - Bash
@@ -17,12 +17,12 @@ Type: rigid
 </context>
 
 <objective>
-Autonomous open-issue-backlog intake orchestrator — enumerate the open-issue queue, triage each issue (label, dedup, route, prioritize), confirm the destructive closes with the human in one up-front round, fan out concurrency-governed triage subagents over queue slices, independently re-derive every mutation from the issue's own signals, and hand the downstream fleets a clean, ranked, deduped, routed queue. Never silently closes an issue.
+Autonomous open-issue-backlog intake orchestrator — enumerate the open-issue queue, triage each issue (label, dedup, route, prioritize, clump), confirm the destructive closes with the human in one up-front round, fan out concurrency-governed triage subagents over queue slices, independently re-derive every mutation from the issue's own signals, and hand the downstream fleets a clean, ranked, deduped, routed queue. Never silently closes an issue.
 
 Phases:
 
-- select: Enumerate the open-issue backlog, extract each issue's signals, compute an initial label/dedup/route/prioritize triage, snapshot the full queue for cross-slice dedup, and detect routing forks
-- confirm: Present the triaged queue in one round — duplicates flagged for closure with citations, routes, ranked order, forks as questions, proposed concurrency — for a single up-front human approval that carries the destructive-close authorization
+- select: Enumerate the open-issue backlog, extract each issue's signals, compute an initial label/dedup/route/prioritize/clump triage (clumping groups DISTINCT issues into work units; it is not dedup), snapshot the full queue for cross-slice dedup, and detect routing forks
+- confirm: Present the triaged queue in one round — duplicates flagged for closure with citations, routes, ranked order, the clump table with every shed count and the conservation line, forks as questions, proposed concurrency — for a single up-front human approval that carries the destructive-close authorization
 - dispatch: Partition the backlog into disjoint slices and fan out concurrency-governed triage subagents that finalize label/dedup/route/prioritize against the shared dedup snapshot, capped at the concurrency governor
 - verify: Independently re-derive every proposed mutation (each label, dedup close, and route) from the issue's own signals and confirm each authorized close is a genuine duplicate with a real citation — never by subagent self-report
 - report: Apply verified labels/routes, close only human-authorized and verified duplicates with canonical citations, emit the ranked/routed queue grouped by downstream fleet plus a one-row-per-issue batch summary, and never close an unauthorized or unverified issue

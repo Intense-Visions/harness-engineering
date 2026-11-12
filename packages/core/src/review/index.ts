@@ -122,6 +122,14 @@ export {
   formatGitHubComment,
   formatGitHubSummary,
   isSmallSuggestion,
+  formatClumpedComments,
+  formatClumpComment,
+  toClumpableFinding,
+} from './output';
+export type {
+  ClumpedCommentResult,
+  ClumpedCommentReport,
+  FormatClumpedCommentsOptions,
 } from './output';
 
 // Evidence gate

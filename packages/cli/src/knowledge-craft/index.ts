@@ -34,6 +34,7 @@ import {
   CRITIQUE_SYSTEM_PROMPT,
 } from './phases/critique.js';
 import type { KnowledgeCraftOutput, KnowledgeFinding } from './findings/schema.js';
+import { craftClumpView } from '../shared/craft/findings/clumpable.js';
 
 export type KnowledgeCraftMode = 'inline' | 'in-session';
 
@@ -161,6 +162,7 @@ export async function runKnowledgeCraft(input: KnowledgeCraftInput): Promise<Kno
   const totalCost = sumCosts(provider);
   return {
     findings,
+    clumps: craftClumpView(findings, projectRoot),
     summary: {
       phaseRun: ['critique'],
       mode: 'fast',
@@ -298,6 +300,7 @@ export async function finalizeKnowledgeCraft(
 
   return {
     findings,
+    clumps: craftClumpView(findings, projectRoot),
     summary: {
       phaseRun: ['critique'],
       mode: 'fast',

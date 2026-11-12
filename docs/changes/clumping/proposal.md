@@ -1,0 +1,1012 @@
+---
+title: Clumping — a mechanical floor-and-group control for the fleet spine
+status: draft
+tier: large
+roadmap: clumping
+keywords: clumping, noise-floor, fleet-spine, work-bundle, scope-kind-grouping, filing-floor, fold-forward, review-attention
+---
+
+## Overview
+
+Every work item in this repo carries a **fixed ceremony cost**: an issue, a branch, a
+worktree, a 3-OS CI matrix, a review pass, a merge, and a baseline-refresh PR. That cost is
+invariant to the size of the payload. A one-line fix and a subsystem rewrite pay the same
+toll.
+
+Agents emit findings at a rate humans never did, and the findings they emit skew small — a
+rubric hit, a missing guard, a stale doc link. When the emission rate rises and the payload
+shrinks, the ratio inverts: the ceremony becomes the work, and the project spends its review
+attention on the machinery of processing small items rather than on the items themselves, let
+alone on anything large. The second-order effect is worse than the first: a small item is
+_tractable_, so an agent with a choice will pick it, and a backlog of small items quietly
+crowds out the work that moves the project.
+
+**Clumping** is the countermeasure, stated as one mechanical control: **a finding below the
+floor is acted on rather than filed, and a set of like findings becomes one work item rather
+than N.** It applies at all three seams where findings become work — creation, intake, and
+execution — from a single implementation.
+
+The principle is not new here; it is **proven in exactly one place and enforced nowhere**.
+`craft-fleet` already carries it, including the rationale
+(`agents/skills/claude-code/craft-fleet/SKILL.md:218` — "forty naming fixes as forty PRs is a
+denial-of-service on review… one kind of taste question at a time over one coherent scope")
+and the floor rule (`:78`). But a grep for `noiseFloor|applyFloor|belowFloor` across
+`packages/` returns nothing: the floor is prose applied by an agent's goodwill, and the other
+ten craft emitters plus the review machinery never adopted it. This spec converts a working
+convention into a constraint, which is the project's stated bet
+(`STRATEGY.md#our-approach` — "constraints-as-code outperforms prompts-and-conventions").
+
+### Evidence
+
+| Observation                                                                                                 | Source                                                        |
+| ----------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------- |
+| 361 open issues; 127 labeled `bug`; 285 routed to one fleet                                                 | `gh issue list` label histogram, 2026-11-10                   |
+| 15 of the last 25 merged PRs are `chore: refresh baselines after merge` — fixed overhead, one per merged PR | `gh pr list --state merged --limit 25`, 2026-11-10            |
+| The floor rule exists as prose only; no implementation                                                      | `craft-fleet/SKILL.md:78` vs. grep over `packages/`           |
+| Per-item dispatch is the family default; no bundle unit exists in the spine                                 | `docs/reference/fleet-family.md`; `issue-fleet/SKILL.md:131`  |
+| Per-leaf queue batching already tracked, but motivated by token cost, not review attention                  | `docs/reference/fleet-family.md:220` (deferred, #1524)        |
+| `core/src/fleet/` is the precedented home for family-shared controls                                        | `claims/`, `context-budget/`, `rate-budget/`, `spend-budget/` |
+| Caps count _emitted items_, not findings — existing precedent                                               | `craft-fleet/SKILL.md:89`                                     |
+| Priority derivation exists and is sort-only by design (ADR 0019)                                            | `packages/cli/src/shared/craft/findings/derived.ts:48`        |
+
+> **Citation provenance.** Every line citation in this spec was re-verified against `origin/main`
+> at `e45fbe67a` — not against a local checkout, which was 121 commits stale when this spec was
+> drafted. The premise was re-checked at the same ref: no `noiseFloor` / `applyFloor` /
+> `resolveFloor` implementation exists anywhere in `packages/`, and `core/src/fleet/` carries
+> exactly the five sibling controls cited in D6.
+
+### Goals
+
+1. One implementation of clump formation and the floor, in `packages/core/src/fleet/clumping/`,
+   reachable from every seam.
+2. All three seams call it: **creation** (findings grouped before filing), **intake**
+   (`issue-fleet` gains a `clump` triage axis), **execution** (one clump per lane, one PR per
+   clump).
+3. A sub-floor finding's default resolution is **act in place**, not file — bias for action,
+   matching the existing fold-forward discipline.
+4. Everything shed — floored, over-cap, ungraded, solo — is **counted and reported, never
+   silently discarded**.
+5. Net friction goes _down_: no new human gate, clumps ride the existing CONFIRM round, and
+   fewer/larger PRs reduce per-merge overhead.
+6. Each seam is verified **WIRED**, not merely present — a call site with zero live callers is
+   a failed phase.
+7. The control is **adopter-portable**: tunable from `harness.config.json`, and absent any
+   configuration it applies defaults without erroring.
+
+### Non-goals (YAGNI)
+
+- **No anti-fixation rule.** "Effort proportional to impact" is a rationalization table, not a
+  checkable constraint. Noted as a future consideration; not specced.
+- **No CI changes.** The baseline-refresh overhead collapses as a _consequence_ of fewer,
+  bigger PRs. the `refresh-baselines` job at `ci.yml:259` stays shut.
+- **No graph-derived affinity as the grouping key.** `(scope × kind)` is the key; co-change
+  data may later inform _ranking_.
+- **No new approval surface.** Clumping must not cost a round trip; that would defeat its
+  purpose.
+- **Not a dedup mechanism.** `issue-fleet` already dedups. Clumping groups _distinct_ items;
+  the two axes are independent and both run.
+- **`derivePriority` does not move.** Only the axis _types_ relocate; moving the derivation is
+  scope creep.
+
+---
+
+## Decisions made
+
+| #   | Decision                                                                                                                                         | Rationale                                                                                                                                                    |
+| --- | ------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| D1  | Bind at all three seams — creation, intake, execution — in **one build**, not sequenced                                                          | Intake alone forms bundles nothing consumes (the set-but-never-read trap); creation alone leaves 361 items untouched; execution alone receives them unformed |
+| D2  | Grouping key is **`(scope × kind)`**, with a hard **non-conflict precondition** (no two members may require the same hunk)                       | Proven shape from `craft-fleet:218`; the precondition is what keeps a clump from becoming a merge-conflict generator                                         |
+| D3  | Clumps form **mechanically**; the human approves or splits the whole clump set in the **existing CONFIRM round**                                 | Per-clump confirmation reinstates the per-item slog; fully mechanical leaves a bad clump unreviewable                                                        |
+| D4  | A floor applies; its **maximum** resolution is `'act'` (fix in place), narrowed to `'file'` when the item falls outside the caller's touched set | Bias for action. Filing a small item _is_ the ceremony cost — but acting outside the in-flight diff is diff creep wearing a bias-for-action costume          |
+| D5  | Shed items are **counted and reported**; conservation is an executable law, not a comment                                                        | A zero is not evidence — a silent drop and a clean sweep look identical in output                                                                            |
+| D6  | Implementation lives in `core/src/fleet/clumping/`, exported via `fleet/index.ts`                                                                | Sibling of `context-budget` / `spend-budget` / `claims` — the established slot for a spine control                                                           |
+| D7  | The spine `§Clumping` section and one ADR are **deliverables**, not follow-ups                                                                   | A family control absent from `fleet-family.md` is not a family control; adopters read the spine                                                              |
+| D8  | An item with no gradable signal is **never floored and never clumped** — it is terminal, set aside for human triage                              | A fabricated grade is a lie in the queue, exactly as `issue-fleet:202` holds for a fabricated priority                                                       |
+| D9  | The cap counts **emitted work units** (clumps + solos), never findings                                                                           | Follows `craft-fleet:89`; counting findings would let a cap be bypassed by scattering                                                                        |
+| D10 | VERIFY assigns one verdict **per clump**; a member that fails is dropped by reverting its own commit, not by failing the clump                   | Commit-per-member is what makes a partial failure cheap; failing the whole clump would make clumping riskier than per-item dispatch                          |
+
+---
+
+## Technical design
+
+### Module layout
+
+```
+packages/core/src/craft/axes.ts          Tier | Impact | Confidence  (relocated)
+packages/core/src/fleet/clumping/
+  types.ts      ClumpableItem, Grade, ClumpPolicy, Clump, ClumpResult
+  floor.ts      resolveFloor
+  form.ts       formClumps
+  index.ts      barrel
+  floor.test.ts · form.test.ts
+```
+
+Exported through `packages/core/src/fleet/index.ts`, beside `claims`, `context-budget`,
+`rate-budget`, `spend-budget`.
+
+### The normalized item
+
+```ts
+interface ClumpableItem {
+  id: string; // stable identity in the source system; must be unique
+  scope: string; // the unit a reviewer holds in their head at once
+  kind: string; // the kind of judgment the item demands
+  grade: Grade; // what the floor reads
+  weight: number; // sortable; higher = more urgent
+  conflictKeys: readonly string[]; // what this item must edit
+  ref?: unknown; // opaque passthrough to the native record
+}
+
+type Grade =
+  | { kind: 'axes'; tier: Tier; impact: Impact; confidence: Confidence }
+  | { kind: 'severity'; severity: 'critical' | 'important' | 'suggestion' }
+  | { kind: 'ungraded' };
+```
+
+**Why `grade` is a union and not a single number.** `derivePriority`
+(`packages/cli/src/shared/craft/findings/derived.ts:48`) already collapses the three axes to a
+sortable scalar, so `weight` is free. But the floor **cannot** be expressed as a threshold on
+it: `foundational/small/low` scores 1003 and must be floored, while `polish/small/medium`
+scores 109 and must not. Any single cut-off gets one of those wrong. The floor therefore reads
+structure, and `weight` is for ordering only — the same split ADR 0019 already makes ("the raw
+axes remain the authoritative output; this derivation is for stable sort/display ONLY").
+
+**Ungraded is a terminal state.** An item with no gradable signal is **never floored and never
+clumped** (D8): it is set aside in `ungraded` for human triage, exactly as `issue-fleet:202`
+routes an un-scoreable issue to an unranked group rather than inventing a score. The reason it
+is terminal rather than pass-through is mechanical, not stylistic: step 6 ranks and caps emitted
+units **by weight**, so admitting a weightless item to grouping would require fabricating a
+weight — the precise thing D8 exists to forbid. Terminal is also what makes criterion 6's
+five-bucket conservation law well-formed; a pass-through reading would place an item in both
+`ungraded` and `clumps`, and the law could never hold.
+
+### The floor
+
+```ts
+function resolveFloor(
+  item: ClumpableItem,
+  ctx: { touched?: readonly string[] },
+  policy?: Partial<ClumpPolicy>
+): FloorVerdict;
+
+type FloorVerdict = { below: false } | { below: true; resolution: 'act' | 'file'; reason: string };
+```
+
+| Grade      | Below the floor when                                                        |
+| ---------- | --------------------------------------------------------------------------- |
+| `axes`     | `impact === 'small' && (tier === 'aspirational' \|\| confidence === 'low')` |
+| `severity` | `severity === 'suggestion'`                                                 |
+| `ungraded` | never                                                                       |
+
+The axes rule is grouped exactly as `craft-fleet:78` states it, and a test asserts the **wrong**
+reading did not ship: `foundational/large/low` must return `below: false`. That case is the
+positive control — without it, a floor that silently swallowed every low-confidence finding
+would look identical in output to a correct one.
+
+**`policy.floorResolution` is a ceiling, not an outcome.** It states the _most_ a sub-floor item
+may resolve to. The touched-set precondition then narrows it: `'act'` requires every one of the
+item's `conflictKeys` to already be inside `ctx.touched`. Absent a touched set, or outside it,
+the resolution is `'file'`. Fixing a small item in place is cheap precisely because the file is
+already open.
+
+**A sub-floor item with NO conflict keys degrades to `'file'`.** This is stated rather than left
+to fall out of the code, because it does not: `every` over an empty array is vacuously true, so
+the plain reading hands the _most_ permissive resolution to the item that justifies it least — a
+keyless item would resolve to `'act'` the moment any unrelated file was touched, contradicting
+the rationale above. You cannot act in place on a file you cannot name. The asymmetry with
+formation, where a keyless item _is_ treated as vacuously disjoint and joins the first
+sub-clump, is deliberate: joining a clump claims no hunk and harms no one, while resolving to
+`'act'` authorizes a write.
+
+### Formation
+
+```ts
+function formClumps(
+  items: readonly ClumpableItem[],
+  policy?: Partial<ClumpPolicy>,
+  ctx?: { touched?: readonly string[] }
+): ClumpResult;
+
+interface Clump {
+  id: string; // sha256(JSON.stringify([scope, kind, sorted member ids])), first 16 hex
+  scope: string;
+  kind: string;
+  members: readonly ClumpableItem[];
+  weight: number; // max member weight — a clump is as urgent as its worst item
+  conflictKeys: readonly string[]; // union of members'
+}
+
+interface ClumpResult {
+  clumps: readonly Clump[];
+  floored: readonly { item: ClumpableItem; resolution: 'act' | 'file'; reason: string }[];
+  overCap: readonly ClumpableItem[];
+  ungraded: readonly ClumpableItem[];
+  solo: readonly ClumpableItem[];
+  conflictSplits: number;
+  counts: ClumpCounts; // every bucket, for the report
+}
+
+/** One count per bucket, so a report can never omit a bucket silently. */
+interface ClumpCounts {
+  input: number; // total items received
+  clumps: number; // emitted clump units
+  clumped: number; // members summed across emitted clumps
+  floored: number;
+  flooredAct: number; // sub-tally of floored — see note
+  flooredFile: number; // sub-tally of floored — see note
+  overCap: number;
+  ungraded: number;
+  solo: number;
+  conflictSplits: number;
+}
+```
+
+**The clump id is JSON-encoded, not joined.** The hash input must be injective for arbitrary
+caller strings, and the member-id list is variable-arity: an earlier implementation hashed
+`scope|kind|ids.join(',')`, so a comma inside an `id` shifted the boundary between ids and two
+different member sets — `['a,b', 'z']` and `['a', 'b,z']` — produced the SAME clump id. `id` is
+"stable identity in the source system", and review-finding ids and issue titles routinely
+contain commas, so the collision was reachable from every seam. `JSON.stringify` length-delimits
+each element, so no field can reach outside itself; `JSON.parse` recovers the exact triple,
+which is what makes the property checkable rather than assumed.
+
+Order of operations, and why each step sits where it does:
+
+1. **Grade and floor.** Floored items leave with a resolution. Flooring _first_ means the cap is
+   never spent on items that were never going to be filed.
+2. **Group** survivors by `(scope, kind)`.
+3. **Split on conflict.** Within a group, no two members may share a `conflictKey`. Greedy:
+   members sorted by `weight` desc (tiebreak `id` asc), each placed in the first sub-clump with
+   a disjoint key set, else a new one. This is graph coloring; greedy is sufficient and, with the
+   tiebreak, deterministic.
+4. **Split on size.** A sub-clump over `maxPerClump` splits into weight-ordered chunks.
+5. **Solo rule.** A group below `minToClump` members stays as solo items. A one-member clump is
+   an item wearing extra ceremony.
+6. **Rank and cap.** Emitted work units (clumps + solos) by `weight` desc, **tiebroken by unit
+   id ascending**; apply `maxClumps` (D9); the remainder is `overCap`, which holds the
+   **flattened member items** — not the units — or conservation (criterion 6) cannot hold. The
+   **member** tiebreak is load-bearing and is proven so by a mutant. The **unit** tiebreak is
+   defence-in-depth, NOT load-bearing for run-to-run equality: `[...groups.keys()].sort()`
+   already makes the pre-sort unit array a deterministic function of the input _set_, and V8's
+   sort is stable, so two runs agree with or without it. Its real guarantee is **which** tied
+   unit survives the cap — the lexicographically smallest unit id among a tied set — and that
+   is the property a test must pin. An earlier draft of this spec called the unit tiebreak
+   load-bearing for criterion 7; verification refuted that (a mutant removing it left all 77
+   tests green), and the over-claim is recorded here rather than quietly deleted because it is
+   exactly the shape that produces a vacuous test.
+7. **Count every bucket.**
+
+#### Failure modes and edge cases
+
+- **Empty input** ⇒ an empty result with all counts zero. Not an error. That is the contract of
+  `formClumps`, which answers "no items, no units". The clump CONSTRUCTOR is the opposite case
+  and **rejects** an empty member list by name: a clump reports the scope, kind and weight _of
+  its members_, so with none there is no answer to give, and the same loudness the duplicate-`id`
+  rule gets applies.
+- **Every item floored** ⇒ **zero clumps is a valid result.** The system shall not fabricate a
+  clump so a sweep does not look wasted — the same restraint `craft-fleet:53` applies to a quiet
+  target.
+- **Duplicate `id`** ⇒ **reject loudly.** Silently collapsing two items is precisely the silent
+  drop this spec exists to prevent.
+- **An item whose `conflictKeys` is empty** ⇒ co-groupable with anything in its `(scope, kind)`;
+  it claims no hunk. At the **floor**, the same emptiness cuts the other way: it resolves to
+  `'file'`, never `'act'` (see "The floor").
+- **A group where every member conflicts with every other** ⇒ degenerates to N solo items, and
+  `conflictSplits` records it. Correct, not a failure.
+- **A `scope` or `kind` containing whatever character the key is built from** ⇒ still its own
+  group. The group key is `JSON.stringify([scope, kind])`, which is injective for arbitrary
+  caller strings (`JSON.parse` recovers the exact pair), so no pair can forge another pair's
+  key. This is stated as a property rather than as a restriction on callers on purpose: an
+  earlier implementation joined the two fields on a space under a comment asserting a space
+  "cannot appear in a scope or kind", which nothing enforced — `scope` is a directory, and
+  directories contain spaces. `{scope: 'src/my api', kind: 'CODE'}` and
+  `{scope: 'src/my', kind: 'api CODE'}` collided, and because a clump reports the scope and
+  kind of its first member, the forged item was filed under a scope and a kind that were not
+  its own.
+
+`flooredAct` and `flooredFile` are a **sub-tally** of `floored` (`flooredAct + flooredFile ===
+floored`) and deliberately do **not** participate in the conservation sum — adding them would
+double-count every floored item and make criterion 6 unsatisfiable. They exist because the act
+-versus-file split is the single most useful number in the report: it says how much of the tail
+was absorbed in place rather than turned into tracker entries.
+
+### Policy
+
+```ts
+interface ClumpPolicy {
+  maxPerClump: number; // default 12
+  maxClumps: number; // default 20  (matches craft-fleet's existing caps)
+  minToClump: number; // default 2
+  floorResolution: 'act' | 'file'; // default 'act'  — a ceiling; see the floor section
+  floorEnabled: boolean; // default true   — escape hatch, cf. --no-claim
+}
+```
+
+Surfaced in `harness.config.json` as a `clumping` block so adopters tune without code. Absent ⇒
+defaults, no error — the same posture as `context-budget` and `spend-budget`. `floorEnabled`
+exists for the same reason `--no-claim` does: a mechanical control the operator cannot switch
+off is one they will work around instead.
+
+`DEFAULT_CLUMP_POLICY` is exported from the package barrel and is **frozen**. A shared mutable
+default is a process-wide write: any one consumer — including the three seam adapters — could
+set `DEFAULT_CLUMP_POLICY.maxPerClump` and move the floor's defaults for every other caller,
+with nothing in any report to say it happened. `resolveClumpPolicy` still hands back a fresh
+mutable object, so callers own what they get.
+
+The same decision covers the above-floor verdict. `resolveFloor` returns ONE shared object for
+every item it passes, so it too is **frozen**. Measured before the freeze: two calls on different
+items returned the same identity, and a single `verdict.below = true` by one consumer made every
+subsequent above-floor verdict report `below: true` — the floor silently becoming a delete for
+critical items. The below-floor verdict stays a fresh object per call, because it carries a
+per-item `reason`.
+
+### Seam adapters
+
+Core knows nothing about findings, issues, or PRs. Each seam owns a small adapter:
+
+| Seam                          | `scope`                                                                                                                                          | `kind`                                                 | `conflictKeys`                                                 | `weight`              |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------ | -------------------------------------------------------------- | --------------------- |
+| **Creation — craft**          | directory of `target.file` (the granularity craft-fleet already files at: `craft-code-packages-cli-src-commands`)                                | rubric family — the prefix of `code`, e.g. `CODE-R004` | `[target.file]`                                                | `derivePriority(...)` |
+| **Creation — review**         | directory of `file`                                                                                                                              | `domain` tag                                           | `[file:lineRange]` — built by the adapter; nothing computes it | severity rank         |
+| **Intake — `issue-fleet`**    | path signal from title/body, else a per-issue `unscoped#<id>` (ungroupable)                                                                      | `type` label (`bug` / `enhancement` / `documentation`) | mentioned paths                                                | existing rank         |
+| **Execution — fleet members** | consumes a `Clump` as the lane unit — via `harness fleet clump-dispatch`, since all four members are SKILL.md files with no dispatcher to change | —                                                      | —                                                              | —                     |
+
+File-level `conflictKeys` at the craft creation seam is the honest granularity: a craft elevation
+rewrites whole units, so line-level keys would under-report conflicts. Line-level refinement for
+the review seam is already available and used there.
+
+**An `unscoped` issue is NOT GROUPABLE — not with a scoped issue, and not with another unscoped
+one.** It stays solo, and the unscoped count is reported. Inferring a scope that isn't there
+manufactures exactly the false affinity that makes a clump unreviewable, and so does grouping on
+the absence of the signal: a shared `'unscoped'` sentinel was itself a group key, which measured
+live produced four unscoped clumps of 12 + 12 + 7 + 3 = 34 members — 52% of the clumped output,
+and no two members of any of them related. Each path-less issue therefore carries its own
+`unscoped#<item id>` scope, so non-groupability is structural rather than a rule core has to
+know. The item is still GRADED (it carries a type label), so it is not routed to D8's terminal
+`ungraded` bucket; it is only unclumped.
+
+### The one-PR-per-clump contract
+
+One branch, one PR, **one commit per member**. Title names the clump
+(`fix(core): <kind> across <scope> (N items)`); body lists each member with its citation. That
+shape gives the reviewer the three properties that make bulk review tractable: one judgment mode,
+one coherent scope, and a granular trail.
+
+**VERIFY semantics (D10).** A member's DISPATCH produces one clump per lane, and VERIFY assigns
+**one verdict per clump**. A member of the clump that fails verification is **dropped by reverting
+its own commit**, and the clump proceeds with the rest, recording the drop and its reason. The
+whole clump fails only when the post-drop remainder is empty or no longer builds. Without this
+rule, bundling N items would make a single bad item N times as expensive as it is today — the
+opposite of the goal.
+
+### One layering change
+
+`Tier` / `Impact` / `Confidence` currently live in
+`packages/cli/src/shared/craft/findings/axes.ts`. Core cannot import from cli, so the types move
+to **`packages/core/src/craft/axes.ts`** and `axes.ts` re-exports them, keeping its public
+surface byte-compatible for all eleven craft consumers. `derivePriority` stays in cli; core
+defines the vocabulary, cli derives from it, and no cycle is introduced.
+
+---
+
+## Integration points
+
+### Entry Points
+
+- `packages/core/src/fleet/clumping/` — new module (types, floor, form, barrel).
+- `packages/core/src/fleet/index.ts` — new export surface.
+- `packages/core/src/craft/axes.ts` — relocated axis types.
+- Three adapter modules: craft findings, review findings, `issue-fleet` triage.
+- `issue-fleet` SELECT — a fifth triage axis, `clump`, beside label / dedup / route / prioritize.
+- `packages/core/src/fleet/clumping/dispatch.ts` — the one-PR-per-clump plan and the D10 verdict.
+- `packages/cli/src/commands/fleet/clump-dispatch.ts` — `harness fleet clump-dispatch`, the callable the four
+  members' DISPATCH and VERIFY invoke (their lane units are prose; there is no dispatcher to change).
+- DISPATCH lane unit and VERIFY D10 in four members: `roadmap-fleet`, `bug-fleet`, `cleanup-fleet`, `craft-fleet`;
+  `craft-fleet` SELECT additionally READS `output.clumps` instead of re-folding findings.
+- `harness.config.json` — new `clumping` block.
+
+### Registrations Required
+
+- **The `SELECTIVE_EXPORTS` block IS the registration for `craft/` — it needs no `index.ts`.**
+  `generate-core-barrel.mjs:141` sets `SKIP_DIRS = new Set(Object.keys(SELECTIVE_EXPORTS))`, so a
+  directory named there is deliberately excluded from `discoverStarModules()` and is published
+  only through its explicit block. (An earlier draft of this spec claimed an `index.ts` was
+  required; that is false, and the two bullets contradicted each other.) **`fleet/clumping` needs
+  no barrel-script edit at all**: `packages/core/src/index.ts:149` already carries
+  `export * from './fleet'`, so clumping reaches the barrel through `fleet/index.ts`.
+- **`Tier` must be published as `CraftTier` via `SELECTIVE_EXPORTS`.**
+  `packages/core/src/harness-strength/types.ts:16` already exports a `Tier`
+  (`'solid' | 'incomplete' | 'at-risk' | 'theatre'`) which `index.ts:300` star-exports; a second
+  star source for that name is **TS2308**. The cli shim renames it back so `axes.ts` stays
+  byte-compatible for its 17 importers. Do **not** "fix" this with an explicit re-export — that
+  exits 0 while silently shadowing the star export, which is a silent public-name redefinition.
+  The gate is a probe over the BUILT declaration surface, asserting the craft union appears as
+  `<local> as CraftTier` and never as `<local> as Tier`. An earlier draft of this spec promised
+  "a compile-time assertion pins `core.Tier === 'solid'`"; a line of that shape exists but is
+  **inert** — `packages/cli/tsconfig.json` excludes `tests`, so `tsc --noEmit` never sees it and
+  vitest strips types without checking them. It was measured still compiling under a deliberate
+  shadowing with the cli typecheck exiting 0. A type-level assertion in an excluded directory is
+  not a gate, and recording that here is cheaper than rediscovering it.
+- `packages/cli/src/config/schema.ts` — `clumping` block.
+- `templates/**/harness.config.json.hbs` — the adopter template. **Never run prettier on it**; it
+  mangles JSON-in-hbs.
+- SKILL.md edits touch `agents/skills/claude-code/<skill>/` only — the cursor / codex /
+  gemini-cli mirrors are symlinks and update with it; the gemini `.toml` regenerates in pre-commit.
+- `pnpm run generate-docs` — `docs/reference/configuration.md` is generated and the config change
+  makes it stale; pre-push blocks otherwise.
+
+### Documentation Updates
+
+- `docs/reference/fleet-family.md` — new **§Clumping** section, written as a peer of §"The
+  concurrency governor" and §"The per-leaf context budget". Members reference it rather than
+  restate it. Also update `:220`, which defers per-leaf batching under #1524 on token-cost
+  grounds — this spec supersedes the review-attention half of that note.
+- `docs/reference/configuration.md` — regenerated.
+- Five SKILL.md files: `issue-fleet` (SELECT axis), and the four members' DISPATCH + escalation
+  steps.
+
+### Architectural Decisions
+
+One ADR, numbered against `origin/main` at authoring time (not against the local tree). It
+carries **D1** (all three seams in one build rather than sequenced), **D2** (`(scope × kind)`
+with the non-conflict precondition), **D4** (the `'act'` ceiling and its touched-set
+precondition), **D8** (never floor the ungraded), and **D10** (one verdict per clump, failing
+member reverted). The axis-type relocation is recorded as a note inside it, not as a second ADR.
+
+### Knowledge Impact
+
+**Owned by Phase 2**, alongside the spine section and the ADR. No other phase claimed it, and an
+unclaimed deliverable is a dropped one.
+
+Three concepts are recorded, all in one authored document,
+**`docs/knowledge/fleet/clumping.md`**:
+
+- The **clumping principle** as a **fleet control**, related to its two siblings — the
+  concurrency governor and the per-leaf context budget (plus the global spend envelope) — as the
+  one that caps how many work units the queue is made of, where the others cap how many leaves
+  run, how much each loads, and how much a run spends.
+- The concept **"ceremony cost is invariant to payload size"** — what makes high-rate
+  small-finding emission pathological. It generalizes past this repo and is the reusable half of
+  the insight.
+- The relationship **clumping ≠ dedup**: dedup removes restatements of one thing, clumping groups
+  distinct things. Both axes run; conflating them is the likeliest misreading.
+
+**The channel, stated accurately.** This repo records authored domain concepts as prose files
+under `docs/knowledge/<domain>/` carrying `type: business_concept` frontmatter. That channel is
+real and in use: **34** such documents exist across 14 domains, `gather_context` reads them as its
+`businessKnowledge` constituent, and `harness-brainstorming` treats them as a first-class source.
+`docs/knowledge/fleet/` is a new domain directory; no allowlist gates domain names
+(`BusinessKnowledgeIngestor` derives the domain from frontmatter, falling back to the path), and
+`docs/knowledge/**/*.md` is already inside this repo's configured `drift.docPaths`.
+
+**What "recorded in the knowledge graph" does and does not mean here — corrected.** Earlier
+drafts of this section (and the dedup-confusion mitigation in Risks) said these concepts would be
+recorded _as graph nodes_. That overstates what is true today, so it is corrected rather than
+left to look materialized:
+
+- A scoped grep of `.harness/knowledge/`, `.harness/learnings.md` and `.harness/decisions/` for
+  the two sibling concepts ("concurrency governor", "per-leaf context budget") returns **zero**.
+  The authored-concept-node channel those sections are supposedly recorded in **has no instances
+  anywhere in this repo**. Nothing was invented to fill it.
+- `packages/graph/src/ingest/BusinessKnowledgeIngestor.ts` _would_ ingest a `business_concept`
+  document as a `bk:<domain>:<filename>` node. But this repo's own graph store
+  (`.harness/graph/graph.json` in the primary clone, ~2.0M records) currently contains **zero**
+  `business_concept` nodes — the 34 existing concept documents have never been materialized into
+  it either. Graph materialization is therefore an available capability, not a current fact, and
+  this spec does not claim it.
+
+The honest statement is: **the document is the record**; if and when the knowledge pipeline is run
+over `docs/knowledge/`, this concept materializes on exactly the same terms as the other 34.
+
+---
+
+## Success criteria
+
+1. When `formClumps` receives N items sharing `(scope, kind)` with pairwise-disjoint conflict
+   keys, the system shall emit exactly one clump with N members. _(Goal 1)_
+2. If two items share a conflict key, then the system shall not place them in the same clump.
+   _(Goal 1)_
+3. When an item grades `foundational` / `large` / `low`, `resolveFloor` shall return
+   `below: false` — the positive control proving the floor did not ship as
+   `(small ∧ aspirational) ∨ low`. _(Goal 1)_
+4. When an item's grade is `ungraded`, the system shall not floor it and shall report it in
+   `ungraded`. _(Goals 4, D8)_
+5. When a sub-floor item's conflict keys are all inside the caller's touched set, the resolution
+   shall be `'act'`; when any falls outside it, or no touched set is supplied, the resolution
+   shall be `'file'`. _(Goal 3)_
+6. **Conservation:** every input item shall appear exactly **once** across
+   `clumps ∪ floored ∪ overCap ∪ ungraded ∪ solo`. _(Goal 4)_
+7. Two runs of `formClumps` over the same input shall produce identical output, including clump
+   ids and member order. _(Goal 1)_
+8. Each seam that FORMS a clump shall have at least one **live** caller of `formClumps`
+   reachable from a real entry point — grep-verifiable; zero callers is a failed phase. Those
+   seams are the three `ClumpSeam` values (`config.ts`): **craft creation**
+   (`cli/src/shared/craft/findings/clumpable.ts`), **review creation**
+   (`core/src/review/output/clump-comments.ts`) and **intake**
+   (`cli/src/commands/fleet/clumpable-issues.ts`). _(Goals 2, 6)_
+
+   _Amended in the review round: this criterion said "each of the three seams", and the triple it
+   was satisfied at is not the triple Goal 2 and ADR 0135 D1 name._ D1's triple is creation /
+   intake / **execution**; `formClumps`'s three live callers are craft / review / intake —
+   creation counts twice, because findings become work at two different creation surfaces. The
+   **execution seam has zero `formClumps` callers and correctly so: it CONSUMES a clump rather
+   than forming one.** Its wiring evidence is therefore a different thing, and this is it: a
+   live, registered consumer with integration tests —
+   `harness fleet clump-dispatch` (`cli/src/commands/fleet/clump-dispatch.ts`), registered on the
+   `fleet` command group (`cli/src/commands/fleet/index.ts`) and pinned by
+   `clump-dispatch.test.ts`'s "WIRED" suite, which asserts both the registration and that the
+   command plans over real `formClumps` output rather than a hand-built fixture, plus
+   `agents/skills/tests/fleet-clump-lane-unit.test.ts`, which pins that all four members' prose
+   points at the callable in every platform copy. Counting the execution seam by `formClumps`
+   callers would have made the criterion unsatisfiable by construction, which is the shape that
+   gets a criterion quietly reinterpreted instead of amended.
+
+9. When `issue-fleet` reaches CONFIRM, it shall emit **exactly one** CONFIRM interaction, and that
+   surface shall carry the clump table with per-clump member counts and every shed count.
+   _(Goal 5)_
+10. When a fleet member dispatches a clump, `harness fleet clump-dispatch` shall produce exactly
+    one PR **PLAN** per clump — one branch, one title, one body citing every member, and
+    `plan.commits.length === clump.members.length` in member order — and shall reject a
+    member-less clump rather than plan an empty PR. _(Goal 5)_
+
+    _Amended in the review round: the criterion read as though a PR is produced, and no phase of
+    this spec opens one._ The limit was disclosed in three places in the prose (Phase 5's "What
+    this phase does NOT close", the one-PR-per-clump contract section, and the Risks table) while
+    the criterion itself still claimed the PR. What is proved is the PLAN: running it is the
+    lane's job, the lane is a SKILL.md, and claiming the PR would be the
+    emission-dressed-as-consumption move Phase 5 exists to stop repeating. The disclosure stands;
+    the criterion now says what is actually verified.
+
+11. If every input item falls below the floor, then the system shall emit zero clumps and shall
+    not fabricate one. _(Goal 4)_
+12. If two input items share an `id`, then `formClumps` shall reject the input rather than collapse
+    them. _(Goal 4)_
+13. Absent a `clumping` block in `harness.config.json`, defaults shall apply and no path shall
+    error. _(Goal 7)_
+14. When a clump member fails verification, the member shall be dropped by reverting its own
+    commit and the clump shall proceed with the remainder, recording the drop and its reason.
+    _(Goal 5, D10)_
+
+---
+
+## Implementation Order
+
+Each phase is independently verifiable and leaves the tree green. Phases run in order; later
+seams depend on the Phase 1 primitive existing.
+
+### Phase 1: Core primitive
+
+<!-- complexity: medium -->
+
+Types (`ClumpableItem`, `Grade`, `ClumpPolicy`, `Clump`, `ClumpResult`), `resolveFloor`,
+`formClumps`, axis types relocated to `packages/core/src/craft/axes.ts` with the cli
+`axes.ts` re-exporting them (as `CraftTier`, see Integration Points). `craft/` needs no
+`index.ts` — it is a `SELECTIVE_EXPORTS` key and therefore in `SKIP_DIRS` by design.
+
+**Verified by:** unit tests covering success criteria 1-7 and 11-12; a runtime resolve check
+proving the barrel export is actually reachable (not a silent no-op); and `harness validate`
+at **no worse than its 495-issue baseline** plus a scoped grep showing no new issue cites a
+Phase-1 path. The gate is baseline-relative because `harness validate` exits 1 on this repo
+today (495 pre-existing issues: roadmap rows lacking spec/plan/assignee, 10 grandfathered ADR
+collisions, design-token findings). A "clean" gate would be unachievable and would get quietly
+downgraded to "we ran it".
+
+### Phase 2: Spine section and ADR
+
+<!-- complexity: low -->
+
+A `§Clumping` section in `docs/reference/fleet-family.md` written as a peer of
+`§The concurrency governor` and `§The per-leaf context budget`, plus one ADR carrying D1, D2,
+D4, D8 and D10 (with the axis-type relocation and the `CraftTier` collision as a note inside it,
+not as a second ADR). Update `fleet-family.md:220`, which defers per-leaf batching under #1524 on
+token-cost grounds — this spec supersedes its review-attention half and leaves the token-cost half
+tracked there.
+
+**This phase also owns the Knowledge Impact deliverable**, which no other phase claimed: the three
+concepts above, recorded in the channel this repo actually uses for authored domain concepts, with
+the limits of that channel stated rather than papered over.
+
+**Also in scope:** the `docs/reference/` index entries that clear the two
+`Undocumented: packages/core/src/fleet/clumping/{form,floor}.ts` warnings left by Phase 1. Doc
+coverage is **link-based on basenames** (`packages/core/src/context/doc-coverage.ts`): a source
+file counts as documented only when some markdown file under `docs/` carries a link whose path or
+basename matches it. Prose in the spine section does not clear them; an index entry linking the
+file does.
+
+**Verified by:** section exists as a peer control; ADR numbered against `origin/main`; the three
+concepts recorded; the two `Undocumented:` warnings confirmed gone by re-running `harness ci
+check`; reference docs fresh.
+
+### Phase 3: Creation seam
+
+<!-- complexity: medium -->
+
+Craft-finding and review-finding adapters to `ClumpableItem`, and clump formation at each
+path's real terminal boundary.
+
+**The original gate for this phase was unsatisfiable, and the reason is worth recording.** It
+read "an integration test proving 20 same-kind findings file exactly 1 issue". Neither path can
+satisfy that. `craft-fleet` is a `SKILL.md`, not code — a scoped grep for it across
+`packages/**/*.ts` returns one hit, a comment — so filing happens when an _agent_ calls
+`manage_roadmap`, and there is no code point between craft emission and filing to group at. The
+review path never files anything at all: its terminal act is a terminal report plus one inline
+GitHub comment per finding (`format-github.ts:64`). The spec's own Overview says this principle
+is "proven in exactly one place and enforced nowhere", and this phase then assumed the code seam
+the Overview says is absent. Each path therefore gets the gate its own terminal act can bear:
+
+- **Craft — group at EMISSION.** The gate is "N findings over N DISTINCT files within one
+  `(scope, kind)` fold into one unit", not "N findings fold into one unit": `conflictKeys =
+[target.file]` means two findings on the same file may never co-clump. A real `runCodeCraft`
+  over 4 peer files yields 28 findings in 7 clumps of 4 — a 4x reduction in work units, not a
+  28x one. Each uniform family has TWO terminal sites (`run*Craft` inline and `finalize*Craft`
+  in-session) — 21 sites across 11 families, and the in-session path is the one the craft skills
+  actually use. design-craft has no `index.ts` orchestrator; its terminal builder is `runPipeline`
+  in `packages/cli/src/mcp/tools/design-craft.ts:687`.
+
+  (original wording follows)
+
+- **Craft — group at EMISSION.** Each craft orchestrator (11 of them, e.g.
+  `packages/cli/src/code-craft/index.ts:145`) emits `clumps` alongside `findings`. Gate: a run
+  over N same-`(scope, kind)` findings emits **one work unit**, plus a grep proving a production
+  importer of `formClumps`. This is honestly weaker than "files 1 issue" — it proves emission,
+  not consumption — so **Phase 5 makes `craft-fleet/SKILL.md` read the emitted clumps**, and
+  that cross-phase pair is what closes the set-but-never-read risk. Phase 5 is not optional for
+  this reason.
+- **Review — group the sub-floor comments.** The chokepoint is `runReviewPipeline`
+  (`packages/core/src/review/pipeline-orchestrator.ts:125`, three production callers), after
+  DEDUP+MERGE at `:382`. `critical` and `important` findings keep their individual inline
+  comments, because a line anchor is the whole value of an inline comment. `suggestion`-severity
+  findings — the floor's natural target — group into **one** comment per `(scope, kind)`. Gate:
+  N same-`(scope, kind)` suggestions produce 1 comment, not N, with criticals untouched.
+
+**The floor and the formation are two separate steps at the review seam, and conflating them
+makes the seam inert.** `suggestion` grades BELOW the floor, so passing the suggestions to
+`formClumps` with the floor still enabled floors them a second time, yields zero clumps, and
+leaves the seam wired, green and doing nothing. The correct composition is `resolveFloor` to
+route each finding, then `formClumps(candidates, { ...policy, floorEnabled: false }, ctx)` over
+the below-floor set. This is the single most dangerous omission the build found: it passes every
+mechanical gate.
+
+**Seam adapters own id uniqueness.** `ReviewFinding.id` is `domain-file-line` and is NOT unique —
+DEDUP only merges ranges overlapping within 3 lines, so twins survive. Criterion 12's
+reject-rather-than-collapse is right when the output is a filed issue and is a _crash_ when the
+output is a review comment, so each adapter appends an occurrence ordinal. Craft findings carry
+no id at all and need the same.
+
+**An over-cap unit at the review seam degrades to individual comments.** The cap counts emitted
+work units; shedding one at this seam would mean a LOST review comment, which is the silent drop
+this control exists to prevent. Over-cap findings fall back to their own comments — no worse than
+today.
+
+**Craft `scope` is an absolute directory, so craft clump ids are machine-local.** `target.file`
+is absolute, so the published id hash is stable per-machine and differs across machines.
+Criterion 7 holds within a run and not between clones. Four families carry a separate
+`target.relative`; fixing this is deferred to Phase 6, which owns portability. Stated rather than
+left for a future reader to discover from a mismatched id.
+
+> **Amended by Phase 6's build.** This paragraph originally proposed the fix as "relativizing
+> `scope` against the project root", and that would NOT have worked: a member id is
+> `code:file:line#ordinal`, so the absolute path reaches the hashed id through the MEMBERS too.
+> Phase 6 relativizes the path ONCE and derives `id`, `scope` and `conflictKeys` from it, and
+> pins the half-fix as its own mutant. See Phase 6 finding 1.
+
+**Note: DEDUP+MERGE is not clumping.** `deduplicate-findings.ts:153` merges findings whose
+`lineRange`s overlap within 3 lines — restatements of ONE finding. Clumping groups DISTINCT
+findings. Both run; conflating them is the likeliest misreading of this phase.
+
+**`ctx.touched` has a supplier on only one path, and Goal 3 is correspondingly narrower.** Review
+has a natural one (the diff's changed files), so D4's `'act'` resolution is reachable there. A
+craft sweep is not an in-flight diff and has no touched set, so **every sub-floor craft item
+degrades to `'file'`** — by the keyless/absent-touched-set rule, not by accident. Goal 3 is
+satisfied at the review seam and is structurally unreachable at the craft seam. Recording that is
+better than letting a goal read as met everywhere.
+
+### Phase 4: Intake seam
+
+<!-- complexity: medium -->
+
+A fifth `clump` triage axis in `issue-fleet` beside label / dedup / route / prioritize, and the
+clump table plus shed counts on the existing CONFIRM surface. Delivered as
+`packages/cli/src/commands/fleet/clumpable-issues.ts` (the issue → `ClumpableItem` adapter) and
+`harness fleet clump-issues` (the callable the SKILL invokes), plus the SKILL edit.
+
+**Verified by:** a clump set derived from the live open-issue backlog; conservation holds on
+real data; success criterion 9 observed (exactly one CONFIRM interaction).
+
+**Measured on the live backlog (347 open issues, 2026-11-11):** 16 clumps over 66 issues, 281
+individual queue entries, 164 `unscoped`, 173 untyped, 9 multi-typed, 0 floored, 0 over-cap, 20
+conflict splits. Conservation holds: `347 = 66 + 0 + 0 + 182 + 99`.
+
+**Eight things this phase's build found wrong, in the same spirit Phase 3 recorded its seven.**
+
+1. **The axis had no code to bind to, and establishing that was the first deliverable.**
+   `harness roadmap triage` sounds like the intake path and is not: it parses the roadmap
+   aggregate, filters rows to `planned|backlog` (`triage-feature.ts:23`), and maps each
+   `RoadmapFeature` onto the unified `Issue` model (`triage-feature.ts:27`) — it never reads the
+   tracker. `triage-provider.ts` is only the SEL `AnalysisProvider` resolver for that path. The
+   ONLY code that reads the GitHub issue backlog is
+   `GitHubIssuesSyncAdapter.fetchAllTickets` (`packages/core/src/roadmap/adapters/github-issues.ts:433`)
+   and `GitHubIssuesTrackerAdapter.fetchAll` (`roadmap/tracker/adapters/github-issues.ts:123`,
+   label-filtered to `harness-managed`) — and `ExternalTicketState`
+   (`packages/types/src/tracker-sync.ts:17`) carries no body, so NEITHER can supply the path
+   signal `scope` needs. Enumeration really is `gh` invoked by an agent. The honest answer is
+   therefore a CALLABLE the SKILL invokes, sibling of `harness fleet budget-check`, which exists
+   for exactly this reason — not a SKILL.md paragraph, which is the set-but-never-read trap D1
+   was written to prevent.
+
+2. **The floor is structurally inert at this seam; formation is the half that binds.** The
+   floor's question is "is this worth the ceremony cost of being FILED, or acted on in place?"
+   and an issue at intake is ALREADY filed. `issue-fleet`'s Iron Law forbids unfiling it (no
+   close without explicit human authorization), and intake is not an in-flight diff, so D4's
+   `'act'` has no touched set to resolve against. `floored` is 0 BY CONSTRUCTION. This is the
+   intake twin of Phase 3's "Goal 3 is structurally unreachable at the craft seam", and it is
+   recorded for the same reason: a zero and a disabled check look identical in output. The floor
+   is left ENABLED and a positive control pins that a `suggestion`-graded item is still shed
+   under the intake policy.
+
+3. **`Grade` has no issue dialect, and the obvious reading made the phase inert.** An issue
+   carries neither craft axes nor review severity, so the tempting mapping is `ungraded` — and
+   `ungraded` is TERMINAL (D8), checked unconditionally at step 1 of `formClumps` BEFORE the
+   floor, so `floorEnabled: false` does not rescue it. Grading every issue `ungraded` yields
+   zero clumps while every test stays green. The mapping is instead: a single type label ⇒
+   `severity: 'important'` (above the floor, which at this seam is structural rather than a
+   judgment); no single type label ⇒ `ungraded`, which turns D8 into the code form of the
+   SKILL's existing "an un-scoreable issue goes to an unranked group" rule. Zero type labels and
+   two type labels both land there and are counted SEPARATELY, because "nobody typed it" and
+   "two people typed it differently — a routing fork" are different human actions.
+
+4. **The primitive's `maxClumps: 20` default is wrong here, for the reason the review seam
+   already gave.** D9's cap bounds EMITTED WORK UNITS at a seam that CREATES work. Intake creates
+   none — every issue was filed before the axis ran. The intake policy is uncapped by default; a
+   caller-set cap is honoured and an over-cap unit degrades to individual queue entries, exactly
+   as an over-cap review unit degrades to individual comments.
+
+   _Amended in the review round: the figure this note used was wrong, and the consequence it
+   claimed is currently inert._ The note said a cap of 20 "would shed ~300 already-filed issues
+   into a bucket". That was never measured, and it is impossible by construction: 182 of the 347
+   open issues are `ungraded` and never enter a unit, so the ceiling is 165. Measured 2026-11-11
+   with `harness fleet clump-issues --max-clumps 20`: `overCap` is **128**, and the emitted clump
+   set is IDENTICAL to the uncapped run — 11 clumps, 28 clumped — because an over-cap issue
+   degrades to the queue entry it already had. At 20, on this backlog, **the cap is inert**. The
+   uncapped baseline earns its place on the cases where it is not inert, and both are measured: a
+   cap below the number of formed units sheds grouped issues outright (`--max-clumps 5`: 11
+   clumps become 5, 12 grouped issues pushed back out), and on a ranked backlog a solo can
+   outrank a clump and take its slot — the weights are 0 today only because a raw `gh` dump
+   carries no rank.
+
+5. **The `unscoped` sentinel can collide with a real directory, and the Risks table does not say
+   how that is prevented.** "`unscoped` never co-clumps with scoped" is enforced only by the
+   `(scope, kind)` group key, so a repository directory named `unscoped` would silently join the
+   genuinely-unscoped group. Every derived scope is therefore rendered WITH a trailing `/`
+   (`packages/cli/`), which no sentinel-free reading can produce — structural, not a special
+   case, and pinned by a test.
+
+   _Amended in the review round: the sentinel was still a GROUP KEY, which is the defect one
+   level up from the collision._ A sentinel whose doc comment says it exists to prevent false
+   affinity cannot also be the thing items are grouped by. Measured live (347 open issues,
+   2026-11-11): four unscoped clumps, 12 + 12 + 7 + 3 = 34 members, 52% of the 66 clumped issues.
+   Each path-less issue now carries `unscoped#<item id>` — unique per issue, so grouping is
+   structurally impossible and the item lands in `solo`, where an unclumpable issue belongs. The
+   count stays in the report (`isUnscoped` reads the FAMILY, so a per-issue scope does not
+   silently zero the tally). Grading it `ungraded` was the other candidate and was rejected: the
+   issue IS gradeable, `report.ungraded === untyped + multiTyped` is an asserted identity, and
+   the bucket is a human-triage queue for issues nobody typed — "no scope" and "no grade" are
+   different absences and conflating them makes the report's own vocabulary false.
+
+6. **The largest measured source of false affinity was our own tracker bookkeeping.** 40 of the
+   347 open issues name a `docs/roadmap.d/` shard and no other path — the roadmap row that
+   TRACKS the issue, not a file the work must edit. Unfiltered they produce four bogus
+   twelve-member `docs/roadmap.d/` "clumps" of unrelated roadmap features. The adapter drops
+   paths under a configurable non-target prefix list and those issues become honestly
+   `unscoped` (which is why the measured unscoped count is 164 rather than 124). A second
+   measured false positive: `docs/roadmap.d` itself matched a looser path pattern as a FILE with
+   a one-letter extension, scoping issues to `docs/`.
+
+   _Amended in the review round: build artifacts are the same defect from a second source._
+   Measured live: `4 × bug dist/ [#2146, #2169, #2189, #2324]` — four unrelated bugs grouped
+   because each body pastes a stack trace through a tsup bundle chunk, so `dist/chunk-*.js` was
+   the first path each one named. It was also supplying the `conflictKeys`, which means D2's
+   non-conflict precondition was reasoning about build output. `dist/`, `node_modules/`,
+   `coverage/` and `.turbo/` joined the list, which is now
+   `DEFAULT_NON_TARGET_PATH_PREFIXES` — it describes both classes, where
+   `DEFAULT_TRACKER_PATH_PREFIXES` described one.
+
+7. **`weight` can only be the prioritize axis's score, and the SKILL's displayed "Rank" is not
+   it.** The spec says `weight` is "the existing rank". The rank the SKILL PRINTS is an ordinal
+   (rank 1 is best), and `weight` is higher-is-more-urgent, so feeding the ordinal in would
+   invert the cap and keep the least urgent units. The adapter reads the three
+   `RankableCandidate` inputs the prioritize axis already produces and calls the existing
+   `pilotScore`; a partial trio scores 0 rather than being filled from defaults, because a score
+   computed from defaults is a fabricated rank wearing a real function's name. A raw `gh` dump
+   carries no ranking at all, so the clump set over an untriaged backlog is unranked — which is
+   correct, and only affects cap order.
+
+8. **Criterion 9 needed to become a gate rather than a hope.** "Exactly one CONFIRM interaction"
+   is a success criterion of `issue-fleet` and the whole point of putting the clump table on the
+   existing round. It is now written into the SKILL's Gates as a violation ("Never add a second
+   CONFIRM for the clump set"), alongside "never infer a scope an issue does not state" and
+   "never drop a clumped issue from the queue", because a criterion stated only in a Success
+   Criteria list is advice.
+
+**What this phase does NOT close.** Nothing downstream consumes the clump assignment yet: the
+axis emits a clump set an agent reads, and the `clumpId` on `IssueCandidate` is carried to
+CONFIRM and no further. Phase 5 is what makes a clump the lane unit, and until it lands the
+intake seam proves emission, not consumption — the same honest limit Phase 3 recorded for craft.
+
+**One arch allowance.** `clump-issues.ts` trips `couplingRatio=0.857` as a NEW violation.
+The metric is `fanOut/(fanIn+fanOut)`, so a leaf command imported only by its group index cannot
+reach 0.7 without dropping to two imports; 445 coupling violations are already baselined and
+every cli command module is among them, including `fleet/budget-check.ts` at 0.833. Recorded on
+the branch allowance with the measurement, not by editing `baselines.json`.
+
+### Phase 5: Execution seam
+
+<!-- complexity: medium -->
+
+`Clump` as the lane unit in `roadmap-fleet`, `bug-fleet`, `cleanup-fleet` and `craft-fleet`;
+the one-PR-per-clump contract; and the VERIFY drop semantics from D10.
+
+**Verified by:** dry-run dispatch emits one PR plan per clump with commit-per-member; success
+criterion 14 exercised.
+
+**The lane unit was PROSE, and the spec never said so.** This table row —
+"Execution — fleet members | consumes a `Clump` as the lane unit" — reads as though there were a
+dispatcher to change. There is not. All four members are a `SKILL.md` plus a `skill.yaml` and
+nothing else; a repo-wide search for `DISPATCH` in TypeScript finds 37 hits and not one of them
+schedules a `-fleet` lane. The only code a lane touches is the one it was told to run. So
+"takes a `Clump` as the lane unit" could not be implemented as a code change, and four prose
+paragraphs would have been emission dressed as consumption for the third phase running.
+
+What shipped instead is the Phase 4 answer applied one layer further out. The contract became a
+pair of core callables (`planClumpPR`, `settleClumpVerdict` in `fleet/clumping/dispatch.ts`) and
+a command, **`harness fleet clump-dispatch`**, the third sibling of `fleet budget-check` and
+`fleet clump-issues`. The prose then points at the command, and
+`agents/skills/tests/fleet-clump-lane-unit.test.ts` pins that it does, across 4 platforms x 4
+members. A SKILL.md paragraph still cannot be executed — but it can now be refuted, and the
+thing it instructs an agent to run can be.
+
+**What Phase 5's build found wrong.**
+
+1. **`craft-fleet` SELECT was telling the agent to re-derive the grouping.** Step 2 read "Fold
+   the findings into targets", which is precisely the step `clumpCraftFindings` already performs
+   at all 21 emission sites. That is worse than a duplicated rule: an agent's restatement of
+   `(scope x kind)` plus the conflict precondition plus `maxPerClump` plus the solo rule plus the
+   unit cap produces a DIFFERENT grouping that still looks right, and nothing downstream can tell
+   the two apart. Step 2 now reads the targets off `output.clumps` and names hand-folding as the
+   failure it exists to prevent.
+
+2. **The honest limit had to be stated as "report the gap", not "fall back".** A craft run
+   carrying `findings` and no `clumps` is the shape that would silently restore the old
+   behaviour. Both the SKILL and the command refuse it — the command with its own exit code (14)
+   rather than with an empty plan list, because zero plans over a findings-only input is
+   indistinguishable from a run that genuinely grouped nothing. The genuinely-empty case is still
+   an empty array, and a test pins the two apart.
+
+3. **`bug-fleet`'s terminal act directly contradicted the contract.** "One fix PR per verified
+   bounded-safe bug... One bug per PR, so each is independently reviewable and independently
+   revertible." Adding a one-PR-per-clump rule beside that sentence would have left two
+   incompatible instructions in one SKILL. Reconciled rather than stacked: the granularity a
+   bulk review actually needs is the **commit**, not the PR, which is why commit-per-member lets
+   the clump be the PR at no cost to the reviewer — and is the same property D10's drop depends
+   on. The other three members had no equivalent conflict.
+
+4. **D10 is under-specified in exactly the place it decides a verdict.** "The whole clump fails
+   only when the post-drop remainder is empty or no longer builds" presumes a post-drop build
+   result exists. Nothing says what to do when the drops happened and nobody re-checked the tree.
+   Treating that as green is the silent pass this family keeps rediscovering, so `postDropBuild`
+   is a three-valued input and `'unknown'` after a drop FAILS the clump — craft-fleet's own
+   standard that a demanded proof which could not be produced is a rejection, not a graceful
+   skip. The positive control at the same scope (identical outcomes, green build => pass) is what
+   keeps that from being "fail every clump that ever dropped anything".
+
+5. **D10 needed a conservation law of its own, and the spec names none.** Formation has one
+   (criterion 6); the verdict had nothing, even though a drop is exactly where a member can fall
+   out of both the remainder and the drop list and leave a clean-looking verdict behind.
+   `checkVerdictPartition` is the sibling law — every planned member appears exactly once across
+   `remainder` and `drops` — with a lost, a double-placed and a FOREIGN member each refuted. The
+   foreign case matters because a bare count comparison waves it through, which is how the first
+   version of that check was written.
+
+6. **Three inputs had to be rejected rather than defaulted.** A verdict naming a member the PR
+   does not carry (it cannot be reverted), a member with no outcome at all (the convenient
+   default turns an unrun check into a green one), and a failure with no reason (D10 says the
+   drop is recorded WITH its reason; a reasonless drop is a silent delete wearing a verdict).
+   None of the three is mentioned in the spec, and each reads as an edge case until you notice
+   that all three produce output identical to success.
+
+7. **A section-wide assertion passed a mutant that gutted the paragraph it was about.**
+   `toContain('harness fleet clump-dispatch')` over the whole spine section survived a mutant
+   that stripped the command from the one-PR-per-clump contract paragraph, because the "Current
+   state" paragraph further down names it too. Two sentences could satisfy one check. Scoped to
+   the contract paragraph, the same mutant fails. This is the fourth phase in a row where running
+   a mutant found an assertion that was passing for the wrong reason.
+
+8. **No arch allowance was needed, unlike Phase 4.** `check-arch` first reported
+   `cyclomaticComplexity=23 in runClumpDispatch` as a NEW **error** — a real finding, answered by
+   splitting the function (23 -> 11), not by a baseline entry. Dropping one unused type re-export
+   took `fanOut` from 5 to 4 and the coupling warning with it, so this phase adds zero new
+   violations and `.harness/arch/allowances/spec-clumping.json` is untouched.
+
+**What this phase does NOT close.** The command reads a clump set from a FILE or stdin, and a
+craft run's output reaches an agent as an MCP tool response rather than as a file on disk — so a
+lane has to write the run output out before it can dispatch from it. That is a one-line step, but
+it is a step the SKILL instructs rather than a pipe something enforces. Criterion 10 ("exactly
+one PR carrying one commit per member") is therefore proved at the level of the PLAN, not of a
+PR that exists on GitHub; no phase of this spec creates a real PR, and claiming otherwise would
+be the emission-dressed-as-consumption move this phase exists to stop repeating.
+
+### Phase 6: Config surface and portability
+
+<!-- complexity: low -->
+
+The `clumping` block in `harness.config.json`, its schema, the adopter `.hbs` template (never
+prettier-formatted), and the craft-`scope` portability defect Phase 3 deferred here.
+
+**Verified by:** no-config degrade test at all three seams, each paired with a positive control
+on the same code path; adopter template validates; a two-root test pinning one clump id across
+clones.
+
+**Seven things this phase's build found wrong, in the same spirit phases 3-5 recorded theirs.**
+
+1. **Relativizing `scope` would not have fixed portability, and the deferral note said it would.**
+   Phase 3 recorded the fix as "relativizing `scope` against the project root". A craft clump id
+   is `sha256([scope, kind, sorted member ids])` and a member id is `code:file:line#ordinal`, so
+   the absolute path reaches the hash through the MEMBERS as well. Measured: the same three
+   findings under `/var/folders/xy/T/alpha` and `/home/zeta/deep/nest/beta` published
+   `clump-1252b222d5c68f3e` and `clump-5552dc07fc8290b2`. The half-fix is pinned as its own
+   mutant: relativizing `scope` alone leaves both the id comparison and the member-id comparison
+   failing. The path is relativized ONCE and `id`, `scope` and `conflictKeys` all derive from it.
+
+2. **`clumpable.ts` carried a comment asserting the very property that was false.** Its
+   `craftScope` doc said "craft findings carry project-relative POSIX paths" — written to justify
+   a hand-rolled split over `path.dirname`. Seven of the eleven families carry an ABSOLUTE
+   `target.file` (`discoverSourceFiles` builds `path.join(projectRoot, …)`,
+   `code-craft/extract/discover.ts:50`). The split-on-`/` reasoning was right; the premise under
+   it was wrong, and nothing could fail because of it. A comment arguing a property is a
+   liability; the property is now a test.
+
+3. **A required parameter found a call site that would have been silently wrong.** `projectRoot`
+   is required on `clumpCraftFindings` rather than defaulted to `process.cwd()`, which turned
+   `runNamingCraft` into a compile error — it destructured `gatherProjectContext` without the
+   root it already computes. A default would have left that one family publishing machine-local
+   ids with every test green.
+
+4. **Four families expose no relative path and one case no root can fix.** api / cli-ergonomics /
+   docs / knowledge declare `target.relative`; it is preferred when present, so those four are
+   portable even from a caller that cannot name a root. The other seven relativize against
+   `projectRoot`. A file OUTSIDE the root keeps its ABSOLUTE path on purpose:
+   `path.relative` would answer `../../../../elsewhere/x.ts`, whose leading `..` count is a
+   function of how deep the root sits, so the relative form is exactly as machine-local. That
+   limit is pinned, and so is its honest consequence.
+
+5. **The spec's claim that `docs/reference/configuration.md` is GENERATED is false.**
+   `scripts/generate-docs.mjs` writes exactly three files — `cli-commands.md`, `mcp-tools.md`,
+   `skills-catalog.md` — and `configuration.md` carries no `AUTO-GENERATED` header. It is
+   hand-written, and was hand-edited here. `pnpm run generate-docs` produced no diff.
+
+6. **The sibling budgets are NOT a config-block precedent.** `fleet/spend-budget` and
+   `fleet/rate-budget` take their envelope from FLAGS and from `AgentConfig.resourceBudgets`
+   respectively; neither has a key in `HarnessConfigSchema`. The followed precedent is instead
+   `ArchConfigSchema` / `GoldenConfigSchema` / `PatternConfigSchema` — Zod schemas defined in
+   core and imported by the cli schema — which is the right shape here because the review seam IS
+   core code, reached through `runReviewPipeline({ config })`.
+
+7. **A new gate found a pre-existing defect in the adopter templates.** Nothing checked that a
+   scaffolded `harness.config.json` is one the CLI accepts, and `.hbs` is exempt from prettier, so
+   the files had no syntax check at all. Rendering each template against `HarnessConfigSchema`
+   showed all four language-base templates declare a ROOT-LEVEL `tooling` block whose schema key
+   is `template.tooling` — a mis-nesting, the exact class the #862 stripped-key warner exists
+   for, shipped by the scaffolds themselves. It is RECORDED per template and per key, with a test
+   proving the record is still true, rather than fixed inside an unrelated phase.
+
+## Risks
+
+| Risk                                                                                                                                                | Mitigation                                                                                                                                                                                                                  |
+| --------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Over-clumping is worse than no clumping.** Twelve mixed fixes in one PR is harder to review than twelve PRs if the members aren't genuinely alike | `maxPerClump` 12 + the homogeneity key; the human splits at CONFIRM; commit-per-member keeps a drop cheap                                                                                                                   |
+| **Issue `scope` derivation is weak** — many issues carry no path signal                                                                             | an `unscoped` issue is ungroupable (a per-issue `unscoped#<id>` scope, so it cannot group with a scoped issue OR with another unscoped one); the count is reported, never hidden                                            |
+| **One bad member blocks N good ones** in a single PR                                                                                                | D10: one commit per member, failing member reverted, clump proceeds                                                                                                                                                         |
+| **`'act'` hides work inside unrelated diffs**                                                                                                       | Touched-set precondition; outside it, degrade to `'file'`                                                                                                                                                                   |
+| **Phase 1 ships green but dead** — the barrel allowlist is a silent no-op                                                                           | Phase 1 gate includes a resolve check; phases 3–5 gate on WIRED, not EXISTS                                                                                                                                                 |
+| **The floor becomes a silent delete** under a future edit                                                                                           | Conservation test (criterion 6) fails loudly if any bucket loses an item                                                                                                                                                    |
+| **Clumping is mistaken for dedup** by a future implementer                                                                                          | Stated as a non-goal, recorded as an authored concept in `docs/knowledge/fleet/clumping.md` (see Knowledge Impact for what that channel does and does not materialize), and the two axes run independently in `issue-fleet` |

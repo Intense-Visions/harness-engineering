@@ -34,6 +34,30 @@ Loads tsconfig `paths` aliases and expands an aliased import specifier into cand
 
 **Exports:** `PathAlias`, `loadPathAliases`, `resolveAliasCandidates`
 
+## packages/core/src/fleet/clumping/dispatch.ts
+
+[`packages/core/src/fleet/clumping/dispatch.ts`](/packages/core/src/fleet/clumping/dispatch.ts)
+
+The execution seam of clumping: the one-PR-per-clump contract and D10's verdict semantics as values rather than as SKILL.md paragraphs. `planClumpPR` emits one branch, one PR and exactly one commit per member, with the title naming the clump and the body citing each member; `settleClumpVerdict` settles ONE verdict per clump, dropping a failing member by reverting its own commit and proceeding with the rest, and failing only when the post-drop remainder is empty or no longer builds — an unrun post-drop build is a failure for want of proof, never a green. `checkVerdictPartition` is the sibling of formation's conservation law: every planned member appears exactly once across the remainder and the drops. Pure. See `docs/reference/fleet-family.md`, "The clumping floor", and ADR 0135.
+
+**Exports:** `ClumpCommit`, `ClumpPRPlan`, `ClumpPlanOptions`, `planClumpPR`, `ClumpMemberOutcome`, `ClumpDrop`, `PostDropBuild`, `ClumpVerdict`, `ClumpVerdictOptions`, `settleClumpVerdict`, `checkVerdictPartition`
+
+## packages/core/src/fleet/clumping/floor.ts
+
+[`packages/core/src/fleet/clumping/floor.ts`](/packages/core/src/fleet/clumping/floor.ts)
+
+The clumping floor: whether a work candidate is worth the fixed ceremony cost of being filed, or should be acted on in place instead. Carries the grouped axes rule (`small` and (`aspirational` or `low`), never the flattened reading), the frozen default policy, and the touched-set precondition that narrows the `'act'` ceiling to an actual resolution. Pure: a transform over data the caller already has. See `docs/reference/fleet-family.md`, "The clumping floor", and ADR 0135.
+
+**Exports:** `DEFAULT_CLUMP_POLICY`, `resolveClumpPolicy`, `resolveFloor`
+
+## packages/core/src/fleet/clumping/form.ts
+
+[`packages/core/src/fleet/clumping/form.ts`](/packages/core/src/fleet/clumping/form.ts)
+
+Clump formation: N like findings become one work unit rather than N. Grades and floors, groups survivors by `(scope, kind)` under a JSON-encoded injective key, splits on conflicting hunks and on size, keeps sub-threshold groups solo, then ranks and caps emitted work units (clumps plus solos, never findings) and counts every shed bucket. Pure apart from a deterministic content hash. See `docs/reference/fleet-family.md`, "The clumping floor", and ADR 0135.
+
+**Exports:** `buildClump`, `formClumps`
+
 ## packages/core/src/fleet/lane-state-isolation.ts
 
 [`packages/core/src/fleet/lane-state-isolation.ts`](/packages/core/src/fleet/lane-state-isolation.ts)
@@ -185,6 +209,14 @@ Loads and validates rehearsal fixture manifests (`rehearsal.json`) from a fixtur
 Enforces two structural invariants at the point review findings are aggregated for emission: a finding's evidence must be consistent with the vulnerability class it claims, and its confidence may not exceed the ceiling its validation method allows. Mismatches are recorded and downgraded by default, never silently dropped.
 
 **Exports:** `VulnerabilityClassSpec`, `VULNERABILITY_CLASS_SPECS`, `claimsVulnerabilityClass`, `checkEvidenceClassConsistency`, `ConfidenceBand`, `CONFIDENCE_CEILING_BY_VALIDATION`, `confidenceBand`, `confidenceCeiling`, `EvidenceMismatchAction`, `EnforceFindingIntegrityOptions`, `FindingIntegrityReport`, `emptyIntegrityReport`, `EnforceFindingIntegrityResult`, `enforceFindingIntegrity`, `mergeIntegrityReports`, `formatIntegritySummary`
+
+## packages/core/src/review/output/clump-comments.ts
+
+[`packages/core/src/review/output/clump-comments.ts`](/packages/core/src/review/output/clump-comments.ts)
+
+The review half of clumping's creation seam: formats deduped review findings as inline GitHub comments, keeping `critical` and `important` individually line-anchored while grouping sub-floor `suggestion`s into one comment per `(scope, kind)` that still names every member with its file and line. The diff's changed files are the touched set, which is what makes the floor's `'act'` resolution reachable here. Every finding handed in is represented in exactly one emitted comment — an over-cap group degrades back to individual comments rather than disappearing. See `docs/changes/clumping/proposal.md`, Phase 3.
+
+**Exports:** `scopeOfPath`, `toClumpableFinding`, `formatClumpComment`, `formatClumpedComments`, `ClumpedCommentReport`, `ClumpedCommentResult`, `FormatClumpedCommentsOptions`
 
 ## packages/core/src/rework/rework.ts
 

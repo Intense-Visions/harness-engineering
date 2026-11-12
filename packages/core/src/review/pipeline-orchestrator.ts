@@ -27,13 +27,14 @@ import { buildExclusionSet, ExclusionSet } from './exclusion-set';
 import { scopeContext } from './context-scoper';
 import { fanOutReview, fanOutConditionalSubagents } from './fan-out';
 import { validateFindings } from './validate-findings';
+import { clumpingFromConfig, resolveSeamClumpPolicy } from '../fleet/clumping';
 import { deduplicateFindings } from './deduplicate-findings';
 import { generateRubric } from './meta-judge';
 import { splitBundlesByStage } from './two-stage';
 import { calibrateDepth, type DepthCalibration } from './depth-calibrator';
 import {
   formatTerminalOutput,
-  formatGitHubComment,
+  formatClumpedComments,
   determineAssessment,
   getExitCode,
 } from './output';
@@ -394,9 +395,25 @@ export async function runReviewPipeline(
     integrityReport,
   });
 
+  // Phase 7 OUTPUT, creation seam (docs/changes/clumping/proposal.md, Phase 3):
+  // `critical` / `important` keep their own inline comment, because the line
+  // anchor is the whole value of one; sub-floor `suggestion`s group into one
+  // comment per (scope, kind) that still names every member with its file and
+  // line. `diff.changedFiles` is the review seam's TOUCHED SET — it is what
+  // makes D4's `'act'` resolution reachable here, and a craft sweep has no
+  // equivalent. Grouping runs AFTER dedup on purpose: dedup merges restatements
+  // of one finding, clumping groups distinct findings that are alike.
+  //
+  // Phase 6: the policy comes from the `clumping` block of harness.config.json
+  // (`config` is the raw object `harness agent review` already passes in), so an
+  // adopter tunes the cap without a code change. An absent block resolves to
+  // `{}`, which is byte-identical to the pre-Phase-6 call.
   let githubComments: GitHubInlineComment[] = [];
   if (flags.comment) {
-    githubComments = dedupedFindings.map((f) => formatGitHubComment(f));
+    githubComments = formatClumpedComments(dedupedFindings, {
+      touched: diff.changedFiles,
+      policy: resolveSeamClumpPolicy(clumpingFromConfig(config), 'review'),
+    }).comments;
   }
 
   return {

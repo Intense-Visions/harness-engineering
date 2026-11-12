@@ -7,6 +7,10 @@ export * from './rate-budget';
 // Shared spend-envelope decision primitive — consulted by BOTH the orchestrator
 // engine loop (#1525) and the skill/fleet-command dispatch path (#1600).
 export * from './spend-budget';
+// The mechanical floor-and-group control: a sub-floor finding is acted on rather
+// than filed, and like findings become one work item rather than N. Phase 1 of
+// docs/changes/clumping/proposal.md.
+export * from './clumping';
 // Per-lane user-global (~/.claude) state isolation — the config-dir env override
 // that extends a lane's worktree boundary to cover user-global state (#1299 / ADR 0098).
 export * from './lane-state-isolation';

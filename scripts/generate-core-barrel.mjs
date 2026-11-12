@@ -75,6 +75,24 @@ const SELECTIVE_EXPORTS = {
     },
   ],
 
+  // `craft` is SELECTIVE, not a star export, for a hard reason: `harness-strength`
+  // already exports a DIFFERENT `Tier` through this barrel, and a second `export *`
+  // source for that name is TS2308 ("has already exported a member named 'Tier'"),
+  // which fails the core typecheck outright. `Impact` and `Confidence` are free
+  // (verified against dist/index.d.ts) and keep their plain names. Being a
+  // SELECTIVE_EXPORTS key also puts `craft` in SKIP_DIRS, so the directory needs no
+  // index.ts of its own.
+  craft: [
+    {
+      comment:
+        'Craft axes — the canonical 3-axis craft vocabulary (ADR 0019), relocated from cli so core/fleet/clumping can read it without a cli dependency. `Tier` is exported as `CraftTier` to avoid a TS2308 collision with harness-strength Tier.',
+      lines: [
+        "export type { Impact, Confidence } from './craft/axes';",
+        "export type { Tier as CraftTier } from './craft/axes';",
+      ],
+    },
+  ],
+
   'update-checker': [
     {
       comment: 'Update checker utilities for checking for new versions of the toolkit.',
@@ -152,6 +170,8 @@ const DIR_COMMENTS = {
     'Comprehension module — per-module compiled comprehension units (unit model, source-hash provenance, markdown store, IO/provider-injected compiler).',
   fleet:
     'Fleet coordination module — pure cross-run work-claim lease primitives (build/parse/server-clock TTL), per-leaf context-replay budget enforcement (resolve/enforce/format), and the shared spend-envelope decision primitive consulted by both the orchestrator loop and the fleet-command dispatch path, for the -fleet family.',
+  craft:
+    'Craft axes module — the canonical 3-axis craft vocabulary (ADR 0019) read by the fleet clumping floor.',
   rollback: 'Rollback module — post-ship revert-readiness classification (pure, IO-injected).',
   rework:
     'Rework module — per-surface (file-path) rework-rate metric from local git history, splitting planned (roadmap-linked multi-part delivery) from unplanned (waste) rework. Report-only.',

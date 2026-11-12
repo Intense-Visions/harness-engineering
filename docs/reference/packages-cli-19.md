@@ -50,6 +50,30 @@ Backs `harness fleet budget-check`, the dispatch-time spend gate for fleet runs.
 
 **Exports:** `BUDGET_EXHAUSTED_EXIT_CODE`, `BudgetCheckOptions`, `observedSpendFromSummary`, `envelopeFromOptions`, `BudgetCostOverlay`, `costOverlayFromSummary`, `runBudgetCheck`, `createBudgetCheckCommand`
 
+## packages/cli/src/commands/fleet/clump-dispatch.ts
+
+[`packages/cli/src/commands/fleet/clump-dispatch.ts`](/packages/cli/src/commands/fleet/clump-dispatch.ts)
+
+Backs `harness fleet clump-dispatch`, the runnable surface of clumping's execution seam. It exists because the four members whose lane unit a clump becomes — `roadmap-fleet`, `bug-fleet`, `cleanup-fleet`, `craft-fleet` — are SKILL.md files with nothing scheduling their lanes, so without a callable the one-PR-per-clump contract would be prose nothing could be held to. `--input` reads the clump set a run emitted (a craft run's own JSON output, a `clump-issues --json` dump, or a bare `ClumpResult`) and prints one PR plan per clump with one commit per member; the `clumps` field is shape-CHECKED rather than cast, so a payload whose members are not objects with an `id` is refused with its own exit code instead of planning commits subjected `undefined`. A findings-only input is refused too, with a different code, because an empty plan list is also what a run that genuinely grouped nothing produces. `--verdict` settles ONE verdict per clump under D10 and exits non-zero only when a clump's post-drop remainder is empty or no longer builds. Read-only. See `docs/changes/clumping/proposal.md`, Phase 5.
+
+**Exports:** `CLUMP_FAILED_EXIT_CODE`, `NO_CLUMPS_INPUT_EXIT_CODE`, `VERDICT_PARTITION_BREACH_EXIT_CODE`, `MALFORMED_CLUMP_INPUT_EXIT_CODE`, `ClumpDispatchOptions`, `ClumpInputGap`, `extractClumps`, `describeMember`, `VerdictFile`, `runClumpDispatch`, `createClumpDispatchCommand`
+
+## packages/cli/src/commands/fleet/clump-issues.ts
+
+[`packages/cli/src/commands/fleet/clump-issues.ts`](/packages/cli/src/commands/fleet/clump-issues.ts)
+
+Backs `harness fleet clump-issues`, the runnable surface of clumping's intake seam and `issue-fleet`'s fifth triage axis. It enumerates the open-issue backlog (`gh issue list`, or a dump via `--input`), forms the clump set through the shared `formClumps` primitive, and prints the clump table, every shed count, and the conservation arithmetic — the exact rows `issue-fleet` carries onto its single CONFIRM round. `--json` emits the dispatchable dump (`intakeClumpDump`): each clump member is `{ id, ref: { number, title } }`, the shape `clump-dispatch` reads, not a bare issue number. Read-only; a missing `gh` auth reports the gap and simulates nothing, and a conservation breach exits with its own code rather than printing a clean-looking report.
+
+**Exports:** `CONSERVATION_BREACH_EXIT_CODE`, `BACKLOG_UNAVAILABLE_EXIT_CODE`, `ClumpIssuesOptions`, `buildGhArgs`, `BacklogGap`, `readBacklog`, `policyFromOptions`, `checkConservation`, `renderHuman`, `ClumpIssuesDeps`, `IntakeClumpDumpMember`, `IntakeClumpDumpUnit`, `IntakeClumpDump`, `intakeClumpDump`, `runClumpIssues`, `createClumpIssuesCommand`
+
+## packages/cli/src/commands/fleet/clumpable-issues.ts
+
+[`packages/cli/src/commands/fleet/clumpable-issues.ts`](/packages/cli/src/commands/fleet/clumpable-issues.ts)
+
+The intake half of clumping's three forming seams: normalizes an open-issue backlog into core's seam-neutral `ClumpableItem`. Scope is the directory of the first repository path the issue names (rendered with a trailing slash so it can never collide with the `unscoped` family), kind is the issue's single type label, the conflict keys are every path it names, and weight is the prioritize axis's existing pilot score. Paths that are not work targets are dropped first — the tracker's own roadmap shards, and build artifacts under `dist/`, `node_modules/`, `coverage/` or `.turbo/` that arrive in pasted stack traces — because a path nobody edits was otherwise supplying both the scope and the conflict keys. An issue that names no path gets its OWN `unscoped#<item id>` scope, so it is structurally ungroupable and lands in `solo` with the count reported; grouping on the absence of a signal is not grouping. An issue with no single type label is terminal — reported, never clumped — and the floor sheds nothing here by construction, because an issue at intake is already filed. See `docs/changes/clumping/proposal.md`, Phase 4.
+
+**Exports:** `UNSCOPED`, `unscopedScope`, `isUnscoped`, `DEFAULT_ISSUE_TYPE_LABELS`, `DEFAULT_NON_TARGET_PATH_PREFIXES`, `IssueLabel`, `IntakeIssue`, `IntakeAdapterOptions`, `labelNames`, `mentionedPaths`, `issueScope`, `issueKind`, `issueWeight`, `toClumpableIssues`, `IntakeClumpReport`, `IntakeClumpOutcome`, `INTAKE_CLUMP_POLICY`, `clumpIssues`
+
 ## packages/cli/src/commands/golden-build/runners.ts
 
 [`packages/cli/src/commands/golden-build/runners.ts`](/packages/cli/src/commands/golden-build/runners.ts)

@@ -1,0 +1,290 @@
+// packages/core/src/fleet/clumping/form.ts
+//
+// Formation: N like findings become ONE work item rather than N
+// (docs/changes/clumping/proposal.md, "Formation").
+//
+// Pure — no fs, no network, no clock. `node:crypto` is used only for a
+// deterministic content hash, matching core/src/security/security-timeline-types.ts.
+//
+// Order of operations, and why each step sits where it does:
+//   0. Reject duplicate ids. Silently collapsing two items is exactly the silent
+//      drop this control exists to prevent.
+//   1. Grade. Ungraded leaves to its own TERMINAL bucket (D8 — never floored, never
+//      guessed); sub-floor items leave with a resolution. Flooring FIRST means the
+//      cap is never spent on items that were never going to be filed.
+//   2. Group survivors by (scope, kind).
+//   3. Split on conflict — greedy graph coloring, deterministic via the tiebreak.
+//   4. Split on size.
+//   5. Solo rule — a one-member clump is an item wearing extra ceremony.
+//   6. Rank and cap EMITTED WORK UNITS (clumps + solos), never findings (D9).
+//   7. Count every bucket (D5).
+
+import { createHash } from 'node:crypto';
+
+import { resolveClumpPolicy, resolveFloor } from './floor';
+import type {
+  Clump,
+  ClumpCounts,
+  ClumpPolicy,
+  ClumpResult,
+  ClumpableItem,
+  FloorContext,
+  FlooredItem,
+} from './types';
+
+/** Weight desc, tiebreak id asc. The tiebreak is what makes formation deterministic. */
+function byWeightDescIdAsc(a: ClumpableItem, b: ClumpableItem): number {
+  if (b.weight !== a.weight) return b.weight - a.weight;
+  return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
+}
+
+/**
+ * The (scope, kind) group key, JSON-encoded.
+ *
+ * `JSON.stringify([scope, kind])` rather than a joined string, because the encoding
+ * has to be INJECTIVE for arbitrary caller strings: `JSON.parse` recovers the exact
+ * pair from the key, so no premise about the caller's data is needed and none is
+ * asserted. An earlier version joined on a space under a comment claiming "` `
+ * cannot appear in a scope or kind" that NOTHING enforced — `scope` is documented
+ * as a directory (types.ts) and directories contain spaces, so
+ * `{scope:'src/my api', kind:'CODE'}` and `{scope:'src/my', kind:'api CODE'}`
+ * produced the SAME key. The symptom was worse than an over-merged group:
+ * `buildClump` reports the scope and kind of `members[0]`, so every other member
+ * shipped under a scope and a kind that were not its own. `form.test.ts` pins both
+ * forging pairs.
+ */
+function groupKey(scope: string, kind: string): string {
+  return JSON.stringify([scope, kind]);
+}
+
+/**
+ * Greedy graph coloring: members in weight-desc order, each placed in the FIRST
+ * sub-clump whose key set is disjoint from its own, else a new one. Greedy is
+ * sufficient here and, with the id tiebreak upstream, deterministic. An item with
+ * no conflict keys is vacuously disjoint and joins the first sub-clump.
+ *
+ * That vacuity STAYS here, and is deliberately NOT mirrored by `narrow` in floor.ts,
+ * where a keyless item degrades to `'file'` instead: joining a clump claims no hunk
+ * and harms no one, while resolving to `'act'` authorizes a write.
+ */
+function splitOnConflict(ordered: readonly ClumpableItem[]): ClumpableItem[][] {
+  const subs: Array<{ members: ClumpableItem[]; keys: Set<string> }> = [];
+  for (const item of ordered) {
+    const target = subs.find((sub) => item.conflictKeys.every((k) => !sub.keys.has(k)));
+    if (target) {
+      target.members.push(item);
+      for (const k of item.conflictKeys) target.keys.add(k);
+    } else {
+      subs.push({ members: [item], keys: new Set(item.conflictKeys) });
+    }
+  }
+  return subs.map((sub) => sub.members);
+}
+
+/**
+ * Build one clump from members that already share a (scope, kind).
+ *
+ * EXPORTED FOR ITS OWN TEST, and deliberately NOT re-exported from ./index.ts —
+ * callers get `formClumps`. The reason is the `.sort()` below: the id hashes the
+ * member ids sorted, so it is a function of the member SET, but every path that
+ * reaches here through `formClumps` has already ordered members canonically
+ * (`byWeightDescIdAsc`, applied at step 3 before any split), so the sort's
+ * contribution is unobservable from outside. A `.sort()` whose removal changes no
+ * test, guarded by a comment claiming it makes the id stable, is a comment
+ * asserting a property nothing can falsify — the liability this repo keeps
+ * rediscovering. Exporting the helper makes the claim testable instead, which
+ * `form.test.ts` ("buildClump — the id hashes the member SET") does by handing in
+ * deliberately unsorted members. The property is worth keeping rather than
+ * deleting because `types.ts` publishes the id as
+ * `sha256(JSON.stringify([scope, kind, sorted member ids]))`: phases 3-5 bind three
+ * seams to this primitive, and an id that silently depended on arrival order would
+ * make that published contract false the first time a caller reordered anything.
+ *
+ * The hash input is JSON-encoded for the same reason the group key is: it must be
+ * INJECTIVE for arbitrary caller strings, and `JSON.parse` recovers the exact
+ * triple. The ids are variable-arity, so an earlier `sortedIds.join(',')` let a
+ * comma INSIDE an id move the boundary — `['a,b','z']` and `['a','b,z']` both
+ * encoded to `a,b,z` and hashed to the same clump id for different member sets.
+ * `types.ts` calls `id` a "stable identity in the source system", and review-finding
+ * ids and issue titles routinely contain commas, so this was reachable from every
+ * seam. JSON length-delimits each element, so no id can reach outside itself.
+ */
+export function buildClump(members: readonly ClumpableItem[]): Clump {
+  // A clump reports the scope, kind and weight OF ITS MEMBERS, so an empty member
+  // list has no answer to give. Unreachable through `formClumps` — but this helper
+  // is exported precisely so it can be reached from outside, and `formClumps`
+  // already sets this module's standard by throwing a named, actionable error on a
+  // duplicate id rather than letting the condition surface as a crash. `members[0]!`
+  // surfaced it as `TypeError: Cannot read properties of undefined`, which names
+  // neither the helper nor the mistake.
+  const head = members[0];
+  if (head === undefined) {
+    throw new Error(
+      'buildClump: refusing to build a clump with no members — a clump reports the scope, kind and weight of its members, and an empty list has none'
+    );
+  }
+  const sortedIds = members
+    .map((m) => m.id)
+    .slice()
+    .sort();
+  const digest = createHash('sha256')
+    .update(JSON.stringify([head.scope, head.kind, sortedIds]))
+    .digest('hex')
+    .slice(0, 16);
+  return {
+    id: `clump-${digest}`,
+    scope: head.scope,
+    kind: head.kind,
+    members: [...members],
+    weight: members.reduce((max, m) => (m.weight > max ? m.weight : max), head.weight),
+    conflictKeys: [...new Set(members.flatMap((m) => [...m.conflictKeys]))].sort(),
+  };
+}
+
+/** Form clumps. `ctx.touched` is what lets a sub-floor item resolve to `'act'` (D4). */
+export function formClumps(
+  items: readonly ClumpableItem[],
+  policy?: Partial<ClumpPolicy>,
+  ctx: FloorContext = {}
+): ClumpResult {
+  const resolved = resolveClumpPolicy(policy);
+
+  // 0. Duplicate ids: reject loudly.
+  const seen = new Set<string>();
+  for (const item of items) {
+    if (seen.has(item.id)) {
+      throw new Error(
+        `formClumps: duplicate ClumpableItem id ${JSON.stringify(item.id)} — refusing to collapse two distinct items into one`
+      );
+    }
+    seen.add(item.id);
+  }
+
+  // 1. Grade.
+  const ungraded: ClumpableItem[] = [];
+  const floored: FlooredItem[] = [];
+  const survivors: ClumpableItem[] = [];
+  for (const item of items) {
+    if (item.grade.kind === 'ungraded') {
+      ungraded.push(item);
+      continue;
+    }
+    const verdict = resolveFloor(item, ctx, resolved);
+    if (verdict.below) {
+      floored.push({ item, resolution: verdict.resolution, reason: verdict.reason });
+      continue;
+    }
+    survivors.push(item);
+  }
+
+  // 2. Group. Keys are sorted so output is independent of input ORDER, not just
+  //    stable for identical input.
+  const groups = new Map<string, ClumpableItem[]>();
+  for (const item of survivors) {
+    const key = groupKey(item.scope, item.kind);
+    const bucket = groups.get(key);
+    if (bucket) bucket.push(item);
+    else groups.set(key, [item]);
+  }
+
+  // 3-5.
+  let conflictSplits = 0;
+  const clumps: Clump[] = [];
+  const solo: ClumpableItem[] = [];
+  for (const key of [...groups.keys()].sort()) {
+    const ordered = [...groups.get(key)!].sort(byWeightDescIdAsc);
+    const subs = splitOnConflict(ordered);
+    if (subs.length > 1) conflictSplits += subs.length - 1;
+    for (const sub of subs) {
+      // NOTE: the helper is `chunkBy`, not `chunk`. `for (const chunk of chunk(...))`
+      // puts the loop binding in TDZ across the loop HEAD and throws a
+      // ReferenceError at the first iteration — do not "simplify" the name.
+      for (const part of chunkBy(sub, resolved.maxPerClump)) {
+        if (part.length < resolved.minToClump) solo.push(...part);
+        else clumps.push(buildClump(part));
+      }
+    }
+  }
+
+  // 6. Rank and cap EMITTED WORK UNITS (clumps + solos), never findings (D9) —
+  //    counting findings would let the cap be bypassed by scattering.
+  type Unit =
+    | { readonly kind: 'clump'; readonly clump: Clump }
+    | { readonly kind: 'solo'; readonly item: ClumpableItem };
+  const units: Unit[] = [
+    ...clumps.map((clump) => ({ kind: 'clump' as const, clump })),
+    ...solo.map((item) => ({ kind: 'solo' as const, item })),
+  ];
+  const unitWeight = (u: Unit): number => (u.kind === 'clump' ? u.clump.weight : u.item.weight);
+  const unitId = (u: Unit): string => (u.kind === 'clump' ? u.clump.id : u.item.id);
+  units.sort((a, b) => {
+    const delta = unitWeight(b) - unitWeight(a);
+    if (delta !== 0) return delta;
+    // What this tiebreak guarantees is WHICH tied unit survives the cap: the
+    // lexicographically smallest unit ids among the equal-weight candidates. It is
+    // NOT load-bearing for run-to-run equality — `[...groups.keys()].sort()` above
+    // already makes the pre-sort unit array a deterministic function of the input
+    // SET, and V8's sort is stable, so two runs over the same input agree with this
+    // tiebreak REMOVED. An earlier version of this comment claimed otherwise;
+    // verification refuted it (a mutant deleting only these three lines left all 77
+    // tests green, including a test named for the property — it compared two runs
+    // over identically-ordered input). The over-claim is recorded here rather than
+    // quietly deleted because it is exactly the shape that produces a vacuous test:
+    // a reader who believes it will write the two-run comparison again. The real
+    // guarantee is pinned by form.test.ts, "a weight tie between units is broken by
+    // unit id ascending", whose cases assert the surviving set differs from the
+    // arrival-order prefix the suite would see with no tiebreak at all.
+    const ia = unitId(a);
+    const ib = unitId(b);
+    return ia < ib ? -1 : ia > ib ? 1 : 0;
+  });
+
+  const cap = Math.max(0, resolved.maxClumps);
+  const keptClumps: Clump[] = [];
+  const keptSolo: ClumpableItem[] = [];
+  // An over-cap unit is FLATTENED to its member ITEMS: `overCap` is an item bucket
+  // and conservation (criterion 6) partitions ITEMS, not units. Pushing a clump here
+  // as a unit would lose its members from the partition — a silent drop.
+  const overCap: ClumpableItem[] = [];
+  units.forEach((unit, index) => {
+    const kept = index < cap;
+    if (unit.kind === 'clump') {
+      if (kept) keptClumps.push(unit.clump);
+      else overCap.push(...unit.clump.members);
+    } else if (kept) keptSolo.push(unit.item);
+    else overCap.push(unit.item);
+  });
+
+  // 7. Count every bucket (D5): shed items are counted and reported, never silently
+  //    discarded — a zero and a silent drop look identical in output.
+  const clumped = keptClumps.reduce((n, c) => n + c.members.length, 0);
+  const counts: ClumpCounts = {
+    input: items.length,
+    clumps: keptClumps.length,
+    clumped,
+    floored: floored.length,
+    flooredAct: floored.filter((f) => f.resolution === 'act').length,
+    flooredFile: floored.filter((f) => f.resolution === 'file').length,
+    overCap: overCap.length,
+    ungraded: ungraded.length,
+    solo: keptSolo.length,
+    conflictSplits,
+  };
+  return {
+    clumps: keptClumps,
+    floored,
+    overCap,
+    ungraded,
+    solo: keptSolo,
+    conflictSplits,
+    counts,
+  };
+}
+
+/** Fixed-size chunks. A non-positive size would loop forever, so it is a no-split. */
+function chunkBy<T>(xs: readonly T[], size: number): T[][] {
+  if (size <= 0) return xs.length > 0 ? [[...xs]] : [];
+  const out: T[][] = [];
+  for (let i = 0; i < xs.length; i += size) out.push(xs.slice(i, i + size));
+  return out;
+}

@@ -110,6 +110,14 @@ Shared 3-axis primitives for the craft skill family (ADR 0019).
 
 **Exports:** `Tier`, `Impact`, `Confidence`
 
+## packages/cli/src/shared/craft/findings/clumpable.ts
+
+[`packages/cli/src/shared/craft/findings/clumpable.ts`](/packages/cli/src/shared/craft/findings/clumpable.ts)
+
+The craft half of clumping's creation seam: normalizes any of the eleven craft families' findings into core's seam-neutral `ClumpableItem` and forms the grouped work units a craft run emits alongside `findings`. Scope is the target file's directory, kind is the finding-code prefix (never the citation, whose shape differs on design-craft), the conflict key is the target file, and weight is `derivePriority`. No touched set exists for a repository sweep, so every sub-floor craft item resolves `'file'` by design. See `docs/changes/clumping/proposal.md`, Phase 3.
+
+**Exports:** `CraftClumpableFinding`, `craftKind`, `craftScope`, `toClumpableItems`, `clumpCraftFindings`
+
 ## packages/cli/src/shared/craft/findings/derived.ts
 
 [`packages/cli/src/shared/craft/findings/derived.ts`](/packages/cli/src/shared/craft/findings/derived.ts)
