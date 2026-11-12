@@ -129,3 +129,8 @@ milestones:
 - **Assignee:** Chad Warner
 - **Action:** unassigned
 - **Date:** 2026-09-25
+
+- **Feature:** clumping
+- **Assignee:** Chad Warner
+- **Action:** unassigned
+- **Date:** 2026-11-12

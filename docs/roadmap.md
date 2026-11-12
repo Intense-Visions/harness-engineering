@@ -837,12 +837,12 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 
 ### clumping
 
-- **Status:** in-progress
+- **Status:** done
 - **Spec:** docs/changes/clumping/proposal.md
 - **Summary:** Clumping — a mechanical floor-and-group control for the fleet spine
 - **Blockers:** —
 - **Plan:** docs/changes/clumping/plans/2026-11-11-clumping-phase-1-core-primitive-plan.md
-- **Assignee:** Chad Warner
+- **Assignee:** —
 - **Priority:** —
 - **External-ID:** github:Intense-Visions/harness-engineering#2467
 
@@ -3661,3 +3661,8 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 - **Assignee:** Chad Warner
 - **Action:** unassigned
 - **Date:** 2026-09-25
+
+- **Feature:** clumping
+- **Assignee:** Chad Warner
+- **Action:** unassigned
+- **Date:** 2026-11-12
