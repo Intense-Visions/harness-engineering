@@ -99,8 +99,14 @@ function nestedClumps(value: unknown): readonly unknown[] | null {
   return Array.isArray(inner) ? inner : null;
 }
 
-/** What a value is, for a gap message: `3`, `"x"`, `null`, `an array`, `an object`. */
-function describeValue(value: unknown): string {
+/**
+ * What a value is, for a gap message: `3`, `"x"`, `null`, `an array`, `an object`.
+ *
+ * Exported so `clump-issues`' backlog refusal is worded by the SAME formatter as
+ * this file's clump refusal: the two commands sit on the two ends of one JSON
+ * hop, and a reader who has seen one gap message can read the other.
+ */
+export function describeValue(value: unknown): string {
   if (value === null) return 'null';
   if (Array.isArray(value)) return 'an array';
   if (typeof value === 'object') return 'an object';

@@ -30,3 +30,13 @@ cost exactly the review attention the axis exists to save.
 `--json` emits the dispatchable dump: each clump member is `{ id, ref: { number, title } }`
 — the shape `harness fleet clump-dispatch --input` reads — so the advertised
 intake-to-dispatch path produces real commit subjects and real citations.
+
+`--input` reads the dump rather than casting it. An entry needs at least a numeric
+`number`, a string `title` and a `labels` array; anything else refuses with the entry and
+the field named, and exits `12` (backlog unavailable) having simulated nothing. A dump
+with the wrong field names used to be accepted and reported as a clean "0 clumps, 0
+clumped, conservation holds" run at exit 0 — indistinguishable from a backlog that
+genuinely holds no groups. `labels` must be PRESENT because `gh issue list --json …
+labels` emits `[]` for an issue carrying no labels: `[]` is the producer saying
+"genuinely untyped", while an absent field only says the field was never queried. An
+empty backlog (`[]`) is still a clean run.

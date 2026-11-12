@@ -86,6 +86,170 @@ describe('readBacklog', () => {
   });
 });
 
+/**
+ * The entry shape check.
+ *
+ * The defect these pin, reproduced on the binary before the fix (2026-11-11):
+ *
+ *   $ echo '[{"nmbr":1,"ttl":"wrong field names","lbls":["bug"]},
+ *            {"nmbr":2,"ttl":"x","lbls":["bug"]}]' > bad.json
+ *   $ harness fleet clump-issues --input bad.json
+ *   Clump axis — 2 issues, 0 clumps, 0 clumped
+ *   Conservation holds: 2 = 0 clumped + … + 2 ungraded + 0 solo      exit=0
+ *
+ * and under `--json`, `ungraded: [null, null]` — issue numbers replaced by
+ * nulls, nothing failed. Every assertion below leads with the PROPERTY (it
+ * refuses / it still reads) and checks the message text second, so a reworded
+ * gap does not read as a restored defect.
+ *
+ * Each refusal is paired with a positive control AT THE SAME SCOPE — the two
+ * real `--input` producer shapes — because a check that rejects every dump
+ * would satisfy the refusals alone.
+ */
+describe('readBacklog — the entry shape check', () => {
+  const withBacklog = <T>(body: unknown, run: (file: string) => T): T => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'clump-issues-'));
+    try {
+      const file = path.join(dir, 'backlog.json');
+      fs.writeFileSync(file, JSON.stringify(body));
+      return run(file);
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  };
+  const gapFor = (body: unknown): string => {
+    const backlog = withBacklog(body, (file) => readBacklog({ input: file }));
+    // The PROPERTY, before any message text: it refused rather than simulating.
+    expect(Array.isArray(backlog)).toBe(false);
+    expect(backlog).toHaveProperty('gap');
+    return (backlog as { gap: string }).gap;
+  };
+
+  it('refuses a dump with the wrong field names instead of reading it as 0 clumps', () => {
+    const gap = gapFor([
+      { nmbr: 1, ttl: 'wrong field names', lbls: ['bug'] },
+      { nmbr: 2, ttl: 'x', lbls: ['bug'] },
+    ]);
+    expect(gap).toContain('backlog[0].number');
+    expect(gap).toMatch(/not an issue number/);
+  });
+
+  it('exits BACKLOG_UNAVAILABLE and simulates nothing on a wrong-field-names dump', () => {
+    const err = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {});
+    const code = withBacklog([{ nmbr: 1, ttl: 'x', lbls: ['bug'] }], (file) =>
+      runClumpIssues({ input: file })
+    );
+    expect(code).toBe(BACKLOG_UNAVAILABLE_EXIT_CODE);
+    // Not merely a different exit code: no report was printed at all.
+    expect(log).not.toHaveBeenCalled();
+    expect(String(err.mock.calls[0]![0])).toMatch(/Nothing was simulated/);
+  });
+
+  it('names the entry and the field that failed, the way clumpGap does', () => {
+    // `clumps[0].members[0] is 2037, not an object carrying an `id`` is the
+    // precedent one layer down; a backlog entry gets the same treatment.
+    expect(gapFor([2037])).toContain('backlog[0] is 2037, not an issue object');
+    expect(gapFor([null])).toContain('backlog[0] is null');
+    expect(gapFor([{ number: '1', title: 'a', labels: [] }])).toContain('backlog[0].number is "1"');
+    expect(gapFor([{ number: 1, title: 7, labels: [] }])).toContain('backlog[0].title is 7');
+    // The index is the FAILING entry's, not always the first.
+    expect(gapFor([{ number: 1, title: 'a', labels: [] }, { number: 2 }])).toContain(
+      'backlog[1].title'
+    );
+  });
+
+  it('refuses a label list whose entries carry no name, which would type nothing', () => {
+    expect(gapFor([{ number: 1, title: 'a', labels: 'bug' }])).toContain(
+      'backlog[0].labels is "bug", not an array'
+    );
+    expect(gapFor([{ number: 1, title: 'a', labels: ['bug', 5] }])).toContain(
+      'backlog[0].labels[1] is 5'
+    );
+    expect(gapFor([{ number: 1, title: 'a', labels: [{ nmae: 'bug' }] }])).toContain(
+      'backlog[0].labels[0] is an object'
+    );
+  });
+
+  describe('a MISSING `labels` is a malformed entry, not an untyped issue', () => {
+    // The decision, with its reason, as a test rather than a comment: `gh issue
+    // list --json … labels` emits `labels: []` for an issue carrying no labels
+    // (5 of the 347 open issues here do), so an absent `labels` cannot mean
+    // "untyped" — it means the field the kind axis reads was never queried, and
+    // every such entry would be terminal `ungraded`: the clean-looking zero.
+    // `labels: []` is the producer asserting "genuinely untyped", and only the
+    // producer can assert it.
+    it('refuses the entry when `labels` is absent', () => {
+      const gap = gapFor([{ number: 1, title: 'a', body: 'packages/cli/src/a.ts' }]);
+      expect(gap).toContain('backlog[0].labels is undefined');
+      expect(gap).toContain('`[]`');
+    });
+
+    it('accepts `labels: []` — the genuinely untyped issue — and reports it ungraded', () => {
+      const log = vi.spyOn(console, 'log').mockImplementation(() => {});
+      const code = withBacklog(
+        [{ number: 1, title: 'a', body: 'packages/cli/src/a.ts', labels: [] }],
+        (file) => runClumpIssues({ input: file })
+      );
+      expect(code).toBe(0);
+      const out = log.mock.calls.map((c) => String(c[0])).join('\n');
+      expect(out).toContain('1 issues, 0 clumps, 0 clumped');
+      expect(out).toContain('untyped (no type label)');
+    });
+  });
+
+  it('still reads a genuine `gh issue list --json` dump, label objects and all', () => {
+    // POSITIVE CONTROL for every refusal above, in gh's real wire shape: labels
+    // are objects carrying `id`/`description`/`color` beside `name`, and each
+    // entry carries a `url` the adapter never reads. Taken from the live
+    // backlog, not invented.
+    const ghShaped = [
+      {
+        number: 2037,
+        title: 'a',
+        body: 'packages/core/src/entropy/detectors/x.ts',
+        labels: [
+          { id: 'LA_kwDORosU288AAAACd_Zcqw', name: 'bug', description: '', color: 'd73a4a' },
+        ],
+        url: 'https://github.com/o/r/issues/2037',
+      },
+      {
+        number: 2076,
+        title: 'b',
+        body: 'packages/core/src/entropy/detectors/y.ts',
+        labels: [{ id: 'LA_x', name: 'bug', description: '', color: 'd73a4a' }],
+        url: 'https://github.com/o/r/issues/2076',
+      },
+    ];
+    const backlog = withBacklog(ghShaped, (file) => readBacklog({ input: file }));
+    expect(backlog).toEqual(ghShaped);
+
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {});
+    expect(withBacklog(ghShaped, (file) => runClumpIssues({ input: file }))).toBe(0);
+    expect(log.mock.calls.map((c) => String(c[0])).join('\n')).toContain(
+      '2 issues, 1 clumps, 2 clumped'
+    );
+  });
+
+  it('still reads the bare-label-name dump shape', () => {
+    // The second accepted producer shape (`IssueLabel = string | { name }`),
+    // which the rest of this suite's fixtures use.
+    const bare = [{ number: 1, title: 'a', body: 'packages/cli/src/a.ts', labels: ['bug'] }];
+    expect(withBacklog(bare, (file) => readBacklog({ input: file }))).toEqual(bare);
+  });
+
+  it('leaves a genuinely EMPTY backlog a clean run, not a gap', () => {
+    // The pair this check must not swap one indistinguishability for: zero
+    // issues is an ordinary outcome, and `[]` has no entry to be malformed.
+    expect(withBacklog([], (file) => readBacklog({ input: file }))).toEqual([]);
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {});
+    expect(withBacklog([], (file) => runClumpIssues({ input: file }))).toBe(0);
+    expect(log.mock.calls.map((c) => String(c[0])).join('\n')).toContain(
+      '0 issues, 0 clumps, 0 clumped'
+    );
+  });
+});
+
 describe('policyFromOptions', () => {
   it('is empty when no flag is set, so the intake defaults apply', () => {
     expect(policyFromOptions({})).toEqual({});

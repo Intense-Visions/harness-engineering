@@ -28,6 +28,7 @@ import chalk from 'chalk';
 import { Command } from 'commander';
 
 import { findConfigFile, resolveConfig } from '../../config/loader';
+import { describeValue } from './clump-dispatch';
 import {
   INTAKE_CLUMP_POLICY,
   clumpIssues,
@@ -88,6 +89,91 @@ export interface BacklogGap {
   gap: string;
 }
 
+/** Does this value satisfy `IssueLabel` — a name, or an object carrying one? */
+function labelGap(label: unknown, where: string): string | null {
+  if (typeof label === 'string') return null;
+  const named =
+    label !== null &&
+    typeof label === 'object' &&
+    !Array.isArray(label) &&
+    typeof (label as Record<string, unknown>).name === 'string';
+  if (named) return null;
+  return `${where} is ${describeValue(label)}, not a label name or an object carrying a string \`name\``;
+}
+
+/**
+ * Does this value satisfy {@link IntakeIssue}, or what is wrong with it?
+ *
+ * THE CAST THIS REPLACES IS THE DEFECT, measured rather than hypothesized.
+ * `readBacklog` cast any JSON array straight to `IntakeIssue[]` behind an
+ * `Array.isArray` check, so a dump with the wrong field names was ACCEPTED:
+ * `[{"nmbr":1,"ttl":"x","lbls":["bug"]}, …]` read back as issues whose every
+ * field was `undefined`, each became terminal `ungraded` (nothing can type
+ * it), and the command printed "2 issues, 0 clumps, 0 clumped … Conservation
+ * holds" and exited 0 — what a backlog that genuinely holds no groups prints;
+ * `--json` carried it further as `ungraded: [null, null]`. "No groups" and "I
+ * could not read this dump" must not be one output and one exit code, and
+ * `--input` is the offline path the fleets run. Same cast, one layer up, as
+ * the one `clumpGap` replaced in `clump-dispatch`, so it refuses the same way:
+ * name the entry and the field, exit {@link BACKLOG_UNAVAILABLE_EXIT_CODE},
+ * simulate nothing. An EMPTY backlog (`[]`) is untouched — no entry to be
+ * malformed, and zero issues is an ordinary outcome.
+ *
+ * `labels` MUST BE PRESENT: a decision, not an oversight. `gh issue list
+ * --json … labels` emits `labels: []` for an issue carrying no labels (5 of
+ * the 347 open issues here do), so ABSENT `labels` never means "untyped" — it
+ * means the field the kind axis reads was never queried. Those are the two
+ * readings this check keeps apart: `labels: []` asserts "genuinely untyped"
+ * and only the PRODUCER can assert it, absence says "I did not look".
+ * Accepting absence collapses them here, where the distinction is
+ * unrecoverable and every such entry is terminal `ungraded` — the
+ * clean-looking zero above. It costs a real `gh` dump nothing.
+ *
+ * Deliberately STRICTER than the `IntakeIssue` type, whose optional `labels` is
+ * for an IN-PROCESS caller building an issue in code (`issueWeight({ number,
+ * title })`), where the absent field is visible at the call site; this is the
+ * JSON boundary, where it is not. `body` is NOT required, the same line one
+ * field over: `title` is itself mined for paths (`toClumpableIssues` reads
+ * `title + body`), so the scope axis has an input either way and a bodyless
+ * issue lands in the named `unscoped` count. Nothing but `labels` feeds kind.
+ */
+function issueGap(issue: unknown, index: number): string | null {
+  const where = `backlog[${index}]`;
+  if (issue === null || typeof issue !== 'object' || Array.isArray(issue)) {
+    return `${where} is ${describeValue(issue)}, not an issue object`;
+  }
+  const record = issue as Record<string, unknown>;
+  if (typeof record.number !== 'number' || !Number.isFinite(record.number)) {
+    return `${where}.number is ${describeValue(record.number)}, not an issue number`;
+  }
+  if (typeof record.title !== 'string') {
+    return `${where}.title is ${describeValue(record.title)}, not a string`;
+  }
+  if (!Array.isArray(record.labels)) {
+    return `${where}.labels is ${describeValue(record.labels)}, not an array (an issue with no labels carries \`[]\`)`;
+  }
+  for (const [i, label] of record.labels.entries()) {
+    const gap = labelGap(label, `${where}.labels[${i}]`);
+    if (gap !== null) return gap;
+  }
+  return null;
+}
+
+/** The whole array, or the FIRST entry that is not an issue. One gap, named precisely. */
+function backlogGap(parsed: readonly unknown[]): BacklogGap | null {
+  for (const [index, issue] of parsed.entries()) {
+    const gap = issueGap(issue, index);
+    if (gap === null) continue;
+    return {
+      gap:
+        `backlog JSON is not an issue dump — ${gap}. An entry needs at least a numeric ` +
+        '`number`, a string `title` and a `labels` array; ' +
+        '`gh issue list --json number,title,body,labels,url` emits that shape.',
+    };
+  }
+  return null;
+}
+
 /**
  * Read the backlog.
  *
@@ -130,7 +216,7 @@ export function readBacklog(options: ClumpIssuesOptions): IntakeIssue[] | Backlo
     return { gap: `backlog is not JSON: ${(error as Error).message}` };
   }
   if (!Array.isArray(parsed)) return { gap: 'backlog JSON is not an array of issues' };
-  return parsed as IntakeIssue[];
+  return backlogGap(parsed) ?? (parsed as IntakeIssue[]);
 }
 
 /** A partial clump policy from the flags. Absent flags ⇒ whatever is under them. */
