@@ -96,6 +96,54 @@ describe('autonomy-guard: quoting / backslash-escaping the subcommand does not e
   });
 });
 
+// N1: cheap rules for indirection the literal matcher cannot follow — a harness invocation
+// whose arguments are built at runtime, and a cd / variable aimed at ~/.harness.
+describe('autonomy-guard: dynamic harness arguments are blocked (N1)', () => {
+  it.each([
+    'A=autonomy; harness $A set trusted --session s1',
+    'harness ${A:-autonomy} set trusted --session s1',
+    'harness "$A" set trusted --session s1',
+    'harness autonomy $(echo set) trusted --session s1',
+    'harness autonomy `echo set` trusted --session s1',
+    "harness $'autonomy' set trusted --session s1",
+    'npx harness $SUB set trusted --session s1',
+    'node packages/cli/dist/bin/harness.js $SUB set trusted',
+    './node_modules/.bin/harness $SUB set trusted',
+    '(sleep 1; echo y) | script -q /dev/null harness $A set trusted --session s1',
+  ])('blocks %j', (command) => {
+    const { exitCode, stderr } = bash(command);
+    expect(exitCode).toBe(2);
+    expect(stderr).toMatch(/BLOCKED/);
+  });
+});
+
+describe('autonomy-guard: cd / variable assignment aimed at ~/.harness is blocked (N1)', () => {
+  it.each([
+    'cd ~/.harness && echo x > config.json',
+    'cd $HOME/.harness; rm -rf session-overrides',
+    'cd "${HOME}/.harness" && ls',
+    'D=~/.harness; echo x > $D/config.json',
+    'export H=$HOME/.harness; echo x > $H/config.json',
+  ])('blocks %j', (command) => {
+    const { exitCode, stderr } = bash(command);
+    expect(exitCode).toBe(2);
+    expect(stderr).toMatch(/BLOCKED/);
+  });
+
+  it.each([
+    'harness autonomy set supervised --session s1',
+    'cd /tmp && harness autonomy set supervised --session s1',
+    'L=supervised; harness autonomy set supervised --audit on --session s1',
+    'ls ~/.harness/sessions',
+    'cd packages/cli && npm test',
+    'echo $HOME && harness autonomy show --session s1',
+  ])('allows %j (lowering / unrelated control)', (command) => {
+    const { exitCode, stderr } = bash(command);
+    expect(stderr).toBe('');
+    expect(exitCode).toBe(0);
+  });
+});
+
 describe('autonomy-guard: lowerings and unrelated commands are allowed (positive controls)', () => {
   it.each([
     'harness autonomy set supervised --session s1',

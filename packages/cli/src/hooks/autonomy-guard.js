@@ -8,9 +8,16 @@
 //   2. Blocks Bash / Write / Edit targeting the user-level autonomy state:
 //      ~/.harness/config.json, ~/.harness/session-overrides/, ~/.harness/autonomy-audit.log.
 //
+//   3. Blocks a `harness` invocation followed by a runtime-built argument (`$`, backtick,
+//      `$(`), and any `cd` / variable assignment aimed at ~/.harness — indirection the
+//      literal matcher cannot follow.
+//
 // A raise must come from the human in their own terminal (interactive confirm) or from
 // the user config they edit themselves. This hook is a tripwire, not a sandbox: a
-// determined process running as the same user can still reach these files.
+// determined process running as the same user can still reach these files. Known residual
+// evasions it does not attempt to catch: another interpreter (`python -c`, `node -e`),
+// decoded payloads piped to a shell (`base64 -d | sh`), script files written then executed,
+// aliases / shell functions, globbed or `..`-laundered paths, and symlinks created first.
 //
 // Exit codes: 0 = allow, 2 = block.
 
@@ -26,6 +33,8 @@ const PROTECTED_RELATIVE = ['config.json', 'session-overrides', 'autonomy-audit.
 const PROTECTED_MENTION = /\.harness\/(?:session-overrides|config\.json|autonomy-audit\.log)/i;
 const SHELL_TOKEN = /^(?:sh|bash|zsh|dash|ksh|fish|eval|source)$/;
 const QUOTED = '__Q__';
+// Placeholder for quoted text the shell expands at runtime (contains `$` or a backtick).
+const QUOTED_DYNAMIC = '__Q$__';
 const MAX_DEPTH = 4;
 
 function main() {
@@ -162,7 +171,8 @@ function split(cmd) {
   s = s.replace(/"((?:[^"\\]|\\.)*)"/g, (_m, body) => {
     doubles.push(body);
     // Inside double quotes a backslash only escapes $ ` " \ — elsewhere it is literal.
-    return RESTORABLE.test(body) ? keep(body.replace(/\\([$`"\\])/g, '$1')) : ` ${QUOTED} `;
+    if (RESTORABLE.test(body)) return keep(body.replace(/\\([$`"\\])/g, '$1'));
+    return /[$`]/.test(body) ? ` ${QUOTED_DYNAMIC} ` : ` ${QUOTED} `;
   });
   s = s.replace(/(^|[\s;&|`(])#[^\n]*/g, '$1'); // comments
   // Unquoted, `\y` is just `y`: strip backslashes before word characters (after joining
@@ -239,6 +249,35 @@ function raisesAutonomy(cmd, depth = 0) {
   return executed.some((text) => raisesAutonomy(text, depth + 1));
 }
 
+// --- N1: indirection the literal matcher cannot follow -------------------------------------
+
+/** Like SEGMENT_SEPARATOR, but keeps `$(…)` and backticks inside the segment they feed. */
+const COMMAND_SEPARATOR = /&&|\|\||\|&?|;|(?<![<>])&(?!>)|\n/;
+const HARNESS_THEN_DYNAMIC = /(?:^|[\s(`])(?:[^\s(`]*\/)?(?:harness|harness\.js)(?=\s)\s[^\n]*[$`]/;
+const HOME_HARNESS = /(?:~|\$HOME|\$\{HOME\})\/+\.harness(?![\w.-])/;
+const CD_TOKEN = /(?:^|[\s;&|(`])cd(?=\s|$)/;
+const ASSIGNMENT = /(?:^|[\s;&|(`])[A-Za-z_]\w*\+?=/;
+
+/** True when a `harness` invocation takes an argument built at runtime ($VAR, $(…), `…`). */
+function dynamicHarnessArgs(cmd, depth = 0) {
+  if (depth > MAX_DEPTH) return true;
+  const { code, heredocs, singles, doubles } = split(cmd);
+  if (code.split(COMMAND_SEPARATOR).some((seg) => HARNESS_THEN_DYNAMIC.test(seg))) return true;
+  const executed = [
+    ...(hasShellToken(code) ? [...singles, ...doubles, ...heredocs] : []),
+    ...doubles.filter((d) => d.includes('$(') || d.includes('`')),
+  ];
+  return executed.some((text) => dynamicHarnessArgs(text, depth + 1));
+}
+
+/** True when the command `cd`s into, or assigns a variable from, ~/.harness. */
+function aimsAtHomeHarness(cmd) {
+  const { code } = split(cmd);
+  const text = hasShellToken(code) ? cmd : cmd.replace(HEREDOC, ' ');
+  if (!HOME_HARNESS.test(text.replace(/['"]/g, ''))) return false;
+  return CD_TOKEN.test(code) || ASSIGNMENT.test(code);
+}
+
 function mentionsProtectedState(cmd) {
   // Heredoc bodies fed to non-shells are data (e.g. a commit message); everything else counts,
   // including quoted redirect targets such as > "$HOME/.harness/config.json".
@@ -259,6 +298,18 @@ function bashViolation(cmd) {
       '`harness autonomy set` with a raising (or non-literal) level/audit. Raising autonomy ' +
       '(trusted, or --audit off) is for the human to run in their own terminal (D16). ' +
       'Lowering is allowed: `harness autonomy set supervised` / `--audit on`.'
+    );
+  }
+  if (dynamicHarnessArgs(cmd)) {
+    return (
+      'a `harness` invocation with a runtime-built argument ($VAR, $(…), backticks) cannot be ' +
+      'checked for an autonomy raise (D16). Spell the arguments out literally.'
+    );
+  }
+  if (aimsAtHomeHarness(cmd)) {
+    return (
+      '`cd` or a variable assignment aimed at ~/.harness can reach user-level autonomy state ' +
+      'indirectly (D16). Use absolute, literal paths outside session-overrides/ and config.json.'
     );
   }
   if (mentionsProtectedState(cmd)) {
