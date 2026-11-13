@@ -83,11 +83,13 @@ describe('SC11: terminal points print the auto-decision summary', () => {
     expect(at).toBeGreaterThan(s.indexOf('**Sync roadmap (mandatory when present).**'));
     expect(at).toBeLessThan(s.indexOf('**Auto-transition to verification.**'));
   });
-  it('brainstorming sign-off, before the roadmap promotion', () => {
+  it('brainstorming end, after its last ceremony (the next-skill choice) and before the dispatch (review I6)', () => {
     const s = skill('harness-brainstorming');
     const at = s.indexOf(SUMMARY_STEP);
-    expect(at).toBeGreaterThan(s.indexOf('**Request sign-off in plain text.**'));
-    expect(at).toBeLessThan(s.indexOf('**Promote the roadmap row.**'));
+    expect(s.split(SUMMARY_STEP).length - 1).toBe(1);
+    expect(at).toBeGreaterThan(s.indexOf('"suggestedNext": "<next>"'));
+    expect(at).toBeGreaterThan(s.indexOf('**Choose the next skill with the human'));
+    expect(at).toBeLessThan(s.indexOf('If confirmed, dispatch by the recorded choice:'));
   });
 });
 
