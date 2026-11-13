@@ -345,3 +345,33 @@ describe('review S1: a headless disagreement is picked up by autopilot after the
     expect(s).not.toContain('APPROVE_PLAN');
   });
 });
+
+describe('review S4: the spec Pause Protocol table matches the protocol', () => {
+  const spec = readFileSync(
+    resolve(
+      dirname(PROTOCOL),
+      '..',
+      '..',
+      '..',
+      'docs',
+      'changes',
+      'trusted-autonomy-mode',
+      'proposal.md'
+    ),
+    'utf-8'
+  );
+  const specCells = (cls: string) => {
+    const row = spec.split('\n').find((r) => r.startsWith(`| \`${cls}\``));
+    if (row === undefined) throw new Error(`spec has no class row for ${cls}`);
+    return row
+      .split('|')
+      .map((c) => c.trim())
+      .filter(Boolean);
+  };
+  it.each(['ceremony', 'judgment', 'irreversible', 'gate'])(
+    '%s row is identical in spec and protocol',
+    (cls) => {
+      expect(specCells(cls)).toEqual(cells(cls));
+    }
+  );
+});
