@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/tests/mcp/tools'
-sourceHash: '79950e50c01bdcc1f234b736d0eea7eab67a771e75f8e7827696d6934a6efd52'
+sourceHash: 'c596acbc751d73010fe6e6e825d87f6a22013c99fed880931e524ae5936dbf7f'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -100,6 +100,7 @@ members:
     'state-events.test.ts',
     'state-extra.test.ts',
     'state-sc1-guard.test.ts',
+    'state-set-autonomy.test.ts',
     'state.test.ts',
     'task-independence.test.ts',
     'test-craft.test.ts',
@@ -209,7 +210,7 @@ import { HealthSnapshot, captureHealthSnapshot, isSnapshotFresh, loadCachedSnaps
 import { loadOrRebuildIndex } from '../../../src/skill/index-builder'
 import { recommend } from '../../../src/skill/recommendation-engine'
 import { loadOrGenerateProfile } from '../../../src/skill/stack-profile'
-import { COMPILER_VERSION, ComprehensionSourceFile, ComprehensionStore, ComprehensionUnit, ConflictError, Err, ExtractStatic, FeaturePatch, HistoryEvent, NewFeatureInput, Ok, PnyonTrackerAdapter, Result, RoadmapTrackerClient, SCHEMA_VERSION, TrackedFeature, compileModule, computeSourceHash, createNodeComprehensionIO, createNodeModuleSourceReader, detectStaleConstraints, loadTrackerConfig, parseDiff, parseRoadmap, roadmapToShards, serializeMeta, serializeShard } from '@harness-engineering/core'
+import { COMPILER_VERSION, ComprehensionSourceFile, ComprehensionStore, ComprehensionUnit, ConflictError, Err, ExtractStatic, FeaturePatch, HistoryEvent, NewFeatureInput, Ok, PnyonTrackerAdapter, Result, RoadmapTrackerClient, SCHEMA_VERSION, TrackedFeature, compileModule, computeSourceHash, createNodeComprehensionIO, createNodeModuleSourceReader, detectStaleConstraints, loadTrackerConfig, parseDiff, parseRoadmap, resolveAutonomyForSession, roadmapToShards, serializeMeta, serializeShard, sessionOverridePath, writeSessionOverride } from '@harness-engineering/core'
 import { queryTraceability } from '@harness-engineering/graph'
 import { deriveAcceptanceAuthority } from '@harness-engineering/intelligence'
 import { Err, Ok, Result } from '@harness-engineering/types'

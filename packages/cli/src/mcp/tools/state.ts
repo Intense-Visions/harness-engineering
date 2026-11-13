@@ -24,7 +24,7 @@ const LIVE_RETROSPECTION_TIMEOUT_MS = 15_000;
 export const manageStateDefinition = {
   name: 'manage_state',
   description:
-    'Manage harness project state: show current state, record learnings/failures, archive failures, reset state, run mechanical gate checks, or save/load session handoff',
+    'Manage harness project state: show current state, record learnings/failures, archive failures, reset state, run mechanical gate checks, save/load session handoff, or lower session autonomy (set-autonomy; lower-only)',
   inputSchema: {
     type: 'object' as const,
     properties: {
@@ -50,6 +50,7 @@ export const manageStateDefinition = {
           'phase-start',
           'phase-complete',
           'task-transition',
+          'set-autonomy',
         ],
         description: 'Action to perform',
       },
@@ -114,6 +115,17 @@ export const manageStateDefinition = {
       },
       actor: { type: 'string', description: 'Actor for a forced transition' },
       reason: { type: 'string', description: 'Reason for a forced transition' },
+      level: {
+        type: 'string',
+        enum: ['supervised', 'trusted'],
+        description:
+          'Autonomy level for set-autonomy. Agent calls may only lower: "trusted" is rejected (raise with `harness autonomy set` on a TTY).',
+      },
+      audit: {
+        type: 'boolean',
+        description:
+          'Audit setting for set-autonomy. Agent calls may only turn audit on; false is rejected.',
+      },
     },
     required: ['path', 'action'],
   },
@@ -144,6 +156,8 @@ type StateInput = {
   force?: boolean;
   actor?: string;
   reason?: string;
+  level?: string;
+  audit?: boolean;
 };
 
 async function handleShow(projectPath: string, input: StateInput) {
@@ -462,6 +476,48 @@ async function handleTaskTransition(projectPath: string, input: StateInput) {
   return resultToMcpResponse(Ok({ taskId: input.taskId, lane: input.toLane }));
 }
 
+/** Injected inputs for set-autonomy (tests); production uses os.homedir() and the clock. */
+export interface SetAutonomyDeps {
+  homeDir?: string;
+  now?: () => Date;
+}
+
+async function handleSetAutonomy(
+  projectPath: string,
+  input: StateInput,
+  deps: SetAutonomyDeps
+): Promise<McpResponse> {
+  if (!input.session) return mcpError('Error: session is required for set-autonomy action');
+  if (input.level !== undefined && input.level !== 'supervised' && input.level !== 'trusted') {
+    return mcpError('Error: level must be supervised or trusted');
+  }
+  if (input.level === undefined && input.audit === undefined) {
+    return mcpError('Error: set-autonomy requires level and/or audit');
+  }
+  const core = await import('@harness-engineering/core');
+  const change = {
+    ...(input.level !== undefined && { level: input.level as 'supervised' | 'trusted' }),
+    ...(input.audit !== undefined && { audit: input.audit }),
+  };
+  const result = core.writeLoweringOverride(projectPath, input.session, change, {
+    ...(deps.homeDir !== undefined && { homeDir: deps.homeDir }),
+    ...(deps.now !== undefined && { now: deps.now }),
+  });
+  if (!result.ok) {
+    if ((result.error as { code?: string }).code === core.AUTONOMY_RAISE_REJECTED) {
+      return mcpError(
+        JSON.stringify({
+          error: core.AUTONOMY_RAISE_REJECTED,
+          message: result.error.message,
+          rejected: change,
+        })
+      );
+    }
+    return resultToMcpResponse(result);
+  }
+  return resultToMcpResponse(Ok({ session: input.session, override: result.value }));
+}
+
 const ACTION_HANDLERS: Record<
   string,
   (projectPath: string, input: StateInput) => Promise<McpResponse>
@@ -486,9 +542,11 @@ const ACTION_HANDLERS: Record<
   'task-transition': handleTaskTransition,
 };
 
-export async function handleManageState(input: StateInput) {
+export async function handleManageState(input: StateInput, deps: SetAutonomyDeps = {}) {
   try {
     const projectPath = sanitizePath(input.path);
+    // set-autonomy takes injected deps, so it is dispatched ahead of the shared table.
+    if (input.action === 'set-autonomy') return await handleSetAutonomy(projectPath, input, deps);
     const handler = ACTION_HANDLERS[input.action];
     if (!handler) return mcpError('Error: unknown action');
     return await handler(projectPath, input);
