@@ -1,6 +1,6 @@
 ---
 number: 0137
-title: 'Autonomy trust boundary: user-level only, raised only by the human, every agent- or repo-reachable path lower-only'
+title: 'Autonomy trust boundary: user-level only, raised only by the human, every sanctioned agent- or repo-reachable path lower-only'
 date: 2026-11-13
 status: accepted
 tier: large
@@ -40,8 +40,11 @@ then `~/.harness/config.json`, then the default `supervised`. Implemented by `re
 
 ### Lower-only tiers
 
-Every path an agent or a repository can reach may only lower autonomy (`trusted` → `supervised`,
-audit off → on):
+Every **sanctioned** path an agent or a repository can reach (MCP tools, env, invocation flags,
+project files, a non-interactive `harness autonomy set`) may only lower autonomy (`trusted` →
+`supervised`, audit off → on). "Sanctioned" is load-bearing: an agent writing `~/.harness/`
+directly through an unrestricted shell is the same-user residual described below, narrowed by a
+hook but not closed.
 
 - **Env (D13).** Env is repo-reachable: `.env` loaded by `dotenv`, and `env` blocks in
   `.mcp.json` and `.claude/settings.json`. A raising env value is ignored with a warning.
@@ -68,17 +71,38 @@ Exactly two, and both need something only the human controls:
 Session overrides are stored at `~/.harness/session-overrides/<repoKey>/<slug>.json`. `repoKey`
 is the first 16 hex chars of the sha256 of the realpath of `git rev-parse --git-common-dir`
 (`computeRepoKey`, `packages/core/src/autonomy/paths.ts:93`), so every worktree of a repo
-shares overrides: a human lowering in the main checkout reaches agents in sibling worktrees.
+shares overrides: a human lowering in the main checkout reaches agents in sibling worktrees. A
+raise does not travel the same way (see D14 below): it is honoured only where its session
+directory exists in the worktree that reads it.
 Each written field carries its own `setAt` and origin, so "the more recent of flag and session"
 is decided per field.
 
-### Raises are session-bound and expire; lowerings are permanent (D14)
+### Raises are session-bound and expire; lowerings do not expire (D14)
 
 A raise must name an existing `.harness/sessions/<slug>/` directory, checked before the human
 is prompted, and it expires: default 24 hours (`DEFAULT_RAISE_TTL_MS`,
-`packages/core/src/autonomy/override-store.ts:27`), adjustable with `--for <duration>`. Lowerings
-carry no expiry. Otherwise an injected instruction need only name an old slug to inherit a past
-grant.
+`packages/core/src/autonomy/override-store.ts:27`), adjustable with `--for <duration>` (`--for`
+on a lowering is refused). Lowerings do not expire; only a later interactive raise replaces one.
+Otherwise an injected instruction need only name an old slug to inherit a past grant.
+
+The shipped resolver enforces this again at read time, per field:
+
+- **Session dir at read time.** A raised field is honoured only while `.harness/sessions/<slug>/`
+  exists in the worktree resolving it (`resolveAutonomyForSession`,
+  `packages/core/src/autonomy/session.ts`). Because the override file is shared across worktrees
+  (D15) but the session dir is not, a raise made for a session in one worktree does not reach a
+  sibling worktree, whereas a lowering does.
+- **No expiry means expired.** A raised field without `expiresAt` (or with an unparseable one) is
+  ignored with a warning, the same as an expired one (`liveField`,
+  `packages/core/src/autonomy/resolve.ts`).
+- **Corrupt fields fail closed, per field.** A present-but-corrupt `level` or `audit` field reads
+  as its lowest-autonomy value (`supervised`, audit on) without discarding the other field, and
+  the next write persists that value (`readSessionOverride`,
+  `packages/core/src/autonomy/override-store.ts`).
+- **Strict validation.** A change must be exactly typed (for example a string `"false"` for
+  `audit` is invalid, not falsy); anything else is rejected with `AUTONOMY_INVALID_SETTING`
+  before the raise/lower policy check runs (`packages/core/src/autonomy/schema.ts`,
+  `lower-only.ts`).
 
 ### The same-user residual is narrowed and made visible (D16)
 
