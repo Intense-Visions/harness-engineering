@@ -82,7 +82,7 @@ Each of these resolves to **pause**:
 Run it when audit is on (D7, D9). Each step uses a **fresh** subagent with no access to this conversation. Spawn exactly one blind auditor and at most one refuter per fork. Never re-run either: needing a second spawn of either is a disagreement → escalate.
 
 0. **Pre-commit.** Before spawning the blind auditor, print `Recommendation (pre-audit): <option>`, with the option copied verbatim from the options. This is the recommendation the audit tests; it cannot change afterwards.
-1. **Blind re-derivation.** Fill the blind auditor prompt below. Strip each option's leading label (`A)`, `-`, `1.`) and every recommendation marker, order the options alphabetically by text, and number them 1..n. Recommendation markers include `(recommended)`, a `Recommendation:` line and a confidence rating. Copy the question verbatim, as the human would see it. The evidence is the material shown at the pause minus the Recommendation line and minus graded rows (Risk, Effort, confidence), plus the source paths (spec, plan, files) the auditor may read itself. The prompt never contains your recommendation or your rationale. Write the rendered auditor prompt to `.harness/sessions/<session-slug>/audits/<n>.md` (n counts audits in the session) for post-hoc review. The auditor returns `{ "pick", "confidence", "reason" }`, where `pick` is the option text without its number.
+1. **Blind re-derivation.** Fill the blind auditor prompt below. Strip each option's leading label (`A)`, `-`, `1.`) and every recommendation marker, order the options alphabetically by text, and number them 1..n. Recommendation markers include `(recommended)`, a `Recommendation:` line and a confidence rating. Copy the question verbatim, as the human would see it. The evidence is the material shown at the pause minus the Recommendation line and minus graded rows (Risk, Effort, confidence), plus the source paths (spec, plan, files) the auditor may read itself. Never pass, and the auditor must not open, anything under `.harness/`, any `interview.md`, or any file written for this pause (for example the draft plan or spec section under review). The prompt never contains your recommendation or your rationale. Write the rendered auditor prompt to `.harness/sessions/<session-slug>/audits/<n>.md` (n counts audits in the session) for post-hoc review. The auditor returns `{ "pick", "confidence", "reason" }`, where `pick` is the option text without its number.
 2. **Compare.** If `pick` is not your recommended option, that is a disagreement → escalate.
 3. **Refutation** (only when the picks agree). Fill the refuter prompt below with the agreed pick. It returns `{ "severity": "blocking" | "non-blocking", "objection" }`.
 4. **Outcome.** Agreement with a `non-blocking` objection (or none) → auto-take the recommendation and record audit `{ "status": "agreed", "blindPick": "<pick>" }`. A `blocking` objection → escalate.
@@ -103,6 +103,8 @@ Options (sorted alphabetically, numbered):
 
 Evidence:
 {{evidence}}
+
+Do not open files under `.harness/` or any `interview.md`.
 
 Pick exactly one option, copying its text verbatim from the list (without the number). Reply with JSON only:
 {"pick": "<option text>", "confidence": "high|medium|low", "reason": "<one or two sentences>"}

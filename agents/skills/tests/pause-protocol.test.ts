@@ -375,3 +375,17 @@ describe('review S4: the spec Pause Protocol table matches the protocol', () => 
     }
   );
 });
+
+describe('re-review I5: source paths never lead the blind auditor to the recommendation', () => {
+  it('the blind template tells the auditor which files not to open', () => {
+    expect(template('blind-audit-prompt')).toContain(
+      'Do not open files under `.harness/` or any `interview.md`.'
+    );
+    expect(blindLeaks(template('blind-audit-prompt'))).toEqual([]); // still no recommend/rationale wording
+  });
+  it('the main agent never passes them, nor anything written for this pause', () => {
+    expect(section('## Self-audit (judgment forks)')).toContain(
+      'Never pass, and the auditor must not open, anything under `.harness/`, any `interview.md`, or any file written for this pause (for example the draft plan or spec section under review).'
+    );
+  });
+});
