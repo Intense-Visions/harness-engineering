@@ -88,7 +88,6 @@ const ENV_RAISE_HINT =
   'the environment may only lower autonomy (D13: .env files and agent settings can set it). ' +
   'Raise with ~/.harness/config.json or an interactive `harness autonomy set`.';
 
-/** Lower-only (D13): `supervised` is honoured; `trusted` is ignored with a warning naming it. */
 /**
  * D14: a RAISED session field (level trusted / audit off) applies only while unexpired AND
  * while its session dir exists at read time (worktrees share one override key, D15, so a raise
@@ -123,6 +122,7 @@ function liveField<T>(
   return field;
 }
 
+/** Lower-only (D13): `supervised` is honoured; `trusted` is ignored with a warning naming it. */
 function readEnvLevel(env: NodeJS.ProcessEnv, warnings: string[]): AutonomyLevel | undefined {
   const raw = env[AUTONOMY_ENV];
   if (raw === undefined || raw.trim() === '') return undefined;
