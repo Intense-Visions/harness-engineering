@@ -131,3 +131,15 @@ describe('D2: rigor flag descriptions describe checking only, never approval', (
     }
   );
 });
+
+describe('brainstorming sign-off states who approves in each mode (verify N5)', () => {
+  it('names supervised approval and the trusted-mode ceremony', () => {
+    const s = skill('harness-brainstorming');
+    expect(s).toContain(
+      'The human must explicitly approve (supervised); in trusted mode this ceremony is auto-approved and logged per the Pause Protocol.'
+    );
+    expect(s).not.toContain(
+      'The human must explicitly approve (a clear "yes") before this skill is complete.'
+    );
+  });
+});
