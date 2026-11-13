@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/commands'
-sourceHash: '57e8eedc8934446fa81f6cd98389954464a077a7f1a72a21814b37a6b5337052'
+sourceHash: 'b2e575e75bc2ec7f9f90855be9a9500419a6f25e9284d30fd36ae8555feccee9'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -322,7 +322,9 @@ export offerIntegrationsSync
 export offerSkillProviderUpdates
 export parseConcurrency
 export parseNpmSpec
+export printCleanupAllResult
 export printCleanupResult
+export printCleanupSessionsResult
 export printMinimalInitSuccess
 export readReview
 export referencesTargetPr

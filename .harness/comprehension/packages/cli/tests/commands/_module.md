@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/tests/commands'
-sourceHash: '47fa016aa70ed4025fd2c44d70e17ed288780c443fbac79b1d415bb2de7281e0'
+sourceHash: 'b00aa0704606abef1aa69c7ffa86c52e38d696938ceebb8127217051b60f5216'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -278,7 +278,7 @@ import { createCheckSecurityCommand, runCheckSecurity } from '../../src/commands
 import { createCheckVocabularyCommand, runCheckVocabulary } from '../../src/commands/check-vocabulary'
 import '../../src/commands/ci/check'
 import { createCleanupCommand, printCleanupResult, runCleanup } from '../../src/commands/cleanup'
-import { createCleanupSessionsCommand, runCleanupAll, runCleanupSessions } from '../../src/commands/cleanup-sessions'
+import { createCleanupSessionsCommand, printCleanupAllResult, printCleanupSessionsResult, runCleanupAll, runCleanupSessions } from '../../src/commands/cleanup-sessions'
 import { createCliErgonomicsCraftCommand } from '../../src/commands/cli-ergonomics-craft'
 import { createCodeCraftCommand } from '../../src/commands/code-craft'
 import { runCompoundScanCandidatesCommand } from '../../src/commands/compound/scan-candidates'

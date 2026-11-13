@@ -1,9 +1,14 @@
 // packages/cli/tests/commands/cleanup-sessions.test.ts
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
-import { runCleanupSessions, runCleanupAll } from '../../src/commands/cleanup-sessions';
+import {
+  runCleanupSessions,
+  runCleanupAll,
+  printCleanupSessionsResult,
+  printCleanupAllResult,
+} from '../../src/commands/cleanup-sessions';
 
 describe('cleanup-sessions command', () => {
   let tmpDir: string;
@@ -200,5 +205,34 @@ describe('sessions holding an auto-decision log survive the TTL sweep (review I2
     expect(r.ok).toBe(true);
     expect(fs.existsSync(path.join(sessionsDir, 'audited', 'auto-decisions.jsonl'))).toBe(true);
     expect(fs.existsSync(path.join(sessionsDir, 'plain-stale'))).toBe(false);
+  });
+  it('reports a stale session kept for its log as retained; a fresh one with a log is not (review N4)', async () => {
+    staleSession('audited', '{"x":1}\n');
+    staleSession('plain-stale');
+    fs.mkdirSync(path.join(sessionsDir, 'fresh-logged'), { recursive: true });
+    fs.writeFileSync(path.join(sessionsDir, 'fresh-logged', 'auto-decisions.jsonl'), '{"x":1}\n');
+    const r = await runCleanupSessions({ cwd: tmpDir, dryRun: true });
+    expect(r.ok && r.value.retained).toEqual(['audited']);
+    expect(r.ok && r.value.kept.sort()).toEqual(['audited', 'fresh-logged']);
+  });
+  it('--all reports retained per target (review N4)', async () => {
+    staleSession('audited', '{"x":1}\n');
+    const r = await runCleanupAll({ cwd: tmpDir, dryRun: true, include: ['sessions'] });
+    expect(r.ok && r.value[0]?.retained).toEqual(['audited']);
+  });
+  it('prints retained sessions in text and JSON output (review N4)', () => {
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {});
+    printCleanupSessionsResult({ removed: ['x'], kept: ['a'], retained: ['a'] }, false, false);
+    printCleanupSessionsResult({ removed: [], kept: ['a'], retained: ['a'] }, true, true);
+    printCleanupAllResult(
+      [{ target: 'sessions', removed: [], kept: ['a'], retained: ['a'] }],
+      false,
+      false
+    );
+    const out = log.mock.calls.map((c) => String(c[0])).join('\n');
+    log.mockRestore();
+    expect(out).toContain('Kept because it holds an auto-decision log (1):');
+    expect(out).toContain('"retained": [');
+    expect(out).toContain('1 kept for an auto-decision log');
   });
 });
