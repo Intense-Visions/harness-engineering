@@ -186,12 +186,27 @@ describe('SC12: every pause point in the seven workflow skills is marked', () =>
   }
 });
 
-/** A fenced line is anchored at its opening fence, as the detector anchors it. */
-function anchorIndex(lines: string[], idx: number): number {
+const isFence = (l: string | undefined) => /^\s*(?:```|~~~)/.test(l ?? '');
+const isRow = (l: string | undefined) => /^\s*\|/.test(l ?? '');
+
+/** Opening fence of the fenced block containing line `idx`, or -1. */
+function fenceStart(lines: string[], idx: number): number {
   let open = -1;
-  for (let k = 0; k < idx; k += 1)
-    if (/^\s*(?:```|~~~)/.test(lines[k] ?? '')) open = open < 0 ? k : -1;
-  return open < 0 ? idx : open;
+  for (let k = 0; k < idx; k += 1) if (isFence(lines[k])) open = open < 0 ? k : -1;
+  return open;
+}
+
+/** First row of the table containing line `idx` (idx itself when it is not a row). */
+function tableStart(lines: string[], idx: number): number {
+  let start = idx;
+  while (isRow(lines[idx]) && isRow(lines[start - 1])) start -= 1;
+  return start;
+}
+
+/** A fenced line or table row is anchored at its block's first line, as the detector anchors it. */
+function anchorIndex(lines: string[], idx: number): number {
+  const open = fenceStart(lines, idx);
+  return open >= 0 ? open : tableStart(lines, idx);
 }
 
 /** Class of the nearest marker at most MARKER_WINDOW lines above line `idx` (0-based) or its fence. */
@@ -285,6 +300,13 @@ const NOT_PAUSES: Array<[string, string]> = [
 ];
 
 describe('critical pauses carry their pinned class', () => {
+  it('classAt anchors table rows and fenced lines at the block start, like the detector (review S8)', () => {
+    const table = `${marker('gate')}\n| a | b |\n|---|---|\n| 1 | x |\n| 2 | x |\n| 3 | x |\n| 4 | STOP. |\n`;
+    expect(classAt(table, 6)).toBe('gate');
+    const fence = `${marker('ceremony')}\n\`\`\`\n1\n2\n3\n4\nProceed? (yes/no)\n\`\`\`\n`;
+    expect(classAt(fence, 6)).toBe('ceremony');
+    expect(classAt(`${marker('gate')}\na\nb\nc\nd\n`, 4)).toBeUndefined(); // control: plain text is not anchored
+  });
   it.each(NOT_PAUSES)('%s: "%s" is in no marker window', (skill, excerpt) => {
     expect(classOf(skill, excerpt)).toBeUndefined();
   });
