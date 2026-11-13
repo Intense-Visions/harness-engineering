@@ -1,11 +1,11 @@
 ---
 schemaVersion: 1
 module: 'packages/core/tests/autonomy'
-sourceHash: '15225614004fee259ec93b8e613e3e5f5637e0405ecb12883d67cfa7f4c88fa4'
+sourceHash: '7c2520d4bba485366fa185cc4205545b444c059d86ec5d2971df9f08115fef55'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
-members: ['paths.test.ts', 'resolve.test.ts', 'schema.test.ts']
+members: ['paths.test.ts', 'resolve-isolation.test.ts', 'resolve.test.ts', 'schema.test.ts']
 ---
 
 ## Interface Contract
