@@ -881,20 +881,21 @@ Run an agent task
 
 ## Autonomy Commands
 
-Show or set user-level trusted autonomy (never read from project config)
+Show or set autonomy. Only ~/.harness/config.json or an interactive `autonomy set` can raise it; environment variables (including a project .env) can only lower it
 
-### `harness autonomy set <level>`
+### `harness autonomy set [level]`
 
 Set the session autonomy override (raising requires an interactive terminal)
 
 **Arguments:**
 
-- `level` (required) — supervised | trusted
+- `level` (optional) — supervised | trusted (omit to change only --audit)
 
 **Options:**
 
 - `--session` — Session slug to override
 - `--audit` — Self-audit on judgment forks
+- `--for` — How long a raise lasts, e.g. 90m, 2h, 7d (default 24h)
 
 ### `harness autonomy show`
 
