@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/commands/autonomy'
-sourceHash: 'eebdea1a5b51676a7f0ab7e4e73c0f621431c491c8851d14cec302553c660480'
+sourceHash: '7a3b173a0044f8e1abec89b471d4f9398ee617f87db1c08c52bc8cc62c11958d'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -20,6 +20,7 @@ export createAutonomyCommand
 import { logger } from '../../output/logger'
 import { confirmYesNo } from '../../output/prompt'
 import { AutonomyCliDeps } from './deps'
+import { createAutonomyLogCommand } from './log'
 import { createAutonomySetCommand } from './set'
 import { createAutonomyShowCommand } from './show'
 import { AutoDecision, AutoDecisionSummary, AutonomySessionOverride, AutonomySetting, ResolvedAutonomy, isRaisingChange, readAutoDecisions, renderAutoDecisionSummary, resolveAutonomyForSession, sessionDirForRaise, summarizeAutoDecisions, writeSessionOverride } from '@harness-engineering/core'
