@@ -249,6 +249,24 @@ obtain `CodeSymbol[]` (`kind`, `line`, `endLine`) and critique those as units. `
 does exactly this for Python (`test-craft/index.ts:142`, `extractPythonTests`) and extends the same
 way for the remaining three.
 
+**Extraction across all six languages is VERIFIED, not assumed.** Probed directly against the
+built `getOutline` (exported from `@harness-engineering/core`) with a fixture per language:
+
+```
+s.py    -> function:compute_total, class:Cart > method:add
+s.go    -> function:ComputeTotal, type:Cart, method:Add
+s.rs    -> function:compute_total, class:Cart, class:Cart > method:add
+s.java  -> class:Cart > method:computeTotal
+*.ts    -> 34 symbols
+```
+
+Two things this measurement settles that reasoning would not have. **Methods are nested as
+`children`, not emitted flat** — a flat read of `symbols` shows only `class:Cart` for Java and reads
+as broken extraction, so Phase 2's unit walk MUST recurse into `children` or it will silently
+critique class declarations and skip every method. **Rust emits the same type twice**, once for the
+`struct` and once for the `impl` block, so Phase 2 must de-duplicate by (kind, name, line) or every
+Rust type costs two prompts and yields two copies of each finding.
+
 `[UNVERIFIED]` The rubric catalogs are assumed language-neutral — they critique whether a function
 tells one story at one altitude, not TypeScript syntax. No fixture proves this yet; Phase 1b's
 per-language fixtures are what will establish it. If a rubric turns out to be TS-specific it is
