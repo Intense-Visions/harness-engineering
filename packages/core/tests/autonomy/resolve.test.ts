@@ -1,0 +1,94 @@
+import { describe, it, expect } from 'vitest';
+import type { AutonomyLevel, AutonomySessionOverride } from '@harness-engineering/types';
+import { resolveAutonomy, type ResolveAutonomyInput } from '../../src/autonomy/resolve';
+
+const NO_FILE = () => undefined;
+const cfg = (obj: unknown) => () => JSON.stringify(obj);
+const T0 = '2026-01-01T00:00:00.000Z';
+const sess = (level?: AutonomyLevel, audit?: boolean, setAt = T0): AutonomySessionOverride => ({
+  ...(level !== undefined && { level: { value: level, setAt, origin: 'cli' as const } }),
+  ...(audit !== undefined && { audit: { value: audit, setAt, origin: 'cli' as const } }),
+});
+const run = (input: ResolveAutonomyInput) =>
+  resolveAutonomy({ env: {}, readFile: NO_FILE, ...input });
+
+describe('resolveAutonomy precedence (SC6)', () => {
+  it.each([
+    { name: 'default', input: {}, exp: ['supervised', 'default', false, 'default'] },
+    {
+      name: 'user config level; audit defaults per level',
+      input: { readFile: cfg({ autonomy: { level: 'trusted' } }) },
+      exp: ['trusted', 'user-config', true, 'default'],
+    },
+    {
+      name: 'user config per-level audit',
+      input: { readFile: cfg({ autonomy: { level: 'trusted', audit: { trusted: false } } }) },
+      exp: ['trusted', 'user-config', false, 'user-config'],
+    },
+    {
+      name: 'env beats user config',
+      input: {
+        env: { HARNESS_AUTONOMY: 'supervised', HARNESS_AUTONOMY_AUDIT: 'on' },
+        readFile: cfg({ autonomy: { level: 'trusted', audit: { supervised: false } } }),
+      },
+      exp: ['supervised', 'env', true, 'env'],
+    },
+    {
+      name: 'session beats env',
+      input: {
+        sessionOverride: sess('trusted', false),
+        env: { HARNESS_AUTONOMY: 'supervised', HARNESS_AUTONOMY_AUDIT: 'on' },
+      },
+      exp: ['trusted', 'session', false, 'session'],
+    },
+    {
+      name: 'flag beats session',
+      input: {
+        flag: { level: 'supervised' as const, audit: true },
+        sessionOverride: sess('trusted', false),
+      },
+      exp: ['supervised', 'flag', true, 'flag'],
+    },
+    {
+      name: 'fields resolve independently',
+      input: { flag: { audit: true }, env: { HARNESS_AUTONOMY: 'trusted' } },
+      exp: ['trusted', 'env', true, 'flag'],
+    },
+  ])('$name', ({ input, exp }) => {
+    const r = run(input as ResolveAutonomyInput);
+    expect([r.level, r.source.level, r.audit, r.source.audit]).toEqual(exp);
+    expect(r.warnings).toEqual([]);
+  });
+});
+
+describe('resolveAutonomy fail-soft warnings', () => {
+  it('malformed JSON user config → defaults + one warning', () => {
+    const r = run({ readFile: () => '{not json' });
+    expect([r.level, r.source.level]).toEqual(['supervised', 'default']);
+    expect(r.warnings).toHaveLength(1);
+    expect(r.warnings[0]).toMatch(/malformed/i);
+  });
+  it('schema-invalid user config → defaults + one warning', () => {
+    const r = run({ readFile: cfg({ autonomy: { level: 'yolo' } }) });
+    expect(r.source.level).toBe('default');
+    expect(r.warnings).toHaveLength(1);
+  });
+  it('unrecognised HARNESS_AUTONOMY falls through to user config with one warning', () => {
+    const r = run({
+      env: { HARNESS_AUTONOMY: 'yolo' },
+      readFile: cfg({ autonomy: { level: 'trusted' } }),
+    });
+    expect([r.level, r.source.level]).toEqual(['trusted', 'user-config']);
+    expect(r.warnings).toHaveLength(1);
+    expect(r.warnings[0]).toContain('HARNESS_AUTONOMY');
+  });
+  it('unrecognised HARNESS_AUTONOMY_AUDIT falls through to default with one warning', () => {
+    const r = run({ env: { HARNESS_AUTONOMY_AUDIT: 'maybe' } });
+    expect([r.audit, r.source.audit]).toEqual([false, 'default']);
+    expect(r.warnings).toHaveLength(1);
+    expect(r.warnings[0]).toContain('HARNESS_AUTONOMY_AUDIT');
+  });
+  it.each(['ON', 'true', '1'])('accepts audit env value %s as on', (v) => {
+    expect(run({ env: { HARNESS_AUTONOMY_AUDIT: v } }).audit).toBe(true);
+  });
+});
