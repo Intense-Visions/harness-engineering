@@ -100,7 +100,14 @@ const MIN_PAUSE_PHRASES: Record<(typeof WORKFLOW_SKILLS)[number], number> = {
 };
 
 /** Skills not yet labelled; their compliance check runs as it.fails. Tasks 12-18 empty this. */
-const UNLABELLED = new Set<string>(WORKFLOW_SKILLS);
+const UNLABELLED = new Set<string>([
+  'harness-planning',
+  'harness-autopilot',
+  'harness-execution',
+  'harness-soundness-review',
+  'harness-code-review',
+  'harness-integration',
+]);
 
 const rows = WORKFLOW_SKILLS.map((skill) => {
   const text = read(skill);
