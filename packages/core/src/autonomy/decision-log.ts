@@ -1,10 +1,15 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import type { AutoDecision } from '@harness-engineering/types';
+import type { AutoDecision, AutoDecisionInput, ResolvedAutonomy } from '@harness-engineering/types';
 import type { Result } from '../shared/result';
 import { Ok, Err } from '../shared/result';
 import { resolveProjectRoot, validateOverrideSlug, type AutonomyPathOptions } from './paths';
-import { AutoDecisionInvalidError, parseAutoDecisionLine } from './decision-schema';
+import {
+  AutoDecisionInvalidError,
+  parseAutoDecisionLine,
+  validateAutoDecisionInput,
+} from './decision-schema';
+import { resolveAutonomyForSession, type ResolveForSessionInput } from './session';
 
 export const AUTO_DECISIONS_FILE = 'auto-decisions.jsonl';
 /** Hard cap on one serialized entry (newline included); one entry is always one write(2). */
@@ -94,7 +99,8 @@ function defaultAppendBytes(file: string, data: Buffer): number {
  * Append one entry as one line. Append-only: the file is opened only in append mode and this
  * module never rewrites or deletes it. The whole line is a single write(2) on an O_APPEND
  * descriptor, so concurrent writers never interleave partial lines. The entry is NOT validated
- * here; recordAutoDecision is the public path (validate, authorize, stamp, then append).
+ * here; recordAutoDecision (below) is the public path (validate, authorize, stamp, then append).
+ * Exported for tests only: the autonomy barrel does not re-export it.
  */
 export function appendAutoDecision(
   projectPath: string,
@@ -172,4 +178,74 @@ export function readAutoDecisions(
     else invalid.push({ line: i + 1, error: parsed.error.message });
   });
   return Ok({ file, present: true, entries, invalid });
+}
+
+// --- recordAutoDecision: the only public write path -------------------------------------
+
+export const AUTO_DECISION_NOT_AUTHORIZED = 'AUTO_DECISION_NOT_AUTHORIZED';
+
+export class AutoDecisionNotAuthorizedError extends Error {
+  readonly code = AUTO_DECISION_NOT_AUTHORIZED;
+  constructor(message: string) {
+    super(`${message} Pause and ask the human (fail-safe).`);
+    this.name = 'AutoDecisionNotAuthorizedError';
+  }
+}
+
+/** No invocation flag: a flag relayed by an agent is agent-asserted (Phase 1 deferral to Phase 3). */
+export type RecordAutoDecisionOptions = DecisionLogOptions &
+  Omit<ResolveForSessionInput, 'projectPath' | 'session' | 'flag'>;
+
+/**
+ * The log records only what the resolved autonomy permitted. Anything else is refused, and a
+ * refused log entry makes the skill pause (fail-safe rule), so on the sanctioned path an agent
+ * cannot auto-proceed while supervised or skip an audit that is on.
+ */
+export function authorizationError(
+  d: AutoDecisionInput,
+  r: ResolvedAutonomy
+): AutoDecisionNotAuthorizedError | null {
+  if (d.audit?.status === 'escalated') return null; // the human made this choice
+  if (r.level !== 'trusted') {
+    return new AutoDecisionNotAuthorizedError(
+      `Autonomy resolves to ${r.level} (source: ${r.source.level}); only trusted mode may auto-take a ${d.pauseClass} decision.`
+    );
+  }
+  if (d.audit?.status === 'off' && r.audit) {
+    return new AutoDecisionNotAuthorizedError(
+      `Audit is on (source: ${r.source.audit}); a judgment cannot be recorded with audit "off". Run the self-audit, or record "unavailable" if no subagent can be spawned (D11).`
+    );
+  }
+  return null;
+}
+
+/**
+ * The only public write path for auto-decisions.jsonl. Order: validate the slug (shared rule),
+ * validate the entry (strict; caller ts/autonomySource rejected), resolve autonomy for the
+ * session, authorize, stamp ts and autonomySource, append one line. Never throws.
+ */
+export function recordAutoDecision(
+  projectPath: string,
+  session: unknown,
+  input: unknown,
+  opts: RecordAutoDecisionOptions = {}
+): Result<AutoDecision, Error> {
+  try {
+    const slug = validateOverrideSlug(session as string);
+    if (!slug.ok) return Err(new AutoDecisionInvalidError(slug.error.message, ['session']));
+    const valid = validateAutoDecisionInput(input);
+    if (!valid.ok) return valid;
+    const resolved = resolveAutonomyForSession({ ...opts, projectPath, session: slug.value });
+    const denied = authorizationError(valid.value, resolved);
+    if (denied) return Err(denied);
+    const entry: AutoDecision = {
+      ts: (opts.now ?? (() => new Date()))().toISOString(),
+      ...valid.value,
+      autonomySource: resolved.source.level,
+    };
+    const appended = appendAutoDecision(projectPath, slug.value, entry, opts);
+    return appended.ok ? Ok(entry) : appended;
+  } catch (err) {
+    return Err(err instanceof Error ? err : new Error(String(err)));
+  }
 }

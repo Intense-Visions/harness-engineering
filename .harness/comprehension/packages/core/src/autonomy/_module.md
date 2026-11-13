@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/src/autonomy'
-sourceHash: '4e3c30be0e9ddbfdb93b6c47c3e29f82833413ef42da7ca1bad3d7d231ab6230'
+sourceHash: 'e944bf202d5d6a0a9392779657de79ca5dd72c54a029aad75a2d8052ebcd5206'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -67,11 +67,12 @@ export writeSessionOverride
 ```
 import { Err, Ok, Result } from '../shared/result'
 import { sessionSlugError } from '../shared/session-slug'
-import { AutoDecisionInvalidError, isUnsafeLogChar, parseAutoDecisionLine } from './decision-schema'
+import { AutoDecisionInvalidError, isUnsafeLogChar, parseAutoDecisionLine, validateAutoDecisionInput } from './decision-schema'
 import { OverrideStoreOptions, readSessionOverride, writeSessionOverride } from './override-store'
 import { AutonomyPathOptions, autonomyAuditLogPath, computeRepoKey, resolveProjectRoot, sessionDirForRaise, sessionOverridePath, userConfigPath, validateOverrideSlug } from './paths'
 import { ResolveAutonomyInput, resolveAutonomy } from './resolve'
 import { auditRaises, isRaisingChange, levelRaises, parseSessionOverrideFields, parseUserConfig, validateAutonomySetting } from './schema'
+import { ResolveForSessionInput, resolveAutonomyForSession } from './session'
 import { AUTONOMY_SOURCES, AUTO_DECISION_PAUSE_CLASSES, AutoDecision, AutoDecisionInput, AutoDecisionSummary, AutonomyFlag, AutonomyLevel, AutonomyOverrideField, AutonomyOverrideOrigin, AutonomySessionOverride, AutonomySetting, AutonomySource, AutonomyUserConfig, DEFAULT_AUTONOMY_AUDIT, ResolvedAutonomy } from '@harness-engineering/types'
 import { execFileSync } from 'node:child_process'
 import { createHash, randomUUID } from 'node:crypto'
