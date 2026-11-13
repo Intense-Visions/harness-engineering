@@ -94,7 +94,7 @@ subagent-spawning tool at all; the decision then proceeds and is counted as unau
 ### Deliberate exemption
 
 The roadmap sync steps a skill already performs (`manage_roadmap` `sync`), and the tracker
-auto-sync side effects of `manage_roadmap` `update` and `add`, are not new `irreversible` pauses,
+auto-sync side effects of `manage_roadmap` `update` and `add` calls the skill text prescribes, are not new `irreversible` pauses,
 although both can write to an external tracker. This keeps supervised
 behaviour unchanged (SC10) and is a deliberate exemption, not an oversight.
 

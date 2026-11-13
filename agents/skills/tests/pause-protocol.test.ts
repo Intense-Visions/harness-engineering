@@ -339,7 +339,7 @@ describe('review I3: a marker can never lower a pause, and only SKILL.md markers
       'Here "delete" means deleting branches, issues, or remote resources, or local work not recoverable from git (for example `git reset --hard`, `git clean -fdx`, `git stash drop`, or removing untracked or uncommitted user files); removing scratch files this run created is not.'
     );
     expect(section('## Resolving a pause point')).toContain(
-      'The roadmap sync steps a skill already performs (`manage_roadmap` `sync`), and the tracker auto-sync side effects of `manage_roadmap` `update` and `add`, are not new `irreversible` pauses; run them as the skill text says.'
+      'The roadmap sync steps a skill already performs (`manage_roadmap` `sync`), and the tracker auto-sync side effects of `manage_roadmap` `update` and `add` calls the skill text prescribes, are not new `irreversible` pauses; run them as the skill text says.'
     );
   });
   it('honours markers only from SKILL.md files', () => {

@@ -58,7 +58,7 @@ hook but not closed.
 
 ### Raise paths
 
-Exactly two, and both need something only the human controls:
+Exactly two, and both need something only the human controls on the sanctioned paths (the same-user residual is below):
 
 1. **`~/.harness/config.json`**, the user-level file the human edits.
 2. **`harness autonomy set`** with both stdin and stdout a TTY (`defaultIsInteractive`,

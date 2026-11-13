@@ -26,8 +26,8 @@ Autonomy is a **user-level** setting. Put it in `~/.harness/config.json` in your
 - `level` is `supervised` (default) or `trusted`.
 - `audit.trusted` (default `true`) turns the self-audit on for trusted runs; `audit.supervised`
   (default `false`) shows an audit verdict beside each recommendation in supervised runs.
-- An `autonomy` key in a project's `harness.config.json` is **ignored**. A cloned repo can never
-  switch you into trusted mode.
+- An `autonomy` key in a project's `harness.config.json` is **ignored**. A cloned repo cannot
+  switch you into trusted mode through its configuration.
 - A malformed `~/.harness/config.json` is ignored with one warning, and the defaults apply.
 
 Check what is in effect, and where it came from:
@@ -117,7 +117,7 @@ So trusted mode still pauses for:
   git (for example `git reset --hard`, `git clean -fdx`, `git stash drop`, or removing untracked or
   uncommitted user files). Removing scratch files the run itself created is not in this class.
   The roadmap sync steps a skill already performed before this feature (`manage_roadmap` `sync`),
-  and the tracker auto-sync side effects of `manage_roadmap` `update` and `add`, are deliberately
+  and the tracker auto-sync side effects of `manage_roadmap` `update` and `add` calls the skill text prescribes, are deliberately
   **not** treated as new irreversible pauses, even though both can write to an external tracker.
 - **Gates:** a red verify, a high-confidence `NOT_SATISFIED` outcome, blocking review findings,
   plan dependency cycles, a contradiction with `STRATEGY.md`, a step only a human can perform, and
