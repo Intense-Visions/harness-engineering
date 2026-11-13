@@ -35,34 +35,52 @@ export function resolveAutonomyForSession(input: ResolveForSessionInput): Resolv
   }
 }
 
-function resolveOrThrow(input: ResolveForSessionInput): ResolvedAutonomy {
-  const warnings: string[] = [];
-  let sessionOverride: AutonomySessionOverride | undefined;
-  let raiseSessionError: (() => string | undefined) | undefined;
-  if (input.session !== undefined) {
-    const slug = input.session;
-    // D14 at read time: a raise is honoured only where its session dir exists in THIS worktree.
-    raiseSessionError = () => {
-      const dir = sessionDirForRaise(input.projectPath, slug);
-      return dir.ok ? undefined : dir.error.message;
-    };
-    const read = readSessionOverride(input.projectPath, input.session, input);
-    if (!read.ok) {
-      warnings.push(`Session override unavailable: ${read.error.message}`);
-    } else {
-      warnings.push(...read.value.warnings);
-      if (read.value.override) sessionOverride = read.value.override;
-    }
+interface SessionInputs {
+  warnings: string[];
+  sessionOverride?: AutonomySessionOverride;
+  raiseSessionError?: () => string | undefined;
+}
+
+/** Read the named session's override, degrading an unreadable one to a warning. */
+function readSessionInputs(input: ResolveForSessionInput): SessionInputs {
+  if (input.session === undefined) return { warnings: [] };
+  const slug = input.session;
+  // D14 at read time: a raise is honoured only where its session dir exists in THIS worktree.
+  const raiseSessionError = (): string | undefined => {
+    const dir = sessionDirForRaise(input.projectPath, slug);
+    return dir.ok ? undefined : dir.error.message;
+  };
+  const read = readSessionOverride(input.projectPath, slug, input);
+  if (!read.ok) {
+    return { warnings: [`Session override unavailable: ${read.error.message}`], raiseSessionError };
   }
-  const resolved = resolveAutonomy({
-    ...(input.flag !== undefined && { flag: input.flag }),
-    ...(sessionOverride !== undefined && { sessionOverride }),
-    ...(input.env !== undefined && { env: input.env }),
-    ...(input.userConfigPath !== undefined && { userConfigPath: input.userConfigPath }),
-    ...(input.homeDir !== undefined && { homeDir: input.homeDir }),
-    ...(input.readFile !== undefined && { readFile: input.readFile }),
-    ...(input.now !== undefined && { now: input.now }),
-    ...(raiseSessionError !== undefined && { raiseSessionError }),
-  });
+  return {
+    warnings: [...read.value.warnings],
+    ...(read.value.override && { sessionOverride: read.value.override }),
+    raiseSessionError,
+  };
+}
+
+/** Copy only the keys the caller set, so `resolveAutonomy` sees absent, not `undefined`. */
+function definedOnly<T extends object>(obj: T): Partial<T> {
+  return Object.fromEntries(
+    Object.entries(obj).filter(([, value]) => value !== undefined)
+  ) as Partial<T>;
+}
+
+function resolveOrThrow(input: ResolveForSessionInput): ResolvedAutonomy {
+  const { warnings, sessionOverride, raiseSessionError } = readSessionInputs(input);
+  const resolved = resolveAutonomy(
+    definedOnly({
+      flag: input.flag,
+      sessionOverride,
+      env: input.env,
+      userConfigPath: input.userConfigPath,
+      homeDir: input.homeDir,
+      readFile: input.readFile,
+      now: input.now,
+      raiseSessionError,
+    })
+  );
   return { ...resolved, warnings: [...warnings, ...resolved.warnings] };
 }

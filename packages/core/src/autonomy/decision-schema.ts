@@ -131,22 +131,25 @@ type IssueSink = {
 };
 
 /** Rules that make audited N/M and the agreement rate trustworthy (SC9, D7, D8). */
-function crossFieldIssues(d: InputOut, ctx: IssueSink): void {
-  const issue = (path: PropertyKey[], message: string) =>
-    ctx.addIssue({ code: 'custom', path, message });
-  if (new Set(d.options).size !== d.options.length) issue(['options'], 'options must be distinct');
+type Report = (path: PropertyKey[], message: string) => void;
+
+/** D1 / SC9: what each pause class must (and must not) carry. */
+function pauseClassIssues(d: InputOut, issue: Report): void {
   if (d.pauseClass === 'ceremony' && d.audit !== undefined) {
     issue(['audit'], 'ceremony decisions are never audited (D1); omit audit');
   }
-  if (d.pauseClass === 'judgment') {
-    if (d.audit === undefined) {
-      issue(
-        ['audit'],
-        'a judgment decision must record its audit status (agreed | escalated | unavailable | off) so audited N/M counts it (SC9)'
-      );
-    }
-    if (d.options.length < 2) issue(['options'], 'a judgment fork needs at least two options');
+  if (d.pauseClass !== 'judgment') return;
+  if (d.audit === undefined) {
+    issue(
+      ['audit'],
+      'a judgment decision must record its audit status (agreed | escalated | unavailable | off) so audited N/M counts it (SC9)'
+    );
   }
+  if (d.options.length < 2) issue(['options'], 'a judgment fork needs at least two options');
+}
+
+/** What `chosen` must agree with: the human's choice, the options, the blind pick (D7). */
+function chosenIssues(d: InputOut, issue: Report): void {
   if (d.audit?.status === 'escalated') {
     if (d.chosen !== d.audit.humanChoice) {
       issue(
@@ -163,6 +166,13 @@ function crossFieldIssues(d: InputOut, ctx: IssueSink): void {
       'agreed means the blind pick matched: blindPick must equal chosen (D7)'
     );
   }
+}
+
+function crossFieldIssues(d: InputOut, ctx: IssueSink): void {
+  const issue: Report = (path, message) => ctx.addIssue({ code: 'custom', path, message });
+  if (new Set(d.options).size !== d.options.length) issue(['options'], 'options must be distinct');
+  pauseClassIssues(d, issue);
+  chosenIssues(d, issue);
 }
 
 /**
