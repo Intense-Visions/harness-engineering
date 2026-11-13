@@ -336,10 +336,10 @@ describe('review I3: a marker can never lower a pause, and only SKILL.md markers
     );
     // Phase 4 carry-forward: narrow "delete" and keep existing roadmap sync out of the irreversible class (SC10)
     expect(section('## Resolving a pause point')).toContain(
-      'Here "delete" means deleting branches, issues, or remote resources, not local scratch files.'
+      'Here "delete" means deleting branches, issues, or remote resources, or local work not recoverable from git (for example `git reset --hard`, `git clean -fdx`, `git stash drop`, or removing untracked or uncommitted user files); removing scratch files this run created is not.'
     );
     expect(section('## Resolving a pause point')).toContain(
-      'The roadmap sync steps a skill already performs (`manage_roadmap` `sync`) are not new `irreversible` pauses; run them as the skill text says.'
+      'The roadmap sync steps a skill already performs (`manage_roadmap` `sync`), and the tracker auto-sync side effects of `manage_roadmap` `update` and `add`, are not new `irreversible` pauses; run them as the skill text says.'
     );
   });
   it('honours markers only from SKILL.md files', () => {
@@ -402,6 +402,20 @@ describe('re-review I5: source paths never lead the blind auditor to the recomme
 });
 
 describe('re-review I1a-c: audit replies saved, one option text, unsettled choices are judgment', () => {
+  it('does not claim the saved audit files prove ordering (Phase 4 review C1)', () => {
+    const s = section('## Self-audit (judgment forks)');
+    expect(s).toContain(
+      'so you can inspect what the auditor was shown and what it replied; these files are agent-written and not tamper-evident.'
+    );
+    expect(s).not.toContain('pre-audit line came before the spawn');
+  });
+  it('names the refused raising flag it received (Phase 4 review S1)', () => {
+    const s = section('## Reading autonomy');
+    expect(s).toContain(
+      'On `--trusted` or `--no-audit`, change nothing and print, naming the flag you received: `Ignoring <flag>: autonomy can only be raised by ~/.harness/config.json or an interactive harness autonomy set.`'
+    );
+    expect(s).not.toContain('print: `Ignoring --trusted:');
+  });
   it('saves the auditor and refuter raw replies beside the prompt (I1a)', () => {
     expect(section('## Self-audit (judgment forks)')).toContain(
       "Save the auditor's raw reply as `.harness/sessions/<session-slug>/audits/<n>.reply.json` and the refuter's as `<n>.refuter.json`"
@@ -415,7 +429,7 @@ describe('re-review I1a-c: audit replies saved, one option text, unsettled choic
   it('a ceremony approving an unsettled option choice is judgment (I1c)', () => {
     const s = section('## Resolving a pause point');
     expect(s).toContain(
-      'A ceremony that approves content embedding a choice between alternatives the skill explicitly enumerated (for example approaches A, B and C in a spec section) that no judgment fork settled is `judgment`.'
+      "A ceremony that approves content embedding a choice between alternatives the skill text or this run's output explicitly enumerated (for example approaches A, B and C in a spec section) that no judgment fork settled is `judgment`."
     );
     expect(s).toContain(
       'Approving a spec, plan or section that embeds no such enumerated choice stays `ceremony`.'
