@@ -1,11 +1,11 @@
 ---
 schemaVersion: 1
 module: 'packages/core/src/autonomy'
-sourceHash: '0234f61bafef526089cbf54c6ed5e9c33dc6fdbac97243906dca7cca56c08ed4'
+sourceHash: '146208c38d802471c607c939526c4a197ab0d1a8bea6716ef9db3774ef72479f'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
-members: ['paths.ts', 'resolve.ts', 'schema.ts']
+members: ['override-store.ts', 'paths.ts', 'resolve.ts', 'schema.ts']
 ---
 
 ## Interface Contract
@@ -20,19 +20,21 @@ export computeRepoKey
 export harnessHomeDir
 export parseSessionOverride
 export parseUserConfig
+export readSessionOverride
 export resolveAutonomy
 export sessionOverridePath
 export userConfigPath
 export validateOverrideSlug
+export writeSessionOverride
 ```
 
 ## Dependency Slice
 
 ```
 import { Err, Ok, Result } from '../shared/result'
-import { userConfigPath } from './paths'
-import { parseUserConfig } from './schema'
-import { AutonomyFlag, AutonomyLevel, AutonomyOverrideField, AutonomySessionOverride, AutonomySource, AutonomyUserConfig, DEFAULT_AUTONOMY_AUDIT, ResolvedAutonomy } from '@harness-engineering/types'
+import { AutonomyPathOptions, sessionOverridePath, userConfigPath } from './paths'
+import { parseSessionOverride, parseUserConfig } from './schema'
+import { AutonomyFlag, AutonomyLevel, AutonomyOverrideField, AutonomyOverrideOrigin, AutonomySessionOverride, AutonomySetting, AutonomySource, AutonomyUserConfig, DEFAULT_AUTONOMY_AUDIT, ResolvedAutonomy } from '@harness-engineering/types'
 import { createHash } from 'node:crypto'
 import * as fs from 'node:fs'
 import * as os from 'node:os'
