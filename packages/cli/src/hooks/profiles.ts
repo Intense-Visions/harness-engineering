@@ -2,7 +2,8 @@
  * Hook profile definitions.
  *
  * Profiles are additive: each higher tier includes all hooks from lower tiers.
- * - minimal: safety floor (block-no-verify only)
+ * - minimal: safety floor — block-no-verify and autonomy-guard (blocks agent raises of
+ *   trusted autonomy and agent writes to ~/.harness autonomy state, D16)
  * - standard: + protect-config, quality-warner (quality gates warn, never block),
  *   pre-compact-state, adoption-tracker, telemetry-reporter, session-retrospect
  *   (opt-in, off by default), plus the security floor: sentinel-pre (exit-2 blocks
@@ -27,6 +28,12 @@ export interface HookScript {
 
 export const HOOK_SCRIPTS: HookScript[] = [
   { name: 'block-no-verify', event: 'PreToolUse', matcher: 'Bash', minProfile: 'minimal' },
+  {
+    name: 'autonomy-guard',
+    event: 'PreToolUse',
+    matcher: 'Bash|Write|Edit|MultiEdit',
+    minProfile: 'minimal',
+  },
   { name: 'protect-config', event: 'PreToolUse', matcher: 'Write|Edit', minProfile: 'standard' },
   { name: 'quality-warner', event: 'PostToolUse', matcher: 'Edit|Write', minProfile: 'standard' },
   { name: 'pre-compact-state', event: 'PreCompact', matcher: '*', minProfile: 'standard' },

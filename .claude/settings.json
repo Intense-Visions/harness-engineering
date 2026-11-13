@@ -11,6 +11,15 @@
         ]
       },
       {
+        "matcher": "Bash|Write|Edit|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "g=\"$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null)\" || exit 0; f=\"$(dirname \"$g\")/.harness/hooks/autonomy-guard.js\"; [ -f \"$f\" ] || exit 0; exec node \"$f\""
+          }
+        ]
+      },
+      {
         "matcher": "Write|Edit",
         "hooks": [
           {

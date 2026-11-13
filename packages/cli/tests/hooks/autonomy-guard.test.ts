@@ -1,0 +1,160 @@
+import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { spawnSync } from 'node:child_process';
+import * as fs from 'node:fs';
+import * as os from 'node:os';
+import * as path from 'node:path';
+
+/**
+ * D16 / I1(b): PreToolUse guard that narrows the same-user residual of the threat model.
+ * Blocks agent Bash invocations of `harness autonomy set` that raise (or whose arguments are
+ * not literally a lowering), and agent Bash/Write/Edit targeting ~/.harness/config.json,
+ * ~/.harness/session-overrides/ or ~/.harness/autonomy-audit.log. Lowerings stay allowed.
+ */
+const HOOK_PATH = path.resolve(__dirname, '../../src/hooks/autonomy-guard.js');
+let home: string;
+let project: string;
+
+beforeAll(() => {
+  home = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'autonomy-guard-home-')));
+  project = path.join(home, 'work', 'proj');
+  fs.mkdirSync(path.join(home, '.harness', 'session-overrides', 'abc'), { recursive: true });
+  fs.mkdirSync(project, { recursive: true });
+});
+afterAll(() => fs.rmSync(home, { recursive: true, force: true }));
+
+function runHook(payload: unknown): { exitCode: number; stderr: string } {
+  const res = spawnSync(process.execPath, [HOOK_PATH], {
+    input: typeof payload === 'string' ? payload : JSON.stringify(payload),
+    encoding: 'utf-8',
+    timeout: 60000,
+    env: { ...process.env, HOME: home, USERPROFILE: home },
+  });
+  return { exitCode: res.status ?? 1, stderr: res.stderr ?? '' };
+}
+const bash = (command: string) =>
+  runHook({ tool_name: 'Bash', tool_input: { command }, cwd: project });
+const write = (tool: string, file_path: string) =>
+  runHook({ tool_name: tool, tool_input: { file_path, content: '{}' }, cwd: project });
+
+describe('autonomy-guard: raising `harness autonomy set` from Bash is blocked', () => {
+  it.each([
+    'harness autonomy set trusted --session s1',
+    'npx harness autonomy set trusted --session s1',
+    'node packages/cli/dist/bin/harness.js autonomy set --audit off --session s1',
+    'harness autonomy set --audit=off --session s1',
+    'harness autonomy set supervised --audit off --session s1',
+    'harness autonomy set trusted --for 7d --session s1',
+    "harness autonomy set 'trusted' --session s1",
+    'harness autonomy set $LEVEL --session s1',
+    'harness autonomy set --audit "$A" --session s1',
+    'cd /tmp && harness autonomy set trusted --session s1',
+    'true; harness --json autonomy set trusted --session s1',
+    "bash -c 'harness autonomy set trusted --session s1'",
+    'sh -c "harness autonomy set trusted --session s1"',
+    'echo "$(harness autonomy set trusted --session s1)"',
+    'echo `harness autonomy set trusted --session s1`',
+    'bash <<EOF\nharness autonomy set trusted --session s1\nEOF',
+    "eval 'harness autonomy set trusted --session s1'",
+  ])('blocks %j', (command) => {
+    const { exitCode, stderr } = bash(command);
+    expect(exitCode).toBe(2);
+    expect(stderr).toMatch(/BLOCKED/);
+    expect(stderr).toMatch(/autonomy set/);
+  });
+});
+
+describe('autonomy-guard: lowerings and unrelated commands are allowed (positive controls)', () => {
+  it.each([
+    'harness autonomy set supervised --session s1',
+    'harness autonomy set --audit on --session s1',
+    'harness autonomy set supervised --audit=on --session s1',
+    'harness autonomy show --session s1',
+    'harness autonomy set --help',
+    "echo 'harness autonomy set trusted'",
+    'git commit -m "$(cat <<\'EOF\'\nfeat: document harness autonomy set trusted\nEOF\n)"',
+    'git commit -m "$(cat <<\'EOF\'\ndocs: overrides live in ~/.harness/session-overrides/\nEOF\n)"',
+    'cat harness.config.json',
+    'ls ~/.harness/sessions',
+    'npm test',
+  ])('allows %j', (command) => {
+    const { exitCode, stderr } = bash(command);
+    expect(stderr).toBe('');
+    expect(exitCode).toBe(0);
+  });
+});
+
+describe('autonomy-guard: Bash touching user-level autonomy state is blocked', () => {
+  it.each([
+    "echo '{}' > ~/.harness/config.json",
+    'cat x > "$HOME/.harness/config.json"',
+    'cp x ${HOME}/.harness/config.json',
+    'rm -rf ~/.harness/session-overrides',
+    "sed -i '' s/a/b/ ~/.harness/session-overrides/abc/s1.json",
+    ': > ~/.harness/autonomy-audit.log',
+    'echo x > ~/.harness/./config.json',
+    'echo x > ~/.harness//config.json',
+    'cat ~/.harness/config.json',
+  ])('blocks %j', (command) => {
+    const { exitCode, stderr } = bash(command);
+    expect(exitCode).toBe(2);
+    expect(stderr).toMatch(/BLOCKED/);
+  });
+
+  it('blocks the literal absolute home path too', () => {
+    expect(bash(`echo x > ${home}/.harness/config.json`).exitCode).toBe(2);
+  });
+});
+
+describe('autonomy-guard: Write/Edit targeting user-level autonomy state is blocked', () => {
+  it.each(['Write', 'Edit', 'MultiEdit'])('%s to ~/.harness/config.json', (tool) => {
+    expect(write(tool, path.join(home, '.harness', 'config.json')).exitCode).toBe(2);
+  });
+  it('tilde form', () => {
+    expect(write('Write', '~/.harness/config.json').exitCode).toBe(2);
+  });
+  it('a file under session-overrides', () => {
+    expect(
+      write('Write', path.join(home, '.harness', 'session-overrides', 'abc', 's1.json')).exitCode
+    ).toBe(2);
+  });
+  it('the audit log', () => {
+    expect(write('Edit', path.join(home, '.harness', 'autonomy-audit.log')).exitCode).toBe(2);
+  });
+  it('a relative path that resolves into ~/.harness from the cwd', () => {
+    expect(write('Write', '../../.harness/config.json').exitCode).toBe(2);
+  });
+  it('a case variant (case-insensitive filesystems)', () => {
+    expect(write('Write', path.join(home, '.HARNESS', 'Config.JSON')).exitCode).toBe(2);
+  });
+  it.skipIf(process.platform === 'win32')(
+    'a symlinked directory that points into ~/.harness',
+    () => {
+      const link = path.join(home, 'work', 'sneaky');
+      fs.symlinkSync(path.join(home, '.harness'), link);
+      try {
+        expect(write('Write', path.join(link, 'config.json')).exitCode).toBe(2);
+      } finally {
+        fs.unlinkSync(link);
+      }
+    }
+  );
+
+  it.each([
+    ['project session notes', () => path.join(project, '.harness', 'sessions', 's1', 'notes.md')],
+    ['project harness.config.json', () => path.join(project, 'harness.config.json')],
+    ['another file in ~/.harness', () => path.join(home, '.harness', 'cache', 'x.json')],
+  ])('allows %s (positive control)', (_n, p) => {
+    const { exitCode, stderr } = write('Write', p());
+    expect(stderr).toBe('');
+    expect(exitCode).toBe(0);
+  });
+});
+
+describe('autonomy-guard: input handling', () => {
+  it('empty stdin is allowed (no payload)', () => {
+    expect(runHook('').exitCode).toBe(0);
+  });
+  it('malformed JSON is allowed (consistent with block-no-verify)', () => {
+    expect(runHook('{nope').exitCode).toBe(0);
+  });
+});
