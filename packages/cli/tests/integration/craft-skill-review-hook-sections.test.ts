@@ -130,3 +130,40 @@ describe('every auto-wired craft skill documents its review-hook forwarding cont
 //    "expected [ …(3) ] to have a length of 4 but got 3".
 //
 // 3 registered mutants, 0 survivors; 1 sub-probe, also killed.
+
+// Phase 5. Every review host is now documented to forward ABSOLUTE paths —
+// Phase 3 and Phase 4 wrote that into both hosts' SKILL.md and into all 40
+// craft "Invoked as a review hook" sections. A tool schema that still
+// instructs "relative to project root" contradicts the instruction its own
+// callers are given, inside the schema the caller reads.
+describe('no auto-wired craft tool instructs a repo-relative `files` path form', () => {
+  it('[denominator] every auto-wired domain exposes a `files` property with a description', () => {
+    // Without this, a domain whose schema lost `files` would make its case
+    // below throw on undefined rather than report a missing contract — and a
+    // zero-length DOMAINS would make the whole block vacuously green.
+    expect(DOMAINS.length).toBeGreaterThan(0);
+    for (const skill of DOMAINS) {
+      const name = toolNameFor(skill);
+      const props = (TOOLS.get(name)!.inputSchema as { properties?: Record<string, unknown> })
+        .properties;
+      expect(Object.keys(props ?? {}), `${name} must expose a files property`).toContain('files');
+    }
+  });
+
+  for (const skill of DOMAINS) {
+    it(`${skill}: its \`files\` description does not instruct a repo-relative path`, () => {
+      const props = (
+        TOOLS.get(toolNameFor(skill))!.inputSchema as {
+          properties?: Record<string, { description?: string }>;
+        }
+      ).properties!;
+      const description = props.files.description ?? '';
+      // VACUITY CONTROL: an empty description trivially satisfies a
+      // `not.toMatch`, so the absence assertion needs a presence one beside it.
+      expect(description.length, `${toolNameFor(skill)}: files has no description`).toBeGreaterThan(
+        0
+      );
+      expect(description).not.toMatch(/relative to (?:the )?project root/i);
+    });
+  }
+});

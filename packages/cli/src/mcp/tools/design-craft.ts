@@ -186,7 +186,9 @@ export const designCraftToolDefinition = {
       files: {
         type: 'array',
         items: { type: 'string' },
-        description: 'Optional file scoping. Each entry is a path relative to project root.',
+        description:
+          'Optional file scoping. Absolute paths are accepted and are what the review hosts ' +
+          'forward; a relative entry is resolved against the process working directory.',
       },
       autoCapture: {
         type: 'string',
