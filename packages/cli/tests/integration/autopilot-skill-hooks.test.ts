@@ -296,9 +296,19 @@ describe('harness-code-review is a second skillHooks consumer (not autopilot-loc
   it('records the timing asymmetry at the call site (pre-review here, post-review under autopilot)', () => {
     const s = PHASE2();
     expect(s).toMatch(/TIMING ASYMMETRY/);
-    expect(s).toMatch(/before\*{0,2}\s+the\s+(?:Phase 4\s+)?AI fan-out/i);
-    expect(s).toMatch(/after:REVIEW/);
-    expect(s).toMatch(/CRAFT_REVIEW_EVENTS_BY_HOST/);
+    // CORRECTION TO THIS LAW AS PLANNED, and it was MEASURED, not reasoned:
+    // scoped to the whole Phase 2 section, `AI fan-out` was VACUOUS. The
+    // pre-existing :204 hook paragraph already reads "...established, before
+    // the AI fan-out", so a sub-probe (M-CR-ASYM-CLAUSE) that renamed ONLY
+    // this bullet's clause to "AI dispatch" left the law 24/24 GREEN. That is
+    // the same blindness mechanism this file exists to expose, reproduced
+    // inside the fix for it. Evaluating all 15 asserted phrases against the
+    // PRE-craft section found exactly this one vacuous and the other 14
+    // able to fail. Scoping the clauses to the bullet makes it fail.
+    const bullet = s.slice(s.indexOf('- **TIMING ASYMMETRY')).split(/\n- \*\*/)[0];
+    expect(bullet).toMatch(/before\*{0,2}\s+the\s+(?:Phase 4\s+)?AI fan-out/i);
+    expect(bullet).toMatch(/after:REVIEW/);
+    expect(bullet).toMatch(/CRAFT_REVIEW_EVENTS_BY_HOST/);
   });
 
   it('exempts forward-wired craft defaults from this skill\u2019s hard-halt rule', () => {
@@ -323,4 +333,18 @@ describe('harness-code-review is a second skillHooks consumer (not autopilot-loc
     expect(s).toMatch(/no-diff-context/);
     expect(s).toMatch(/craft domains: \d+\/\d+ activated/);
   });
+
+  // MUTATION RESULTS (2026-11-13, this tree, diff printed in the same command
+  // as the result): M-CR-EVENT ("after:mechanical" -> "after:WRONG") and
+  // M-CR-EVENT-DROP (delete the call-site line) each reddened the craft-event
+  // law with `[ 'after:WRONG' ]` / `[]` against `[ 'after:mechanical' ]`,
+  // while BOTH pre-existing `it`s above stayed GREEN (verbose reporter, named
+  // explicitly) — the blindness claim measured, not asserted. M-CR-ASYM /
+  // M-CR-HALT / M-CR-EXCLUDE / M-CR-FORWARD each deleted a WHOLE bullet
+  // (7 / 8 / 6 / 8 lines, anchor verified to match exactly once) and each
+  // reddened exactly its own law, 1 failed | 23 passed, every other craft law
+  // GREEN. Under M-CR-HALT, `honors the framework hard-halt protection`
+  // remained GREEN — the pre-existing law cannot see the EXCEPTION claim at
+  // all. 0 survivors. The one vacuous assertion found by the pre-craft
+  // positive control is corrected in place above.
 });
