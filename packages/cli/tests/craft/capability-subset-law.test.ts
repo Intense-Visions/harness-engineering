@@ -78,9 +78,19 @@ const LANGUAGE_FIXTURE: Record<string, { file: string; symbol: string }> = {
   '.java': { file: 'Cart.java', symbol: 'computeTotal' },
 };
 
-/** Test-shaped corpus fixtures, for probing test-craft outside TS/JS. */
+/**
+ * Test-shaped corpus fixtures, for probing test-craft outside TS/JS.
+ *
+ * `.py` is present even though test-craft does not currently declare python,
+ * because it ALREADY extracts Python tests in production
+ * (`extractPythonTests`). Measured during the Task 7 drill: without this entry
+ * a python widening — a legitimate Phase 2b change — reddened the subset law
+ * with "no fixture", i.e. the law blocked a LEGAL change instead of an illegal
+ * one. `.go` has no such production path, so it stays a genuine red.
+ */
 const TEST_FIXTURE: Record<string, string> = {
   '.go': 'cart_test.go',
+  '.py': 'cart_test.py',
 };
 
 /** The eight extensions EXTENSION_MAP maps to typescript or javascript. */
