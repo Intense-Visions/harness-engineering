@@ -44,6 +44,17 @@ Git workflow guidance for agent-driven development:
 
 **Best for:** Teams using agents to implement multi-task milestones
 
+### [Trusted Autonomy](./trusted-autonomy.md)
+
+Let workflow skills run without stopping for approvals, safely:
+
+- Enabling trusted mode in `~/.harness/config.json` or for one session with `harness autonomy set`
+- What still pauses: irreversible actions, gates, and self-audit disagreements
+- Reading the decision log with `harness autonomy log`
+- The threat model and known limitations (persona subagents fail safe)
+
+**Best for:** Users who want brainstorm-to-review runs without babysitting the agent
+
 ### [Orchestrator Guide](./orchestrator.md)
 
 Learn how to use the Harness Orchestrator to automate your agent workforce:
