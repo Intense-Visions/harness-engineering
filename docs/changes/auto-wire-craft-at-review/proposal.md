@@ -726,8 +726,12 @@ build(); }` contributes **zero** units — the Builder pattern, so the most conv
   `packages/cli/src/shared/craft/extract/outline-units.ts:45` hand-lists the languages the outline
   seam handles; `packages/core/src/hooks/craft-review-hooks.ts:265` hand-lists the languages a
   domain may declare. A seventh language added to `EXTENSION_MAP` would be auto-declared by the
-  second and extract nothing through the first, and the Phase 3 subset law compares at language
-  granularity so it would not catch that. This is FU-4's fix, and it is Phase 2's seam.
+  second and extract nothing through the first. The Phase 3 subset law **does** catch that — it is
+  extension-granular by construction and says so at its own head — and an earlier draft of this
+  section claimed the opposite. Measured: adding `'ruby'` + `'.rb'` and rebuilding core reddens it
+  with `code-craft declares .rb but the probe has no fixture for it` (1 failed | 46 passed). The
+  granularity mismatch is still worth closing, which is why FU-4 stays; it would just not ship
+  silently. This is FU-4's fix, and it is Phase 2's seam.
 - **Convert the 30 craft platform mirror directories to symlinks.**
   `agents/skills/{cursor,codex,gemini-cli}/<craft-skill>/` are REAL COPIES, while
   `harness-autopilot` and `harness-code-review` are symlinks. `scripts/lib/plugin-config.mjs:38-40`

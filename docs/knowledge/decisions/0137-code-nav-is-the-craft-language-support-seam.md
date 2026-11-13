@@ -69,8 +69,16 @@ optimistic wide one reintroduces the silent zero this seam exists to remove.
   than claimed as solved: `CraftDomainRule.supportedLanguages` is per-LANGUAGE while
   extraction is gated per EXTENSION, so a seventh language would be auto-declared by
   `ALL_SOURCE_LANGUAGES` (`packages/core/src/hooks/craft-review-hooks.ts:265`) and extract
-  nothing, and the subset law compares at language granularity so it would not catch that.
-  Deriving `OUTLINE_LANGUAGES` (`packages/cli/src/shared/craft/extract/outline-units.ts:45`)
+  nothing. **The subset law DOES catch that, and an earlier draft of this record said it did
+  not.** The law is expressed over extensions by construction (`capability-subset-law.test.ts`
+  states so at its head: "A language-granular law compares {typescript} subset-of {typescript}
+  and passes while `.mts` and `.cts` extract nothing"). Measured by adding `'ruby'` to
+  `SupportedLanguage` and `'.rb'` to `EXTENSION_MAP` and REBUILDING core — the cli test resolves
+  core through `dist`, so a source-only edit is a no-op probe: `code-craft declares .rb but the
+probe has no fixture for it: expected null not to be null` (1 failed | 46 passed). The
+  granularity MISMATCH between a per-language declaration and per-extension extraction is still
+  real, which is why FU-4 stays on the deferred list; what is not true is that it would ship
+  unnoticed. Deriving `OUTLINE_LANGUAGES` (`packages/cli/src/shared/craft/extract/outline-units.ts:45`)
   from `ALL_SOURCE_LANGUAGES` closes it; Phases 3 and 4 both recommended it.
 - `code_unfold` sees strictly more symbols, but it is not a pure gain and the change log says
   so: lookup is first-match-wins over the outline, so in a Rust file where a `mod`-nested name
