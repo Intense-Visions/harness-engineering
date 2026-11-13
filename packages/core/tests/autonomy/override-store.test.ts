@@ -2,7 +2,11 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
-import { readSessionOverride, writeSessionOverride } from '../../src/autonomy/override-store';
+import {
+  claimStaleLock,
+  readSessionOverride,
+  writeSessionOverride,
+} from '../../src/autonomy/override-store';
 import { sessionOverridePath } from '../../src/autonomy/paths';
 
 let tmp: string;
@@ -320,5 +324,65 @@ describe('override writes are serialized (I3)', () => {
     expect(w.ok).toBe(false);
     expect(fs.existsSync(p.value)).toBe(false);
     fs.unlinkSync(`${p.value}.lock`);
+  });
+
+  /**
+   * N3: two writers can both judge the same lock stale. The break must be an atomic claim, or
+   * the slower breaker deletes the lock the faster one has just re-acquired and both run the
+   * read-merge-write at once. Breaker B is driven inside A's onStaleLock seam, i.e. after A
+   * judged the lock stale and before A acts on that judgement.
+   */
+  describe('stale-lock break is atomic: two breakers, one stale lock (N3)', () => {
+    const staleLock = () => {
+      const p = sessionOverridePath(project, 's1', { homeDir: home });
+      if (!p.ok) throw p.error;
+      const lock = `${p.value}.lock`;
+      fs.mkdirSync(path.dirname(lock), { recursive: true });
+      fs.writeFileSync(lock, 'crashed');
+      const old = new Date(Date.now() - 60_000);
+      fs.utimesSync(lock, old, old);
+      return { file: p.value, lock };
+    };
+
+    it('exactly one acquires: B claims and re-locks first, A must not steal it', () => {
+      const { file, lock } = staleLock();
+      let bAcquired = false;
+      const a = writeSessionOverride(project, 's1', { audit: true }, 'mcp', {
+        homeDir: home,
+        lockTimeoutMs: 30,
+        onStaleLock: (l) => {
+          // Breaker B: claims the same stale lock, then takes the lock for itself.
+          if (claimStaleLock(l, 30_000)) {
+            fs.writeFileSync(l, 'B', { flag: 'wx' });
+            bAcquired = true;
+          }
+        },
+      });
+      expect(bAcquired).toBe(true);
+      // A is refused (busy) rather than entering B's critical section...
+      expect(a.ok).toBe(false);
+      expect(!a.ok && (a.error as { code?: string }).code).toBe('AUTONOMY_OVERRIDE_BUSY');
+      // ...B's lock is intact, and A wrote nothing.
+      expect(fs.readFileSync(lock, 'utf-8')).toBe('B');
+      expect(fs.existsSync(file)).toBe(false);
+      // No claimed-stale leftovers beside the lock.
+      expect(fs.readdirSync(path.dirname(lock)).filter((n) => n !== path.basename(lock))).toEqual(
+        []
+      );
+    });
+
+    it('of two claims on one stale lock, exactly one wins', () => {
+      const { lock } = staleLock();
+      const wins = [claimStaleLock(lock, 30_000), claimStaleLock(lock, 30_000)];
+      expect(wins.filter(Boolean)).toHaveLength(1);
+      expect(fs.existsSync(lock)).toBe(false);
+    });
+
+    it('a claim on a lock that is no longer stale fails and leaves it in place', () => {
+      const { lock } = staleLock();
+      fs.utimesSync(lock, new Date(), new Date()); // re-acquired / refreshed since judged stale
+      expect(claimStaleLock(lock, 30_000)).toBe(false);
+      expect(fs.readFileSync(lock, 'utf-8')).toBe('crashed');
+    });
   });
 });

@@ -38,6 +38,8 @@ export interface OverrideStoreOptions extends AutonomyPathOptions {
   raiseTtlMs?: number;
   /** @internal Test seam: runs inside the critical section, after the read, before the write. */
   beforeWrite?: () => void;
+  /** @internal Test seam: runs after a lock is judged stale, before this writer claims it. */
+  onStaleLock?: (lockPath: string) => void;
 }
 
 export const AUTONOMY_OVERRIDE_BUSY = 'AUTONOMY_OVERRIDE_BUSY';
@@ -111,6 +113,38 @@ function isStale(lockPath: string, staleMs: number): boolean {
   }
 }
 
+let claimSeq = 0;
+
+/**
+ * Atomically break a lock judged stale (N3). Two writers can both see the same stale lock; a
+ * plain unlink would let the slower one delete the lock the faster one has just re-acquired.
+ * Instead the lock is claimed by renaming it to a name unique to this caller — only one rename
+ * of a given inode can succeed — and its staleness is re-checked on the claimed inode. If it
+ * was in fact a fresh lock (re-acquired between the judgement and the rename) it is restored
+ * with link(2), which never clobbers a lock created meanwhile. Returns true when this caller
+ * removed a stale lock.
+ * @internal Exported for the two-breaker race test.
+ */
+export function claimStaleLock(lockPath: string, staleMs: number): boolean {
+  const claimed = `${lockPath}.stale.${process.pid}.${Date.now()}.${claimSeq++}`;
+  try {
+    fs.renameSync(lockPath, claimed);
+  } catch {
+    return false; // another breaker claimed it first (or it was released): just retry
+  }
+  try {
+    if (isStale(claimed, staleMs)) return true;
+    try {
+      fs.linkSync(claimed, lockPath); // not stale after all: hand it back to its holder
+    } catch {
+      // A new lock already exists; the holder we displaced keeps running regardless.
+    }
+    return false;
+  } finally {
+    fs.rmSync(claimed, { force: true });
+  }
+}
+
 /**
  * Run `fn` holding an O_EXCL lock file beside the override (I3), so concurrent writers serialize
  * their read-merge-write instead of one silently dropping the other's field. Same mechanism as
@@ -132,8 +166,10 @@ function withOverrideLock<T>(
       break;
     } catch (err) {
       if ((err as NodeJS.ErrnoException).code !== 'EEXIST') throw err;
-      if (isStale(lockPath, opts.staleLockMs ?? 30_000)) {
-        fs.rmSync(lockPath, { force: true });
+      const staleMs = opts.staleLockMs ?? 30_000;
+      if (isStale(lockPath, staleMs)) {
+        opts.onStaleLock?.(lockPath);
+        claimStaleLock(lockPath, staleMs);
         continue;
       }
       if (Date.now() >= deadline) return Err(new AutonomyOverrideBusyError(lockPath));
