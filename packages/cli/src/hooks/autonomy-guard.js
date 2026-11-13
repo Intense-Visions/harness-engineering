@@ -147,8 +147,8 @@ const SEGMENT_SEPARATOR = /&&|\|\||\|&?|;|(?<![<>])&(?!>)|\n|[()`]/;
  * and becomes a placeholder.
  */
 const RESTORABLE = /^[^\s$`]*$/;
-const RESTORE_MARK = (i) => `\u0000${i}\u0000`;
-const RESTORE_REF = /\u0000(\d+)\u0000/g;
+const RESTORE_MARK = (i) => `\uE000${i}\uE000`;
+const RESTORE_REF = /\uE000(\d+)\uE000/g;
 
 /** Separate a command into code (quotes → placeholder) plus the literal texts it carries. */
 function split(cmd) {
