@@ -204,6 +204,10 @@ const PINNED_CLASSES: Array<[string, string, string]> = [
   ['harness-autopilot', '5. Blocking: ask "fix / override / stop."', 'gate'],
   ['harness-autopilot', 'HALT before DONE', 'gate'],
   ['harness-integration', '**On FAIL:** Do NOT emit a transition.', 'gate'],
+  // R2: each checkpoint heading carries its own class, not the previous section's
+  ['harness-execution', '**`[checkpoint:human-verify]` — Show and Confirm**', 'ceremony'],
+  ['harness-execution', '**`[checkpoint:decision]` — Present Options and Wait**', 'judgment'],
+  ['harness-execution', '**`[checkpoint:human-action]` — Instruct and Wait**', 'gate'],
   // N6: a headless audit disagreement is an escalation that stops at every level
   ['harness-autopilot', 'If any blocker starts with `audit-disagreement:`', 'gate'],
   // N2: strategy contradictions are never auto-resolved (D-A, overridden to gate)
