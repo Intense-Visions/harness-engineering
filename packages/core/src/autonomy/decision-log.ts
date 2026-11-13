@@ -3,7 +3,12 @@ import * as path from 'node:path';
 import type { AutoDecision, AutoDecisionInput, ResolvedAutonomy } from '@harness-engineering/types';
 import type { Result } from '../shared/result';
 import { Ok, Err } from '../shared/result';
-import { resolveProjectRoot, validateOverrideSlug, type AutonomyPathOptions } from './paths';
+import {
+  isDirectory,
+  sessionDirPath,
+  validateOverrideSlug,
+  type AutonomyPathOptions,
+} from './paths';
 import {
   AutoDecisionInvalidError,
   parseAutoDecisionLine,
@@ -58,23 +63,14 @@ export interface AutoDecisionLogRead {
   invalid: Array<{ line: number; error: string }>;
 }
 
-function isDirectory(p: string): boolean {
-  try {
-    return fs.statSync(p).isDirectory();
-  } catch {
-    return false;
-  }
-}
-
-/** `<project root>/.harness/sessions/<slug>`: the resolveSessionDir layout, per worktree. */
+/** The session dir (paths.sessionDirPath); a bad slug is AUTO_DECISION_INVALID on `session`. */
 function sessionDir(
   projectPath: string,
   slug: string,
   opts: AutonomyPathOptions
 ): Result<string, Error> {
-  const valid = validateOverrideSlug(slug);
-  if (!valid.ok) return Err(new AutoDecisionInvalidError(valid.error.message, ['session']));
-  return Ok(path.join(resolveProjectRoot(projectPath, opts), '.harness', 'sessions', slug));
+  const dir = sessionDirPath(projectPath, slug, opts);
+  return dir.ok ? dir : Err(new AutoDecisionInvalidError(dir.error.message, ['session']));
 }
 
 export function autoDecisionLogPath(

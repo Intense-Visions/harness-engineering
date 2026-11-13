@@ -102,7 +102,8 @@ export function validateOverrideSlug(slug: string): Result<string, Error> {
   return error === null ? Ok(slug) : Err(new Error(error));
 }
 
-function isDirectory(p: string): boolean {
+/** True when `p` exists and is a directory. */
+export function isDirectory(p: string): boolean {
   try {
     return fs.statSync(p).isDirectory();
   } catch {
@@ -124,6 +125,20 @@ export class AutonomySessionNotFoundError extends Error {
 }
 
 /**
+ * `<project root>/.harness/sessions/<slug>`: the resolveSessionDir layout, rooted at the git
+ * toplevel (per worktree). Validates the slug; does not check that the directory exists.
+ */
+export function sessionDirPath(
+  projectPath: string,
+  slug: string,
+  opts: AutonomyPathOptions = {}
+): Result<string, Error> {
+  const valid = validateOverrideSlug(slug);
+  if (!valid.ok) return valid;
+  return Ok(path.join(resolveProjectRoot(projectPath, opts), '.harness', 'sessions', slug));
+}
+
+/**
  * The session directory a raise is bound to (D14): `<project root>/.harness/sessions/<slug>/`,
  * where the root is the git toplevel (per worktree). Err unless it exists as a directory.
  */
@@ -132,10 +147,9 @@ export function sessionDirForRaise(
   slug: string,
   opts: AutonomyPathOptions = {}
 ): Result<string, Error> {
-  const valid = validateOverrideSlug(slug);
-  if (!valid.ok) return valid;
-  const dir = path.join(resolveProjectRoot(projectPath, opts), '.harness', 'sessions', slug);
-  return isDirectory(dir) ? Ok(dir) : Err(new AutonomySessionNotFoundError(slug, dir));
+  const dir = sessionDirPath(projectPath, slug, opts);
+  if (!dir.ok) return dir;
+  return isDirectory(dir.value) ? dir : Err(new AutonomySessionNotFoundError(slug, dir.value));
 }
 
 export function sessionOverridePath(
