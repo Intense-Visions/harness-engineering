@@ -144,6 +144,13 @@ describe('readAutoDecisions', () => {
       n: 0,
     });
   });
+  it('escapes C1/bidi characters echoed into unreadable-line messages (review S6)', () => {
+    fs.writeFileSync(logFile(), 'x\u202e\u009bevil\n');
+    const r = readAutoDecisions(project, 's1', git);
+    const msg = r.ok ? (r.value.invalid[0]?.error ?? '') : '';
+    expect(msg).toContain('\\u202e'); // positive control: the parse error did echo the line
+    expect(msg).not.toMatch(/[\u0080-\u009f\u202a-\u202e]/);
+  });
   it('returns valid entries and reports unreadable lines with their 1-based numbers', () => {
     fs.writeFileSync(
       logFile(),

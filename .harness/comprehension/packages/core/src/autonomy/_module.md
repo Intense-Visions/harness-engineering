@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/src/autonomy'
-sourceHash: 'c279bf7fad8a388d0f93f80f97de0a1e99065d958ccc12431a1caf0087ead8a1'
+sourceHash: 'bb9d7a3c775961a3c0a62ece24e97d1d57f7614236900c5b1be46cbd75ab0223'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -92,7 +92,7 @@ export writeSessionOverride
 ```
 import { Err, Ok, Result } from '../shared/result'
 import { sessionSlugError } from '../shared/session-slug'
-import { AutoDecisionInvalidError, isUnsafeLogChar, parseAutoDecisionLine, validateAutoDecisionInput } from './decision-schema'
+import { AutoDecisionInvalidError, escapeUnsafeLogText, isUnsafeLogChar, parseAutoDecisionLine, validateAutoDecisionInput } from './decision-schema'
 import { OverrideStoreOptions, readSessionOverride, writeSessionOverride } from './override-store'
 import { AutonomyPathOptions, autonomyAuditLogPath, computeRepoKey, isDirectory, sessionDirForRaise, sessionDirPath, sessionOverridePath, userConfigPath, validateOverrideSlug } from './paths'
 import { ResolveAutonomyInput, resolveAutonomy } from './resolve'

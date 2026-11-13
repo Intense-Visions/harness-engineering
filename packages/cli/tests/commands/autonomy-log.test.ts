@@ -102,6 +102,16 @@ describe('harness autonomy log', () => {
       invalidLines: [],
     });
   });
+  it('--json never emits raw C1/bidi characters from an unreadable line (review S6)', async () => {
+    writeLog([JSON.stringify(ceremony), 'x\u202e\u009bevil']);
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {});
+    const program = new Command().option('--json').exitOverride();
+    program.addCommand(createAutonomyLogCommand(deps()));
+    await program.parseAsync(['node', 'harness', '--json', 'log', '--session', 's1']);
+    const raw = String(log.mock.calls[0]?.[0]);
+    expect(raw).not.toMatch(/[\u0080-\u009f\u202a-\u202e]/);
+    expect(JSON.parse(raw).invalidLines[0].error).toContain('\\u202e');
+  });
   it('sets exit code 1 when the session does not exist', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => {});
     const program = new Command().option('--json').exitOverride();

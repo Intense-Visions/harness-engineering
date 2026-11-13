@@ -31,17 +31,35 @@ export class AutoDecisionInvalidError extends Error {
   }
 }
 
-const BIDI_CONTROLS = new Set([
-  0x200e, 0x200f, 0x202a, 0x202b, 0x202c, 0x202d, 0x202e, 0x2066, 0x2067, 0x2068, 0x2069,
+/**
+ * Bidi controls (U+200E/F, U+202A-E, U+2066-9, ARABIC LETTER MARK U+061C), invisible characters
+ * (ZERO WIDTH SPACE / NON-JOINER / JOINER U+200B-D, BOM U+FEFF) and LINE / PARAGRAPH SEPARATOR
+ * (U+2028/9, which some renderers treat as a line break). Review S6. Note: rejecting U+200D also
+ * rejects emoji ZWJ sequences in log text.
+ */
+const INVISIBLE_OR_BIDI = new Set([
+  0x061c, 0x200b, 0x200c, 0x200d, 0x200e, 0x200f, 0x2028, 0x2029, 0x202a, 0x202b, 0x202c, 0x202d,
+  0x202e, 0x2066, 0x2067, 0x2068, 0x2069, 0xfeff,
 ]);
 
 /**
  * A code point that could rewrite or hide terminal output when the log is rendered for a human:
- * C0/C1 controls (including ESC) and bidi overrides. Tab and newline are allowed when multiline.
+ * C0/C1 controls (including ESC), bidi controls, invisible characters and Unicode line separators.
+ * Tab and newline are allowed when multiline.
  */
 export function isUnsafeLogChar(code: number, multiline: boolean): boolean {
   if (multiline && (code === 0x09 || code === 0x0a)) return false;
-  return code < 0x20 || (code >= 0x7f && code <= 0x9f) || BIDI_CONTROLS.has(code);
+  return code < 0x20 || (code >= 0x7f && code <= 0x9f) || INVISIBLE_OR_BIDI.has(code);
+}
+
+/** Replace every unsafe character with a visible `\uXXXX` escape (for diagnostics we echo). */
+export function escapeUnsafeLogText(s: string): string {
+  let out = '';
+  for (const ch of s) {
+    const code = ch.codePointAt(0) ?? 0;
+    out += isUnsafeLogChar(code, false) ? `\\u${code.toString(16).padStart(4, '0')}` : ch;
+  }
+  return out;
 }
 
 function hasUnsafeChars(s: string, multiline: boolean): boolean {

@@ -3,6 +3,7 @@ import {
   AUTO_DECISION_LIMITS,
   parseAutoDecisionLine,
   validateAutoDecisionInput,
+  escapeUnsafeLogText,
 } from '../../src/autonomy/decision-schema';
 
 const ceremony = {
@@ -121,6 +122,21 @@ describe('validateAutoDecisionInput', () => {
         })
       )
     ).toContain('options');
+  });
+  it.each(['2028', '2029', '061c', 'feff', '200b', '200c', '200d', '200e', '200f'])(
+    'rejects U+%s (line/paragraph separator, invisible or bidi mark) in one-line and prose fields (review S6)',
+    (hex) => {
+      const ch = String.fromCodePoint(parseInt(hex, 16));
+      expect(fields(validateAutoDecisionInput({ ...ceremony, skill: `a${ch}b` }))).toContain(
+        'skill'
+      );
+      expect(fields(validateAutoDecisionInput({ ...ceremony, question: `q${ch}` }))).toContain(
+        'question'
+      );
+    }
+  );
+  it('escapeUnsafeLogText escapes C1, bidi and separator characters as \\uXXXX', () => {
+    expect(escapeUnsafeLogText('a\u202eb\u009bc\u2028d ok')).toBe('a\\u202eb\\u009bc\\u2028d ok');
   });
   it('rejects control and bidi characters that could spoof terminal output; allows newlines in prose', () => {
     expect(

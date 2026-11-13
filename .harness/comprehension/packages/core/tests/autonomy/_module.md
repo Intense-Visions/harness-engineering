@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/tests/autonomy'
-sourceHash: '8d9f91ab4268de251636444a938d8413dc9e21b47330c3fc7ee72a1d10639cde'
+sourceHash: '1f5f6cceebad31c68408ce3f32ace0173c8d9db67b5d4595e291c4e9d2ecaa7a'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -35,7 +35,7 @@ members:
 
 ```
 import { MAX_AUTO_DECISION_LINE_BYTES, appendAutoDecision, autoDecisionLogPath, readAutoDecisions, recordAutoDecision } from '../../src/autonomy/decision-log'
-import { AUTO_DECISION_LIMITS, parseAutoDecisionLine, validateAutoDecisionInput } from '../../src/autonomy/decision-schema'
+import { AUTO_DECISION_LIMITS, escapeUnsafeLogText, parseAutoDecisionLine, validateAutoDecisionInput } from '../../src/autonomy/decision-schema'
 import { AUTONOMY_SESSION_NOT_FOUND, DEFAULT_RAISE_TTL_MS, autonomyAuditLogPath, computeRepoKey, readSessionOverride, resolveAutonomy, resolveAutonomyForSession, sessionOverridePath, writeLoweringOverride, writeSessionOverride } from '../../src/autonomy/index'
 import * as autonomy from '../../src/autonomy/index'
 import { AUTONOMY_INVALID_SETTING, AUTONOMY_RAISE_REJECTED, isRaisingChange, writeLoweringOverride } from '../../src/autonomy/lower-only'

@@ -11,6 +11,7 @@ import {
 } from './paths';
 import {
   AutoDecisionInvalidError,
+  escapeUnsafeLogText,
   parseAutoDecisionLine,
   validateAutoDecisionInput,
 } from './decision-schema';
@@ -197,7 +198,8 @@ export function readAutoDecisions(
     }
     const parsed = parseAutoDecisionLine(line);
     if (parsed.ok) entries.push(parsed.value);
-    else invalid.push({ line: i + 1, error: parsed.error.message });
+    // Parse errors echo the raw line; escape it so --json never carries C1/bidi (review S6).
+    else invalid.push({ line: i + 1, error: escapeUnsafeLogText(parsed.error.message) });
   });
   return Ok({ file, present: true, entries, invalid });
 }
