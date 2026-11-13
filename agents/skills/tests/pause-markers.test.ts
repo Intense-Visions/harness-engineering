@@ -237,6 +237,17 @@ const PINNED_CLASSES: Array<[string, string, string]> = [
   ['harness-autopilot', '- **Delegated skill fails to produce output:**', 'gate'],
   ['harness-autopilot', '- `confirm`: surface the wave', 'judgment'],
   ['harness-execution', '5. Per wave: `auto-dispatch` (multi-task)', 'judgment'],
+  // review S2: unresolved disagreement / contradiction is a stop, not an auditable fork
+  [
+    'harness-code-review',
+    '- **When reviewers disagree:** Escalate to the human or tech lead.',
+    'gate',
+  ],
+  [
+    'harness-planning',
+    '- Escalate if contradictions exist between PRDs and existing knowledge docs',
+    'gate',
+  ],
   // N6: a headless audit disagreement is an escalation that stops at every level
   ['harness-autopilot', 'If any blocker starts with `audit-disagreement:`', 'gate'],
   // N2: strategy contradictions are never auto-resolved (D-A, overridden to gate)

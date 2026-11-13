@@ -1146,7 +1146,7 @@ These reasoning patterns sound plausible but lead to bad outcomes. Reject them.
 
 ## Escalation
 
-_Pause point (judgment): resolve per the Pause Protocol._ <!-- pause: judgment -->
+_Pause point (gate): resolve per the Pause Protocol._ <!-- pause: gate -->
 
 - **When reviewers disagree:** Escalate to the human or tech lead.
 

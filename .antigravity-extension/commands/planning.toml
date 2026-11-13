@@ -201,7 +201,7 @@ Before decomposing into tasks, ensure domain knowledge from PRDs and specs is do
 
 3. **Cross-check uncertainties against materialized knowledge** (from `businessKnowledge` loaded in gather_context and freshly materialized docs):
    - Remove "assumptions" from the uncertainty list that are now documented facts in `docs/knowledge/`
-     _Pause point (judgment): resolve per the Pause Protocol._ <!-- pause: judgment -->
+     _Pause point (gate): resolve per the Pause Protocol._ <!-- pause: gate -->
    - Escalate if contradictions exist between PRDs and existing knowledge docs
    - Use `business_fact` nodes from the graph context to validate domain assumptions
 
