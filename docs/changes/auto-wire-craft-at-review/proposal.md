@@ -644,3 +644,83 @@ the `AGENTS.md` craft-family section. Records the precedent once the shape has s
 and six languages.
 
 Phases 1 through 4 each land as their own PR; Phase 5 may ride with Phase 4.
+
+## Deferred follow-ups
+
+Everything Phases 1-4 deliberately did not do, parked here so it survives this feature's PR.
+Each item carries the measurement that already exists; none is re-derived.
+
+### Craft multi-language extraction
+
+- **Phase 2b — `naming-craft` + `test-craft`** (~14 tasks). Both need a semantic layer the
+  structural outline does not provide: test-craft must decide which units are TESTS. Go
+  (`*_test.go` + `func TestX`) and Java (`@Test`, readable from the method node's `modifiers`
+  child) are tractable; **Rust is blocked at the parser** — `#[test]` is a SIBLING
+  `attribute_item`, not a child of `function_item`, so test-craft cannot support Rust through
+  this seam at all.
+- **Phase 2c — `security-craft`** (~16 tasks). It is **not a seam adopter**. `detectSignals`
+  matches CALL EXPRESSIONS (`child_process.exec`, `jwt.sign`, SQL template literals) while
+  `extractSymbols` walks only declaration types, so routing it through the outline yields zero
+  signals per non-TS file — and its zero-signal path is SKIP, i.e. **a confident clean security
+  report for a Python file**. Real support means per-language signal catalogs plus a call-site
+  walk.
+- Until 2b and 2c land, `naming-craft`, `security-craft` and `test-craft` declare
+  `['typescript','javascript']` in `CRAFT_REVIEW_DOMAINS`. That narrow declaration is deliberate;
+  widening it belongs to 2b/2c.
+
+### code-nav extraction gaps (measured in the Phase 2a plan)
+
+- **FU-1 — Python nested classes are invisible.** `METHOD_TYPES.python` is
+  `['function_definition']` only, so a `class` nested in a class body is never walked. Measured:
+  `class Article` containing `class Meta` yields `class:Article[save]` with `Meta` absent
+  entirely. That is Django `class Meta` and Pydantic `class Config` — most Django/Pydantic models.
+- **FU-2 — Java inner and static nested classes are invisible.** Same shape in
+  `TOP_LEVEL_TYPES.java` / `extractMethods`. Measured: `public static class Builder { qty();
+build(); }` contributes **zero** units — the Builder pattern, so the most convention-heavy code
+  in the file is never critiqued.
+- **FU-3 — Python definitions under a conditional produce zero symbols, with NO error.**
+  `extractSymbols` walks `rootNode.children` for declaration types; an `if_statement` or
+  `try_statement` is neither and nothing recurses into it. Measured with a positive control:
+  `if TYPE_CHECKING: def helper(x)` yields no symbols and no error, while the same `def` at top
+  level yields `function:helper`. A clean parse returning nothing is the silent-zero shape this
+  feature exists to remove, one nesting level deeper than the two gaps Phase 2a fixed.
+- **FU-4 — the capability claim is per-LANGUAGE, the capability is per-EXTENSION.**
+  `CraftDomainRule.supportedLanguages` is `readonly SupportedLanguage[]` (or the
+  `CRAFT_ANY_LANGUAGE` sentinel, for the surface-bound domains that parse no source), but
+  extraction is gated per file extension. The `.mts`/`.cts` instance was fixed in Phase 2a and is
+  pinned by a law derived from `EXTENSION_MAP`; the granularity mismatch itself remains.
+- **FU-5 — surviving units are correct but their names are ambiguous.** A consequence of Phase
+  2a's dedup fix, not a regression: two Go methods both report `name=Add`, two Rust functions in
+  sibling mods both report `name=f`. The disambiguators exist (the receiver is in
+  `symbol.signature`, the mod name is available at the recursion site) but qualifying the NAME
+  changes finding identity and prompt text, so it belongs with Phase 2b's naming work.
+
+### Seams that Phases 3 and 4 both recommended
+
+- **Derive `OUTLINE_LANGUAGES` from `ALL_SOURCE_LANGUAGES`.**
+  `packages/cli/src/shared/craft/extract/outline-units.ts:45` hand-lists the languages the outline
+  seam handles; `packages/core/src/hooks/craft-review-hooks.ts:265` hand-lists the languages a
+  domain may declare. A seventh language added to `EXTENSION_MAP` would be auto-declared by the
+  second and extract nothing through the first, and the Phase 3 subset law compares at language
+  granularity so it would not catch that. This is FU-4's fix, and it is Phase 2's seam.
+- **Convert the 30 craft platform mirror directories to symlinks.**
+  `agents/skills/{cursor,codex,gemini-cli}/<craft-skill>/` are REAL COPIES, while
+  `harness-autopilot` and `harness-code-review` are symlinks. `scripts/lib/plugin-config.mjs:38-40`
+  still asserts in a comment that the per-platform directories ARE symlink mirrors, which is false
+  for the whole craft family. Phase 4 measured that the craft mirrors feed **no generated
+  artifact**, so drift there is invisible to `generate:plugin:check` too — the mirror-parity law in
+  `packages/cli/tests/integration/craft-skill-review-hook-sections.test.ts` is the only check in
+  the repository that can see it. The structural fix belongs in its own change.
+
+### Out of this feature's scope entirely
+
+- **`_wt/` is absent from the graph walker's skip set.**
+  `packages/graph/src/ingest/skip-dirs.ts` lists `.git-worktrees` and `.worktrees` (`:108-109`)
+  but not `_wt`, which is this repository's own worktree-pool directory. The walker ignores
+  `.gitignore`, so a populated pool is walked as if it were first-party source: 292,202 files
+  against the repo's own 9,407. It crashes `check-arch`, dominates `harness validate`'s issue
+  count, and stack-overflows `duplication.perf` — three checkers, one cause. The fix is one entry
+  in `DEFAULT_SKIP_DIRS` beside the two already there; consumers can work around it today via
+  `ingest.skipDirs` / `ingest.additionalSkipDirs`, but the repo's own convention should not
+  require a workaround. Recorded here rather than filed: it is out of this feature's scope, and
+  raising it as an issue is an outward-facing action left to the feature's owner.
