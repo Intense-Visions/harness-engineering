@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/tests/commands'
-sourceHash: '6857ff43b9294e1ea2b5a6eab507ef1225b227676b05cf1f4526a8ed5b813c6e'
+sourceHash: '803a15061fa87d2479eb95a48466e15d72b504c78d7b6ee034f7699a94aee57c'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -22,6 +22,7 @@ members:
     'api-craft-cov544.test.ts',
     'audit-protected-cov544b.test.ts',
     'audit-protected.test.ts',
+    'autonomy-command.test.ts',
     'autonomy-set.test.ts',
     'autonomy-show.test.ts',
     'backfill-skill-provenance.test.ts',
@@ -247,6 +248,7 @@ import { CliErgonomicsCraftOutput, CliErgonomicsFinding } from '../../src/cli-er
 import { CliErgonomicsCraftInput, runCliErgonomicsCraft } from '../../src/cli-ergonomics-craft/index.js'
 import { CodeCraftOutput, CodeFinding } from '../../src/code-craft/findings/schema.js'
 import { CodeCraftInput, runCodeCraft } from '../../src/code-craft/index.js'
+import { commandCreators } from '../../src/commands/_registry'
 import { createAddCommand, runAdd } from '../../src/commands/add'
 import { createAdoptionCommand } from '../../src/commands/adoption'
 import { createAgentCommand } from '../../src/commands/agent'
@@ -255,6 +257,7 @@ import { createRunCommand, runAgentTask } from '../../src/commands/agent/run'
 import { createAlignDesignSystemCommand } from '../../src/commands/align-design-system'
 import { createApiCraftCommand } from '../../src/commands/api-craft'
 import { createAuditProtectedCommand, runAuditProtected } from '../../src/commands/audit-protected'
+import { createAutonomyCommand } from '../../src/commands/autonomy/index'
 import { defaultIsInteractive, runAutonomySet } from '../../src/commands/autonomy/set'
 import { createAutonomyShowCommand, formatAutonomy, runAutonomyShow } from '../../src/commands/autonomy/show'
 import { runBackfillSkillProvenance } from '../../src/commands/backfill-skill-provenance'

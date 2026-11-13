@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/commands'
-sourceHash: '4f85b10e221632723050f3ae84e5026dbb3c5779c978d24b896b511f09b1cb43'
+sourceHash: '8a5bbca63889d0ded301a35cc77bf67305ab47b76e6c2beafbea390c479f014a'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -528,6 +528,7 @@ import { createAgentCommand } from './agent'
 import { createAlignDesignSystemCommand } from './align-design-system'
 import { createApiCraftCommand } from './api-craft'
 import { createAuditProtectedCommand } from './audit-protected'
+import { createAutonomyCommand } from './autonomy'
 import { createBackfillSkillProvenanceCommand } from './backfill-skill-provenance'
 import { createBlueprintCommand } from './blueprint'
 import { createBurnCommand } from './burn'
