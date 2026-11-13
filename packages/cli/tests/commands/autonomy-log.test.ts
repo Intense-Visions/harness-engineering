@@ -98,6 +98,31 @@ describe('harness autonomy log', () => {
     expect(lines[0]).toMatch(/^Read from archived session: .*done-2026-11-12/);
     expect(lines[1]).toBe('Auto-decisions (session done): 1');
   });
+  it('says how many older archived copies were not summarized (review N3)', () => {
+    for (const name of ['done-2026-11-01', 'done-2026-11-12']) {
+      const dir = path.join(project, '.harness', 'archive', 'sessions', name);
+      fs.mkdirSync(dir, { recursive: true });
+      fs.writeFileSync(path.join(dir, 'auto-decisions.jsonl'), JSON.stringify(ceremony) + '\n');
+    }
+    const out = runAutonomyLog({ session: 'done' }, deps());
+    expect(out.ok && out.report.olderArchives).toBe(1);
+    const lines = out.ok ? formatAutonomyLog(out.report) : [];
+    expect(lines[0]).toMatch(/^Read from archived session: .*done-2026-11-12/);
+    expect(lines[0]).toContain(
+      '(1 older archived copy of this session is not included; see .harness/archive/sessions/)'
+    );
+  });
+  it('pins the sentinel terminal skills key on: no log and an empty log print one "No auto-decisions recorded" line (SC11)', () => {
+    const none = runAutonomyLog({ session: 's1' }, deps());
+    const noneLines = none.ok ? formatAutonomyLog(none.report) : [];
+    expect(noneLines).toHaveLength(1);
+    expect(noneLines[0]).toMatch(/^No auto-decisions recorded for session s1 /);
+    fs.writeFileSync(logFile(), '');
+    const empty = runAutonomyLog({ session: 's1' }, deps());
+    const emptyLines = empty.ok ? formatAutonomyLog(empty.report) : [];
+    expect(emptyLines).toHaveLength(1);
+    expect(emptyLines[0]).toMatch(/^No auto-decisions recorded for session s1 /);
+  });
   it('emits the report as JSON under the global --json flag', async () => {
     writeLog([JSON.stringify(ceremony)]);
     const log = vi.spyOn(console, 'log').mockImplementation(() => {});

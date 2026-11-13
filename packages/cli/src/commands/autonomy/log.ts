@@ -15,6 +15,8 @@ export interface AutonomyLogReport {
   logPresent: boolean;
   /** The live session dir was gone; `file` is in its newest archived copy. */
   archived: boolean;
+  /** Older archived copies of the slug that were not read (review N3). */
+  olderArchives: number;
   summary: AutoDecisionSummary;
   entries: AutoDecision[];
   invalidLines: Array<{ line: number; error: string }>;
@@ -40,11 +42,22 @@ export function runAutonomyLog(
       file: r.value.file,
       logPresent: r.value.present,
       archived: r.value.archived,
+      olderArchives: r.value.olderArchives,
       summary: summarizeAutoDecisions(r.value.entries),
       entries: r.value.entries,
       invalidLines: r.value.invalid,
     },
   };
+}
+
+/** The archive prefix line, naming any older copies that were not summarized (review N3). */
+function archivedNote(report: AutonomyLogReport): string {
+  const n = report.olderArchives;
+  const older =
+    n === 0
+      ? ''
+      : ` (${n} older archived ${n === 1 ? 'copy of this session is' : 'copies of this session are'} not included; see .harness/archive/sessions/)`;
+  return `Read from archived session: ${report.file}${older}`;
 }
 
 export function formatAutonomyLog(report: AutonomyLogReport): string[] {
@@ -61,7 +74,7 @@ export function formatAutonomyLog(report: AutonomyLogReport): string[] {
             ? `No auto-decisions recorded for session ${report.session} (log is empty: ${report.file}).`
             : `No auto-decisions recorded for session ${report.session} (no log file at ${report.file}).`,
         ];
-  return report.archived ? [`Read from archived session: ${report.file}`, ...body] : body;
+  return report.archived ? [archivedNote(report), ...body] : body;
 }
 
 export function createAutonomyLogCommand(deps: AutonomyCliDeps = {}): Command {
