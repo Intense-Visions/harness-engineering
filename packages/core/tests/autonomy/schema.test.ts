@@ -1,5 +1,10 @@
 import { describe, it, expect } from 'vitest';
-import { UserConfigSchema, parseUserConfig, parseSessionOverride } from '../../src/autonomy/schema';
+import {
+  UserConfigSchema,
+  parseUserConfig,
+  parseSessionOverride,
+  validateAutonomySetting,
+} from '../../src/autonomy/schema';
 
 describe('UserConfigSchema', () => {
   it('accepts the documented example', () => {
@@ -57,5 +62,17 @@ describe('parseSessionOverride', () => {
         JSON.stringify({ level: { value: 'trusted', setAt: 'nope', origin: 'cli' } })
       ).ok
     ).toBe(false);
+  });
+});
+
+describe('validateAutonomySetting reports the offending fields (S3)', () => {
+  it.each([
+    [{ audit: 'false' }, ['audit']],
+    [{ level: 'TRUSTED' }, ['level']],
+    [{ level: 0, audit: null }, ['level', 'audit']],
+  ])('%j → fields %j', (change, fields) => {
+    const r = validateAutonomySetting(change);
+    expect(r.ok).toBe(false);
+    expect(!r.ok && (r.error as { fields?: string[] }).fields).toEqual(fields);
   });
 });

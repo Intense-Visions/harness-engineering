@@ -164,6 +164,15 @@ describe('manage_state set-autonomy type-confusion (SC13)', () => {
     }
   );
 
+  it('S3: validation is delegated to core (one validator, one error code at the boundary)', async () => {
+    const res = await call({ audit: 'false' });
+    const body = JSON.parse(res.content[0]!.text);
+    expect(body.error).toBe('AUTONOMY_INVALID_INPUT');
+    expect(body.error).not.toBe('AUTONOMY_INVALID_SETTING');
+    // The message is core's validateAutonomySetting message, not a handler-local rewording.
+    expect(body.message).toMatch(/^Invalid autonomy setting: audit:/);
+  });
+
   it('positive control: a well-typed lowering on the same seed still succeeds', async () => {
     seed();
     const before = sha();

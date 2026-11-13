@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/tests/autonomy'
-sourceHash: '8b1a8d47a4532135c19d156fbf11deb23d85416337f9e69048017d6feecc1c8a'
+sourceHash: '21f5e5b416c337ac8d7d4447054a348040f2f0587fc51941155710a224d28d4c'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -33,7 +33,7 @@ import { AUTONOMY_INVALID_SETTING, AUTONOMY_RAISE_REJECTED, isRaisingChange, wri
 import { readSessionOverride, writeSessionOverride } from '../../src/autonomy/override-store'
 import { computeRepoKey, harnessHomeDir, resolveProjectRoot, sessionOverridePath, userConfigPath, validateOverrideSlug } from '../../src/autonomy/paths'
 import { ResolveAutonomyInput, resolveAutonomy } from '../../src/autonomy/resolve'
-import { UserConfigSchema, parseSessionOverride, parseUserConfig } from '../../src/autonomy/schema'
+import { UserConfigSchema, parseSessionOverride, parseUserConfig, validateAutonomySetting } from '../../src/autonomy/schema'
 import { AutonomyLevel, AutonomySessionOverride } from '@harness-engineering/types'
 import { execFileSync } from 'node:child_process'
 import * as fs from 'node:fs'

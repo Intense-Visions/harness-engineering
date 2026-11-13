@@ -33,9 +33,12 @@ export const AUTONOMY_INVALID_SETTING = 'AUTONOMY_INVALID_SETTING';
 
 export class AutonomyInvalidSettingError extends Error {
   readonly code = AUTONOMY_INVALID_SETTING;
-  constructor(message: string) {
+  /** Top-level field names that failed validation, in issue order, deduplicated. */
+  readonly fields: string[];
+  constructor(message: string, fields: string[] = []) {
     super(`Invalid autonomy setting: ${message}`);
     this.name = 'AutonomyInvalidSettingError';
+    this.fields = fields;
   }
 }
 
@@ -114,7 +117,10 @@ export function isRaisingChange(change: AutonomySetting): boolean {
 /** Validate an untrusted change (e.g. MCP args) before any policy decision or write. */
 export function validateAutonomySetting(change: unknown): Result<AutonomySetting, Error> {
   const r = AutonomySettingSchema.safeParse(change);
-  if (!r.success) return Err(new AutonomyInvalidSettingError(describeIssues(r.error.issues)));
+  if (!r.success) {
+    const fields = [...new Set(r.error.issues.map((i) => String(i.path[0] ?? '(root)')))];
+    return Err(new AutonomyInvalidSettingError(describeIssues(r.error.issues), fields));
+  }
   return Ok(r.data as AutonomySetting);
 }
 
