@@ -12,6 +12,7 @@ import { describe, it, expect } from 'vitest';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { extractCodeUnits } from '../../src/code-craft/extract/units';
+import { SEED_RUBRICS, rubricApplies } from '../../src/code-craft/catalog/rubrics/index';
 
 function fixture(file: string): string {
   return path.join(__dirname, '..', 'fixtures', 'craft-languages', file);
@@ -50,6 +51,28 @@ describe('multi-language unit extraction', () => {
     const file = fixture('cart.ts');
     const units = await extractCodeUnits(fs.readFileSync(file, 'utf-8'), file);
     expect(units.map((u) => u.name)).toContain('computeTotal');
+  });
+
+  it.each(LANGUAGES)('$language: every unit selects at least one rubric', async ({ file }) => {
+    const p = fixture(file);
+    const units = await extractCodeUnits(fs.readFileSync(p, 'utf-8'), p);
+    expect(units.length).toBeGreaterThan(0); // the loop below is vacuous without this
+    for (const unit of units) {
+      const selected = SEED_RUBRICS.filter((r) => rubricApplies(r, unit.kind));
+      expect(
+        selected.length,
+        `${file} ${unit.kind}:${unit.name} (L${unit.line}) selected zero rubrics — ` +
+          'extracted, counted, and critiqued by nothing'
+      ).toBeGreaterThan(0);
+    }
+  });
+
+  it.each(LANGUAGES)('$language: no unit kind escapes the closed union', async ({ file }) => {
+    const p = fixture(file);
+    const units = await extractCodeUnits(fs.readFileSync(p, 'utf-8'), p);
+    for (const unit of units) {
+      expect(['function', 'method', 'class']).toContain(unit.kind);
+    }
   });
 
   it('parses the whole corpus well inside budget', async () => {

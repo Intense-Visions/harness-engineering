@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/tests/code-craft'
-sourceHash: '29396b716d0631de3d251b202e4439af14b8552312abe85dab5a457177a60137'
+sourceHash: '69d4d7638c3276fd911995dd4878f7e85d5ab71f8659b9dc5b567fd0dba0c3ec'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -37,6 +37,7 @@ import { SEED_EXEMPLARS } from '../../src/code-craft/catalog/exemplars'
 import { SEED_RUBRICS, rubricApplies } from '../../src/code-craft/catalog/rubrics'
 import { abstractionEarnsKeepRubric } from '../../src/code-craft/catalog/rubrics/abstraction-earns-keep'
 import { controlFlowHonestRubric } from '../../src/code-craft/catalog/rubrics/control-flow-honest'
+import { SEED_RUBRICS, rubricApplies } from '../../src/code-craft/catalog/rubrics/index'
 import { revealsIntentRubric } from '../../src/code-craft/catalog/rubrics/reveals-intent'
 import { discoverSourceFiles } from '../../src/code-craft/extract/discover'
 import { buildCodeCraftCloneIndex, resolveSiblingEvidence } from '../../src/code-craft/extract/siblings'
