@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/src/hooks'
-sourceHash: 'a159530ea8a22811870dd85a7c766b9c85ca8cbd4c0524bb63c9d32b53413f23'
+sourceHash: '3391cc2e98b69e6a660c2ef3aeb9e0a8861c874db710258c984235cf8fb823c9'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -11,6 +11,7 @@ members:
     'craft-review-hooks.ts',
     'hook-context.ts',
     'index.ts',
+    'skill-availability.ts',
     'skill-lifecycle.ts',
   ]
 ---
