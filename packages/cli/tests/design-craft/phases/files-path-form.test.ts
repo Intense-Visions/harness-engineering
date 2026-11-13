@@ -63,3 +63,22 @@ describe('design_craft `files` path forms', () => {
     ).rejects.toThrow(/ENOENT/);
   });
 });
+
+// MUTATION RESULTS (2026-11-13, Phase 5 behavioral path-form law)
+//
+//  M-DC-SWALLOW — wrapped readSource's readFileSync in
+//    `try { … } catch { return '' }`, i.e. MANUFACTURED the silent zero the
+//    brief claimed was already there. The relative case went RED — "promise
+//    resolved "[ { code: 'CRAFT-C001', …(8) } ]" instead of rejecting" —
+//    while the absolute case stayed GREEN. 1 failed | 1 passed (2). This is
+//    the measurement behind the Phase 5 description wording: the silent zero
+//    is reachable only by a change design_craft does not currently have, so
+//    the schema sentence claims an omission, not a silent zero.
+//  M-DC-ALWAYS-THROW — made readSource throw unconditionally. The ABSOLUTE
+//    case went RED ("Error: ENOENT: mutant always throws"), proving the
+//    positive control is load-bearing: without it, "it threw" is satisfied by
+//    an implementation that throws for every input, and the law would say
+//    nothing about path FORM. 1 failed | 1 passed (2).
+//
+// 2 registered mutants, 0 survivors. 8 registered across the three Phase 5
+// law sites (4 + 3 + 2 counts M-DCDESC-REVERT once, at its own file).

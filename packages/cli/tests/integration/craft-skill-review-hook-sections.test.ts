@@ -167,3 +167,30 @@ describe('no auto-wired craft tool instructs a repo-relative `files` path form',
     });
   }
 });
+
+// MUTATION RESULTS (2026-11-13, Phase 5 `files` path-form law)
+//
+//  M-DCDESC-REVERT (the PRE-EDIT control; run once, before the schema fix,
+//    and not re-run afterwards because the pre-edit document IS the mutant) —
+//    with design_craft's description still reading "Each entry is a path
+//    relative to project root.", exactly ONE of the ten per-domain cases was
+//    RED: "harness-design-craft: its `files` description does not instruct a
+//    repo-relative path ... expected 'Optional file scoping. Each entry is …'
+//    not to match /relative to (?:the )?project root/i". The denominator and
+//    the other nine domains were GREEN, and so were all 31 pre-existing cases:
+//    1 failed | 41 passed (42). One RED out of ten is the measurement that
+//    made this a denominator law — ten RED would have meant a wrong regex,
+//    zero RED a law that cannot fail. Post-fix: 42 passed (42).
+//  M-DCDESC-EMPTY — set design_craft's `files.description` to ''. RED on the
+//    VACUITY CONTROL, not on the absence assertion: "design_craft: files has
+//    no description: expected 0 to be greater than 0". An empty string
+//    satisfies `not.toMatch` trivially, so without the presence assertion
+//    beside it this mutant would have survived. 1 failed | 41 passed (42).
+//  M-DCDESC-DENOM — deleted the whole `files` property from code_craft's
+//    inputSchema.properties. RED on the denominator case first ("code_craft
+//    must expose a files property: expected [ Array(6) ] to include 'files'")
+//    and on code-craft's own case second. 2 failed | 40 passed (42). The
+//    denominator is what turns "a domain whose schema lost files" from a
+//    TypeError on undefined into a named missing-contract report.
+//
+// 3 registered mutants, 0 survivors.

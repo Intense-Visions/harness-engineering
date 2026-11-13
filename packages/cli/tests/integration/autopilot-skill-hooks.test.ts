@@ -386,3 +386,37 @@ describe('harness-code-review is a second skillHooks consumer (not autopilot-loc
   // all. 0 survivors. The one vacuous assertion found by the pre-craft
   // positive control is corrected in place above.
 });
+
+// MUTATION RESULTS (2026-11-13, Phase 5 promptBudget cardinality law)
+//
+// PRE-EDIT EVALUATION (the control that separates a law from a fixture).
+//   Before the SKILL.md edit, `grep -c "where that domain"
+//   agents/skills/claude-code/harness-autopilot/SKILL.md` returned 0 — the
+//   qualifier appeared NOWHERE in the document, so no surrounding prose could
+//   satisfy the ±2-line window at either site. The law was run against the
+//   unedited document and failed at the FIRST site:
+//     "harness-autopilot/SKILL.md:118 states promptBudget unqualified"
+//   1 failed | 24 passed (25). Both sites were unqualified; the loop reports
+//   the first. Post-edit the same file is 25/25.
+//
+//  M-AP-BUDGET-118 — stripped the qualifying clause from the :118 bullet only
+//    (4 lines -> 2). RED with "harness-autopilot/SKILL.md:118 states
+//    promptBudget unqualified"; the other site's assertions GREEN; 1 failed |
+//    24 passed (25).
+//  M-AP-BUDGET-334 — stripped it from the second site only (the sentence the
+//    plan calls :334; it sits at :336 after the first site grew by two lines).
+//    RED with "harness-autopilot/SKILL.md:336 states promptBudget
+//    unqualified" — the site the mutation touched, and only that one.
+//    1 failed | 24 passed (25).
+//  M-AP-BUDGET-COUNT — added a THIRD line mentioning `promptBudget` without
+//    the qualifier, above "## When to Use". RED on the CARDINALITY CONTROL:
+//    "expected [ 5, 120, 338 ] to have a length of 2 but got 3". The per-site
+//    loop alone would have passed it — it only visits what it finds, so the
+//    new line's own window was never checked. 1 failed | 24 passed (25).
+//  M-AP-BUDGET-SCHEMA — added `promptBudget: { type: 'number' }` to
+//    design_craft's inputSchema.properties. RED on the derived list:
+//    "expected [] to deeply equal [ 'design_craft' ]". The exception is read
+//    from the live schema, not from a hand table, so a schema that gained a
+//    promptBudget forces the prose to follow. 1 failed | 24 passed (25).
+//
+// 4 registered mutants, 0 survivors.

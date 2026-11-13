@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/tests/design-craft/phases'
-sourceHash: '61e74a647b29bbc2cdb2a7cb80f5a1fcae193ac116f30e0d0237ae067f871ccf'
+sourceHash: 'f552e3f620f9d6face8e05f05a92326f06035691fb117e774730387c06c61ee1'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
