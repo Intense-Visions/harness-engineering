@@ -50,6 +50,7 @@ import { GraphStore } from '@harness-engineering/graph';
 import type { OrchestratorState, LiveSession, RunningEntry } from './types/internal';
 import type { OrchestratorEvent, SideEffect } from './types/events';
 import { applyEvent } from './core/state-machine';
+import { readHumanDecisionBlockers } from './core/human-decision-blockers';
 import { createEmptyState } from './core/state-helpers';
 import { getBudgetStatus } from './core/budget-governor';
 import { detectStalledIssues } from './core/stall-detector';
@@ -3164,6 +3165,7 @@ export class Orchestrator extends EventEmitter {
     attempt: number | null,
     gateBackendName: string | undefined
   ): Promise<void> {
+    if (await this.escalateHumanDecision(issue, workspacePath, attempt)) return;
     const gate =
       gateBackendName !== undefined
         ? // B3: the VERIFY sub-gate is fail-CLOSED (a gate that can't run blocks +
@@ -3232,6 +3234,59 @@ export class Orchestrator extends EventEmitter {
       ...qualityVerdictLogFields(qualityVerdict, retroVerdict),
     });
     await this.emitWorkerExit(issue.id, 'normal', attempt, undefined, outcomeClass);
+  }
+
+  /**
+   * Trusted autonomy (Pause Protocol, headless branch): a dispatched agent whose
+   * blind audit disagreed with its own recommendation, or that could not audit a
+   * judgment fork, does not choose. It writes an `audit-disagreement:` or
+   * `judgment-fork:` blocker to its session handoff and stops. With no parent
+   * session to settle it, the run must neither ship nor re-dispatch:
+   * queue a `needs-human` interaction, record the verdict, and mark the unit
+   * escalated so the retry the error exit schedules is skipped at dispatch (the
+   * same process-lifetime guard the bounded-retry terminal uses). Returns true
+   * when it escalated.
+   */
+  /**
+   * The unit's fresh human-decision handoff blockers. When there are any,
+   * also marks the unit escalated (so no retry re-dispatches it) and records the
+   * needs-human verdict; the caller owns how the terminal itself is settled.
+   */
+  private markHumanDecision(issue: Issue, workspacePath: string, attempt: number | null): string[] {
+    const startedAt = Date.parse(this.state.running.get(issue.id)?.startedAt ?? '');
+    const blockers = readHumanDecisionBlockers(
+      workspacePath,
+      Number.isNaN(startedAt) ? 0 : startedAt
+    );
+    if (blockers.length === 0) return blockers;
+    this.#escalatedThisRun.add(issue.id);
+    this.recordFlightVerdict({
+      issueId: issue.id,
+      identifier: issue.identifier,
+      verdict: 'needs-human',
+      attempt,
+      gateReason: blockers.join('; '),
+    });
+    return blockers;
+  }
+
+  private async escalateHumanDecision(
+    issue: Issue,
+    workspacePath: string,
+    attempt: number | null
+  ): Promise<boolean> {
+    const blockers = this.markHumanDecision(issue, workspacePath, attempt);
+    if (blockers.length === 0) return false;
+    await this.handleEscalation({
+      type: 'escalate',
+      issueId: issue.id,
+      identifier: issue.identifier,
+      issueTitle: issue.title,
+      issueDescription: issue.description ?? null,
+      reasons: blockers,
+    });
+    await this.emitWorkerExit(issue.id, 'error', attempt, blockers.join('; '));
+    return true;
   }
 
   /**
@@ -4246,6 +4301,20 @@ export class Orchestrator extends EventEmitter {
     const isLocal = lastDef !== undefined && isLocalExecutionBackend(lastDef);
     const workspacePath = closureWorkspacePath ?? entry?.workspacePath;
     const issue = closureIssue ?? entry?.issue;
+    // Trusted autonomy: a headless audit disagreement or unaudited judgment fork is
+    // a human decision, on any backend — settle through needs-human, never ship.
+    if (workspacePath !== undefined && issue !== undefined) {
+      const blockers = this.markHumanDecision(issue, workspacePath, null);
+      if (blockers.length > 0) {
+        await this.settleWorkflowTerminal(
+          unit,
+          runs,
+          undefined,
+          new Error(`a judgment needs a human: ${blockers.join('; ')}`)
+        );
+        return;
+      }
+    }
     if (isLocal && workspacePath !== undefined && issue !== undefined) {
       // D2: the acceptance command override, recovered from the matched workflow decl
       // (undefined ⇒ the gate uses verifyRunner unchanged).

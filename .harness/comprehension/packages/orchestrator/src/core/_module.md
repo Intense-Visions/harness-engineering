@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/orchestrator/src/core'
-sourceHash: 'c52258d3c8d3c372eec9673fbf62a96ddc56fd1f8bc8d2586bdd1a92cbb294ed'
+sourceHash: '5aeb9cd33aa55abbb2e4d2ee525d769be8c151551470c88f5f91be98b4ac65a9'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -18,6 +18,8 @@ members:
     'flight-recorder.test.ts',
     'flight-recorder.ts',
     'highlight-extractor.ts',
+    'human-decision-blockers.test.ts',
+    'human-decision-blockers.ts',
     'index.ts',
     'interaction-queue.test.ts',
     'interaction-queue.ts',
@@ -128,6 +130,7 @@ import { selectCandidates } from './candidate-selection'
 import { DispatchBudgetOptions, canDispatch } from './concurrency'
 import { assertIssueWithinContextBudget, buildLeafContextEstimate, estimateIssueContextTokens } from './context-budget-governor'
 import { FlightRecorder, RunRecord, gatherProvenance } from './flight-recorder'
+import { HandoffFs, readHumanDecisionBlockers } from './human-decision-blockers'
 import { InteractionQueue, PendingInteraction } from './interaction-queue'
 import { artifactPresenceFromIssue, detectScopeTier, routeIssue } from './model-router'
 import { PRDetector, PRDetectorLogger } from './pr-detector'
@@ -141,7 +144,7 @@ import { AgentBudgetConfig, AgentEvent, BudgetEnvelopeStatus, ConcernSignal, Err
 import { execFile, execFileSync } from 'node:child_process'
 import { createHash, randomUUID } from 'node:crypto'
 import { EventEmitter } from 'node:events'
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
+import { mkdtempSync, readFileSync, readdirSync, rmSync, statSync } from 'node:fs'
 import * as fs from 'node:fs'
 import * as fs from 'node:fs/promises'
 import { tmpdir } from 'node:os'

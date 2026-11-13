@@ -1827,3 +1827,109 @@ describe('bounded-retry needs-human terminal — no re-dispatch loop (#escalated
     expect(persistSpy).toHaveBeenCalledWith('i2', 'dispatch');
   });
 });
+
+/** Write a session handoff into the workspace the way a dispatched agent would. */
+function writeHandoff(ws: string, blockers: string[], slug = 'changes--x--proposal'): string {
+  const dir = path.join(ws, '.harness', 'sessions', slug);
+  fs.mkdirSync(dir, { recursive: true });
+  const file = path.join(dir, 'handoff.json');
+  fs.writeFileSync(file, JSON.stringify({ fromSkill: 'harness-planning', blockers }));
+  return file;
+}
+
+function spyInteractionPush(orch: Orchestrator): ReturnType<typeof vi.fn> {
+  const spy = vi.fn(async () => undefined);
+  (orch as unknown as { interactionQueue: { push: unknown } }).interactionQueue.push = spy;
+  return spy;
+}
+
+describe('headless audit disagreement → needs-human (trusted autonomy)', () => {
+  const BLOCKER = 'audit-disagreement: which cache layer — the auditor picked 2, the plan picked 1';
+
+  it('single dispatch: a fresh blocker queues needs-human and exits error, never normal or gated', async () => {
+    const verify = vi.fn(async () => ({ ok: true, output: '' }));
+    const orch = newOrch({ claude: CLAUDE_BACKEND }, 'claude', verify);
+    const emit = spyEmitWorkerExit(orch);
+    const push = spyInteractionPush(orch);
+    writeHandoff(tmpDir, ['unrelated blocker', BLOCKER]);
+
+    await finalize(orch)(ISSUE, tmpDir, 1, undefined);
+
+    expect(push).toHaveBeenCalledTimes(1);
+    const interaction = push.mock.calls[0]![0] as { type: string; reasons: string[] };
+    expect(interaction.type).toBe('needs-human');
+    expect(interaction.reasons).toEqual([BLOCKER]);
+    expect(emit).toHaveBeenCalledTimes(1);
+    expect(emit.mock.calls[0]![1]).toBe('error');
+    expect(verify).not.toHaveBeenCalled();
+  });
+
+  it('single dispatch: the retry the error exit schedules is skipped at dispatch', async () => {
+    const orch = newOrch({ claude: CLAUDE_BACKEND }, 'claude');
+    spyEmitWorkerExit(orch);
+    spyInteractionPush(orch);
+    writeHandoff(tmpDir, [BLOCKER]);
+    await finalize(orch)(ISSUE, tmpDir, 1, undefined);
+
+    const log = vi.spyOn(
+      (orch as unknown as { logger: { info: (m: string) => void } }).logger,
+      'info'
+    );
+    await (
+      orch as unknown as { dispatchIssue: (i: Issue, a: number | null) => Promise<void> }
+    ).dispatchIssue(ISSUE, 2);
+    expect(
+      log.mock.calls.some((c) => String(c[0]).includes('Skipping dispatch of escalated'))
+    ).toBe(true);
+  });
+
+  it('single dispatch: no audit-disagreement blocker → completes normally', async () => {
+    const orch = newOrch({ claude: CLAUDE_BACKEND }, 'claude');
+    const emit = spyEmitWorkerExit(orch);
+    const push = spyInteractionPush(orch);
+    writeHandoff(tmpDir, ['tests are slow']);
+
+    await finalize(orch)(ISSUE, tmpDir, 1, undefined);
+
+    expect(push).not.toHaveBeenCalled();
+    expect(emit.mock.calls[0]![1]).toBe('normal');
+  });
+
+  it('a handoff older than the dispatch start is ignored (reused worktree)', async () => {
+    const orch = newOrch({ claude: CLAUDE_BACKEND }, 'claude');
+    const file = writeHandoff(tmpDir, [BLOCKER]);
+    const old = new Date(Date.now() - 60 * 60 * 1000);
+    fs.utimesSync(file, old, old);
+    seedRunningAttempt(orch, 'i1', tmpDir, 1);
+    const running = (orch as unknown as { state: { running: Map<string, { startedAt?: string }> } })
+      .state.running;
+    running.get('i1')!.startedAt = new Date().toISOString();
+    const emit = spyEmitWorkerExit(orch);
+    const push = spyInteractionPush(orch);
+
+    await finalize(orch)(ISSUE, tmpDir, 1, undefined);
+
+    expect(push).not.toHaveBeenCalled();
+    expect(emit.mock.calls[0]![1]).toBe('normal');
+  });
+
+  it('staged: a blocker settles through the needs-human terminal instead of shipping', async () => {
+    const verify = vi.fn(async () => ({ ok: true, output: '' }));
+    const orch = newOrch({ local: LOCAL_BACKEND }, 'local', verify);
+    seedRunningAttempt(orch, 'i1', tmpDir, 0);
+    writeHandoff(tmpDir, [BLOCKER]);
+    const terminal = vi.fn(async () => undefined);
+    (orch as unknown as { settleWorkflowTerminal: unknown }).settleWorkflowTerminal = terminal;
+    const persistSpy = vi.spyOn(
+      orch as unknown as { persistLaneSafe: (u: string, l: string) => Promise<void> },
+      'persistLaneSafe'
+    );
+
+    await settleSuccess(orch)('i1', [stageRun('local')]);
+
+    expect(terminal).toHaveBeenCalledTimes(1);
+    expect(String((terminal.mock.calls[0] as unknown[])[3])).toContain('audit-disagreement');
+    expect(verify).not.toHaveBeenCalled();
+    expect(persistSpy).not.toHaveBeenCalledWith('i1', 'success');
+  });
+});
