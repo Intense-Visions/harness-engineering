@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/src/autonomy'
-sourceHash: 'f48811e927dcd7a8727745ff38ecd12b4bd0c5494223ef8b667df2686d95c2dc'
+sourceHash: '2be1bf026de0dbf44e1cb77cf257f970e13608f82ac3a8b28036d1da2db89920'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -56,6 +56,7 @@ export writeSessionOverride
 
 ```
 import { Err, Ok, Result } from '../shared/result'
+import { sessionSlugError } from '../shared/session-slug'
 import { OverrideStoreOptions, readSessionOverride, writeSessionOverride } from './override-store'
 import { AutonomyPathOptions, sessionOverridePath, userConfigPath } from './paths'
 import { ResolveAutonomyInput, resolveAutonomy } from './resolve'

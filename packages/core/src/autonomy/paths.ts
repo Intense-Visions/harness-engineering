@@ -5,6 +5,7 @@ import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import type { Result } from '../shared/result';
 import { Ok, Err } from '../shared/result';
+import { sessionSlugError } from '../shared/session-slug';
 
 /** Injected path inputs; production defaults read os.homedir() and the real filesystem. */
 export interface AutonomyPathOptions {
@@ -90,12 +91,10 @@ export function computeRepoKey(projectPath: string, opts: AutonomyPathOptions = 
   return createHash('sha256').update(real).digest('hex').slice(0, 16);
 }
 
+/** The shared session-slug rule (S2); kept as a named export for autonomy callers. */
 export function validateOverrideSlug(slug: string): Result<string, Error> {
-  if (!slug || slug.trim() === '') return Err(new Error('Session slug must not be empty'));
-  if (/\.\.|[/\\:]/.test(slug)) {
-    return Err(new Error(`Invalid session slug '${slug}': must not contain path characters`));
-  }
-  return Ok(slug);
+  const error = sessionSlugError(slug);
+  return error === null ? Ok(slug) : Err(new Error(error));
 }
 
 export function sessionOverridePath(
