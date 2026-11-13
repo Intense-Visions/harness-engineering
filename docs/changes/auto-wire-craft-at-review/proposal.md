@@ -282,9 +282,12 @@ s.java  -> class:Cart > method:computeTotal
 Two things this measurement settles that reasoning would not have. **Methods are nested as
 `children`, not emitted flat** — a flat read of `symbols` shows only `class:Cart` for Java and reads
 as broken extraction, so Phase 2's unit walk MUST recurse into `children` or it will silently
-critique class declarations and skip every method. **Rust emits the same type twice**, once for the
-`struct` and once for the `impl` block, so Phase 2 must de-duplicate by (kind, name, line) or every
-Rust type costs two prompts and yields two copies of each finding.
+critique class declarations and skip every method. **Rust emits the same type twice**, once for the `struct` and once for the `impl` block, so Phase 2
+must de-duplicate — **by `(kind, qualifiedName)`, with NO line component**. An earlier draft of this
+spec said `(kind, name, line)`; that key does not dedup, because the two emissions sit at different
+lines. Measured: `class:Cart L5-5` (struct) and `class:Cart L7-9` (impl) give 3 survivors under a
+line-bearing key and 2 under `(kind, name)`. The name must be qualified, or `Cart.add` and `Bag.add`
+in one file collapse into a single unit.
 
 **The rubric catalogs ARE language-neutral — checked, not assumed.** All seven `code-craft` rubrics
 are prose about design, with no TypeScript syntax: `CODE-R001` asks whether a unit speaks in the
@@ -517,6 +520,51 @@ Satisfies criteria 1, 3, 6, 7, 8, 9, 12, 13.
 ### Phase 2: Multi-language craft unit extraction
 
 <!-- complexity: high -->
+
+**Two upstream defects in `packages/core/src/code-nav/` must be fixed first; the parser does NOT
+ship working for two of the six languages.** Both were measured, and both sit one layer below where
+this spec originally placed its guards — so no `packages/cli` adapter can compensate, because the
+node is already gone before `getOutline` returns.
+
+- **Every decorated Python definition is dropped.** tree-sitter-python wraps a decorated `def` or
+  `class` in `decorated_definition`, while `TOP_LEVEL_TYPES.python` and `METHOD_TYPES.python` key on
+  `function_definition`, now a grandchild. Measured: `class:Decorated` returns `children = 0` with
+  its `@staticmethod` method missing, and an `@app.route`-decorated function is absent from
+  `symbols` entirely. In idiomatic Python — `@property`, `@dataclass`, `@app.route`,
+  `@pytest.fixture` — that is most of the file. **A Flask module whose handlers are all decorated
+  extracts zero units and reports a clean pass.** Unwrap via `childForFieldName('definition')`.
+- **A Rust `mod` body is never walked.** `mod_item` maps to `variable` and nothing recurses.
+  Measured: `variable:tests` with `children = 0`, losing every item inside. `#[test]` is also a
+  SIBLING `attribute_item` rather than a child of `function_item`, which is why **test-craft cannot
+  support Rust through this seam at all**.
+
+**The phase splits into 2a / 2b / 2c**, because the four skills are not one job:
+
+- **2a (this phase):** the two core gaps, the shared extraction seam, and `code-craft` across all
+  six languages.
+- **2b:** `naming-craft` and `test-craft`. Both need a semantic layer the structural outline does
+  not provide — test-craft must decide which units are _tests_ (Go's `*_test.go` + `func TestX`, and
+  Java's `@Test` readable from the method node's `modifiers` child are both tractable; Rust is
+  blocked by the attribute measurement above).
+- **2c:** `security-craft`, which **is not a seam adopter at all**. It does not extract units: its
+  `detectSignals` matches CALL EXPRESSIONS (`child_process.exec`, `jwt.sign`, SQL template
+  literals), while `extractSymbols` walks only declaration types. Routing it through the outline
+  yields zero signals per non-TS file, and its zero-signal path is skip — **a confident clean
+  security report for a Python file**. Real support means per-language signal catalogs plus a
+  call-site walk.
+
+**Consequence for the declaration table, decided rather than deferred:** after 2a only `code-craft`
+is genuinely multi-language, so `naming-craft`, `security-craft` and `test-craft` narrow to
+`['typescript','javascript']` in `CRAFT_REVIEW_DOMAINS`. That makes each declaration honest, which
+is the whole point of the Phase 3 subset law; 2b and 2c widen them again as part of their own work.
+Blocking Phase 3 until all three land would gate the feature on roughly thirty further tasks for no
+gain in correctness.
+
+**A gap in neither the original spec nor the brief: there is no substantiveness filter outside TS.**
+The TypeScript extractor bars sub-three-statement bodies; the outline exposes no statement count, so
+a one-line function is emitted in all four other languages and seven rubrics fire against it inside
+a 100-prompt budget. 2a uses a line-span proxy (`MIN_UNIT_LINES`), which is a proxy and not an
+equivalent, and is labelled as such.
 
 Route `code-craft`, `naming-craft`, `security-craft` and `test-craft` through `code-nav`'s
 `extractOutlineFromTree` when `detectLanguage(file)` is not `typescript`/`javascript`, with one
