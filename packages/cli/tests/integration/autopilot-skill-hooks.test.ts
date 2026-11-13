@@ -11,6 +11,7 @@
 import { describe, it, expect } from 'vitest';
 import * as path from 'path';
 import * as fs from 'fs';
+import { CRAFT_REVIEW_EVENTS_BY_HOST } from '@harness-engineering/core';
 
 const REPO_ROOT = path.resolve(__dirname, '..', '..', '..', '..');
 const AUTOPILOT_SKILL_MD = path.join(
@@ -259,5 +260,67 @@ describe('harness-code-review is a second skillHooks consumer (not autopilot-loc
 
   it('honors the framework hard-halt protection', () => {
     expect(md).toMatch(/hard halt/i);
+  });
+
+  // MEASURED ON THIS TREE (cdb12047b) BEFORE THESE LAWS EXISTED, with the
+  // mutation diff printed in the same command as the test result: inserting
+  // a craft call site wired at a BOGUS event (`after:WRONG_EVENT`) plus a
+  // sentence contradicting the hard-halt rule left this file 19/19 GREEN,
+  // and so did removing craft entirely. The two `it`s above cannot fail for
+  // craft in EITHER direction: `resolveSkillHooks\(config, "harness-code-review"`
+  // does not match `resolveReviewHooksWithCraft(`, and `/hard halt/i` is
+  // already satisfied by the user-declared-hook paragraph at :204. THEIR
+  // GREEN IS NOT EVIDENCE THAT CRAFT IS WIRED HERE. The five laws below are
+  // craft's own denominator for this host — the Phase 3 CRAFT_WIRED pattern.
+  const PHASE2 = (): string => extractSection(md, 'Phase 2: MECHANICAL');
+
+  it('documents the craft resolver at exactly the event this host wires', () => {
+    // DERIVED from the per-host vocabulary, never retyped: changing
+    // CRAFT_REVIEW_EVENTS_BY_HOST without updating the prose reddens here.
+    const expected = [...CRAFT_REVIEW_EVENTS_BY_HOST['harness-code-review']];
+    expect(expected).toEqual(['after:mechanical']); // denominator pinned before use
+    const craftSites = new Set(
+      [
+        ...md.matchAll(
+          /resolveReviewHooksWithCraft\(config,\s*"harness-code-review",\s*"([^"]+)"[,)]/g
+        ),
+      ]
+        .map((m) => m[1])
+        // Same placeholder filter the autopilot laws use: a documented FORM
+        // like "<after:X|after:Y>" is not a call site.
+        .filter((e) => /^(before|after|on):[A-Za-z0-9_-]+$/.test(e))
+    );
+    expect([...craftSites].sort()).toEqual([...expected].sort());
+  });
+
+  it('records the timing asymmetry at the call site (pre-review here, post-review under autopilot)', () => {
+    const s = PHASE2();
+    expect(s).toMatch(/TIMING ASYMMETRY/);
+    expect(s).toMatch(/before\*{0,2}\s+the\s+(?:Phase 4\s+)?AI fan-out/i);
+    expect(s).toMatch(/after:REVIEW/);
+    expect(s).toMatch(/CRAFT_REVIEW_EVENTS_BY_HOST/);
+  });
+
+  it('exempts forward-wired craft defaults from this skill\u2019s hard-halt rule', () => {
+    const s = PHASE2();
+    expect(s).toMatch(/SKIPPED, never a hard halt/i);
+    expect(s).toMatch(/EXCEPTION/);
+    expect(s).toMatch(/forward-wired|harness-OPTIMISTIC/i);
+    expect(s).toMatch(/user-declared-but-unresolvable\s*=\s*hard\s+halt/i);
+  });
+
+  it('keeps craft findings out of the mechanical exclusion set and the severity counts', () => {
+    const s = PHASE2();
+    expect(s).toMatch(/MUST NOT enter the mechanical exclusion set/i);
+    expect(s).toMatch(/severity counts/i);
+  });
+
+  it('states the diff-scoped forwarding contract and the denominator', () => {
+    const s = PHASE2();
+    expect(s).toMatch(/plan\.files\[skill\]/);
+    expect(s).toMatch(/ABSOLUTE/);
+    expect(s).toMatch(/promptBudget/);
+    expect(s).toMatch(/no-diff-context/);
+    expect(s).toMatch(/craft domains: \d+\/\d+ activated/);
   });
 });

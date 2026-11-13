@@ -509,6 +509,50 @@ This skill is a hook-supporting consumer of the cross-skill `skillHooks` framewo
 
 Resolve `resolveSkillHooks(config, "harness-code-review", "after:mechanical")` from `skillHooks` in `harness.config.json` (default none ⇒ no-op, no regression). Run each hook in order by kind: a `command` hook runs via the command-runner with the hook env/stdin context (cannot-spawn ⇒ hard halt; ran-and-non-zero ⇒ a finding); a `prompt` hook appends its text to the review context; a `skill` hook runs as an extra reviewer with the same mechanical context. An unresolvable hooked skill is a hard halt (recorded, never a silent skip), matching the framework's false-green protection. Hook findings merge into the same exclusion/aggregation as the built-in mechanical checks. Additional lifecycle events (`before:run` / `after:run`, `on:failure`) follow the same grammar when this skill opts in at those points.
 
+**Craft domains auto-wire at `after:mechanical` (default, zero-config, forward-wired, ADVISORY).**
+Alongside the project's configured hooks, resolve craft's advisory domains:
+`resolveReviewHooksWithCraft(config, "harness-code-review", "after:mechanical", { changedFiles, availableSkills })`
+(from `@harness-engineering/core`), with
+`planCraftReviewDomains("harness-code-review", "after:mechanical", changedFiles, availableSkills)`
+for the `{ wired, skipped, expected, files }` split. The full contract lives in harness-autopilot's
+"Craft domains auto-wire" subsection; what is specific to THIS host is below.
+
+- **TIMING ASYMMETRY — craft runs PRE-review here and POST-review under autopilot.**
+  `after:mechanical` fires once the mechanical exclusion boundary is set and **before** the
+  Phase 4 AI fan-out, whereas autopilot's `after:REVIEW` / `after:FINAL_REVIEW` fire **after** its
+  reviewer has run. The two hosts are therefore NOT interchangeable. It is deliberate — the
+  reviewers of Phase 4 can see craft's findings, which is an improvement — and it is recorded
+  once more at `CRAFT_REVIEW_EVENTS_BY_HOST` (`packages/core/src/hooks/craft-review-hooks.ts`), so
+  prose and vocabulary cannot drift apart unnoticed.
+- **A not-installed craft domain is SKIPPED, never a hard halt — an EXCEPTION to the paragraph
+  above.** That paragraph's "An unresolvable hooked skill is a hard halt" governs USER-DECLARED
+  `skillHooks` entries. Craft domains arrive as harness-OPTIMISTIC forward-wired defaults, so
+  `resolveReviewHooksWithCraft` filters an uninstalled domain out and it is recorded in the
+  denominator. Do NOT halt the review because a craft skill nobody asked for is absent. The
+  distinction is intent, exactly as for the canary detectors:
+  harness-optimistically-defaulted-but-not-installed = skip;
+  user-declared-but-unresolvable = hard halt.
+- **Craft findings are ADVISORY and MUST NOT enter the mechanical exclusion set.** Report them in
+  their own section. They must never be merged into the Phase 2 exclusion list that Phase 5
+  (VALIDATE) subtracts from the AI findings — a craft taste judgment at `file:line` discarding a
+  reviewer's real finding at the same `file:line` is a false green manufactured by this very
+  wiring. They also do not contribute to the `error`/`warn` severity counts and never change the
+  Assessment.
+- **DIFF-SCOPED — forward `plan.files[skill]` as the craft skill's `files`, resolved to ABSOLUTE
+  paths**, together with a `promptBudget` where that domain's MCP tool accepts one (see each craft
+  skill's "Invoked as a review hook" section; `mcp__harness__design_craft` does not).
+  `plan.files` holds repo-relative POSIX paths and the collectors `readFileSync` them against the
+  process CWD, so forwarding them unresolved yields `status: "collected"` with zero prompts: a
+  clean report from a run that read nothing. Never call `rule.owns()` yourself. When the
+  changed-file set is unknown, nothing activates and every domain is reported `no-diff-context`;
+  do not fall back to a repository walk.
+- **One event, so no `alreadyRanFor`.** This host resolves craft once per run; the
+  once-per-phase-per-diff de-duplication exists for autopilot's TWO review moments and has no
+  counterpart here.
+- **Report the denominator, including skips** — "craft domains: 2/3 activated, 1 skipped:
+  unsupported-language" — in the same report as the hook denominator. A surprising `0/M` renders
+  as `0/M`, never as silence.
+
 ---
 
 ### Phase 3: CONTEXT
