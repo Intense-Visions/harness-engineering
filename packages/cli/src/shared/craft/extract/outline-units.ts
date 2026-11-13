@@ -58,7 +58,25 @@ const OUTLINE_LANGUAGES: ReadonlySet<SupportedLanguage> = new Set<SupportedLangu
  * billable unit, and seven rubrics fire per unit against a default budget of
  * 100 prompts.
  *
- * A proxy, honestly: a 3-line Go struct passes. That is accepted — field
+ * A PROXY, AND IT DIVERGES FROM THE TS RULE IN BOTH DIRECTIONS. Measured:
+ *
+ *   TOO LOOSE. A conventionally formatted Java or Go accessor is 3 LINES and
+ *   ONE STATEMENT, so span bills it while the TS rule does not. Byte-equivalent
+ *   source, opposite answers:
+ *     java  `public int getA() { return this.a; }` over 3 lines -> method:getA BILLED
+ *     go    `func (c *C) GetA() int { return c.a }` over 3 lines -> method:GetA BILLED
+ *     ts    the same accessor in a class            -> only class:C; getA NOT billed
+ *   All seven rubrics apply to kind `method`, so ten accessors on one type is
+ *   70 prompts — 70% of the default 100-prompt budget spent on getters.
+ *
+ *   TOO TIGHT. Span cannot see control flow, which the TS rule treats as
+ *   substantive on its own (ConditionalExpression is in CONTROL_FLOW_KINDS):
+ *     python `def pick(x):` / `    return 1 if x else 2`  (2 lines) -> DROPPED
+ *     ts     `function pick(x) { return x ? 1 : 2; }`     (1 line)  -> KEPT
+ *   The proxy is weakest exactly where the TS rule is strongest, and the
+ *   idiomatic two-line Python form is dropped too, not only the one-liner.
+ *
+ * A 3-line Go struct also passes, and that one is accepted deliberately: field
  * naming is critique-worthy, and the alternative bar ("a class must have
  * children") would drop EVERY Go struct, because Go methods are emitted top
  * level and never appear as children.

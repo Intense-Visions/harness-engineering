@@ -16,8 +16,11 @@ code is fine".
 definitions were dropped entirely, because tree-sitter wraps a decorated `def` or `class` in
 `decorated_definition` while the node maps keyed on `function_definition`: a Flask module whose
 handlers are all `@app.route`-decorated extracted zero symbols. Rust `mod` bodies were never walked,
-so everything inside a `mod` was invisible. Both now surface, which also benefits `code_outline`,
-`code_unfold` and `code_search`.
+so everything inside a `mod` was invisible. Both now surface, which also benefits `code_outline` and
+`code_search`. `code_unfold` sees strictly more symbols too, but it is not a pure gain: lookup is
+first-match-wins over the outline, so in a Rust file where a `mod`-nested name shadows a top-level
+one, `code_unfold` now resolves to whichever is EARLIER IN THE FILE — previously it could only ever
+find the top-level one. That resolution rule is now pinned by a test rather than incidental.
 
 `cli` gains a shared multi-language extraction seam, and `code-craft` now critiques Python, Go, Rust
 and Java as well as TypeScript and JavaScript — recursing into nested methods, de-duplicating Rust's

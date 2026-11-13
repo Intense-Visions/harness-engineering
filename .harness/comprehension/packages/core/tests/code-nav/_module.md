@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/tests/code-nav'
-sourceHash: '56b9ac2585b48c4b6382dfbe4cb7932213c018395dcecb3bffa22ed469be05cc'
+sourceHash: '00fcd0612fdb5b5bc6283829c81fc2dc7eb6bf3335814615f8aa5e8e5b69d68f'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -31,6 +31,9 @@ import { searchSymbols } from '../../src/code-nav/search'
 import { CodeSymbol, EXTENSION_MAP, OutlineResult, SearchResult, UnfoldResult, detectLanguage } from '../../src/code-nav/types'
 import { unfoldRange, unfoldSymbol } from '../../src/code-nav/unfold'
 import '../../src/shared/fs-utils'
+import * as fs from 'node:fs'
+import * as os from 'node:os'
+import * as path from 'node:path'
 import * as path from 'path'
-import { beforeAll, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 ```
