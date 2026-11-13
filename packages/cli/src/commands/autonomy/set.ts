@@ -46,22 +46,36 @@ function refuse(reason: RefuseReason, message: string): AutonomySetOutcome {
   return { status: 'refused', reason, message };
 }
 
-function parseChange(levelArg: string, auditArg: string | undefined): AutonomySetting | string {
-  if (levelArg !== 'supervised' && levelArg !== 'trusted') {
+function parseChange(
+  levelArg: string | undefined,
+  auditArg: string | undefined
+): AutonomySetting | string {
+  if (levelArg === undefined && auditArg === undefined) {
+    return 'give a level (supervised | trusted) and/or --audit on|off';
+  }
+  if (levelArg !== undefined && levelArg !== 'supervised' && levelArg !== 'trusted') {
     return `level must be supervised or trusted (got "${levelArg}")`;
   }
   if (auditArg !== undefined && auditArg !== 'on' && auditArg !== 'off') {
     return `--audit must be on or off (got "${auditArg}")`;
   }
   return {
-    level: levelArg,
+    ...(levelArg !== undefined && { level: levelArg }),
     ...(auditArg !== undefined && { audit: auditArg === 'on' }),
   };
 }
 
+/** `level=trusted, audit=off` — the change as a human reads it in the confirm prompt. */
+export function describeChange(change: AutonomySetting): string {
+  return [
+    ...(change.level !== undefined ? [`level=${change.level}`] : []),
+    ...(change.audit !== undefined ? [`audit=${change.audit ? 'on' : 'off'}`] : []),
+  ].join(', ');
+}
+
 /** Raising (trusted or audit off) requires an interactive TTY and an explicit yes (D12). */
 export async function runAutonomySet(
-  levelArg: string,
+  levelArg: string | undefined,
   opts: AutonomySetOptions,
   deps: AutonomyCliDeps = {}
 ): Promise<AutonomySetOutcome> {
@@ -95,7 +109,7 @@ export async function runAutonomySet(
     const dir = sessionDirForRaise(cwd, opts.session, pathOpts);
     if (!dir.ok) return refuse('no-session', dir.error.message);
     const ok = await (deps.confirm ?? defaultConfirm)(
-      `Raise autonomy for session "${opts.session}" to ${JSON.stringify(change)} for ${forArg}? ` +
+      `Raise autonomy for session "${opts.session}" to ${describeChange(change)} for ${forArg}? ` +
         'Workflow skills will auto-approve ceremony pauses and auto-take audited recommendations. (y/N) '
     );
     if (!ok) return refuse('declined', 'Aborted; override unchanged.');
@@ -112,11 +126,11 @@ export async function runAutonomySet(
 export function createAutonomySetCommand(deps: AutonomyCliDeps = {}): Command {
   return new Command('set')
     .description('Set the session autonomy override (raising requires an interactive terminal)')
-    .argument('<level>', 'supervised | trusted')
+    .argument('[level]', 'supervised | trusted (omit to change only --audit)')
     .requiredOption('--session <slug>', 'Session slug to override')
     .option('--audit <on|off>', 'Self-audit on judgment forks')
     .option('--for <duration>', 'How long a raise lasts, e.g. 90m, 2h, 7d (default 24h)')
-    .action(async (level: string, opts: AutonomySetOptions) => {
+    .action(async (level: string | undefined, opts: AutonomySetOptions) => {
       const out = await runAutonomySet(level, opts, deps);
       if (out.status === 'written') {
         logger.success(`Autonomy override for session "${opts.session}" saved.`);

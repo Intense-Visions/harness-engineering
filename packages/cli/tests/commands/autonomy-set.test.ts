@@ -3,7 +3,11 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { sessionOverridePath, writeSessionOverride } from '@harness-engineering/core';
-import { runAutonomySet, defaultIsInteractive } from '../../src/commands/autonomy/set';
+import {
+  runAutonomySet,
+  defaultIsInteractive,
+  createAutonomySetCommand,
+} from '../../src/commands/autonomy/set';
 
 let tmp: string;
 let home: string;
@@ -190,5 +194,48 @@ describe('harness autonomy set: raise audit line (I1c, D16)', () => {
     await runAutonomySet('trusted', { session: 's1' }, deps(true, false).d);
     await runAutonomySet('supervised', { session: 's1', audit: 'on' }, deps(false).d);
     expect(log()).toEqual([]);
+  });
+});
+
+describe('harness autonomy set: --audit without a level, readable confirm (S5)', () => {
+  const override = () => JSON.parse(bytes() ?? 'null');
+
+  it('--audit off alone raises only audit (after confirm) and leaves level unset', async () => {
+    const { confirm, d } = deps(true);
+    const out = await runAutonomySet(undefined, { session: 's1', audit: 'off' }, d);
+    expect(out.status).toBe('written');
+    expect(confirm).toHaveBeenCalledTimes(1);
+    expect(override().level).toBeUndefined();
+    expect(override().audit).toMatchObject({ value: false, origin: 'cli' });
+  });
+
+  it('--audit on alone is a lowering: no TTY, no prompt', async () => {
+    const { confirm, d } = deps(false);
+    const out = await runAutonomySet(undefined, { session: 's1', audit: 'on' }, d);
+    expect(out.status).toBe('written');
+    expect(confirm).not.toHaveBeenCalled();
+    expect(override().level).toBeUndefined();
+  });
+
+  it('neither a level nor --audit is invalid', async () => {
+    const out = await runAutonomySet(undefined, { session: 's1' }, deps(true).d);
+    expect(out).toMatchObject({ status: 'refused', reason: 'invalid' });
+  });
+
+  it.each([
+    ['trusted', 'off', 'level=trusted, audit=off'],
+    ['trusted', undefined, 'level=trusted'],
+    [undefined, 'off', 'audit=off'],
+  ])('confirm for level=%s audit=%s reads %j (no JSON)', async (level, audit, text) => {
+    const { confirm, d } = deps(true);
+    await runAutonomySet(level, { session: 's1', ...(audit !== undefined && { audit }) }, d);
+    const q = confirm.mock.calls[0]![0];
+    expect(q).toContain(text);
+    expect(q).not.toMatch(/[{}"]level|"audit"/);
+  });
+
+  it('the command accepts `set --audit off --session s1` (level is optional)', () => {
+    const arg = createAutonomySetCommand().registeredArguments[0]!;
+    expect(arg.required).toBe(false);
   });
 });
