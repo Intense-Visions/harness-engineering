@@ -850,12 +850,20 @@ These reasoning patterns sound plausible but lead to bad outcomes. Reject them.
 _Pause point (judgment): resolve per the Pause Protocol._ <!-- pause: judgment -->
 
 - **When reviewers disagree:** Escalate to the human or tech lead.
+
   _Pause point (gate): resolve per the Pause Protocol._ <!-- pause: gate -->
+
 - **When review feedback changes the plan:** Pause review. Plan must be updated first.
+
   _Pause point (judgment): resolve per the Pause Protocol._ <!-- pause: judgment -->
+
 - **When you cannot reproduce a reported issue:** Ask reviewer for exact reproduction steps.
+
   _Pause point (gate): resolve per the Pause Protocol._ <!-- pause: gate -->
+
 - **When review takes more than 2 rounds:** Something is fundamentally misaligned. Stop and discuss synchronously.
+
   _Pause point (gate): resolve per the Pause Protocol._ <!-- pause: gate -->
+
 - **When harness checks fail and you believe the check is wrong:** Do not override or skip. File an issue against harness config.
 - **When pipeline produces a false positive after validation:** Add pattern to `.harness/review-learnings.md` Noise / False Positives section.

@@ -72,6 +72,13 @@ describe('marker convention and reading autonomy', () => {
       '_Pause point (judgment): resolve per the Pause Protocol._ <!-- pause: judgment -->'
     );
   });
+  it('the nearest marker wins, and no window may hold two classes (verify N1)', () => {
+    const s = section('## Marker convention');
+    expect(s).toContain('The nearest marker above a pause point is the one that applies.');
+    expect(s).toContain(
+      'No pause point may have markers of two different classes within its window'
+    );
+  });
   it('re-reads autonomy at every pause point through gather_context (SC7, D10)', () => {
     const s = section('## Reading autonomy');
     expect(s).toContain('include: ["autonomy"]');

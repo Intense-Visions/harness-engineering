@@ -38,6 +38,33 @@ describe('pause marker detector controls', () => {
       violations(`${marker('ceremony')}\n1\n2\n3\n\`\`\`\nProceed? (yes/no)\n\`\`\`\n`)
     ).toHaveLength(1);
   });
+  it('fails a pause whose window holds markers of two different classes (nearest-wins is never relied on)', () => {
+    expect(violations(`${marker('gate')}\n${marker('judgment')}\nSTOP.\n`)).toEqual([
+      expect.stringMatching(
+        /^line 3: pause point has markers of more than one class in its window \(gate, judgment\)/
+      ),
+    ]);
+    expect(
+      violations(`${marker('gate')}\n- a. STOP.\n${marker('judgment')}\n- b. Proceed? (yes/no)\n`)
+    ).toEqual([expect.stringMatching(/^line 4: .*\(gate, judgment\)/)]);
+    // a hand-marked line (no detector phrase) is held to the same rule
+    expect(
+      violations(
+        `${marker('judgment')}\n- a. ask the reviewer\n${marker('gate')}\n- b. talk it over\n`
+      )
+    ).toEqual([
+      expect.stringMatching(
+        /^line 4: marked line has markers of more than one class in its window \(gate, judgment\)/
+      ),
+    ]);
+    // control: the same class twice, or a different class pushed out of the window, is fine
+    expect(violations(`${marker('gate')}\n${marker('gate')}\nSTOP.\n`)).toEqual([]);
+    expect(
+      violations(
+        `${marker('gate')}\n- a. STOP.\n\n${marker('judgment')}\n\n- b. Proceed? (yes/no)\n`
+      )
+    ).toEqual([]);
+  });
   it('anchors every table row at the first row', () => {
     const rows = Array.from({ length: 5 }, (_, i) => `| r${i} | **STOP.** |`).join('\n');
     expect(violations(`${marker('gate')}\n| a | b |\n|---|---|\n${rows}\n`)).toEqual([]);

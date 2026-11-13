@@ -94,6 +94,8 @@ export interface PausePhraseHit {
   text: string;
   covered: boolean;
   optedOut: boolean;
+  /** Distinct marker classes in the window; more than one is ambiguous and fails SC12. */
+  classes: PauseClass[];
 }
 
 export interface SkillScan {
@@ -106,11 +108,13 @@ export interface SkillScan {
 
 interface ScanState {
   scan: SkillScan;
-  markerAt: Set<number>;
+  markerAt: Map<number, PauseClass>;
   optOutAt: Set<number>;
   fence: number;
   table: number;
   exempt: boolean;
+  /** The previous non-blank line was a marker, so this line is a (possibly hand-marked) pause. */
+  afterMarker: boolean;
 }
 
 export function isPausePhrase(raw: string): boolean {
@@ -167,11 +171,21 @@ function hasNear(at: Set<number>, from: number, window: number): boolean {
   return false;
 }
 
+/** Distinct marker classes from `from` up to `window` lines above it (0-based lines). */
+function classesNear(at: Map<number, PauseClass>, from: number, window: number): PauseClass[] {
+  const found = new Set<PauseClass>();
+  for (let k = from; k >= Math.max(0, from - window); k -= 1) {
+    const cls = at.get(k);
+    if (cls !== undefined) found.add(cls);
+  }
+  return [...found];
+}
+
 function recordAnnotations(raw: string, i: number, st: ScanState): void {
   const cls = readMarker(raw, i + 1, st.scan.errors);
   if (cls !== undefined) {
     st.scan.markers.push({ line: i + 1, cls });
-    st.markerAt.add(i);
+    st.markerAt.set(i, cls);
   }
   if (readOptOut(raw, i + 1, st.scan.errors)) {
     st.scan.optOuts += 1;
@@ -179,20 +193,41 @@ function recordAnnotations(raw: string, i: number, st: ScanState): void {
   }
 }
 
+/** The first non-blank line under a marker is a pause even without a phrase: one class per window (N1). */
+function checkMarkedLine(raw: string, i: number, anchor: number, st: ScanState): void {
+  if (raw.trim() === '') return;
+  if (st.markerAt.has(i)) {
+    st.afterMarker = true;
+    return;
+  }
+  if (!st.afterMarker) return;
+  st.afterMarker = false;
+  if (isPausePhrase(raw)) return; // checked with the pause phrases
+  const classes = classesNear(st.markerAt, anchor, MARKER_WINDOW);
+  if (classes.length > 1) {
+    st.scan.errors.push(
+      `line ${i + 1}: marked line has markers of more than one class in its window (${classes.sort().join(', ')})`
+    );
+  }
+}
+
 function scanLine(raw: string, i: number, st: ScanState): void {
   if (st.fence < 0 && HEADING.test(raw)) st.exempt = EXEMPT_HEADING.test(raw);
   const anchor = anchorOf(raw, i, st);
   recordAnnotations(raw, i, st);
+  checkMarkedLine(raw, i, anchor, st);
   if (FENCE.test(raw) || !isPausePhrase(raw)) return;
   if (st.exempt) {
     st.scan.exemptHits += 1;
     return;
   }
+  const classes = classesNear(st.markerAt, anchor, MARKER_WINDOW);
   st.scan.pausePhrases.push({
     line: i + 1,
     anchor: anchor + 1,
     text: raw.trim(),
-    covered: hasNear(st.markerAt, anchor, MARKER_WINDOW),
+    covered: classes.length > 0,
+    classes,
     optedOut: hasNear(st.optOutAt, i, 1) || hasNear(st.optOutAt, anchor, 1),
   });
 }
@@ -200,11 +235,12 @@ function scanLine(raw: string, i: number, st: ScanState): void {
 export function scanSkill(text: string): SkillScan {
   const st: ScanState = {
     scan: { pausePhrases: [], markers: [], optOuts: 0, exemptHits: 0, errors: [] },
-    markerAt: new Set<number>(),
+    markerAt: new Map<number, PauseClass>(),
     optOutAt: new Set<number>(),
     fence: -1,
     table: -1,
     exempt: false,
+    afterMarker: false,
   };
   text.split('\n').forEach((raw, i) => scanLine(raw, i, st));
   return st.scan;
@@ -216,6 +252,11 @@ export function pauseMarkerViolations(scan: SkillScan): string[] {
   for (const p of scan.pausePhrases) {
     if (!p.covered && !p.optedOut) {
       out.push(`line ${p.line}: unmarked pause point: ${p.text.slice(0, 100)}`);
+    }
+    if (p.classes.length > 1) {
+      out.push(
+        `line ${p.line}: pause point has markers of more than one class in its window (${[...p.classes].sort().join(', ')}): ${p.text.slice(0, 80)}`
+      );
     }
   }
   return out;

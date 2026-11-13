@@ -379,13 +379,21 @@ Non-negotiable. When any condition is met, stop immediately.
 _Pause point (gate): resolve per the Pause Protocol._ <!-- pause: gate -->
 
 - **Hit a blocker.** Task cannot be completed as written. Do not guess or improvise. Record and report: "Blocked on Task N: [issue]. The plan needs to be updated."
+
   _Pause point (gate): resolve per the Pause Protocol._ <!-- pause: gate -->
+
 - **Test failure after implementation.** Do not retry blindly. Diagnose root cause. Fix if within task scope; otherwise stop.
+
   _Pause point (judgment): resolve per the Pause Protocol._ <!-- pause: judgment -->
+
 - **Unclear instruction.** Do not interpret ambiguity. Ask: "Task N says [quote]. I interpret this as [interpretation]. Correct?"
+
   _Pause point (gate): resolve per the Pause Protocol._ <!-- pause: gate -->
+
 - **Harness validation failure.** Do not proceed. Fix the violation before moving on.
+
   _Pause point (gate): resolve per the Pause Protocol._ <!-- pause: gate -->
+
 - **Three consecutive failures.** Task design is likely wrong. Report: "Task N failed 3 times. Root cause: [analysis]. Plan may need revision."
 
 ## Session State
@@ -537,13 +545,21 @@ Hard stops. Violating any gate means the process has broken down.
 _Pause point (gate): resolve per the Pause Protocol._ <!-- pause: gate -->
 
 - **Task fails, fix outside scope:** "Task N failed because [reason]. Fix requires changes to [outside scope]. Plan needs updating at Tasks [X, Y]."
+
   _Pause point (gate): resolve per the Pause Protocol._ <!-- pause: gate -->
+
 - **Plan references missing files:** "Task N references [file] which does not exist. Plan may need regeneration."
+
   _Pause point (judgment): resolve per the Pause Protocol._ <!-- pause: judgment -->
+
 - **Tests pass but behavior seems wrong:** "Task N passes all tests, but I notice [observation]. Should I investigate?"
+
   _Pause point (gate): resolve per the Pause Protocol._ <!-- pause: gate -->
+
 - **State corrupted:** If state says Task 5 complete but code missing, report inconsistency. Re-verify from Task 1 if needed.
+
   _Pause point (judgment): resolve per the Pause Protocol._ <!-- pause: judgment -->
+
 - **Human wants to skip ahead:** "Skipping Task N means Tasks [X, Y] may fail. Update the plan to remove the dependency?" Get explicit approval.
 
 ## Trace Output (Optional)
