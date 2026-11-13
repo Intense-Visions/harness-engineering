@@ -277,7 +277,17 @@ const CLASS_SWEEPS: Array<[RegExp, string, number]> = [
   [/fix \/ (?:override|skip)/, 'gate', 4],
 ];
 
+/** Non-pause lines that must sit outside every marker window (review S3). */
+const NOT_PAUSES: Array<[string, string]> = [
+  ['harness-integration', '- **ADR directory does not exist:**'],
+  ['harness-integration', '- **Plan has no integration tier:**'],
+  ['harness-code-review', '- **When pipeline produces a false positive after validation:**'],
+];
+
 describe('critical pauses carry their pinned class', () => {
+  it.each(NOT_PAUSES)('%s: "%s" is in no marker window', (skill, excerpt) => {
+    expect(classOf(skill, excerpt)).toBeUndefined();
+  });
   it.each(PINNED_CLASSES)('%s: "%s" is %s', (skill, excerpt, cls) => {
     expect(classOf(skill, excerpt)).toBe(cls);
   });

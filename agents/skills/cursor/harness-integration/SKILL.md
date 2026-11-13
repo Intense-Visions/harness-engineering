@@ -574,10 +574,15 @@ Every pass/fail assertion in the integration report MUST include concrete eviden
 _Pause point (gate): resolve per the Pause Protocol._ <!-- pause: gate -->
 
 - **Barrel export generation command not found:** Record as FAIL. Instruct: "The project does not have a `generate-barrel-exports` script. Add it to package.json or skip barrel export verification."
+
   _Pause point (gate): resolve per the Pause Protocol._ <!-- pause: gate -->
+
 - **Knowledge graph tools unavailable:** If `ingest_source` is not available, record materialization as skipped with reason. Do not block on tooling absence for medium tier. For large tier in thorough mode, escalate.
+
 - **ADR directory does not exist:** Create `docs/knowledge/decisions/` on first ADR write. This is expected for projects that have not used ADRs before.
 - **Plan has no integration tier:** Default to small. Run WIRE defaults only.
 - **Tier derivation signals ambiguous:** When git diff counts are borderline (e.g., exactly 5 new exports), use the plan estimate as tiebreaker.
+
   _Pause point (gate): resolve per the Pause Protocol._ <!-- pause: gate -->
+
 - **Integration fails repeatedly after fix attempts:** After 2 fix cycles, escalate: "Integration has failed <N> times. The integration tasks may need redesign. Review the plan's integration section."

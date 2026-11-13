@@ -891,4 +891,5 @@ _Pause point (gate): resolve per the Pause Protocol._ <!-- pause: gate -->
   _Pause point (gate): resolve per the Pause Protocol._ <!-- pause: gate -->
 
 - **When harness checks fail and you believe the check is wrong:** Do not override or skip. File an issue against harness config.
+
 - **When pipeline produces a false positive after validation:** Add pattern to `.harness/review-learnings.md` Noise / False Positives section.
