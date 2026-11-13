@@ -91,7 +91,7 @@ Pure aside from the config and override reads. Never reads `harness.config.json`
 
 ### Session override
 
-Overrides are stored at `~/.harness/session-overrides/<repoKey>/<slug>.json` (`repoKey` = sha256 of the repo root realpath, first 16 hex) as `{ level?, audit?, setAt, origin: 'cli' | 'mcp' }` (D12). Writers:
+Overrides are stored at `~/.harness/session-overrides/<repoKey>/<slug>.json` (`repoKey` = sha256 of the repo root realpath, first 16 hex) as `{ level?: { value, setAt, origin }, audit?: { value, setAt, origin } }` with `origin: 'cli' | 'mcp'` (D12). Timestamps are per field: a single shared `setAt` would let a lower-only write to one field re-date a human-set value in the other, letting it outrank a later flag. The agent path is lower-only **by value** (it may write only `supervised` / audit on). Writers:
 
 - `manage_state` action `set-autonomy` (`packages/cli/src/mcp/tools/state.ts`, alongside `append_entry` / `task-transition`): rejects any write that would raise autonomy (`supervised`→`trusted`, or audit on→off) with a structured error.
 - `harness autonomy set`: may raise or lower; raising refuses unless `process.stdin.isTTY` and the user confirms interactively.
