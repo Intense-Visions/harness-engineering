@@ -109,6 +109,16 @@ describe('harness autonomy set', () => {
     expect(bytes()).toBeNull();
   });
 
+  it.each(['yolo', 'TRUSTED', 'Supervised'])(
+    'S4: level %j is judged by core validateAutonomySetting (one validator)',
+    async (level) => {
+      const out = await runAutonomySet(level, { session: 's1' }, deps(true).d);
+      expect(out).toMatchObject({ status: 'refused', reason: 'invalid' });
+      expect(out.status === 'refused' && out.message).toMatch(/^Invalid autonomy setting: level:/);
+      expect(bytes()).toBeNull();
+    }
+  );
+
   it('the production TTY probe is false when stdin is not a TTY', () => {
     const desc = Object.getOwnPropertyDescriptor(process.stdin, 'isTTY');
     Object.defineProperty(process.stdin, 'isTTY', { value: undefined, configurable: true });

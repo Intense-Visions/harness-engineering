@@ -2,6 +2,7 @@ import { Command } from 'commander';
 import {
   isRaisingChange,
   sessionDirForRaise,
+  validateAutonomySetting,
   writeSessionOverride,
   type AutonomySessionOverride,
   type AutonomySetting,
@@ -46,6 +47,7 @@ function refuse(reason: RefuseReason, message: string): AutonomySetOutcome {
   return { status: 'refused', reason, message };
 }
 
+/** CLI syntax only (`on|off` → boolean); the values themselves are judged by core (S4). */
 function parseChange(
   levelArg: string | undefined,
   auditArg: string | undefined
@@ -53,16 +55,14 @@ function parseChange(
   if (levelArg === undefined && auditArg === undefined) {
     return 'give a level (supervised | trusted) and/or --audit on|off';
   }
-  if (levelArg !== undefined && levelArg !== 'supervised' && levelArg !== 'trusted') {
-    return `level must be supervised or trusted (got "${levelArg}")`;
-  }
   if (auditArg !== undefined && auditArg !== 'on' && auditArg !== 'off') {
     return `--audit must be on or off (got "${auditArg}")`;
   }
-  return {
+  const valid = validateAutonomySetting({
     ...(levelArg !== undefined && { level: levelArg }),
     ...(auditArg !== undefined && { audit: auditArg === 'on' }),
-  };
+  });
+  return valid.ok ? valid.value : valid.error.message;
 }
 
 /** `level=trusted, audit=off` — the change as a human reads it in the confirm prompt. */
