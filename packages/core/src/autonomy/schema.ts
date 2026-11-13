@@ -92,38 +92,69 @@ export function validateAutonomySetting(change: unknown): Result<AutonomySetting
   return Ok(r.data as AutonomySetting);
 }
 
+/**
+ * setAt for a fail-closed field: the latest instant a JS Date can hold, so the lowered value
+ * outranks any invocation flag until a real write replaces it.
+ */
+export const FAIL_CLOSED_SET_AT = new Date(8.64e15).toISOString();
+
+type OverrideFieldName = 'level' | 'audit';
+
 export interface ParsedOverrideFields {
-  /** Null when no field is valid. */
+  /** Null only when the document has neither field. */
   override: AutonomySessionOverride | null;
-  /** One message per present-but-invalid field; that field is dropped, valid siblings kept. */
+  /** One message per corrupt field (or one for a corrupt document). */
   invalid: string[];
+  /** Fields that were present but corrupt and now hold their fail-closed value. */
+  recovered: OverrideFieldName[];
+}
+
+const FAIL_CLOSED: Required<AutonomySessionOverride> = {
+  level: { value: 'supervised', setAt: FAIL_CLOSED_SET_AT, origin: 'cli' },
+  audit: { value: true, setAt: FAIL_CLOSED_SET_AT, origin: 'cli' },
+};
+
+const FIELD_SCHEMAS = { level: LevelFieldSchema, audit: AuditFieldSchema } as const;
+
+function parseField(
+  name: OverrideFieldName,
+  raw: unknown,
+  out: ParsedOverrideFields & { override: AutonomySessionOverride }
+): void {
+  if (raw === undefined) return;
+  const r = FIELD_SCHEMAS[name].safeParse(raw);
+  if (r.success) {
+    (out.override as Record<string, unknown>)[name] = r.data;
+    return;
+  }
+  (out.override as Record<string, unknown>)[name] = { ...FAIL_CLOSED[name] };
+  out.invalid.push(
+    `${name}: ${describeIssues(r.error.issues)} (fail-closed: treated as ${name === 'level' ? 'supervised' : 'audit on'})`
+  );
+  out.recovered.push(name);
 }
 
 /**
- * Per-field parse (D12): a corrupt field must not discard a valid sibling, or a corrupt
- * `audit` would erase a human's `level: supervised` lowering and let a trusted user config
- * through. Err only when the document itself is unparseable or not an object.
+ * Per-field parse, failing CLOSED (I4). A present-but-corrupt field reads as its lowest-autonomy
+ * value (level → supervised, audit → on), never as absent: absence would fall through to a lower
+ * tier such as a trusted user config, a raise by corruption. A corrupt or non-object document
+ * reads as both fail-closed values. Valid siblings are kept. Always Ok.
  */
 export function parseSessionOverrideFields(raw: string): Result<ParsedOverrideFields, Error> {
   const json = parseJson(raw);
-  if (!json.ok) return json;
-  const doc = json.value;
+  const doc = json.ok ? json.value : undefined;
   if (typeof doc !== 'object' || doc === null || Array.isArray(doc)) {
-    return Err(new Error('(root): expected an object'));
+    const reason = json.ok ? '(root): expected an object' : json.error.message;
+    return Ok({
+      override: { level: { ...FAIL_CLOSED.level }, audit: { ...FAIL_CLOSED.audit } },
+      invalid: [`${reason} (fail-closed: treated as supervised, audit on)`],
+      recovered: ['level', 'audit'],
+    });
   }
   const record = doc as Record<string, unknown>;
-  const override: AutonomySessionOverride = {};
-  const invalid: string[] = [];
-  if (record.level !== undefined) {
-    const r = LevelFieldSchema.safeParse(record.level);
-    if (r.success) override.level = r.data;
-    else invalid.push(`level: ${describeIssues(r.error.issues)}`);
-  }
-  if (record.audit !== undefined) {
-    const r = AuditFieldSchema.safeParse(record.audit);
-    if (r.success) override.audit = r.data;
-    else invalid.push(`audit: ${describeIssues(r.error.issues)}`);
-  }
-  const empty = override.level === undefined && override.audit === undefined;
-  return Ok({ override: empty ? null : override, invalid });
+  const out = { override: {} as AutonomySessionOverride, invalid: [], recovered: [] };
+  parseField('level', record.level, out);
+  parseField('audit', record.audit, out);
+  const empty = out.override.level === undefined && out.override.audit === undefined;
+  return Ok({ ...out, override: empty ? null : out.override });
 }

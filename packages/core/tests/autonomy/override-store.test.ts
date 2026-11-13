@@ -55,17 +55,26 @@ describe('session override store', () => {
     });
   });
 
-  it('ignores a malformed file with a warning, and a write replaces it', () => {
+  it('reads a malformed file as fail-closed (I4), and a write keeps those values', () => {
     const p = sessionOverridePath(project, 's1', { homeDir: home });
     if (!p.ok) throw p.error;
     fs.mkdirSync(path.dirname(p.value), { recursive: true });
     fs.writeFileSync(p.value, '{nope');
     const r = readSessionOverride(project, 's1', { homeDir: home });
-    expect(r.ok && r.value.override).toBeNull();
+    expect(r.ok && r.value.override?.level?.value).toBe('supervised');
+    expect(r.ok && r.value.override?.audit?.value).toBe(true);
     expect(r.ok && r.value.warnings).toHaveLength(1);
-    expect(writeSessionOverride(project, 's1', { audit: true }, 'mcp', { homeDir: home }).ok).toBe(
-      true
-    );
+    const w = writeSessionOverride(project, 's1', { audit: true }, 'mcp', {
+      homeDir: home,
+      now: at('2026-02-01T00:00:00.000Z'),
+    });
+    expect(w.ok).toBe(true);
+    // The level was never written by anyone, but it was corrupt: it persists as supervised.
+    expect(w.ok && w.value.level).toEqual({
+      value: 'supervised',
+      setAt: '2026-02-01T00:00:00.000Z',
+      origin: 'mcp',
+    });
   });
 
   it('rejects an empty change and a traversal slug without writing', () => {
@@ -85,13 +94,15 @@ describe('session override store', () => {
 });
 
 /**
- * FIX 1c (D12): a schema failure in ONE field must not discard the whole override. Before
- * this, a corrupt `audit` erased a human-set `level: supervised` lowering, so the next
- * resolve fell through to a `trusted` user config — a raise by corruption.
+ * I4 (fail closed): a present-but-corrupt field reads as its LOWEST-autonomy value
+ * (level → supervised, audit → true), never as absent. Absence would fall through to a lower
+ * tier (e.g. a trusted user config) — a raise by corruption. A wholly corrupt file reads as
+ * both fail-closed values. A fail-closed field outranks any flag (far-future setAt).
  */
-describe('per-field degradation on read', () => {
+describe('fail-closed degradation on read', () => {
   const LEVEL = { value: 'supervised', setAt: '2026-01-01T00:00:00.000Z', origin: 'cli' };
   const AUDIT = { value: true, setAt: '2026-01-02T00:00:00.000Z', origin: 'mcp' };
+  const RAISED_LEVEL = { value: 'trusted', setAt: '2026-01-01T00:00:00.000Z', origin: 'cli' };
   const writeRaw = (doc: unknown) => {
     const p = sessionOverridePath(project, 's1', { homeDir: home });
     if (!p.ok) throw p.error;
@@ -103,53 +114,103 @@ describe('per-field degradation on read', () => {
     if (!r.ok) throw r.error;
     return r.value;
   };
+  const failClosedLevel = expect.objectContaining({ value: 'supervised' });
+  const failClosedAudit = expect.objectContaining({ value: true });
 
   it.each([
     ['string "false"', { ...AUDIT, value: 'false' }],
     ['null', { ...AUDIT, value: null }],
     ['0', { ...AUDIT, value: 0 }],
-    ['bad origin', { ...AUDIT, origin: 'agent' }],
-    ['bad setAt', { ...AUDIT, setAt: 'yesterday' }],
+    ['bad origin', { ...AUDIT, value: false, origin: 'agent' }],
+    ['bad setAt', { ...AUDIT, value: false, setAt: 'yesterday' }],
     ['non-object', 'false'],
-  ])('a corrupt audit (%s) is dropped with a warning; the valid level survives', (_n, audit) => {
-    writeRaw({ level: LEVEL, audit });
+  ])('a corrupt audit (%s) reads as audit ON; the valid level survives', (_n, audit) => {
+    writeRaw({ level: RAISED_LEVEL, audit });
     const r = read();
-    expect(r.override).toEqual({ level: LEVEL });
+    expect(r.override).toEqual({ level: RAISED_LEVEL, audit: failClosedAudit });
     expect(r.warnings).toHaveLength(1);
     expect(r.warnings[0]).toMatch(/audit/);
   });
 
-  it('a corrupt level is dropped; the valid audit survives', () => {
-    writeRaw({ level: { ...LEVEL, value: 'TRUSTED' }, audit: AUDIT });
+  it.each([
+    ['TRUSTED', { ...RAISED_LEVEL, value: 'TRUSTED' }],
+    ['bad setAt', { ...RAISED_LEVEL, setAt: 'nope' }],
+    ['bare string', 'trusted'],
+  ])('a corrupt level (%s) reads as supervised; the valid audit survives', (_n, level) => {
+    writeRaw({ level, audit: AUDIT });
     const r = read();
-    expect(r.override).toEqual({ audit: AUDIT });
+    expect(r.override).toEqual({ level: failClosedLevel, audit: AUDIT });
     expect(r.warnings).toHaveLength(1);
     expect(r.warnings[0]).toMatch(/level/);
   });
 
-  it('both fields corrupt → null override with one warning per field', () => {
+  it('a fail-closed field outranks any flag: its setAt is later than any real timestamp', () => {
+    writeRaw({ level: 'trusted', audit: AUDIT });
+    const setAt = read().override?.level?.setAt ?? '';
+    expect(Date.parse(setAt)).toBeGreaterThan(Date.parse('9999-12-31T23:59:59.999Z'));
+  });
+
+  it('both fields corrupt → both fail closed, one warning per field', () => {
     writeRaw({ level: 'trusted', audit: 'false' });
     const r = read();
-    expect(r.override).toBeNull();
+    expect(r.override).toEqual({ level: failClosedLevel, audit: failClosedAudit });
     expect(r.warnings).toHaveLength(2);
   });
 
-  it.each([['[]'], ['"x"'], ['null'], ['{nope']])(
-    'a non-object / unparseable document (%s) → null override with a warning',
+  it.each([['[]'], ['"x"'], ['null'], ['{nope'], ['42']])(
+    'a non-object / unparseable document (%s) → {supervised, audit on} with one warning',
     (raw) => {
       writeRaw(raw);
       const r = read();
-      expect(r.override).toBeNull();
+      expect(r.override).toEqual({ level: failClosedLevel, audit: failClosedAudit });
       expect(r.warnings).toHaveLength(1);
     }
   );
 
-  it('positive control: a fully valid document reads back with no warnings', () => {
-    writeRaw({ level: LEVEL, audit: AUDIT });
-    expect(read()).toEqual({ override: { level: LEVEL, audit: AUDIT }, warnings: [] });
+  it.skipIf(process.platform === 'win32' || process.getuid?.() === 0)(
+    'an existing but unreadable file fails closed (not read as absent)',
+    () => {
+      writeRaw({ level: RAISED_LEVEL });
+      const p = sessionOverridePath(project, 's1', { homeDir: home });
+      if (!p.ok) throw p.error;
+      fs.chmodSync(p.value, 0o000);
+      try {
+        const r = read();
+        expect(r.override).toEqual({ level: failClosedLevel, audit: failClosedAudit });
+        expect(r.warnings).toHaveLength(1);
+      } finally {
+        fs.chmodSync(p.value, 0o600);
+      }
+    }
+  );
+
+  it('absent fields stay absent (only PRESENT corrupt fields fail closed)', () => {
+    writeRaw({ audit: AUDIT });
+    expect(read()).toEqual({ override: { audit: AUDIT }, warnings: [] });
   });
 
-  it('a later write repairs the corrupt field and keeps the valid one', () => {
+  it('positive control: a fully valid document reads back with no warnings', () => {
+    writeRaw({ level: RAISED_LEVEL, audit: AUDIT });
+    expect(read()).toEqual({ override: { level: RAISED_LEVEL, audit: AUDIT }, warnings: [] });
+  });
+
+  it('the writer never drops a corrupt field: it persists the fail-closed value', () => {
+    writeRaw({ level: { ...LEVEL, value: 'yolo' }, audit: AUDIT });
+    const w = writeSessionOverride(project, 's1', { audit: true }, 'mcp', {
+      homeDir: home,
+      now: at('2026-03-01T00:00:00.000Z'),
+    });
+    expect(w.ok).toBe(true);
+    expect(read()).toEqual({
+      override: {
+        level: { value: 'supervised', setAt: '2026-03-01T00:00:00.000Z', origin: 'mcp' },
+        audit: { value: true, setAt: '2026-03-01T00:00:00.000Z', origin: 'mcp' },
+      },
+      warnings: [],
+    });
+  });
+
+  it('a later write to the corrupt field replaces the fail-closed value', () => {
     writeRaw({ level: LEVEL, audit: 'false' });
     const w = writeSessionOverride(project, 's1', { audit: true }, 'mcp', {
       homeDir: home,

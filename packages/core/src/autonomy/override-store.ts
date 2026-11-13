@@ -18,13 +18,19 @@ export interface OverrideStoreOptions extends AutonomyPathOptions {
 export interface ReadOverrideResult {
   override: AutonomySessionOverride | null;
   warnings: string[];
+  /** Present-but-corrupt fields now holding their fail-closed value (I4). */
+  recovered?: Array<'level' | 'audit'>;
 }
 
+/**
+ * Undefined only when the file does not exist. Any other read failure (EACCES, EISDIR, ...)
+ * returns '' so it parses as corrupt and fails closed (I4) instead of reading as "no override".
+ */
 function defaultReadFile(p: string): string | undefined {
   try {
     return fs.readFileSync(p, 'utf-8');
-  } catch {
-    return undefined;
+  } catch (err) {
+    return (err as NodeJS.ErrnoException).code === 'ENOENT' ? undefined : '';
   }
 }
 
@@ -38,17 +44,14 @@ export function readSessionOverride(
   const raw = (opts.readFile ?? defaultReadFile)(p.value);
   if (raw === undefined) return Ok({ override: null, warnings: [] });
   const parsed = parseSessionOverrideFields(raw);
-  if (!parsed.ok) {
-    return Ok({
-      override: null,
-      warnings: [`Ignoring malformed session override ${p.value}: ${parsed.error.message}`],
-    });
-  }
-  // Degrade per field: drop only the invalid field(s); valid siblings still apply.
-  const warnings = parsed.value.invalid.map(
-    (msg) => `Ignoring invalid field in session override ${p.value}: ${msg}`
-  );
-  return Ok({ override: parsed.value.override, warnings });
+  if (!parsed.ok) return parsed;
+  // Fail closed per field (I4): a corrupt field reads as its lowest-autonomy value.
+  const warnings = parsed.value.invalid.map((msg) => `Corrupt session override ${p.value}: ${msg}`);
+  return Ok({
+    override: parsed.value.override,
+    warnings,
+    ...(parsed.value.recovered.length > 0 && { recovered: parsed.value.recovered }),
+  });
 }
 
 function atomicWrite(file: string, content: string): void {
@@ -81,8 +84,14 @@ export function writeSessionOverride(
   const current = readSessionOverride(projectPath, slug, opts);
   if (!current.ok) return current;
   const setAt = (opts.now ?? (() => new Date()))().toISOString();
+  // A recovered (corrupt) field is persisted at its fail-closed value, restamped by this write
+  // so it does not carry the far-future sentinel forever. It is never dropped (I4).
+  const prior: AutonomySessionOverride = { ...(current.value.override ?? {}) };
+  const recovered = current.value.recovered ?? [];
+  if (prior.level && recovered.includes('level')) prior.level = { ...prior.level, setAt, origin };
+  if (prior.audit && recovered.includes('audit')) prior.audit = { ...prior.audit, setAt, origin };
   const next: AutonomySessionOverride = {
-    ...(current.value.override ?? {}),
+    ...prior,
     ...(change.level !== undefined && { level: { value: change.level, setAt, origin } }),
     ...(change.audit !== undefined && { audit: { value: change.audit, setAt, origin } }),
   };

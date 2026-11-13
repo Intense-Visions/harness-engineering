@@ -61,31 +61,63 @@ describe('resolveAutonomyForSession (SC7 resolver level)', () => {
   });
 });
 
-describe('corrupt field cannot erase a lowering (D12, FIX 1c)', () => {
-  it('user config trusted+audit off, override level=supervised + corrupt audit → supervised/session', () => {
+describe('corrupt fields fail closed at resolution (I4)', () => {
+  const writeUserConfig = (cfg: unknown) => {
     fs.mkdirSync(path.join(home, '.harness'), { recursive: true });
-    fs.writeFileSync(
-      path.join(home, '.harness', 'config.json'),
-      JSON.stringify({
-        autonomy: { level: 'trusted', audit: { trusted: false, supervised: false } },
-      })
-    );
+    fs.writeFileSync(path.join(home, '.harness', 'config.json'), JSON.stringify(cfg));
+  };
+  const writeRawOverride = (doc: unknown) => {
     const p = sessionOverridePath(project, 's1', { homeDir: home });
     if (!p.ok) throw p.error;
     fs.mkdirSync(path.dirname(p.value), { recursive: true });
-    fs.writeFileSync(
-      p.value,
-      JSON.stringify({
-        level: { value: 'supervised', setAt: '2026-01-01T00:00:00.000Z', origin: 'cli' },
-        audit: { value: 'false', setAt: '2026-01-02T00:00:00.000Z', origin: 'mcp' },
-      })
-    );
-    const r = resolve('s1');
-    expect([r.level, r.source.level]).toEqual(['supervised', 'session']);
-    // The corrupt audit is ignored (falls through to user config for supervised) and reported.
-    expect([r.audit, r.source.audit]).toEqual([false, 'user-config']);
-    expect(r.warnings.some((w) => /audit/.test(w))).toBe(true);
+    fs.writeFileSync(p.value, typeof doc === 'string' ? doc : JSON.stringify(doc));
+  };
+  const TRUSTED_NO_AUDIT = {
+    autonomy: { level: 'trusted', audit: { trusted: false, supervised: false } },
+  };
+
+  it('corrupt level + user config trusted → supervised (source session), never trusted', () => {
+    writeUserConfig(TRUSTED_NO_AUDIT);
     // Positive control: with no override the same user config resolves trusted.
     expect(resolve(undefined).level).toBe('trusted');
+    writeRawOverride({ level: { value: 'TRUSTED', setAt: 'x', origin: 'cli' } });
+    const r = resolve('s1');
+    expect([r.level, r.source.level]).toEqual(['supervised', 'session']);
+    expect(r.warnings.some((w) => /level/.test(w))).toBe(true);
+  });
+
+  it('corrupt audit + user config audit off → audit ON (source session)', () => {
+    writeUserConfig(TRUSTED_NO_AUDIT);
+    writeRawOverride({
+      level: { value: 'supervised', setAt: '2026-01-01T00:00:00.000Z', origin: 'cli' },
+      audit: { value: 'false', setAt: '2026-01-02T00:00:00.000Z', origin: 'mcp' },
+    });
+    const r = resolve('s1');
+    expect([r.level, r.source.level, r.audit, r.source.audit]).toEqual([
+      'supervised',
+      'session',
+      true,
+      'session',
+    ]);
+    expect(r.warnings.some((w) => /audit/.test(w))).toBe(true);
+  });
+
+  it('a wholly corrupt override + trusted user config → supervised with audit on', () => {
+    writeUserConfig(TRUSTED_NO_AUDIT);
+    writeRawOverride('{not json');
+    const r = resolve('s1');
+    expect([r.level, r.audit]).toEqual(['supervised', true]);
+  });
+
+  it('a fail-closed level beats a later invocation flag', () => {
+    writeRawOverride({ level: 'trusted' });
+    const r = resolveAutonomyForSession({
+      projectPath: project,
+      session: 's1',
+      env: {},
+      homeDir: home,
+      flag: { level: 'trusted', at: '2999-01-01T00:00:00.000Z' },
+    });
+    expect([r.level, r.source.level]).toEqual(['supervised', 'session']);
   });
 });
