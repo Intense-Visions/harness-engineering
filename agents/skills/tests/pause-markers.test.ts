@@ -89,6 +89,29 @@ describe('pause marker detector controls', () => {
     ]);
     expect(violations('## Red Flags\n\n```bash\n# Process\n```\nSTOP.\n')).toEqual([]);
   });
+  it.each([
+    'Then wait.',
+    'Wait until the human replies.',
+    'Ask: "Should we split it?"',
+    'Ask user for the key.',
+    'Ask reviewer for exact reproduction steps.',
+    'Stop and discuss synchronously.',
+    'take exactly ONE plain-text confirmation',
+    'Show output, confirm, resume.',
+  ])('detects the review I7 phrase in %j', (line) => {
+    expect(scanSkill(`${line}\n`).pausePhrases).toHaveLength(1);
+  });
+  it.each(['await the promise', 'a stopwatch', 'the waiting room'])(
+    'does not detect %j (control)',
+    (line) => {
+      expect(scanSkill(`${line}\n`).pausePhrases).toEqual([]);
+    }
+  );
+  it('keeps an exempt section exempt through its deeper subheadings', () => {
+    expect(violations('## Red Flags\n\n### Universal\n\nStop.\n\n## Process\n\nStop.\n')).toEqual([
+      expect.stringMatching(/^line 9:/),
+    ]);
+  });
   it('does not count negated pauses or the protocol name', () => {
     expect(scanSkill('Announce. Do NOT pause here. Never pause there.\n').pausePhrases).toEqual([]);
     expect(scanSkill('Apply the Pause Protocol (`pause-protocol.md`).\n').pausePhrases).toEqual([]);
@@ -116,15 +139,15 @@ describe('pause marker detector controls', () => {
   });
 });
 
-/** Pause phrases found per skill at base c4068cf23. Raise when a skill gains pauses; never lower. */
+/** Pause phrases found per skill (review I7 phrase list). Raise when a skill gains pauses; never lower. */
 const MIN_PAUSE_PHRASES: Record<(typeof WORKFLOW_SKILLS)[number], number> = {
-  'harness-brainstorming': 22,
-  'harness-planning': 16,
-  'harness-autopilot': 19,
-  'harness-execution': 21,
-  'harness-soundness-review': 2,
-  'harness-code-review': 10,
-  'harness-integration': 9,
+  'harness-brainstorming': 28,
+  'harness-planning': 17,
+  'harness-autopilot': 28,
+  'harness-execution': 27,
+  'harness-soundness-review': 3,
+  'harness-code-review': 16,
+  'harness-integration': 10,
 };
 
 const rows = WORKFLOW_SKILLS.map((skill) => {
@@ -208,6 +231,12 @@ const PINNED_CLASSES: Array<[string, string, string]> = [
   ['harness-execution', '**`[checkpoint:human-verify]` — Show and Confirm**', 'ceremony'],
   ['harness-execution', '**`[checkpoint:decision]` — Present Options and Wait**', 'judgment'],
   ['harness-execution', '**`[checkpoint:human-action]` — Instruct and Wait**', 'gate'],
+  // review I7: pauses the extended phrase list newly detects
+  ['harness-autopilot', '**Interactive plan (high):**', 'judgment'],
+  ['harness-autopilot', '- **Spec missing Implementation Order:**', 'gate'],
+  ['harness-autopilot', '- **Delegated skill fails to produce output:**', 'gate'],
+  ['harness-autopilot', '- `confirm`: surface the wave', 'judgment'],
+  ['harness-execution', '5. Per wave: `auto-dispatch` (multi-task)', 'judgment'],
   // N6: a headless audit disagreement is an escalation that stops at every level
   ['harness-autopilot', 'If any blocker starts with `audit-disagreement:`', 'gate'],
   // N2: strategy contradictions are never auto-resolved (D-A, overridden to gate)

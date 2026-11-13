@@ -522,7 +522,7 @@ Per-check procedures include "Without graph" and "With graph" variants. Use whic
 
 **Detection:** For each plan task, check traceability: (a) directly implements a criterion, (b) necessary prerequisite, or (c) infrastructure called for in spec. Flag untraceable tasks.
 
-**Classification:** Always `severity: "warning"`, `autoFixable: false`. User confirms whether each flagged task is in scope.
+**Classification:** Always `severity: "warning"`, `autoFixable: false`. User confirms whether each flagged task is in scope. <!-- not-a-pause: Phase 4 surfaces this finding to the human -->
 
 **Example:**
 

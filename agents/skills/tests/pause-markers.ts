@@ -32,10 +32,12 @@ export const PAUSE_PHRASES: readonly RegExp[] = [
   /\(\s*yes\s*\/\s*no\s*\)|\(y\/n\)/,
   /\bApprove\b/,
   /\bApproval gate\b/,
-  /\b[Ww]ait for\b/,
+  /\b[Ww]ait\b/, // bare "wait" and "wait for" (review I7)
   /\b[Aa]sk (?:the human|the user|in plain text|directly|which)\b|\b[Aa]sk\s*["“]/,
   /\byour (?:input|reply|choice|answer|approval|action)\b/,
-  /\bSTOP\b/,
+  /\bSTOP\b|\bStop\b/,
+  /\b[Cc]onfirm(?:s|ed|ation)?\b/,
+  /\b[Aa]sk:|\b[Aa]sk (?:user|reviewer)\b/,
   /\[checkpoint:(?:human-verify|decision|human-action)\]/,
   /(?<!\b(?:not|NOT|never|Never|no|No)\s+)\b[Pp]ause[sd]?\b/,
   /\b[Dd]o not proceed\b/,
@@ -117,6 +119,8 @@ interface ScanState {
   fence: number;
   table: number;
   exempt: boolean;
+  /** Heading level that opened the exempt section; deeper subheadings stay exempt. */
+  exemptLevel: number;
   /** The previous non-blank line was a marker, so this line is a (possibly hand-marked) pause. */
   afterMarker: boolean;
 }
@@ -215,8 +219,16 @@ function checkMarkedLine(raw: string, i: number, anchor: number, st: ScanState):
   }
 }
 
+/** A heading ends an exempt section only at the same or a higher level (review I7). */
+function enterHeading(raw: string, st: ScanState): void {
+  const level = (/^#+/.exec(raw) ?? [''])[0].length;
+  if (st.exempt && level > st.exemptLevel) return;
+  st.exempt = EXEMPT_HEADING.test(raw);
+  st.exemptLevel = level;
+}
+
 function scanLine(raw: string, i: number, st: ScanState): void {
-  if (st.fence < 0 && HEADING.test(raw)) st.exempt = EXEMPT_HEADING.test(raw);
+  if (st.fence < 0 && HEADING.test(raw)) enterHeading(raw, st);
   const anchor = anchorOf(raw, i, st);
   recordAnnotations(raw, i, st);
   checkMarkedLine(raw, i, anchor, st);
@@ -244,6 +256,7 @@ export function scanSkill(text: string): SkillScan {
     fence: -1,
     table: -1,
     exempt: false,
+    exemptLevel: 0,
     afterMarker: false,
   };
   text.split('\n').forEach((raw, i) => scanLine(raw, i, st));

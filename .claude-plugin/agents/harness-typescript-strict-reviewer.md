@@ -132,11 +132,11 @@ undefined. Numeric `confidence` values follow the anchored rubric at
 
 Set via `--fast` or `--thorough` flags (or passed by autopilot). Default is `standard`.
 
-| Phase      | `fast`                                        | `standard` (default)                                       | `thorough`                                                                                                                     |
-| ---------- | --------------------------------------------- | ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| 3. CONTEXT | Skip learnings entirely                       | Load learnings if file exists; score via filterByRelevance | Always load learnings; fail loudly if missing                                                                                  |
-| 4. FAN-OUT | All agents at fast tier. Reduced focus areas. | Default tier assignments                                   | Full roster + meta-judge confirms findings cited by multiple agents, flags contradictions, and surfaces cross-cutting concerns |
-| 7. OUTPUT  | Standard format                               | Standard format                                            | Include "Learnings Applied" section with relevance scores                                                                      |
+| Phase      | `fast`                                        | `standard` (default)                                       | `thorough`                                                                                                                                                                                     |
+| ---------- | --------------------------------------------- | ---------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 3. CONTEXT | Skip learnings entirely                       | Load learnings if file exists; score via filterByRelevance | Always load learnings; fail loudly if missing                                                                                                                                                  |
+| 4. FAN-OUT | All agents at fast tier. Reduced focus areas. | Default tier assignments                                   | Full roster + meta-judge confirms findings cited by multiple agents, flags contradictions, and surfaces cross-cutting concerns <!-- not-a-pause: describes the meta-judge, not a human ask --> |
+| 7. OUTPUT  | Standard format                               | Standard format                                            | Include "Learnings Applied" section with relevance scores                                                                                                                                      |
 
 ### Model Tiers
 
@@ -437,7 +437,7 @@ Invokes `harness-security-review` in changed-files mode as the security fan-out 
 
 4. **CWE/OWASP references:** All findings include `cweId`, `owaspCategory`, `remediation`.
 
-Confirmed vulnerabilities are always `severity: 'critical'`.
+Confirmed vulnerabilities are always `severity: 'critical'`. <!-- not-a-pause: classification rule, not a human ask -->
 
 **Dedup with mechanical scan:** Phase 5 uses the exclusion set from Phase 2 to discard overlapping findings.
 
@@ -668,7 +668,7 @@ _Not part of the pipeline. Documents the process for requesting reviews._
 
 1. **Prepare context:** Commit range, description (WHAT and WHY), plan reference, test evidence, harness check results.
 2. **Dispatch:** Identify reviewer, provide context, state what feedback you want.
-3. **Wait.** Do not modify code under review.
+3. **Wait.** Do not modify code under review. <!-- not-a-pause: outside the pipeline; waits on an external reviewer -->
 
 ---
 
@@ -741,7 +741,7 @@ compliance|naming|suggestion|Names follow project conventions (check AGENTS.md o
 - **`gather_context`** — Phase 3: parallel context assembly. Session parameter scopes to session directory.
 - **`harness cleanup`** — Optional Phase 2 check for entropy in changed files.
 - **Graph queries** — Phase 3 (dependency context) and Phase 5 (reachability verification). Graceful fallback.
-- **`emit_interaction`** — Post-review: suggest merge transition on APPROVE. Confirmed transition.
+- **`emit_interaction`** — Post-review: suggest merge transition on APPROVE. Confirmed transition. <!-- not-a-pause: channel note listing where asks happen -->
 - **Rigor levels** — `--fast`/`--thorough` control learnings, agent tiers, output. See Rigor Levels table.
 - **`filterByRelevance`** — Phase 3 learnings scoring. Threshold 0.7, budget 1000 tokens.
 - **Session directory** — `.harness/sessions/<slug>/` contains `handoff.json`, `state.json`, `artifacts.json` (spec/plan paths, reviewed file list). Write handoff to session scope when slug is known. Global `.harness/handoff.json` is deprecated for session-aware invocations.

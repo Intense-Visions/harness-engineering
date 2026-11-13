@@ -102,7 +102,7 @@ _Pause point (judgment): resolve per the Pause Protocol._ <!-- pause: judgment -
 
 2. **Prefer multiple choice over open-ended questions.** Give 2-4 concrete options with brief tradeoff notes.
 3. **Acknowledge answers and build on them.** Do not re-ask clarified points. Track decisions as they accumulate.
-4. **Apply YAGNI ruthlessly.** For every proposed capability, ask: "Do we need this for the stated goal, or is this speculative?" If speculative, cut it. If the human insists, note it as a future consideration.
+4. **Apply YAGNI ruthlessly.** For every proposed capability, ask: "Do we need this for the stated goal, or is this speculative?" If speculative, cut it. If the human insists, note it as a future consideration. <!-- not-a-pause: self-check question, not a human ask -->
    _Pause point (gate): resolve per the Pause Protocol._ <!-- pause: gate -->
 5. **Surface strategy contradictions.** If Phase 1 step 0a captured a contradiction between the feature description and `STRATEGY.md`, ask the human about it explicitly as one of the first few EVALUATE questions. Frame it as a choice — refine the feature to align, or refine strategy via `/harness:strategy` — never auto-resolve. Skip this when STRATEGY.md was absent or no contradiction was detected.
 
@@ -310,6 +310,7 @@ _Pause point (ceremony): resolve per the Pause Protocol._ <!-- pause: ceremony -
 
    After the next skill is chosen, **Auto-decision summary (SC11).** If `.harness/sessions/<session-slug>/auto-decisions.jsonl` does not exist, print nothing. Otherwise run `harness autonomy log --session <session-slug>`. If its output contains a line starting `No auto-decisions recorded`, print nothing more; otherwise print the output verbatim. If the command fails or is not recognised, print `Auto-decision summary unavailable (<reason>); raw log: .harness/sessions/<session-slug>/auto-decisions.jsonl` and never report zero decisions you did not read.
 
+   _Pause point (ceremony): resolve per the Pause Protocol._ <!-- pause: ceremony -->
    If confirmed, dispatch by the recorded choice:
    - `autopilot` → invoke harness-autopilot with `--spec <spec path>`.
    - `planning` → invoke harness-planning with the spec path.
@@ -406,7 +407,7 @@ Technical claims about existing code, architecture, or tradeoffs MUST cite evide
 - **Session directory** — When session slug is known, handoff goes to `.harness/sessions/<slug>/handoff.json`. The session directory structure is: `handoff.json`, `state.json`, `artifacts.json` (registry of spec/plan paths and file lists). Do not write to `.harness/handoff.json` in session context.
 - **Spec commit** -- After sign-off, the Phase 4 step 8 commit captures `docs/changes/<feature>/proposal.md`, `docs/changes/<feature>/SKILLS.md`, and the promoted roadmap together (in sharded mode: the `docs/roadmap.d/` shard plus the regenerated `docs/roadmap.md` aggregate; in monolith mode: `docs/roadmap.md`) so the spec enters git history at approval, not retroactively. `harness-execution` does not backfill these commits.
 - **Roadmap promotion** -- After approval (Phase 4 step 7), call `manage_roadmap` action `promote` to transition the named row to `planned` and link the spec atomically with the spec commit. Falls back to `add` (create new row) when the row does not exist; refuses on `in-progress`/`done`/`ambiguous`. Skip silently if no roadmap.
-- **`emit_interaction`** -- End of Phase 4 to record the transition to harness-autopilot or harness-planning (the human picks; default autopilot). The choice itself is asked in plain text -- `emit_interaction` records the confirmed transition, it does not surface the question.
+- **`emit_interaction`** -- End of Phase 4 to record the transition to harness-autopilot or harness-planning (the human picks; default autopilot). The choice itself is asked in plain text -- `emit_interaction` records the confirmed transition, it does not surface the question. <!-- not-a-pause: channel note listing where asks happen -->
 
 #### Requirement Phrasing
 

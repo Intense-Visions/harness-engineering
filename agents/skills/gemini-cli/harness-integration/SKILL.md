@@ -1,6 +1,6 @@
 # Harness Integration
 
-> Verify system wiring, materialize knowledge artifacts, and update project metadata. Integration is a gate, not a discovery phase -- it confirms that planned integration tasks completed.
+> Verify system wiring, materialize knowledge artifacts, and update project metadata. Integration is a gate, not a discovery phase -- it confirms that planned integration tasks completed. <!-- not-a-pause: skill summary line, not a step -->
 
 ## When to Use
 

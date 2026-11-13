@@ -1,6 +1,6 @@
 # Harness Execution
 
-> Execute a plan task by task with atomic commits, checkpoint protocol, and persistent knowledge capture. Stop on blockers. Do not guess.
+> Execute a plan task by task with atomic commits, checkpoint protocol, and persistent knowledge capture. Stop on blockers. Do not guess. <!-- not-a-pause: skill summary line, not a step -->
 
 ## When to Use
 
@@ -157,6 +157,7 @@ Before the per-task loop, decide the safe parallel structure so independent task
 2. If `cyclic` is non-empty, STOP and escalate (dependency cycle = plan defect). Do not execute.
 3. Emit `narration` (announce-and-proceed — do not pause).
 4. Run `serialized` tasks first (serially, in order — cross-bucket prerequisites), then process `waves` **in array order** (topologically sorted; do not reorder, do not key off `firing` alone).
+   _Pause point (judgment): resolve per the Pause Protocol._ <!-- pause: judgment -->
 5. Per wave: `auto-dispatch` (multi-task) → dispatch the wave via **harness-parallel-agents** with worktree-per-unit isolation (`docs/guides/agent-worktree-patterns.md`), announce and proceed; `confirm` → one plain-text confirmation, then parallel or serial per the answer; `serialize` / single-task → run through the per-task loop below serially.
 6. **Serial fallback preserved:** when independent tasks < `minWaveSize` (default 3), a `confirm` is declined, or no graph is available and the human does not confirm, run every task through the per-task loop below serially — the standing "when in doubt, run serially" default.
 
@@ -439,6 +440,7 @@ Claims about task completion, test results, or code behavior MUST cite evidence:
 - **`harness state show`** — View current position and progress.
 - **`harness state learn "<message>"`** — Append a learning from CLI.
 - **State/Learnings files** — Session-scoped when session known, otherwise `.harness/`. State updated after every task; learnings append-only.
+  _Pause point (gate): resolve per the Pause Protocol._ <!-- pause: gate -->
 - **Roadmap claim** — Phase 2 Step 0: `manage_roadmap update` with `status: in-progress` + `assignee: <currentUser>` claims the item at execution start (the assignee = "who is executing" invariant). Stop if `currentUser` is unresolvable. Marking the row `done` later auto-clears the assignee via the lifecycle `setStatus` chokepoint — never leave a non-in-progress row assigned (RMH005).
 - **Auto-done (do NOT hand-mark rows done)** — A row reaches `done` automatically when the implementing PR merges and closes its linked issue: the merge-triggered auto-done reconciler flips exactly that shard via `External-ID` (CI Action authoritative; `harness roadmap reconcile` is the offline fallback). Execution should claim the row `in-progress` and let the merge drive it to `done` — do not call `manage_roadmap update status:done` by hand. See knowledge [`merge-triggered-auto-done.md`](../../../../docs/knowledge/roadmap/merge-triggered-auto-done.md). In sharded mode (`docs/roadmap.d/` present) the claim writes one shard and regenerates the aggregate.
 - **Roadmap sync** — After plan completion, `manage_roadmap sync` with `apply: true`. Mandatory when roadmap exists. No `force_sync: true`.
@@ -541,6 +543,7 @@ Hard stops. Violating any gate means the process has broken down.
 - **No skipping tasks.** Tasks are dependency-ordered. Execute in order.
 - **No skipping validation.** `harness validate` after every task. No exceptions.
 - **No ignoring checkpoints.** `[checkpoint:*]` markers require pausing. No auto-continue.
+  _Pause point (gate): resolve per the Pause Protocol._ <!-- pause: gate -->
 - **No guessing past blockers.** Cannot complete as written? Stop. Report. Do not invent workarounds.
 - **State must be updated.** After every task, state must reflect new position.
 
