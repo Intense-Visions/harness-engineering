@@ -259,14 +259,27 @@ const reasonsFor = (skipped: readonly { skill: string; reason: string }[], skill
 
 describe('planCraftReviewDomains — host/event gate', () => {
   it('activates an installed owning domain at each host’s own events', () => {
-    for (const [host, events] of Object.entries(CRAFT_REVIEW_EVENTS_BY_HOST)) {
+    // [F-3] Pin the denominator BEFORE iterating. Every assertion below lives
+    // inside the loop, so without this a dropped host or event silently stops
+    // being covered while the test stays green.
+    const hostEvents = Object.entries(CRAFT_REVIEW_EVENTS_BY_HOST);
+    expect(hostEvents).toEqual([
+      ['harness-autopilot', ['after:REVIEW', 'after:FINAL_REVIEW']],
+      ['harness-code-review', ['after:mechanical']],
+    ]);
+
+    let asserted = 0;
+    for (const [host, events] of hostEvents) {
       for (const event of events) {
         const plan = planCraftReviewDomains(host, event, TSX_DIFF, DESIGN_ONLY);
-        expect(plan.wired).toEqual([
+        expect(plan.wired, `${host} @ ${event}`).toEqual([
           { type: 'skill', skill: 'harness-design-craft', blocking: false },
         ]);
+        asserted += 1;
       }
     }
+    // The loop actually ran, for all three host/event pairs.
+    expect(asserted).toBe(3);
   });
 
   it('returns a FULLY empty plan at an event the host does not wire', () => {
@@ -669,14 +682,19 @@ describe('capability gate (spec criterion 9) — unsupported-language is EXPLICI
       ['src/a.py'],
       ALL_CRAFT_INSTALLED
     );
-    // design-craft is surface-bound, so a non-surface file is `not-activated`.
+    // [F-2] This first assertion does NOT pin precedence and must not be read as
+    // if it did: design-craft is CRAFT_ANY_LANGUAGE, so hasSupportedLanguage
+    // returns true unconditionally and `unsupported-language` is unreachable for
+    // it under ANY gate ordering. What it pins is narrower and still worth
+    // having — a surface-bound domain that owns nothing reports `not-activated`.
     expect(reasonsFor(plan.skipped, 'harness-design-craft')).toEqual(['not-activated']);
-    // test-craft is LANGUAGE-GATED, so this is the load-bearing half: owning
-    // nothing must report `not-activated`, never `unsupported-language`.
+    // THIS is the half that pins the precedence. test-craft is language-gated, so
+    // both branches are reachable for it: owning nothing must report
+    // `not-activated`, never `unsupported-language`.
     expect(reasonsFor(plan.skipped, 'test-craft')).toEqual(['not-activated']);
   });
 
-  it('reports exactly one reason per expected domain, and nothing outside expected', () => {
+  it('accounts for every domain in the table exactly once, and nothing outside it', () => {
     const plan = planCraftReviewDomains(
       'harness-autopilot',
       'after:REVIEW',
@@ -1003,9 +1021,23 @@ describe('resolveReviewHooksWithCraft', () => {
           'after:REVIEW': ['my-domain-reviewer'],
           'before:EXECUTE': ['preflight'],
         },
+        // [F-1] harness-tdd MUST declare hooks of its own. Without this, case (d)
+        // below compares [] against [] — the unknown-host pass-through it claims
+        // to check is unobservable, and a resolver that DISCARDS every configured
+        // hook for an unknown host still passes.
+        'harness-tdd': { 'after:REVIEW': ['my-domain-reviewer'] },
       },
     };
-    const baseline = (event: string) => resolveSkillHooks(config, 'harness-autopilot', event);
+
+    // Every comparison below must have a NON-EMPTY right-hand side. An empty one
+    // degenerates to expect([]).toEqual([]), which asserts nothing about
+    // pass-through. This guard is what makes criterion 8 falsifiable.
+    const nonEmpty = (hooks: readonly unknown[]) => {
+      expect(hooks.length, 'criterion-8 fixture must not be empty').toBeGreaterThan(0);
+      return hooks;
+    };
+    const baseline = (event: string) =>
+      nonEmpty(resolveSkillHooks(config, 'harness-autopilot', event));
 
     // (a) no diff context
     expect(
@@ -1033,7 +1065,7 @@ describe('resolveReviewHooksWithCraft', () => {
         changedFiles: TSX_DIFF,
         availableSkills: ALL_CRAFT_INSTALLED,
       })
-    ).toEqual(resolveSkillHooks(config, 'harness-tdd', 'after:REVIEW'));
+    ).toEqual(nonEmpty(resolveSkillHooks(config, 'harness-tdd', 'after:REVIEW')));
 
     // POSITIVE CONTROL: the same config DOES gain a craft default when it can.
     expect(
@@ -1042,6 +1074,26 @@ describe('resolveReviewHooksWithCraft', () => {
         availableSkills: ALL_CRAFT_INSTALLED,
       }).length
     ).toBeGreaterThan(baseline('after:REVIEW').length);
+  });
+
+  it('[F-1] passes a configured hook through for a host craft never attaches to', () => {
+    // Stated as its own law rather than only as case (d) above. The documented
+    // contract is that an unknown host is returned UNTOUCHED — not emptied. A
+    // resolver that returns [] for an unrecognised host silently discards every
+    // skillHooks entry the project declared.
+    const config: SkillHooksConfigHolder = {
+      skillHooks: { 'harness-tdd': { 'after:REVIEW': ['my-domain-reviewer', 'another-reviewer'] } },
+    };
+    const hooks = resolveReviewHooksWithCraft(config, 'harness-tdd', 'after:REVIEW', {
+      changedFiles: TSX_DIFF,
+      availableSkills: ALL_CRAFT_INSTALLED,
+    });
+    expect(hooks).toEqual([
+      { type: 'skill', skill: 'my-domain-reviewer', blocking: true },
+      { type: 'skill', skill: 'another-reviewer', blocking: true },
+    ]);
+    // ...and no craft default is injected at a host craft does not wire.
+    expect(hooks).toHaveLength(2);
   });
 
   it('a USER-declared hook flows through regardless of availability (host hard-halts, not us)', () => {

@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/src/hooks'
-sourceHash: '3553895d523e10720a592e58ad8b6fea4dca42c94b837e261e69e419e6eead59'
+sourceHash: 'a3e6c2a1619a5a0ae76897e01fc249ab7d5fe283c1795c8d72a5646f466bbf07'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent

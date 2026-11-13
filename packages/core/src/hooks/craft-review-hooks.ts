@@ -360,7 +360,12 @@ function toAvailabilityPredicate(avail: SkillAvailability | undefined): (skill: 
   if (typeof avail === 'function') {
     return (skill) => CRAFT_SKILL_PROBE_FORMS.some((form) => avail(form(skill)));
   }
-  const set = avail instanceof Set ? avail : new Set(avail);
+  // Copy UNCONDITIONALLY. Aliasing the caller's Set is safe only while this
+  // function stays read-only; the moment it grows a `set.add(...)` it would
+  // mutate the caller's collection — in practice a module-level test fixture
+  // shared by every case in the suite. No static rule can catch that: the
+  // declaration lives in the test file and the mutation would live here.
+  const set = new Set<string>(avail);
   const bare = new Set<string>();
   for (const entry of set) bare.add(bareSkillName(entry));
   return (skill) => set.has(skill) || bare.has(skill);
