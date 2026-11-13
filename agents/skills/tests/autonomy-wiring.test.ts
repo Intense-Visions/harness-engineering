@@ -7,6 +7,7 @@ import { readFileSync } from 'fs';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { SUMMARY_STEP } from './pause-markers';
+import { parse } from 'yaml';
 
 const SKILLS = resolve(dirname(fileURLToPath(import.meta.url)), '..', 'claude-code');
 const skill = (name: string) => readFileSync(resolve(SKILLS, name, 'SKILL.md'), 'utf-8');
@@ -85,5 +86,25 @@ describe('SC11: terminal points print the auto-decision summary', () => {
     const at = s.indexOf(SUMMARY_STEP);
     expect(at).toBeGreaterThan(s.indexOf('**Request sign-off in plain text.**'));
     expect(at).toBeLessThan(s.indexOf('**Promote the roadmap row.**'));
+  });
+});
+
+const FLAG_SKILLS = ['harness-brainstorming', 'harness-planning'];
+const argNames = (name: string): string[] =>
+  (
+    (
+      parse(readFileSync(resolve(SKILLS, name, 'skill.yaml'), 'utf-8')) as {
+        cli?: { args?: Array<{ name: string }> };
+      }
+    ).cli?.args ?? []
+  ).map((a) => a.name);
+
+describe('D17: Tier-1 workflow skills accept only lowering autonomy flags', () => {
+  it.each(FLAG_SKILLS)('%s declares supervised and audit, never trusted or no-audit', (name) => {
+    const a = argNames(name);
+    expect(a.length).toBeGreaterThan(0); // control: the yaml was parsed
+    expect(a).toEqual(expect.arrayContaining(['supervised', 'audit']));
+    expect(a).not.toContain('trusted');
+    expect(a).not.toContain('no-audit');
   });
 });
