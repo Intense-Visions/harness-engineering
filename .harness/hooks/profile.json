@@ -2,7 +2,7 @@
   "profile": "standard",
   "fileHashes": {
     "block-no-verify.js": "aa1db9030f9a83eeea6aedbe0385c0588e5068f8cc8535eeacf8e9cfab4156e1",
-    "autonomy-guard.js": "a1353cf75a7e82fa8c209b63654be9e84f97c4563fbc25bc85dda87550883ed6",
+    "autonomy-guard.js": "c64cf66dc2213774ccf4935160c6ee2ea78f2070c847c2c6b3d5a208b5605c54",
     "protect-config.js": "270a5ccecf6bf49e0f08efa849796e89e6d4ba01af517e928252376a92cb9ae2",
     "quality-warner.js": "acf787c9904277d18679a5fef98e1bea381ea0938dfe0c150c940f835613f3a8",
     "pre-compact-state.js": "4b562a64b69c293d73c7a9f902164a59865145a46393be09f3cea430542fb206",

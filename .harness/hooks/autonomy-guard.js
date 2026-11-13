@@ -25,6 +25,10 @@
 // evasions it does not attempt to catch: another interpreter (`python -c`, `node -e`),
 // decoded payloads piped to a shell (`base64 -d | sh`), script files written then executed,
 // aliases / shell functions, globbed or `..`-laundered paths, and symlinks created first.
+// For the decision log (4) it also misses directory-level operations that never name the file:
+// `cp -R` into a session dir, `rm -rf` / `mv` of a session dir, `ln -sfn` over one, `rsync`,
+// `tar -C` extraction into one, and `git clean`. Unreadable-line reporting and the end-of-run
+// summary make crude tampering visible; they do not catch a rewrite that stays well-formed.
 //
 // Exit codes: 0 = allow, 2 = block.
 
