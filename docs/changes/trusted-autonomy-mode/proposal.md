@@ -34,7 +34,7 @@ The autonomy gate protects against **prompt-injected instructions, repo-carried 
 
 ### Strategy grounding
 
-`STRATEGY.md#target-problem` names "babysitting the agent" as the pain this removes. The tension with `STRATEGY.md#our-approach` ("humans own the thinking layer") is resolved by moving human review of the thinking layer from **during** the run to **after** it, via the decision log.
+`STRATEGY.md#target-problem` names "babysitting the agent" as the pain this removes. The tension with `STRATEGY.md#our-approach` ("humans own the thinking layer") is resolved by moving human review of the thinking layer from **during** the run to **after** it, via the decision log. A contradiction between a proposed feature and `STRATEGY.md` is the exception: it is a `gate` pause that stops at every autonomy level and is never audited-and-proceeded, because humans own the strategy and AGENTS.md requires surfacing it explicitly rather than auto-resolving it.
 
 ## Decisions
 
@@ -115,12 +115,12 @@ The flag-vs-override tie is broken by recency (D3): the invocation flag carries 
 
 New shared template `agents/skills/templates/pause-protocol.md`. Every pause point in a workflow skill is labelled with one class and resolved by one table:
 
-| Class          | Examples                                                                                      | `supervised`                      | `trusted`                                      |
-| -------------- | --------------------------------------------------------------------------------------------- | --------------------------------- | ---------------------------------------------- |
-| `ceremony`     | spec section review, plan approval, spec sign-off, next-skill choice, ADR draft review        | pause                             | auto-approve, log                              |
-| `judgment`     | EVALUATE questions, approach selection, decomposition, triage forks                           | pause (audit verdict shown if on) | audit → agree: auto-take, log; disagree: pause |
-| `irreversible` | merge, push to default branch, close/delete issues or branches, publish, force-push           | pause                             | pause                                          |
-| `gate`         | red verify, high-confidence `NOT_SATISFIED`, taint block, `--no-verify` block, protect-config | stop                              | stop                                           |
+| Class          | Examples                                                                                                                                                                                                     | `supervised`                      | `trusted`                                      |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------- | ---------------------------------------------- |
+| `ceremony`     | spec section review, plan approval, spec sign-off, next-skill choice, ADR draft review                                                                                                                       | pause                             | auto-approve, log                              |
+| `judgment`     | EVALUATE questions, approach selection, decomposition, triage forks, `[checkpoint:decision]`, soundness findings with a recommended option                                                                   | pause (audit verdict shown if on) | audit → agree: auto-take, log; disagree: pause |
+| `irreversible` | merge, push to default branch, open a PR, close/delete issues or branches, publish, force-push                                                                                                               | pause                             | pause                                          |
+| `gate`         | red verify, high-confidence `NOT_SATISFIED`, blocking review findings, plan dependency cycles, a strategy contradiction, taint block, `--no-verify` block, protect-config, a step only the human can perform | stop                              | stop                                           |
 
 Every pause point in a skill carries an inline marker `<!-- pause: <class> -->` so labelling is mechanically checkable.
 

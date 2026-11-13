@@ -8,12 +8,12 @@
 
 Every pause point belongs to exactly one class, and this one table resolves all of them (D1):
 
-| Class          | Examples                                                                                                                                                                           | `supervised`                      | `trusted`                                      |
-| -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------- | ---------------------------------------------- |
-| `ceremony`     | spec section review, plan approval, spec sign-off, next-skill choice, ADR draft review, phase continue                                                                             | pause                             | auto-approve, log                              |
-| `judgment`     | EVALUATE questions, approach selection, decomposition, triage forks, `[checkpoint:decision]`, soundness findings with a recommended option                                         | pause (audit verdict shown if on) | audit → agree: auto-take, log; disagree: pause |
-| `irreversible` | merge, push, open a PR, close/delete issues or branches, publish, force-push                                                                                                       | pause                             | pause                                          |
-| `gate`         | red verify, high-confidence `NOT_SATISFIED`, blocking review findings, plan dependency cycles, taint block, `--no-verify` block, protect-config, a step only the human can perform | stop                              | stop                                           |
+| Class          | Examples                                                                                                                                                                                                     | `supervised`                      | `trusted`                                      |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------- | ---------------------------------------------- |
+| `ceremony`     | spec section review, plan approval, spec sign-off, next-skill choice, ADR draft review, phase continue                                                                                                       | pause                             | auto-approve, log                              |
+| `judgment`     | EVALUATE questions, approach selection, decomposition, triage forks, `[checkpoint:decision]`, soundness findings with a recommended option                                                                   | pause (audit verdict shown if on) | audit → agree: auto-take, log; disagree: pause |
+| `irreversible` | merge, push, open a PR, close/delete issues or branches, publish, force-push                                                                                                                                 | pause                             | pause                                          |
+| `gate`         | red verify, high-confidence `NOT_SATISFIED`, blocking review findings, plan dependency cycles, a strategy contradiction, taint block, `--no-verify` block, protect-config, a step only the human can perform | stop                              | stop                                           |
 
 ## Marker convention
 

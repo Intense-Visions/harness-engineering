@@ -41,6 +41,8 @@ Out of scope (Phase 4): ADRs, AGENTS.md, the guide, the knowledge node, and refe
 
 ## Decisions requiring sign-off (Task 10 checkpoint; defaults recommended)
 
+**Resolved 2026-11-13:** D-B..D-H accepted as proposed. **D-A overridden: strategy contradictions are `gate`** (always pause, never auto-resolved, never audited-and-proceeded).
+
 | #   | Question                                                                                                                                     | Default (recommended)                                                                                                                                                                                  | Why                                                                                                                                             |
 | --- | -------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------- |
 | D-A | Brainstorming strategy contradiction (`SKILL.md:91,93`). AGENTS.md says "surface the contradiction explicitly … rather than auto-resolving". | `judgment`: audited, and the decision log entry is the explicit surfacing, reviewed after the run (spec "Strategy grounding"). **Alternative:** `gate`, which honours the AGENTS.md wording literally. | The spec moves thinking-layer review to after the run; `gate` would make every strategy tension block a trusted run.                            |
@@ -1548,7 +1550,7 @@ Preamble: immediately after `## Process` (line 15), before `### Iron Law`.
 | ---------- | ---------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
 | 21         | "If you find yourself writing production code … STOP"                              | opt-out: `self-correction, not a human ask`                       |
 | 69, 71, 73 | "Ask ONE question at a time" / "Ask directly in your reply" / "then STOP and wait" | `judgment`                                                        |
-| 91, 93     | "Surface strategy contradictions" / "cross-answer contradiction pass"              | `judgment` (D-A)                                                  |
+| 91, 93     | "Surface strategy contradictions" / "cross-answer contradiction pass"              | `gate` (D-A, overridden)                                          |
 | 127        | "Wait for the human to choose."                                                    | `judgment`                                                        |
 | 133        | "Present the design section by section … Get feedback on each section"             | `ceremony`                                                        |
 | 174        | "In `--thorough` mode, show the full skill list for human review"                  | `ceremony`                                                        |
