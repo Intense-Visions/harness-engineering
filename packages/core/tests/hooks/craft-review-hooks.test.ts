@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { describe, it, expect } from 'vitest';
 import {
   CRAFT_ANY_LANGUAGE,
@@ -826,5 +828,55 @@ describe('resolveReviewHooksWithCraft', () => {
       );
       expect(hooks).toEqual([{ type: 'skill', skill: 'harness-design-craft', blocking: false }]);
     });
+  });
+});
+
+describe('module laws', () => {
+  const sourcePath = fileURLToPath(
+    new URL('../../src/hooks/craft-review-hooks.ts', import.meta.url)
+  );
+  const source = readFileSync(sourcePath, 'utf8');
+  const code = source
+    .split('\n')
+    .filter((line) => !/^\s*(\/\/|\*|\/\*)/.test(line))
+    .join('\n');
+
+  it('is pure and IO-free: no node builtins, no process, no require', () => {
+    // Mutation M5 (adding `import { readFileSync } from 'node:fs'`) must turn
+    // this red. Comment lines are stripped so the header's own prose about
+    // the file system / process does not trip it.
+    for (const forbidden of ["from 'node:", 'require(', 'process.', 'child_process', "'fs'"]) {
+      expect(code).not.toContain(forbidden);
+    }
+    // Positive control: the stripper did not eat the file.
+    expect(code).toContain('export function planCraftReviewDomains');
+  });
+
+  it('imports only skill-lifecycle, the canary twin’s type, and code-nav types', () => {
+    const imported = [...source.matchAll(/^import .*?from '([^']+)';$/gm)].map((m) => m[1]);
+    // Positive control: all four import statements were matched. A prettier wrap
+    // onto a second line would otherwise silently shrink this list to a passing
+    // subset — the regex is single-line by design.
+    expect(imported).toHaveLength(4);
+    expect([...new Set(imported)].sort()).toEqual([
+      '../code-nav/types',
+      './canary-review-hooks',
+      './skill-lifecycle',
+    ]);
+  });
+
+  it('[PHASE BOUNDARY] is not exported from hooks/index.ts yet — Phase 3 owns the barrel', () => {
+    // Phase 1 is inert by design: no barrel export, no host wiring, no craft
+    // SKILL.md edit. Phase 3 INVERTS this assertion when it adds the export and
+    // regenerates the root barrel via scripts/generate-core-barrel.mjs. Delete it
+    // there deliberately; do not delete it to make a red go away.
+    const barrel = readFileSync(
+      fileURLToPath(new URL('../../src/hooks/index.ts', import.meta.url)),
+      'utf8'
+    );
+    expect(barrel).not.toContain('craft-review-hooks');
+    // Positive control: the barrel DOES export the canary twin, so a wrong path
+    // or an empty read cannot pass this test.
+    expect(barrel).toContain('canary-review-hooks');
   });
 });
