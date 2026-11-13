@@ -56,7 +56,23 @@ const EXCLUDED_DIRS = new Set([
  */
 const FALLBACK_SOURCE_ROOTS: ReadonlyArray<string> = ['src', 'app'];
 
-const TEST_FILE_PATTERN = /\.(test|spec)\.(ts|tsx|js|jsx|mjs|cjs)$/i;
+/**
+ * Test-file naming conventions per language. Ships alongside the widened
+ * SOURCE_EXTENSIONS: widening one without the other sweeps `test_cart.py` in
+ * as production source and bills code-craft for test-craft's territory.
+ */
+const TEST_FILE_PATTERNS: readonly RegExp[] = [
+  /\.(test|spec)\.(ts|tsx|js|jsx|mjs|cjs|mts|cts)$/i, // TS/JS (unchanged)
+  /^test_.*\.py$/i, //                                    pytest
+  /^.*_test\.py$/i, //                                    pytest, trailing form
+  /^.*_test\.go$/i, //                                    go test
+  /^.*(Test|Tests|IT)\.java$/, //                         JUnit (case-sensitive by convention)
+  /^.*_test\.rs$/i, //                                    rust, file-level convention
+];
+
+function isTestFileName(name: string): boolean {
+  return TEST_FILE_PATTERNS.some((p) => p.test(name));
+}
 
 export function discoverSourceFiles(
   projectRoot: string,
@@ -122,7 +138,7 @@ function walk(dir: string, out: string[]): void {
       continue;
     }
     if (!entry.isFile()) continue;
-    if (TEST_FILE_PATTERN.test(entry.name)) continue;
+    if (isTestFileName(entry.name)) continue;
     const ext = path.extname(entry.name);
     if (!SOURCE_EXTENSIONS.has(ext)) continue;
     out.push(full);

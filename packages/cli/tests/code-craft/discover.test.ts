@@ -82,6 +82,22 @@ describe('discoverSourceFiles (code-craft)', () => {
     expect(found).toEqual(['E.java', 'a.ts', 'b.py', 'c.go', 'd.rs']);
   });
 
+  it('excludes test files in every language, not only TS/JS', () => {
+    writeFile('src/a.test.ts');
+    writeFile('src/test_b.py');
+    writeFile('src/b_test.py');
+    writeFile('src/c_test.go');
+    writeFile('src/CartTest.java');
+    writeFile('src/b.py');
+    const found = discoverSourceFiles(tmpDir).map((f) => path.basename(f));
+    expect(found).not.toContain('a.test.ts');
+    expect(found).not.toContain('test_b.py');
+    expect(found).not.toContain('b_test.py');
+    expect(found).not.toContain('c_test.go');
+    expect(found).not.toContain('CartTest.java');
+    expect(found).toContain('b.py'); // positive control: production python survives
+  });
+
   it('includes .mjs / .cjs / .jsx extensions and ignores non-source', () => {
     writeFile('packages/api/src/esm.mjs');
     writeFile('packages/api/src/cjs.cjs');
