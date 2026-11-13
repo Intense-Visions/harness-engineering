@@ -483,16 +483,21 @@ export interface SetAutonomyDeps {
   now?: () => Date;
 }
 
-const AUTONOMY_INVALID_INPUT = 'AUTONOMY_INVALID_INPUT';
+/** Fallback code for an override-store error that carries none of its own (e.g. an fs error). */
+const AUTONOMY_WRITE_FAILED = 'AUTONOMY_WRITE_FAILED';
 
-/** The single invalid-input response at the MCP boundary (S3). */
-function invalidAutonomyInput(error: Error): McpResponse {
-  const fields = (error as { fields?: string[] }).fields ?? [];
+/**
+ * The one set-autonomy error shape, shared with record_auto_decision: JSON
+ * `{ error, message, field?, ... }` carrying core's own code (S2).
+ */
+function autonomyError(error: Error, fallbackCode: string): McpResponse {
+  const e = error as Error & { code?: string; fields?: string[]; rejected?: unknown };
   return mcpError(
     JSON.stringify({
-      error: AUTONOMY_INVALID_INPUT,
-      ...(fields[0] !== undefined && { field: fields[0] }),
-      message: error.message,
+      error: e.code ?? fallbackCode,
+      ...(e.fields?.[0] !== undefined && { field: e.fields[0] }),
+      message: e.message,
+      ...(e.rejected !== undefined && { rejected: e.rejected }),
     })
   );
 }
@@ -503,42 +508,30 @@ async function handleSetAutonomy(
   deps: SetAutonomyDeps
 ): Promise<McpResponse> {
   const core = await import('@harness-engineering/core');
+  const invalid = (message: string, fields: string[] = []) =>
+    autonomyError(new core.AutonomyInvalidSettingError(message, fields), AUTONOMY_WRITE_FAILED);
   // S1: the session arrives untyped; anything but a valid slug string is a structured error.
   const session: unknown = input.session;
   const slug =
     session === undefined
       ? { ok: false as const, error: new Error('session is required for set-autonomy') }
       : core.validateOverrideSlug(session as string);
-  if (!slug.ok) return invalidAutonomyInput(Object.assign(slug.error, { fields: ['session'] }));
+  if (!slug.ok) return invalid(slug.error.message, ['session']);
   if (input.level === undefined && input.audit === undefined) {
-    return mcpError('Error: set-autonomy requires level and/or audit');
+    return invalid('set-autonomy requires level and/or audit');
   }
   // D12/SC13: MCP args reach handlers unvalidated, so a mistyped value (audit:"false") must be
-  // rejected before the value-based raise check. Validated ONCE, by core (S3).
+  // rejected before the value-based raise check. Validated by core; its code passes through (S3).
   const valid = core.validateAutonomySetting({
     ...(input.level !== undefined && { level: input.level }),
     ...(input.audit !== undefined && { audit: input.audit }),
   });
-  if (!valid.ok) return invalidAutonomyInput(valid.error);
-  const change = valid.value;
-  const result = core.writeLoweringOverride(projectPath, slug.value, change, {
+  if (!valid.ok) return autonomyError(valid.error, AUTONOMY_WRITE_FAILED);
+  const result = core.writeLoweringOverride(projectPath, slug.value, valid.value, {
     ...(deps.homeDir !== undefined && { homeDir: deps.homeDir }),
     ...(deps.now !== undefined && { now: deps.now }),
   });
-  if (!result.ok) {
-    const code = (result.error as { code?: string }).code;
-    if (code === core.AUTONOMY_INVALID_SETTING) return invalidAutonomyInput(result.error);
-    if (code === core.AUTONOMY_RAISE_REJECTED) {
-      return mcpError(
-        JSON.stringify({
-          error: core.AUTONOMY_RAISE_REJECTED,
-          message: result.error.message,
-          rejected: change,
-        })
-      );
-    }
-    return resultToMcpResponse(result);
-  }
+  if (!result.ok) return autonomyError(result.error, AUTONOMY_WRITE_FAILED);
   return resultToMcpResponse(Ok({ session: slug.value, override: result.value }));
 }
 

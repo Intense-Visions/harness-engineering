@@ -129,7 +129,7 @@ describe('manage_state set-autonomy type-confusion (SC13)', () => {
     const res = await call({ audit: 'false' });
     expect(res.isError).toBe(true);
     const body = JSON.parse(res.content[0]!.text);
-    expect(body).toMatchObject({ error: 'AUTONOMY_INVALID_INPUT', field: 'audit' });
+    expect(body).toMatchObject({ error: 'AUTONOMY_INVALID_SETTING', field: 'audit' });
 
     expect(sha()).toBe(before);
     const r = show();
@@ -152,25 +152,25 @@ describe('manage_state set-autonomy type-confusion (SC13)', () => {
     ['level', { level: 0 }],
     ['level', { level: null }],
   ])(
-    'rejects mistyped %s in %j with AUTONOMY_INVALID_INPUT and writes nothing',
+    'rejects mistyped %s in %j with AUTONOMY_INVALID_SETTING and writes nothing',
     async (field, change) => {
       seed();
       const before = sha();
       const res = await call(change);
       expect(res.isError).toBe(true);
       expect(JSON.parse(res.content[0]!.text)).toMatchObject({
-        error: 'AUTONOMY_INVALID_INPUT',
+        error: 'AUTONOMY_INVALID_SETTING',
         field,
       });
       expect(sha()).toBe(before);
     }
   );
 
-  it('S3: validation is delegated to core (one validator, one error code at the boundary)', async () => {
+  it('S3: validation is delegated to core (one validator, core codes passed through)', async () => {
     const res = await call({ audit: 'false' });
     const body = JSON.parse(res.content[0]!.text);
-    expect(body.error).toBe('AUTONOMY_INVALID_INPUT');
-    expect(body.error).not.toBe('AUTONOMY_INVALID_SETTING');
+    expect(body.error).toBe('AUTONOMY_INVALID_SETTING');
+    expect(body.error).not.toBe('AUTONOMY_INVALID_INPUT');
     // The message is core's validateAutonomySetting message, not a handler-local rewording.
     expect(body.message).toMatch(/^Invalid autonomy setting: audit:/);
   });
@@ -185,7 +185,7 @@ describe('manage_state set-autonomy type-confusion (SC13)', () => {
 
 describe('manage_state set-autonomy session validation (S1)', () => {
   it.each([[42], [{}], [['s1']], [true], [''], ['CON'], ['../x']])(
-    'rejects session %j with a structured AUTONOMY_INVALID_INPUT naming the field',
+    'rejects session %j with a structured AUTONOMY_INVALID_SETTING naming the field',
     async (session) => {
       const res = await handleManageState(
         {
@@ -198,7 +198,7 @@ describe('manage_state set-autonomy session validation (S1)', () => {
       );
       expect(res.isError).toBe(true);
       expect(JSON.parse(res.content[0]!.text)).toMatchObject({
-        error: 'AUTONOMY_INVALID_INPUT',
+        error: 'AUTONOMY_INVALID_SETTING',
         field: 'session',
       });
       expect(fs.existsSync(home)).toBe(false);
@@ -213,8 +213,48 @@ describe('manage_state set-autonomy session validation (S1)', () => {
       { homeDir: home }
     );
     expect(JSON.parse(res.content[0]!.text)).toMatchObject({
-      error: 'AUTONOMY_INVALID_INPUT',
+      error: 'AUTONOMY_INVALID_SETTING',
       field: 'session',
+    });
+  });
+});
+
+/**
+ * S2: one error policy for both autonomy MCP tools. Every set-autonomy error is JSON
+ * `{ error, message, field? }` and carries core's own code, never a handler-local rename and
+ * never a bare "Error: …" string.
+ */
+describe('manage_state set-autonomy error policy (S2)', () => {
+  const body = (res: Awaited<ReturnType<typeof call>>) => JSON.parse(res.content[0]!.text);
+
+  it('a call with neither level nor audit is structured AUTONOMY_INVALID_SETTING JSON', async () => {
+    const res = await call({});
+    expect(res.isError).toBe(true);
+    expect(body(res)).toMatchObject({
+      error: 'AUTONOMY_INVALID_SETTING',
+      message: expect.stringMatching(/requires level and\/or audit/),
+    });
+  });
+
+  it('an error routed from the override store keeps its core code (AUTONOMY_OVERRIDE_BUSY)', async () => {
+    const p = sessionOverridePath(project, 's1', { homeDir: home });
+    if (!p.ok) throw p.error;
+    fs.mkdirSync(path.dirname(p.value), { recursive: true });
+    fs.writeFileSync(`${p.value}.lock`, '1');
+    const res = await call({ audit: true });
+    expect(res.isError).toBe(true);
+    expect(body(res)).toMatchObject({
+      error: 'AUTONOMY_OVERRIDE_BUSY',
+      message: expect.stringMatching(/Another process is updating/),
+    });
+    expect(fs.existsSync(p.value)).toBe(false);
+  });
+
+  it('positive control: a raise is still AUTONOMY_RAISE_REJECTED with the rejected change', async () => {
+    const res = await call({ level: 'trusted' });
+    expect(body(res)).toMatchObject({
+      error: 'AUTONOMY_RAISE_REJECTED',
+      rejected: { level: 'trusted' },
     });
   });
 });
