@@ -84,6 +84,49 @@ Run it when audit is on (D7, D9). Each step uses a **fresh** subagent with no ac
 4. **Outcome.** Agreement with a `non-blocking` objection (or none) → auto-take the recommendation and record audit `{ "status": "agreed", "blindPick": "<pick>" }`. A `blocking` objection → escalate.
 5. **Unavailable.** If the host cannot spawn a subagent (no subagent tool, or the spawn failed), record audit `{ "status": "unavailable" }` and proceed (D11). `harness autonomy log` counts it as unaudited in `audited N/M`. Never present an unaudited decision as audited.
 
+### Blind auditor prompt
+
+Fill only these slots: `skill`, `phase`, `question`, `options` (shuffled, one per line, recommendation markers removed) and `evidence` (cited facts only, never your conclusion).
+
+```blind-audit-prompt
+You are auditing one decision in the {{skill}} skill ({{phase}} phase). You are not told which option anyone prefers. Decide from the question and the evidence alone.
+
+Question:
+{{question}}
+
+Options (order is random):
+{{options}}
+
+Evidence:
+{{evidence}}
+
+Pick exactly one option, copied verbatim from the list. Reply with JSON only:
+{"pick": "<option text>", "confidence": "high|medium|low", "reason": "<one or two sentences>"}
+```
+
+### Refuter prompt
+
+Use only after the blind pick matched. Fill the same slots plus `pick`; never include your rationale.
+
+```refuter-prompt
+The {{skill}} skill ({{phase}} phase) is about to take this decision without asking a human.
+
+Question:
+{{question}}
+
+Options:
+{{options}}
+
+Evidence:
+{{evidence}}
+
+Chosen option:
+{{pick}}
+
+Give the single strongest objection to the chosen option. Rate it "blocking" if the choice is likely wrong or unsafe, or "non-blocking" if it is a real but acceptable cost. Reply with JSON only:
+{"severity": "blocking|non-blocking", "objection": "<one or two sentences>"}
+```
+
 ## Escalation (audit disagreement)
 
 A disagreement is the only `judgment` pause that survives `trusted` mode (D8).

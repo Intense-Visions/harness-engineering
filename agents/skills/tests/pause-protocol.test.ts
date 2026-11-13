@@ -144,3 +144,86 @@ describe('end-of-run summary (SC11)', () => {
     expect(s).toContain('never report zero decisions you did not read');
   });
 });
+
+/** Slots the blind auditor may receive. Anything else could carry the conclusion (SC8). */
+const BLIND_SLOTS = ['evidence', 'options', 'phase', 'question', 'skill'];
+const SLOT = /\{\{\s*([A-Za-z]+)\s*\}\}/g;
+function template(tag: string): string {
+  const m = new RegExp('```' + tag + '\\n([\\s\\S]*?)\\n```').exec(md);
+  if (!m) throw new Error(`no \`\`\`${tag} block in pause-protocol.md`);
+  return m[1] ?? '';
+}
+const slots = (t: string) => [...t.matchAll(SLOT)].map((m) => m[1] ?? '').sort();
+const render = (t: string, vars: Record<string, string>) =>
+  t.replace(SLOT, (_m, k: string) => {
+    const v = vars[k];
+    if (v === undefined) throw new Error(`unfilled slot ${k}`);
+    return v;
+  });
+
+const RECO = 'Recommendation: B) Defer Y (confidence: medium) RECO-7f3a';
+const RATIONALE = 'Keeps the plan focused on the stated goal RAT-91c2';
+/** A full decision, including what the blind auditor must never see. */
+const decision: Record<string, string> = {
+  skill: 'harness-planning',
+  phase: 'SCOPE',
+  question: 'Include Y in this plan?',
+  options: '- C) Update the spec first\n- A) Include Y\n- B) Defer Y',
+  evidence: 'Spec section 3 omits Y; the YAGNI review flagged it.',
+  recommendation: RECO,
+  rationale: RATIONALE,
+  pick: 'B) Defer Y',
+};
+
+/** Every way a template could let the blind auditor see the conclusion. */
+function blindLeaks(t: string): string[] {
+  const out: string[] = [];
+  const extra = slots(t).filter((s) => !BLIND_SLOTS.includes(s));
+  if (extra.length > 0) out.push(`slots beyond the blind set: ${extra.join(', ')}`);
+  if (/recommend|rationale/i.test(t))
+    out.push('template text mentions a recommendation or rationale');
+  const rendered = render(t, decision);
+  if (rendered.includes('RECO-7f3a') || rendered.includes('RAT-91c2')) {
+    out.push('rendered prompt contains the recommendation or its rationale');
+  }
+  return out;
+}
+
+describe('SC8: the blind auditor never sees the recommendation', () => {
+  it('uses exactly the blind slots', () => {
+    expect(slots(template('blind-audit-prompt'))).toEqual(BLIND_SLOTS);
+  });
+  it('renders a full decision without the recommendation or its rationale', () => {
+    const out = render(template('blind-audit-prompt'), decision);
+    expect(out).toContain('Include Y in this plan?'); // control: the decision was rendered
+    expect(out).toContain('B) Defer Y'); // the option itself is shown, unlabelled
+    expect(out).not.toContain('RECO-7f3a');
+    expect(out).not.toContain('RAT-91c2');
+    expect(out).not.toMatch(/recommend/i);
+    expect(blindLeaks(template('blind-audit-prompt'))).toEqual([]);
+  });
+  it('negative control: a template that adds a recommendation or rationale slot is caught', () => {
+    const t = template('blind-audit-prompt');
+    expect(blindLeaks(`${t}\nHint: {{recommendation}}`)).toEqual(
+      expect.arrayContaining([
+        expect.stringMatching(/slots beyond the blind set: recommendation/),
+        expect.stringMatching(/rendered prompt contains/),
+      ])
+    );
+    expect(blindLeaks(`${t}\nWhy: {{rationale}}`).length).toBeGreaterThan(0);
+  });
+  it('positive control: the refuter does receive the pick, and still not the rationale', () => {
+    const t = template('refuter-prompt');
+    expect(slots(t)).toEqual([...BLIND_SLOTS, 'pick'].sort());
+    const out = render(t, decision);
+    expect(out).toContain('Chosen option:\nB) Defer Y');
+    expect(out).not.toContain('RECO-7f3a');
+    expect(out).not.toContain('RAT-91c2');
+  });
+  it('tells the agent to shuffle options and strip recommendation markers first', () => {
+    expect(md).toContain(
+      'Shuffle the options into a random order and strip every recommendation marker'
+    );
+    expect(template('blind-audit-prompt')).toMatch(/order is random/i);
+  });
+});
