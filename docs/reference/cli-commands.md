@@ -879,6 +879,31 @@ Run an agent task
 - `--persona` — Run a persona by name
 - `--trigger` — Trigger context (auto, on_pr, on_commit, manual) (default: "auto")
 
+## Autonomy Commands
+
+Show or set user-level trusted autonomy (never read from project config)
+
+### `harness autonomy set <level>`
+
+Set the session autonomy override (raising requires an interactive terminal)
+
+**Arguments:**
+
+- `level` (required) — supervised | trusted
+
+**Options:**
+
+- `--session` — Session slug to override
+- `--audit` — Self-audit on judgment forks
+
+### `harness autonomy show`
+
+Show the resolved autonomy level and audit setting, and the source of each
+
+**Options:**
+
+- `--session` — Include this session’s override
+
 ## Black-box Commands
 
 Inspect durable per-run orchestrator flight records (provenance, verdicts, tool-use)

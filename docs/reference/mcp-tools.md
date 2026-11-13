@@ -695,7 +695,7 @@ Assemble all working context an agent needs in a single call: state, learnings, 
 - `intent` (string, required) — What the agent is about to do (used for graph context search)
 - `skill` (string, optional) — Current skill name (filters learnings by skill)
 - `tokenBudget` (number, optional) — Approximate token budget for graph context AND the primary comprehension block (default 4000)
-- `include` (array, optional) — Which constituents to include (default: all)
+- `include` (array, optional) — Which constituents to include (default: all). "autonomy" (opt-in) returns the resolved user-level autonomy for the session.
 - `includeEvents` (boolean, optional) — Include recent events timeline. Default: true when session is provided, false otherwise. Can also be controlled via include array.
 - `mode` (string, optional) — Response density. Default: summary
 - `learningsBudget` (number, optional) — Token budget for learnings slice (default 1000). Separate from graph tokenBudget.
@@ -1361,7 +1361,7 @@ Manage the project roadmap: show, add, update, remove, promote, sync, groom feat
 
 ### `manage_state`
 
-Manage harness project state: show current state, record learnings/failures, archive failures, reset state, run mechanical gate checks, or save/load session handoff
+Manage harness project state: show current state, record learnings/failures, archive failures, reset state, run mechanical gate checks, save/load session handoff, or lower session autonomy (set-autonomy; lower-only)
 
 **Parameters:**
 
@@ -1387,5 +1387,7 @@ Manage harness project state: show current state, record learnings/failures, arc
 - `force` (boolean, optional) — Force an off-table transition (requires actor+reason)
 - `actor` (string, optional) — Actor for a forced transition
 - `reason` (string, optional) — Reason for a forced transition
+- `level` (string, optional) — Autonomy level for set-autonomy. Agent calls may only lower: "trusted" is rejected (raise with `harness autonomy set` on a TTY).
+- `audit` (boolean, optional) — Audit setting for set-autonomy. Agent calls may only turn audit on; false is rejected.
 
 **CLI equivalent:** [`harness state show`](cli-commands.md#harness-state-show)

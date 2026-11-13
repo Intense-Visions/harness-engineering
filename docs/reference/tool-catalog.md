@@ -2476,7 +2476,7 @@ Assemble all working context an agent needs in a single call: state, learnings, 
       "type": "string"
     },
     "include": {
-      "description": "Which constituents to include (default: all)",
+      "description": "Which constituents to include (default: all). \"autonomy\" (opt-in) returns the resolved user-level autonomy for the session.",
       "items": {
         "enum": [
           "state",
@@ -2487,7 +2487,8 @@ Assemble all working context an agent needs in a single call: state, learnings, 
           "sessions",
           "events",
           "businessKnowledge",
-          "comprehension"
+          "comprehension",
+          "autonomy"
         ],
         "type": "string"
       },
@@ -3410,7 +3411,7 @@ Manage the project roadmap: show, add, update, remove, promote, sync, groom feat
 
 ### `manage_state`
 
-Manage harness project state: show current state, record learnings/failures, archive failures, reset state, run mechanical gate checks, or save/load session handoff
+Manage harness project state: show current state, record learnings/failures, archive failures, reset state, run mechanical gate checks, save/load session handoff, or lower session autonomy (set-autonomy; lower-only)
 
 **Input schema:**
 
@@ -3437,13 +3438,18 @@ Manage harness project state: show current state, record learnings/failures, arc
         "task-complete",
         "phase-start",
         "phase-complete",
-        "task-transition"
+        "task-transition",
+        "set-autonomy"
       ],
       "type": "string"
     },
     "actor": {
       "description": "Actor for a forced transition",
       "type": "string"
+    },
+    "audit": {
+      "description": "Audit setting for set-autonomy. Agent calls may only turn audit on; false is rejected.",
+      "type": "boolean"
     },
     "authorSkill": {
       "description": "Name of the skill authoring the entry (required for append_entry)",
@@ -3489,6 +3495,14 @@ Manage harness project state: show current state, record learnings/failures, arc
     },
     "learning": {
       "description": "Learning text to record (required for learn)",
+      "type": "string"
+    },
+    "level": {
+      "description": "Autonomy level for set-autonomy. Agent calls may only lower: \"trusted\" is rejected (raise with `harness autonomy set` on a TTY).",
+      "enum": [
+        "supervised",
+        "trusted"
+      ],
       "type": "string"
     },
     "newStatus": {
