@@ -1,4 +1,4 @@
-import type { AgentDefinition } from './generator';
+import { claudeCodeMcpTools, type AgentDefinition } from './generator';
 import { GENERATED_HEADER_AGENT } from './constants';
 
 function formatStep(step: Record<string, unknown>, index: number): string {
@@ -20,7 +20,7 @@ export function renderClaudeCodeAgent(def: AgentDefinition): string {
   lines.push(`name: ${def.name}`);
   lines.push(`description: >`);
   lines.push(`  ${def.description}`);
-  lines.push(`tools: ${def.tools.join(', ')}`);
+  lines.push(`tools: ${[...def.tools, ...claudeCodeMcpTools()].join(', ')}`);
   lines.push('---');
   lines.push('');
   lines.push(GENERATED_HEADER_AGENT);

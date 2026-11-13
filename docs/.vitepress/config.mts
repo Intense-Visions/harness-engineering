@@ -35,7 +35,8 @@ export default defineConfig({
             { text: 'Overview', link: '/guides/' },
             { text: 'Getting Started', link: '/guides/getting-started' },
             { text: 'Best Practices', link: '/guides/best-practices' },
-            { text: 'Comprehension Substrate', link: '/guides/comprehension-substrate' }
+            { text: 'Comprehension Substrate', link: '/guides/comprehension-substrate' },
+            { text: 'Trusted Autonomy', link: '/guides/trusted-autonomy' }
           ]
         }
       ],

@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/templates'
-sourceHash: 'f56345fd6b86a57e8c2404941d7eed7ae11d4eb74f35847e2131175c90454aab'
+sourceHash: '6c60430fc976ef5103be5a0612ebb291527b87f546d02dd250402d04dc8dfa5e'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent

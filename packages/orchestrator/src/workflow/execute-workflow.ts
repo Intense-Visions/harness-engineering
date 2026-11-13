@@ -157,6 +157,14 @@ export interface WorkflowEngineContext {
   };
   /** Terminal success — exactly one running/claimed delete + one lane persist (D6). */
   emitWorkflowSuccess(unit: string, runs: StageRun[]): Promise<void>;
+  /**
+   * Trusted autonomy: after each passing stage, settle the unit through the
+   * needs-human terminal when the stage left a human-decision handoff blocker
+   * (`audit-disagreement:` / `judgment-fork:`), so later stages never build on an
+   * unresolved fork. Resolves true when it settled the unit (the engine stops,
+   * owning no further terminal). Absent ⇒ no per-stage check.
+   */
+  humanDecisionAfterStage?(unit: string, runs: StageRun[]): Promise<boolean>;
   /** Terminal failure/safety-net — exactly one running/claimed delete + one lane persist (D6/I1). */
   finalizeWorkflowTerminal(
     unit: string,
@@ -579,6 +587,9 @@ export async function executeWorkflow(
       // cleanWorkspace — and downstream stages never run.
       if (run.outcome !== 'pass') {
         return await ctx.finalizeWorkflowTerminal(plan.coherenceUnit, runs, step);
+      }
+      if (cached === undefined && (await ctx.humanDecisionAfterStage?.(plan.coherenceUnit, runs))) {
+        return;
       }
     }
     await ctx.emitWorkflowSuccess(plan.coherenceUnit, runs); // D6: one success exit

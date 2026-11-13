@@ -34,11 +34,20 @@ Phases:
 
 ## Process
 
+### Pause points
+
+Every point below where this skill stops for the human carries a marker line, `_Pause point (<class>): resolve per the Pause Protocol._` followed by a `<!-- pause: <class> -->` comment. Resolve each one with the Pause Protocol: `agents/skills/templates/pause-protocol.md` (also shipped in the harness CLI package at `dist/agents/skills/templates/pause-protocol.md`).
+
+- Re-read autonomy at every pause point: `gather_context({ path, session, include: ["autonomy"] })`.
+- `irreversible` and `gate` pauses stop at every autonomy level.
+- A `ceremony` or `judgment` pause auto-resolves only when autonomy is `trusted`, the pause states a recommendation, a `judgment` fork passed the self-audit, and `record_auto_decision` returned `recorded: true`. In every other case, pause exactly as written below.
+- If you cannot read the protocol or resolve autonomy, pause.
+
 ### Iron Law
 
-**No implementation may begin before the design is approved by the human.**
+**No implementation may begin before the design is approved by the human (per the Pause Protocol).**
 
-If you find yourself writing production code, tests, or scaffolding before sign-off, STOP. Brainstorming produces a spec document, not code.
+If you find yourself writing production code, tests, or scaffolding before sign-off, STOP. Brainstorming produces a spec document, not code. <!-- not-a-pause: self-correction, not a human ask -->
 
 ---
 
@@ -54,6 +63,8 @@ When no arguments are provided (standalone invocation), the skill operates exact
 ---
 
 ### Phase 1: EXPLORE -- Gather Context
+
+**Apply autonomy flags first (D17).** Before any subagent dispatch and before the first marked point below: if this skill was invoked with `--supervised`, call `manage_state({ action: "set-autonomy", path, session, level: "supervised" })`; if with `--audit`, call it with `audit: true`. Flags only lower autonomy: on `--trusted` or `--no-audit`, change nothing and print the raise hint from the Pause Protocol. Then read autonomy with `gather_context({ path, session, include: ["autonomy"] })`. With no session slug nothing can auto-resolve, so there is nothing to lower.
 
 0a. **Read STRATEGY.md if present at repo root (upstream grounding).** Strategy is the durable product anchor that ranks above feature-level context — read it first so the rest of EXPLORE can cross-reference. Call `read_strategy({ path: "<project-root>" })` on the harness MCP server — it returns `{ present, valid, doc?, error? }` and runs validation + parsing inside the server so the project does not need `@harness-engineering/core` installed.
 
@@ -86,10 +97,14 @@ When no arguments are provided (standalone invocation), the skill operates exact
 
 ### Phase 2: EVALUATE -- Ask Questions and Narrow
 
+_Pause point (judgment): resolve per the Pause Protocol._ <!-- pause: judgment -->
+
 1. **Ask ONE question at a time, in plain text.** Ask the most important question first. Wait for the answer. Let it inform the next question.
 
+   _Pause point (judgment): resolve per the Pause Protocol._ <!-- pause: judgment -->
    **Ask directly in your reply. Do NOT route the question through `emit_interaction`, `AskUserQuestion`, or any tool.** `emit_interaction` records the question in state but does not display it to the human — the client collapses it to "Called harness" and the rendered prompt only returns to the model, so the human sees nothing and you end up narrating a question they cannot answer. `AskUserQuestion` is Claude-Code-only and caps headers at 12 chars / 4 options. Plain text in your own message is the only channel that reliably reaches the human across every tool (Claude Code, Cursor, Codex, Gemini CLI).
 
+   _Pause point (judgment): resolve per the Pause Protocol._ <!-- pause: judgment -->
    Present the question as a markdown table so tradeoffs are scannable, state your recommendation, then STOP and wait for the human's reply:
 
    ```markdown
@@ -107,7 +122,8 @@ When no arguments are provided (standalone invocation), the skill operates exact
 
 2. **Prefer multiple choice over open-ended questions.** Give 2-4 concrete options with brief tradeoff notes.
 3. **Acknowledge answers and build on them.** Do not re-ask clarified points. Track decisions as they accumulate.
-4. **Apply YAGNI ruthlessly.** For every proposed capability, ask: "Do we need this for the stated goal, or is this speculative?" If speculative, cut it. If the human insists, note it as a future consideration.
+4. **Apply YAGNI ruthlessly.** For every proposed capability, ask: "Do we need this for the stated goal, or is this speculative?" If speculative, cut it. If the human insists, note it as a future consideration. <!-- not-a-pause: self-check question, not a human ask -->
+   _Pause point (gate): resolve per the Pause Protocol._ <!-- pause: gate -->
 5. **Surface strategy contradictions.** If Phase 1 step 0a captured a contradiction between the feature description and `STRATEGY.md`, ask the human about it explicitly as one of the first few EVALUATE questions. Frame it as a choice — refine the feature to align, or refine strategy via `/harness:strategy` — never auto-resolve. Skip this when STRATEGY.md was absent or no contradiction was detected.
 
    Strategy contradiction is one category of a broader **cross-answer contradiction pass**: before moving to PRIORITIZE, scan the accumulated answers against each other for answers that are each fine in isolation but conflict — scope (a "small change" answer vs an answer implying broad blast radius), constraint violations (an answer that breaks a constraint asserted earlier), or an approach that no longer serves the persona/goal named in a prior answer. Surface each contradiction explicitly, quote both answers, and ask the human to reconcile — never auto-pick a side. This pass is instruction-level (agent judgment), consistent with the YAGNI and evidence disciplines, and bounded like a 2-round cap. See `references/question-file-mode.md` for the full category list.
@@ -144,11 +160,14 @@ These flow into `handoff.json` `contextKeywords` field. Select keywords that hel
 
 2. **Be honest about tradeoffs.** Do not soft-sell a preferred approach.
 3. **State your recommendation** and why, but defer to the human's decision.
+   _Pause point (judgment): resolve per the Pause Protocol._ <!-- pause: judgment -->
 4. **Wait for the human to choose.** Do not proceed until an approach is selected.
 
 ---
 
 ### Phase 4: VALIDATE -- Write the Spec
+
+_Pause point (ceremony): resolve per the Pause Protocol._ <!-- pause: ceremony -->
 
 1. **Present the design section by section** (not all at once). Get feedback on each section, incorporate it, then move to the next:
    - Overview and goals
@@ -191,11 +210,16 @@ These flow into `handoff.json` `contextKeywords` field. Select keywords that hel
      Full list: docs/changes/<feature>/SKILLS.md
    ```
 
+   _Pause point (ceremony): resolve per the Pause Protocol._ <!-- pause: ceremony -->
    In `--thorough` mode, show the full skill list for human review before proceeding.
 
 5. **Run `harness validate`** to verify proper placement and project health.
 
+   _Pause point (ceremony): resolve per the Pause Protocol._ <!-- pause: ceremony -->
+
 6. **Request sign-off in plain text.** Ask directly in your reply — do NOT route the request through `emit_interaction` or `AskUserQuestion` (the human will not see it). Present it as:
+
+   _Pause point (ceremony): resolve per the Pause Protocol._ <!-- pause: ceremony -->
 
    ```markdown
    Approve spec at <file-path>?
@@ -207,12 +231,14 @@ These flow into `handoff.json` `contextKeywords` field. Select keywords that hel
    Proceed? (yes/no)
    ```
 
-   The human must explicitly approve (a clear "yes") before this skill is complete.
+   The human must explicitly approve (supervised); in trusted mode this ceremony is auto-approved and logged per the Pause Protocol.
 
 7. **Promote the roadmap row.** If a roadmap exists (a `docs/roadmap.md` aggregate **or** a `docs/roadmap.d/` shard directory), transition the named row to `planned` and link the spec in a single structured call (steps 7 and 8 are intentionally ordered so the commit captures the roadmap mutation). Skip silently only when no roadmap exists. In sharded mode `manage_roadmap promote` writes the single row's shard under `docs/roadmap.d/` **and** regenerates the `docs/roadmap.md` aggregate — both are staged in step 8.
    - Derive the lookup key from the slash-command `ARGUMENTS` string (D1). Derive the summary from the spec title (the H1 heading).
    - Call `manage_roadmap` with action `promote`, `feature: "<ARGUMENTS>"`, `spec: "docs/changes/<feature>/proposal.md"`, and `summary: "<H1>"`.
    - Branch on the returned `PromoteResult` envelope:
+
+     _Pause point (gate): resolve per the Pause Protocol._ <!-- pause: gate -->
 
      | Envelope                                    | Skill behavior                                                                                                                                                     |
      | ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -226,7 +252,7 @@ These flow into `handoff.json` `contextKeywords` field. Select keywords that hel
      | `ok: false, reason: 'write-failed'`         | **STOP.** Surface `detail` verbatim. The brainstorm is not considered complete.                                                                                    |
 
    - The `not-found` create path: when the row genuinely does not exist yet, call `manage_roadmap` action `add` with `status: "planned"`, `milestone: "Current Work"`, the spec path, and the H1 summary (unchanged from the legacy behavior), then continue to step 8.
-   - "STOP" cases skip step 8 (no commit) and step 9 (no handoff/transition). The spec file written in step 3 stays on disk; the user re-runs the skill after resolving the conflict.
+   - "STOP" cases skip step 8 (no commit) and step 9 (no handoff/transition). The spec file written in step 3 stays on disk; the user re-runs the skill after resolving the conflict. <!-- not-a-pause: describes the gate table above -->
    - If `manage_roadmap` is unavailable, fall back to `parseRoadmap`/`promoteFeature`/`serializeRoadmap` from core. Warn: "External sync skipped (MCP unavailable). Run `manage_roadmap sync` when MCP is restored."
    - If no roadmap exists, skip silently (no envelope) and continue to step 8; the commit then contains only the spec files.
 
@@ -264,6 +290,7 @@ These flow into `handoff.json` `contextKeywords` field. Select keywords that hel
    }
    ```
 
+   _Pause point (ceremony): resolve per the Pause Protocol._ <!-- pause: ceremony -->
    **Choose the next skill with the human — ask in plain text, not via `emit_interaction`** (a `transition` records the handoff; it does not surface the choice). Present both paths and recommend autopilot:
 
    > Spec approved. How do you want to build it?
@@ -272,6 +299,8 @@ These flow into `handoff.json` `contextKeywords` field. Select keywords that hel
    > - **Planning** — work the implementation plan interactively before any execution. Choose this when phases are uncertain or you want to drive the breakdown by hand.
 
    Record the answer as `<next>` (`autopilot` or `planning`), then call `emit_interaction`:
+
+   _Pause point (ceremony): resolve per the Pause Protocol._ <!-- pause: ceremony -->
 
    ```json
    {
@@ -299,6 +328,9 @@ These flow into `handoff.json` `contextKeywords` field. Select keywords that hel
    }
    ```
 
+   After the next skill is chosen, **Auto-decision summary (SC11).** If `.harness/sessions/<session-slug>/auto-decisions.jsonl` does not exist, print nothing. Otherwise run `harness autonomy log --session <session-slug>`. If its output contains a line starting `No auto-decisions recorded`, print nothing more; otherwise print the output verbatim. If the command fails or is not recognised, print `Auto-decision summary unavailable (<reason>); raw log: .harness/sessions/<session-slug>/auto-decisions.jsonl` and never report zero decisions you did not read.
+
+   _Pause point (ceremony): resolve per the Pause Protocol._ <!-- pause: ceremony -->
    If confirmed, dispatch by the recorded choice:
    - `autopilot` → invoke harness-autopilot with `--spec <spec path>`.
    - `planning` → invoke harness-planning with the spec path.
@@ -313,6 +345,7 @@ If the design reveals larger-than-expected scope:
 
 1. **Identify natural decomposition boundaries** -- where can it split into independent pieces?
 2. **Propose sub-projects**, each brainstormable and plannable on its own.
+   _Pause point (judgment): resolve per the Pause Protocol._ <!-- pause: judgment -->
 3. **Get approval for decomposition** before continuing.
 
 ### Question-File Mode (opt-in)
@@ -394,7 +427,7 @@ Technical claims about existing code, architecture, or tradeoffs MUST cite evide
 - **Session directory** — When session slug is known, handoff goes to `.harness/sessions/<slug>/handoff.json`. The session directory structure is: `handoff.json`, `state.json`, `artifacts.json` (registry of spec/plan paths and file lists). Do not write to `.harness/handoff.json` in session context.
 - **Spec commit** -- After sign-off, the Phase 4 step 8 commit captures `docs/changes/<feature>/proposal.md`, `docs/changes/<feature>/SKILLS.md`, and the promoted roadmap together (in sharded mode: the `docs/roadmap.d/` shard plus the regenerated `docs/roadmap.md` aggregate; in monolith mode: `docs/roadmap.md`) so the spec enters git history at approval, not retroactively. `harness-execution` does not backfill these commits.
 - **Roadmap promotion** -- After approval (Phase 4 step 7), call `manage_roadmap` action `promote` to transition the named row to `planned` and link the spec atomically with the spec commit. Falls back to `add` (create new row) when the row does not exist; refuses on `in-progress`/`done`/`ambiguous`. Skip silently if no roadmap.
-- **`emit_interaction`** -- End of Phase 4 to record the transition to harness-autopilot or harness-planning (the human picks; default autopilot). The choice itself is asked in plain text -- `emit_interaction` records the confirmed transition, it does not surface the question.
+- **`emit_interaction`** -- End of Phase 4 to record the transition to harness-autopilot or harness-planning (the human picks; default autopilot). The choice itself is asked in plain text -- `emit_interaction` records the confirmed transition, it does not surface the question. <!-- not-a-pause: channel note listing where asks happen -->
 
 #### Requirement Phrasing
 
@@ -408,7 +441,7 @@ Apply when output includes specific behavioral expectations.
 ## Success Criteria
 
 - Spec exists in `docs/` with all required sections (overview, decisions, technical design, integration points, success criteria, implementation order)
-- Human explicitly approved before any implementation
+- Human explicitly approved before any implementation (per the Pause Protocol)
 - YAGNI applied: no speculative features in the spec
 - 2-3 approaches presented with honest tradeoffs before decision
 - Questions asked one at a time with multiple-choice options where possible
@@ -481,14 +514,21 @@ These are hard stops. Violating any gate means the process has broken down.
 - **No skipping the question phase.** Ask at least one clarifying question before proposing approaches. If you think you know the answer, validate the assumption.
 - **No single-approach proposals.** Always present at least 2 approaches with tradeoffs. A single approach is a recommendation disguised as a decision.
 - **No speculative features.** Every capability must trace to a stated requirement. "We might need this later" is not a requirement.
+  _Pause point (ceremony): resolve per the Pause Protocol._ <!-- pause: ceremony -->
 - **No section-dump specs.** Present section by section with feedback between each. Do not write the entire spec and ask "looks good?"
 
 ## Escalation
 
+_Pause point (judgment): resolve per the Pause Protocol._ <!-- pause: judgment -->
+
 - **Human cannot decide between approaches:** Identify the key differentiator. Ask: "The main difference is X. Given your priorities, does X matter more than Y?" If still stuck, suggest a small spike (not production code).
+  _Pause point (judgment): resolve per the Pause Protocol._ <!-- pause: judgment -->
 - **Scope keeps growing:** Stop brainstorming. Say: "Scope has expanded beyond the original problem. Should we (A) decompose into sub-projects, or (B) narrow the original goal?"
+  _Pause point (judgment): resolve per the Pause Protocol._ <!-- pause: judgment -->
 - **Unfamiliar problem domain:** State what you do not know. Ask if the human has domain expertise, docs, or a reference implementation. Do not guess at domain-specific requirements.
+  _Pause point (judgment): resolve per the Pause Protocol._ <!-- pause: judgment -->
 - **Requirements conflict with architecture:** Flag explicitly: "The spec calls for X, but current architecture assumes Y. Should we (A) change the spec, or (B) plan an architecture change as prerequisite?"
+  _Pause point (judgment): resolve per the Pause Protocol._ <!-- pause: judgment -->
 - **More than 10 questions without converging:** The problem is too large or ambiguous. Stop and propose decomposition or a scoping exercise.
 
 
@@ -522,6 +562,12 @@ cli:
       required: false
     - name: session-slug
       description: Session slug for scoped state/handoff (passed by autopilot)
+      required: false
+    - name: supervised
+      description: Lower autonomy to supervised for this session (lower-only, D17; see the Pause Protocol)
+      required: false
+    - name: audit
+      description: Turn the judgment self-audit on for this session (lower-only, D17; see the Pause Protocol)
       required: false
 mcp:
   tool: run_skill

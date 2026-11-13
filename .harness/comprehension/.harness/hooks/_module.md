@@ -1,13 +1,14 @@
 ---
 schemaVersion: 1
 module: '.harness/hooks'
-sourceHash: 'c91806abcd2b72ea25f5802a67aca1e8b0c461634a589d4553da839378bb287f'
+sourceHash: 'fc246d250543e36c245650dab2e2ac6e64782b205e475ba4374155bde5703fe8'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
 members:
   [
     'adoption-tracker.js',
+    'autonomy-guard.js',
     'block-no-verify.js',
     'format-check.js',
     'pre-compact-state.js',
@@ -44,12 +45,13 @@ export runFormatCheck
 import { readHookInput, runFormatCheck } from './format-check.js'
 import { readHookStdin } from './read-hook-stdin.js'
 import { parseCodexNotifyPayload, readHookStdin, retrospectLogLine, retrospectSession } from './session-retrospect-core.js'
-import from '@harness-engineering/core'
-import from '@harness-engineering/orchestrator'
+import '@harness-engineering/core'
+import '@harness-engineering/orchestrator'
 import { Buffer } from 'node:buffer'
 import { execFileSync } from 'node:child_process'
 import { randomUUID } from 'node:crypto'
-import { accessSync, appendFileSync, existsSync, mkdirSync, readFileSync, readSync, readdirSync, realpathSync, statSync, unlinkSync, writeFileSync } from 'node:fs'
-import { basename, dirname, isAbsolute, join, relative, resolve } from 'node:path'
+import fs, { accessSync, appendFileSync, existsSync, mkdirSync, readFileSync, readSync, readdirSync, realpathSync, statSync, unlinkSync, writeFileSync } from 'node:fs'
+import os from 'node:os'
+import path, { basename, dirname, isAbsolute, join, relative, resolve } from 'node:path'
 import process from 'node:process'
 ```

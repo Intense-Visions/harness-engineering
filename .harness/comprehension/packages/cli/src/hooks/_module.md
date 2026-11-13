@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/hooks'
-sourceHash: '4f07fe7509d19f42142bc59c9c3a91d68c051fca1fe4cb12714d255f65c826f2'
+sourceHash: 'ac6976cd025485961016618fa58da16f6f29d72f6b9b6bc45e43ee2eca38f31c'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -9,6 +9,7 @@ members:
   [
     'adoption-tracker.js',
     'agent-retrospect.ts',
+    'autonomy-guard.js',
     'block-no-verify.js',
     'cost-tracker.js',
     'format-check.js',
@@ -67,9 +68,10 @@ import '@harness-engineering/orchestrator'
 import { Buffer } from 'node:buffer'
 import { execFileSync } from 'node:child_process'
 import { randomUUID } from 'node:crypto'
-import { accessSync, appendFileSync, existsSync, mkdirSync, readFileSync, readSync, readdirSync, realpathSync, statSync, unlinkSync, writeFileSync } from 'node:fs'
+import fs, { accessSync, appendFileSync, existsSync, mkdirSync, readFileSync, readSync, readdirSync, realpathSync, statSync, unlinkSync, writeFileSync } from 'node:fs'
 import * as fs from 'node:fs'
-import { basename, dirname, isAbsolute, join, relative, resolve } from 'node:path'
+import os from 'node:os'
+import path, { basename, dirname, isAbsolute, join, relative, resolve } from 'node:path'
 import * as path from 'node:path'
 import process from 'node:process'
 import { describe, expect, it } from 'vitest'

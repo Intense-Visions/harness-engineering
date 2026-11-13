@@ -31,7 +31,7 @@ describe('hooks CLI integration: init -> list -> remove cycle', () => {
       fs.readFileSync(path.join(tmpDir, '.claude', 'settings.json'), 'utf-8')
     );
     expect(settings.hooks).toBeDefined();
-    expect(settings.hooks.PreToolUse).toHaveLength(3); // block-no-verify + protect-config + sentinel-pre
+    expect(settings.hooks.PreToolUse).toHaveLength(4); // block-no-verify + autonomy-guard + protect-config + sentinel-pre
     expect(settings.hooks.PostToolUse).toHaveLength(2); // quality-warner + sentinel-post
     expect(settings.hooks.PreCompact).toHaveLength(1); // pre-compact-state
     expect(settings.hooks.Stop).toHaveLength(3); // adoption-tracker + telemetry-reporter + session-retrospect
@@ -40,7 +40,7 @@ describe('hooks CLI integration: init -> list -> remove cycle', () => {
     const listResult = listHooks(tmpDir);
     expect(listResult.installed).toBe(true);
     expect(listResult.profile).toBe('standard');
-    expect(listResult.hooks).toHaveLength(9);
+    expect(listResult.hooks).toHaveLength(10);
 
     // 5. Remove cleans everything
     const removeResult = removeHooks(tmpDir);
@@ -72,12 +72,12 @@ describe('hooks CLI integration: init -> list -> remove cycle', () => {
   it('profile switch: init minimal then init strict upgrades', () => {
     initHooks({ profile: 'minimal', projectDir: tmpDir });
     const minList = listHooks(tmpDir);
-    expect(minList.hooks).toHaveLength(1);
+    expect(minList.hooks).toHaveLength(2); // block-no-verify + autonomy-guard
 
     initHooks({ profile: 'strict', projectDir: tmpDir });
     const strictList = listHooks(tmpDir);
     expect(strictList.profile).toBe('strict');
-    expect(strictList.hooks).toHaveLength(11);
+    expect(strictList.hooks).toHaveLength(12);
 
     // Verify settings.json reflects strict
     const settings = JSON.parse(

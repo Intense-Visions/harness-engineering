@@ -1,6 +1,6 @@
 # Harness Integration
 
-> Verify system wiring, materialize knowledge artifacts, and update project metadata. Integration is a gate, not a discovery phase -- it confirms that planned integration tasks completed.
+> Verify system wiring, materialize knowledge artifacts, and update project metadata. Integration is a gate, not a discovery phase -- it confirms that planned integration tasks completed. <!-- not-a-pause: skill summary line, not a step -->
 
 ## When to Use
 
@@ -14,6 +14,15 @@
 - NOT for implementing fixes (integration identifies gaps; the executor fixes them)
 
 ## Process
+
+### Pause points
+
+Every point below where this skill stops for the human carries a marker line, `_Pause point (<class>): resolve per the Pause Protocol._` followed by a `<!-- pause: <class> -->` comment. Resolve each one with the Pause Protocol: `agents/skills/templates/pause-protocol.md` (also shipped in the harness CLI package at `dist/agents/skills/templates/pause-protocol.md`).
+
+- Re-read autonomy at every pause point: `gather_context({ path, session, include: ["autonomy"] })`.
+- `irreversible` and `gate` pauses stop at every autonomy level.
+- A `ceremony` or `judgment` pause auto-resolves only when autonomy is `trusted`, the pause states a recommendation, a `judgment` fork passed the self-audit, and `record_auto_decision` returned `recorded: true`. In every other case, pause exactly as written below.
+- If you cannot read the protocol or resolve autonomy, pause.
 
 ### Iron Law
 
@@ -30,8 +39,9 @@ The words "should", "probably", "seems to", and "I believe" are forbidden in int
 When invoked by autopilot (or with explicit arguments), resolve paths before starting:
 
 1. **Session slug:** If `session-slug` argument provided, set `{sessionDir} = .harness/sessions/<session-slug>/`. Pass to `gather_context({ session: "<session-slug>" })`. All report writes go to `{sessionDir}/`.
-2. **Plan path:** Discover from `{sessionDir}/handoff.json` (read upstream execution/verification output). The plan contains integration tasks tagged `category: "integration"` and the `integrationTier` field.
-3. **Rigor level:** If `fast`/`thorough` argument provided, use it. Otherwise default to `standard`.
+2. **Apply autonomy flags first (D17).** Before any subagent dispatch and before the first marked point below: if this skill was invoked with `--supervised`, call `manage_state({ action: "set-autonomy", path, session, level: "supervised" })`; if with `--audit`, call it with `audit: true`. Flags only lower autonomy: on `--trusted` or `--no-audit`, change nothing and print the raise hint from the Pause Protocol. Then read autonomy with `gather_context({ path, session, include: ["autonomy"] })`. With no session slug nothing can auto-resolve, so there is nothing to lower.
+3. **Plan path:** Discover from `{sessionDir}/handoff.json` (read upstream execution/verification output). The plan contains integration tasks tagged `category: "integration"` and the `integrationTier` field.
+4. **Rigor level:** If `fast`/`thorough` argument provided, use it. Otherwise default to `standard`.
 
 When no arguments are provided (standalone invocation), discover plan from `docs/changes/<topic>/plans/` (preferred) or `docs/plans/` (legacy fallback) or prompt. Global `.harness/` paths used as fallback.
 
@@ -66,6 +76,7 @@ Before running sub-phases, resolve the effective integration tier:
    Tier escalated from `small` to `medium`: 8 new exports detected.
    ```
 
+   _Pause point (ceremony): resolve per the Pause Protocol._ <!-- pause: ceremony -->
    Inform the human and get acknowledgment in plain text in your reply (do NOT route this through `emit_interaction` or `AskUserQuestion` — they record the prompt but do not display it to the human, so they won't see it).
 
 ---
@@ -74,7 +85,7 @@ Before running sub-phases, resolve the effective integration tier:
 
 | Rigor      | INTEGRATE behavior                                                                     |
 | ---------- | -------------------------------------------------------------------------------------- |
-| `fast`     | WIRE only (default checks), auto-approve, no ADR drafting                              |
+| `fast`     | WIRE only (default checks), no ADR drafting                                            |
 | `standard` | Full tier-appropriate checks (WIRE for all; MATERIALIZE + UPDATE for medium and large) |
 | `thorough` | Full checks + human reviews every ADR draft + force knowledge graph verification       |
 
@@ -213,6 +224,7 @@ Skip this sub-phase for `small` tier or `fast` rigor. For medium and large tiers
    <What follows from this decision -- positive, negative, and neutral?>
    ```
 
+   _Pause point (ceremony): resolve per the Pause Protocol._ <!-- pause: ceremony -->
    d. **Present for review.** In `thorough` rigor, present each ADR draft in plain text in your reply and wait for human approval — do NOT route it through `emit_interaction` or `AskUserQuestion`, which record the prompt but do not display it to the human (the client collapses the call to "Called harness" and the text only returns to the model). In `standard` rigor, auto-approve but log the draft for review.
 
 #### Knowledge Graph Enrichment (medium + large tiers)
@@ -364,10 +376,14 @@ After all applicable sub-phases complete, produce the combined integration repor
 
    Immediately invoke harness-code-review without waiting for user input.
 
+   _Pause point (gate): resolve per the Pause Protocol._ <!-- pause: gate -->
+
 4. **On FAIL:** Do NOT emit a transition. Report incomplete items with fix instructions, then ask the human how to proceed in plain text.
 
+   _Pause point (gate): resolve per the Pause Protocol._ <!-- pause: gate -->
    **Ask directly in your reply. Do NOT route the question through `emit_interaction`, `AskUserQuestion`, or any tool.** `emit_interaction` records the prompt but does not display it to the human — the client collapses the call to "Called harness" and the rendered text only returns to the model, so the human sees nothing and you end up narrating a question they cannot answer. `AskUserQuestion` is Claude-Code-only and caps headers at 12 chars / 4 options. Plain text in your own message is the only channel that reliably reaches the human across every tool (Claude Code, Cursor, Codex, Gemini CLI).
 
+   _Pause point (gate): resolve per the Pause Protocol._ <!-- pause: gate -->
    Present the options as a markdown table, state your recommendation, then STOP and wait for the human's reply:
 
    ```markdown
@@ -451,7 +467,7 @@ Every pass/fail assertion in the integration report MUST include concrete eviden
 - **`harness check-deps`** -- Run during WIRE if new modules were added.
 - **`ingest_source`** -- Run during MATERIALIZE to enrich knowledge graph with decision nodes.
 - **`manage_roadmap`** -- Run during UPDATE to sync roadmap status. Use `sync` with `apply: true`.
-- **`emit_interaction`** -- Used only for the transition to REVIEW on pass. Tier escalation, ADR review (thorough mode), and fail/skip/stop decisions are asked in plain text in your reply.
+- **`emit_interaction`** -- Used only for the transition to REVIEW on pass. Tier escalation, ADR review (thorough mode), and fail/skip/stop decisions are asked in plain text in your reply. <!-- not-a-pause: channel note listing where asks happen -->
 - **Session directory** -- `.harness/sessions/<slug>/` contains all report files. Do not write to global `.harness/` when session slug is known.
 
 ## Success Criteria
@@ -548,15 +564,25 @@ Every pass/fail assertion in the integration report MUST include concrete eviden
 - **No skipping WIRE defaults.** Barrel export check and harness validate run for every tier, every rigor level. No exceptions.
 - **No skipping tier derivation.** Always derive tier from execution results and compare with plan estimate. Higher tier wins.
 - **No fixing during integration.** Integration identifies gaps. Integration never fills them. Record as FAIL and report.
+  _Pause point (ceremony): resolve per the Pause Protocol._ <!-- pause: ceremony -->
 - **No auto-passing MATERIALIZE in thorough mode.** Every ADR draft must be presented for human review in thorough mode.
 - **No integration without a plan.** If no plan exists, there are no integration tasks to verify. Run WIRE defaults only and note the absence.
 - **No forbidden hedging language.** "Should", "probably", "seems to" are forbidden. Use evidence or state "not verified."
 
 ## Escalation
 
+_Pause point (gate): resolve per the Pause Protocol._ <!-- pause: gate -->
+
 - **Barrel export generation command not found:** Record as FAIL. Instruct: "The project does not have a `generate-barrel-exports` script. Add it to package.json or skip barrel export verification."
+
+  _Pause point (gate): resolve per the Pause Protocol._ <!-- pause: gate -->
+
 - **Knowledge graph tools unavailable:** If `ingest_source` is not available, record materialization as skipped with reason. Do not block on tooling absence for medium tier. For large tier in thorough mode, escalate.
+
 - **ADR directory does not exist:** Create `docs/knowledge/decisions/` on first ADR write. This is expected for projects that have not used ADRs before.
 - **Plan has no integration tier:** Default to small. Run WIRE defaults only.
 - **Tier derivation signals ambiguous:** When git diff counts are borderline (e.g., exactly 5 new exports), use the plan estimate as tiebreaker.
+
+  _Pause point (gate): resolve per the Pause Protocol._ <!-- pause: gate -->
+
 - **Integration fails repeatedly after fix attempts:** After 2 fix cycles, escalate: "Integration has failed <N> times. The integration tasks may need redesign. Review the plan's integration section."

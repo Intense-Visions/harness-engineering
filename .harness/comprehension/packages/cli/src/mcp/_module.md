@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/mcp'
-sourceHash: 'b2ccc9fc28c5e1be5c3631f1b10927bcb359febaec5e3018213285bc4c6dd2de'
+sourceHash: '9eacf01738b908a3b79cf6cde1ac58853c97fd113d50151a66f22c602a76c853'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -66,6 +66,7 @@ import { checkDependenciesDefinition, handleCheckDependencies } from './tools/ar
 import { assessProjectDefinition, handleAssessProject } from './tools/assess-project.js'
 import { auditAnatomyDefinition, handleAuditAnatomy } from './tools/audit-anatomy.js'
 import { auditBrandDefinition, handleAuditBrand } from './tools/audit-brand.js'
+import { handleRecordAutoDecision, recordAutoDecisionDefinition } from './tools/auto-decision.js'
 import { generateBlueprintDefinition, handleGenerateBlueprint } from './tools/blueprint.js'
 import { canaryDiscoverTestCommandDefinition, canaryProbeDefinition, canaryRecommendFrameworkDefinition, canaryRunHistoryDefinition, handleCanaryDiscoverTestCommand, handleCanaryProbe, handleCanaryRecommendFramework, handleCanaryRunHistory } from './tools/canary.js'
 import { handleRunCIChecks, runCIChecksDefinition } from './tools/ci.js'

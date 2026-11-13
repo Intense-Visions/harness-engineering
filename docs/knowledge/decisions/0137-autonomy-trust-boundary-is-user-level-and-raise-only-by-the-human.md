@@ -1,0 +1,174 @@
+---
+number: 0137
+title: 'Autonomy trust boundary: user-level only, raised only by the human, every sanctioned agent- or repo-reachable path lower-only'
+date: 2026-11-13
+status: accepted
+tier: large
+source: docs/changes/trusted-autonomy-mode/proposal.md
+---
+
+## Context
+
+> **Record of an operative decision.** This ADR documents spec decisions **D3, D4, D12, D13,
+> D14, D15, D16 and D17** of `docs/changes/trusted-autonomy-mode/proposal.md` and the spec's
+> threat model. Every citation below was checked against the code as it shipped in
+> `packages/core/src/autonomy/`, `packages/cli/src/commands/autonomy/` and
+> `packages/cli/src/hooks/autonomy-guard.js`.
+
+Trusted mode lets an agent auto-approve ceremony and auto-resolve judgment forks (ADR 0136,
+ADR 0138). A setting with that power is only as safe as the set of things that can turn it on.
+An agent reads untrusted text all day (issues, specs, tool output, web pages, a cloned repo's
+files), and any of it can carry an instruction. If any path an agent or a repository can reach
+were able to **raise** autonomy, an injected sentence or a malicious repo could raise itself
+into trusted mode. The design question was therefore not "where is the setting stored" but "which
+paths may raise it, and which may only lower it".
+
+The spec's threat model (`#threat-model`) scopes the answer: the gate protects against
+**prompt-injected instructions, repo-carried configuration, and accidental raises** reaching the
+sanctioned paths (MCP tools, the `harness` CLI, environment, project files). It is **not** a
+sandbox against code running as the same OS user.
+
+## Decision
+
+### Precedence (D3)
+
+Per field (`level` and `audit` resolve independently), highest first: the session override, then
+the `HARNESS_AUTONOMY` / `HARNESS_AUTONOMY_AUDIT` env, then `~/.harness/config.json`, then the
+default `supervised`. Implemented by `resolveAutonomy` (`packages/core/src/autonomy/resolve.ts`;
+`resolveLevel` picks the flag/session tier first, then env, then user config, then default).
+`resolveAutonomy` also accepts an invocation-flag tier, lower-only (D17) and tied with the session
+override by recency, but it is API-only: no production caller passes a flag. Skills apply an
+invocation flag such as `--supervised` through `manage_state set-autonomy`, so in practice a flag
+reaches the resolver as a session override and no flag-vs-session recency tie-break happens.
+`resolveAutonomy` never reads `harness.config.json`: a project key is ignored (SC5).
+
+### Lower-only tiers
+
+Every **sanctioned** path an agent or a repository can reach (MCP tools, env, invocation flags,
+project files, a non-interactive `harness autonomy set`) may only lower autonomy (`trusted` →
+`supervised`, audit off → on). "Sanctioned" is load-bearing: an agent writing `~/.harness/`
+directly through an unrestricted shell is the same-user residual described below, narrowed by a
+hook but not closed.
+
+- **Env (D13).** Env is repo-reachable: `.env` loaded by `dotenv`, and `env` blocks in
+  `.mcp.json` and `.claude/settings.json`. A raising env value is ignored with a warning.
+- **Invocation flags (D17).** `--supervised` and `--audit` lower; `--trusted` and `--no-audit` are
+  refused, because an agent cannot prove a human typed them. A skill applies a lowering flag
+  through `manage_state set-autonomy` so subagents that re-read autonomy see it.
+- **The agent-callable writer (D12).** `manage_state` action `set-autonomy` goes through
+  `writeLoweringOverride` (`packages/core/src/autonomy/lower-only.ts:25`), the only override
+  writer an MCP surface may use; a raise is rejected with `AUTONOMY_RAISE_REJECTED` and the
+  override is left unchanged (SC13).
+
+### Raise paths
+
+Exactly two, and both need something only the human controls on the sanctioned paths (the same-user residual is below):
+
+1. **`~/.harness/config.json`**, the user-level file the human edits.
+2. **`harness autonomy set`** with both stdin and stdout a TTY (`defaultIsInteractive`,
+   `packages/cli/src/commands/autonomy/set.ts:37`) plus an interactive confirm. Without a TTY it
+   refuses (SC13). Every successful raise appends a line to `~/.harness/autonomy-audit.log`
+   (`autonomyAuditLogPath`, `packages/core/src/autonomy/paths.ts:29`).
+
+### Overrides live in the user's home, never the repo (D12, D15)
+
+Session overrides are stored at `~/.harness/session-overrides/<repoKey>/<slug>.json`. `repoKey`
+is the first 16 hex chars of the sha256 of the realpath of `git rev-parse --git-common-dir`
+(`computeRepoKey`, `packages/core/src/autonomy/paths.ts:93`), so every worktree of a repo
+shares overrides: a human lowering in the main checkout reaches agents in sibling worktrees. A
+raise does not travel the same way (see D14 below): it is honoured only where its session
+directory exists in the worktree that reads it.
+Each written field carries its own `setAt` and origin, so a lower-only write to one field never
+re-dates a human-set value in the other.
+
+### Raises are session-bound and expire; lowerings do not expire (D14)
+
+A raise must name an existing `.harness/sessions/<slug>/` directory, checked before the human
+is prompted, and it expires: default 24 hours (`DEFAULT_RAISE_TTL_MS`,
+`packages/core/src/autonomy/override-store.ts:27`), adjustable with `--for <duration>` (`--for`
+on a lowering is refused). Lowerings do not expire; only a later interactive raise replaces one.
+Otherwise an injected instruction need only name an old slug to inherit a past raise.
+
+The shipped resolver enforces this again at read time, per field:
+
+- **Session dir at read time.** A raised field is honoured only while `.harness/sessions/<slug>/`
+  exists under the project path resolving it (`resolveAutonomyForSession`,
+  `packages/core/src/autonomy/session.ts`). The session dir is that path joined as given, the
+  same layout `resolveSessionDir` writes (so a monorepo subproject's sessions live under the
+  subproject, not the git toplevel); only the override key uses git. Because the override file is
+  shared across worktrees (D15) but the session dir is not, a raise made for a session in one
+  worktree does not reach a sibling worktree, whereas a lowering does.
+- **No expiry means expired.** A raised field without `expiresAt` (or with an unparseable one) is
+  ignored with a warning, the same as an expired one (`liveField`,
+  `packages/core/src/autonomy/resolve.ts`).
+- **Corrupt fields fail closed, per field.** A present-but-corrupt `level` or `audit` field reads
+  as its lowest-autonomy value (`supervised`, audit on) without discarding the other field, and
+  the next write persists that value (`readSessionOverride`,
+  `packages/core/src/autonomy/override-store.ts`).
+- **Strict validation.** A change must be exactly typed (for example a string `"false"` for
+  `audit` is invalid, not falsy); anything else is rejected with `AUTONOMY_INVALID_SETTING`
+  before the raise/lower policy check runs (`packages/core/src/autonomy/schema.ts`,
+  `lower-only.ts`).
+
+### The same-user residual is narrowed and made visible (D16)
+
+The `autonomy-guard` PreToolUse hook (`packages/cli/src/hooks/autonomy-guard.js`) blocks agent
+Bash invocations of `harness autonomy set` that raise (or whose level is not literally a
+lowering), agent Bash/Write/Edit aimed at `~/.harness/config.json`,
+`~/.harness/session-overrides/` and `~/.harness/autonomy-audit.log`, and agent writes to the
+append-only decision log. It is in the `minimal` hook profile, the safety floor every profile
+includes (`packages/cli/src/hooks/profiles.ts:5`).
+
+### Alternatives rejected
+
+- **A project-level setting in `harness.config.json`.** A cloned repo could raise its reader into
+  trusted mode. Rejected outright; SC5 pins it with a test.
+- **Raising env or flags.** Both are reachable by an agent or a repo; an agent cannot prove a
+  human set them (D13, D17).
+- **Overrides under `.harness/sessions/`.** That directory is gitignored in this repo but not in
+  scaffolded templates, so a repo-carried override could reach another user (spec Assumptions).
+
+## Consequences
+
+- **Headless trusted runs must configure the host.** CI, the orchestrator and any non-TTY run can
+  only be trusted through `~/.harness/config.json` on the machine that runs them; env and flags
+  can only lower.
+- **A tripwire, not a sandbox.** An agent with an unrestricted shell running as the same OS user
+  can still write `~/.harness/` through indirection the hook does not follow (another
+  interpreter, a decoded payload, a script written then executed, symlinks). The hook header
+  lists the known residual evasions. The raise audit log makes successful raises visible after
+  the fact; it does not prevent them.
+- **No project cap in v1 (D4).** A regulated repo cannot forbid trusted mode today. A cap could
+  only lower autonomy, so it can be added later without changing this trust boundary (spec
+  Future Considerations).
+- **Persona subagents get exactly the protocol's MCP tools.** Generated Claude Code persona
+  definitions (`claudeCodeMcpTools()`, `packages/cli/src/agent-definitions/generator.ts`) append
+  `gather_context`, `manage_state`, `record_auto_decision` and `emit_interaction` to the six-tool
+  allowlist, under both install-dependent server names (`mcp__harness__…` and
+  `mcp__plugin_harness-claude_harness__…`). We chose exact names over `mcp__harness__*` and over
+  `disallowedTools`: the subagent `tools` field documents exact names, and the persona gains
+  only what the protocol needs. The grant widens one capability: a persona can now write the
+  decision log, which the `autonomy-guard` hook keeps closed to `Bash` and `Write`, so it could
+  record an audit status it never earned. That is the same agent-reported trust the main
+  session's log entries already carry (ADR 0138, "Compliance is instruction-level"). None of these tools can raise autonomy (`manage_state
+set-autonomy` only lowers; D13). A subagent still has no spawning tool, so it cannot audit;
+  instead of recording `unavailable`, it hands judgment forks back to the session that
+  dispatched it ([ADR 0138](./0138-blind-then-refute-self-audit-for-auto-resolved-judgment-forks.md)).
+  An install under any other server name, and the Gemini CLI renderer (six mapped built-in
+  tools), still grant no MCP tools, so personas there keep failing safe. Cursor and Codex persona
+  definitions carry no tool list; the host's permissions decide there.
+
+## References
+
+- Spec: `docs/changes/trusted-autonomy-mode/proposal.md` (D3, D4, D12-D17; `#threat-model`;
+  SC5, SC6, SC13).
+- Code: `packages/core/src/autonomy/resolve.ts`, `lower-only.ts`, `override-store.ts`,
+  `paths.ts`; `packages/cli/src/commands/autonomy/set.ts`;
+  `packages/cli/src/hooks/autonomy-guard.js`; `packages/cli/src/hooks/profiles.ts`;
+  `packages/cli/src/agent-definitions/generator.ts`.
+- Claude Code docs: <https://code.claude.com/docs/en/sub-agents> ("Available tools", "Restrict
+  which tools a subagent can use"), <https://code.claude.com/docs/en/tools-reference>,
+  <https://code.claude.com/docs/en/mcp> (plugin-provided server tool names). Read 2026-11-13.
+- Related: [ADR 0136](./0136-autonomy-is-orthogonal-to-rigor.md),
+  [ADR 0138](./0138-blind-then-refute-self-audit-for-auto-resolved-judgment-forks.md).
+- Guide: `docs/guides/trusted-autonomy.md` ("Known limitations").

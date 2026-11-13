@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/tests/hooks'
-sourceHash: 'bbb3811f080f1dd3a8c23bd8ceb4709ed105a170bd7d4bd512449661ec3d25f8'
+sourceHash: 'feb52bb0d551579b797cde946ee0270ebbe89f19aa5145720afa76e75a3ea608'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -9,8 +9,10 @@ members:
   [
     'adoption-tracker.test.ts',
     'agent-retrospect.test.ts',
+    'autonomy-guard.test.ts',
     'block-no-verify.test.ts',
     'cost-tracker.test.ts',
+    'dogfood-hook-parity.test.ts',
     'format-check.test.ts',
     'hooks-cli-integration.test.ts',
     'integration.test.ts',
@@ -42,6 +44,7 @@ members:
 ## Dependency Slice
 
 ```
+import '../../../../scripts/lib/plugin-config.mjs'
 import { initHooks } from '../../src/commands/hooks/init'
 import { listHooks } from '../../src/commands/hooks/list'
 import { removeHooks } from '../../src/commands/hooks/remove'
@@ -53,6 +56,7 @@ import { HOOK_SCRIPTS, PROFILES } from '../../src/hooks/profiles.js'
 import { parseCodexNotifyPayload } from '../../src/hooks/session-retrospect-core.js'
 import { RoadmapMeta, Shard, parseRoadmap, serializeMeta, serializeShard } from '@harness-engineering/core'
 import { execFileSync, execSync, spawnSync } from 'node:child_process'
+import { createHash } from 'node:crypto'
 import { chmodSync, closeSync, copyFileSync, existsSync, mkdirSync, mkdtempSync, openSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import * as fs from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -60,5 +64,5 @@ import * as os from 'node:os'
 import { join, resolve } from 'node:path'
 import * as path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 ```

@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/types/src'
-sourceHash: 'a579f1e53252fa4ea6bf38a8c010266af7aa8f5109c694f5159edbc45970d265'
+sourceHash: '60147adddf0a7662f9dd02d86bd9cfda634a1544390ad10fd11e27843ac82fc6'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -9,6 +9,7 @@ members:
   [
     'adoption.ts',
     'auth.ts',
+    'autonomy.ts',
     'caching.ts',
     'ci-notify.ts',
     'ci.ts',
@@ -50,6 +51,10 @@ members:
 ## Interface Contract
 
 ```ts
+export AUTONOMY_LEVELS
+export AUTONOMY_SOURCES
+export AUTO_DECISION_AUDIT_STATUSES
+export AUTO_DECISION_PAUSE_CLASSES
 export AdoptionSection
 export AdoptionSnapshot
 export AgentBackend
@@ -69,6 +74,20 @@ export AuthToken
 export AuthTokenPublic
 export AuthTokenPublicSchema
 export AuthTokenSchema
+export AutoDecision
+export AutoDecisionAudit
+export AutoDecisionAuditStatus
+export AutoDecisionInput
+export AutoDecisionPauseClass
+export AutoDecisionSummary
+export AutonomyFlag
+export AutonomyLevel
+export AutonomyOverrideField
+export AutonomyOverrideOrigin
+export AutonomySessionOverride
+export AutonomySetting
+export AutonomySource
+export AutonomyUserConfig
 export BackendCapabilities
 export BackendCapabilityRegistry
 export BackendDef
@@ -116,6 +135,7 @@ export ContainerRuntime
 export ContextBudget
 export ContextBudgetSchema
 export CustomTaskDefinition
+export DEFAULT_AUTONOMY_AUDIT
 export DEFAULT_RETRIEVAL_MODE
 export DEFAULT_SKILL_CONTEXT_BUDGET
 export DailyUsage
@@ -294,6 +314,7 @@ export ReindexStats
 export RequiredStrategySection
 export ResolutionSource
 export ResolutionStep
+export ResolvedAutonomy
 export ResourceBudgetConfig
 export Result
 export RetrievalMode

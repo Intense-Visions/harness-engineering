@@ -128,6 +128,8 @@ export interface BuildWorkflowContextDeps {
   priorGateFailure?: string;
   /** Terminal-success seam (Task 6/7): bound to `settleWorkflowSuccess`. */
   settleSuccess: (unit: string, runs: StageRun[]) => Promise<void>;
+  /** Per-stage human-decision check (see `WorkflowEngineContext.humanDecisionAfterStage`). */
+  humanDecisionAfterStage?: (unit: string, runs: StageRun[]) => Promise<boolean>;
   /** Terminal-failure/safety-net seam (Task 6/7): bound to `settleWorkflowTerminal`. */
   settleTerminal: (
     unit: string,
@@ -674,6 +676,9 @@ export function buildWorkflowContext(deps: BuildWorkflowContextDeps): WorkflowEn
     // Resume-from-failed-stage checkpoint seams — thin forwarders to the orchestrator's
     // per-unit stageCheckpoints map (survives re-dispatch). Absent deps ⇒ omitted ⇒ no
     // reuse (SC3 byte-identical prior behavior).
+    ...(deps.humanDecisionAfterStage !== undefined
+      ? { humanDecisionAfterStage: deps.humanDecisionAfterStage }
+      : {}),
     ...(deps.loadStageCheckpoint !== undefined
       ? { loadStageCheckpoint: deps.loadStageCheckpoint }
       : {}),

@@ -178,7 +178,7 @@ async function writeRepoGuide(cwd: string): Promise<MinimalArtifact> {
   return { mvh, files: ['AGENTS.md'], scaffolded: true };
 }
 
-// --- Artifact 5: the one permission boundary (block-no-verify) ---
+// --- Artifact 5: the one permission boundary (the minimal-profile guard hooks) ---
 
 function installPermissionBoundary(cwd: string, force: boolean): MinimalArtifact {
   const result = initHooks({ profile: 'minimal', projectDir: cwd, force });
@@ -186,7 +186,11 @@ function installPermissionBoundary(cwd: string, force: boolean): MinimalArtifact
     path.relative(cwd, result.settingsPath).replaceAll('\\', '/'),
     ...result.copiedScripts.map((s) => `.harness/hooks/${s}.js`),
   ];
-  return { mvh: 'One permission boundary — block-no-verify', files, scaffolded: true };
+  return {
+    mvh: 'One permission boundary — block-no-verify + autonomy-guard',
+    files,
+    scaffolded: true,
+  };
 }
 
 /**

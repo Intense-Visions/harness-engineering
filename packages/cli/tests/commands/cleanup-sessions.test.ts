@@ -1,9 +1,14 @@
 // packages/cli/tests/commands/cleanup-sessions.test.ts
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
-import { runCleanupSessions, runCleanupAll } from '../../src/commands/cleanup-sessions';
+import {
+  runCleanupSessions,
+  runCleanupAll,
+  printCleanupSessionsResult,
+  printCleanupAllResult,
+} from '../../src/commands/cleanup-sessions';
 
 describe('cleanup-sessions command', () => {
   let tmpDir: string;
@@ -151,5 +156,83 @@ describe('cleanup-sessions --all (Hermes Phase 2)', () => {
     expect(result.ok).toBe(true);
     const filePath = path.join(tmpDir, '.harness', 'cache', 'stale.json');
     expect(fs.existsSync(filePath)).toBe(false);
+  });
+});
+
+/**
+ * Review I2: the auto-decision log is the audit trail of what an agent decided on its own.
+ * A TTL sweep must not delete it with the session.
+ */
+describe('sessions holding an auto-decision log survive the TTL sweep (review I2)', () => {
+  const DAY = 24 * 60 * 60 * 1000;
+  let tmpDir: string;
+  let sessionsDir: string;
+  beforeEach(() => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-test-'));
+    sessionsDir = path.join(tmpDir, '.harness', 'sessions');
+    fs.mkdirSync(sessionsDir, { recursive: true });
+  });
+  afterEach(() => fs.rmSync(tmpDir, { recursive: true, force: true }));
+
+  function staleSession(name: string, log?: string): void {
+    const dir = path.join(sessionsDir, name);
+    fs.mkdirSync(dir, { recursive: true });
+    const files = ['handoff.json', ...(log !== undefined ? ['auto-decisions.jsonl'] : [])];
+    fs.writeFileSync(path.join(dir, 'handoff.json'), '{}');
+    if (log !== undefined) fs.writeFileSync(path.join(dir, 'auto-decisions.jsonl'), log);
+    const past = new Date(Date.now() - 3 * DAY);
+    for (const f of files) fs.utimesSync(path.join(dir, f), past, past);
+    fs.utimesSync(dir, past, past);
+  }
+
+  it('runCleanupSessions keeps a stale session whose log is non-empty', async () => {
+    staleSession('audited', '{"x":1}\n');
+    staleSession('plain-stale'); // control: still removed
+    const r = await runCleanupSessions({ cwd: tmpDir, dryRun: false });
+    expect(r.ok && r.value.kept).toContain('audited');
+    expect(r.ok && r.value.removed).toEqual(['plain-stale']);
+    expect(fs.existsSync(path.join(sessionsDir, 'audited', 'auto-decisions.jsonl'))).toBe(true);
+  });
+  it('an empty log does not protect a stale session (control)', async () => {
+    staleSession('empty-log', '');
+    const r = await runCleanupSessions({ cwd: tmpDir, dryRun: false });
+    expect(r.ok && r.value.removed).toEqual(['empty-log']);
+  });
+  it('runCleanupAll (--all) keeps it too', async () => {
+    staleSession('audited', '{"x":1}\n');
+    staleSession('plain-stale');
+    const r = await runCleanupAll({ cwd: tmpDir, dryRun: false, include: ['sessions'] });
+    expect(r.ok).toBe(true);
+    expect(fs.existsSync(path.join(sessionsDir, 'audited', 'auto-decisions.jsonl'))).toBe(true);
+    expect(fs.existsSync(path.join(sessionsDir, 'plain-stale'))).toBe(false);
+  });
+  it('reports a stale session kept for its log as retained; a fresh one with a log is not (review N4)', async () => {
+    staleSession('audited', '{"x":1}\n');
+    staleSession('plain-stale');
+    fs.mkdirSync(path.join(sessionsDir, 'fresh-logged'), { recursive: true });
+    fs.writeFileSync(path.join(sessionsDir, 'fresh-logged', 'auto-decisions.jsonl'), '{"x":1}\n');
+    const r = await runCleanupSessions({ cwd: tmpDir, dryRun: true });
+    expect(r.ok && r.value.retained).toEqual(['audited']);
+    expect(r.ok && r.value.kept.sort()).toEqual(['audited', 'fresh-logged']);
+  });
+  it('--all reports retained per target (review N4)', async () => {
+    staleSession('audited', '{"x":1}\n');
+    const r = await runCleanupAll({ cwd: tmpDir, dryRun: true, include: ['sessions'] });
+    expect(r.ok && r.value[0]?.retained).toEqual(['audited']);
+  });
+  it('prints retained sessions in text and JSON output (review N4)', () => {
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {});
+    printCleanupSessionsResult({ removed: ['x'], kept: ['a'], retained: ['a'] }, false, false);
+    printCleanupSessionsResult({ removed: [], kept: ['a'], retained: ['a'] }, true, true);
+    printCleanupAllResult(
+      [{ target: 'sessions', removed: [], kept: ['a'], retained: ['a'] }],
+      false,
+      false
+    );
+    const out = log.mock.calls.map((c) => String(c[0])).join('\n');
+    log.mockRestore();
+    expect(out).toContain('Kept because it holds an auto-decision log (1):');
+    expect(out).toContain('"retained": [');
+    expect(out).toContain('1 kept for an auto-decision log');
   });
 });
