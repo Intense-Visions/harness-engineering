@@ -15,6 +15,7 @@ import {
   extractOutlineUnits,
   usesOutlineExtraction,
 } from '../../../../src/shared/craft/extract/outline-units';
+import { SEED_RUBRICS, rubricApplies } from '../../../../src/code-craft/catalog/rubrics/index';
 
 describe('language routing', () => {
   it.each([
@@ -136,5 +137,46 @@ describe('law: a type declared twice yields one unit (M-DEDUP)', () => {
     ].join('\n');
     const units = await extractOutlineUnits(java, 'Cart.java');
     expect(units.filter((u) => u.kind === 'method' && u.name === 'add')).toHaveLength(2);
+  });
+});
+
+describe('law: a Go struct selects at least one rubric (M-KIND)', () => {
+  const go = [
+    'package cart',
+    '',
+    'type Cart struct {',
+    '    items []int',
+    '    total int',
+    '}',
+    '',
+    'func (c *Cart) Add(n int) {',
+    '    c.items = append(c.items, n)',
+    '    c.total += n',
+    '}',
+  ].join('\n');
+
+  it('emits the struct as a class-kinded unit', async () => {
+    const units = await extractOutlineUnits(go, 'cart.go');
+    expect(units).toContainEqual({ kind: 'class', name: 'Cart', line: 3, endLine: 6 });
+  });
+
+  // THIS is the law. A unit COUNT is not evidence of critique: all seven
+  // rubrics declare appliesToKinds of ['function','method','class'] or
+  // ['function','method'], and selection is `appliesToKinds.includes(kind)`.
+  // Go emits `type` for a struct, so an un-normalized unit is extracted,
+  // counted, and then critiqued by nothing — the same silent zero arriving
+  // through the rubric selector instead of the language gate.
+  it('selects a non-zero number of rubrics for every unit', async () => {
+    const units = await extractOutlineUnits(go, 'cart.go');
+    expect(units.length).toBeGreaterThan(0); // positive control for the loop below
+    for (const unit of units) {
+      const selected = SEED_RUBRICS.filter((r) => rubricApplies(r, unit.kind));
+      expect(selected.length, `${unit.kind}:${unit.name} selected zero rubrics`).toBeGreaterThan(0);
+    }
+  });
+
+  it('keeps the Go method, which is emitted top level and not as a child', async () => {
+    const units = await extractOutlineUnits(go, 'cart.go');
+    expect(units).toContainEqual({ kind: 'method', name: 'Add', line: 8, endLine: 11 });
   });
 });

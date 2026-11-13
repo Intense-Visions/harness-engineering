@@ -105,4 +105,13 @@ const CRAFT_KIND_BY_SYMBOL_KIND: Readonly<Record<string, CraftUnitKind>> = {
   function: 'function',
   method: 'method',
   class: 'class',
+  /**
+   * Go emits `type` for a struct (measured: `type:Cart`), and `CodeFinding.target.kind`
+   * is the closed union 'function' | 'method' | 'class'. Normalizing here is
+   * strictly cheaper than widening `appliesToKinds` across seven rubrics AND
+   * widening `UnitKind` through the finding schema, the emitter and the MCP
+   * surface — and it keeps one map as the single place a language's kinds are
+   * reconciled.
+   */
+  type: 'class',
 };
