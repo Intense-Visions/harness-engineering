@@ -234,3 +234,26 @@ describe('SC8: the blind auditor never sees the recommendation', () => {
     expect(template('blind-audit-prompt')).toMatch(/order is random/i);
   });
 });
+
+describe('review I1: the recommendation is committed before the audit, and the audit runs once', () => {
+  it('prints the pre-audit recommendation and binds chosen and rationale to it', () => {
+    const audit = section('## Self-audit (judgment forks)');
+    expect(audit).toContain('print `Recommendation (pre-audit): <option>`');
+    expect(audit).toContain('copied verbatim from the options');
+    const rec = section('### `record_auto_decision` call');
+    expect(rec).toContain('`chosen` equals the pre-audit recommendation');
+    expect(rec).toContain('`rationale` begins `pre-audit: <option>;`');
+  });
+  it('spawns one blind auditor and at most one refuter; a second spawn escalates', () => {
+    const audit = section('## Self-audit (judgment forks)');
+    expect(audit).toContain('Spawn exactly one blind auditor and at most one refuter per fork.');
+    expect(audit).toContain(
+      'Never re-run either: needing a second spawn of either is a disagreement → escalate.'
+    );
+  });
+  it('a recommendation the agent would have to invent counts as none', () => {
+    expect(section('### Fail-safe rules')).toContain(
+      'If the skill text at this pause names no options or no recommendation, a recommendation you would have to invent counts as none.'
+    );
+  });
+});

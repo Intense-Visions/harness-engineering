@@ -47,7 +47,7 @@ Apply these rules in order and stop at the first that applies.
 
 Each of these resolves to **pause**:
 
-- The pause has no stated recommendation.
+- The pause has no stated recommendation. If the skill text at this pause names no options or no recommendation, a recommendation you would have to invent counts as none.
 - The pause has no marker (it is unlabelled).
 - There is no session slug, so no decision-log entry can be written.
 - `record_auto_decision` did not return `recorded: true`.
@@ -70,14 +70,15 @@ Each of these resolves to **pause**:
 ```
 
 - `pauseClass` is `ceremony` or `judgment`. `irreversible` and `gate` are never recorded, because they never auto-resolve.
-- `chosen` must be one of `options`.
+- `chosen` must be one of `options`. In a `judgment` entry, `chosen` equals the pre-audit recommendation and `rationale` begins `pre-audit: <option>;`.
 - A `judgment` entry adds `audit`: `{ "status": "agreed", "blindPick": "<option>" }` (plus `"objection": { "severity": "non-blocking", "text": "..." }` when the refuter raised one), `{ "status": "unavailable" }`, or `{ "status": "off" }`.
 - Never send `ts` or `autonomySource`: the tool stamps both and rejects a call that supplies them.
 
 ## Self-audit (judgment forks)
 
-Run it when audit is on (D7, D9). Each step uses a **fresh** subagent with no access to this conversation.
+Run it when audit is on (D7, D9). Each step uses a **fresh** subagent with no access to this conversation. Spawn exactly one blind auditor and at most one refuter per fork. Never re-run either: needing a second spawn of either is a disagreement → escalate.
 
+0. **Pre-commit.** Before spawning the blind auditor, print `Recommendation (pre-audit): <option>`, with the option copied verbatim from the options. This is the recommendation the audit tests; it cannot change afterwards.
 1. **Blind re-derivation.** Fill the blind auditor prompt below. Shuffle the options into a random order and strip every recommendation marker from them first (for example `(recommended)`, `Recommendation:`, a confidence rating). The prompt never contains your recommendation or your rationale. The auditor returns `{ "pick", "confidence", "reason" }`.
 2. **Compare.** If `pick` is not your recommended option, that is a disagreement → escalate.
 3. **Refutation** (only when the picks agree). Fill the refuter prompt below with the agreed pick. It returns `{ "severity": "blocking" | "non-blocking", "objection" }`.
