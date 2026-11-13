@@ -74,7 +74,7 @@ Before running sub-phases, resolve the effective integration tier:
 
 | Rigor      | INTEGRATE behavior                                                                     |
 | ---------- | -------------------------------------------------------------------------------------- |
-| `fast`     | WIRE only (default checks), auto-approve, no ADR drafting                              |
+| `fast`     | WIRE only (default checks), no ADR drafting                                            |
 | `standard` | Full tier-appropriate checks (WIRE for all; MATERIALIZE + UPDATE for medium and large) |
 | `thorough` | Full checks + human reviews every ADR draft + force knowledge graph verification       |
 
