@@ -7,7 +7,9 @@ import {
   sessionOverridePath,
   writeSessionOverride,
 } from '@harness-engineering/core';
+import { createHash } from 'node:crypto';
 import { manageStateDefinition, handleManageState } from '../../../src/mcp/tools/state';
+import { runAutonomyShow } from '../../../src/commands/autonomy/show';
 
 let tmp: string;
 let home: string;
@@ -85,5 +87,87 @@ describe('manage_state set-autonomy', () => {
     expect((await call({ level: 'yolo' })).isError).toBe(true);
     expect((await call({})).isError).toBe(true);
     expect(bytes()).toBeNull();
+  });
+});
+
+/**
+ * FIX 1a (D12/SC13): MCP args are not schema-validated before handlers, so audit:"false" (a
+ * string) slipped past the value-based raise check, was written verbatim, and on the next
+ * read the corrupt file erased the human's level=supervised lowering.
+ */
+describe('manage_state set-autonomy type-confusion (SC13)', () => {
+  const sha = () => {
+    const b = bytes();
+    return b === null ? null : createHash('sha256').update(b).digest('hex');
+  };
+  const seed = () => {
+    // User config: trusted + audit off. Human lowered to supervised (cli); agent set audit on (mcp).
+    fs.mkdirSync(path.join(home, '.harness'), { recursive: true });
+    fs.writeFileSync(
+      path.join(home, '.harness', 'config.json'),
+      JSON.stringify({
+        autonomy: { level: 'trusted', audit: { trusted: false, supervised: false } },
+      })
+    );
+    const a = writeSessionOverride(project, 's1', { level: 'supervised' }, 'cli', {
+      homeDir: home,
+    });
+    if (!a.ok) throw a.error;
+  };
+  const show = () =>
+    runAutonomyShow({ session: 's1' }, { cwd: () => project, homeDir: home, env: {} });
+
+  it('exact reproduction: audit:"false" is rejected, file sha unchanged, show still supervised/session', async () => {
+    seed();
+    expect((await call({ audit: true })).isError).toBeFalsy();
+    const before = sha();
+    expect(before).not.toBeNull();
+    expect([show().level, show().source.level]).toEqual(['supervised', 'session']);
+
+    const res = await call({ audit: 'false' });
+    expect(res.isError).toBe(true);
+    const body = JSON.parse(res.content[0]!.text);
+    expect(body).toMatchObject({ error: 'AUTONOMY_INVALID_INPUT', field: 'audit' });
+
+    expect(sha()).toBe(before);
+    const r = show();
+    expect([r.level, r.source.level, r.audit, r.source.audit]).toEqual([
+      'supervised',
+      'session',
+      true,
+      'session',
+    ]);
+    expect(r.warnings).toEqual([]);
+  });
+
+  it.each([
+    ['audit', { audit: null }],
+    ['audit', { audit: 0 }],
+    ['audit', { audit: 'true' }],
+    ['audit', { audit: 'false' }],
+    ['audit', { level: 'supervised', audit: 'false' }],
+    ['level', { level: 'TRUSTED' }],
+    ['level', { level: 0 }],
+    ['level', { level: null }],
+  ])(
+    'rejects mistyped %s in %j with AUTONOMY_INVALID_INPUT and writes nothing',
+    async (field, change) => {
+      seed();
+      const before = sha();
+      const res = await call(change);
+      expect(res.isError).toBe(true);
+      expect(JSON.parse(res.content[0]!.text)).toMatchObject({
+        error: 'AUTONOMY_INVALID_INPUT',
+        field,
+      });
+      expect(sha()).toBe(before);
+    }
+  );
+
+  it('positive control: a well-typed lowering on the same seed still succeeds', async () => {
+    seed();
+    const before = sha();
+    expect((await call({ audit: true })).isError).toBeFalsy();
+    expect(sha()).not.toBe(before);
   });
 });

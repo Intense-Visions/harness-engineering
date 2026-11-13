@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/tests/mcp/tools'
-sourceHash: 'fcc94242b0821694f39274d14cb0fbab64808925468f4553f009ec662d7d2c63'
+sourceHash: '6bac51d3da1573553eda51743cc7812e481fdfa3e3be3535c3524828e33ec36e'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -126,6 +126,7 @@ export writeShardedProject
 ```
 import { computeLoadPlan } from '../../../../core/src/context/progressive-loader'
 import { extractLevel } from '../../../../core/src/context/section-parser'
+import { runAutonomyShow } from '../../../src/commands/autonomy/show'
 import { findConfigFile, loadConfig } from '../../../src/config/loader'
 import { MockLlmProvider } from '../../../src/design-craft/llm/provider.js'
 import { resolveDocsPublishConnector } from '../../../src/docs-publish/index'
@@ -219,6 +220,7 @@ import { execFileSync } from 'child_process'
 import * as fs from 'fs'
 import * as fs from 'fs/promises'
 import { execFileSync, execSync } from 'node:child_process'
+import { createHash } from 'node:crypto'
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import * as fs from 'node:fs'
 import * as fsp from 'node:fs/promises'

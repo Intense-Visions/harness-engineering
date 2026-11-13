@@ -156,8 +156,9 @@ type StateInput = {
   force?: boolean;
   actor?: string;
   reason?: string;
-  level?: string;
-  audit?: boolean;
+  /** Untrusted MCP args are not schema-validated upstream; set-autonomy validates them. */
+  level?: unknown;
+  audit?: unknown;
 };
 
 async function handleShow(projectPath: string, input: StateInput) {
@@ -482,29 +483,55 @@ export interface SetAutonomyDeps {
   now?: () => Date;
 }
 
+const AUTONOMY_INVALID_INPUT = 'AUTONOMY_INVALID_INPUT';
+
+/** First mistyped set-autonomy field, or null. `undefined` means "not set" and is valid. */
+function invalidAutonomyField(
+  input: StateInput
+): { field: 'level' | 'audit'; message: string } | null {
+  if (input.level !== undefined && input.level !== 'supervised' && input.level !== 'trusted') {
+    return {
+      field: 'level',
+      message: `level must be "supervised" or "trusted" (got ${JSON.stringify(input.level)})`,
+    };
+  }
+  if (input.audit !== undefined && typeof input.audit !== 'boolean') {
+    return {
+      field: 'audit',
+      message: `audit must be a boolean (got ${JSON.stringify(input.audit)})`,
+    };
+  }
+  return null;
+}
+
 async function handleSetAutonomy(
   projectPath: string,
   input: StateInput,
   deps: SetAutonomyDeps
 ): Promise<McpResponse> {
   if (!input.session) return mcpError('Error: session is required for set-autonomy action');
-  if (input.level !== undefined && input.level !== 'supervised' && input.level !== 'trusted') {
-    return mcpError('Error: level must be supervised or trusted');
-  }
+  // D12/SC13: MCP args reach handlers unvalidated, so a mistyped value (audit:"false") must be
+  // rejected here; it would otherwise dodge the value-based raise check. Core re-validates.
+  const invalid = invalidAutonomyField(input);
+  if (invalid) return mcpError(JSON.stringify({ error: AUTONOMY_INVALID_INPUT, ...invalid }));
   if (input.level === undefined && input.audit === undefined) {
     return mcpError('Error: set-autonomy requires level and/or audit');
   }
   const core = await import('@harness-engineering/core');
   const change = {
     ...(input.level !== undefined && { level: input.level as 'supervised' | 'trusted' }),
-    ...(input.audit !== undefined && { audit: input.audit }),
+    ...(input.audit !== undefined && { audit: input.audit as boolean }),
   };
   const result = core.writeLoweringOverride(projectPath, input.session, change, {
     ...(deps.homeDir !== undefined && { homeDir: deps.homeDir }),
     ...(deps.now !== undefined && { now: deps.now }),
   });
   if (!result.ok) {
-    if ((result.error as { code?: string }).code === core.AUTONOMY_RAISE_REJECTED) {
+    const code = (result.error as { code?: string }).code;
+    if (code === core.AUTONOMY_INVALID_SETTING) {
+      return mcpError(JSON.stringify({ error: code, message: result.error.message }));
+    }
+    if (code === core.AUTONOMY_RAISE_REJECTED) {
       return mcpError(
         JSON.stringify({
           error: core.AUTONOMY_RAISE_REJECTED,
