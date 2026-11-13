@@ -118,6 +118,43 @@ describe('autonomy-guard: dynamic harness arguments are blocked (N1)', () => {
   });
 });
 
+// I2: a runtime-built argument is only dangerous where it could select `autonomy set`. A literal
+// subcommand other than `autonomy` (and `autonomy log` / `autonomy show`) cannot raise, so its
+// runtime-built arguments are allowed; the subcommand word itself, or anything after
+// `autonomy set` / an unknown `autonomy` subcommand, must still be literal.
+describe('autonomy-guard: runtime-built arguments to a literal non-raising subcommand (I2)', () => {
+  it.each([
+    'harness validate --path "$PWD"',
+    'harness check-deps --path $(git rev-parse --show-toplevel)',
+    'node packages/cli/dist/bin/harness.js validate --json > $TMPDIR/v.json',
+    'for s in a b; do harness autonomy log --session $s; done',
+    'harness autonomy show --session "$S"',
+    'harness --json autonomy log --session $S',
+    'npx harness check-deps --path `pwd`',
+  ])('allows %j', (command) => {
+    const { exitCode, stderr } = bash(command);
+    expect(stderr).toBe('');
+    expect(exitCode).toBe(0);
+  });
+
+  it.each([
+    'harness --json $SUB set trusted --session s1',
+    'harness autonomy $SUB --session s1',
+    'harness autonomy --json $(echo set) trusted --session s1',
+    'for s in a b; do harness autonomy set --session $s; done',
+    'harness autonomy set --session $S',
+    'harness validate --path $(harness $A set trusted --session s1)',
+    'harness autonomy log --session $(harness "$A" set trusted --session s1)',
+    // An unquoted expansion word-splits, so a runtime-built option can smuggle in a subcommand.
+    'harness -$X validate',
+    'harness autonomy -$X log --session s1',
+  ])('still blocks %j', (command) => {
+    const { exitCode, stderr } = bash(command);
+    expect(exitCode).toBe(2);
+    expect(stderr).toMatch(/BLOCKED/);
+  });
+});
+
 describe('autonomy-guard: cd / variable assignment aimed at ~/.harness is blocked (N1)', () => {
   it.each([
     'cd ~/.harness && echo x > config.json',

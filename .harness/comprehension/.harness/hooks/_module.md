@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: '.harness/hooks'
-sourceHash: '425a15476640fffccb943e96d9f8f5c00cdbaf43f84ac44ea6c31f973f8d6d10'
+sourceHash: '1ba17645d624faa6f67917645ce3bba3a3fef00993432cda293b756df9320645'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent

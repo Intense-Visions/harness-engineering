@@ -8,9 +8,12 @@
 //   2. Blocks Bash / Write / Edit targeting the user-level autonomy state:
 //      ~/.harness/config.json, ~/.harness/session-overrides/, ~/.harness/autonomy-audit.log.
 //
-//   3. Blocks a `harness` invocation followed by a runtime-built argument (`$`, backtick,
-//      `$(`), and any `cd` / variable assignment aimed at ~/.harness — indirection the
-//      literal matcher cannot follow.
+//   3. Blocks a `harness` invocation with a runtime-built argument (`$`, backtick, `$(`) when
+//      that argument could select `autonomy set`: the subcommand word itself is runtime-built
+//      (or not a plain word), or it is `autonomy` followed by anything but a literal `log` /
+//      `show`. A literal non-raising subcommand (`harness validate --path "$PWD"`,
+//      `harness autonomy log --session $s`) is allowed. Also blocks any `cd` / variable
+//      assignment aimed at ~/.harness — indirection the literal matcher cannot follow.
 //   4. Blocks agent writes to the append-only decision log
 //      `.harness/sessions/<slug>/auto-decisions.jsonl` (Write / Edit / MultiEdit, relative or
 //      absolute, resolved against the payload cwd; and Bash that redirects into it, names it
@@ -315,16 +318,55 @@ function raisesAutonomy(cmd, depth = 0) {
 
 /** Like SEGMENT_SEPARATOR, but keeps `$(…)` and backticks inside the segment they feed. */
 const COMMAND_SEPARATOR = /&&|\|\||\|&?|;|(?<![<>])&(?!>)|\n/;
-const HARNESS_THEN_DYNAMIC = /(?:^|[\s(`])(?:[^\s(`]*\/)?(?:harness|harness\.js)(?=\s)\s[^\n]*[$`]/;
+// A token that invokes harness, possibly opening a substitution: harness, npx harness, $(harness,
+// node …/harness.js, ./node_modules/.bin/harness.
+const HARNESS_BIN = /^[$(`]*(?:[^\s(`]*\/)?harness(?:\.js)?$/;
+const RUNTIME_BUILT = /[$`]/;
+// A subcommand word the shell passes through unchanged (no expansion, no quoted placeholder).
+const LITERAL_WORD = /^[A-Za-z][\w:-]*$/;
+// `autonomy` subcommands that only read, so runtime-built arguments cannot raise through them.
+const AUTONOMY_READ_ONLY = new Set(['log', 'show']);
 const HOME_HARNESS = /(?:~|\$HOME|\$\{HOME\})\/+\.harness(?![\w.-])/;
 const CD_TOKEN = /(?:^|[\s;&|(`])cd(?=\s|$)/;
 const ASSIGNMENT = /(?:^|[\s;&|(`])[A-Za-z_]\w*\+?=/;
 
-/** True when a `harness` invocation takes an argument built at runtime ($VAR, $(…), `…`). */
+/**
+ * Index of the first non-option token at or after `i`. A runtime-built option is not skipped:
+ * an unquoted expansion word-splits (`-$X` can become `-q autonomy set trusted`).
+ */
+function firstWordAt(toks, i) {
+  let j = i;
+  while (j < toks.length && toks[j].startsWith('-') && !RUNTIME_BUILT.test(toks[j])) j++;
+  return j;
+}
+
+/** True when the subcommand chosen by the args starting at `start` could be `autonomy set`. */
+function couldSelectAutonomySet(toks, start) {
+  const i = firstWordAt(toks, start);
+  if (!LITERAL_WORD.test(toks[i] ?? '')) return true;
+  if (toks[i] !== 'autonomy') return false;
+  return !AUTONOMY_READ_ONLY.has(toks[firstWordAt(toks, i + 1)]);
+}
+
+/** True when some harness invocation in `segment` has a runtime-built argument that could raise. */
+function segmentHasUnsafeDynamicHarness(segment) {
+  const toks = tokens(segment);
+  return toks.some(
+    (t, i) =>
+      HARNESS_BIN.test(t) &&
+      toks.slice(i + 1).some((a) => RUNTIME_BUILT.test(a)) &&
+      couldSelectAutonomySet(toks, i + 1)
+  );
+}
+
+/**
+ * True when a `harness` invocation takes an argument built at runtime ($VAR, $(…), `…`) that
+ * could select `autonomy set` (see couldSelectAutonomySet).
+ */
 function dynamicHarnessArgs(cmd, depth = 0) {
   if (depth > MAX_DEPTH) return true;
   const { code, heredocs, singles, doubles } = split(cmd);
-  if (code.split(COMMAND_SEPARATOR).some((seg) => HARNESS_THEN_DYNAMIC.test(seg))) return true;
+  if (code.split(COMMAND_SEPARATOR).some(segmentHasUnsafeDynamicHarness)) return true;
   const executed = [
     ...(hasShellToken(code) ? [...singles, ...doubles, ...heredocs] : []),
     ...doubles.filter((d) => d.includes('$(') || d.includes('`')),
@@ -387,8 +429,9 @@ function bashViolation(cmd) {
   }
   if (dynamicHarnessArgs(cmd)) {
     return (
-      'a `harness` invocation with a runtime-built argument ($VAR, $(…), backticks) cannot be ' +
-      'checked for an autonomy raise (D16). Spell the arguments out literally.'
+      'a `harness` invocation with a runtime-built argument ($VAR, $(…), backticks) where the ' +
+      'subcommand is not a literal non-raising one cannot be checked for an autonomy raise ' +
+      '(D16). Spell the subcommand (and any `autonomy` arguments) out literally.'
     );
   }
   if (aimsAtHomeHarness(cmd)) {
