@@ -74,27 +74,41 @@ Each domain declares the languages it can extract and the surface it owns:
 ```ts
 interface CraftDomainRule {
   skill: string; // canonical skill name
-  supportedLanguages: readonly SupportedLanguage[]; // reuses code-nav's union
-  owns(changedFiles: readonly string[]): boolean; // surface predicate
+  supportedLanguages: readonly SupportedLanguage[] | 'any';
+  owns(changedFiles: readonly string[]): string[]; // the OWNED SUBSET, not a boolean
   priority: number; // deterministic cap ordering
 }
 ```
 
-A domain activates when `owns(changedFiles)` holds **and** at least one changed file's
-`detectLanguage(path)` (`code-nav/types.ts:78`, `EXTENSION_MAP`) is in `supportedLanguages`.
+A domain activates when `owns(changedFiles)` returns a non-empty subset **and**, for a domain whose
+`supportedLanguages` is not `'any'`, at least one file _in that subset_ has a `detectLanguage(path)`
+(`code-nav/types.ts:78`, `EXTENSION_MAP`) within it.
+
+**`owns` returns the subset rather than a boolean** because the capability gate has to run over the
+files a domain actually owns. With a boolean, an unrelated `.ts` anywhere in the diff satisfies the
+language gate for a `.py` file the domain owns — precisely the mis-dispatch D8 exists to prevent.
+The subset is also what Phase 3 forwards as `files`, which criterion 4 asserts against.
+
+**The language gate applies only to domains that need unit extraction.** `code-craft`,
+`naming-craft`, `security-craft` and `test-craft` parse source into units, so a language they cannot
+parse is a real incapacity. Every other domain is surface-bound — its `owns` predicate already names
+the exact files it critiques — and is therefore `'any'`. This matters mechanically, not merely
+descriptively: `EXTENSION_MAP` maps no `.css`, `.scss`, `.md` or `.yaml`, and `detectLanguage`
+returns `null` for them. Without `'any'`, every prose domain and every CSS-only design change would
+be skipped forever as `unsupported-language` — a silent total failure dressed as a correct report.
 
 | Domain (canonical name) | Owns                                                  | Languages (post Phase 1b) |
 | ----------------------- | ----------------------------------------------------- | ------------------------- |
-| `harness-design-craft`  | non-excluded `.tsx`, design-token or stylesheet paths | ts, js                    |
+| `harness-design-craft`  | non-excluded `.tsx`, design-token or stylesheet paths | `'any'` (surface-bound)   |
 | `code-craft`            | any production source file                            | all six                   |
 | `naming-craft`          | any production source file (cross-cutting)            | all six                   |
 | `test-craft`            | test files                                            | all six                   |
-| `docs-craft`            | `docs/**` or `*.md` outside `docs/changes/**`         | n/a (prose)               |
-| `spec-craft`            | `docs/changes/**/proposal.md`                         | n/a (prose)               |
-| `cli-ergonomics-craft`  | CLI command modules                                   | ts, js                    |
-| `api-craft`             | OpenAPI documents                                     | n/a (spec documents)      |
+| `docs-craft`            | `docs/**` or `*.md` outside `docs/changes/**`         | `'any'` (surface-bound)   |
+| `spec-craft`            | `docs/changes/**/proposal.md`                         | `'any'` (surface-bound)   |
+| `cli-ergonomics-craft`  | CLI command modules                                   | `'any'` (surface-bound)   |
+| `api-craft`             | OpenAPI documents                                     | `'any'` (surface-bound)   |
 | `security-craft`        | any production source file                            | all six                   |
-| `knowledge-craft`       | `docs/knowledge/**`                                   | n/a (prose)               |
+| `knowledge-craft`       | `docs/knowledge/**`                                   | `'any'` (surface-bound)   |
 | `copy-craft`            | **not activated in v1** — see YAGNI note below        | —                         |
 
 `copy-craft` is cut from v1 activation: its surface (a changed string literal in an error or log
@@ -340,13 +354,67 @@ failure mode this repository keeps relearning.
 
 ## Implementation order
 
-| Phase            | Content                                                                                                                                              | Why here                                                                                                                                              |
-| ---------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **0** (optional) | Config-only probe: a `skillHooks` block at `after:REVIEW` naming 2-3 craft domains, this repo only. Throwaway.                                       | Answers the question engineering cannot: are auto-surfaced craft findings acted on, or scrolled past? Cheap insurance before building the real thing. |
-| **1**            | `craft-review-hooks.ts` — domain table, activation gate, `planCraftReviewDomains`, `resolveReviewHooksWithCraft`. Criteria 1, 3, 6, 7, 8, 9, 12, 13. | Pure core, no LLM in the loop, inert until a host calls it.                                                                                           |
-| **1b**           | `code-nav` extraction path for `code-craft` / `naming-craft` / `security-craft` / `test-craft`, with per-language fixtures. Criterion 10.            | Craft must be language-capable _before_ it auto-fires, or auto-wiring goes quiet on five of six supported languages.                                  |
-| **2**            | Barrel export + regenerate root barrel. Wire `harness-autopilot` REVIEW / FINAL_REVIEW; extend its denominator report. Criteria 2, 4, 5, 11, 14.     | Autopilot is the proven host — it already resolves the canary twin at these exact events.                                                             |
-| **3**            | Wire `harness-code-review` at `after:mechanical`, including the forward-wired-default note. Craft SKILL.md forwarding sections.                      | Broadens to interactive and CI review; needs Phase 2's dispatch contract settled first.                                                               |
-| **4**            | ADRs for D6 and D9 (+ the D5 amendment paragraph), docs updates, `AGENTS.md`.                                                                        | Records the precedent once the shape has survived two hosts and six languages.                                                                        |
+**Phase 0 (optional, not a prerequisite, not an autopilot phase).** A config-only probe: a
+`skillHooks` block at `after:REVIEW` naming 2-3 craft domains, this repo only, deliberately
+throwaway. It answers the question engineering cannot — are auto-surfaced craft findings acted on,
+or scrolled past? It is deliberately excluded from the numbered phases below because it is a
+disposable experiment, not work to be planned, executed and reviewed.
 
-Phases 1, 1b, 2 and 3 each land as their own PR. Phase 0 is not a prerequisite.
+### Phase 1: Craft review-hooks resolver
+
+<!-- complexity: medium -->
+
+`packages/core/src/hooks/craft-review-hooks.ts` — the `CRAFT_REVIEW_DOMAINS` table, the
+capability-gated activation function, `planCraftReviewDomains`, and `resolveReviewHooksWithCraft`.
+Pure core, no LLM in the loop, inert until a host calls it. Mirrors the structure of the existing
+`canary-review-hooks.ts` (294 lines).
+
+Satisfies criteria 1, 3, 6, 7, 8, 9, 12, 13.
+
+### Phase 2: Multi-language craft unit extraction
+
+<!-- complexity: high -->
+
+Route `code-craft`, `naming-craft`, `security-craft` and `test-craft` through `code-nav`'s
+`extractOutlineFromTree` when `detectLanguage(file)` is not `typescript`/`javascript`, with one
+fixture per language proving a named function yields at least one unit. Craft must be
+language-capable **before** it auto-fires, or auto-wiring goes quiet on five of the six languages
+harness supports.
+
+Marked `high` deliberately: four skills × six languages, and it is the phase that determines
+whether the `[UNVERIFIED]` language-neutral-rubric assumption holds. Per autopilot's ASSESS
+routing, `high` pauses for interactive planning rather than auto-planning.
+
+Satisfies criterion 10.
+
+### Phase 3: Autopilot host wiring
+
+<!-- complexity: medium -->
+
+Export the new symbols from `packages/core/src/hooks/index.ts` and regenerate the root core barrel
+via `scripts/generate-core-barrel.mjs`. Wire `harness-autopilot` at `after:REVIEW` and
+`after:FINAL_REVIEW`, including the once-per-phase-per-diff rule and the extended denominator
+report. Autopilot is the proven host — it already resolves the canary twin at these exact events.
+
+Satisfies criteria 2, 4, 5, 11, 14.
+
+### Phase 4: Code-review host wiring
+
+<!-- complexity: medium -->
+
+Wire `harness-code-review` at `after:mechanical`, including the forward-wired-default note that
+keeps a missing craft skill a skip rather than the hard halt that skill's own contract would
+otherwise impose. Add the "invoked as a review hook" forwarding sections to the craft SKILL.md
+files. Broadens coverage to interactive and CI review; needs Phase 3's dispatch contract settled
+first.
+
+### Phase 5: Decision records and documentation
+
+<!-- complexity: low -->
+
+ADRs for D6 (mirror-the-resolver) and D9 (`code-nav` as the craft language seam), plus the D5
+amendment paragraph on the canary-hook ADR. Update `docs/reference/`'s skillHooks contract page and
+the `AGENTS.md` craft-family section. Records the precedent once the shape has survived two hosts
+and six languages.
+
+Phases 1 through 4 each land as their own PR; Phase 5 may ride with Phase 4.
