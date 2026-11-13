@@ -69,6 +69,7 @@ describe('appendAutoDecision', () => {
   it('refuses a missing session dir and does not create it', () => {
     const r = appendAutoDecision(project, 'nope', entry(), git);
     expect(codeOf(r)).toBe('AUTO_DECISION_SESSION_NOT_FOUND');
+    expect(!r.ok && r.error.message).toMatch(/NOT recorded.*pause and ask the human/);
     expect(fs.existsSync(sessionDir('nope'))).toBe(false);
   });
   it('returns AUTO_DECISION_WRITE_FAILED when the log path cannot be appended (EISDIR)', () => {
@@ -139,8 +140,15 @@ describe('readAutoDecisions', () => {
     expect(r.value.entries.map((e) => e.question)).toEqual(['Approve plan?', 'b']);
     expect(r.value.invalid.map((i) => i.line)).toEqual([2, 3]);
   });
-  it('refuses a missing session dir', () => {
-    expect(codeOf(readAutoDecisions(project, 'nope', git))).toBe('AUTO_DECISION_SESSION_NOT_FOUND');
+  it('refuses a missing session dir with read-path wording (review S1)', () => {
+    const r = readAutoDecisions(project, 'nope', git);
+    expect(codeOf(r)).toBe('AUTO_DECISION_SESSION_NOT_FOUND');
+    const msg = !r.ok ? r.error.message : '';
+    expect(msg).toContain('Session "nope" not found');
+    expect(msg).toContain('There is no decision log to read.');
+    expect(msg).not.toMatch(/record|pause/i);
+    const hinted = readAutoDecisions(project, 'nope', { ...git, sessionNotFoundHint: 'Hint.' });
+    expect(!hinted.ok && hinted.error.message.endsWith(' Hint.')).toBe(true);
   });
 });
 

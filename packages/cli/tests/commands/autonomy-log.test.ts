@@ -80,7 +80,11 @@ describe('harness autonomy log', () => {
     ).toBe(true);
   });
   it('fails for a missing session or an invalid slug', () => {
-    expect(runAutonomyLog({ session: 'gone' }, deps()).ok).toBe(false);
+    const gone = runAutonomyLog({ session: 'gone' }, deps());
+    expect(gone.ok).toBe(false);
+    const msg = !gone.ok ? gone.message : '';
+    expect(msg).toContain('Check the session slug.');
+    expect(msg).not.toMatch(/record|pause/i);
     expect(runAutonomyLog({ session: '../x' }, deps()).ok).toBe(false);
   });
   it('emits the report as JSON under the global --json flag', async () => {

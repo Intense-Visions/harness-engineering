@@ -26,7 +26,9 @@ export function runAutonomyLog(
   opts: { session: string },
   deps: AutonomyCliDeps = {}
 ): AutonomyLogOutcome {
-  const r = readAutoDecisions((deps.cwd ?? (() => process.cwd()))(), opts.session);
+  const r = readAutoDecisions((deps.cwd ?? (() => process.cwd()))(), opts.session, {
+    sessionNotFoundHint: 'Check the session slug.',
+  });
   if (!r.ok) return { ok: false, message: r.error.message };
   return {
     ok: true,

@@ -23,13 +23,16 @@ export const MAX_AUTO_DECISION_LINE_BYTES = 16 * 1024;
 export const AUTO_DECISION_SESSION_NOT_FOUND = 'AUTO_DECISION_SESSION_NOT_FOUND';
 export const AUTO_DECISION_WRITE_FAILED = 'AUTO_DECISION_WRITE_FAILED';
 
+const RECORD_NOT_FOUND_TAIL =
+  'The auto-decision was NOT recorded (the decision log never creates a session); pause and ask ' +
+  'the human (fail-safe).';
+const READ_NOT_FOUND_TAIL = 'There is no decision log to read.';
+
 export class AutoDecisionSessionNotFoundError extends Error {
   readonly code = AUTO_DECISION_SESSION_NOT_FOUND;
-  constructor(slug: string, dir: string) {
-    super(
-      `Cannot record an auto-decision for session "${slug}": ${dir} does not exist. The decision ` +
-        'log never creates a session; pause and ask the human (fail-safe).'
-    );
+  /** `tail` says what this means for the caller; the default is the write path's (review S1). */
+  constructor(slug: string, dir: string, tail: string = RECORD_NOT_FOUND_TAIL) {
+    super(`Session "${slug}" not found: ${dir} does not exist. ${tail}`);
     this.name = 'AutoDecisionSessionNotFoundError';
   }
 }
@@ -53,6 +56,8 @@ export interface DecisionLogOptions extends AutonomyPathOptions {
 export interface ReadAutoDecisionsOptions extends AutonomyPathOptions {
   /** Returns undefined when the file does not exist. */
   readFile?: (p: string) => string | undefined;
+  /** Replaces the session-not-found tail, e.g. "Check the session slug." for a CLI reader. */
+  sessionNotFoundHint?: string;
 }
 
 export interface AutoDecisionLogRead {
@@ -167,7 +172,10 @@ export function readAutoDecisions(
 ): Result<AutoDecisionLogRead, Error> {
   const dir = sessionDir(projectPath, slug, opts);
   if (!dir.ok) return dir;
-  if (!isDirectory(dir.value)) return Err(new AutoDecisionSessionNotFoundError(slug, dir.value));
+  if (!isDirectory(dir.value)) {
+    const tail = opts.sessionNotFoundHint ?? READ_NOT_FOUND_TAIL;
+    return Err(new AutoDecisionSessionNotFoundError(slug, dir.value, tail));
+  }
   const file = path.join(dir.value, AUTO_DECISIONS_FILE);
   let raw: string | undefined;
   try {
