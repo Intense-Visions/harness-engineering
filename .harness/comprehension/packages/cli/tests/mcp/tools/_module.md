@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/tests/mcp/tools'
-sourceHash: '2af2a1fb4f185f47383439b8dee4ffd866adc7e3e7c4e2c351ec9094da128314'
+sourceHash: 'f6b0a39c2c86e9486643daae3521cc516156bc73d3155fd8d5ef1c5c655b0d04'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -19,6 +19,7 @@ members:
     'assess-project-error-handling.test.ts',
     'assess-project.test.ts',
     'auto-decision.test.ts',
+    'autonomy-sc7-e2e.test.ts',
     'brainstorming-file-less-smoke.test.ts',
     'ci-abstention.test.ts',
     'cli-ergonomics-craft.test.ts',
