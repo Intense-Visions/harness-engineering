@@ -1,12 +1,13 @@
 ---
 schemaVersion: 1
 module: 'packages/core/src/autonomy'
-sourceHash: 'bc6eae48cb29529ccaa9537087129af527d754811daf113c526c1474c21358f6'
+sourceHash: 'ff13e6e11e83a79b0db0b641539c03f3b198b682be928732c5547b8e6ea7a6cc'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
 members:
   [
+    'decision-schema.ts',
     'index.ts',
     'lower-only.ts',
     'override-store.ts',
@@ -68,7 +69,7 @@ import { OverrideStoreOptions, readSessionOverride, writeSessionOverride } from 
 import { AutonomyPathOptions, autonomyAuditLogPath, computeRepoKey, sessionDirForRaise, sessionOverridePath, userConfigPath } from './paths'
 import { ResolveAutonomyInput, resolveAutonomy } from './resolve'
 import { auditRaises, isRaisingChange, levelRaises, parseSessionOverrideFields, parseUserConfig, validateAutonomySetting } from './schema'
-import { AutonomyFlag, AutonomyLevel, AutonomyOverrideField, AutonomyOverrideOrigin, AutonomySessionOverride, AutonomySetting, AutonomySource, AutonomyUserConfig, DEFAULT_AUTONOMY_AUDIT, ResolvedAutonomy } from '@harness-engineering/types'
+import { AUTONOMY_SOURCES, AUTO_DECISION_PAUSE_CLASSES, AutoDecision, AutoDecisionInput, AutonomyFlag, AutonomyLevel, AutonomyOverrideField, AutonomyOverrideOrigin, AutonomySessionOverride, AutonomySetting, AutonomySource, AutonomyUserConfig, DEFAULT_AUTONOMY_AUDIT, ResolvedAutonomy } from '@harness-engineering/types'
 import { execFileSync } from 'node:child_process'
 import { createHash, randomUUID } from 'node:crypto'
 import * as fs from 'node:fs'

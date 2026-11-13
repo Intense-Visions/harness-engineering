@@ -1,12 +1,13 @@
 ---
 schemaVersion: 1
 module: 'packages/core/tests/autonomy'
-sourceHash: '700bccef23d74d23af5d6c5a7bc98e376f23966fe0d9a0ad67fa923404ff72b7'
+sourceHash: '5696f49412c7d12b75908cf9a95cb17f6eec19706f526f697fd0ec273b1b487e'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
 members:
   [
+    'decision-schema.test.ts',
     'lower-only.test.ts',
     'override-store.test.ts',
     'paths.test.ts',
@@ -28,6 +29,7 @@ members:
 ## Dependency Slice
 
 ```
+import { AUTO_DECISION_LIMITS, parseAutoDecisionLine, validateAutoDecisionInput } from '../../src/autonomy/decision-schema'
 import { AUTONOMY_SESSION_NOT_FOUND, DEFAULT_RAISE_TTL_MS, autonomyAuditLogPath, computeRepoKey, readSessionOverride, resolveAutonomy, resolveAutonomyForSession, sessionOverridePath, writeLoweringOverride, writeSessionOverride } from '../../src/autonomy/index'
 import { AUTONOMY_INVALID_SETTING, AUTONOMY_RAISE_REJECTED, isRaisingChange, writeLoweringOverride } from '../../src/autonomy/lower-only'
 import { claimStaleLock, readSessionOverride, releaseOverrideLock, writeSessionOverride } from '../../src/autonomy/override-store'
