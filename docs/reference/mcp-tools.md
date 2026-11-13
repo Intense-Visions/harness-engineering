@@ -831,6 +831,23 @@ Recommend skills based on codebase health. Returns sequenced workflow with urgen
 - `top` (number, optional) — Max recommendations to return (default 5)
 - `recentFiles` (array, optional) — Recently edited files for knowledge skill path-matching
 
+### `record_auto_decision`
+
+Append an auto-taken decision (trusted autonomy) to .harness/sessions/<session>/auto-decisions.jsonl. Append-only. The server stamps ts and autonomySource and refuses entries the resolved autonomy does not allow (an escalated decision recording the human choice is always accepted). If this returns isError (recorded:false), do NOT auto-proceed: pause and ask the human.
+
+**Parameters:**
+
+- `path` (string, required) — Path to project root
+- `session` (string, required) — Session slug; .harness/sessions/&lt;slug>/ must exist
+- `skill` (string, required) — Skill at the pause point, e.g. "harness-planning"
+- `phase` (string, required) — Skill phase, e.g. "VALIDATE"
+- `pauseClass` (string, required) — irreversible and gate pauses never auto-proceed and cannot be recorded
+- `question` (string, required) — The question the pause would have asked
+- `options` (array, required) — Distinct options offered
+- `chosen` (string, required) — One of options (escalated: the human choice)
+- `rationale` (string, required) — Why this option was taken
+- `audit` (object, optional) — Required for judgment, omitted for ceremony. agreed: {status,blindPick(=chosen),objection?{severity:"non-blocking",text}}; escalated: {status,blindPick,objection?,humanChoice(=chosen)}; or {status:"unavailable"|"off"}
+
 ### `release_compound_lock`
 
 Release a previously-acquired compound lock by its token. Returns { released: true } when the token matches a live handle; { released: false, error } otherwise. Idempotent: calling twice with the same token is not an error after the first release.

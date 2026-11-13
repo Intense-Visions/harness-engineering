@@ -881,7 +881,15 @@ Run an agent task
 
 ## Autonomy Commands
 
-Show or set autonomy. Only ~/.harness/config.json or an interactive `autonomy set` can raise it; environment variables (including a project .env) can only lower it
+Show, set, or review autonomy. Only ~/.harness/config.json or an interactive `autonomy set` can raise it; environment variables (including a project .env) can only lower it
+
+### `harness autonomy log`
+
+Summarize a session’s auto-decisions: counts by class, audited N/M, agreement rate, escalations
+
+**Options:**
+
+- `--session` — Session whose auto-decisions.jsonl to read
 
 ### `harness autonomy set [level]`
 
