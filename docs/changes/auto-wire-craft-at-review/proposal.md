@@ -103,7 +103,7 @@ be skipped forever as `unsupported-language` — a silent total failure dressed 
 | `code-craft`            | any production source file                                      | all six                   |
 | `naming-craft`          | any production source file (cross-cutting)                      | all six                   |
 | `test-craft`            | test files                                                      | all six                   |
-| `docs-craft`            | `docs/**` or `*.md` outside `docs/changes/**`                   | `'any'` (surface-bound)   |
+| `docs-craft`            | PROSE under `docs/**`, or `*.md`, outside `docs/changes/**`     | `'any'` (surface-bound)   |
 | `spec-craft`            | `docs/changes/**/proposal.md`                                   | `'any'` (surface-bound)   |
 | `cli-ergonomics-craft`  | CLI command modules                                             | `'any'` (surface-bound)   |
 | `api-craft`             | OpenAPI documents                                               | `'any'` (surface-bound)   |
@@ -115,6 +115,15 @@ be skipped forever as `unsupported-language` — a silent total failure dressed 
 surface — it is `test-craft`'s to critique, and design-craft reviewing a test's markup would be
 noise. The same exclusion applies to `cli-ergonomics-craft`: a test under `commands/` is not a
 command module.
+
+**`docs-craft` owns PROSE, not every file under `docs/`.** `docs/**` holds images, fixtures and data
+as well as writing, and a writing critic handed `diagram.png` or `data.json` is a dispatch with
+nothing to read — the same failure the capability gate exists to prevent. It is restricted to prose
+extensions and carries the `!isTestFile` guard every other surface predicate already had (without
+it, `tests/fixtures/README.md` was a docs-craft surface). Relatedly, `.harness/**` joins the
+excluded paths: it is machine-generated harness state in every adopter, and without the exclusion
+each regeneration of this repo's own comprehension shards (`_module.md`) activated docs-craft on
+harness's bookkeeping on literally every review.
 
 **`cli-ergonomics-craft` must NOT use the production-source predicate.** Its `owns` is
 `!isExcludedPath && !isTestFile && CLI_COMMAND_PATTERN`. The obvious implementation —
@@ -216,6 +225,16 @@ into every hook brief ("`skill` hooks receive the same context (event, session d
 plan path) in the subagent brief" — `harness-autopilot/SKILL.md:78`). The craft host sections
 mandate forwarding them as `files` plus a `promptBudget`.
 
+**The host reads `CraftReviewPlan.files`, and must not re-derive the subset.** `files` is a map from
+skill name to that domain's owned, already-normalized file subset, carried on the plan precisely so
+criterion 4 is implementable without calling back into the table. Calling `rule.owns()` directly is
+unsafe, because the path normalizer is module-private and `owns` is only correct on repo-relative
+POSIX paths. Measured on raw VCS output in both directions: `spec-craft.owns(['docs\changes\x\proposal.md'])`
+returns `[]` (a false negative — the pattern is `/`-anchored), and worse,
+`harness-design-craft.owns(['dist\ui\Button.tsx'])` returns the file (a false **positive**, because
+the exclusion patterns are `/`-anchored too) — so a build artifact leaks into a craft run. The plan
+normalizes first and excludes it.
+
 That is an instruction, and an instruction is not a guarantee — so the guarantee is encoded as an
 executable law. Craft run state persists the exact file per queued prompt
 (`CodeRunMeta.prompts[].file`, `packages/cli/src/code-craft/index.ts:122-134`, saved by
@@ -316,12 +335,23 @@ Exactly one reason is reported per expected domain, and the order is fixed so a 
 deliberate change rather than an accident:
 
 `not-activated` (surface) → `unsupported-language` (capability) → `not-installed` (availability) →
-`already-run` → `over-budget`
+`already-run` → `project-declared` → `over-budget`
 
 Surface comes first because it is the cheapest and most informative. Capability precedes
 availability because D8 is about dispatchability, not installation. Budget is last so a domain that
 would have been skipped anyway never consumes a slot — otherwise a not-installed domain silently
 displaces an installed one. Every link in this chain is pinned by a test.
+
+**`project-declared` is a planning stage, not a post-filter — and this is load-bearing.** A project
+that declares a craft domain in its own `skillHooks` suppresses the default for that domain. The
+obvious implementation resolves the plan first and filters the declared domains out of the result,
+which is what the canary twin does safely — canary has no budget, so removing a hook afterwards
+cannot change which other hooks were chosen. **Here it can.** Slots are scarce, so a domain filtered
+out after the loop has already consumed one: the review silently drops to two domains, a third
+domain is reported `over-budget` while a slot was in fact free, and the plan claims the declared
+domain was `wired` when it never attached. The denominator then lies in both directions. Declared
+domains are therefore fed into the resolution as an input, and the budget is the last stage in the
+loop.
 
 ### Budget
 
@@ -333,11 +363,20 @@ declared in `CRAFT_REVIEW_DOMAINS` — not a vague "highest signal first". Each 
 4 `security-craft`, 5 `naming-craft`, 6 `cli-ergonomics-craft`, 7 `api-craft`, 8 `spec-craft`,
 9 `docs-craft`, 10 `knowledge-craft`.
 
+**The cap is PER RESOLUTION, not per diff.** Decided deliberately. Autopilot resolves at two review
+moments, so a phase can dispatch up to **2 × `maxDomains`** — measured at 5 on one unchanged diff
+(`after:REVIEW` wires design, code, test; `after:FINAL_REVIEW` wires security, naming). An earlier
+draft's "never more than 3 domains" was true per call and false per phase; this is the correction.
+A host that wants the per-phase guarantee passes the first moment's wired domains as `alreadyRanFor`
+at the second (D10 / criterion 11). Per-diff was rejected: this module is pure and cannot carry
+state between calls to enforce it, and a per-diff budget would make the second review moment blind
+to a domain that genuinely should re-run after the first one's fixes landed.
+
 **The cost is bounded, but WHICH domains run is emergent.** An earlier draft of this section claimed
 the worst case was "stated rather than emergent". That is false as written and is corrected here:
-`maxDomains` bounds the cost (never more than 3 domains), but which three you get is a function of
-the diff shape, and the cap is binding on ordinary diffs — not only pathological ones. The measured
-activation matrix at the default cap of 3, with every craft skill installed:
+`maxDomains` bounds the cost, but which domains you get is a function of the diff shape, and the cap
+is binding on ordinary diffs — not only pathological ones. The measured activation matrix at the
+default cap of 3, with every craft skill installed:
 
 | Diff shape                               | Wired (priority order) | Over budget      |
 | ---------------------------------------- | ---------------------- | ---------------- |

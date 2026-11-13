@@ -288,15 +288,16 @@ describe('planCraftReviewDomains — host/event gate', () => {
     // resolves craft reports no denominator rather than a misleading 0/10.
     expect(
       planCraftReviewDomains('harness-autopilot', 'after:mechanical', TSX_DIFF, DESIGN_ONLY)
-    ).toEqual({ wired: [], skipped: [], expected: [] });
+    ).toEqual({ wired: [], skipped: [], expected: [], files: {} });
     expect(
       planCraftReviewDomains('harness-code-review', 'after:REVIEW', TSX_DIFF, DESIGN_ONLY)
-    ).toEqual({ wired: [], skipped: [], expected: [] });
+    ).toEqual({ wired: [], skipped: [], expected: [], files: {} });
     for (const event of ['before:EXECUTE', 'after:VERIFY', 'on:failure']) {
       expect(planCraftReviewDomains('harness-autopilot', event, TSX_DIFF, DESIGN_ONLY)).toEqual({
         wired: [],
         skipped: [],
         expected: [],
+        files: {},
       });
     }
   });
@@ -306,6 +307,7 @@ describe('planCraftReviewDomains — host/event gate', () => {
       wired: [],
       skipped: [],
       expected: [],
+      files: {},
     });
     // Positive control at the same scope: the known host DOES wire.
     expect(
@@ -583,7 +585,12 @@ describe('capability gate (spec criterion 9) — unsupported-language is EXPLICI
     // cli-ergonomics-craft's concern — but `messages.json` and `data.yaml` are
     // data, not commands. If this proves noisy in practice, the fix is to
     // intersect with a command-ish extension set, NOT to restore
-    // isProductionSource (that would re-break shell and Ruby).
+    // isExtractableSource (that would re-break shell and Ruby).
+    //
+    // TRACKING: narrowing this is Phase 3's call, recorded in the spec's
+    // Activation section under the cli-ergonomics-craft predicate note. If you
+    // are here because Phase 3 narrowed the predicate and this went red, that is
+    // the intended signal — update the expectation, do not widen it back.
     const cli = DOMAIN('cli-ergonomics-craft');
     expect(
       cli.owns([
@@ -709,6 +716,161 @@ describe('capability gate (spec criterion 9) — unsupported-language is EXPLICI
   });
 });
 
+describe('[I2] the plan carries the owned file subset (criterion 4)', () => {
+  it('keys the NORMALIZED owned subset by skill for every wired domain', () => {
+    const plan = planCraftReviewDomains(
+      'harness-autopilot',
+      'after:REVIEW',
+      ['src/ui/Button.tsx', 'src/a.ts', 'docs/guide.md'],
+      ALL_CRAFT_INSTALLED
+    );
+    // Exactly the wired domains, no more: `files` is the host's forwarding
+    // contract, so an entry for a domain that did not run would be a dispatch
+    // instruction for something that never happened.
+    expect(Object.keys(plan.files).sort()).toEqual([...wiredNames(plan)].sort());
+    expect(plan.files['harness-design-craft']).toEqual(['src/ui/Button.tsx']);
+    expect(plan.files['code-craft']).toEqual(['src/ui/Button.tsx', 'src/a.ts']);
+  });
+
+  it('carries POSIX paths even when the diff arrives with backslashes', () => {
+    // THE POINT OF CARRYING THEM. Phase 3 forwards plan.files; it must not call
+    // rule.owns() on raw VCS output.
+    const plan = planCraftReviewDomains(
+      'harness-autopilot',
+      'after:REVIEW',
+      ['docs\\changes\\x\\proposal.md'],
+      new Set(['spec-craft'])
+    );
+    expect(plan.files['spec-craft']).toEqual(['docs/changes/x/proposal.md']);
+  });
+
+  it('is empty for a plan that wires nothing, and for an unwired host/event', () => {
+    const nothing = planCraftReviewDomains(
+      'harness-autopilot',
+      'after:REVIEW',
+      [],
+      ALL_CRAFT_INSTALLED
+    );
+    expect(nothing.files).toEqual({});
+    const unwired = planCraftReviewDomains(
+      'harness-tdd',
+      'after:REVIEW',
+      TSX_DIFF,
+      ALL_CRAFT_INSTALLED
+    );
+    expect(unwired.files).toEqual({});
+    // Positive control: the same shape DOES carry files when a domain wires.
+    const wired = planCraftReviewDomains(
+      'harness-autopilot',
+      'after:REVIEW',
+      TSX_DIFF,
+      DESIGN_ONLY
+    );
+    expect(wired.files).toEqual({ 'harness-design-craft': ['src/ui/Button.tsx'] });
+  });
+
+  it('documents WHY owns() is not the host API: it is unsafe on raw paths', () => {
+    // Both directions, measured. These are the behaviours that make
+    // plan.files necessary — not a convenience.
+    // (a) false NEGATIVE: anchored patterns miss a backslash path.
+    expect(DOMAIN('spec-craft').owns(['docs\\changes\\x\\proposal.md'])).toEqual([]);
+    // (b) false POSITIVE, the dangerous one: EXCLUDED_PATH_PATTERNS is
+    // `/`-anchored, so a build artifact is NOT recognised as build output.
+    expect(DOMAIN('harness-design-craft').owns(['dist\\ui\\Button.tsx'])).toEqual([
+      'dist\\ui\\Button.tsx',
+    ]);
+    // ...and the plan, which normalizes first, excludes it. This pair is the
+    // whole argument for criterion 4 reading plan.files.
+    const plan = planCraftReviewDomains(
+      'harness-autopilot',
+      'after:REVIEW',
+      ['dist\\ui\\Button.tsx'],
+      ALL_CRAFT_INSTALLED
+    );
+    expect(plan.wired).toEqual([]);
+    expect(plan.files).toEqual({});
+  });
+});
+
+describe('[S1/S2] hostile inputs', () => {
+  it('[S1] an inherited Object.prototype key is an unknown host, not a crash', () => {
+    for (const host of ['constructor', 'toString', 'valueOf', '__proto__', 'hasOwnProperty']) {
+      expect(() =>
+        planCraftReviewDomains(host, 'after:REVIEW', TSX_DIFF, ALL_CRAFT_INSTALLED)
+      ).not.toThrow();
+      expect(
+        planCraftReviewDomains(host, 'after:REVIEW', TSX_DIFF, ALL_CRAFT_INSTALLED),
+        `host "${host}" must yield a fully empty plan`
+      ).toEqual({ wired: [], skipped: [], expected: [], files: {} });
+    }
+    // Positive control: a real host still resolves.
+    expect(
+      planCraftReviewDomains('harness-autopilot', 'after:REVIEW', TSX_DIFF, DESIGN_ONLY).wired
+    ).toHaveLength(1);
+  });
+
+  it('[S2] a non-finite maxDomains falls back to the default, never to unbounded', () => {
+    // `wired.length >= NaN` is ALWAYS false, so an unguarded NaN wires EVERY
+    // activated domain — the precise outcome the clamp's own comment forbids.
+    for (const bad of [Number.NaN, Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY]) {
+      const plan = planCraftReviewDomains(
+        'harness-autopilot',
+        'after:REVIEW',
+        FIVE_ACTIVATING,
+        ALL_CRAFT_INSTALLED,
+        { maxDomains: bad }
+      );
+      expect(plan.wired, `maxDomains ${String(bad)}`).toHaveLength(DEFAULT_MAX_CRAFT_DOMAINS);
+    }
+    // Positive control at the same scope: a finite cap is still honoured.
+    expect(
+      planCraftReviewDomains(
+        'harness-autopilot',
+        'after:REVIEW',
+        FIVE_ACTIVATING,
+        ALL_CRAFT_INSTALLED,
+        { maxDomains: 1 }
+      ).wired
+    ).toHaveLength(1);
+  });
+});
+
+describe('[S4] docs-craft owns PROSE, not everything under docs/', () => {
+  it('excludes images, data, test fixtures and generated harness state', () => {
+    expect(
+      DOMAIN('docs-craft').owns([
+        'docs/guide.md',
+        'README.md',
+        'docs/assets/diagram.png',
+        'docs/data.json',
+        'tests/fixtures/README.md',
+        '.harness/comprehension/packages/core/src/hooks/_module.md',
+      ])
+    ).toEqual(['docs/guide.md', 'README.md']);
+  });
+
+  it('does not activate docs-craft on a comprehension-shard regeneration', () => {
+    // In THIS repo every commit regenerates `_module.md` shards. Without the
+    // `.harness/` exclusion, docs-craft activated on harness's own bookkeeping
+    // on literally every review.
+    const plan = planCraftReviewDomains(
+      'harness-autopilot',
+      'after:REVIEW',
+      ['.harness/comprehension/packages/core/src/hooks/_module.md'],
+      ALL_CRAFT_INSTALLED
+    );
+    expect(plan.wired).toEqual([]);
+    // Positive control at the same scope: a real prose change DOES activate it.
+    const real = planCraftReviewDomains(
+      'harness-autopilot',
+      'after:REVIEW',
+      ['docs/guide.md'],
+      ALL_CRAFT_INSTALLED
+    );
+    expect(real.wired.map((h) => h.type === 'skill' && h.skill)).toContain('docs-craft');
+  });
+});
+
 describe('[F6] owns path-guards', () => {
   it('api-craft excludes a build-output OpenAPI document', () => {
     const API_ONLY = new Set<string>(['api-craft']);
@@ -789,8 +951,11 @@ describe('copy-craft is deliberately not activated in v1', () => {
   });
 });
 
-// A diff that activates FIVE installed domains: design(1), code(2), test(3),
-// naming(4), security(5).
+// A diff that activates FIVE installed domains, in TABLE order:
+// design(1), code(2), test(3), SECURITY(4), NAMING(5).
+// security is fourth and naming fifth — see the D-5 swap. Getting this backwards
+// in a comment invites a maintainer to "correct" the table and silently make
+// security-craft unreachable on the commonest diff shape.
 const FIVE_ACTIVATING = ['src/ui/Button.tsx', 'src/a.ts', 'src/a.test.ts'];
 const wiredNames = (plan: CraftReviewPlan): string[] =>
   plan.wired.flatMap((hook) => (hook.type === 'skill' ? [hook.skill] : []));
@@ -1111,12 +1276,16 @@ describe('resolveReviewHooksWithCraft', () => {
   describe('dedup by canonical name (criterion 6)', () => {
     // `maxDomains: 1` keeps harness-design-craft (priority 1) the ONLY default in
     // play, so a dedup assertion cannot be confused with a budget skip.
+    // Isolated by AVAILABILITY (only design-craft installed) rather than by
+    // `maxDomains: 1`. Both isolate dedup from the budget, but the cap also hid
+    // I1 — the interaction between them — so the interaction is now covered by
+    // its own sibling test below while these stay single-variable.
     const declaring = (entry: SkillHookEntry) =>
       resolveReviewHooksWithCraft(
         { skillHooks: { 'harness-autopilot': { 'after:REVIEW': [entry] } } },
         'harness-autopilot',
         'after:REVIEW',
-        { changedFiles: TSX_DIFF, availableSkills: ALL_CRAFT_INSTALLED, maxDomains: 1 }
+        { changedFiles: TSX_DIFF, availableSkills: DESIGN_ONLY }
       );
 
     it('drops the default when the project declares the CANONICAL name', () => {
@@ -1162,9 +1331,80 @@ describe('resolveReviewHooksWithCraft', () => {
         { skillHooks: { 'harness-autopilot': { 'after:REVIEW': ['code-craft'] } } },
         'harness-autopilot',
         'after:REVIEW',
-        { changedFiles: ['src/a.ts'], availableSkills: ALL_CRAFT_INSTALLED, maxDomains: 1 }
+        { changedFiles: ['src/a.ts'], availableSkills: new Set(['code-craft']) }
       );
       expect(hooks).toEqual([{ type: 'skill', skill: 'code-craft', blocking: true }]);
+    });
+
+    it('[I1] a project-declared domain does NOT consume a budget slot', () => {
+      // THE INTERACTION the isolated tests above deliberately exclude, and the
+      // reason dedup had to move INSIDE the budget loop.
+      //
+      // Declaring code-craft parks it. With dedup applied AFTER the loop,
+      // code-craft took slot 2 and was then filtered out, so only 2 hooks
+      // survived, security-craft was reported `over-budget` while a slot was in
+      // fact free, and plan.wired claimed code-craft ran when it never attached.
+      // proposal.md: "Budget is last so a domain that would have been skipped
+      // anyway never consumes a slot."
+      const config: SkillHooksConfigHolder = {
+        skillHooks: {
+          'harness-autopilot': {
+            'after:REVIEW': [{ type: 'skill', skill: 'code-craft', enabled: false }],
+          },
+        },
+      };
+      const hooks = resolveReviewHooksWithCraft(config, 'harness-autopilot', 'after:REVIEW', {
+        changedFiles: FIVE_ACTIVATING,
+        availableSkills: ALL_CRAFT_INSTALLED,
+      });
+      // The freed slot goes to the next domain in priority order, so the review
+      // still gets its full budget of three.
+      expect(hooks).toEqual([
+        { type: 'skill', skill: 'harness-design-craft', blocking: false },
+        { type: 'skill', skill: 'test-craft', blocking: false },
+        { type: 'skill', skill: 'security-craft', blocking: false },
+      ]);
+    });
+
+    it('[I1] the plan denominator matches what actually attached', () => {
+      // The other half of I1: the PLAN must not claim a declared domain was
+      // wired, and must not blame the budget for a slot that was free.
+      const plan = planCraftReviewDomains(
+        'harness-autopilot',
+        'after:REVIEW',
+        FIVE_ACTIVATING,
+        ALL_CRAFT_INSTALLED,
+        { declaredSkills: ['code-craft'] }
+      );
+      expect(wiredNames(plan)).toEqual(['harness-design-craft', 'test-craft', 'security-craft']);
+      expect(reasonsFor(plan.skipped, 'code-craft')).toEqual(['project-declared']);
+      // naming-craft is the ONLY genuinely over-budget domain here.
+      expect(plan.skipped.filter((x) => x.reason === 'over-budget').map((x) => x.skill)).toEqual([
+        'naming-craft',
+      ]);
+      // Positive control: without the declaration, code-craft wires and
+      // security-craft is the one displaced.
+      const control = planCraftReviewDomains(
+        'harness-autopilot',
+        'after:REVIEW',
+        FIVE_ACTIVATING,
+        ALL_CRAFT_INSTALLED
+      );
+      expect(wiredNames(control)).toEqual(['harness-design-craft', 'code-craft', 'test-craft']);
+    });
+
+    it('[I1] project-declared is reported AHEAD of over-budget', () => {
+      // Precedence pin for the new stage: with one slot, a declared domain that
+      // is ALSO out of budget must report the more informative reason.
+      const plan = planCraftReviewDomains(
+        'harness-autopilot',
+        'after:REVIEW',
+        FIVE_ACTIVATING,
+        ALL_CRAFT_INSTALLED,
+        { maxDomains: 1, declaredSkills: ['test-craft'] }
+      );
+      expect(reasonsFor(plan.skipped, 'test-craft')).toEqual(['project-declared']);
+      expect(reasonsFor(plan.skipped, 'security-craft')).toEqual(['over-budget']);
     });
 
     it('does not dedup against a declaration at a DIFFERENT event', () => {

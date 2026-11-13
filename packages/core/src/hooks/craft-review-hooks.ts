@@ -27,18 +27,27 @@
 //      wired craft hooks carry a LITERAL `blocking: false`. Do not "restore"
 //      `defaultBlocking` here; a test asserts the literal AND asserts
 //      `defaultBlocking('after:REVIEW') === true` so the divergence is provable.
-//   2. PER-HOST EVENT SETS. Canary has one host constant. Craft has two hosts with
-//      different event vocabularies (spec D4/D5): autopilot wires
-//      `after:REVIEW` / `after:FINAL_REVIEW`; code-review's only declared event is
-//      `after:mechanical`, which fires BEFORE its AI fan-out — so craft runs POST
-//      review under autopilot and PRE review under code-review. The asymmetry is
-//      intentional and named here so it is not discovered later.
+//   2. PER-HOST EVENT SETS. Canary has one host constant. Craft has two hosts
+//      with different event vocabularies (spec D4/D5). See
+//      {@link CRAFT_REVIEW_EVENTS_BY_HOST} for the vocabularies and for the
+//      pre/post-review asymmetry between them.
 //   3. CAPABILITY GATE BEFORE DISPATCH. A domain whose `supportedLanguages` does
 //      not intersect the languages of the files IT OWNS is SKIPPED with reason
 //      `unsupported-language` — never dispatched (spec D8). Dispatching it would
 //      return an empty finding set indistinguishable from "this code is fine".
 //      The gate applies ONLY to the four unit-extraction domains; every
 //      surface-bound domain is CRAFT_ANY_LANGUAGE. See {@link CRAFT_ANY_LANGUAGE}.
+//   4. A BUDGET CAP, WHICH CANARY HAS NO COUNTERPART FOR. Canary wires a fixed
+//      four detectors and never drops one, so there dedup-after-planning is free:
+//      removing a hook afterwards cannot change which other hooks were chosen.
+//      HERE IT IS NOT FREE. Slots are scarce (default 3), so a domain filtered
+//      out AFTER the loop has already consumed a slot that a later domain could
+//      have used — and the plan's `skipped` then reports `over-budget` for a
+//      domain while a slot was in fact free. That is why every reason that can
+//      suppress a domain, INCLUDING a project's own `skillHooks` declaration,
+//      is a skip stage INSIDE the loop and ordered ahead of the budget. A reader
+//      pattern-matching from canary will assume otherwise; do not "simplify" the
+//      project-declared stage back out into a post-pass.
 //
 // FORWARD-WIRED / GRACEFUL-SKIP CONTRACT (inherited from the canary twin, do not
 // regress): craft domains are harness-OPTIMISTIC defaults. A default whose skill
@@ -93,7 +102,13 @@ export const CRAFT_ANY_LANGUAGE = 'any' as const;
  * capability gate must run over the files the domain actually owns. With a
  * boolean, an unrelated `.ts` elsewhere in the diff would satisfy the language
  * gate for a `.py` file the domain owns — the exact mis-dispatch spec D8 exists
- * to prevent. The subset is also what a host forwards as `files` (spec criterion 4).
+ * to prevent.
+ *
+ * HOSTS SHOULD NOT CALL THIS. To forward `files` (spec criterion 4), read
+ * {@link CraftReviewPlan.files}, which is already normalized. `owns` is correct
+ * only on repo-relative POSIX paths; on raw VCS output it yields false negatives
+ * AND false positives, because the exclusion patterns are `/`-anchored. It is
+ * exported for the table's own tests and for introspection, not as a host API.
  */
 export interface CraftDomainRule {
   /** Canonical skill name. `harness-design-craft` is the only prefixed one. */
@@ -110,6 +125,13 @@ export interface CraftDomainRule {
  * The events each host skill actually wires. Per-host because the two hosts have
  * different event vocabularies (spec D4) — every other boundary is a silent
  * no-op, so wiring one would be a dead declaration.
+ *
+ * NOTE THE ASYMMETRY, which is intentional and easy to miss: autopilot's
+ * `after:REVIEW` / `after:FINAL_REVIEW` fire AFTER its review, whereas
+ * code-review's only declared event, `after:mechanical`, fires BEFORE its AI
+ * fan-out. So craft runs POST-review under autopilot and PRE-review under
+ * code-review. A reviewer seeing craft's findings first is an improvement, not
+ * a problem — but it means the two hosts are not interchangeable.
  */
 export const CRAFT_REVIEW_EVENTS_BY_HOST = {
   'harness-autopilot': ['after:REVIEW', 'after:FINAL_REVIEW'],
@@ -142,6 +164,10 @@ function normalizePath(file: string): string {
 /** Build output, vendored code, generated files, declarations and lockfiles. */
 const EXCLUDED_PATH_PATTERNS: readonly RegExp[] = [
   /(^|\/)(dist|build|out|coverage|node_modules|vendor|target|\.next)\//,
+  // `.harness/` is machine-generated harness state in EVERY adopter (comprehension
+  // shards, session state, baselines). Without this, each shard regeneration
+  // activates docs-craft on its own bookkeeping.
+  /(^|\/)\.harness\//,
   /\.generated\.[A-Za-z0-9]+$/,
   /\.d\.ts$/,
   /(^|\/)(pnpm-lock\.yaml|package-lock\.json|yarn\.lock)$/,
@@ -169,6 +195,8 @@ const CLI_COMMAND_PATTERN = /(^|\/)(cli|commands|cmd|bin)\//;
 const OPENAPI_PATTERN = /(^|\/)(openapi|swagger)[^/]*\.(ya?ml|json)$/i;
 const SPEC_PROPOSAL_PATTERN = /^docs\/changes\/.+\/proposal\.md$/;
 const MARKDOWN_PATTERN = /\.md$/;
+/** Prose a writing critic can actually read. */
+const PROSE_PATTERN = /\.(md|mdx|markdown|txt|rst|adoc)$/i;
 
 function isExcludedPath(file: string): boolean {
   return EXCLUDED_PATH_PATTERNS.some((re) => re.test(file));
@@ -178,8 +206,13 @@ function isTestFile(file: string): boolean {
   return !isExcludedPath(file) && TEST_PATH_PATTERNS.some((re) => re.test(file));
 }
 
-/** A non-test, non-generated file in a language `code-nav` can parse. */
-function isProductionSource(file: string): boolean {
+/**
+ * A non-test, non-generated file in a language `code-nav` can EXTRACT UNITS from.
+ * The `Extractable` is load-bearing: this is not merely "production source", it
+ * also requires `detectLanguage(file) !== null`. Surface-bound domains must not
+ * use it — that would re-impose the language gate on their back door.
+ */
+function isExtractableSource(file: string): boolean {
   if (isExcludedPath(file) || isTestFile(file)) return false;
   return detectLanguage(file) !== null;
 }
@@ -190,11 +223,17 @@ function ownsDesignSurface(file: string): boolean {
 }
 
 function ownsDocsSurface(file: string): boolean {
-  if (isExcludedPath(file)) return false;
+  // The test guard every other surface predicate already had. Without it,
+  // `tests/fixtures/README.md` is a docs-craft surface.
+  if (isExcludedPath(file) || isTestFile(file)) return false;
   // `docs/changes/**` is spec-craft's surface. `docs/knowledge/**` overlaps
   // knowledge-craft deliberately, exactly as the spec's domain table states.
   // eslint-disable-next-line @harness-engineering/no-hardcoded-path-separator -- repo-relative POSIX path, already folded by normalizePath
   if (file.startsWith('docs/changes/')) return false;
+  // PROSE only. `docs/**` holds images, fixtures and data too, and docs-craft
+  // critiques writing — handing it `diagram.png` or `data.json` is a dispatch
+  // with nothing to read, the same failure the capability gate exists to prevent.
+  if (!PROSE_PATTERN.test(file)) return false;
   return file.startsWith('docs/') || MARKDOWN_PATTERN.test(file);
 }
 
@@ -226,7 +265,7 @@ export const CRAFT_REVIEW_DOMAINS: readonly CraftDomainRule[] = Object.freeze([
     skill: 'code-craft',
     priority: 2,
     supportedLanguages: ALL_SOURCE_LANGUAGES,
-    owns: (files) => files.filter(isProductionSource),
+    owns: (files) => files.filter(isExtractableSource),
   },
   {
     skill: 'test-craft',
@@ -242,13 +281,13 @@ export const CRAFT_REVIEW_DOMAINS: readonly CraftDomainRule[] = Object.freeze([
     skill: 'security-craft',
     priority: 4,
     supportedLanguages: ALL_SOURCE_LANGUAGES,
-    owns: (files) => files.filter(isProductionSource),
+    owns: (files) => files.filter(isExtractableSource),
   },
   {
     skill: 'naming-craft',
     priority: 5,
     supportedLanguages: ALL_SOURCE_LANGUAGES,
-    owns: (files) => files.filter(isProductionSource),
+    owns: (files) => files.filter(isExtractableSource),
   },
   {
     skill: 'cli-ergonomics-craft',
@@ -257,12 +296,8 @@ export const CRAFT_REVIEW_DOMAINS: readonly CraftDomainRule[] = Object.freeze([
     // text), which is not language-specific. A Go, Python, shell or Ruby CLI
     // module is squarely its surface.
     supportedLanguages: CRAFT_ANY_LANGUAGE,
-    // Deliberately NOT `isProductionSource`, which requires
-    // `detectLanguage(f) !== null`. That would re-impose the language gate on the
-    // back door: `cmd/root.sh` and `bin/tool.rb` are not in EXTENSION_MAP, so a
-    // shell or Ruby CLI — the obvious adopter case — would report `not-activated`
-    // while the domain advertises CRAFT_ANY_LANGUAGE. Shaped like api-craft's
-    // predicate, plus a test-file guard.
+    // Deliberately NOT `isExtractableSource`: `.sh` and `.rb` are not in
+    // EXTENSION_MAP, and a shell or Ruby CLI is squarely this domain's surface.
     owns: (files) =>
       files.filter((f) => !isExcludedPath(f) && !isTestFile(f) && CLI_COMMAND_PATTERN.test(f)),
   },
@@ -300,7 +335,9 @@ export type CraftSkipReason =
   | 'unsupported-language'
   | 'no-diff-context'
   | 'over-budget'
-  | 'already-run';
+  | 'already-run'
+  /** The project declared this domain itself at this host/event (see I1). */
+  | 'project-declared';
 
 /** One reported omission. The absence of a domain is never silent (spec goal 4). */
 export interface CraftReviewSkip {
@@ -319,12 +356,68 @@ export interface CraftReviewPlan {
   wired: NormalizedHook[];
   skipped: CraftReviewSkip[];
   expected: readonly string[];
+  /**
+   * The owned, NORMALIZED file subset per wired domain, keyed by skill name —
+   * what a host forwards as `files` (spec criterion 4).
+   *
+   * This is carried rather than left to the host to re-derive, because
+   * re-deriving is unsafe: `rule.owns()` is only correct on repo-relative POSIX
+   * paths, and the normalizer is module-private. A host calling `owns()` on raw
+   * VCS output gets both false negatives (`docs\\changes\\x\\proposal.md` matches
+   * no anchored pattern) and — worse — false POSITIVES, since the exclusion
+   * patterns are `/`-anchored, so `dist\\ui\\Button.tsx` is NOT recognised as
+   * build output and a build artifact leaks into a craft run.
+   */
+  files: Readonly<Record<string, readonly string[]>>;
+}
+
+/** Inputs that tune a single resolution. */
+export interface CraftReviewOptions {
+  /**
+   * Cap on domains wired BY THIS CALL (default {@link DEFAULT_MAX_CRAFT_DOMAINS}).
+   *
+   * PER-CALL, NOT PER-DIFF — decided deliberately (spec I3). Autopilot resolves
+   * at two review moments, so a phase can dispatch up to 2x this number unless
+   * the caller threads {@link CraftReviewOptions.alreadyRanFor}. The alternative,
+   * a per-diff budget, would make the second review moment blind to a domain
+   * that genuinely should re-run after the first one's fixes landed — and this
+   * module is pure, so it cannot carry state between calls to enforce it anyway.
+   * The spec's Budget section states the per-call semantics and the 2x ceiling.
+   */
+  maxDomains?: number;
+  /**
+   * Domains the CALLER knows already ran for this same changed-file set; each is
+   * skipped with reason `already-run`. Matched by bare name, so a
+   * plugin-qualified entry works. This is the once-per-phase-per-diff control
+   * (spec D10 / criterion 11): autopilot passes the domains wired at
+   * `after:REVIEW` when it resolves again at `after:FINAL_REVIEW`. Omit it and
+   * each review moment gets its own full budget.
+   */
+  alreadyRanFor?: readonly string[];
+  /**
+   * Domains the project declared ITSELF in `skillHooks` at this host/event,
+   * including entries parked with `enabled: false`. Each is skipped with reason
+   * `project-declared` so the project's own entry wins and the craft default
+   * does not double-wire.
+   *
+   * This is an INPUT to the plan rather than a filter applied afterwards,
+   * because the budget is applied inside the same loop: a domain removed after
+   * the fact has already consumed a slot, and `skipped` would then report
+   * `over-budget` for a domain while a slot was in fact free. See divergence 4.
+   */
+  declaredSkills?: readonly string[];
 }
 
 /** True only for an event the given host actually wires (spec D4). */
 function isCraftReviewEvent(hostSkill: string, event: string): boolean {
+  // Object.hasOwn, not a bare index: a host named `constructor`, `toString`,
+  // `valueOf` or `__proto__` would otherwise resolve an INHERITED member and
+  // then throw `events.includes is not a function`. The documented contract is
+  // that an unknown host yields an empty plan, and Phase 3 may iterate
+  // user-authored `config.skillHooks` keys.
+  if (!Object.hasOwn(CRAFT_REVIEW_EVENTS_BY_HOST, hostSkill)) return false;
   const events = (CRAFT_REVIEW_EVENTS_BY_HOST as Record<string, readonly string[]>)[hostSkill];
-  return events !== undefined && events.includes(event);
+  return Array.isArray(events) && events.includes(event);
 }
 
 /** The Claude Code plugin that ships the craft skills (`.claude-plugin/plugin.json`). */
@@ -389,10 +482,16 @@ function hasSupportedLanguage(rule: CraftDomainRule, ownedFiles: readonly string
  * Plan craft's default domains for `hostSkill` at `event`, given the diff and
  * which skills are installed.
  *
- * Skip-reason precedence (pinned by a test, so a reorder is deliberate):
- * `not-activated` (surface) -> `unsupported-language` (capability) -> `not-installed`
- * (availability) -> `already-run` -> `over-budget`. Budget is last so a
- * not-installed domain never consumes a slot.
+ * Skip-reason precedence (every link pinned by a test, so a reorder is
+ * deliberate): `not-activated` (surface) -> `unsupported-language` (capability)
+ * -> `not-installed` (availability) -> `already-run` -> `project-declared` ->
+ * `over-budget`.
+ *
+ * BUDGET IS LAST, AND THAT IS THE POINT: every reason that can suppress a domain
+ * is evaluated first, so a suppressed domain never consumes a slot and `skipped`
+ * never reports `over-budget` while a slot was in fact free. Each earlier stage
+ * means "it was never going to run"; the budget alone means "it would have run,
+ * but there was no room".
  *
  * - `hostSkill`/`event` pair the host does not wire => fully empty plan (no
  *   denominator at a boundary craft never attaches to).
@@ -405,10 +504,10 @@ export function planCraftReviewDomains(
   event: string,
   changedFiles: readonly string[] | undefined,
   availableSkills?: SkillAvailability,
-  opts?: { maxDomains?: number; alreadyRanFor?: readonly string[] }
+  opts?: CraftReviewOptions
 ): CraftReviewPlan {
   if (!isCraftReviewEvent(hostSkill, event)) {
-    return { wired: [], skipped: [], expected: [] };
+    return { wired: [], skipped: [], expected: [], files: {} };
   }
 
   const expected = CRAFT_REVIEW_DOMAINS.map((domain) => domain.skill);
@@ -418,16 +517,26 @@ export function planCraftReviewDomains(
       wired: [],
       skipped: expected.map((skill) => ({ skill, reason: 'no-diff-context' as const })),
       expected,
+      files: {},
     };
   }
 
   const files = changedFiles.map(normalizePath);
   const isInstalled = toAvailabilityPredicate(availableSkills);
   const alreadyRan = new Set((opts?.alreadyRanFor ?? []).map(bareSkillName));
+  const declared = new Set((opts?.declaredSkills ?? []).map(bareSkillName));
   // Clamp: a negative or fractional cap must mean "no slots", never "unbounded".
-  const maxDomains = Math.max(0, Math.trunc(opts?.maxDomains ?? DEFAULT_MAX_CRAFT_DOMAINS));
+  // NaN/Infinity fall back to the default rather than to 0 or to unbounded:
+  // `wired.length >= NaN` is ALWAYS false, so an unguarded NaN wires every
+  // activated domain — the exact outcome this clamp exists to forbid, and a
+  // realistic one once a cap is configurable via `Number(process.env.X)`.
+  const requested = opts?.maxDomains;
+  const maxDomains = Number.isFinite(requested)
+    ? Math.max(0, Math.trunc(requested as number))
+    : DEFAULT_MAX_CRAFT_DOMAINS;
   const wired: NormalizedHook[] = [];
   const skipped: CraftReviewSkip[] = [];
+  const ownedBySkill: Record<string, readonly string[]> = {};
 
   for (const rule of CRAFT_REVIEW_DOMAINS) {
     const owned = rule.owns(files);
@@ -447,15 +556,23 @@ export function planCraftReviewDomains(
       skipped.push({ skill: rule.skill, reason: 'already-run' });
       continue;
     }
+    // AHEAD OF THE BUDGET, deliberately. A project that declared this domain
+    // itself gets its own entry; the craft default must not also wire, and must
+    // not burn a slot on its way to being dropped. See divergence 4.
+    if (declared.has(bareSkillName(rule.skill))) {
+      skipped.push({ skill: rule.skill, reason: 'project-declared' });
+      continue;
+    }
     if (wired.length >= maxDomains) {
       skipped.push({ skill: rule.skill, reason: 'over-budget' });
       continue;
     }
     // NON-BLOCKING, deliberately. NOT `defaultBlocking(event)` — see divergence 1.
     wired.push({ type: 'skill', skill: rule.skill, blocking: false });
+    ownedBySkill[rule.skill] = owned;
   }
 
-  return { wired, skipped, expected };
+  return { wired, skipped, expected, files: ownedBySkill };
 }
 
 /**
@@ -491,8 +608,11 @@ function declaredSkillNames(
  *
  * Ordering: configured hooks first (a project's explicit intent leads), craft
  * defaults appended NON-BLOCKING. A craft default whose domain is already
- * DECLARED at this event is dropped — the project's entry wins, whether written
- * bare, canonical or plugin-qualified, and `enabled: false` parks it for good.
+ * DECLARED at this event is never planned — the project's entry wins, whether
+ * written bare, canonical or plugin-qualified, and `enabled: false` parks it for
+ * good. The declaration is fed to {@link planCraftReviewDomains} as
+ * `declaredSkills` rather than filtered out afterwards, so a declared domain
+ * never consumes a budget slot on its way to being dropped (divergence 4).
  *
  * A craft default that is not activated, not installed, over budget or
  * unreadable is never emitted here — it is reported in
@@ -507,11 +627,9 @@ export function resolveReviewHooksWithCraft(
   config: SkillHooksConfigHolder | null | undefined,
   skillName: string,
   event: string,
-  opts: {
+  opts: CraftReviewOptions & {
     changedFiles?: readonly string[];
     availableSkills?: SkillAvailability;
-    maxDomains?: number;
-    alreadyRanFor?: readonly string[];
   }
 ): NormalizedHook[] {
   const configured = resolveSkillHooks(config, skillName, event);
@@ -520,27 +638,21 @@ export function resolveReviewHooksWithCraft(
   // host/event pair is returned untouched.
   if (!isCraftReviewEvent(skillName, event)) return configured;
 
-  // `opts` is forwarded as-is rather than rebuilt as a literal: under
+  // The project's declarations go IN as a planning input, not on as a filter
+  // afterwards. Dedup is by BARE name, so a declaration written bare or
+  // plugin-qualified both suppress the default; `harness-design-craft` has no
+  // colon, so its canonical prefix survives normalization and naming it
+  // `design-craft` does NOT suppress it.
+  //
+  // `opts` is spread rather than rebuilt field by field: under
   // `exactOptionalPropertyTypes`, `{ maxDomains: opts.maxDomains }` widens an
   // ABSENT key to an explicit `undefined`, which is a different type.
-  const { wired } = planCraftReviewDomains(
-    skillName,
-    event,
-    opts.changedFiles,
-    opts.availableSkills,
-    opts
-  );
-  if (wired.length === 0) return configured;
+  const plan = planCraftReviewDomains(skillName, event, opts.changedFiles, opts.availableSkills, {
+    ...opts,
+    declaredSkills: [...declaredSkillNames(config, skillName, event)],
+  });
 
-  // Dedup on the BARE name so a declaration written bare or plugin-qualified both
-  // suppress the default. `harness-design-craft` has no colon, so its canonical
-  // prefix survives normalization — naming it `design-craft` does NOT suppress it.
-  const declared = new Set<string>();
-  for (const name of declaredSkillNames(config, skillName, event)) {
-    declared.add(bareSkillName(name));
-  }
-  const additions = wired.filter(
-    (hook) => hook.type === 'skill' && !declared.has(bareSkillName(hook.skill))
-  );
-  return [...configured, ...additions];
+  // A straight append: the plan already excluded every declared domain, so no
+  // post-filter is needed and the plan's denominator is true by construction.
+  return plan.wired.length === 0 ? configured : [...configured, ...plan.wired];
 }
