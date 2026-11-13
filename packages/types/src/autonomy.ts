@@ -21,7 +21,10 @@ export interface AutonomySetting {
   audit?: boolean;
 }
 
-/** Invocation flag. `at` is the session start (ISO) used for the flag-vs-override recency tie (D3). */
+/**
+ * An invocation flag. Lower-only (D17): resolveAutonomy honours only `level: 'supervised'` and
+ * `audit: true`; any other value is ignored with a warning. `at` is the invocation time (D3 recency).
+ */
 export interface AutonomyFlag extends AutonomySetting {
   at?: string;
 }

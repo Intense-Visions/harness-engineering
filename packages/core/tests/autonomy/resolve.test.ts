@@ -194,3 +194,49 @@ describe('env tier is lower-only (D13)', () => {
     expect([r.audit, r.source.audit]).toEqual([true, 'env']);
   });
 });
+
+describe('resolveAutonomy invocation flags are lower-only (D17)', () => {
+  it('ignores a trusted flag with one warning and falls through to the next tier', () => {
+    const r = run({ flag: { level: 'trusted' } });
+    expect([r.level, r.source.level]).toEqual(['supervised', 'default']);
+    expect(r.warnings).toHaveLength(1);
+    expect(r.warnings[0]).toMatch(/flag level=trusted.*may only lower/);
+  });
+  it('ignores an audit-off flag with one warning', () => {
+    const r = run({ flag: { audit: false }, readFile: cfg({ autonomy: { level: 'trusted' } }) });
+    expect([r.level, r.audit, r.source.audit]).toEqual(['trusted', true, 'default']);
+    expect(r.warnings).toHaveLength(1);
+    expect(r.warnings[0]).toMatch(/flag audit=false/);
+  });
+  it('a raising flag newer than a lowering session override does not outrank it', () => {
+    const r = run({
+      flag: { level: 'trusted', at: '2999-01-01T00:00:00.000Z' },
+      sessionOverride: sess('supervised', undefined, T0),
+      readFile: cfg({ autonomy: { level: 'trusted' } }),
+    });
+    expect([r.level, r.source.level]).toEqual(['supervised', 'session']);
+  });
+  it.each([['yolo'], [1], [null]])('drops a malformed flag level %j with a warning', (v) => {
+    const r = run({ flag: { level: v as unknown as AutonomyLevel } });
+    expect(r.source.level).toBe('default');
+    expect(r.warnings).toHaveLength(1);
+  });
+  it('drops a non-boolean audit flag ("false") with a warning', () => {
+    const r = run({ flag: { audit: 'false' as unknown as boolean } });
+    expect(r.source.audit).toBe('default');
+    expect(r.warnings).toHaveLength(1);
+  });
+  it('positive control: a lowering flag still beats a trusted, audit-off user config', () => {
+    const r = run({
+      flag: { level: 'supervised', audit: true },
+      readFile: cfg({ autonomy: { level: 'trusted', audit: { trusted: false } } }),
+    });
+    expect([r.level, r.source.level, r.audit, r.source.audit]).toEqual([
+      'supervised',
+      'flag',
+      true,
+      'flag',
+    ]);
+    expect(r.warnings).toEqual([]);
+  });
+});

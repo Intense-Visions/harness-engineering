@@ -88,6 +88,38 @@ const ENV_RAISE_HINT =
   'the environment may only lower autonomy (D13: .env files and agent settings can set it). ' +
   'Raise with ~/.harness/config.json or an interactive `harness autonomy set`.';
 
+const FLAG_RAISE_HINT =
+  'invocation flags may only lower autonomy (D17: an agent cannot prove a human typed a raising flag). ' +
+  'Raise with ~/.harness/config.json or an interactive `harness autonomy set`.';
+
+/** Keep a flag field only when it holds the lowering value; anything else is dropped with a warning. */
+function keepLowering<T>(
+  name: 'level' | 'audit',
+  value: T | undefined,
+  lowering: T,
+  warnings: string[]
+): T | undefined {
+  if (value === undefined || value === lowering) return value;
+  warnings.push(`Ignoring invocation flag ${name}=${String(value)}: ${FLAG_RAISE_HINT}`);
+  return undefined;
+}
+
+/** D17: the flag tier is lower-only, like env (D13). `at` is kept only alongside a kept field. */
+function lowerOnlyFlag(
+  flag: AutonomyFlag | undefined,
+  warnings: string[]
+): AutonomyFlag | undefined {
+  if (flag === undefined) return undefined;
+  const level = keepLowering<AutonomyLevel>('level', flag.level, 'supervised', warnings);
+  const audit = keepLowering<boolean>('audit', flag.audit, true, warnings);
+  if (level === undefined && audit === undefined) return undefined;
+  return {
+    ...(level !== undefined && { level }),
+    ...(audit !== undefined && { audit }),
+    ...(flag.at !== undefined && { at: flag.at }),
+  };
+}
+
 /**
  * D14: a RAISED session field (level trusted / audit off) applies only while unexpired AND
  * while its session dir exists at read time (worktrees share one override key, D15, so a raise
@@ -168,6 +200,7 @@ function loadUserConfig(input: ResolveAutonomyInput, warnings: string[]): Autono
 
 function resolveLevel(
   input: ResolveAutonomyInput,
+  flag: AutonomyFlag | undefined,
   env: NodeJS.ProcessEnv,
   user: AutonomyUserConfig,
   warnings: string[]
@@ -179,7 +212,7 @@ function resolveLevel(
     input,
     warnings
   );
-  const tier = pickUserTier(input.flag?.level, input.flag?.at, session);
+  const tier = pickUserTier(flag?.level, flag?.at, session);
   if (tier) return tier;
   const fromEnv = readEnvLevel(env, warnings);
   if (fromEnv !== undefined) return { value: fromEnv, source: 'env' };
@@ -190,6 +223,7 @@ function resolveLevel(
 
 function resolveAudit(
   input: ResolveAutonomyInput,
+  flag: AutonomyFlag | undefined,
   env: NodeJS.ProcessEnv,
   user: AutonomyUserConfig,
   level: AutonomyLevel,
@@ -202,7 +236,7 @@ function resolveAudit(
     input,
     warnings
   );
-  const tier = pickUserTier(input.flag?.audit, input.flag?.at, session);
+  const tier = pickUserTier(flag?.audit, flag?.at, session);
   if (tier) return tier;
   const fromEnv = readEnvAudit(env, warnings);
   if (fromEnv !== undefined) return { value: fromEnv, source: 'env' };
@@ -212,15 +246,16 @@ function resolveAudit(
 }
 
 /**
- * Resolve autonomy (D3): flag > session > env > user config > default, per field. The env tier
- * is lower-only (D13). Pure aside from the user-config read. Never throws.
+ * Resolve autonomy (D3): flag > session > env > user config > default, per field. The flag (D17)
+ * and env (D13) tiers are lower-only. Pure aside from the user-config read. Never throws.
  */
 export function resolveAutonomy(input: ResolveAutonomyInput = {}): ResolvedAutonomy {
   const warnings: string[] = [];
   const env = input.env ?? process.env;
   const user = loadUserConfig(input, warnings);
-  const level = resolveLevel(input, env, user, warnings);
-  const audit = resolveAudit(input, env, user, level.value, warnings);
+  const flag = lowerOnlyFlag(input.flag, warnings);
+  const level = resolveLevel(input, flag, env, user, warnings);
+  const audit = resolveAudit(input, flag, env, user, level.value, warnings);
   return {
     level: level.value,
     audit: audit.value,
