@@ -58,6 +58,8 @@
 // D3 exists to protect is not reintroduced through the back door.
 
 import { EXTENSION_MAP, detectLanguage, type SupportedLanguage } from '../code-nav/types';
+import type { NormalizedHook } from './skill-lifecycle';
+import type { SkillAvailability } from './canary-review-hooks';
 
 /**
  * Sentinel `supportedLanguages` for a domain whose surface is prose or spec
@@ -115,6 +117,11 @@ export const DEFAULT_MAX_CRAFT_DOMAINS = 3;
  * that it never appears in a plan.
  */
 export const CRAFT_DOMAINS_NOT_ACTIVATED_V1: readonly string[] = Object.freeze(['copy-craft']);
+
+/** Repo-relative POSIX form: folds Windows separators and strips a leading `./`. */
+function normalizePath(file: string): string {
+  return file.replace(/\\/g, '/').replace(/^\.\//, '');
+}
 
 /** Build output, vendored code, generated files, declarations and lockfiles. */
 const EXCLUDED_PATH_PATTERNS: readonly RegExp[] = [
@@ -253,3 +260,134 @@ export const CRAFT_REVIEW_DOMAINS: readonly CraftDomainRule[] = Object.freeze([
     owns: (files) => files.filter((f) => f.startsWith('docs/knowledge/')),
   },
 ]);
+
+/** Why a craft domain did not run at this review moment. */
+export type CraftSkipReason =
+  | 'not-installed'
+  | 'not-activated'
+  | 'unsupported-language'
+  | 'no-diff-context'
+  | 'over-budget'
+  | 'already-run';
+
+/** One reported omission. The absence of a domain is never silent (spec goal 4). */
+export interface CraftReviewSkip {
+  skill: string;
+  reason: CraftSkipReason;
+}
+
+/**
+ * The outcome of resolving craft's default domains at a review event: which are
+ * WIRED (non-blocking `skill` hooks ready to dispatch), which are SKIPPED and why,
+ * and the full EXPECTED set — the denominator a host reports ("craft domains:
+ * 2/3 activated, 1 skipped: unsupported-language").
+ */
+export interface CraftReviewPlan {
+  /** NON-BLOCKING by contract — see divergence 1 in the module header. */
+  wired: NormalizedHook[];
+  skipped: CraftReviewSkip[];
+  expected: readonly string[];
+}
+
+/** True only for an event the given host actually wires (spec D4). */
+function isCraftReviewEvent(hostSkill: string, event: string): boolean {
+  const events = (CRAFT_REVIEW_EVENTS_BY_HOST as Record<string, readonly string[]>)[hostSkill];
+  return events !== undefined && events.includes(event);
+}
+
+/** The Claude Code plugin that ships the craft skills (`.claude-plugin/plugin.json`). */
+const HARNESS_PLUGIN_PREFIX = 'harness-claude:';
+
+/**
+ * Reduce a catalog entry to the bare skill name it designates. Craft skill names
+ * contain no colon, so taking the final segment collapses every plugin
+ * qualification depth onto the bare name losslessly. `harness-design-craft` keeps
+ * its `harness-` prefix — that is part of its canonical name, not a qualification.
+ */
+function bareSkillName(entry: string): string {
+  const lastColon = entry.lastIndexOf(':');
+  return lastColon === -1 ? entry : entry.slice(lastColon + 1);
+}
+
+/**
+ * Every form a catalog is known to report a craft skill under. Enumerable
+ * availability (Set/array) is normalized by {@link bareSkillName}, so depth is
+ * irrelevant there; a PREDICATE can only be probed, which makes this list the
+ * actual coverage. The canary twin learned this the hard way: a missing form
+ * answers false and the domain is silently skipped.
+ */
+const CRAFT_SKILL_PROBE_FORMS: readonly ((skill: string) => string)[] = [
+  (skill) => skill,
+  (skill) => `${HARNESS_PLUGIN_PREFIX}${skill}`,
+  (skill) => `${HARNESS_PLUGIN_PREFIX}skills:claude-code:${skill}:${skill}`,
+];
+
+/** Normalize the three availability shapes into one predicate. `undefined` means nothing installed. */
+function toAvailabilityPredicate(avail: SkillAvailability | undefined): (skill: string) => boolean {
+  if (avail === undefined) return () => false;
+  if (typeof avail === 'function') {
+    return (skill) => CRAFT_SKILL_PROBE_FORMS.some((form) => avail(form(skill)));
+  }
+  const set = avail instanceof Set ? avail : new Set(avail);
+  const bare = new Set<string>();
+  for (const entry of set) bare.add(bareSkillName(entry));
+  return (skill) => set.has(skill) || bare.has(skill);
+}
+
+/**
+ * Plan craft's default domains for `hostSkill` at `event`, given the diff and
+ * which skills are installed.
+ *
+ * Skip-reason precedence (pinned by a test, so a reorder is deliberate):
+ * `not-activated` (surface) -> `unsupported-language` (capability) -> `not-installed`
+ * (availability) -> `already-run` -> `over-budget`. Budget is last so a
+ * not-installed domain never consumes a slot.
+ *
+ * - `hostSkill`/`event` pair the host does not wire => fully empty plan (no
+ *   denominator at a boundary craft never attaches to).
+ * - `changedFiles === undefined` => nothing activated, every domain reported
+ *   `no-diff-context`. Falling back to a repository walk would silently
+ *   reintroduce the unscoped cost spec D3 exists to prevent.
+ */
+export function planCraftReviewDomains(
+  hostSkill: string,
+  event: string,
+  changedFiles: readonly string[] | undefined,
+  availableSkills?: SkillAvailability,
+  _opts?: { maxDomains?: number; alreadyRanFor?: readonly string[] }
+): CraftReviewPlan {
+  if (!isCraftReviewEvent(hostSkill, event)) {
+    return { wired: [], skipped: [], expected: [] };
+  }
+
+  const expected = CRAFT_REVIEW_DOMAINS.map((domain) => domain.skill);
+
+  if (changedFiles === undefined) {
+    return {
+      wired: [],
+      skipped: expected.map((skill) => ({ skill, reason: 'no-diff-context' as const })),
+      expected,
+    };
+  }
+
+  const files = changedFiles.map(normalizePath);
+  const isInstalled = toAvailabilityPredicate(availableSkills);
+  const wired: NormalizedHook[] = [];
+  const skipped: CraftReviewSkip[] = [];
+
+  for (const rule of CRAFT_REVIEW_DOMAINS) {
+    const owned = rule.owns(files);
+    if (owned.length === 0) {
+      skipped.push({ skill: rule.skill, reason: 'not-activated' });
+      continue;
+    }
+    if (!isInstalled(rule.skill)) {
+      skipped.push({ skill: rule.skill, reason: 'not-installed' });
+      continue;
+    }
+    // NON-BLOCKING, deliberately. NOT `defaultBlocking(event)` — see divergence 1.
+    wired.push({ type: 'skill', skill: rule.skill, blocking: false });
+  }
+
+  return { wired, skipped, expected };
+}

@@ -5,7 +5,9 @@ import {
   CRAFT_REVIEW_DOMAINS,
   CRAFT_REVIEW_EVENTS_BY_HOST,
   DEFAULT_MAX_CRAFT_DOMAINS,
+  planCraftReviewDomains,
 } from '../../src/hooks/craft-review-hooks';
+import { defaultBlocking } from '../../src/hooks/skill-lifecycle';
 
 /**
  * Craft auto-wiring at the review moment (spec:
@@ -213,5 +215,166 @@ describe('domain surface predicates (owns returns the OWNED SUBSET)', () => {
     expect(DOMAIN('knowledge-craft').owns(['docs/knowledge/a.md', 'docs/guide.md'])).toEqual([
       'docs/knowledge/a.md',
     ]);
+  });
+});
+
+const TSX_DIFF = ['src/ui/Button.tsx'];
+const DESIGN_ONLY = new Set<string>(['harness-design-craft']);
+const ALL_CRAFT_INSTALLED = new Set<string>(CRAFT_REVIEW_DOMAINS.map((d) => d.skill));
+const ALL_DOMAIN_NAMES = CRAFT_REVIEW_DOMAINS.map((d) => d.skill);
+const reasonsFor = (skipped: readonly { skill: string; reason: string }[], skill: string) =>
+  skipped.filter((s) => s.skill === skill).map((s) => s.reason);
+
+describe('planCraftReviewDomains — host/event gate', () => {
+  it('activates an installed owning domain at each host’s own events', () => {
+    for (const [host, events] of Object.entries(CRAFT_REVIEW_EVENTS_BY_HOST)) {
+      for (const event of events) {
+        const plan = planCraftReviewDomains(host, event, TSX_DIFF, DESIGN_ONLY);
+        expect(plan.wired).toEqual([
+          { type: 'skill', skill: 'harness-design-craft', blocking: false },
+        ]);
+      }
+    }
+  });
+
+  it('returns a FULLY empty plan at an event the host does not wire', () => {
+    // after:mechanical belongs to code-review; after:REVIEW to autopilot. Crossed
+    // over, neither wires — and `expected` is empty too, so a host that never
+    // resolves craft reports no denominator rather than a misleading 0/10.
+    expect(
+      planCraftReviewDomains('harness-autopilot', 'after:mechanical', TSX_DIFF, DESIGN_ONLY)
+    ).toEqual({ wired: [], skipped: [], expected: [] });
+    expect(
+      planCraftReviewDomains('harness-code-review', 'after:REVIEW', TSX_DIFF, DESIGN_ONLY)
+    ).toEqual({ wired: [], skipped: [], expected: [] });
+    for (const event of ['before:EXECUTE', 'after:VERIFY', 'on:failure']) {
+      expect(planCraftReviewDomains('harness-autopilot', event, TSX_DIFF, DESIGN_ONLY)).toEqual({
+        wired: [],
+        skipped: [],
+        expected: [],
+      });
+    }
+  });
+
+  it('returns a fully empty plan for an unknown host skill', () => {
+    expect(planCraftReviewDomains('harness-tdd', 'after:REVIEW', TSX_DIFF, DESIGN_ONLY)).toEqual({
+      wired: [],
+      skipped: [],
+      expected: [],
+    });
+    // Positive control at the same scope: the known host DOES wire.
+    expect(
+      planCraftReviewDomains('harness-autopilot', 'after:REVIEW', TSX_DIFF, DESIGN_ONLY).wired
+    ).toHaveLength(1);
+  });
+});
+
+describe('planCraftReviewDomains — no diff context (spec criterion 12)', () => {
+  it('activates nothing and reports every domain as no-diff-context', () => {
+    const plan = planCraftReviewDomains(
+      'harness-autopilot',
+      'after:REVIEW',
+      undefined,
+      ALL_CRAFT_INSTALLED
+    );
+    expect(plan.wired).toEqual([]);
+    expect(plan.expected).toEqual(ALL_DOMAIN_NAMES);
+    // The non-empty skipped list is the load-bearing assertion: an empty one
+    // would mean the gate never ran. Mutation M3 (returning a fully empty plan)
+    // must turn this red.
+    expect(plan.skipped).toEqual(
+      ALL_DOMAIN_NAMES.map((skill) => ({ skill, reason: 'no-diff-context' }))
+    );
+
+    // POSITIVE CONTROL, same scope, same availability: a DEFINED diff wires.
+    const control = planCraftReviewDomains(
+      'harness-autopilot',
+      'after:REVIEW',
+      TSX_DIFF,
+      ALL_CRAFT_INSTALLED
+    );
+    expect(control.wired.length).toBeGreaterThan(0);
+  });
+
+  it('distinguishes an EMPTY diff (not-activated) from an ABSENT diff (no-diff-context)', () => {
+    const empty = planCraftReviewDomains(
+      'harness-autopilot',
+      'after:REVIEW',
+      [],
+      ALL_CRAFT_INSTALLED
+    );
+    expect(empty.wired).toEqual([]);
+    expect(new Set(empty.skipped.map((s) => s.reason))).toEqual(new Set(['not-activated']));
+  });
+});
+
+describe('planCraftReviewDomains — availability (spec D7)', () => {
+  it('skips an owning domain whose skill is not installed', () => {
+    const plan = planCraftReviewDomains('harness-autopilot', 'after:REVIEW', TSX_DIFF, new Set());
+    expect(plan.wired).toEqual([]);
+    expect(reasonsFor(plan.skipped, 'harness-design-craft')).toEqual(['not-installed']);
+  });
+
+  it('treats unknown availability (undefined) as not installed — never optimistic', () => {
+    const plan = planCraftReviewDomains('harness-autopilot', 'after:REVIEW', TSX_DIFF);
+    expect(plan.wired).toEqual([]);
+    expect(reasonsFor(plan.skipped, 'harness-design-craft')).toEqual(['not-installed']);
+  });
+
+  it('accepts an array and a predicate, and matches a plugin-qualified catalog', () => {
+    expect(
+      planCraftReviewDomains('harness-autopilot', 'after:REVIEW', TSX_DIFF, [
+        'harness-design-craft',
+      ]).wired
+    ).toHaveLength(1);
+    expect(
+      planCraftReviewDomains(
+        'harness-autopilot',
+        'after:REVIEW',
+        TSX_DIFF,
+        (s) => s === 'harness-claude:harness-design-craft'
+      ).wired
+    ).toHaveLength(1);
+    expect(
+      planCraftReviewDomains(
+        'harness-autopilot',
+        'after:REVIEW',
+        TSX_DIFF,
+        new Set(['harness-claude:skills:claude-code:harness-design-craft:harness-design-craft'])
+      ).wired
+    ).toHaveLength(1);
+  });
+
+  it('normalizes Windows separators and ./ prefixes before matching surfaces', () => {
+    const plan = planCraftReviewDomains(
+      'harness-autopilot',
+      'after:REVIEW',
+      ['.\\src\\ui\\Button.tsx'],
+      DESIGN_ONLY
+    );
+    expect(plan.wired).toEqual([{ type: 'skill', skill: 'harness-design-craft', blocking: false }]);
+  });
+});
+
+describe('craft hooks are NON-BLOCKING (spec criterion 3)', () => {
+  // DIVERGENCE 1 from the canary twin. Canary wires detectors with
+  // defaultBlocking(event), which is TRUE at both autopilot review events.
+  // Craft is advisory (spec D2). Mutation M1 — replacing the literal
+  // `blocking: false` with `defaultBlocking(event)` — MUST turn this red.
+  it('emits blocking:false at BOTH autopilot review events, where the default is true', () => {
+    expect(defaultBlocking('after:REVIEW')).toBe(true); // positive control
+    expect(defaultBlocking('after:FINAL_REVIEW')).toBe(true); // positive control
+    for (const event of ['after:REVIEW', 'after:FINAL_REVIEW']) {
+      const plan = planCraftReviewDomains(
+        'harness-autopilot',
+        event,
+        ['src/ui/Button.tsx', 'src/a.ts'],
+        ALL_CRAFT_INSTALLED
+      );
+      expect(plan.wired.length).toBeGreaterThan(0);
+      for (const hook of plan.wired) {
+        expect(hook).toMatchObject({ type: 'skill', blocking: false });
+      }
+    }
   });
 });
