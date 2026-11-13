@@ -92,6 +92,23 @@ describe('appendAutoDecision', () => {
     expect(codeOf(partial)).toBe('AUTO_DECISION_WRITE_FAILED');
     expect(!partial.ok && partial.error.message).toContain('partial write');
   });
+  it('a truncated last line cannot swallow the next entry (review S2)', () => {
+    fs.writeFileSync(logFile(), `${JSON.stringify(entry({ question: 'ok' }))}\n{"ts":"trunc`);
+    expect(appendAutoDecision(project, 's1', entry({ question: 'after' }), git).ok).toBe(true);
+    const r = readAutoDecisions(project, 's1', git);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.value.entries.map((e) => e.question)).toEqual(['ok', 'after']);
+    expect(r.value.invalid.map((i) => i.line)).toEqual([2]); // only the fragment
+  });
+  it('adds no separator to an empty log or one that ends in a newline', () => {
+    fs.writeFileSync(logFile(), '');
+    expect(appendAutoDecision(project, 's1', entry(), git).ok).toBe(true);
+    expect(appendAutoDecision(project, 's1', entry(), git).ok).toBe(true);
+    const raw = fs.readFileSync(logFile(), 'utf-8');
+    expect(raw.startsWith('{')).toBe(true);
+    expect(raw.split('\n')).toHaveLength(3); // two lines + trailing ''
+  });
   it('rejects an entry over the line cap as AUTO_DECISION_INVALID without writing', () => {
     const big = entry({ rationale: 'é'.repeat(MAX_AUTO_DECISION_LINE_BYTES) });
     const r = appendAutoDecision(project, 's1', big, git);
@@ -136,6 +153,7 @@ describe('append-only by construction', () => {
     expect(src).not.toMatch(
       /writeFileSync|rmSync|unlinkSync|truncate|renameSync|copyFileSync|rmdirSync/
     );
-    expect(src.match(/openSync\([^)]*\)/g)).toEqual(["openSync(file, 'a', 0o600)"]);
+    // 'a+': O_APPEND writes (always at end of file) plus reads for the S2 tail check.
+    expect(src.match(/openSync\([^)]*\)/g)).toEqual(["openSync(file, 'a+', 0o600)"]);
   });
 });

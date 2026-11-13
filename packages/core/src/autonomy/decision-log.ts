@@ -86,10 +86,28 @@ export function autoDecisionLogPath(
   return dir.ok ? Ok(path.join(dir.value, AUTO_DECISIONS_FILE)) : dir;
 }
 
+const NEWLINE = 0x0a;
+
+/** True when the file's last byte is not a newline (a cut-short line), read via `fd`. */
+function endsMidLine(fd: number): boolean {
+  const size = fs.fstatSync(fd).size;
+  if (size === 0) return false;
+  const last = Buffer.alloc(1);
+  fs.readSync(fd, last, 0, 1, size - 1);
+  return last[0] !== NEWLINE;
+}
+
+/**
+ * One write(2) on an O_APPEND descriptor ('a+' = append-only writes, plus reads for the tail
+ * check). If the log ends mid-line (a cut-short write), a newline is prepended in the SAME write
+ * so the fragment cannot swallow this entry (review S2). Returns the bytes of `data` written.
+ */
 function defaultAppendBytes(file: string, data: Buffer): number {
-  const fd = fs.openSync(file, 'a', 0o600);
+  const fd = fs.openSync(file, 'a+', 0o600);
   try {
-    return fs.writeSync(fd, data, 0, data.length);
+    const prefix = endsMidLine(fd) ? 1 : 0;
+    const out = prefix ? Buffer.concat([Buffer.from([NEWLINE]), data]) : data;
+    return fs.writeSync(fd, out, 0, out.length) - prefix;
   } finally {
     fs.closeSync(fd);
   }
