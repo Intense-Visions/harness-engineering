@@ -75,6 +75,21 @@ const METHOD_TYPES: Record<SupportedLanguage, string[]> = {
   java: ['method_declaration', 'constructor_declaration'],
 };
 
+/**
+ * Container node types whose BODY must be walked as if it were top level.
+ *
+ * Rust organises ordinary code in `mod` blocks (and every `#[cfg(test)] mod
+ * tests` in the ecosystem), and `mod_item` maps to `variable`, which nothing
+ * recurses into. Measured: a file with one function inside `mod tests`
+ * reported `variable:tests` with zero children and no other symbol.
+ *
+ * Additive on purpose: the `mod` symbol is still emitted, so existing
+ * code-nav consumers see exactly what they saw before, plus the contents.
+ */
+const RECURSIVE_CONTAINER_TYPES: Partial<Record<SupportedLanguage, string>> = {
+  rust: 'mod_item',
+};
+
 const IDENTIFIER_TYPES = new Set(['identifier', 'property_identifier', 'type_identifier']);
 
 function findIdentifier(node: Parser.SyntaxNode): Parser.SyntaxNode | null {
@@ -267,6 +282,13 @@ function extractSymbols(
       sym.children = extractMethods(child, lang, source, filePath);
     }
     symbols.push(sym);
+
+    if (child.type === RECURSIVE_CONTAINER_TYPES[lang]) {
+      const body =
+        child.childForFieldName('body') ??
+        child.children.find((c) => c.type === 'declaration_list');
+      if (body) symbols.push(...extractSymbols(body, lang, source, filePath));
+    }
   }
 
   return symbols;

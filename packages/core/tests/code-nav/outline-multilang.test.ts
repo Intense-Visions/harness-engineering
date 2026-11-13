@@ -83,3 +83,39 @@ describe('python decorated definitions (measured gap)', () => {
     expect(top?.line).toBe(15); // `def` is line 15; `@decorator` is line 14
   });
 });
+
+describe('rust module contents (measured gap)', () => {
+  const source = [
+    'pub fn real_code(n: i32) -> i32 {',
+    '    let mut t = 0;',
+    '    t += n;',
+    '    t',
+    '}',
+    '',
+    '#[cfg(test)]',
+    'mod tests {',
+    '    use super::*;',
+    '',
+    '    #[test]',
+    '    fn adds_numbers() {',
+    '        let r = real_code(1);',
+    '        assert_eq!(r, 1);',
+    '    }',
+    '}',
+  ].join('\n');
+
+  it('surfaces items declared inside a mod', async () => {
+    const outline = await getOutlineFromSource(source, 'modtests.rs');
+    expect(outline.symbols.map((s) => `${s.kind}:${s.name}`)).toContain('function:adds_numbers');
+  });
+
+  it('keeps emitting the mod symbol itself (additive, not a replacement)', async () => {
+    const outline = await getOutlineFromSource(source, 'modtests.rs');
+    expect(outline.symbols.map((s) => `${s.kind}:${s.name}`)).toContain('variable:tests');
+  });
+
+  it('still surfaces top-level items (positive control)', async () => {
+    const outline = await getOutlineFromSource(source, 'modtests.rs');
+    expect(outline.symbols.map((s) => `${s.kind}:${s.name}`)).toContain('function:real_code');
+  });
+});
