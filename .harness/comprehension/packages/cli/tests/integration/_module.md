@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/tests/integration'
-sourceHash: '7071716943905a6413f2c1727a47c982197e1e135ecfa18623199fc3c2c75311'
+sourceHash: '8f8a91182e8f1ad66648e35961875125d41ecf4c8cacd4877d1216e1345a3de6'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -14,6 +14,7 @@ members:
     'core-clumping-export.test.ts',
     'craft-diff-scope.test.ts',
     'craft-hooks-export.test.ts',
+    'craft-skill-review-hook-sections.test.ts',
     'init-design-roadmap-matrix.test.ts',
     'init-design-roadmap-yes-yes-e2e.test.ts',
     'init.test.ts',
@@ -38,6 +39,7 @@ import { collectCodeCraftPrompts } from '../../src/code-craft'
 import { runInit } from '../../src/commands/init'
 import { runPulseRunCommand } from '../../src/commands/pulse/run'
 import { runValidate } from '../../src/commands/validate'
+import { getToolDefinitions } from '../../src/mcp/server'
 import '../../src/mcp/tools/architecture'
 import '../../src/mcp/tools/assess-project'
 import '../../src/mcp/tools/entropy'

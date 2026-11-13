@@ -100,6 +100,25 @@ Emit `CodeCraftOutput`:
 - **Shared craft infrastructure:** `LlmProvider`, `MockLlmProvider`, `derivePriority`, and the 3-axis types all live in `packages/cli/src/shared/craft/`.
 - **LLM provider:** configured in `harness.config.json` under `craft.llm` (`{ "backend": "<name>" }` for one of `agent.backends`, or `{ "mode": "in-session" | "mock" }`). Default when nothing is set: `in-session` (host chat answers prompts via the two-step MCP flow). `HARNESS_CRAFT_LLM` overrides the file (`in-session`, `mock`, or a backend name).
 
+## Invoked as a review hook
+
+`code-craft` auto-activates as an **advisory** review hook whenever a diff touches the surface it
+owns — `harness-autopilot` at `after:REVIEW` / `after:FINAL_REVIEW`, and `harness-code-review` at
+`after:mechanical`. The domain table is `CRAFT_REVIEW_DOMAINS` and the per-host events are
+`CRAFT_REVIEW_EVENTS_BY_HOST`, both in `packages/core/src/hooks/craft-review-hooks.ts`. The host
+forwards the subset of the diff this domain owns:
+
+- **`files`** — this domain's owned subset of the changed files, as **ABSOLUTE** paths. The host
+  reads it from `plan.files["code-craft"]`, which holds repo-relative POSIX paths, and resolves each
+  entry against the project root before calling `mcp__harness__code_craft`. Forwarded unresolved, the
+  collectors read nothing and the run reports `status: "collected"` with zero prompts — a clean
+  report from a run that read no code.
+- **`promptBudget`** — accepted; raises the prompt ceiling for the forwarded scope when the diff subset is large.
+
+Findings from a hook-triggered run are advisory: reported, never blocking, never counted toward
+review severity, and never entered into a host's mechanical exclusion set. A hook-triggered run
+that fails is a missing opinion, not a broken gate.
+
 ## In-session flow (default)
 
 When `HARNESS_CRAFT_LLM` is unset (or set to `in-session`), the MCP tool does **not** call any LLM. It walks the project, builds one prompt per (unit, rubric) pair, and returns them for the calling agent to answer with its own model. This is a two-step protocol — skipping step 3 leaves you with prompts, never findings.
