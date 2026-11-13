@@ -33,6 +33,39 @@ export const AGENT_DESCRIPTIONS: Record<string, string> = {
 export const DEFAULT_TOOLS = ['Bash', 'Read', 'Write', 'Edit', 'Glob', 'Grep'] as const;
 
 /**
+ * Harness MCP tools a Claude Code persona subagent needs to honour the
+ * Pause Protocol: read the resolved autonomy level (`gather_context`,
+ * `manage_state`), log an auto-resolved pause (`record_auto_decision`) and
+ * surface an escalation (`emit_interaction`). Without them a subagent's
+ * `tools:` allowlist refuses every MCP call, so trusted mode is inert inside
+ * it and its judgment forks bubble up as concerns instead of being audited.
+ *
+ * Named exactly rather than as `mcp__harness__*`: the subagent `tools` field
+ * documents exact names, and the list stays the least the protocol needs.
+ * Personas already hold `Bash`, which reaches the same harness CLI, so these
+ * widen no capability. Both server spellings are listed — `harness` from
+ * `harness setup-mcp` and the `harness-claude` plugin's server — because a
+ * name that matches no connected server is simply never offered.
+ */
+export const PAUSE_PROTOCOL_MCP_TOOLS = [
+  'gather_context',
+  'manage_state',
+  'record_auto_decision',
+  'emit_interaction',
+] as const;
+
+export const CLAUDE_CODE_MCP_SERVER_PREFIXES = [
+  'mcp__harness__',
+  'mcp__plugin_harness-claude_harness__',
+] as const;
+
+export function claudeCodeMcpTools(): string[] {
+  return CLAUDE_CODE_MCP_SERVER_PREFIXES.flatMap((prefix) =>
+    PAUSE_PROTOCOL_MCP_TOOLS.map((tool) => `${prefix}${tool}`)
+  );
+}
+
+/**
  * Map Claude Code tool names to Gemini CLI tool names.
  * Gemini CLI validates tool names and rejects unknown ones.
  *
