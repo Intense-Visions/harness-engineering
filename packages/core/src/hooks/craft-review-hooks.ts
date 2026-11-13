@@ -247,6 +247,35 @@ const ALL_SOURCE_LANGUAGES: readonly SupportedLanguage[] = Object.freeze([
 ]);
 
 /**
+ * The languages a craft domain can extract units from when it still reaches for
+ * the TypeScript Compiler API directly.
+ *
+ * `supportedLanguages` is a CAPABILITY CLAIM, and Phase 3's executable law is
+ * "declared ⊆ actually extractable". Phase 2a made exactly ONE domain
+ * multi-language — `code-craft`, through the shared tree-sitter seam. The other
+ * three still extract nothing outside TS/JS and report a clean pass, which is
+ * the silent zero the whole feature exists to prevent, so their declaration
+ * narrows to what they can actually do:
+ *
+ *   - naming-craft   needs `extractIdentifiers` (local variables at every
+ *                    depth, an `exported` flag) which the outline does not
+ *                    model — Phase 2b.
+ *   - test-craft     needs test SEMANTICS (which function is a test, the
+ *                    framework, skip/only) which the outline does not carry,
+ *                    and Rust is structurally blocked: `#[test]` is a SIBLING
+ *                    `attribute_item`, invisible through the outline — Phase 2b.
+ *   - security-craft does not extract units at all. It matches CALL
+ *                    EXPRESSIONS, and `extractSymbols` walks only declaration
+ *                    types at top level, so a call expression is never visited
+ *                    at any depth. Routed through the outline it would return
+ *                    zero signals for every non-TS file and emit a CONFIDENT
+ *                    CLEAN SECURITY REPORT — worse than not shipping it — Phase 2c.
+ *
+ * Widening any of these back is a Phase 2b/2c deliverable, not a table edit.
+ */
+const TS_JS_ONLY: readonly SupportedLanguage[] = Object.freeze(['typescript', 'javascript']);
+
+/**
  * The craft domains that auto-wire at a review moment, in `priority` order (the
  * order the budget cap consumes). Priority leads with `harness-design-craft`
  * because UI work is the motivating case (spec D5). `copy-craft` is deliberately
@@ -270,7 +299,7 @@ export const CRAFT_REVIEW_DOMAINS: readonly CraftDomainRule[] = Object.freeze([
   {
     skill: 'test-craft',
     priority: 3,
-    supportedLanguages: ALL_SOURCE_LANGUAGES,
+    supportedLanguages: TS_JS_ONLY,
     owns: (files) => files.filter(isTestFile),
   },
   {
@@ -280,13 +309,13 @@ export const CRAFT_REVIEW_DOMAINS: readonly CraftDomainRule[] = Object.freeze([
     // security-posture finding costs more than a missed naming nit.
     skill: 'security-craft',
     priority: 4,
-    supportedLanguages: ALL_SOURCE_LANGUAGES,
+    supportedLanguages: TS_JS_ONLY,
     owns: (files) => files.filter(isExtractableSource),
   },
   {
     skill: 'naming-craft',
     priority: 5,
-    supportedLanguages: ALL_SOURCE_LANGUAGES,
+    supportedLanguages: TS_JS_ONLY,
     owns: (files) => files.filter(isExtractableSource),
   },
   {

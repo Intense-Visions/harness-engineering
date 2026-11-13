@@ -87,17 +87,41 @@ describe('CRAFT_REVIEW_DOMAINS table', () => {
       'test-craft',
     ]);
 
-    // Each gated domain reads all six languages code-nav supports.
-    for (const skill of gated) {
-      expect([...(DOMAIN(skill).supportedLanguages as string[])].sort()).toEqual([
-        'go',
-        'java',
-        'javascript',
-        'python',
-        'rust',
-        'typescript',
-      ]);
+    // DECLARED == ACTUALLY EXTRACTABLE. `supportedLanguages` is a capability
+    // claim, and Phase 3's executable law is "declared is a subset of
+    // extractable". Phase 2a made exactly ONE domain multi-language, so the
+    // gated four are no longer uniform and this assertion is deliberately split
+    // in two. A domain that is widened back without its extraction work lands
+    // here first.
+    expect([...(DOMAIN('code-craft').supportedLanguages as string[])].sort()).toEqual([
+      'go',
+      'java',
+      'javascript',
+      'python',
+      'rust',
+      'typescript',
+    ]);
+
+    // Still TS/JS-only, each for its own measured reason: naming-craft needs
+    // local variables and an `exported` flag the outline does not model;
+    // test-craft needs test semantics it does not carry (and Rust's `#[test]`
+    // is a SIBLING attribute_item, structurally invisible); security-craft
+    // matches CALL EXPRESSIONS, which `extractSymbols` never visits at any
+    // depth — routed through the outline it would report a confident clean
+    // security result for a Python file.
+    for (const skill of ['naming-craft', 'security-craft', 'test-craft']) {
+      expect(
+        [...(DOMAIN(skill).supportedLanguages as string[])].sort(),
+        `${skill} claims a language it cannot extract units from`
+      ).toEqual(['javascript', 'typescript']);
     }
+
+    // POSITIVE CONTROL for the split above: the two sets are NOT the same set,
+    // so a future edit that collapses them back to one uniform list cannot
+    // satisfy both branches.
+    expect((DOMAIN('code-craft').supportedLanguages as string[]).length).toBeGreaterThan(
+      (DOMAIN('naming-craft').supportedLanguages as string[]).length
+    );
 
     // Every surface-bound domain is `any` — its `owns` predicate IS the gate.
     // design-craft and cli-ergonomics-craft are named explicitly because they
