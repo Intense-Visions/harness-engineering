@@ -13,6 +13,12 @@ import {
 } from '../../src/autonomy/paths';
 
 const norm = (p: string) => p.replaceAll('\\', '/');
+/**
+ * S7: compare real filesystem paths with the SAME resolver on both sides. git prints its own
+ * canonical form (e.g. /private/var on macOS, long names on Windows); realpathSync.native
+ * normalizes both the expected and the actual to what the OS reports.
+ */
+const real = (p: string) => norm(fs.realpathSync.native(p));
 const identity = (p: string) => p;
 
 describe('autonomy paths', () => {
@@ -124,7 +130,7 @@ describe('repoKey keys on the project root', () => {
         { cwd, stdio: ['ignore', 'pipe', 'pipe'] }
       );
     const setup = () => {
-      tmp = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'autonomy-root-')));
+      tmp = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'autonomy-root-')));
       const repo = path.join(tmp, 'repo');
       fs.mkdirSync(path.join(repo, 'sub', 'deeper'), { recursive: true });
       git(repo, 'init', '-q');
@@ -135,7 +141,7 @@ describe('repoKey keys on the project root', () => {
     it('a nested subdirectory resolves to the repo root key', () => {
       const repo = setup();
       try {
-        expect(norm(resolveProjectRoot(path.join(repo, 'sub', 'deeper')))).toBe(norm(repo));
+        expect(real(resolveProjectRoot(path.join(repo, 'sub', 'deeper')))).toBe(real(repo));
         expect(computeRepoKey(path.join(repo, 'sub', 'deeper'))).toBe(computeRepoKey(repo));
       } finally {
         fs.rmSync(tmp, { recursive: true, force: true });
@@ -149,7 +155,7 @@ describe('repoKey keys on the project root', () => {
         git(repo, 'worktree', 'add', '-q', wt);
         fs.mkdirSync(path.join(wt, 'sub'), { recursive: true });
         // The project root (where .harness/sessions lives) stays per worktree...
-        expect(norm(resolveProjectRoot(path.join(wt, 'sub')))).toBe(norm(wt));
+        expect(real(resolveProjectRoot(path.join(wt, 'sub')))).toBe(real(wt));
         // ...but the override key is shared, so a lowering in main reaches the worktree.
         expect(computeRepoKey(path.join(wt, 'sub'))).toBe(computeRepoKey(wt));
         expect(computeRepoKey(wt)).toBe(computeRepoKey(repo));
@@ -171,7 +177,7 @@ describe('repoKey keys on the project root', () => {
       const saved = process.env.GIT_DIR;
       process.env.GIT_DIR = path.join(other, '.git');
       try {
-        expect(norm(resolveProjectRoot(path.join(repo, 'sub')))).toBe(norm(repo));
+        expect(real(resolveProjectRoot(path.join(repo, 'sub')))).toBe(real(repo));
         expect(computeRepoKey(path.join(repo, 'sub'))).not.toBe(computeRepoKey(other));
         expect(computeRepoKey(path.join(repo, 'sub'))).toBe(
           computeRepoKey(path.join(repo, 'sub'), { gitCommonDir: () => path.join(repo, '.git') })
@@ -184,11 +190,11 @@ describe('repoKey keys on the project root', () => {
     });
 
     it('a directory outside any repo keys on itself', () => {
-      tmp = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'autonomy-norepo-')));
+      tmp = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'autonomy-norepo-')));
       try {
         const sub = path.join(tmp, 'sub');
         fs.mkdirSync(sub);
-        expect(norm(resolveProjectRoot(sub))).toBe(norm(sub));
+        expect(real(resolveProjectRoot(sub))).toBe(real(sub));
         expect(computeRepoKey(sub)).not.toBe(computeRepoKey(tmp));
       } finally {
         fs.rmSync(tmp, { recursive: true, force: true });
