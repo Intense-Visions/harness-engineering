@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/mcp/tools'
-sourceHash: '9d656c0c1c45c2125ab948251cda08954d76ca661a11930ac4245a4cd5d39cc9'
+sourceHash: '44ecda1d499f3a682e338611e62223a187da15256b9dcb4b88afd9771e5c6270'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -20,6 +20,7 @@ members:
     'assess-project.ts',
     'audit-anatomy.ts',
     'audit-brand.ts',
+    'auto-decision.ts',
     'blueprint.test.ts',
     'blueprint.ts',
     'canary.test.ts',
@@ -328,6 +329,7 @@ export handlePredictFailures
 export handlePutComprehension
 export handleReadStrategy
 export handleRecommendSkills
+export handleRecordAutoDecision
 export handleReleaseCompoundLock
 export handleRequestPeerReview
 export handleReviewChanges
@@ -380,6 +382,7 @@ export readAdr
 export readRefinementDemand
 export readStrategyDefinition
 export recommendSkillsDefinition
+export recordAutoDecisionDefinition
 export recordRefinement
 export releaseCompoundLockDefinition
 export renderBatch

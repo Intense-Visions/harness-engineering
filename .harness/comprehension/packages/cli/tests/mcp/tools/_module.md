@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/tests/mcp/tools'
-sourceHash: '1053bc5a7183713a6cb20d10095c3dec9d6a48dbc19e0dd702b0fe256c03e45f'
+sourceHash: 'ef3470146257ebe0acb1e9750a418d45b4cc84a7e22470ac30758e69e0a8f27f'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -18,6 +18,7 @@ members:
     'assess-project-cov544.test.ts',
     'assess-project-error-handling.test.ts',
     'assess-project.test.ts',
+    'auto-decision.test.ts',
     'brainstorming-file-less-smoke.test.ts',
     'ci-abstention.test.ts',
     'cli-ergonomics-craft.test.ts',
@@ -138,6 +139,7 @@ import { addComponentDefinition, handleAddComponent, handleRunAgentTask, runAgen
 import { apiCraftDefinition, apiCraftFinalizeDefinition, handleApiCraft, handleApiCraftFinalize } from '../../../src/mcp/tools/api-craft'
 import { checkDependenciesDefinition, handleCheckDependencies } from '../../../src/mcp/tools/architecture'
 import { assessProjectDefinition, handleAssessProject, parseToolResponse, resolveLintCommand } from '../../../src/mcp/tools/assess-project'
+import { handleRecordAutoDecision, recordAutoDecisionDefinition } from '../../../src/mcp/tools/auto-decision'
 import { handleRunCIChecks, runCIChecksDefinition } from '../../../src/mcp/tools/ci'
 import { cliErgonomicsCraftDefinition, cliErgonomicsCraftFinalizeDefinition, handleCliErgonomicsCraft, handleCliErgonomicsCraftFinalize } from '../../../src/mcp/tools/cli-ergonomics-craft'
 import { codeCraftDefinition, codeCraftFinalizeDefinition, handleCodeCraft, handleCodeCraftFinalize } from '../../../src/mcp/tools/code-craft'
