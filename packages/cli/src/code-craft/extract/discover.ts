@@ -1,7 +1,10 @@
 /**
- * Source-file discovery — walks packages/<pkg>/src/ recursively and returns
- * TS/JS source files only. Excludes test files (v1 scope; test-quality is
- * test-craft's territory) and generated / build / coverage dirs.
+ * Source-file discovery — walks packages/<pkg>/src/ recursively (falling back to
+ * src/ then app/ when there is no packages/ dir) and returns every extension in
+ * EXTENSION_MAP, NOT the TS/JS subset: Phase 2a widened SOURCE_EXTENSIONS and
+ * this sentence said "TS/JS source files only" for the whole of it. Excludes test
+ * files (v1 scope; test-quality is test-craft's territory) and generated / build /
+ * coverage dirs.
  *
  * A near-verbatim mirror of security-craft's discovery — code-craft and
  * security-craft critique the same corpus (authored source), differing only

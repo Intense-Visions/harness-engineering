@@ -247,6 +247,73 @@ describe('the `status: "collected"` claim is made only where a collector exists'
   }
 });
 
+// FINAL_REVIEW I-5. `code-craft` declares ALL_SOURCE_LANGUAGES in
+// CRAFT_REVIEW_DOMAINS and critiques Python, Go, Rust and Java through the
+// outline seam — the one thing Phase 2a changed — while its own SKILL.md line 3
+// and its skill.yaml `description` still said "TS/JS source". skill.yaml's
+// description is what `search_skills` and the dispatcher index surface, so the
+// branch's headline claim was contradicted at the skill's own front door.
+//
+// DERIVED: the set of domains this applies to comes from the declaration, so a
+// domain that widens later is pulled into the law, and one that narrows leaves
+// it rather than being held to a sentence that is no longer true.
+describe('a multi-language craft domain does not advertise itself as TS/JS-only', () => {
+  const TS_JS: ReadonlySet<string> = new Set(['typescript', 'javascript']);
+
+  const multiLanguage = CRAFT_REVIEW_DOMAINS.filter(
+    (d) => Array.isArray(d.supportedLanguages) && d.supportedLanguages.some((l) => !TS_JS.has(l))
+  );
+
+  it('[denominator] exactly the domains that declare a non-TS/JS language', () => {
+    // Positive control for the per-platform cases below: an empty set makes
+    // every one of them vanish, and a zero-case describe is indistinguishable
+    // from a passing one in the runner output.
+    expect(multiLanguage.map((d) => d.skill)).toEqual(['code-craft']);
+  });
+
+  for (const domain of multiLanguage) {
+    const beyondTsJs = (domain.supportedLanguages as readonly string[]).filter(
+      (l) => !TS_JS.has(l)
+    );
+    for (const platform of PLATFORMS) {
+      it(`${platform}/${domain.skill}: its front door names the languages it declares`, () => {
+        const md = skillMd(platform, domain.skill);
+        const yaml = fs.readFileSync(
+          path.join(SKILLS_ROOT, platform, domain.skill, 'skill.yaml'),
+          'utf-8'
+        );
+        const summary = md.split('\n').find((l) => l.startsWith('> ')) ?? '';
+        const description = yaml.split('\n').find((l) => l.startsWith('description:')) ?? '';
+        // VACUITY CONTROL: both absence assertions below are satisfied by an
+        // empty string, so each surface must be shown to exist first.
+        expect(
+          summary.length,
+          `${platform}/${domain.skill}: SKILL.md has no summary`
+        ).toBeGreaterThan(40);
+        expect(
+          description.length,
+          `${platform}/${domain.skill}: skill.yaml has no description`
+        ).toBeGreaterThan(40);
+
+        for (const [label, text] of [
+          ['SKILL.md summary', summary],
+          ['skill.yaml description', description],
+        ] as const) {
+          expect(text, `${platform}/${domain.skill}: ${label} still says TS/JS-only`).not.toMatch(
+            /TS\/JS source/
+          );
+          // The positive half at the same scope: deleting the phrase is not a
+          // fix. It has to name at least one language it actually declares.
+          expect(
+            beyondTsJs.some((l) => text.toLowerCase().includes(l)),
+            `${platform}/${domain.skill}: ${label} names none of ${beyondTsJs.join(', ')}`
+          ).toBe(true);
+        }
+      });
+    }
+  }
+});
+
 // MUTATION RESULTS (2026-11-13, Phase 5 `files` path-form law)
 //
 //  M-DCDESC-REVERT (the PRE-EDIT control; run once, before the schema fix,
