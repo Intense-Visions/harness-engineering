@@ -47,8 +47,8 @@ describe('CRAFT_REVIEW_DOMAINS table', () => {
       'harness-design-craft',
       'code-craft',
       'test-craft',
-      'naming-craft',
       'security-craft',
+      'naming-craft',
       'cli-ergonomics-craft',
       'api-craft',
       'spec-craft',
@@ -386,6 +386,73 @@ describe('planCraftReviewDomains — availability (spec D7)', () => {
     );
     expect(plan.wired).toEqual([{ type: 'skill', skill: 'harness-design-craft', blocking: false }]);
   });
+
+  it('[F1] folds separators for a PATH-ANCHORED surface, not just an extension one', () => {
+    // The .tsx fixture above cannot detect a broken normalizePath: `/\.tsx$/` is
+    // separator-insensitive, so `return file;` keeps it green. spec-craft is
+    // anchored on the whole path (`^docs\/changes\/.+\/proposal\.md$`), so it
+    // wires ONLY if the backslashes were folded. Phase 3 forwards these exact
+    // strings as `files`, which is why this matters beyond activation.
+    const SPEC_ONLY = new Set<string>(['spec-craft']);
+    const win = planCraftReviewDomains(
+      'harness-autopilot',
+      'after:REVIEW',
+      ['docs\\changes\\x\\proposal.md'],
+      SPEC_ONLY
+    );
+    expect(win.wired).toEqual([{ type: 'skill', skill: 'spec-craft', blocking: false }]);
+
+    // `./` prefix, same anchored surface.
+    const dotSlash = planCraftReviewDomains(
+      'harness-autopilot',
+      'after:REVIEW',
+      ['./docs/changes/x/proposal.md'],
+      SPEC_ONLY
+    );
+    expect(dotSlash.wired).toEqual([{ type: 'skill', skill: 'spec-craft', blocking: false }]);
+
+    // NEGATIVE CONTROL: normalization must not make every path match.
+    const unrelated = planCraftReviewDomains(
+      'harness-autopilot',
+      'after:REVIEW',
+      ['docs\\guide.md'],
+      SPEC_ONLY
+    );
+    expect(unrelated.wired).toEqual([]);
+  });
+
+  it('[F4] probes every documented plugin-qualified form of a PREDICATE catalog', () => {
+    // A Set/array is normalized by bareSkillName, so it never touches
+    // CRAFT_SKILL_PROBE_FORMS. Only a PREDICATE exercises them — which makes
+    // these three the actual coverage. Deleting any form must turn this red.
+    const forms = [
+      'harness-design-craft',
+      'harness-claude:harness-design-craft',
+      'harness-claude:skills:claude-code:harness-design-craft:harness-design-craft',
+    ];
+    for (const form of forms) {
+      const plan = planCraftReviewDomains(
+        'harness-autopilot',
+        'after:REVIEW',
+        TSX_DIFF,
+        (s) => s === form
+      );
+      expect(plan.wired, `catalog reporting only "${form}" must still resolve`).toEqual([
+        { type: 'skill', skill: 'harness-design-craft', blocking: false },
+      ]);
+    }
+
+    // NEGATIVE CONTROL: a predicate that matches no known form skips, so the
+    // probe list is not simply answering true.
+    const none = planCraftReviewDomains(
+      'harness-autopilot',
+      'after:REVIEW',
+      TSX_DIFF,
+      (s) => s === 'some-other-plugin:harness-design-craft'
+    );
+    expect(none.wired).toEqual([]);
+    expect(reasonsFor(none.skipped, 'harness-design-craft')).toEqual(['not-installed']);
+  });
 });
 
 describe('craft hooks are NON-BLOCKING (spec criterion 3)', () => {
@@ -433,8 +500,8 @@ describe('capability gate (spec criterion 9) — unsupported-language is EXPLICI
     expect(plan.wired).toEqual([{ type: 'skill', skill: 'cli-ergonomics-craft', blocking: false }]);
     expect(reasonsFor(plan.skipped, 'cli-ergonomics-craft')).toEqual([]);
 
-    // Same scope, a supported language: wires identically. The two together say
-    // the surface decides, not the language.
+    // Same scope, a language code-nav DOES parse: wires identically. The pair
+    // shows the result does not depend on whether detectLanguage knows the file.
     const ts = planCraftReviewDomains(
       'harness-autopilot',
       'after:REVIEW',
@@ -454,6 +521,73 @@ describe('capability gate (spec criterion 9) — unsupported-language is EXPLICI
     );
     expect(notACommand.wired).toEqual([]);
     expect(reasonsFor(notACommand.skipped, 'cli-ergonomics-craft')).toEqual(['not-activated']);
+  });
+
+  it('wires cli-ergonomics-craft on shell and Ruby CLI modules (no back-door language gate)', () => {
+    // REGRESSION GUARD. `owns` used to be
+    // `isProductionSource(f) && CLI_COMMAND_PATTERN.test(f)`, and
+    // isProductionSource requires `detectLanguage(f) !== null`. That put the
+    // language gate back on the BACK DOOR: `.sh` and `.rb` are not in
+    // EXTENSION_MAP, so a shell or Ruby CLI reported `not-activated` while the
+    // domain advertised CRAFT_ANY_LANGUAGE. Restoring isProductionSource here
+    // must turn this red.
+    for (const file of ['cmd/root.sh', 'bin/tool.rb', 'packages/cli/src/commands/deploy.sh']) {
+      const plan = planCraftReviewDomains('harness-autopilot', 'after:REVIEW', [file], CLI_ONLY);
+      expect(plan.wired, `expected ${file} to wire cli-ergonomics-craft`).toEqual([
+        { type: 'skill', skill: 'cli-ergonomics-craft', blocking: false },
+      ]);
+    }
+
+    // NEGATIVE CONTROL at the same scope: a shell script OUTSIDE a command
+    // directory is not its surface, so the predicate has not simply gone true.
+    const notACommand = planCraftReviewDomains(
+      'harness-autopilot',
+      'after:REVIEW',
+      ['scripts/deploy.sh'],
+      CLI_ONLY
+    );
+    expect(notACommand.wired).toEqual([]);
+    expect(reasonsFor(notACommand.skipped, 'cli-ergonomics-craft')).toEqual(['not-activated']);
+
+    // And a TEST file inside a command directory is still excluded.
+    const testInCmd = planCraftReviewDomains(
+      'harness-autopilot',
+      'after:REVIEW',
+      ['packages/cli/src/commands/__tests__/deploy.sh'],
+      CLI_ONLY
+    );
+    expect(reasonsFor(testInCmd.skipped, 'cli-ergonomics-craft')).toEqual(['not-activated']);
+  });
+
+  it('[COST OF THE D-2 WIDENING] owns EVERY file type under a command directory', () => {
+    // Pinned so the trade-off is visible rather than discovered later.
+    // CLI_COMMAND_PATTERN is a DIRECTORY pattern, not a filename pattern like
+    // api-craft's. Dropping the isProductionSource filter is what lets `.sh` and
+    // `.rb` through (the point of D-2), but it necessarily also admits prose and
+    // data files that merely LIVE under cli/, commands/, cmd/ or bin/.
+    //
+    // `docs/cli/guide.md` is arguably fair game — CLI help text is squarely
+    // cli-ergonomics-craft's concern — but `messages.json` and `data.yaml` are
+    // data, not commands. If this proves noisy in practice, the fix is to
+    // intersect with a command-ish extension set, NOT to restore
+    // isProductionSource (that would re-break shell and Ruby).
+    const cli = DOMAIN('cli-ergonomics-craft');
+    expect(
+      cli.owns([
+        'cmd/root.sh',
+        'bin/tool.rb',
+        'docs/cli/guide.md',
+        'src/cli/messages.json',
+        'src/bin/data.yaml',
+        'src/services/user.ts',
+      ])
+    ).toEqual([
+      'cmd/root.sh',
+      'bin/tool.rb',
+      'docs/cli/guide.md',
+      'src/cli/messages.json',
+      'src/bin/data.yaml',
+    ]);
   });
 
   it('WIRES design-craft on a stylesheet-only diff (CSS is its surface, not an incapacity)', () => {
@@ -557,6 +691,50 @@ describe('capability gate (spec criterion 9) — unsupported-language is EXPLICI
   });
 });
 
+describe('[F6] owns path-guards', () => {
+  it('api-craft excludes a build-output OpenAPI document', () => {
+    const API_ONLY = new Set<string>(['api-craft']);
+    const excluded = planCraftReviewDomains(
+      'harness-autopilot',
+      'after:REVIEW',
+      ['dist/openapi.yaml'],
+      API_ONLY
+    );
+    expect(excluded.wired).toEqual([]);
+    expect(reasonsFor(excluded.skipped, 'api-craft')).toEqual(['not-activated']);
+
+    // POSITIVE CONTROL at the same scope: the same filename outside dist/ wires.
+    const kept = planCraftReviewDomains(
+      'harness-autopilot',
+      'after:REVIEW',
+      ['openapi.yaml'],
+      API_ONLY
+    );
+    expect(kept.wired).toEqual([{ type: 'skill', skill: 'api-craft', blocking: false }]);
+  });
+
+  it('spec-craft anchors docs/changes at the REPO ROOT, not anywhere in the path', () => {
+    const SPEC_ONLY = new Set<string>(['spec-craft']);
+    const nested = planCraftReviewDomains(
+      'harness-autopilot',
+      'after:REVIEW',
+      ['a/docs/changes/x/proposal.md'],
+      SPEC_ONLY
+    );
+    expect(nested.wired).toEqual([]);
+    expect(reasonsFor(nested.skipped, 'spec-craft')).toEqual(['not-activated']);
+
+    // POSITIVE CONTROL at the same scope: the root-anchored path wires.
+    const rooted = planCraftReviewDomains(
+      'harness-autopilot',
+      'after:REVIEW',
+      ['docs/changes/x/proposal.md'],
+      SPEC_ONLY
+    );
+    expect(rooted.wired).toEqual([{ type: 'skill', skill: 'spec-craft', blocking: false }]);
+  });
+});
+
 describe('copy-craft is deliberately not activated in v1', () => {
   it('never appears in wired or skipped for any diff shape', () => {
     const diffs: string[][] = [
@@ -646,8 +824,8 @@ describe('budget cap (spec criterion 7)', () => {
       'harness-design-craft',
       'code-craft',
       'test-craft',
-      'naming-craft',
       'security-craft',
+      'naming-craft',
     ]);
     expect(plan.skipped.some((s) => s.reason === 'over-budget')).toBe(false);
   });
@@ -662,7 +840,46 @@ describe('budget cap (spec criterion 7)', () => {
       FIVE_ACTIVATING,
       new Set(['code-craft', 'naming-craft', 'security-craft'])
     );
-    expect(wiredNames(plan)).toEqual(['code-craft', 'naming-craft', 'security-craft']);
+    expect(wiredNames(plan)).toEqual(['code-craft', 'security-craft', 'naming-craft']);
+  });
+
+  it('[D-5] reaches security-craft on a plain source+tests diff', () => {
+    // THE MEASURED CONSEQUENCE of the priority order. The default budget of 3 is
+    // spent by code + test + ONE more, so whichever of security/naming is fourth
+    // is unreachable on the most common diff shape there is. security-craft is
+    // ahead deliberately; swapping the two back must turn this red.
+    const plan = planCraftReviewDomains(
+      'harness-autopilot',
+      'after:REVIEW',
+      ['src/a.ts', 'src/a.test.ts'],
+      ALL_CRAFT_INSTALLED
+    );
+    expect(wiredNames(plan)).toEqual(['code-craft', 'test-craft', 'security-craft']);
+    expect(reasonsFor(plan.skipped, 'naming-craft')).toEqual(['over-budget']);
+  });
+
+  it('[F5] clamps a fractional or negative maxDomains — never unbounded', () => {
+    const frac = planCraftReviewDomains(
+      'harness-autopilot',
+      'after:REVIEW',
+      FIVE_ACTIVATING,
+      ALL_CRAFT_INSTALLED,
+      { maxDomains: 2.5 }
+    );
+    // Math.trunc(2.5) === 2. WITHOUT the trunc, `wired.length >= 2.5` is false at
+    // 2, so a third domain slips through — the cap silently becomes 3.
+    expect(wiredNames(frac)).toEqual(['harness-design-craft', 'code-craft']);
+
+    // A negative cap means NO slots, never "unbounded".
+    const neg = planCraftReviewDomains(
+      'harness-autopilot',
+      'after:REVIEW',
+      FIVE_ACTIVATING,
+      ALL_CRAFT_INSTALLED,
+      { maxDomains: -1 }
+    );
+    expect(neg.wired).toEqual([]);
+    expect(reasonsFor(neg.skipped, 'harness-design-craft')).toEqual(['over-budget']);
   });
 });
 
@@ -697,6 +914,27 @@ describe('already-run (spec D10 input)', () => {
       { alreadyRanFor: ['harness-claude:harness-design-craft'] }
     );
     expect(reasonsFor(plan.skipped, 'harness-design-craft')).toEqual(['already-run']);
+  });
+
+  it('[F3] reports already-run ahead of over-budget', () => {
+    // Completes the precedence chain the resolver's JSDoc claims is "pinned by a
+    // test": not-activated -> unsupported-language -> not-installed ->
+    // already-run -> over-budget. With maxDomains 1, design-craft takes the only
+    // slot, so code-craft is BOTH already-run and out of budget. Swapping the two
+    // blocks in the loop must turn this red; before this fixture the swap was
+    // invisible and the JSDoc claim was false.
+    const plan = planCraftReviewDomains(
+      'harness-autopilot',
+      'after:REVIEW',
+      FIVE_ACTIVATING,
+      ALL_CRAFT_INSTALLED,
+      { maxDomains: 1, alreadyRanFor: ['code-craft'] }
+    );
+    expect(wiredNames(plan)).toEqual(['harness-design-craft']);
+    expect(reasonsFor(plan.skipped, 'code-craft')).toEqual(['already-run']);
+    // Positive control at the same scope: a domain that is ONLY out of budget
+    // still reports over-budget, so the two reasons remain distinguishable.
+    expect(reasonsFor(plan.skipped, 'test-craft')).toEqual(['over-budget']);
   });
 
   it('reports not-installed ahead of already-run', () => {
@@ -841,9 +1079,12 @@ describe('resolveReviewHooksWithCraft', () => {
 
     it('drops the default for a plugin-qualified declaration', () => {
       const hooks = declaring({ type: 'skill', skill: 'harness-claude:harness-design-craft' });
-      expect(
-        hooks.filter((h) => h.type === 'skill' && h.skill.endsWith('harness-design-craft'))
-      ).toHaveLength(1);
+      // Pinned by identity, not by a count: a `.filter(...).toHaveLength(1)`
+      // passes even if the surviving entry is the WRONG one, or has lost the
+      // blocking value the project declared.
+      expect(hooks).toEqual([
+        { type: 'skill', skill: 'harness-claude:harness-design-craft', blocking: true },
+      ]);
     });
 
     it('honors enabled:false as an opt-out — the default is not re-injected', () => {
@@ -897,18 +1138,43 @@ describe('module laws', () => {
     .join('\n');
 
   it('is pure and IO-free: no node builtins, no process, no require', () => {
-    // Mutation M5 (adding `import { readFileSync } from 'node:fs'`) must turn
-    // this red. Comment lines are stripped so the header's own prose about
-    // the file system / process does not trip it.
-    for (const forbidden of ["from 'node:", 'require(', 'process.', 'child_process', "'fs'"]) {
-      expect(code).not.toContain(forbidden);
+    // Mutation M5 (adding a `node:fs` import) must turn this red. Comment lines
+    // are stripped so the header's own prose about the file system does not
+    // trip it.
+    //
+    // REGEX, not substring: the previous single-quote-only `toContain` checks
+    // left `from "node:fs"` and `await import(\`node:fs\`)` GREEN. Prettier would
+    // rewrite the first on commit but never the second, so the real enforcement
+    // was prettier, not this law. Both quote styles and dynamic import now count.
+    const forbidden: readonly { label: string; re: RegExp }[] = [
+      {
+        label: 'node: builtin (static or dynamic, any quote style)',
+        re: /(?:from|import\s*\()\s*['"\`]node:/,
+      },
+      {
+        label: 'bare builtin module (fs, child_process)',
+        re: /(?:from|import\s*\()\s*['"\`](?:fs|child_process)['"\`]/,
+      },
+      { label: 'require(', re: /\brequire\s*\(/ },
+      { label: 'process.', re: /\bprocess\s*\./ },
+    ];
+    for (const { label, re } of forbidden) {
+      expect(code, `module must stay pure and IO-free: found ${label}`).not.toMatch(re);
     }
     // Positive control: the stripper did not eat the file.
     expect(code).toContain('export function planCraftReviewDomains');
+    // Positive control on the PATTERNS themselves: each must match the thing it
+    // is supposed to catch, or a green above means only that the regex is broken.
+    expect(`import { readFileSync } from "node:fs";`).toMatch(forbidden[0].re);
+    expect('await import(`node:fs`)').toMatch(forbidden[0].re);
+    expect(`import { readFileSync } from 'fs';`).toMatch(forbidden[1].re);
+    expect('const x = require("fs");').toMatch(forbidden[2].re);
+    expect('process.cwd()').toMatch(forbidden[3].re);
   });
 
   it('imports only skill-lifecycle, the canary twin’s type, and code-nav types', () => {
-    const imported = [...source.matchAll(/^import .*?from '([^']+)';$/gm)].map((m) => m[1]);
+    // Either quote style, for the same reason the purity law above accepts both.
+    const imported = [...source.matchAll(/^import .*?from ['"]([^'"]+)['"];$/gm)].map((m) => m[1]);
     // Positive control: all four import statements were matched. A prettier wrap
     // onto a second line would otherwise silently shrink this list to a passing
     // subset — the regex is single-line by design.

@@ -97,19 +97,34 @@ descriptively: `EXTENSION_MAP` maps no `.css`, `.scss`, `.md` or `.yaml`, and `d
 returns `null` for them. Without `'any'`, every prose domain and every CSS-only design change would
 be skipped forever as `unsupported-language` — a silent total failure dressed as a correct report.
 
-| Domain (canonical name) | Owns                                                  | Languages (post Phase 1b) |
-| ----------------------- | ----------------------------------------------------- | ------------------------- |
-| `harness-design-craft`  | non-excluded `.tsx`, design-token or stylesheet paths | `'any'` (surface-bound)   |
-| `code-craft`            | any production source file                            | all six                   |
-| `naming-craft`          | any production source file (cross-cutting)            | all six                   |
-| `test-craft`            | test files                                            | all six                   |
-| `docs-craft`            | `docs/**` or `*.md` outside `docs/changes/**`         | `'any'` (surface-bound)   |
-| `spec-craft`            | `docs/changes/**/proposal.md`                         | `'any'` (surface-bound)   |
-| `cli-ergonomics-craft`  | CLI command modules                                   | `'any'` (surface-bound)   |
-| `api-craft`             | OpenAPI documents                                     | `'any'` (surface-bound)   |
-| `security-craft`        | any production source file                            | all six                   |
-| `knowledge-craft`       | `docs/knowledge/**`                                   | `'any'` (surface-bound)   |
-| `copy-craft`            | **not activated in v1** — see YAGNI note below        | —                         |
+| Domain (canonical name) | Owns                                                            | Languages (post Phase 1b) |
+| ----------------------- | --------------------------------------------------------------- | ------------------------- |
+| `harness-design-craft`  | non-excluded, non-TEST `.tsx`, design-token or stylesheet paths | `'any'` (surface-bound)   |
+| `code-craft`            | any production source file                                      | all six                   |
+| `naming-craft`          | any production source file (cross-cutting)                      | all six                   |
+| `test-craft`            | test files                                                      | all six                   |
+| `docs-craft`            | `docs/**` or `*.md` outside `docs/changes/**`                   | `'any'` (surface-bound)   |
+| `spec-craft`            | `docs/changes/**/proposal.md`                                   | `'any'` (surface-bound)   |
+| `cli-ergonomics-craft`  | CLI command modules                                             | `'any'` (surface-bound)   |
+| `api-craft`             | OpenAPI documents                                               | `'any'` (surface-bound)   |
+| `security-craft`        | any production source file                                      | all six                   |
+| `knowledge-craft`       | `docs/knowledge/**`                                             | `'any'` (surface-bound)   |
+| `copy-craft`            | **not activated in v1** — see YAGNI note below                  | —                         |
+
+**`harness-design-craft` excludes test files.** A changed `Button.test.tsx` is a test, not a design
+surface — it is `test-craft`'s to critique, and design-craft reviewing a test's markup would be
+noise. The same exclusion applies to `cli-ergonomics-craft`: a test under `commands/` is not a
+command module.
+
+**`cli-ergonomics-craft` must NOT use the production-source predicate.** Its `owns` is
+`!isExcludedPath && !isTestFile && CLI_COMMAND_PATTERN`. The obvious implementation —
+`isProductionSource(f) && CLI_COMMAND_PATTERN.test(f)` — is wrong, because `isProductionSource`
+requires `detectLanguage(f) !== null`, which re-imposes the language gate on the _back door_:
+`cmd/root.sh` and `bin/tool.rb` would report `not-activated` while the domain advertises `'any'`. A
+shell or Ruby CLI is the obvious adopter case. The cost of the looser predicate is that any file
+type under `cli/`, `commands/`, `cmd/` or `bin/` is owned, including `.md`/`.json`/`.yaml` that
+merely live there; if that proves noisy, intersect with a command-ish extension set rather than
+restoring `isProductionSource`.
 
 `copy-craft` is cut from v1 activation: its surface (a changed string literal in an error or log
 message) cannot be computed from a changed-file list without content analysis. It stays manual
@@ -243,12 +258,71 @@ marked per-language rather than silently misapplied.
 synchronous TS-Compiler path. The collect path is already async (`collectCodeCraftPrompts` awaits
 `resolveSiblingContext`), so this is a throughput question, not a feasibility one.
 
+### Phase-ordering invariant: extraction must land before wiring
+
+Phase 1 established that the capability gate is **structurally unreachable** for `code-craft`,
+`naming-craft` and `security-craft`. Their `owns` predicate is `isProductionSource`, which already
+requires `detectLanguage(file) !== null`, so every file they can own is a language they declare.
+Only `test-craft` can reach the gate, because its `owns` is path-based and can match a file with no
+mapped language (`tests/fixtures/data.json`).
+
+That is correct **after** Phase 2 lands multi-language extraction, and a trap before it. Between
+Phase 1 and Phase 2 those three domains declare all six languages while the craft skills behind them
+can still only extract TS/JS. If wiring (Phase 3) were to land before extraction (Phase 2),
+`code-craft` would dispatch on a `.py` file, extract zero units, and return an empty finding set —
+the exact silent-zero that D8 and criterion 9 exist to prevent, with the gate structurally unable to
+catch it because the language is _declared_ supported.
+
+The resolver is inert until Phase 3 (zero importers), so the spec's phase order is what protects
+this. Because an ordering invariant held only in prose is the kind of safety claim this project has
+learned not to trust, **Phase 3 must encode it as an executable law**: a test asserting that each
+gated domain's declared `supportedLanguages` is a subset of the languages its craft skill can
+actually extract, so wiring ahead of extraction turns a test red rather than shipping silent
+empties.
+
+### Skip-reason precedence
+
+Exactly one reason is reported per expected domain, and the order is fixed so a reorder is a
+deliberate change rather than an accident:
+
+`not-activated` (surface) → `unsupported-language` (capability) → `not-installed` (availability) →
+`already-run` → `over-budget`
+
+Surface comes first because it is the cheapest and most informative. Capability precedes
+availability because D8 is about dispatchability, not installation. Budget is last so a domain that
+would have been skipped anyway never consumes a slot — otherwise a not-installed domain silently
+displaces an installed one. Every link in this chain is pinned by a test.
+
 ### Budget
 
 `maxDomains` caps activated domains per review (default 3) in the deterministic `priority` order
 declared in `CRAFT_REVIEW_DOMAINS` — not a vague "highest signal first". Each wired hook carries a
-`promptBudget`, and craft's own `maxFiles` (default 100) bounds a pathologically large diff. Worst
-case per review is therefore stated rather than emergent.
+`promptBudget`, and craft's own `maxFiles` (default 100) bounds a pathologically large diff.
+
+**The implemented priority order** is: 1 `harness-design-craft`, 2 `code-craft`, 3 `test-craft`,
+4 `security-craft`, 5 `naming-craft`, 6 `cli-ergonomics-craft`, 7 `api-craft`, 8 `spec-craft`,
+9 `docs-craft`, 10 `knowledge-craft`.
+
+**The cost is bounded, but WHICH domains run is emergent.** An earlier draft of this section claimed
+the worst case was "stated rather than emergent". That is false as written and is corrected here:
+`maxDomains` bounds the cost (never more than 3 domains), but which three you get is a function of
+the diff shape, and the cap is binding on ordinary diffs — not only pathological ones. The measured
+activation matrix at the default cap of 3, with every craft skill installed:
+
+| Diff shape                               | Wired (priority order) | Over budget      |
+| ---------------------------------------- | ---------------------- | ---------------- |
+| source only (`src/a.ts`)                 | code, security, naming | —                |
+| source + tests (`src/a.ts`, `a.test.ts`) | code, test, security   | naming           |
+| UI (`Button.tsx`)                        | design, code, security | naming           |
+| UI + source + tests                      | design, code, test     | security, naming |
+| docs only (`docs/guide.md`)              | docs                   | —                |
+
+`security-craft` is deliberately ahead of `naming-craft`. With the two reversed, `security-craft`
+fell outside the budget on a plain source+tests diff — the most common shape there is — so it would
+effectively never run. A missed security-posture finding costs more than a missed naming nit, and
+that single swap is what makes `security-craft` reachable. The remaining gap is the
+UI+source+tests row, where both are displaced; that is a known consequence of a cap of 3, and it is
+visible in `skipped` as `over-budget` rather than silent.
 
 ## Integration points
 

@@ -235,13 +235,17 @@ export const CRAFT_REVIEW_DOMAINS: readonly CraftDomainRule[] = Object.freeze([
     owns: (files) => files.filter(isTestFile),
   },
   {
-    skill: 'naming-craft',
+    // Ahead of naming-craft deliberately (spec D-5): on a source+tests diff the
+    // default budget of 3 is spent by code + test + one more, so whichever of
+    // these two is fourth is unreachable on a normal diff. A missed
+    // security-posture finding costs more than a missed naming nit.
+    skill: 'security-craft',
     priority: 4,
     supportedLanguages: ALL_SOURCE_LANGUAGES,
     owns: (files) => files.filter(isProductionSource),
   },
   {
-    skill: 'security-craft',
+    skill: 'naming-craft',
     priority: 5,
     supportedLanguages: ALL_SOURCE_LANGUAGES,
     owns: (files) => files.filter(isProductionSource),
@@ -250,10 +254,17 @@ export const CRAFT_REVIEW_DOMAINS: readonly CraftDomainRule[] = Object.freeze([
     skill: 'cli-ergonomics-craft',
     priority: 6,
     // Surface-bound: it critiques a command's ergonomics (flags, naming, help
-    // text), which is not language-specific. A Go or Python CLI module is
-    // squarely its surface.
+    // text), which is not language-specific. A Go, Python, shell or Ruby CLI
+    // module is squarely its surface.
     supportedLanguages: CRAFT_ANY_LANGUAGE,
-    owns: (files) => files.filter((f) => isProductionSource(f) && CLI_COMMAND_PATTERN.test(f)),
+    // Deliberately NOT `isProductionSource`, which requires
+    // `detectLanguage(f) !== null`. That would re-impose the language gate on the
+    // back door: `cmd/root.sh` and `bin/tool.rb` are not in EXTENSION_MAP, so a
+    // shell or Ruby CLI — the obvious adopter case — would report `not-activated`
+    // while the domain advertises CRAFT_ANY_LANGUAGE. Shaped like api-craft's
+    // predicate, plus a test-file guard.
+    owns: (files) =>
+      files.filter((f) => !isExcludedPath(f) && !isTestFile(f) && CLI_COMMAND_PATTERN.test(f)),
   },
   {
     skill: 'api-craft',

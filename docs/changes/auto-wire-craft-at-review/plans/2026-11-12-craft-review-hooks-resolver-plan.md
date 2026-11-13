@@ -9,6 +9,20 @@ A pure, IO-free core module `packages/core/src/hooks/craft-review-hooks.ts` that
 craft domains auto-wire as **non-blocking** advisory hooks at a host skill's review event, given a
 changed-file list and a skill-availability report — inert until a later phase calls it.
 
+## Post-execution amendments (2026-11-13)
+
+This plan was written before two corrections landed. Where the text below still
+disagrees with the shipped code, the CODE and the spec are authoritative:
+
+- **Language gate.** The gate applies ONLY to the four unit-extraction domains
+  (`code-craft`, `naming-craft`, `security-craft`, `test-craft`). Every
+  surface-bound domain is `CRAFT_ANY_LANGUAGE`, including
+  `harness-design-craft` and `cli-ergonomics-craft`, which this plan originally
+  gave `['typescript', 'javascript']`. Inline occurrences have been corrected.
+- **Priority order.** `security-craft` is priority 4 and `naming-craft` is 5
+  (this plan originally had them reversed). See the spec's Budget section for
+  the measured activation matrix that motivates the swap.
+
 ## Scope boundary (read before executing)
 
 Phase 1 creates **exactly two files** and modifies none:
@@ -224,8 +238,8 @@ describe('CRAFT_REVIEW_DOMAINS table', () => {
       'harness-design-craft',
       'code-craft',
       'test-craft',
-      'naming-craft',
       'security-craft',
+      'naming-craft',
       'cli-ergonomics-craft',
       'api-craft',
       'spec-craft',
@@ -261,9 +275,26 @@ describe('CRAFT_REVIEW_DOMAINS table', () => {
         'typescript',
       ]);
     }
-    expect(DOMAIN('harness-design-craft').supportedLanguages).toEqual(['typescript', 'javascript']);
-    expect(DOMAIN('cli-ergonomics-craft').supportedLanguages).toEqual(['typescript', 'javascript']);
-    for (const skill of ['api-craft', 'spec-craft', 'docs-craft', 'knowledge-craft']) {
+    // The language gate applies ONLY to the four unit-extraction domains; every
+    // surface-bound domain is CRAFT_ANY_LANGUAGE. Asserted as a partition of the
+    // table so any future widening or narrowing shows up here.
+    const gated = CRAFT_REVIEW_DOMAINS.filter(
+      (d) => d.supportedLanguages !== CRAFT_ANY_LANGUAGE
+    ).map((d) => d.skill);
+    expect([...gated].sort()).toEqual([
+      'code-craft',
+      'naming-craft',
+      'security-craft',
+      'test-craft',
+    ]);
+    for (const skill of [
+      'harness-design-craft',
+      'cli-ergonomics-craft',
+      'api-craft',
+      'spec-craft',
+      'docs-craft',
+      'knowledge-craft',
+    ]) {
       expect(DOMAIN(skill).supportedLanguages).toBe(CRAFT_ANY_LANGUAGE);
     }
   });
@@ -612,7 +643,9 @@ export const CRAFT_REVIEW_DOMAINS: readonly CraftDomainRule[] = Object.freeze([
   {
     skill: 'harness-design-craft',
     priority: 1,
-    supportedLanguages: ['typescript', 'javascript'],
+    // Surface-bound: stylesheets are not in EXTENSION_MAP, so a ts/js gate here
+    // would skip every CSS-only diff. See the spec's language-gate rule.
+    supportedLanguages: CRAFT_ANY_LANGUAGE,
     owns: (files) => files.filter(ownsDesignSurface),
   },
   {
@@ -628,13 +661,15 @@ export const CRAFT_REVIEW_DOMAINS: readonly CraftDomainRule[] = Object.freeze([
     owns: (files) => files.filter(isTestFile),
   },
   {
-    skill: 'naming-craft',
+    // Ahead of naming-craft (spec D-5): on a source+tests diff the budget of 3
+    // is spent by code + test + one more, so the fourth is unreachable.
+    skill: 'security-craft',
     priority: 4,
     supportedLanguages: ALL_SOURCE_LANGUAGES,
     owns: (files) => files.filter(isProductionSource),
   },
   {
-    skill: 'security-craft',
+    skill: 'naming-craft',
     priority: 5,
     supportedLanguages: ALL_SOURCE_LANGUAGES,
     owns: (files) => files.filter(isProductionSource),
@@ -642,8 +677,11 @@ export const CRAFT_REVIEW_DOMAINS: readonly CraftDomainRule[] = Object.freeze([
   {
     skill: 'cli-ergonomics-craft',
     priority: 6,
-    supportedLanguages: ['typescript', 'javascript'],
-    owns: (files) => files.filter((f) => isProductionSource(f) && CLI_COMMAND_PATTERN.test(f)),
+    // Surface-bound. NOT isProductionSource: that requires detectLanguage !== null,
+    // which re-imposes the language gate on the back door and drops `.sh`/`.rb`.
+    supportedLanguages: CRAFT_ANY_LANGUAGE,
+    owns: (files) =>
+      files.filter((f) => !isExcludedPath(f) && !isTestFile(f) && CLI_COMMAND_PATTERN.test(f)),
   },
   {
     skill: 'api-craft',
