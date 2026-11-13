@@ -158,3 +158,29 @@ describe('harness autonomy set: raises are session-bound and expire (I2, D14)', 
     expect(out.status === 'refused' && out.message).toMatch(/permanent/);
   });
 });
+
+describe('harness autonomy set: raise audit line (I1c, D16)', () => {
+  const log = () => {
+    const p = path.join(home, '.harness', 'autonomy-audit.log');
+    return fs.existsSync(p) ? fs.readFileSync(p, 'utf-8').split('\n').filter(Boolean) : [];
+  };
+
+  it('a confirmed raise appends exactly one line (origin cli)', async () => {
+    const out = await runAutonomySet('trusted', { session: 's1', audit: 'off' }, deps(true).d);
+    expect(out.status).toBe('written');
+    const lines = log();
+    expect(lines).toHaveLength(1);
+    expect(JSON.parse(lines[0]!)).toMatchObject({
+      session: 's1',
+      origin: 'cli',
+      to: { level: 'trusted', audit: false },
+      ts: T0.toISOString(),
+    });
+  });
+
+  it('a declined raise and a lowering append nothing', async () => {
+    await runAutonomySet('trusted', { session: 's1' }, deps(true, false).d);
+    await runAutonomySet('supervised', { session: 's1', audit: 'on' }, deps(false).d);
+    expect(log()).toEqual([]);
+  });
+});

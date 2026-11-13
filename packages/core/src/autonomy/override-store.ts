@@ -14,7 +14,13 @@ import {
   parseSessionOverrideFields,
   validateAutonomySetting,
 } from './schema';
-import { sessionDirForRaise, sessionOverridePath, type AutonomyPathOptions } from './paths';
+import {
+  autonomyAuditLogPath,
+  computeRepoKey,
+  sessionDirForRaise,
+  sessionOverridePath,
+  type AutonomyPathOptions,
+} from './paths';
 
 /** Default lifetime of a raised override field (D14). */
 export const DEFAULT_RAISE_TTL_MS = 24 * 60 * 60 * 1000;
@@ -26,6 +32,8 @@ export interface OverrideStoreOptions extends AutonomyPathOptions {
   lockTimeoutMs?: number;
   /** A lock older than this is from a crashed writer and is broken (default 30000ms). */
   staleLockMs?: number;
+  /** Raise audit log (D16). Default ~/.harness/autonomy-audit.log. */
+  auditLogPath?: string;
   /** Lifetime of a raised field written by this call (D14). Default DEFAULT_RAISE_TTL_MS. */
   raiseTtlMs?: number;
   /** @internal Test seam: runs inside the critical section, after the read, before the write. */
@@ -207,6 +215,33 @@ function mergeAndWrite(
     ...(change.audit !== undefined && { audit: stamp(change.audit, auditRaises(change.audit)) }),
   };
   opts.beforeWrite?.();
+  // D16: a raise is recorded BEFORE it is applied, so a raise that cannot be audited never
+  // takes effect (appendRaiseAudit throws, the caller returns Err, the override is untouched).
+  if (isRaisingChange(change)) {
+    appendRaiseAudit(projectPath, slug, current.value.override, change, origin, setAt, opts);
+  }
   atomicWrite(file, `${JSON.stringify(next, null, 2)}\n`);
   return Ok(next);
+}
+
+function appendRaiseAudit(
+  projectPath: string,
+  slug: string,
+  prior: AutonomySessionOverride | null,
+  change: AutonomySetting,
+  origin: AutonomyOverrideOrigin,
+  ts: string,
+  opts: OverrideStoreOptions
+): void {
+  const logPath = opts.auditLogPath ?? autonomyAuditLogPath(opts);
+  const line = {
+    ts,
+    session: slug,
+    repoKey: computeRepoKey(projectPath, opts),
+    from: { level: prior?.level?.value ?? null, audit: prior?.audit?.value ?? null },
+    to: change,
+    origin,
+  };
+  fs.mkdirSync(path.dirname(logPath), { recursive: true, mode: 0o700 });
+  fs.appendFileSync(logPath, `${JSON.stringify(line)}\n`, { encoding: 'utf-8', mode: 0o600 });
 }

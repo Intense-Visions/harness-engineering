@@ -15,6 +15,7 @@ export {
   validateOverrideSlug,
   sessionOverridePath,
   sessionDirForRaise,
+  autonomyAuditLogPath,
   AutonomySessionNotFoundError,
   AUTONOMY_SESSION_NOT_FOUND,
 } from './paths';

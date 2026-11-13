@@ -25,6 +25,11 @@ export function userConfigPath(opts: AutonomyPathOptions = {}): string {
   return path.join(harnessHomeDir(opts), 'config.json');
 }
 
+/** Append-only log of every successful raise (D16). */
+export function autonomyAuditLogPath(opts: AutonomyPathOptions = {}): string {
+  return path.join(harnessHomeDir(opts), 'autonomy-audit.log');
+}
+
 function defaultRealpath(p: string): string {
   try {
     return fs.realpathSync.native(p);
