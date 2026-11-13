@@ -99,9 +99,6 @@ const MIN_PAUSE_PHRASES: Record<(typeof WORKFLOW_SKILLS)[number], number> = {
   'harness-integration': 9,
 };
 
-/** Skills not yet labelled; their compliance check runs as it.fails. Tasks 12-18 empty this. */
-const UNLABELLED = new Set<string>(['harness-integration']);
-
 const rows = WORKFLOW_SKILLS.map((skill) => {
   const text = read(skill);
   return { skill, text, scan: scanSkill(text) };
@@ -134,7 +131,6 @@ describe('SC12: every pause point in the seven workflow skills is marked', () =>
       expect(r.text.split(PAUSE_PREAMBLE_HEADING).length - 1, 'one Pause points heading').toBe(1);
       expect(r.text.slice(at + PAUSE_PREAMBLE.length).replace(/^\n+/, '')).toMatch(/^#{1,6} /);
     };
-    if (UNLABELLED.has(r.skill)) it.fails(`${title} [pending labelling]`, check);
-    else it(title, check);
+    it(title, check);
   }
 });
