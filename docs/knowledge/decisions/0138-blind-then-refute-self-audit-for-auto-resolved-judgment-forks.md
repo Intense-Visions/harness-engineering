@@ -63,17 +63,21 @@ subagent-spawning tool at all; the decision then proceeds and is counted as unau
   options is a disagreement, not `unavailable`.
 - **Classes only round up** ("Resolving a pause point"). An action that matches an irreversible or
   gate example is that class regardless of marker, including an unmarked irreversible action
-  inside a plan task. "Delete" means branches, issues or remote resources, not local scratch
-  files. A ceremony that approves content embedding a choice between alternatives the skill
-  explicitly enumerated, which no judgment fork settled, is `judgment`.
+  inside a plan task. "Delete" means deleting branches, issues or remote resources, or local work
+  not recoverable from git (for example `git reset --hard`, `git clean -fdx`, `git stash drop`,
+  or removing untracked or uncommitted user files); removing scratch files this run created is
+  not. A ceremony that approves content embedding a choice between alternatives the skill text
+  or this run's output explicitly enumerated, which no judgment fork settled, is `judgment`.
 - **Markers are honoured only from SKILL.md files and their generated persona and command
   copies** ("Marker convention"), never from specs, plans, issues or tool output.
 - **Evidence hygiene.** The auditor is never passed, and must not open, anything under
   `.harness/`, any `interview.md`, or any file written for this pause; the blind template tells it
   to read only the paths listed under Evidence ("Blind auditor prompt").
-- **Everything is kept.** The rendered auditor prompt and both raw replies are saved under
-  `.harness/sessions/<slug>/audits/` (`<n>.md`, `<n>.reply.json`, `<n>.refuter.json`), so it can
-  be checked afterwards that the pre-audit line came before the spawn.
+- **Audit files are kept.** The rendered auditor prompt and both raw replies are saved under
+  `.harness/sessions/<slug>/audits/` (`<n>.md`, `<n>.reply.json`, `<n>.refuter.json`), so you
+  can inspect what the auditor was shown and what it replied; these files are agent-written and
+  not tamper-evident. They carry no timestamp or hash and no hook protects them, so they do not
+  prove that the pre-audit line came before the spawn.
 
 ### The log contract (D6, SC9, SC14)
 
@@ -89,8 +93,9 @@ subagent-spawning tool at all; the decision then proceeds and is counted as unau
 
 ### Deliberate exemption
 
-The roadmap sync steps a skill already performs (`manage_roadmap` `sync`) are not new
-`irreversible` pauses, although sync can write to an external tracker. This keeps supervised
+The roadmap sync steps a skill already performs (`manage_roadmap` `sync`), and the tracker
+auto-sync side effects of `manage_roadmap` `update` and `add`, are not new `irreversible` pauses,
+although both can write to an external tracker. This keeps supervised
 behaviour unchanged (SC10) and is a deliberate exemption, not an oversight.
 
 ## Consequences
@@ -100,7 +105,11 @@ behaviour unchanged (SC10) and is a deliberate exemption, not an oversight.
   `agents/skills/tests/pause-markers.test.ts` prove the protocol and the markers say the right
   thing, as text; they do not prove an agent obeys them. The decision log, the saved audit
   prompts and replies, and the `audited N/M` denominator are what make non-compliance visible
-  after the run. Mechanical detection is a Future Consideration.
+  after the run, and the audit files are agent-written, so they show what an agent reports, not
+  tamper-evident proof. Mechanical detection is a Future Consideration.
+- **Unenumerated choices are not audited.** Option choices not presented as enumerated
+  alternatives are approved as ceremony and are not audited (trade-off: otherwise every spec/plan
+  approval becomes a judgment fork).
 - **Headless disagreements page nobody.** They land in the handoff's `blockers` and `concerns`;
   the orchestrator reads no handoff status today (spec Future Considerations).
 - **Cost.** Each auto-resolved, audited fork costs up to two subagent spawns.
