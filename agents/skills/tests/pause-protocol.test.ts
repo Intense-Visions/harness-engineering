@@ -257,3 +257,18 @@ describe('review I1: the recommendation is committed before the audit, and the a
     );
   });
 });
+
+describe('review I2: an audit is unavailable only on a host that cannot spawn, decided once', () => {
+  it('fixes availability at skill start, from the host tools alone', () => {
+    const audit = section('## Self-audit (judgment forks)');
+    expect(audit).toContain(
+      'Decide this once, at skill start, and only from whether the host has a subagent-spawning tool; it stays fixed for the session.'
+    );
+    expect(md).not.toContain('or the spawn failed');
+  });
+  it('on a host that can spawn, a failed or malformed audit is a disagreement', () => {
+    expect(section('## Self-audit (judgment forks)')).toContain(
+      'On a host that can spawn, a spawn error, a reply that is not JSON, or a pick that is not verbatim one of the options is a disagreement → escalate.'
+    );
+  });
+});

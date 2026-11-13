@@ -39,7 +39,7 @@ Apply these rules in order and stop at the first that applies.
 2. `irreversible` → pause at every autonomy level.
 3. Autonomy is `supervised` → pause. At a `judgment` fork with audit on, run the self-audit first and show its verdict beside your recommendation. Record nothing: the decision log refuses entries in supervised mode.
 4. Any fail-safe rule below applies → pause.
-5. `judgment` with audit on → run the self-audit. Disagreement → escalate (see Escalation). The audit could not run → audit status `unavailable`; continue.
+5. `judgment` with audit on → run the self-audit. Disagreement → escalate (see Escalation). The host has no subagent-spawning tool (decided once at skill start) → audit status `unavailable`; continue.
 6. `judgment` with audit off → audit status `off`; continue.
 7. **Record before proceeding.** Call `record_auto_decision` (below). Only when it returns `recorded: true`, take the chosen option and print one line: `Auto-resolved (<class>): <question> -> <chosen>`. If it returns `recorded: false`, an error, or no response, or the tool is not available, pause exactly as supervised mode would and show the returned error. An unlogged auto-decision is never taken (SC14).
 
@@ -83,7 +83,7 @@ Run it when audit is on (D7, D9). Each step uses a **fresh** subagent with no ac
 2. **Compare.** If `pick` is not your recommended option, that is a disagreement → escalate.
 3. **Refutation** (only when the picks agree). Fill the refuter prompt below with the agreed pick. It returns `{ "severity": "blocking" | "non-blocking", "objection" }`.
 4. **Outcome.** Agreement with a `non-blocking` objection (or none) → auto-take the recommendation and record audit `{ "status": "agreed", "blindPick": "<pick>" }`. A `blocking` objection → escalate.
-5. **Unavailable.** If the host cannot spawn a subagent (no subagent tool, or the spawn failed), record audit `{ "status": "unavailable" }` and proceed (D11). `harness autonomy log` counts it as unaudited in `audited N/M`. Never present an unaudited decision as audited.
+5. **Unavailable.** Only when the host has no subagent-spawning tool at all, record audit `{ "status": "unavailable" }` and proceed (D11). Decide this once, at skill start, and only from whether the host has a subagent-spawning tool; it stays fixed for the session. On a host that can spawn, a spawn error, a reply that is not JSON, or a pick that is not verbatim one of the options is a disagreement → escalate. `harness autonomy log` counts it as unaudited in `audited N/M`. Never present an unaudited decision as audited.
 
 ### Blind auditor prompt
 
