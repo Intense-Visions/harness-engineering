@@ -126,13 +126,15 @@ A project may attach **additional skills, commands, and prompts** at lifecycle p
 
 Set at INIT (`--fast` / `--thorough`); persists for session. Default: `standard`.
 
-| State        | `fast`                     | `standard`            | `thorough`                    |
-| ------------ | -------------------------- | --------------------- | ----------------------------- |
-| PLAN         | Skip skeleton pass         | Default               | Always skeleton with approval |
-| APPROVE_PLAN | Auto-approve, skip signals | Signal-based          | Force human review            |
-| EXECUTE      | Skip scratchpad            | Scratchpad >500 words | Verbose scratchpad            |
-| VERIFY       | `harness validate` only    | Full pipeline         | Expanded checks               |
-| INTEGRATE    | WIRE only, auto-approve    | Full tier-appropriate | Full + human ADR review       |
+| State        | `fast`                          | `standard`            | `thorough`                      |
+| ------------ | ------------------------------- | --------------------- | ------------------------------- |
+| PLAN         | Skip skeleton pass              | Default               | Always skeleton with approval   |
+| APPROVE_PLAN | Signal-based (same as standard) | Signal-based          | Review forced (every plan)      |
+| EXECUTE      | Skip scratchpad                 | Scratchpad >500 words | Verbose scratchpad              |
+| VERIFY       | `harness validate` only         | Full pipeline         | Expanded checks                 |
+| INTEGRATE    | WIRE only                       | Full tier-appropriate | Full + every ADR draft reviewed |
+
+Rigor decides how much is checked; autonomy decides who approves (see the Pause Protocol, D2). `--fast` never approves a plan or INTEGRATE on its own.
 
 ## State Machine
 
@@ -192,7 +194,7 @@ On return: read `planPath` from `{sessionDir}/handoff.json`. Complexity override
 ### APPROVE_PLAN
 
 1. Gather: task count, checkpoint count, concerns from `{sessionDir}/handoff.json` (default `[]`).
-2. `"fast"` → auto-approve, record `"auto_approved_plan_fast"`, → EXECUTE.
+2. `"fast"` → same signals as `"standard"` (D2: `--fast` reduces checking; it never approves on its own).
 3. `"thorough"` → force `shouldPauseForReview = true`.
 4. Signals (any true → pause; all false → auto-approve):
    - `reviewPlans: true`
@@ -202,7 +204,7 @@ On return: read `planPath` from `{sessionDir}/handoff.json`. Complexity override
    - Task count > 15
    - Knowledge gaps: `harness knowledge-pipeline --domain <phase-domain>` reports `totalGaps > 0` and `--fix` was not run during planning
 5. **Auto-approve:** emit report (mode, complexity, concerns, task count). Record decision with signal snapshot in `decisions[]`. → EXECUTE.
-6. **Pause:** show triggered signals. Ask "Approve? (yes / revise / skip phase / stop)." Record decision. Route accordingly.
+6. **Pause:** show triggered signals. Ask "Approve? (yes / revise / skip phase / stop)." Record decision. Route accordingly. If `reviewPlans` is `true`, this approval never auto-resolves: the human asked to see every plan.
 
 ---
 
@@ -281,7 +283,7 @@ prompt: "Phase {N}: {name}. Plan: {planPath}. Session: {sessionSlug}. Rigor: {ri
             Plan: {planPath}. Verify integration per harness-integration skill."
    ```
 3. **Rigor interaction:**
-   - `"fast"`: WIRE sub-phase only, auto-approve, no ADR drafting.
+   - `"fast"`: WIRE sub-phase only, no ADR drafting.
    - `"standard"`: Full tier-appropriate checks (WIRE + MATERIALIZE + UPDATE per tier).
    - `"thorough"`: Full checks + human reviews every ADR draft + force knowledge graph verification.
 4. Pass → REVIEW.

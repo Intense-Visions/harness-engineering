@@ -1,12 +1,13 @@
 ---
 schemaVersion: 1
 module: 'agents/skills/tests'
-sourceHash: 'a9436a45989f3441d1c794af5abda12bee5755d09a758d73fcf9dad1710300ba'
+sourceHash: 'dd11d83051bc8facb1b885caa397769fd17946975460f8b6677c861610629829'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
 members:
   [
+    'autonomy-wiring.test.ts',
     'fleet-clump-lane-unit.test.ts',
     'fleet-command-gated-lane-isolation.test.ts',
     'harness-compound.test.ts',
