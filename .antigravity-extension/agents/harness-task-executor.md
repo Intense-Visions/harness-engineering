@@ -47,6 +47,15 @@ Execute implementation plans task-by-task using harness methodology. Maintains p
 
 ## Process
 
+### Pause points
+
+Every point below where this skill stops for the human carries a marker line, `_Pause point (<class>): resolve per the Pause Protocol._` followed by a `<!-- pause: <class> -->` comment. Resolve each one with the Pause Protocol: `agents/skills/templates/pause-protocol.md` (also shipped in the harness CLI package at `dist/agents/skills/templates/pause-protocol.md`).
+
+- Re-read autonomy at every pause point: `gather_context({ path, session, include: ["autonomy"] })`.
+- `irreversible` and `gate` pauses stop at every autonomy level.
+- A `ceremony` or `judgment` pause auto-resolves only when autonomy is `trusted`, the pause states a recommendation, a `judgment` fork passed the self-audit, and `record_auto_decision` returned `recorded: true`. In every other case, pause exactly as written below.
+- If you cannot read the protocol or resolve autonomy, pause.
+
 ### Iron Law
 
 **Execute the plan as written. If the plan is wrong, stop and fix the plan — do not improvise.**
@@ -89,6 +98,7 @@ When no arguments are provided (standalone invocation), discover plan from `docs
 4. **Load session summary for cold start.** If resuming (session slug known):
    - Call `listActiveSessions()` to read the session index.
    - Call `loadSessionSummary()` for the target session.
+     _Pause point (judgment): resolve per the Pause Protocol._ <!-- pause: judgment -->
    - If ambiguous, present the index and ask which session to resume. Ask in plain text — do not elevate this to `AskUserQuestion` (the session index can exceed its 4-option cap and a natural header like "Pick session" can exceed its 12-char cap, rendering the call as ERR).
 
 5. **Check for known dead ends.** Review `learnings` tagged `[outcome:failure]`. Warn if any match current plan approaches.
@@ -99,6 +109,8 @@ When no arguments are provided (standalone invocation), discover plan from `docs
    - Test suite passes? Run `harness validate` for clean baseline.
 
 6b. **Knowledge health check.** If `docs/knowledge/` exists and the knowledge graph is available, run the knowledge pipeline in detect-only mode for domains touched by the current plan. If contradictions exist (severity: critical), treat as a blocker — knowledge must be reconciled before implementation. If gaps exist, surface as a warning but do not block execution.
+
+_Pause point (gate): resolve per the Pause Protocol._ <!-- pause: gate -->
 
 7. **If prerequisites fail,** do not proceed. Report what is missing and which task is blocked.
 
@@ -118,6 +130,8 @@ Fall back to file-based commands if no graph is available.
 ### Uncertainty Surfacing
 
 When you encounter an unknown during task execution, classify it immediately:
+
+_Pause point (judgment): resolve per the Pause Protocol._ <!-- pause: judgment -->
 
 - **Blocking:** Cannot complete the task as written without resolving this (e.g., referenced file doesn't exist, spec behavior undefined for this scenario). STOP. Record as a blocker and report.
 - **Assumption:** Can proceed if assumption is stated (e.g., "the API returns JSON, not XML"). Document the assumption in the commit message. If wrong, the task must be revisited.
@@ -142,6 +156,7 @@ RMH005 (`harness validate`).
    if provided, else `git config user.name` (fall back to `git config user.email`).
 2. **If `docs/roadmap.md` exists and a row matches this plan** (match by the row's
    `Spec`/`Plan` path or the feature name from the handoff/spec):
+   _Pause point (gate): resolve per the Pause Protocol._ <!-- pause: gate -->
    - **If `currentUser` cannot be resolved, STOP** with an actionable message —
      "Set your identity via `git config user.name`/`user.email` (or pass `--user`)
      before starting execution" — rather than claiming with a null owner (S4-002).
@@ -169,6 +184,7 @@ RMH005 (`harness validate`).
 Before the per-task loop, decide the safe parallel structure so independent tasks dispatch concurrently by default (no human typing "in parallel").
 
 1. Collect this run's tasks with their `files`, `dependsOn`, and optional `owns` (from the plan's task headers — `owns` comes from the `**Owns:**` line) and call the `plan_parallelization` MCP tool (`{ path, tasks, depth: 1 }`). It returns `ParallelizationPlan` (`waves[]`, `serialized[]`, `cyclic[]`, `narration`, `ownershipForecast`). Forwarding `owns` lets the deterministic owns-overlap forecast add implicit DAG edges and surface overlapping-ownership pairs in `ownershipForecast`; omit it for tasks that declare none.
+   _Pause point (gate): resolve per the Pause Protocol._ <!-- pause: gate -->
 2. If `cyclic` is non-empty, STOP and escalate (dependency cycle = plan defect). Do not execute.
 3. Emit `narration` (announce-and-proceed — do not pause).
 4. Run `serialized` tasks first (serially, in order — cross-bucket prerequisites), then process `waves` **in array order** (topologically sorted; do not reorder, do not key off `firing` alone).
@@ -209,6 +225,7 @@ For each task, starting from current position:
    Then run the test suite. Binary pass/fail:
    - **All pass** → proceed to next task.
    - **Any fail** → retry with error context (max 2 attempts).
+     _Pause point (gate): resolve per the Pause Protocol._ <!-- pause: gate -->
    - **Still failing** → record in `.harness/failures.md`, escalate, stop.
 
 6. **Update state after each task.** Write to `.harness/state.json`:
@@ -225,6 +242,7 @@ For each task, starting from current position:
 7. **Check the context budget (mid-turn trip wire).** After each task, evaluate this turn's resident tokens with `evaluateContextBudget(usedTokens, window)` from `@harness-engineering/core` (classify on TOTAL resident tokens = input + output + tool results; prefer the model's real cumulative usage counter, fall back to `chars/4`). Act on the verdict:
    - **`ok`** — proceed to the next task normally.
    - **`warn`** — converge: finish the unit cleanly, then flush `state.json` / `handoff.json` to disk before continuing. Do not start large new tool-output-heavy work without flushing first.
+     _Pause point (gate): resolve per the Pause Protocol._ <!-- pause: gate -->
    - **`trip`** — STOP. Do not push a task-executor past a `trip`. Write a **distilled** handoff (summarized state and next-step, not a raw-truncated tail — a raw tail drops the middle, per _Lost in the Middle_) and hand off for **cold re-dispatch** into a fresh subagent seeded with that distilled state.
 
    Anchors are window-keyed (absolute resident tokens): `1m` window warn 250K / trip 350K; `200k` window warn 80K / trip 100K; `local` (≤128K) warn ~30% / trip ~37.5%. Utilization is display-only; the trip fires on the absolute token count.
@@ -237,9 +255,12 @@ For each task, starting from current position:
 
 Three checkpoint types. Each requires pausing execution.
 
+_Pause point (ceremony): resolve per the Pause Protocol._ <!-- pause: ceremony -->
 **`[checkpoint:human-verify]` — Show and Confirm**
 
 Stop. Present the confirmation in plain text in your reply — do NOT route this through `emit_interaction`, `AskUserQuestion`, or any tool. `emit_interaction` records the prompt but does not display it to the human (the client collapses the call to "Called harness" and the rendered text only returns to the model); `AskUserQuestion` is Claude-Code-only and caps headers at 12 chars / 4 options. Plain text in your own message is the only channel that reliably reaches the human across every tool (Claude Code, Cursor, Codex, Gemini CLI).
+
+_Pause point (ceremony): resolve per the Pause Protocol._ <!-- pause: ceremony -->
 
 ```markdown
 Task N complete. Output: <summary>. Continue to Task N+1?
@@ -251,10 +272,12 @@ Risk: low
 Proceed? (yes/no)
 ```
 
+_Pause point (ceremony): resolve per the Pause Protocol._ <!-- pause: ceremony -->
 Wait for human confirmation.
 
 **`[checkpoint:decision]` — Present Options and Wait**
 
+_Pause point (judgment): resolve per the Pause Protocol._ <!-- pause: judgment -->
 Stop. Present the decision in plain text in your reply — do NOT route this through `emit_interaction`, `AskUserQuestion`, or any tool. `emit_interaction` records the prompt but does not display it to the human (the client collapses the call to "Called harness" and the rendered text only returns to the model); `AskUserQuestion` is Claude-Code-only and caps headers at 12 chars / 4 options. Plain text in your own message is the only channel that reliably reaches the human across every tool (Claude Code, Cursor, Codex, Gemini CLI).
 
 Present the options as a markdown table so tradeoffs are scannable, state your recommendation, then STOP and wait for the human's reply:
@@ -272,10 +295,12 @@ Present the options as a markdown table so tradeoffs are scannable, state your r
 **Recommendation:** A) <option A> (confidence: medium) — <why>.
 ```
 
+_Pause point (judgment): resolve per the Pause Protocol._ <!-- pause: judgment -->
 Wait for human choice.
 
 **`[checkpoint:human-action]` — Instruct and Wait**
 
+_Pause point (gate): resolve per the Pause Protocol._ <!-- pause: gate -->
 Stop. Tell the human exactly what to do (e.g., "Create an API key at [URL] and paste it here"). State: "Task N requires your action: [instructions]. Let me know when done." Wait for confirmation.
 
 ---
@@ -382,10 +407,16 @@ All session-scoped files use `{sessionDir}/` when session is known, otherwise `.
 
 Non-negotiable. When any condition is met, stop immediately.
 
+_Pause point (gate): resolve per the Pause Protocol._ <!-- pause: gate -->
+
 - **Hit a blocker.** Task cannot be completed as written. Do not guess or improvise. Record and report: "Blocked on Task N: [issue]. The plan needs to be updated."
+  _Pause point (gate): resolve per the Pause Protocol._ <!-- pause: gate -->
 - **Test failure after implementation.** Do not retry blindly. Diagnose root cause. Fix if within task scope; otherwise stop.
+  _Pause point (judgment): resolve per the Pause Protocol._ <!-- pause: judgment -->
 - **Unclear instruction.** Do not interpret ambiguity. Ask: "Task N says [quote]. I interpret this as [interpretation]. Correct?"
+  _Pause point (gate): resolve per the Pause Protocol._ <!-- pause: gate -->
 - **Harness validation failure.** Do not proceed. Fix the violation before moving on.
+  _Pause point (gate): resolve per the Pause Protocol._ <!-- pause: gate -->
 - **Three consecutive failures.** Task design is likely wrong. Report: "Task N failed 3 times. Root cause: [analysis]. Plan may need revision."
 
 ## Session State
@@ -439,7 +470,7 @@ Claims about task completion, test results, or code behavior MUST cite evidence:
 - `.harness/state.json` accurately reflects position and progress
 - `.harness/learnings.md` has entries for sessions with non-trivial discoveries
 - `harness validate` passes after every task
-- Checkpoints honored: execution paused at every `[checkpoint:*]` marker
+- Checkpoints honored: execution paused at every `[checkpoint:*]` marker <!-- not-a-pause: success criterion restating checkpoint behaviour -->
 - No improvisation: tasks executed as written, or stopped with blocker reported
 - All stopping conditions respected
 
@@ -534,10 +565,16 @@ Hard stops. Violating any gate means the process has broken down.
 
 ## Escalation
 
+_Pause point (gate): resolve per the Pause Protocol._ <!-- pause: gate -->
+
 - **Task fails, fix outside scope:** "Task N failed because [reason]. Fix requires changes to [outside scope]. Plan needs updating at Tasks [X, Y]."
+  _Pause point (gate): resolve per the Pause Protocol._ <!-- pause: gate -->
 - **Plan references missing files:** "Task N references [file] which does not exist. Plan may need regeneration."
+  _Pause point (judgment): resolve per the Pause Protocol._ <!-- pause: judgment -->
 - **Tests pass but behavior seems wrong:** "Task N passes all tests, but I notice [observation]. Should I investigate?"
+  _Pause point (gate): resolve per the Pause Protocol._ <!-- pause: gate -->
 - **State corrupted:** If state says Task 5 complete but code missing, report inconsistency. Re-verify from Task 1 if needed.
+  _Pause point (judgment): resolve per the Pause Protocol._ <!-- pause: judgment -->
 - **Human wants to skip ahead:** "Skipping Task N means Tasks [X, Y] may fail. Update the plan to remove the dependency?" Get explicit approval.
 
 ## Trace Output (Optional)
