@@ -53,3 +53,38 @@ describe('language routing', () => {
     expect(units).toContainEqual({ kind: 'function', name: 'compute_total', line: 1, endLine: 5 });
   });
 });
+
+describe('law: methods nested as children become units (M-REC)', () => {
+  const java = [
+    'package cart;',
+    '',
+    'public class Cart {',
+    '    public int computeTotal() {',
+    '        int t = 0;',
+    '        t += 1;',
+    '        return t;',
+    '    }',
+    '}',
+  ].join('\n');
+
+  it('returns the method, not only its enclosing class', async () => {
+    const units = await extractOutlineUnits(java, 'Cart.java');
+    const names = units.map((u) => `${u.kind}:${u.name}`);
+    // Java emits ONE top-level symbol. A flat read of `symbols` returns only
+    // the class and reads as broken extraction.
+    expect(names).toContain('class:Cart');
+    expect(names).toContain('method:computeTotal');
+  });
+
+  it('returns the method for python too, where the class also nests', async () => {
+    const py = [
+      'class Cart:',
+      '    def add(self, n):',
+      '        self.items = []',
+      '        self.n = n',
+      '        return n',
+    ].join('\n');
+    const units = await extractOutlineUnits(py, 'cart.py');
+    expect(units.map((u) => `${u.kind}:${u.name}`)).toContain('method:add');
+  });
+});
