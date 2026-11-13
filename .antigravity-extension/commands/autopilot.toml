@@ -384,16 +384,30 @@ Persist findings to `{sessionDir}/phase-{N}-review.json`. No blocking (across ba
 1. Set `currentState: "FINAL_REVIEW"`, `finalReview.status: "in_progress"`.
 2. Gather per-phase findings from `{sessionDir}/phase-{N}-review.json` files.
 3. Dispatch harness-code-reviewer:
+
    ```
    subagent_type: "harness-code-reviewer"
    prompt: "Final cross-phase review. Diff: git diff {startingCommit}..HEAD. Session: {sessionSlug}. Prior findings: {collected}. Focus on cross-phase coherence: naming, duplicated utilities, architectural drift. Report findings (critical / important / suggestion)."
    ```
+
    Then run **each effective `after:FINAL_REVIEW` hook** — `resolveReviewHooksWithCanary(config, "harness-autopilot", "after:FINAL_REVIEW", { canaryPresent, availableSkills })` (configured `skillHooks` plus canary's **installed** deterministic detectors when canary is present; exactly the configured hooks when absent) — over the same cross-phase diff. Run each by kind; a `skill` hook is dispatched as an extra reviewer:
+
+   Resolve craft's advisory domains here too:
+   `resolveReviewHooksWithCraft(config, "harness-autopilot", "after:FINAL_REVIEW", { changedFiles, availableSkills, alreadyRanFor })`.
+   `alreadyRanFor` is the set of craft domains wired at this phase's `after:REVIEW` **when the
+   changed-file set is unchanged** — craft resolves once per phase per diff, and the budget is
+   per-resolution, so omitting it lets the same code be critiqued twice. Domains passed this way are
+   reported `already-run` in the denominator, not silently absent. If the cross-phase diff differs
+   from the REVIEW diff, pass nothing. Craft findings merge into `finalReview.findings` as
+   **non-blocking advisory** output and never set the final-review status to failed.
+
    ```
    subagent_type: "<hook skill name>"
    prompt: "Final cross-phase domain review. Diff: git diff {startingCommit}..HEAD. Session: {sessionSlug}. Context: {hook context}. Report findings (critical / important / suggestion)."
    ```
+
    An unresolvable **user-declared** hooked skill (a typo, a not-installed declared skill) or an un-spawnable `command` hook is a FINAL_REVIEW failure, not a skip, and not an overridable finding — record it in `.harness/failures.md`, set the final-review status to failed, and hard-halt with "cannot verify" rather than reporting a green final review that silently dropped a configured hook. A harness-default canary detector that is not installed is instead forward-wired: `resolveReviewHooksWithCanary` already filtered it out, so it is a graceful skip recorded in the denominator, never a FINAL_REVIEW failure. (A `command` that ran and exited non-zero is a normal blocking finding, not a hard halt.) Hook findings merge into the same `finalReview.findings` aggregation; report the detector denominator (including skipped-not-installed) so a partial or forward-wired run is never presented as complete.
+
 4. No blocking (across baseline + additional reviewers): store in `finalReview.findings`, set `"passed"` → OUTCOME_EVAL.
 5. Blocking: ask "fix / override / stop."
    - `fix`: increment `finalReview.retryCount` (max 3). Dispatch harness-task-executor: "Fix these blocking findings: {findings with file, line, title}. Session: {sessionSlug}. Commit each fix atomically." Run `harness validate`. Re-run FINAL_REVIEW from step 1. If retryCount > 3: stop, record in `.harness/failures.md`.
