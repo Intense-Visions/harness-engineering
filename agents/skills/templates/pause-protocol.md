@@ -136,7 +136,7 @@ Give the single strongest objection to the chosen option. Rate it "blocking" if 
 A disagreement is the only `judgment` pause that survives `trusted` mode (D8).
 
 - **Interactive.** Present both positions in plain text in your reply, not through `emit_interaction` or `AskUserQuestion`: your recommendation and rationale, the blind pick and its reason, and the refuter's objection if there was one. Then wait. Escalations are recorded only after the human answers: record audit `{ "status": "escalated", "blindPick": "<pick>", "humanChoice": "<their answer>" }` (plus the `objection` if there was one), with `chosen` equal to `humanChoice`. This is possible only in `trusted` mode; in `supervised` mode the log refuses every entry and nothing is recorded.
-- **Headless** (you are a dispatched subagent, or no human can answer in this session): do not choose. Write the handoff with `"blockers": ["audit-disagreement: <question>"]` and both positions in `concerns`, then stop and return. `HandoffSchema` has no `status` field, so the reason travels in `blockers`. Autopilot treats a non-empty `concerns` list as an APPROVE_PLAN pause signal.
+- **Headless** (you are a dispatched subagent, or no human can answer in this session): do not choose. Write the handoff with `"blockers": ["audit-disagreement: <question>"]` and both positions in `concerns`, then stop and return. `HandoffSchema` has no `status` field, so the reason travels in `blockers`. Autopilot reads that blocker in its "After every dispatch" step and escalates it as a `gate` pause.
 
 ## End-of-run summary
 

@@ -332,3 +332,13 @@ describe('review I3: a marker can never lower a pause, and only SKILL.md markers
     expect(section('## Marker convention')).toContain(SOURCE);
   });
 });
+
+describe('review S1: a headless disagreement is picked up by autopilot after the dispatch', () => {
+  it('points at the "After every dispatch" gate, not APPROVE_PLAN concerns', () => {
+    const s = section('## Escalation (audit disagreement)');
+    expect(s).toContain(
+      'Autopilot reads that blocker in its "After every dispatch" step and escalates it as a `gate` pause.'
+    );
+    expect(s).not.toContain('APPROVE_PLAN');
+  });
+});
