@@ -2,6 +2,7 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { createHash } from 'node:crypto';
+import { execFileSync } from 'node:child_process';
 import type { Result } from '../shared/result';
 import { Ok, Err } from '../shared/result';
 
@@ -9,6 +10,8 @@ import { Ok, Err } from '../shared/result';
 export interface AutonomyPathOptions {
   homeDir?: string;
   realpath?: (p: string) => string;
+  /** Git toplevel containing `p`, or undefined when `p` is not in a work tree. */
+  gitToplevel?: (p: string) => string | undefined;
 }
 
 export function harnessHomeDir(opts: AutonomyPathOptions = {}): string {
@@ -27,9 +30,48 @@ function defaultRealpath(p: string): string {
   }
 }
 
+/** Repo-location vars a parent process (e.g. a git hook) may set; they would override `cwd`. */
+const GIT_LOCATION_ENV = [
+  'GIT_DIR',
+  'GIT_WORK_TREE',
+  'GIT_COMMON_DIR',
+  'GIT_INDEX_FILE',
+  'GIT_PREFIX',
+  'GIT_OBJECT_DIRECTORY',
+];
+
+function defaultGitToplevel(p: string): string | undefined {
+  const env = { ...process.env };
+  for (const k of GIT_LOCATION_ENV) delete env[k];
+  try {
+    const out = execFileSync('git', ['rev-parse', '--show-toplevel'], {
+      cwd: p,
+      env,
+      encoding: 'utf-8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+      timeout: 5000,
+      windowsHide: true,
+    }).trim();
+    return out === '' ? undefined : out;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * The project root for `projectPath`: its git toplevel, or `projectPath` itself when it is not
+ * in a git work tree (or git is unavailable). Each git worktree is its own toplevel. The single
+ * helper every autonomy caller keys through, so `set` from a subdirectory and `show` from the
+ * root agree.
+ */
+export function resolveProjectRoot(projectPath: string, opts: AutonomyPathOptions = {}): string {
+  return (opts.gitToplevel ?? defaultGitToplevel)(projectPath) ?? projectPath;
+}
+
 /** sha256 of the normalized repo-root realpath, first 16 hex chars (D12). */
 export function computeRepoKey(projectPath: string, opts: AutonomyPathOptions = {}): string {
-  const real = (opts.realpath ?? defaultRealpath)(projectPath).replaceAll('\\', '/');
+  const root = resolveProjectRoot(projectPath, opts);
+  const real = (opts.realpath ?? defaultRealpath)(root).replaceAll('\\', '/');
   return createHash('sha256').update(real).digest('hex').slice(0, 16);
 }
 
