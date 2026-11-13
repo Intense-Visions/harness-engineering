@@ -73,8 +73,22 @@ describe('CRAFT_REVIEW_DOMAINS table', () => {
     expect(CRAFT_DOMAINS_NOT_ACTIVATED_V1).toEqual(['copy-craft']);
   });
 
-  it('gates source domains on all six supported languages and prose domains on none', () => {
-    for (const skill of ['code-craft', 'test-craft', 'naming-craft', 'security-craft']) {
+  it('language-gates ONLY the four unit-extraction domains; every other domain is any', () => {
+    // THE RULE (spec: the language gate applies only to domains that parse
+    // source into units). Asserted as a PARTITION of the whole table rather than
+    // a per-domain list, so widening or narrowing any domain shows up here.
+    const gated = CRAFT_REVIEW_DOMAINS.filter(
+      (d) => d.supportedLanguages !== CRAFT_ANY_LANGUAGE
+    ).map((d) => d.skill);
+    expect([...gated].sort()).toEqual([
+      'code-craft',
+      'naming-craft',
+      'security-craft',
+      'test-craft',
+    ]);
+
+    // Each gated domain reads all six languages code-nav supports.
+    for (const skill of gated) {
       expect([...(DOMAIN(skill).supportedLanguages as string[])].sort()).toEqual([
         'go',
         'java',
@@ -84,9 +98,18 @@ describe('CRAFT_REVIEW_DOMAINS table', () => {
         'typescript',
       ]);
     }
-    expect(DOMAIN('harness-design-craft').supportedLanguages).toEqual(['typescript', 'javascript']);
-    expect(DOMAIN('cli-ergonomics-craft').supportedLanguages).toEqual(['typescript', 'javascript']);
-    for (const skill of ['api-craft', 'spec-craft', 'docs-craft', 'knowledge-craft']) {
+
+    // Every surface-bound domain is `any` — its `owns` predicate IS the gate.
+    // design-craft and cli-ergonomics-craft are named explicitly because they
+    // are the two a reader is most tempted to "fix" back toward ts/js.
+    for (const skill of [
+      'harness-design-craft',
+      'cli-ergonomics-craft',
+      'api-craft',
+      'spec-craft',
+      'docs-craft',
+      'knowledge-craft',
+    ]) {
       expect(DOMAIN(skill).supportedLanguages).toBe(CRAFT_ANY_LANGUAGE);
     }
   });
@@ -397,37 +420,62 @@ describe('capability gate (spec criterion 9) — unsupported-language is EXPLICI
   // fill all three slots before cli-ergonomics-craft is reached.
   const CLI_ONLY = new Set<string>(['cli-ergonomics-craft']);
 
-  it('skips a ts/js-only domain on a Python file it owns, and does not wire it', () => {
+  it('wires cli-ergonomics-craft on a PYTHON CLI module it owns (surface-bound)', () => {
+    // cli-ergonomics-craft critiques a command's ergonomics — flags, naming,
+    // help text — which is not language-specific. A Python or Go command module
+    // is squarely its surface, so it must WIRE, not report unsupported-language.
     const plan = planCraftReviewDomains(
       'harness-autopilot',
       'after:REVIEW',
       ['packages/cli/src/commands/run.py'],
       CLI_ONLY
     );
-    expect(reasonsFor(plan.skipped, 'cli-ergonomics-craft')).toEqual(['unsupported-language']);
-    expect(plan.wired).toEqual([]);
+    expect(plan.wired).toEqual([{ type: 'skill', skill: 'cli-ergonomics-craft', blocking: false }]);
+    expect(reasonsFor(plan.skipped, 'cli-ergonomics-craft')).toEqual([]);
 
-    // POSITIVE CONTROL at the same scope: the same CLI path in a supported
-    // language WIRES. Without this, a green could mean "the resolver never ran".
-    const control = planCraftReviewDomains(
+    // Same scope, a supported language: wires identically. The two together say
+    // the surface decides, not the language.
+    const ts = planCraftReviewDomains(
       'harness-autopilot',
       'after:REVIEW',
       ['packages/cli/src/commands/run.ts'],
       CLI_ONLY
     );
-    expect(control.wired).toEqual([
-      { type: 'skill', skill: 'cli-ergonomics-craft', blocking: false },
-    ]);
+    expect(ts.wired).toEqual([{ type: 'skill', skill: 'cli-ergonomics-craft', blocking: false }]);
+
+    // NEGATIVE CONTROL at the same scope: a non-command Python module is NOT
+    // cli-ergonomics-craft's surface, so it still reports a skip. Without this,
+    // a green here could mean "every domain wires unconditionally".
+    const notACommand = planCraftReviewDomains(
+      'harness-autopilot',
+      'after:REVIEW',
+      ['src/services/user.py'],
+      CLI_ONLY
+    );
+    expect(notACommand.wired).toEqual([]);
+    expect(reasonsFor(notACommand.skipped, 'cli-ergonomics-craft')).toEqual(['not-activated']);
   });
 
-  it('skips design-craft on a stylesheet-only diff, and wires it when a .tsx joins', () => {
+  it('WIRES design-craft on a stylesheet-only diff (CSS is its surface, not an incapacity)', () => {
+    // THE MOTIVATING CASE for this feature: someone changes UI, design-craft
+    // runs. EXTENSION_MAP maps no `.css`, so a language gate here would make the
+    // one case that prompted the work never fire. design-craft is surface-bound.
     const cssOnly = planCraftReviewDomains(
       'harness-autopilot',
       'after:REVIEW',
-      ['src/ui/button.module.css'],
+      ['src/ui/button.module.css', 'tests/fixtures/data.json'],
       ALL_CRAFT_INSTALLED
     );
-    expect(reasonsFor(cssOnly.skipped, 'harness-design-craft')).toEqual(['unsupported-language']);
+    expect(cssOnly.wired.map((h) => h.type === 'skill' && h.skill)).toContain(
+      'harness-design-craft'
+    );
+    expect(reasonsFor(cssOnly.skipped, 'harness-design-craft')).toEqual([]);
+
+    // POSITIVE CONTROL AT THE SAME SCOPE, in the SAME call: test-craft owns
+    // `tests/fixtures/data.json` by path but cannot extract units from it, so it
+    // still reports an explicit `unsupported-language`. A gate that reported
+    // nothing at all — i.e. a dead gate — fails this line.
+    expect(reasonsFor(cssOnly.skipped, 'test-craft')).toEqual(['unsupported-language']);
 
     const withTsx = planCraftReviewDomains(
       'harness-autopilot',
@@ -441,16 +489,18 @@ describe('capability gate (spec criterion 9) — unsupported-language is EXPLICI
   });
 
   it('gates on the OWNED subset, not on any file in the diff', () => {
-    // A .ts elsewhere in the diff must NOT satisfy cli-ergonomics-craft's gate for
-    // the Python command module it owns.
+    // A .ts elsewhere in the diff must NOT satisfy test-craft's gate for the
+    // JSON fixture it owns. test-craft carries this because its `owns` is
+    // path-based (isTestFile), so it CAN own a file detectLanguage cannot read —
+    // unlike code/naming/security, whose `owns` already implies a known language.
     const plan = planCraftReviewDomains(
       'harness-autopilot',
       'after:REVIEW',
-      ['packages/cli/src/commands/run.py', 'src/services/user.ts'],
+      ['tests/fixtures/data.json', 'src/a.ts'],
       ALL_CRAFT_INSTALLED
     );
-    expect(reasonsFor(plan.skipped, 'cli-ergonomics-craft')).toEqual(['unsupported-language']);
-    // Same call, positive control: code-craft owns the .ts and the .py and wires.
+    expect(reasonsFor(plan.skipped, 'test-craft')).toEqual(['unsupported-language']);
+    // Same call, positive control: code-craft owns the .ts and wires.
     expect(plan.wired.map((h) => h.type === 'skill' && h.skill)).toContain('code-craft');
   });
 
@@ -466,15 +516,16 @@ describe('capability gate (spec criterion 9) — unsupported-language is EXPLICI
   });
 
   it('reports capability BEFORE availability when both would skip', () => {
-    // Precedence pin: cli-ergonomics-craft is neither installed nor able to read
-    // Python. `unsupported-language` is the more informative reason and wins.
+    // Precedence pin: test-craft is neither installed nor able to extract units
+    // from a JSON fixture. `unsupported-language` is the more informative reason
+    // and wins.
     const plan = planCraftReviewDomains(
       'harness-autopilot',
       'after:REVIEW',
-      ['packages/cli/src/commands/run.py'],
+      ['tests/fixtures/data.json'],
       new Set()
     );
-    expect(reasonsFor(plan.skipped, 'cli-ergonomics-craft')).toEqual(['unsupported-language']);
+    expect(reasonsFor(plan.skipped, 'test-craft')).toEqual(['unsupported-language']);
   });
 
   it('reports surface BEFORE capability when both would skip', () => {
@@ -484,7 +535,11 @@ describe('capability gate (spec criterion 9) — unsupported-language is EXPLICI
       ['src/a.py'],
       ALL_CRAFT_INSTALLED
     );
+    // design-craft is surface-bound, so a non-surface file is `not-activated`.
     expect(reasonsFor(plan.skipped, 'harness-design-craft')).toEqual(['not-activated']);
+    // test-craft is LANGUAGE-GATED, so this is the load-bearing half: owning
+    // nothing must report `not-activated`, never `unsupported-language`.
+    expect(reasonsFor(plan.skipped, 'test-craft')).toEqual(['not-activated']);
   });
 
   it('reports exactly one reason per expected domain, and nothing outside expected', () => {

@@ -37,6 +37,8 @@
 //      not intersect the languages of the files IT OWNS is SKIPPED with reason
 //      `unsupported-language` — never dispatched (spec D8). Dispatching it would
 //      return an empty finding set indistinguishable from "this code is fine".
+//      The gate applies ONLY to the four unit-extraction domains; every
+//      surface-bound domain is CRAFT_ANY_LANGUAGE. See {@link CRAFT_ANY_LANGUAGE}.
 //
 // FORWARD-WIRED / GRACEFUL-SKIP CONTRACT (inherited from the canary twin, do not
 // regress): craft domains are harness-OPTIMISTIC defaults. A default whose skill
@@ -63,11 +65,24 @@ import type { NormalizedHook, SkillHookEntry, SkillHooksConfigHolder } from './s
 import type { SkillAvailability } from './canary-review-hooks';
 
 /**
- * Sentinel `supportedLanguages` for a domain whose surface is prose or spec
- * documents (markdown, OpenAPI YAML/JSON) rather than parsed source. An empty
- * array is NOT used for this: it reads as "supports nothing", which is the
- * opposite meaning, and would make every prose domain an `unsupported-language`
- * skip.
+ * Sentinel `supportedLanguages` for a SURFACE-BOUND domain.
+ *
+ * THE RULE, so the table is self-explaining: a domain needs `supportedLanguages`
+ * ONLY when it parses source into units. That is exactly four domains —
+ * `code-craft`, `naming-craft`, `security-craft`, `test-craft`. Every other
+ * domain is surface-bound: its `owns` predicate already names the exact files it
+ * critiques, so a language check is redundant at best, and WRONG whenever the
+ * surface is not in `EXTENSION_MAP` — which maps no `.css`, `.scss`, `.md` or
+ * `.yaml`, so `detectLanguage` returns null for all of them.
+ *
+ * Do not "fix" a surface-bound domain back toward `['typescript', 'javascript']`.
+ * Doing so makes a stylesheet-only diff, a prose-only diff and a Python CLI diff
+ * report `unsupported-language` forever — a silent total failure dressed as a
+ * correct report. `harness-design-craft` declining to read CSS is not an
+ * incapacity; CSS is squarely its surface.
+ *
+ * An empty array is NOT used as the sentinel: it reads as "supports nothing",
+ * the opposite meaning.
  */
 export const CRAFT_ANY_LANGUAGE = 'any' as const;
 
@@ -202,7 +217,9 @@ export const CRAFT_REVIEW_DOMAINS: readonly CraftDomainRule[] = Object.freeze([
   {
     skill: 'harness-design-craft',
     priority: 1,
-    supportedLanguages: ['typescript', 'javascript'],
+    // Surface-bound: `.tsx`, stylesheets and token manifests. Stylesheets are
+    // not in EXTENSION_MAP, so a language gate would skip every CSS-only diff.
+    supportedLanguages: CRAFT_ANY_LANGUAGE,
     owns: (files) => files.filter(ownsDesignSurface),
   },
   {
@@ -232,7 +249,10 @@ export const CRAFT_REVIEW_DOMAINS: readonly CraftDomainRule[] = Object.freeze([
   {
     skill: 'cli-ergonomics-craft',
     priority: 6,
-    supportedLanguages: ['typescript', 'javascript'],
+    // Surface-bound: it critiques a command's ergonomics (flags, naming, help
+    // text), which is not language-specific. A Go or Python CLI module is
+    // squarely its surface.
+    supportedLanguages: CRAFT_ANY_LANGUAGE,
     owns: (files) => files.filter((f) => isProductionSource(f) && CLI_COMMAND_PATTERN.test(f)),
   },
   {
