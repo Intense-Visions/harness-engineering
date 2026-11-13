@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/tests/code-craft'
-sourceHash: '8ce06a916c0c6add2297851c2cc6f7b06b2c71524a441d795b52a4f473e64045'
+sourceHash: '29396b716d0631de3d251b202e4439af14b8552312abe85dab5a457177a60137'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -14,6 +14,7 @@ members:
     'discover.test.ts',
     'extractor-agreement.test.ts',
     'integration.test.ts',
+    'multilang-extraction.test.ts',
     'sibling-evidence.test.ts',
     'siblings-integration.test.ts',
     'siblings.test.ts',
@@ -39,7 +40,7 @@ import { controlFlowHonestRubric } from '../../src/code-craft/catalog/rubrics/co
 import { revealsIntentRubric } from '../../src/code-craft/catalog/rubrics/reveals-intent'
 import { discoverSourceFiles } from '../../src/code-craft/extract/discover'
 import { buildCodeCraftCloneIndex, resolveSiblingEvidence } from '../../src/code-craft/extract/siblings'
-import { extractTsUnits, extractUnits, unitSource } from '../../src/code-craft/extract/units'
+import { extractCodeUnits, extractTsUnits, extractUnits, unitSource } from '../../src/code-craft/extract/units'
 import { extractUnits, unitSource } from '../../src/code-craft/extract/units.js'
 import { CodeUnit, UnitKind } from '../../src/code-craft/findings/schema'
 import { CodeUnit } from '../../src/code-craft/findings/schema.js'
