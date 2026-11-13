@@ -80,4 +80,10 @@ describe('SC11: terminal points print the auto-decision summary', () => {
     expect(at).toBeGreaterThan(s.indexOf('**Sync roadmap (mandatory when present).**'));
     expect(at).toBeLessThan(s.indexOf('**Auto-transition to verification.**'));
   });
+  it('brainstorming sign-off, before the roadmap promotion', () => {
+    const s = skill('harness-brainstorming');
+    const at = s.indexOf(SUMMARY_STEP);
+    expect(at).toBeGreaterThan(s.indexOf('**Request sign-off in plain text.**'));
+    expect(at).toBeLessThan(s.indexOf('**Promote the roadmap row.**'));
+  });
 });

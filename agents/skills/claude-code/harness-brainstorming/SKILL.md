@@ -211,6 +211,8 @@ _Pause point (ceremony): resolve per the Pause Protocol._ <!-- pause: ceremony -
 
    The human must explicitly approve (a clear "yes") before this skill is complete.
 
+   After approval, **Auto-decision summary (SC11).** Run `harness autonomy log --session <session-slug>`. If its output contains a line starting `No auto-decisions recorded`, print nothing more; otherwise print the output verbatim. If the command fails or is not recognised, print `Auto-decision summary unavailable (<reason>); raw log: .harness/sessions/<session-slug>/auto-decisions.jsonl` and never report zero decisions you did not read.
+
 7. **Promote the roadmap row.** If a roadmap exists (a `docs/roadmap.md` aggregate **or** a `docs/roadmap.d/` shard directory), transition the named row to `planned` and link the spec in a single structured call (steps 7 and 8 are intentionally ordered so the commit captures the roadmap mutation). Skip silently only when no roadmap exists. In sharded mode `manage_roadmap promote` writes the single row's shard under `docs/roadmap.d/` **and** regenerates the `docs/roadmap.md` aggregate — both are staged in step 8.
    - Derive the lookup key from the slash-command `ARGUMENTS` string (D1). Derive the summary from the spec title (the H1 heading).
    - Call `manage_roadmap` with action `promote`, `feature: "<ARGUMENTS>"`, `spec: "docs/changes/<feature>/proposal.md"`, and `summary: "<H1>"`.
