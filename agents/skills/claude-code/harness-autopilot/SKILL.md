@@ -405,13 +405,14 @@ The blocking post-execution **spec-satisfaction gate** — the harness's ship ga
 ### DONE
 
 1. Present: total phases, tasks, retries, time, `finalReview.status` + findings count, any overridden findings, and the OUTCOME_EVAL verdict (`verdict` / `confidence` / `authority`, plus any recorded override).
+2. **Auto-decision summary (SC11).** Run `harness autonomy log --session <session-slug>`. If its output contains a line starting `No auto-decisions recorded`, print nothing more; otherwise print the output verbatim. If the command fails or is not recognised, print `Auto-decision summary unavailable (<reason>); raw log: .harness/sessions/<session-slug>/auto-decisions.jsonl` and never report zero decisions you did not read.
 
    _Pause point (irreversible): resolve per the Pause Protocol._ <!-- pause: irreversible -->
 
-2. Ask "Create a PR? (yes / no)." When creating the PR, include a bare closing line `Closes #<N>` where `<N>` is the issue number from the roadmap row's `External-ID`. The keyword MUST sit IMMEDIATELY before the ref — no intervening words (`Closes #<N>`, never `Closes roadmap #<N>`), or GitHub will not link/close the issue and roadmap auto-done will skip the row.
-3. Write final handoff to `{sessionDir}/handoff.json`. Append learnings to `.harness/learnings.md`. Call `promoteSessionLearnings(projectPath, sessionSlug)`. If learnings count > 30, suggest `harness learnings prune`.
-4. If `docs/roadmap.md` exists: call `manage_roadmap update` to set feature done. Skip if not found.
-5. Write final `writeSessionSummary()`. Set `currentState: "DONE"` in autopilot-state.json.
+3. Ask "Create a PR? (yes / no)." When creating the PR, include a bare closing line `Closes #<N>` where `<N>` is the issue number from the roadmap row's `External-ID`. The keyword MUST sit IMMEDIATELY before the ref — no intervening words (`Closes #<N>`, never `Closes roadmap #<N>`), or GitHub will not link/close the issue and roadmap auto-done will skip the row.
+4. Write final handoff to `{sessionDir}/handoff.json`. Append learnings to `.harness/learnings.md`. Call `promoteSessionLearnings(projectPath, sessionSlug)`. If learnings count > 30, suggest `harness learnings prune`.
+5. If `docs/roadmap.md` exists: call `manage_roadmap update` to set feature done. Skip if not found.
+6. Write final `writeSessionSummary()`. Set `currentState: "DONE"` in autopilot-state.json.
 
 ---
 

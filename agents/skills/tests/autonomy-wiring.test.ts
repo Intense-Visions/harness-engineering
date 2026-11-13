@@ -6,6 +6,7 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'fs';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
+import { SUMMARY_STEP } from './pause-markers';
 
 const SKILLS = resolve(dirname(fileURLToPath(import.meta.url)), '..', 'claude-code');
 const skill = (name: string) => readFileSync(resolve(SKILLS, name, 'SKILL.md'), 'utf-8');
@@ -62,5 +63,21 @@ describe('SC10 / D2: --fast no longer auto-approves plans or INTEGRATE', () => {
     const r = row(section(skill('harness-integration'), '### Rigor Level Interaction'), '`fast`');
     expect(r[1]).toMatch(/WIRE only/); // control
     expect(r[1]).not.toMatch(/auto-approve/i);
+  });
+});
+
+describe('SC11: terminal points print the auto-decision summary', () => {
+  it('the summary step keys on the CLI no-decisions sentinel', () => {
+    expect(SUMMARY_STEP).toContain('`No auto-decisions recorded`');
+    expect(SUMMARY_STEP).toContain('harness autonomy log --session <session-slug>');
+  });
+  it('autopilot DONE', () => {
+    expect(section(skill('harness-autopilot'), '### DONE')).toContain(SUMMARY_STEP);
+  });
+  it('execution completion, after the roadmap sync and before the auto-transition', () => {
+    const s = skill('harness-execution');
+    const at = s.indexOf(SUMMARY_STEP);
+    expect(at).toBeGreaterThan(s.indexOf('**Sync roadmap (mandatory when present).**'));
+    expect(at).toBeLessThan(s.indexOf('**Auto-transition to verification.**'));
   });
 });

@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'agents/skills/tests'
-sourceHash: '72901b9bcab9ababfa386f0fabbe9480ae869240f8a4687fb1d45d5a25046760'
+sourceHash: '6eed914386093007c03942149167c0301d5c928932c85df6f1386914d8dbc0c7'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -50,7 +50,7 @@ export scanSkill
 ## Dependency Slice
 
 ```
-import { PAUSE_PREAMBLE, PAUSE_PREAMBLE_HEADING, WORKFLOW_SKILLS, marker, pauseMarkerViolations, scanSkill } from './pause-markers'
+import { PAUSE_PREAMBLE, PAUSE_PREAMBLE_HEADING, SUMMARY_STEP, WORKFLOW_SKILLS, marker, pauseMarkerViolations, scanSkill } from './pause-markers'
 import { ALLOWED_PLATFORMS, SkillMetadataSchema } from './schema'
 import { BEHAVIORAL_REQUIRED_SECTIONS, CompoundLockHeldError, KNOWLEDGE_REQUIRED_SECTIONS, RIGID_SECTIONS, acquireCompoundLock } from '@harness-engineering/core'
 import { existsSync, readFileSync } from 'fs'
