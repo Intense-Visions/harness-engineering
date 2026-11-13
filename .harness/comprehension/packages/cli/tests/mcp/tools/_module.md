@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/tests/mcp/tools'
-sourceHash: '6bac51d3da1573553eda51743cc7812e481fdfa3e3be3535c3524828e33ec36e'
+sourceHash: '435bb9a4518c6fa950b07aab4b29bd28a08836ad626cf7478d7db9541beffb56'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -217,6 +217,7 @@ import { queryTraceability } from '@harness-engineering/graph'
 import { deriveAcceptanceAuthority } from '@harness-engineering/intelligence'
 import { Err, Ok, Result } from '@harness-engineering/types'
 import { execFileSync } from 'child_process'
+import { loadDotenv } from 'dotenv'
 import * as fs from 'fs'
 import * as fs from 'fs/promises'
 import { execFileSync, execSync } from 'node:child_process'

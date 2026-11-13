@@ -1,11 +1,16 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/tests/e2e'
-sourceHash: 'b92d54765b7f4c75108a03860fa13ba7c4e5d8a91e773de8771f16c0c2632da1'
+sourceHash: 'b304d0bf49491f4f372461a926a581e27273bd0d5f121c644ea23b6949b5c765'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
-members: ['cli-smoke.e2e.test.ts', 'comprehend-boundary.e2e.test.ts']
+members:
+  [
+    'autonomy-env-lower-only.e2e.test.ts',
+    'cli-smoke.e2e.test.ts',
+    'comprehend-boundary.e2e.test.ts',
+  ]
 ---
 
 ## Interface Contract
@@ -18,8 +23,11 @@ members: ['cli-smoke.e2e.test.ts', 'comprehend-boundary.e2e.test.ts']
 
 ```
 import { cleanup, fakeProviderEnv, initGitRepo, loadClaudeEnvelope, removeFakeClaude, runHarness, scaffoldProject, skipTierB, skipUnlessBin, skipUnlessBinPosix, withFakeClaude } from './support'
+import { execFileSync } from 'node:child_process'
 import { existsSync, readFileSync } from 'node:fs'
+import * as fs from 'node:fs'
 import { tmpdir } from 'node:os'
-import path from 'node:path'
-import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import * as os from 'node:os'
+import path, * as path from 'node:path'
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 ```

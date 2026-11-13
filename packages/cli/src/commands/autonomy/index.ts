@@ -5,7 +5,8 @@ import { createAutonomySetCommand } from './set';
 
 export function createAutonomyCommand(deps: AutonomyCliDeps = {}): Command {
   const command = new Command('autonomy').description(
-    'Show or set user-level trusted autonomy (never read from project config)'
+    'Show or set autonomy. Only ~/.harness/config.json or an interactive `autonomy set` can ' +
+      'raise it; environment variables (including a project .env) can only lower it'
   );
   command.addCommand(createAutonomyShowCommand(deps));
   command.addCommand(createAutonomySetCommand(deps));

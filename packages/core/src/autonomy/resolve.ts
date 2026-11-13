@@ -76,23 +76,38 @@ function pickUserTier<T>(
   return undefined;
 }
 
+const ENV_RAISE_HINT =
+  'the environment may only lower autonomy (D13: .env files and agent settings can set it). ' +
+  'Raise with ~/.harness/config.json or an interactive `harness autonomy set`.';
+
+/** Lower-only (D13): `supervised` is honoured; `trusted` is ignored with a warning naming it. */
 function readEnvLevel(env: NodeJS.ProcessEnv, warnings: string[]): AutonomyLevel | undefined {
   const raw = env[AUTONOMY_ENV];
   if (raw === undefined || raw.trim() === '') return undefined;
   const v = raw.trim().toLowerCase();
-  if (v === 'supervised' || v === 'trusted') return v;
-  warnings.push(`Ignoring ${AUTONOMY_ENV}="${raw}": expected supervised or trusted.`);
+  if (v === 'supervised') return v;
+  if (v === 'trusted') {
+    warnings.push(`Ignoring ${AUTONOMY_ENV}="${raw}": ${ENV_RAISE_HINT}`);
+    return undefined;
+  }
+  warnings.push(`Ignoring ${AUTONOMY_ENV}="${raw}": expected supervised (env may only lower).`);
   return undefined;
 }
 
-function readEnvAudit(env: NodeJS.ProcessEnv, warnings: string[]): boolean | undefined {
+/** Lower-only (D13): audit on is honoured; off is ignored with a warning naming it. */
+function readEnvAudit(env: NodeJS.ProcessEnv, warnings: string[]): true | undefined {
   const raw = env[AUTONOMY_AUDIT_ENV];
   if (raw === undefined || raw.trim() === '') return undefined;
   const v = AUDIT_ENV_VALUES.get(raw.trim().toLowerCase());
-  if (v === undefined) {
-    warnings.push(`Ignoring ${AUTONOMY_AUDIT_ENV}="${raw}": expected on|off|true|false|1|0.`);
+  if (v === true) return true;
+  if (v === false) {
+    warnings.push(`Ignoring ${AUTONOMY_AUDIT_ENV}="${raw}": ${ENV_RAISE_HINT}`);
+    return undefined;
   }
-  return v;
+  warnings.push(
+    `Ignoring ${AUTONOMY_AUDIT_ENV}="${raw}": expected on|true|1 (env may only lower).`
+  );
+  return undefined;
 }
 
 function loadUserConfig(input: ResolveAutonomyInput, warnings: string[]): AutonomyUserConfig {
@@ -141,8 +156,8 @@ function resolveAudit(
 }
 
 /**
- * Resolve autonomy from user-sourced inputs only (D3): flag > session > env > user config >
- * default, per field. Pure aside from the user-config read. Never throws.
+ * Resolve autonomy (D3): flag > session > env > user config > default, per field. The env tier
+ * is lower-only (D13). Pure aside from the user-config read. Never throws.
  */
 export function resolveAutonomy(input: ResolveAutonomyInput = {}): ResolvedAutonomy {
   const warnings: string[] = [];

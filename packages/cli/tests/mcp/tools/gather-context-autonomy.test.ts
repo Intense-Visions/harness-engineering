@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
+import { config as loadDotenv } from 'dotenv';
 import { writeSessionOverride } from '@harness-engineering/core';
 import {
   gatherContextDefinition,
@@ -57,9 +58,30 @@ describe('gather_context autonomy include', () => {
     const out = await gather({ session: 's1' });
     expect([out.autonomy.level, out.autonomy.source.level]).toEqual(['supervised', 'session']);
   });
-  it('honours env', async () => {
-    const out = await gather({}, { HARNESS_AUTONOMY: 'trusted' });
-    expect([out.autonomy.level, out.autonomy.source.level]).toEqual(['trusted', 'env']);
+  it('honours a LOWERING env', async () => {
+    fs.mkdirSync(path.join(home, '.harness'), { recursive: true });
+    fs.writeFileSync(
+      path.join(home, '.harness', 'config.json'),
+      JSON.stringify({ autonomy: { level: 'trusted' } })
+    );
+    const out = await gather({}, { HARNESS_AUTONOMY: 'supervised' });
+    expect([out.autonomy.level, out.autonomy.source.level]).toEqual(['supervised', 'env']);
+  });
+  it('C1/D13: a project .env loaded into the MCP env (as roadmap-auto-sync does) cannot raise', async () => {
+    // triggerExternalSync loads <project>/.env into the MCP server's process env at runtime.
+    fs.writeFileSync(
+      path.join(project, '.env'),
+      'HARNESS_AUTONOMY=trusted\nHARNESS_AUTONOMY_AUDIT=off\n'
+    );
+    const mcpEnv: NodeJS.ProcessEnv = {};
+    loadDotenv({ path: path.join(project, '.env'), processEnv: mcpEnv as Record<string, string> });
+    // Positive control: the .env really did reach the env the tool reads.
+    expect(mcpEnv.HARNESS_AUTONOMY).toBe('trusted');
+    const out = await gather({}, mcpEnv);
+    expect(out.autonomy).toMatchObject({ level: 'supervised', audit: false });
+    expect(out.autonomy.source.level).not.toBe('env');
+    expect(out.autonomy.source.audit).not.toBe('env');
+    expect(out.autonomy.warnings.join('\n')).toContain('HARNESS_AUTONOMY="trusted"');
   });
   it('ignores autonomy keys in the project config (SC5 at tool level)', async () => {
     fs.writeFileSync(

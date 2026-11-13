@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/commands/autonomy'
-sourceHash: '1fc6b15c96ea6823e80df3f7c1739430511f86a90050e7217665623167a5000f'
+sourceHash: 'e6656877e54e59e6abcb5a0e1f75eb54e41de1dbdf7d38e7d618db2ebf50c056'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent

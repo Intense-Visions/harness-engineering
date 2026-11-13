@@ -51,8 +51,8 @@ describe('resolveAutonomy precedence (SC6)', () => {
     },
     {
       name: 'fields resolve independently',
-      input: { flag: { audit: true }, env: { HARNESS_AUTONOMY: 'trusted' } },
-      exp: ['trusted', 'env', true, 'flag'],
+      input: { flag: { audit: true }, env: { HARNESS_AUTONOMY: 'supervised' } },
+      exp: ['supervised', 'env', true, 'flag'],
     },
   ])('$name', ({ input, exp }) => {
     const r = run(input as ResolveAutonomyInput);
@@ -126,5 +126,63 @@ describe('resolveAutonomy flag-vs-session recency (D3)', () => {
       sessionOverride: sess('trusted', undefined, T1),
     });
     expect(r.source.level).toBe('flag');
+  });
+});
+
+/**
+ * C1 / D13: the env tier is repo-reachable (`.env` via dotenv, `.mcp.json` / settings `env`
+ * blocks), so it may only LOWER: supervised and audit on are honoured; a raising value is
+ * ignored with a warning that names it, and resolution falls through to the next tier.
+ */
+describe('env tier is lower-only (D13)', () => {
+  it('HARNESS_AUTONOMY=trusted + no user config → supervised (default), warning names it', () => {
+    const r = run({ env: { HARNESS_AUTONOMY: 'trusted' } });
+    expect([r.level, r.source.level]).toEqual(['supervised', 'default']);
+    expect(r.warnings).toHaveLength(1);
+    expect(r.warnings[0]).toContain('HARNESS_AUTONOMY="trusted"');
+    expect(r.warnings[0]).toMatch(/only lower/);
+  });
+  it('HARNESS_AUTONOMY=TRUSTED (any case) is ignored the same way', () => {
+    const r = run({ env: { HARNESS_AUTONOMY: ' TRUSTED ' } });
+    expect(r.level).toBe('supervised');
+    expect(r.warnings).toHaveLength(1);
+  });
+  it('a raising env cannot override a user-config value either way: trusted config still applies', () => {
+    const r = run({
+      env: { HARNESS_AUTONOMY: 'trusted' },
+      readFile: cfg({ autonomy: { level: 'trusted' } }),
+    });
+    expect([r.level, r.source.level]).toEqual(['trusted', 'user-config']);
+  });
+  it('HARNESS_AUTONOMY_AUDIT=off is ignored: trusted keeps its audit (default on), warning names it', () => {
+    const r = run({
+      env: { HARNESS_AUTONOMY_AUDIT: 'off' },
+      readFile: cfg({ autonomy: { level: 'trusted' } }),
+    });
+    expect([r.audit, r.source.audit]).toEqual([true, 'default']);
+    expect(r.warnings).toHaveLength(1);
+    expect(r.warnings[0]).toContain('HARNESS_AUTONOMY_AUDIT="off"');
+  });
+  it.each(['off', 'false', '0', 'OFF'])('audit env %s never turns audit off', (v) => {
+    const r = run({
+      env: { HARNESS_AUTONOMY_AUDIT: v },
+      readFile: cfg({ autonomy: { audit: { supervised: true } } }),
+    });
+    expect([r.audit, r.source.audit]).toEqual([true, 'user-config']);
+  });
+  it('positive control: env supervised still LOWERS a trusted user config', () => {
+    const r = run({
+      env: { HARNESS_AUTONOMY: 'supervised' },
+      readFile: cfg({ autonomy: { level: 'trusted' } }),
+    });
+    expect([r.level, r.source.level]).toEqual(['supervised', 'env']);
+    expect(r.warnings).toEqual([]);
+  });
+  it('positive control: env audit on still turns audit ON over a user config off', () => {
+    const r = run({
+      env: { HARNESS_AUTONOMY_AUDIT: 'on' },
+      readFile: cfg({ autonomy: { level: 'trusted', audit: { trusted: false } } }),
+    });
+    expect([r.audit, r.source.audit]).toEqual([true, 'env']);
   });
 });
