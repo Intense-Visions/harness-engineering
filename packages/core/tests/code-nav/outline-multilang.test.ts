@@ -32,3 +32,54 @@ describe('getOutlineFromSource', () => {
     expect(outline.error).toBe('[parse-failed]');
   });
 });
+
+describe('python decorated definitions (measured gap)', () => {
+  const source = [
+    'class Plain:',
+    '    def undecorated(self):',
+    '        a = 1',
+    '        b = 2',
+    '        return a + b',
+    '',
+    'class Decorated:',
+    '    @staticmethod',
+    '    def decorated(x):',
+    '        a = 1',
+    '        b = 2',
+    '        return a + b',
+    '',
+    '@decorator',
+    'def top_level_decorated(x):',
+    '    a = 1',
+    '    return a',
+  ].join('\n');
+
+  it('surfaces a decorated top-level def', async () => {
+    const outline = await getOutlineFromSource(source, 'deco.py');
+    expect(outline.symbols.map((s) => `${s.kind}:${s.name}`)).toContain(
+      'function:top_level_decorated'
+    );
+  });
+
+  it('surfaces a decorated method as a child of its class', async () => {
+    const outline = await getOutlineFromSource(source, 'deco.py');
+    const decorated = outline.symbols.find((s) => s.name === 'Decorated');
+    expect(decorated?.children?.map((c) => c.name)).toEqual(['decorated']);
+  });
+
+  // POSITIVE CONTROL. Without this, a change that deleted python support
+  // entirely would leave both assertions above passing vacuously only if they
+  // were written as "not undefined" — they are not, but the control is cheap
+  // and makes the undecorated baseline explicit.
+  it('still surfaces undecorated definitions', async () => {
+    const outline = await getOutlineFromSource(source, 'deco.py');
+    const plain = outline.symbols.find((s) => s.name === 'Plain');
+    expect(plain?.children?.map((c) => c.name)).toEqual(['undecorated']);
+  });
+
+  it('anchors the decorated unit at its def line, not its decorator line', async () => {
+    const outline = await getOutlineFromSource(source, 'deco.py');
+    const top = outline.symbols.find((s) => s.name === 'top_level_decorated');
+    expect(top?.line).toBe(15); // `def` is line 15; `@decorator` is line 14
+  });
+});

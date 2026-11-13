@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/tests/code-nav'
-sourceHash: '8beb4c7c8d67917544e677afb4198f63e5684e815dd987325199218e9246449d'
+sourceHash: 'df5fbc5d1e14a28eab281e2f9d2daf8f02df12c10ae4617856f7a9afc083966c'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
