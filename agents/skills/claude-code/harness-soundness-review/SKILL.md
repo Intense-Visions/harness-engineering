@@ -18,6 +18,15 @@
 
 ## Process
 
+### Pause points
+
+Every point below where this skill stops for the human carries a marker line, `_Pause point (<class>): resolve per the Pause Protocol._` followed by a `<!-- pause: <class> -->` comment. Resolve each one with the Pause Protocol: `agents/skills/templates/pause-protocol.md` (also shipped in the harness CLI package at `dist/agents/skills/templates/pause-protocol.md`).
+
+- Re-read autonomy at every pause point: `gather_context({ path, session, include: ["autonomy"] })`.
+- `irreversible` and `gate` pauses stop at every autonomy level.
+- A `ceremony` or `judgment` pause auto-resolves only when autonomy is `trusted`, the pause states a recommendation, a `judgment` fork passed the self-audit, and `record_auto_decision` returned `recorded: true`. In every other case, pause exactly as written below.
+- If you cannot read the protocol or resolve autonomy, pause.
+
 ### Iron Law
 
 **No spec or plan may be signed off without a converged soundness review. Inferrable fixes are applied silently. Design decisions are always surfaced to the user.**
@@ -880,9 +889,12 @@ When findings remain after convergence, present them. If no `needs-user-input` f
 
 1. Present `error` findings before `warning` findings. Errors block sign-off.
 2. Within severity, order by check ID (S1 before S2; P1 before P2).
+   _Pause point (judgment): resolve per the Pause Protocol._ <!-- pause: judgment -->
 3. Announce: `N remaining issues need your input (X errors, Y warnings).`
 
 #### Step 2: Present Each Finding
+
+_Pause point (judgment): resolve per the Pause Protocol._ <!-- pause: judgment -->
 
 For each finding, present three sections:
 
@@ -907,10 +919,13 @@ Evidence: {evidence[0]}, {evidence[1]}, ...
 
 #### Step 3: User Interaction
 
+_Pause point (judgment): resolve per the Pause Protocol._ <!-- pause: judgment -->
+
 Accepted responses:
 
 1. **Resolve:** User makes the change. Mark `resolved`.
 2. **Dismiss with reason (warnings only):** Log `[{id}] DISMISSED: {reason}`. Not re-surfaced.
+   _Pause point (judgment): resolve per the Pause Protocol._ <!-- pause: judgment -->
 3. **Clarify:** Provide more context. Wait for resolve/dismiss.
 
 Error findings cannot be dismissed.
@@ -1146,4 +1161,5 @@ These are hard stops. Violating any gate means the process has broken down.
 - **When the convergence loop makes no progress on the first iteration:** All remaining findings need user input. Skip directly to Phase 4 (SURFACE) without looping.
 - **When graph queries are unavailable:** Fall back to document analysis and codebase reads. All checks are designed to work without graph. Do not block or warn about missing graph — just use the fallback path.
 - **When codebase files referenced in the spec cannot be read:** Skip the feasibility sub-check for that file. Log the skip and continue. Do not block the review on inaccessible files.
+  _Pause point (judgment): resolve per the Pause Protocol._ <!-- pause: judgment -->
 - **When user resolutions repeatedly introduce new errors:** After 2 consecutive resolution attempts that each introduce a new error-severity finding, suggest pausing the soundness review to revisit the spec design holistically rather than fixing issues one at a time.
