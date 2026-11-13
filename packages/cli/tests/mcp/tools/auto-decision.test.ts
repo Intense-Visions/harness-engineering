@@ -104,6 +104,18 @@ describe('record_auto_decision handler', () => {
       action: 'pause',
     });
   });
+  it('refuses a fabricated escalation while supervised (review I1)', async () => {
+    const r = await call({
+      pauseClass: 'judgment',
+      question: 'Run the tests?',
+      options: ['run tests', 'skip tests'],
+      chosen: 'skip tests',
+      audit: { status: 'escalated', blindPick: 'run tests', humanChoice: 'skip tests' },
+    });
+    expect(r.isError).toBe(true);
+    expect(body(r)).toMatchObject({ recorded: false, error: 'AUTO_DECISION_NOT_AUTHORIZED' });
+    expect(fs.existsSync(logFile())).toBe(false);
+  });
   it('makes a failed write unambiguous (SC14)', async () => {
     trusted();
     fs.mkdirSync(logFile());

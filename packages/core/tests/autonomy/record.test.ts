@@ -118,14 +118,23 @@ describe('recordAutoDecision', () => {
     expect(err(r)?.code).toBe('AUTO_DECISION_NOT_AUTHORIZED');
     expect(lines()).toEqual([]);
   });
-  it('(gate) accepts an escalated entry in any mode: it records the human choice', () => {
-    const r = recordAutoDecision(
-      project,
-      's1',
-      judgment({ status: 'escalated', blindPick: 'B', humanChoice: 'A' }),
-      opts()
-    );
-    expect(r.ok && r.value.autonomySource).toBe('default');
+  /**
+   * Review I1: an escalated entry is agent-reported like any other ("the human chose A" is the
+   * agent's claim). Exempting it let a supervised agent record a fabricated human choice that
+   * `harness autonomy log` then presented as an escalation, so it faces the same trusted gate.
+   */
+  it('(gate) refuses an escalated entry while supervised: the human choice is agent-reported', () => {
+    const escalated = judgment({ status: 'escalated', blindPick: 'B', humanChoice: 'A' });
+    const r = recordAutoDecision(project, 's1', escalated, opts());
+    expect(err(r)?.code).toBe('AUTO_DECISION_NOT_AUTHORIZED');
+    expect(lines()).toEqual([]);
+  });
+  it('(gate) accepts an escalated entry while trusted', () => {
+    userConfig({ level: 'trusted' });
+    const escalated = judgment({ status: 'escalated', blindPick: 'B', humanChoice: 'A' });
+    const r = recordAutoDecision(project, 's1', escalated, opts());
+    expect(r.ok && r.value.autonomySource).toBe('user-config');
+    expect(lines()).toHaveLength(1);
   });
   it('(gate) refuses audit "off" while audit resolves on, accepts it when audit is off', () => {
     userConfig({ level: 'trusted' });

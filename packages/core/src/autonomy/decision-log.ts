@@ -199,13 +199,14 @@ export type RecordAutoDecisionOptions = DecisionLogOptions &
 /**
  * The log records only what the resolved autonomy permitted. Anything else is refused, and a
  * refused log entry makes the skill pause (fail-safe rule), so on the sanctioned path an agent
- * cannot auto-proceed while supervised or skip an audit that is on.
+ * cannot auto-proceed while supervised or skip an audit that is on. Escalated entries get no
+ * exemption: "the human chose X" is still the agent's report, so outside trusted mode it would
+ * let an agent log a fabricated escalation (review I1). Supervised mode records nothing.
  */
 export function authorizationError(
   d: AutoDecisionInput,
   r: ResolvedAutonomy
 ): AutoDecisionNotAuthorizedError | null {
-  if (d.audit?.status === 'escalated') return null; // the human made this choice
   if (r.level !== 'trusted') {
     return new AutoDecisionNotAuthorizedError(
       `Autonomy resolves to ${r.level} (source: ${r.source.level}); only trusted mode may auto-take a ${d.pauseClass} decision.`
