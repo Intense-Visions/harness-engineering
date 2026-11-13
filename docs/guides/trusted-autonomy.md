@@ -183,45 +183,34 @@ Treat the hook as a tripwire, not a wall.
    pause markers say the right thing. The decision log, the saved audit files and the
    `audited N/M` denominator are how you spot a skill that did not follow it; the audit files are
    agent-written and not tamper-evident.
-2. **Trusted mode does not reach persona subagents.** Autopilot runs PLAN and EXECUTE in persona
-   subagents (`harness-planner`, `harness-task-executor`). All 16 generated persona subagents are
-   given a fixed tool allow-list, `Bash, Read, Write, Edit, Glob, Grep`
-   (`packages/cli/src/agent-definitions/generator.ts:33`, applied to every persona at `:70`).
-   Claude Code's subagent docs
-   ([sub-agents](https://code.claude.com/docs/en/sub-agents), "Restrict which tools a subagent can
-   use") treat a `tools` field as an allowlist: a subagent with `tools: Read, Grep, Glob, Bash`
-   "can't ... use any MCP tools", and MCP tools reach a `tools`-restricted subagent only when they
-   are named in that list (individually or as a whole-server `mcp__<server>__*` entry). The
-   personas name none, so inside them:
-   - `gather_context` cannot be called, so autonomy cannot be read;
-   - `record_auto_decision` cannot be called, so no decision can be logged;
-   - there is no subagent-spawning tool, so no audit could run either.
-
-   Every ceremony and judgment pause inside a persona subagent therefore **fails safe**: it pauses,
-   and the question comes back to autopilot as a handoff concern instead of being auto-resolved.
-   Autopilot's own pauses (plan approval, phase transitions, sign-offs, gates) run in the main
-   session, where trusted mode works. The net effect is safe, not open, but brainstorm → plan →
-   execute → review without approvals does **not** hold end-to-end inside those subagents today.
-   Possible follow-ups, not implemented:
-   - name the harness MCP tools in the persona `tools` list. The name depends on how harness is
-     installed: `mcp__harness__*` for a project `.mcp.json` server named `harness`, or
-     `mcp__plugin_harness-claude_harness__*` when the server comes from the `harness-claude`
-     plugin;
-   - restrict personas with `disallowedTools` instead of a `tools` allowlist, so they inherit the
-     session's MCP tools. That widens what every persona can call and is a security-posture
-     decision.
-
-   Either would still need a subagent-spawning tool before audits inside personas could be
-   anything but `unavailable`.
-
-3. **Headless disagreements page nobody.** A headless run that hits an audit disagreement does not
-   choose: it writes `audit-disagreement: <question>` to the handoff's `blockers`, both positions to
-   `concerns`, and stops. The orchestrator reads no handoff status today, so nothing notifies a
-   human; check handoffs after headless runs.
-4. **Some Unicode in log entries can taint a session.** The sentinel injection scanner
-   (INJ-UNI-001) flags U+200C and U+200D, which the decision log accepts as legitimate text. A log
-   entry containing Persian text (ZWNJ) or an emoji ZWJ sequence, echoed back by
-   `record_auto_decision`, can taint the session under the sentinel hooks.
+2. **Persona subagents auto-resolve ceremony only.** Autopilot runs PLAN and EXECUTE in persona
+   subagents (`harness-planner`, `harness-task-executor`). Their Claude Code definitions name the
+   four harness MCP tools the Pause Protocol needs (`gather_context`, `manage_state`,
+   `record_auto_decision`, `emit_interaction`), under both server names a Claude Code install can
+   use: `mcp__harness__…` (`harness setup-mcp`) and `mcp__plugin_harness-claude_harness__…` (the
+   `harness-claude` plugin). Exact names are listed rather than `mcp__harness__*`, so a persona
+   gains nothing else; it already holds `Bash`, which reaches the same harness CLI. Inside a
+   persona, trusted mode therefore resolves autonomy and logs ceremony pauses as in the main
+   session. A subagent cannot spawn the blind auditor, so it never takes a judgment fork
+   unaudited: it hands the fork back as a `judgment-fork:` handoff blocker, and autopilot audits
+   and resolves it in the main session ("Handing a fork back" in the Pause Protocol). If harness
+   is installed under some other MCP server name, or on Gemini CLI (whose persona definitions list
+   only the six mapped built-in tools), personas still fail safe: their pauses come back to
+   autopilot as handoff concerns. Cursor and Codex persona definitions carry no tool list, so
+   there the host's own permissions decide.
+3. **Only autopilot and the orchestrator read headless blockers.** A headless run that hits an
+   audit disagreement, or a judgment fork it cannot audit, does not choose: it writes
+   `audit-disagreement: <question>` or `judgment-fork: <question>` to the handoff's `blockers` and
+   stops. Autopilot resolves these after every dispatch. The orchestrator scans a finished run's
+   session handoffs, queues a `needs-human` interaction, records the `needs-human` verdict, and
+   neither ships nor re-dispatches the unit. A headless run started some other way pages nobody;
+   check its handoff.
+4. **Zero-width characters outside a script context still taint.** The sentinel injection
+   scanner (INJ-UNI-001) accepts ZERO WIDTH NON-JOINER / JOINER only between characters of a
+   joining script (Arabic, Syriac, N'Ko, Mongolian, the Indic scripts, Sinhala) or inside an emoji
+   ZWJ sequence, so Persian text and family emoji in a decision-log entry no longer taint the
+   session. A ZWNJ/ZWJ next to Latin text, or at a word edge, and every ZERO WIDTH SPACE, BOM and
+   WORD JOINER, still do.
 5. **Unenumerated choices are not audited.** A spec or plan approval is a ceremony unless it embeds
    a choice between alternatives the skill text or the run's output explicitly listed. Option
    choices made inside the content without being presented as alternatives are approved as

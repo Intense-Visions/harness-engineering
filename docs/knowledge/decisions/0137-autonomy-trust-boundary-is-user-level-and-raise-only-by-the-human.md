@@ -141,33 +141,20 @@ includes (`packages/cli/src/hooks/profiles.ts:5`).
 - **No project cap in v1 (D4).** A regulated repo cannot forbid trusted mode today. A cap could
   only lower autonomy, so it can be added later without changing this trust boundary (spec
   Future Considerations).
-- **Persona subagents cannot read autonomy, so they fail safe.** All 16 generated persona
-  subagents, including `harness-planner` and `harness-task-executor` that autopilot dispatches for
-  PLAN and EXECUTE, are generated with a fixed allow-list `Bash, Read, Write, Edit, Glob, Grep`
-  (`DEFAULT_TOOLS`, `packages/cli/src/agent-definitions/generator.ts:33`, applied to every
-  persona at `:70`). The Claude Code subagent docs (code.claude.com/docs/en/sub-agents,
-  "Restrict which tools a subagent can use"; tools-reference) state that a `tools` field is an
-  allowlist and that a subagent given `tools: Read, Grep, Glob, Bash` cannot "use any MCP
-  tools"; MCP tools reach a `tools`-restricted subagent only when named there (as a tool or as a
-  whole-server `mcp__<server>__*` entry). So inside those subagents `gather_context` (autonomy)
-  and `record_auto_decision` are unreachable: autonomy cannot be resolved and decisions cannot be
-  logged or audited. Under the Pause Protocol both are fail-safe pauses, so every ceremony and
-  judgment fork inside a persona subagent pauses and comes back to autopilot as a handoff
-  concern rather than auto-resolving. Autopilot's own pauses (plan approval, phase transitions,
-  sign-offs, gates) run in the main session, where trusted mode works. The boundary fails safe,
-  not open, but Goal 1 (brainstorm → plan → execute → review without approvals) does **not** hold
-  end-to-end inside those subagents. Follow-up options, not implemented here:
-  1. Name the harness MCP tools in the personas' `tools` list. The server name is
-     install-dependent: `mcp__harness__*` for a project `.mcp.json` server named `harness`, versus
-     `mcp__plugin_harness-claude_harness__*` (the docs' `mcp__plugin_<plugin>_<server>__*` form)
-     when the server comes from the `harness-claude` plugin, so the generator would have to emit
-     both or detect the install.
-  2. Switch personas from a `tools` allowlist to `disallowedTools`-based restriction, so they
-     inherit the session's MCP tools. That widens what every persona can call and is a
-     security-posture decision, not a docs fix.
-
-  Neither option adds a subagent-spawning tool by itself; without one, a persona that could log
-  decisions would still record audits as `unavailable` (ADR 0138).
+- **Persona subagents get exactly the protocol's MCP tools.** Generated Claude Code persona
+  definitions (`claudeCodeMcpTools()`, `packages/cli/src/agent-definitions/generator.ts`) append
+  `gather_context`, `manage_state`, `record_auto_decision` and `emit_interaction` to the six-tool
+  allowlist, under both install-dependent server names (`mcp__harness__…` and
+  `mcp__plugin_harness-claude_harness__…`). We chose exact names over `mcp__harness__*` and over
+  `disallowedTools`: the subagent `tools` field documents exact names, and the persona gains
+  only what the protocol needs. Personas already hold `Bash`, which reaches the same harness CLI,
+  so the grant widens no capability. None of these tools can raise autonomy (`manage_state
+set-autonomy` only lowers; D13). A subagent still has no spawning tool, so it cannot audit;
+  instead of recording `unavailable`, it hands judgment forks back to the session that
+  dispatched it ([ADR 0138](./0138-blind-then-refute-self-audit-for-auto-resolved-judgment-forks.md)).
+  An install under any other server name, and the Gemini CLI renderer (six mapped built-in
+  tools), still grant no MCP tools, so personas there keep failing safe. Cursor and Codex persona
+  definitions carry no tool list; the host's permissions decide there.
 
 ## References
 

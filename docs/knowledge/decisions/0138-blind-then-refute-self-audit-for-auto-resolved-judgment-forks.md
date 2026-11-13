@@ -110,26 +110,20 @@ behaviour unchanged (SC10) and is a deliberate exemption, not an oversight.
 - **Unenumerated choices are not audited.** Option choices not presented as enumerated
   alternatives are approved as ceremony and are not audited (trade-off: otherwise every spec/plan
   approval becomes a judgment fork).
-- **Headless disagreements page nobody.** They land in the handoff's `blockers` and `concerns`;
-  the orchestrator reads no handoff status today (spec Future Considerations).
+- **Headless disagreements reach a human only through autopilot or the orchestrator.**
+  Autopilot reads `audit-disagreement:` / `judgment-fork:` handoff blockers after every
+  dispatch. The orchestrator scans a finished run's session handoffs and routes either to its
+  `needs-human` queue without shipping or re-dispatching. A headless run started any other way
+  leaves them only in its handoff.
 - **Cost.** Each auto-resolved, audited fork costs up to two subagent spawns.
-- **Persona subagents cannot audit or log.** The persona subagents autopilot dispatches
-  (`harness-planner`, `harness-task-executor`, and every generated persona) are restricted to
-  `Bash, Read, Write, Edit, Glob, Grep` (`packages/cli/src/agent-definitions/generator.ts:33`,
-  `:70`). Per the Claude Code subagent docs, a `tools` allowlist excludes MCP tools that are not
-  named in it, so `gather_context` and `record_auto_decision` are unreachable there, and the list
-  has no subagent-spawning tool. Inside those subagents autonomy cannot be read and decisions
-  cannot be logged or audited, so every ceremony and judgment fork fails safe (pauses) and
-  surfaces to autopilot as a handoff concern. Autopilot's own pauses (plan approval, phase
-  transitions, sign-offs, gates) run in the main session, where the audit and log work. Trusted
-  mode therefore does not deliver Goal 1 end-to-end inside persona subagents. The follow-up
-  options (naming the install-dependent harness MCP server in the persona `tools` list, or moving
-  personas to `disallowedTools`) are listed in [ADR 0137](./0137-autonomy-trust-boundary-is-user-level-and-raise-only-by-the-human.md);
-  either would still need a spawning tool before audits there could be anything but
-  `unavailable`.
-- **Unicode in log entries can taint a session.** The sentinel injection scanner (INJ-UNI-001)
-  flags U+200C / U+200D, which the decision log accepts as legitimate text (spec Future
-  Considerations).
+- **Dispatched subagents hand judgment forks back.** Persona subagents can now read autonomy
+  and log decisions ([ADR 0137](./0137-autonomy-trust-boundary-is-user-level-and-raise-only-by-the-human.md)),
+  but they have no subagent-spawning tool. D11's `unavailable` (proceed unaudited) applies only to
+  a top-level session whose host cannot spawn. A dispatched subagent instead writes a
+  `judgment-fork:` blocker and stops, and autopilot runs this audit in the main session. Ceremony
+  pauses still auto-resolve inside the subagent. The cost is a round trip through autopilot per
+  fork. The alternative, auto-taking forks unaudited inside subagents, would quietly drop the
+  check this ADR exists to provide on most of a build's forks.
 
 ## References
 

@@ -41,7 +41,7 @@ Apply these rules in order and stop at the first that applies.
 2. `irreversible` → pause at every autonomy level.
 3. Autonomy is `supervised` → pause. At a `judgment` fork with audit on, run the self-audit first and show its verdict beside your recommendation. Record nothing: the decision log refuses entries in supervised mode.
 4. Any fail-safe rule below applies → pause.
-5. `judgment` with audit on → run the self-audit. Disagreement → escalate (see Escalation). The host has no subagent-spawning tool (decided once at skill start) → audit status `unavailable`; continue.
+5. `judgment` with audit on → run the self-audit. Disagreement → escalate (see Escalation). No subagent-spawning tool (decided once at skill start) and you are a dispatched subagent → hand the fork back (see Handing a fork back); never take it unaudited. No subagent-spawning tool and you are the top-level session → audit status `unavailable`; continue.
 6. `judgment` with audit off → audit status `off`; continue.
 7. **Record before proceeding.** Call `record_auto_decision` (below). Only when it returns `recorded: true`, take the chosen option and print one line: `Auto-resolved (<class>): <question> -> <chosen>`. If it returns `recorded: false`, an error, or no response, or the tool is not available, pause exactly as supervised mode would and show the returned error. An unlogged auto-decision is never taken (SC14).
 
@@ -86,7 +86,7 @@ Run it when audit is on (D7, D9). Each step uses a **fresh** subagent with no ac
 2. **Compare.** If `pick` is not your recommended option, that is a disagreement → escalate.
 3. **Refutation** (only when the picks agree). Fill the refuter prompt below with the agreed pick. It returns `{ "severity": "blocking" | "non-blocking", "objection" }`.
 4. **Outcome.** Agreement with a `non-blocking` objection (or none) → auto-take the recommendation and record audit `{ "status": "agreed", "blindPick": "<pick>" }`. A `blocking` objection → escalate.
-5. **Unavailable.** Only when the host has no subagent-spawning tool at all, record audit `{ "status": "unavailable" }` and proceed (D11). Decide this once, at skill start, and only from whether the host has a subagent-spawning tool; it stays fixed for the session. On a host that can spawn, a spawn error, a reply that is not JSON, or a pick that is not verbatim one of the options is a disagreement → escalate. `harness autonomy log` counts it as unaudited in `audited N/M`. Never present an unaudited decision as audited.
+5. **Unavailable.** Only when you are the top-level session and the host has no subagent-spawning tool at all, record audit `{ "status": "unavailable" }` and proceed (D11). Decide this once, at skill start, and only from whether the host has a subagent-spawning tool; it stays fixed for the session. On a host that can spawn, a spawn error, a reply that is not JSON, or a pick that is not verbatim one of the options is a disagreement → escalate. `harness autonomy log` counts it as unaudited in `audited N/M`. Never present an unaudited decision as audited.
 
 ### Blind auditor prompt
 
@@ -138,7 +138,11 @@ Give the single strongest objection to the chosen option. Rate it "blocking" if 
 A disagreement is the only `judgment` pause that survives `trusted` mode (D8).
 
 - **Interactive.** Present both positions in plain text in your reply, not through `emit_interaction` or `AskUserQuestion`: your recommendation and rationale, the blind pick and its reason, and the refuter's objection if there was one. Then wait. Escalations are recorded only after the human answers: record audit `{ "status": "escalated", "blindPick": "<pick>", "humanChoice": "<their answer>" }` (plus the `objection` if there was one), with `chosen` equal to `humanChoice`. This is possible only in `trusted` mode; in `supervised` mode the log refuses every entry and nothing is recorded.
-- **Headless** (you are a dispatched subagent, or no human can answer in this session): do not choose. Write the handoff with `"blockers": ["audit-disagreement: <question>"]` and both positions in `concerns`, then stop and return. `HandoffSchema` has no `status` field, so the reason travels in `blockers`. Autopilot reads that blocker in its "After every dispatch" step and escalates it as a `gate` pause.
+- **Headless** (you are a dispatched subagent, or no human can answer in this session): do not choose. Write the handoff with `"blockers": ["audit-disagreement: <question>"]` and both positions in `concerns`, then stop and return. `HandoffSchema` has no `status` field, so the reason travels in `blockers`. Autopilot reads that blocker in its "After every dispatch" step and escalates it as a `gate` pause. The orchestrator routes the same blocker from a dispatched run to its needs-human queue.
+
+## Handing a fork back
+
+A dispatched subagent (for example autopilot's planner or task-executor) usually cannot spawn the blind auditor, but the session that dispatched it can. So a subagent does not take a `judgment` fork unaudited. Write the handoff with `"blockers": ["judgment-fork: <question>"]`, and put the options, your recommendation and your rationale in `concerns`. Then stop and return. Record nothing: the parent records the decision once it resolves the fork. Ceremony pauses inside a subagent still auto-resolve as usual (rule 7). Autopilot resolves the returned fork in its "After every dispatch" step. An orchestrator-dispatched run, which has no parent session, routes it to its needs-human queue.
 
 ## End-of-run summary
 

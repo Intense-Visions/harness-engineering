@@ -224,10 +224,36 @@ describe('N6: autopilot routes a headless audit disagreement to the human, never
   it('the EXECUTE retry logic excludes it', () => {
     const s = section(ap, '### EXECUTE');
     const exclusion = s.indexOf(
-      'A handoff blocker starting `audit-disagreement:` is not a task failure'
+      'A handoff blocker starting `audit-disagreement:` or `judgment-fork:` is not a task failure'
     );
     expect(exclusion).toBeGreaterThanOrEqual(0);
     expect(exclusion).toBeLessThan(s.indexOf('Attempt 1:'));
+  });
+});
+
+describe('follow-up: a subagent hands an unauditable judgment fork back, never takes it unaudited', () => {
+  const protocol = readFileSync(resolve(SKILLS, '..', 'templates', 'pause-protocol.md'), 'utf-8');
+  it('the protocol sends a dispatched subagent with no spawn tool to Handing a fork back', () => {
+    expect(protocol).toContain(
+      'No subagent-spawning tool (decided once at skill start) and you are a dispatched subagent → hand the fork back'
+    );
+    expect(protocol).toContain('never take it unaudited');
+    expect(protocol).toContain(
+      'Only when you are the top-level session and the host has no subagent-spawning tool'
+    );
+    const handBack = section(protocol, '## Handing a fork back');
+    expect(handBack).toContain('"blockers": ["judgment-fork: <question>"]');
+    expect(handBack).toContain('Record nothing');
+  });
+  it('autopilot resolves a returned fork as an audited judgment pause, outside the retry path', () => {
+    const s = section(skill('harness-autopilot'), '### After every dispatch');
+    const fork = s.indexOf('If any blocker starts with `judgment-fork:`');
+    expect(fork).toBeGreaterThanOrEqual(0);
+    expect(s.lastIndexOf('<!-- pause: judgment -->', fork)).toBeGreaterThanOrEqual(0);
+    expect(s.slice(fork)).toContain(
+      'run the self-audit in this session and auto-take only on agreement'
+    );
+    expect(s.slice(fork)).toContain('never enters the EXECUTE retry path');
   });
 });
 

@@ -158,6 +158,10 @@ _Pause point (gate): resolve per the Pause Protocol._ <!-- pause: gate -->
 
 If any blocker starts with `audit-disagreement:`, the subagent hit a self-audit disagreement it could not settle headless (Pause Protocol, Escalation): present both positions from `concerns` to the human in plain text and wait for their choice. This escalation stops at every autonomy level. It is not a failure: it never enters the EXECUTE retry path, and the same unit is never re-dispatched to settle it. Once the human answers, record the answer per the Pause Protocol (Escalation) and resume the state that dispatched the unit, passing the answer to it as context.
 
+_Pause point (judgment): resolve per the Pause Protocol._ <!-- pause: judgment -->
+
+If any blocker starts with `judgment-fork:`, the subagent reached a judgment fork it could not audit (Pause Protocol, Handing a fork back). Resolve it here as a `judgment` pause per the Pause Protocol, using the options and recommendation from `concerns`. In `trusted` mode, run the self-audit in this session and auto-take only on agreement. Then resume the state that dispatched the unit, passing the decision to it as context. Like a disagreement, it is not a failure and never enters the EXECUTE retry path.
+
 ---
 
 ### ASSESS
@@ -273,7 +277,7 @@ _Pause point (gate): resolve per the Pause Protocol._ <!-- pause: gate -->
 
 After each passing checkpoint: `commitAtCheckpoint()`.
 
-**Outcome:** All tasks complete → VERIFY. A handoff blocker starting `audit-disagreement:` is not a task failure; handle it per After every dispatch. Task fails → retry logic:
+**Outcome:** All tasks complete → VERIFY. A handoff blocker starting `audit-disagreement:` or `judgment-fork:` is not a task failure; handle it per After every dispatch. Task fails → retry logic:
 
 - Attempt 1: read error, apply obvious fix, re-dispatch for failed task.
 - Attempt 2: expand context — read related files, check `learnings.md`, re-dispatch.

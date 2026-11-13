@@ -248,5 +248,5 @@ Three ADRs, AGENTS.md, guide, knowledge node, reference-doc regeneration.
 - Project-level cap (`autonomy.max`) for regulated repos.
 - Mechanical non-compliance detection (hook) if the log shows skills pausing or skipping incorrectly.
 - Separate opt-in for selected irreversible actions (e.g. push to a feature branch).
-- Route a headless `audit-disagreement` handoff blocker to the orchestrator's needs-human terminal. The orchestrator reads no handoff status today (`needs-human` is reached only through routing decisions), so an orchestrator-dispatched agent's audit disagreement surfaces only through the handoff's `blockers` and `concerns`; nothing pages a human.
-- Align the sentinel injection scanner with the decision log's character policy. `sentinel-post.js` (INJ-UNI-001, via `core/security/injection-patterns.ts`) treats U+200C / U+200D in tool output as a high-severity injection signal, while the decision log accepts them as legitimate text (review N1). A legitimate entry containing Persian text (ZWNJ) or an emoji ZWJ sequence, echoed back by `record_auto_decision`, can therefore taint the session under the sentinel hooks.
+- Give the Gemini CLI persona renderer the protocol's MCP tools, so its personas can auto-resolve ceremony pauses as Claude Code personas now do.
+- Raise the coupling gate's headroom: the four new autonomy modules each exceed the 0.7 coupling ratio, so the project coupling count sits at its limit.

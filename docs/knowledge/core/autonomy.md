@@ -48,9 +48,11 @@ decision including `unavailable` and `off`) and the agreement rate (agreed ÷ au
 - `harness autonomy log` **summarizes** the decision log at terminal points (SC11).
 - The `autonomy-guard` PreToolUse hook **blocks** agent raises and agent writes to the
   user-level autonomy state and the decision log (`docs/guides/hooks-system.md`).
-- Persona subagents dispatched by autopilot **cannot reach** the MCP tools above (fixed six-tool
-  allow-list), so their ceremony and judgment pauses fail safe; see the guide's "Known
-  limitations".
+- Persona subagents dispatched by autopilot **auto-resolve ceremony** through the four protocol
+  MCP tools named in their Claude Code definitions, and **hand judgment forks back** to autopilot
+  (`judgment-fork:` handoff blocker) because they cannot spawn the auditor.
+- The orchestrator **routes** `audit-disagreement:` / `judgment-fork:` handoff blockers from a
+  finished run to `needs-human` (`packages/orchestrator/src/core/human-decision-blockers.ts`).
 
 ## Source map
 
