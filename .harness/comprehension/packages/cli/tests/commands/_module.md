@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/tests/commands'
-sourceHash: '803a15061fa87d2479eb95a48466e15d72b504c78d7b6ee034f7699a94aee57c'
+sourceHash: '1da20e9aec587a2d12285404de949e6c2ae646141277920faba64e7259ffe48a'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -23,6 +23,7 @@ members:
     'audit-protected-cov544b.test.ts',
     'audit-protected.test.ts',
     'autonomy-command.test.ts',
+    'autonomy-project-root.test.ts',
     'autonomy-set.test.ts',
     'autonomy-show.test.ts',
     'backfill-skill-provenance.test.ts',
@@ -419,8 +420,10 @@ import { runAnatomyAudit, runComponentAnatomyAudit } from '../../src/mcp/tools/a
 import { runAuditBrand } from '../../src/mcp/tools/audit-brand'
 import { runDesignCraft } from '../../src/mcp/tools/design-craft'
 import { runDetectDrift } from '../../src/mcp/tools/detect-drift'
+import { handleGatherContext } from '../../src/mcp/tools/gather-context'
 import { handleGetImpact } from '../../src/mcp/tools/graph/index'
 import { runInstructionDensityAudit } from '../../src/mcp/tools/instruction-density'
+import { handleManageState } from '../../src/mcp/tools/state'
 import { resolveAnalysisProvider } from '../../src/mcp/utils/analysis-provider'
 import '../../src/mcp/utils/graph-loader'
 import { NamingCraftInput, NamingCraftOutput } from '../../src/naming-craft/index.js'
@@ -455,7 +458,7 @@ import { CraftCommandRun, DEFAULT_CWD, runCraftCommand } from './craft-command-h
 import { llmCalls, runCraftCommand } from './craft-command-harness.js'
 import { parseJsonStdout, runCommand } from './design-command-harness'
 import * as clack from '@clack/prompts'
-import { ArchConfigSchema, CiReviewResult, ConstraintError, DEFAULT_REMOTE_URL, DiffInfo, Err, GoldenFileChange, GoldenSnapshot, Ok, RefinementDemandReport, RollbackDecision, RunCiReviewOptions, SECURITY_SCAN_EXTENSIONS, SECURITY_SCAN_GLOB, applyFixes, archiveStream, buildSnapshot, checkTaint, clearTaint, createError, createFixes, createModelProposal, createProposal, createStream, detectDeadCode, detectDocDrift, extractBundle, generateSuggestions, listStreams, listTaintedSessions, loadStreamIndex, parseCiReviewVerdict, parseDiff, parseManifest, readAdoptionRecords, requestPeerReview, resetWaypointEmitterForTests, runReviewPipeline, sessionOverridePath, setActiveStream, validateAgentConfigs, validateAgentsMap, validateDecisionNumbers, validateKnowledgeMap, validatePulseConfig, validateRoadmapMode, validateSolutionsDir, validateStrategy, writeConfig, writeSessionOverride } from '@harness-engineering/core'
+import { ArchConfigSchema, CiReviewResult, ConstraintError, DEFAULT_REMOTE_URL, DiffInfo, Err, GoldenFileChange, GoldenSnapshot, Ok, RefinementDemandReport, RollbackDecision, RunCiReviewOptions, SECURITY_SCAN_EXTENSIONS, SECURITY_SCAN_GLOB, applyFixes, archiveStream, buildSnapshot, checkTaint, clearTaint, computeRepoKey, createError, createFixes, createModelProposal, createProposal, createStream, detectDeadCode, detectDocDrift, extractBundle, generateSuggestions, listStreams, listTaintedSessions, loadStreamIndex, parseCiReviewVerdict, parseDiff, parseManifest, readAdoptionRecords, requestPeerReview, resetWaypointEmitterForTests, runReviewPipeline, sessionOverridePath, setActiveStream, validateAgentConfigs, validateAgentsMap, validateDecisionNumbers, validateKnowledgeMap, validatePulseConfig, validateRoadmapMode, validateSolutionsDir, validateStrategy, writeConfig, writeSessionOverride } from '@harness-engineering/core'
 import '@harness-engineering/graph'
 import { GUARDIAN_ANALYSIS_SCHEMA, GUARDIAN_ANALYSIS_VERSION, GuardianAnalysis, OutcomeVerdict, SkillRegressionFixture, SkillRegressionVerdict } from '@harness-engineering/intelligence'
 import { AnalysisRecord, MockBackend, RunMode, RunResult, SyncMainResult, TaskDefinition, renderAnalysisComment } from '@harness-engineering/orchestrator'
