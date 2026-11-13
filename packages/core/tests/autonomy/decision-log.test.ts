@@ -39,7 +39,14 @@ beforeEach(() => {
 afterEach(() => fs.rmSync(tmp, { recursive: true, force: true }));
 
 describe('autoDecisionLogPath', () => {
-  it('matches the resolveSessionDir layout (parity without importing state into autonomy)', () => {
+  /**
+   * Covers the NON-GIT case only (git seams return undefined, so the root is `project`). There the
+   * two agree. They differ inside a git work tree: autoDecisionLogPath roots at the git toplevel
+   * (resolveProjectRoot, per worktree), while resolveSessionDir joins `projectPath` as given, so a
+   * caller passing a subdirectory of the repo gets different paths. Autonomy must not import state/
+   * (dependency-depth), hence a layout check rather than a shared helper.
+   */
+  it('outside a git work tree, matches the resolveSessionDir layout (projectPath as given)', () => {
     const p = autoDecisionLogPath(project, 's1', git);
     const dir = resolveSessionDir(project, 's1');
     expect(p.ok && dir.ok).toBe(true);
@@ -48,6 +55,17 @@ describe('autoDecisionLogPath', () => {
         path.join(dir.value, 'auto-decisions.jsonl').replaceAll('\\', '/')
       );
     }
+  });
+  it('inside a git work tree, roots at the git toplevel, not the projectPath as given', () => {
+    const sub = path.join(project, 'packages', 'x');
+    const p = autoDecisionLogPath(sub, 's1', { ...git, gitToplevel: () => project });
+    const dir = resolveSessionDir(sub, 's1');
+    expect(p.ok && p.value.replaceAll('\\', '/')).toBe(
+      path.join(project, '.harness', 'sessions', 's1', 'auto-decisions.jsonl').replaceAll('\\', '/')
+    );
+    expect(dir.ok && dir.value.replaceAll('\\', '/')).toBe(
+      path.join(sub, '.harness', 'sessions', 's1').replaceAll('\\', '/')
+    );
   });
   it.each(['../x', 'CON', ' s1', 'a/b', ''])('rejects slug %j via the shared rule', (slug) => {
     expect(autoDecisionLogPath(project, slug, git).ok).toBe(false);
