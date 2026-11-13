@@ -1,5 +1,9 @@
 import { z } from 'zod';
-import type { AutonomySessionOverride, AutonomyUserConfig } from '@harness-engineering/types';
+import type {
+  AutonomySessionOverride,
+  AutonomySetting,
+  AutonomyUserConfig,
+} from '@harness-engineering/types';
 import type { Result } from '../shared/result';
 import { Ok, Err } from '../shared/result';
 
@@ -16,6 +20,24 @@ export const UserConfigSchema = z.object({
     })
     .optional(),
 });
+
+/**
+ * A requested change. Strict: every value must be exactly typed (D12). A string "false" for
+ * `audit` is not falsy-equivalent to `false` here; it is invalid, never written.
+ */
+export const AutonomySettingSchema = z
+  .object({ level: AutonomyLevelSchema.optional(), audit: z.boolean().optional() })
+  .strict();
+
+export const AUTONOMY_INVALID_SETTING = 'AUTONOMY_INVALID_SETTING';
+
+export class AutonomyInvalidSettingError extends Error {
+  readonly code = AUTONOMY_INVALID_SETTING;
+  constructor(message: string) {
+    super(`Invalid autonomy setting: ${message}`);
+    this.name = 'AutonomyInvalidSettingError';
+  }
+}
 
 const OriginSchema = z.enum(['cli', 'mcp']);
 const IsoSchema = z.string().refine((s) => !Number.isNaN(Date.parse(s)), {
@@ -56,4 +78,11 @@ export function parseSessionOverride(raw: string): Result<AutonomySessionOverrid
   const r = SessionOverrideFileSchema.safeParse(json.value);
   if (!r.success) return Err(new Error(describeIssues(r.error.issues)));
   return Ok(r.data as AutonomySessionOverride);
+}
+
+/** Validate an untrusted change (e.g. MCP args) before any policy decision or write. */
+export function validateAutonomySetting(change: unknown): Result<AutonomySetting, Error> {
+  const r = AutonomySettingSchema.safeParse(change);
+  if (!r.success) return Err(new AutonomyInvalidSettingError(describeIssues(r.error.issues)));
+  return Ok(r.data as AutonomySetting);
 }

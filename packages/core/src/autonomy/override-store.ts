@@ -7,7 +7,7 @@ import type {
 } from '@harness-engineering/types';
 import type { Result } from '../shared/result';
 import { Ok, Err } from '../shared/result';
-import { parseSessionOverride } from './schema';
+import { parseSessionOverride, validateAutonomySetting } from './schema';
 import { sessionOverridePath, type AutonomyPathOptions } from './paths';
 
 export interface OverrideStoreOptions extends AutonomyPathOptions {
@@ -56,7 +56,8 @@ function atomicWrite(file: string, content: string): void {
 
 /**
  * Merge `change` into the session override. Each written field gets its own setAt/origin;
- * untouched fields keep theirs. No raise/lower policy here: callers enforce it
+ * untouched fields keep theirs. The change is schema-validated (a mistyped value is rejected,
+ * never written). No raise/lower policy here: callers enforce it
  * (writeLoweringOverride for agent paths, the CLI TTY gate for raises).
  */
 export function writeSessionOverride(
@@ -66,6 +67,8 @@ export function writeSessionOverride(
   origin: AutonomyOverrideOrigin,
   opts: OverrideStoreOptions = {}
 ): Result<AutonomySessionOverride, Error> {
+  const valid = validateAutonomySetting(change);
+  if (!valid.ok) return valid;
   if (change.level === undefined && change.audit === undefined) {
     return Err(new Error('An autonomy override requires level and/or audit'));
   }

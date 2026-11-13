@@ -2,6 +2,8 @@ export {
   AutonomyLevelSchema,
   UserConfigSchema,
   SessionOverrideFileSchema,
+  AutonomySettingSchema,
+  validateAutonomySetting,
   parseUserConfig,
   parseSessionOverride,
 } from './schema';
@@ -22,6 +24,8 @@ export {
   writeLoweringOverride,
   AutonomyRaiseRejectedError,
   AUTONOMY_RAISE_REJECTED,
+  AutonomyInvalidSettingError,
+  AUTONOMY_INVALID_SETTING,
 } from './lower-only';
 export { resolveAutonomyForSession } from './session';
 export type { ResolveForSessionInput } from './session';
