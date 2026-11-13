@@ -20,6 +20,8 @@ beforeEach(() => {
   other = path.join(tmp, 'other');
   fs.mkdirSync(project, { recursive: true });
   fs.mkdirSync(other, { recursive: true });
+  // Raises are bound to a live session dir (D14).
+  fs.mkdirSync(path.join(project, '.harness', 'sessions', 's1'), { recursive: true });
 });
 afterEach(() => fs.rmSync(tmp, { recursive: true, force: true }));
 
@@ -34,14 +36,22 @@ const resolve = (session: string | undefined, projectPath = project) =>
 describe('resolveAutonomyForSession (SC7 resolver level)', () => {
   it('an override written for a session is returned by the next resolve', () => {
     expect([resolve('s1').level, resolve('s1').source.level]).toEqual(['supervised', 'default']);
-    writeSessionOverride(project, 's1', { level: 'trusted' }, 'cli', { homeDir: home });
+    expect(
+      writeSessionOverride(project, 's1', { level: 'trusted' }, 'cli', { homeDir: home }).ok
+    ).toBe(true);
     const after = resolve('s1');
     expect([after.level, after.source.level, after.audit]).toEqual(['trusted', 'session', true]);
-    writeLoweringOverride(project, 's1', { level: 'supervised' }, { homeDir: home });
+    expect(
+      writeLoweringOverride(project, 's1', { level: 'supervised' }, { homeDir: home }).ok
+    ).toBe(true);
     expect([resolve('s1').level, resolve('s1').source.level]).toEqual(['supervised', 'session']);
   });
   it('does not leak to another session, to no session, or to another repo', () => {
-    writeSessionOverride(project, 's1', { level: 'trusted' }, 'cli', { homeDir: home });
+    expect(
+      writeSessionOverride(project, 's1', { level: 'trusted' }, 'cli', { homeDir: home }).ok
+    ).toBe(true);
+    // Positive control: the session it was written for does see it.
+    expect(resolve('s1').source.level).toBe('session');
     expect(resolve('s2').source.level).toBe('default');
     expect(resolve(undefined).source.level).toBe('default');
     expect(resolve('s1', other).source.level).toBe('default');

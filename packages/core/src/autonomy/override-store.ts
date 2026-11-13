@@ -7,8 +7,17 @@ import type {
 } from '@harness-engineering/types';
 import type { Result } from '../shared/result';
 import { Ok, Err } from '../shared/result';
-import { parseSessionOverrideFields, validateAutonomySetting } from './schema';
-import { sessionOverridePath, type AutonomyPathOptions } from './paths';
+import {
+  auditRaises,
+  isRaisingChange,
+  levelRaises,
+  parseSessionOverrideFields,
+  validateAutonomySetting,
+} from './schema';
+import { sessionDirForRaise, sessionOverridePath, type AutonomyPathOptions } from './paths';
+
+/** Default lifetime of a raised override field (D14). */
+export const DEFAULT_RAISE_TTL_MS = 24 * 60 * 60 * 1000;
 
 export interface OverrideStoreOptions extends AutonomyPathOptions {
   now?: () => Date;
@@ -17,6 +26,8 @@ export interface OverrideStoreOptions extends AutonomyPathOptions {
   lockTimeoutMs?: number;
   /** A lock older than this is from a crashed writer and is broken (default 30000ms). */
   staleLockMs?: number;
+  /** Lifetime of a raised field written by this call (D14). Default DEFAULT_RAISE_TTL_MS. */
+  raiseTtlMs?: number;
   /** @internal Test seam: runs inside the critical section, after the read, before the write. */
   beforeWrite?: () => void;
 }
@@ -148,6 +159,11 @@ export function writeSessionOverride(
   }
   const p = sessionOverridePath(projectPath, slug, opts);
   if (!p.ok) return p;
+  // D14: a raise is bound to a live session dir, so naming an old slug cannot inherit a grant.
+  if (isRaisingChange(valid.value)) {
+    const dir = sessionDirForRaise(projectPath, slug, opts);
+    if (!dir.ok) return dir;
+  }
   try {
     return withOverrideLock(p.value, opts, () =>
       mergeAndWrite(projectPath, slug, p.value, valid.value, origin, opts)
@@ -167,7 +183,18 @@ function mergeAndWrite(
 ): Result<AutonomySessionOverride, Error> {
   const current = readSessionOverride(projectPath, slug, opts);
   if (!current.ok) return current;
-  const setAt = (opts.now ?? (() => new Date()))().toISOString();
+  const now = (opts.now ?? (() => new Date()))();
+  const setAt = now.toISOString();
+  // D14: raised values expire; lowered values are permanent (no expiresAt).
+  const expiresAt = new Date(
+    now.getTime() + (opts.raiseTtlMs ?? DEFAULT_RAISE_TTL_MS)
+  ).toISOString();
+  const stamp = <T>(value: T, raises: boolean) => ({
+    value,
+    setAt,
+    origin,
+    ...(raises && { expiresAt }),
+  });
   // A recovered (corrupt) field is persisted at its fail-closed value, restamped by this write
   // so it does not carry the far-future sentinel forever. It is never dropped (I4).
   const prior: AutonomySessionOverride = { ...(current.value.override ?? {}) };
@@ -176,8 +203,8 @@ function mergeAndWrite(
   if (prior.audit && recovered.includes('audit')) prior.audit = { ...prior.audit, setAt, origin };
   const next: AutonomySessionOverride = {
     ...prior,
-    ...(change.level !== undefined && { level: { value: change.level, setAt, origin } }),
-    ...(change.audit !== undefined && { audit: { value: change.audit, setAt, origin } }),
+    ...(change.level !== undefined && { level: stamp(change.level, levelRaises(change.level)) }),
+    ...(change.audit !== undefined && { audit: stamp(change.audit, auditRaises(change.audit)) }),
   };
   opts.beforeWrite?.();
   atomicWrite(file, `${JSON.stringify(next, null, 2)}\n`);

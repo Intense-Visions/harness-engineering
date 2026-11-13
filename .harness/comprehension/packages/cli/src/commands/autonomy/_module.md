@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/commands/autonomy'
-sourceHash: 'e6656877e54e59e6abcb5a0e1f75eb54e41de1dbdf7d38e7d618db2ebf50c056'
+sourceHash: '8e9caa9711c75161c48f5cc94ac4dc27c3b7eefbee9612c5b4be50720c117d1e'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -22,6 +22,6 @@ import { prompt } from '../../output/prompt'
 import { AutonomyCliDeps } from './deps'
 import { createAutonomySetCommand } from './set'
 import { createAutonomyShowCommand } from './show'
-import { AutonomySessionOverride, AutonomySetting, ResolvedAutonomy, isRaisingChange, resolveAutonomyForSession, writeSessionOverride } from '@harness-engineering/core'
+import { AutonomySessionOverride, AutonomySetting, ResolvedAutonomy, isRaisingChange, resolveAutonomyForSession, sessionDirForRaise, writeSessionOverride } from '@harness-engineering/core'
 import { Command } from 'commander'
 ```

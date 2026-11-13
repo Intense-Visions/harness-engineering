@@ -28,6 +28,8 @@ export interface ResolveAutonomyInput {
   homeDir?: string;
   /** Returns undefined when the file is absent/unreadable. */
   readFile?: (p: string) => string | undefined;
+  /** Clock for raise expiry (D14). Defaults to the real clock. */
+  now?: () => Date;
 }
 
 interface Picked<T> {
@@ -81,6 +83,29 @@ const ENV_RAISE_HINT =
   'Raise with ~/.harness/config.json or an interactive `harness autonomy set`.';
 
 /** Lower-only (D13): `supervised` is honoured; `trusted` is ignored with a warning naming it. */
+/**
+ * D14: a RAISED session field (level trusted / audit off) applies only while unexpired; one
+ * with no `expiresAt` is treated as expired, so a legacy or hand-written grant is never
+ * permanent. A lowered field never expires.
+ */
+function liveField<T>(
+  name: 'level' | 'audit',
+  field: AutonomyOverrideField<T> | undefined,
+  raises: boolean,
+  now: Date,
+  warnings: string[]
+): AutonomyOverrideField<T> | undefined {
+  if (field === undefined || !raises) return field;
+  const exp = field.expiresAt === undefined ? Number.NaN : Date.parse(field.expiresAt);
+  if (!Number.isNaN(exp) && now.getTime() < exp) return field;
+  warnings.push(
+    field.expiresAt === undefined
+      ? `Ignoring session override ${name}=${String(field.value)}: a raise must carry an expiry (D14).`
+      : `Ignoring session override ${name}=${String(field.value)}: expired at ${field.expiresAt}.`
+  );
+  return undefined;
+}
+
 function readEnvLevel(env: NodeJS.ProcessEnv, warnings: string[]): AutonomyLevel | undefined {
   const raw = env[AUTONOMY_ENV];
   if (raw === undefined || raw.trim() === '') return undefined;
@@ -130,7 +155,14 @@ function resolveLevel(
   user: AutonomyUserConfig,
   warnings: string[]
 ): Picked<AutonomyLevel> {
-  const tier = pickUserTier(input.flag?.level, input.flag?.at, input.sessionOverride?.level);
+  const session = liveField(
+    'level',
+    input.sessionOverride?.level,
+    input.sessionOverride?.level?.value !== 'supervised',
+    (input.now ?? (() => new Date()))(),
+    warnings
+  );
+  const tier = pickUserTier(input.flag?.level, input.flag?.at, session);
   if (tier) return tier;
   const fromEnv = readEnvLevel(env, warnings);
   if (fromEnv !== undefined) return { value: fromEnv, source: 'env' };
@@ -146,7 +178,14 @@ function resolveAudit(
   level: AutonomyLevel,
   warnings: string[]
 ): Picked<boolean> {
-  const tier = pickUserTier(input.flag?.audit, input.flag?.at, input.sessionOverride?.audit);
+  const session = liveField(
+    'audit',
+    input.sessionOverride?.audit,
+    input.sessionOverride?.audit?.value !== true,
+    (input.now ?? (() => new Date()))(),
+    warnings
+  );
+  const tier = pickUserTier(input.flag?.audit, input.flag?.at, session);
   if (tier) return tier;
   const fromEnv = readEnvAudit(env, warnings);
   if (fromEnv !== undefined) return { value: fromEnv, source: 'env' };

@@ -12,7 +12,8 @@ beforeEach(() => {
   tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'cli-autonomy-set-'));
   home = path.join(tmp, 'home');
   project = path.join(tmp, 'project');
-  fs.mkdirSync(project, { recursive: true });
+  // Raises are bound to a live session dir (D14); s1 exists, s2 does not.
+  fs.mkdirSync(path.join(project, '.harness', 'sessions', 's1'), { recursive: true });
 });
 afterEach(() => fs.rmSync(tmp, { recursive: true, force: true }));
 
@@ -21,11 +22,20 @@ const bytes = () => {
   if (!p.ok) throw p.error;
   return fs.existsSync(p.value) ? fs.readFileSync(p.value, 'utf-8') : null;
 };
+const T0 = new Date('2026-06-01T00:00:00.000Z');
+const H = 3_600_000;
 const deps = (interactive: boolean, answer = true) => {
-  const confirm = vi.fn(async () => answer);
+  const confirm = vi.fn(async (_q: string) => answer);
   return {
     confirm,
-    d: { cwd: () => project, homeDir: home, env: {}, isInteractive: () => interactive, confirm },
+    d: {
+      cwd: () => project,
+      homeDir: home,
+      env: {},
+      now: () => T0,
+      isInteractive: () => interactive,
+      confirm,
+    },
   };
 };
 
@@ -45,7 +55,9 @@ describe('harness autonomy set', () => {
   );
 
   it('a refused raise leaves an existing override byte-identical', async () => {
-    writeSessionOverride(project, 's1', { level: 'supervised' }, 'cli', { homeDir: home });
+    expect(
+      writeSessionOverride(project, 's1', { level: 'supervised' }, 'cli', { homeDir: home }).ok
+    ).toBe(true);
     const before = bytes();
     await runAutonomySet('trusted', { session: 's1' }, deps(false).d);
     expect(bytes()).toBe(before);
@@ -92,5 +104,57 @@ describe('harness autonomy set', () => {
       if (desc) Object.defineProperty(process.stdin, 'isTTY', desc);
       else delete (process.stdin as { isTTY?: boolean }).isTTY;
     }
+  });
+});
+
+describe('harness autonomy set: raises are session-bound and expire (I2, D14)', () => {
+  const override = () => JSON.parse(bytes() ?? 'null');
+
+  it('refuses a raise for a session with no .harness/sessions/<slug>/ BEFORE prompting', async () => {
+    const { confirm, d } = deps(true);
+    const out = await runAutonomySet('trusted', { session: 's2' }, d);
+    expect(out).toMatchObject({ status: 'refused', reason: 'no-session' });
+    expect(out.status === 'refused' && out.message).toMatch(/\.harness[\\/]sessions[\\/]s2/);
+    expect(confirm).not.toHaveBeenCalled();
+  });
+
+  it('a lowering for a session with no session dir is still allowed', async () => {
+    const out = await runAutonomySet('supervised', { session: 's2' }, deps(false).d);
+    expect(out.status).toBe('written');
+  });
+
+  it('a raise expires after 24h by default, and the prompt says so', async () => {
+    const { confirm, d } = deps(true);
+    const out = await runAutonomySet('trusted', { session: 's1' }, d);
+    expect(out.status).toBe('written');
+    expect(override().level.expiresAt).toBe(new Date(T0.getTime() + 24 * H).toISOString());
+    expect(confirm.mock.calls[0]![0]).toMatch(/24h/);
+  });
+
+  it.each([
+    ['2h', 2 * H],
+    ['90m', 90 * 60_000],
+    ['7d', 7 * 24 * H],
+  ])('--for %s sets the expiry', async (dur, ms) => {
+    const out = await runAutonomySet('trusted', { session: 's1', for: dur }, deps(true).d);
+    expect(out.status).toBe('written');
+    expect(override().level.expiresAt).toBe(new Date(T0.getTime() + ms).toISOString());
+  });
+
+  it.each(['0h', '2', 'h', '-1d', '2w', '1.5h', 'forever'])(
+    'rejects --for %j as invalid, no prompt, no write',
+    async (dur) => {
+      const { confirm, d } = deps(true);
+      const out = await runAutonomySet('trusted', { session: 's1', for: dur }, d);
+      expect(out).toMatchObject({ status: 'refused', reason: 'invalid' });
+      expect(confirm).not.toHaveBeenCalled();
+      expect(bytes()).toBeNull();
+    }
+  );
+
+  it('rejects --for on a lowering (lowerings are permanent)', async () => {
+    const out = await runAutonomySet('supervised', { session: 's1', for: '2h' }, deps(false).d);
+    expect(out).toMatchObject({ status: 'refused', reason: 'invalid' });
+    expect(out.status === 'refused' && out.message).toMatch(/permanent/);
   });
 });

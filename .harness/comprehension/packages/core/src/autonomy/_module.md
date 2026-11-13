@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/src/autonomy'
-sourceHash: '4592fcf01ebcffa647a0d2ad4d9fbd836bd0418ef2650f897e1b6d2e00933017'
+sourceHash: '330af26f418eed8957d82d4c7d5b17a7046462dd3ff6c57dfe3af7cd53006204'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -25,12 +25,15 @@ export AUTONOMY_ENV
 export AUTONOMY_INVALID_SETTING
 export AUTONOMY_OVERRIDE_BUSY
 export AUTONOMY_RAISE_REJECTED
+export AUTONOMY_SESSION_NOT_FOUND
 export AutonomyInvalidSettingError
 export AutonomyLevelSchema
 export AutonomyOverrideBusyError
 export AutonomyPathOptions
 export AutonomyRaiseRejectedError
+export AutonomySessionNotFoundError
 export AutonomySettingSchema
+export DEFAULT_RAISE_TTL_MS
 export OverrideStoreOptions
 export ReadOverrideResult
 export ResolveAutonomyInput
@@ -46,6 +49,7 @@ export readSessionOverride
 export resolveAutonomy
 export resolveAutonomyForSession
 export resolveProjectRoot
+export sessionDirForRaise
 export sessionOverridePath
 export userConfigPath
 export validateAutonomySetting
@@ -60,9 +64,9 @@ export writeSessionOverride
 import { Err, Ok, Result } from '../shared/result'
 import { sessionSlugError } from '../shared/session-slug'
 import { OverrideStoreOptions, readSessionOverride, writeSessionOverride } from './override-store'
-import { AutonomyPathOptions, sessionOverridePath, userConfigPath } from './paths'
+import { AutonomyPathOptions, sessionDirForRaise, sessionOverridePath, userConfigPath } from './paths'
 import { ResolveAutonomyInput, resolveAutonomy } from './resolve'
-import { parseSessionOverrideFields, parseUserConfig, validateAutonomySetting } from './schema'
+import { auditRaises, isRaisingChange, levelRaises, parseSessionOverrideFields, parseUserConfig, validateAutonomySetting } from './schema'
 import { AutonomyFlag, AutonomyLevel, AutonomyOverrideField, AutonomyOverrideOrigin, AutonomySessionOverride, AutonomySetting, AutonomySource, AutonomyUserConfig, DEFAULT_AUTONOMY_AUDIT, ResolvedAutonomy } from '@harness-engineering/types'
 import { execFileSync } from 'node:child_process'
 import { createHash } from 'node:crypto'

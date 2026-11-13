@@ -1,6 +1,7 @@
 import { Command } from 'commander';
 import {
   isRaisingChange,
+  sessionDirForRaise,
   writeSessionOverride,
   type AutonomySessionOverride,
   type AutonomySetting,
@@ -12,11 +13,25 @@ import type { AutonomyCliDeps } from './deps';
 export interface AutonomySetOptions {
   session: string;
   audit?: string;
+  /** Raise lifetime, e.g. 90m, 2h, 7d (D14). Default 24h. */
+  for?: string;
 }
+
+type RefuseReason = 'not-a-tty' | 'declined' | 'invalid' | 'no-session';
 
 export type AutonomySetOutcome =
   | { status: 'written'; override: AutonomySessionOverride }
-  | { status: 'refused'; reason: 'not-a-tty' | 'declined' | 'invalid'; message: string };
+  | { status: 'refused'; reason: RefuseReason; message: string };
+
+const DEFAULT_RAISE_FOR = '24h';
+const DURATION_UNIT_MS = { m: 60_000, h: 3_600_000, d: 86_400_000 } as const;
+
+/** `<positive integer><m|h|d>` → milliseconds, or null when malformed. */
+export function parseRaiseDuration(raw: string): number | null {
+  const m = /^([1-9]\d*)([mhd])$/.exec(raw.trim());
+  if (!m) return null;
+  return Number(m[1]) * DURATION_UNIT_MS[m[2] as keyof typeof DURATION_UNIT_MS];
+}
 
 export function defaultIsInteractive(): boolean {
   return Boolean(process.stdin.isTTY && process.stdout.isTTY);
@@ -27,7 +42,7 @@ async function defaultConfirm(question: string): Promise<boolean> {
   return answer === 'y' || answer === 'yes';
 }
 
-function refuse(reason: 'not-a-tty' | 'declined' | 'invalid', message: string): AutonomySetOutcome {
+function refuse(reason: RefuseReason, message: string): AutonomySetOutcome {
   return { status: 'refused', reason, message };
 }
 
@@ -52,29 +67,42 @@ export async function runAutonomySet(
 ): Promise<AutonomySetOutcome> {
   const change = parseChange(levelArg, opts.audit);
   if (typeof change === 'string') return refuse('invalid', change);
-  if (isRaisingChange(change)) {
+  const raising = isRaisingChange(change);
+  const forArg = opts.for ?? DEFAULT_RAISE_FOR;
+  const ttlMs = parseRaiseDuration(forArg);
+  if (ttlMs === null) {
+    return refuse(
+      'invalid',
+      `--for must be a positive duration like 90m, 2h or 7d (got "${forArg}")`
+    );
+  }
+  if (!raising && opts.for !== undefined) {
+    return refuse('invalid', '--for applies only to a raise; lowerings are permanent (D14).');
+  }
+  const cwd = (deps.cwd ?? (() => process.cwd()))();
+  const pathOpts = { ...(deps.homeDir !== undefined && { homeDir: deps.homeDir }) };
+  if (raising) {
     if (!(deps.isInteractive ?? defaultIsInteractive)()) {
       return refuse(
         'not-a-tty',
         'Raising autonomy requires an interactive terminal (stdin and stdout must be a TTY). Run this command yourself; an agent cannot raise autonomy.'
       );
     }
+    // D14: bound to a live session dir. Checked before prompting so the human is never asked
+    // to confirm a raise that would then be refused.
+    const dir = sessionDirForRaise(cwd, opts.session, pathOpts);
+    if (!dir.ok) return refuse('no-session', dir.error.message);
     const ok = await (deps.confirm ?? defaultConfirm)(
-      `Raise autonomy for session "${opts.session}" to ${JSON.stringify(change)}? ` +
+      `Raise autonomy for session "${opts.session}" to ${JSON.stringify(change)} for ${forArg}? ` +
         'Workflow skills will auto-approve ceremony pauses and auto-take audited recommendations. (y/N) '
     );
     if (!ok) return refuse('declined', 'Aborted; override unchanged.');
   }
-  const written = writeSessionOverride(
-    (deps.cwd ?? (() => process.cwd()))(),
-    opts.session,
-    change,
-    'cli',
-    {
-      ...(deps.homeDir !== undefined && { homeDir: deps.homeDir }),
-      ...(deps.now !== undefined && { now: deps.now }),
-    }
-  );
+  const written = writeSessionOverride(cwd, opts.session, change, 'cli', {
+    ...pathOpts,
+    ...(deps.now !== undefined && { now: deps.now }),
+    raiseTtlMs: ttlMs,
+  });
   if (!written.ok) return refuse('invalid', written.error.message);
   return { status: 'written', override: written.value };
 }
@@ -85,6 +113,7 @@ export function createAutonomySetCommand(deps: AutonomyCliDeps = {}): Command {
     .argument('<level>', 'supervised | trusted')
     .requiredOption('--session <slug>', 'Session slug to override')
     .option('--audit <on|off>', 'Self-audit on judgment forks')
+    .option('--for <duration>', 'How long a raise lasts, e.g. 90m, 2h, 7d (default 24h)')
     .action(async (level: string, opts: AutonomySetOptions) => {
       const out = await runAutonomySet(level, opts, deps);
       if (out.status === 'written') {

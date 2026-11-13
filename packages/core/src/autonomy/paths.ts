@@ -97,6 +97,42 @@ export function validateOverrideSlug(slug: string): Result<string, Error> {
   return error === null ? Ok(slug) : Err(new Error(error));
 }
 
+function isDirectory(p: string): boolean {
+  try {
+    return fs.statSync(p).isDirectory();
+  } catch {
+    return false;
+  }
+}
+
+export const AUTONOMY_SESSION_NOT_FOUND = 'AUTONOMY_SESSION_NOT_FOUND';
+
+export class AutonomySessionNotFoundError extends Error {
+  readonly code = AUTONOMY_SESSION_NOT_FOUND;
+  constructor(slug: string, dir: string) {
+    super(
+      `Refusing to raise autonomy for session "${slug}": ${dir} does not exist. A raise is bound ` +
+        'to a live session (D14); start the session first, or check the slug.'
+    );
+    this.name = 'AutonomySessionNotFoundError';
+  }
+}
+
+/**
+ * The session directory a raise is bound to (D14): `<project root>/.harness/sessions/<slug>/`,
+ * where the root is the git toplevel (per worktree). Err unless it exists as a directory.
+ */
+export function sessionDirForRaise(
+  projectPath: string,
+  slug: string,
+  opts: AutonomyPathOptions = {}
+): Result<string, Error> {
+  const valid = validateOverrideSlug(slug);
+  if (!valid.ok) return valid;
+  const dir = path.join(resolveProjectRoot(projectPath, opts), '.harness', 'sessions', slug);
+  return isDirectory(dir) ? Ok(dir) : Err(new AutonomySessionNotFoundError(slug, dir));
+}
+
 export function sessionOverridePath(
   projectPath: string,
   slug: string,

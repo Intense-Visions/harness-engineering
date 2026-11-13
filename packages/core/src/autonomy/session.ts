@@ -29,6 +29,7 @@ export function resolveAutonomyForSession(input: ResolveForSessionInput): Resolv
     ...(input.userConfigPath !== undefined && { userConfigPath: input.userConfigPath }),
     ...(input.homeDir !== undefined && { homeDir: input.homeDir }),
     ...(input.readFile !== undefined && { readFile: input.readFile }),
+    ...(input.now !== undefined && { now: input.now }),
   });
   return { ...resolved, warnings: [...warnings, ...resolved.warnings] };
 }

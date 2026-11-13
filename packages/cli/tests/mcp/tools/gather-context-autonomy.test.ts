@@ -44,7 +44,10 @@ describe('gather_context autonomy include', () => {
     });
   });
   it('reflects a session override, then a mid-session lowering (SC7 tool level)', async () => {
-    writeSessionOverride(project, 's1', { level: 'trusted' }, 'cli', { homeDir: home });
+    fs.mkdirSync(path.join(project, '.harness', 'sessions', 's1'), { recursive: true });
+    expect(
+      writeSessionOverride(project, 's1', { level: 'trusted' }, 'cli', { homeDir: home }).ok
+    ).toBe(true);
     expect((await gather({ session: 's1' })).autonomy.level).toBe('trusted');
     await handleManageState(
       {

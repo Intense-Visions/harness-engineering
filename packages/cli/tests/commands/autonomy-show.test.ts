@@ -34,7 +34,10 @@ describe('harness autonomy show', () => {
     ]);
   });
   it('includes the session override when --session is given', () => {
-    writeSessionOverride(project, 's1', { level: 'trusted' }, 'cli', { homeDir: home });
+    fs.mkdirSync(path.join(project, '.harness', 'sessions', 's1'), { recursive: true });
+    expect(
+      writeSessionOverride(project, 's1', { level: 'trusted' }, 'cli', { homeDir: home }).ok
+    ).toBe(true);
     expect(runAutonomyShow({ session: 's1' }, deps()).source.level).toBe('session');
     expect(runAutonomyShow({}, deps()).source.level).toBe('default');
   });

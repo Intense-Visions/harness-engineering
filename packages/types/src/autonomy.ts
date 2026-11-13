@@ -32,6 +32,8 @@ export interface AutonomyOverrideField<T> {
   value: T;
   setAt: string;
   origin: AutonomyOverrideOrigin;
+  /** Set on raised values only (D14): after this instant the field is ignored. */
+  expiresAt?: string;
 }
 
 /**

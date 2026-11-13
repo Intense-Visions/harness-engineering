@@ -14,6 +14,9 @@ export {
   resolveProjectRoot,
   validateOverrideSlug,
   sessionOverridePath,
+  sessionDirForRaise,
+  AutonomySessionNotFoundError,
+  AUTONOMY_SESSION_NOT_FOUND,
 } from './paths';
 export type { AutonomyPathOptions } from './paths';
 export { resolveAutonomy, AUTONOMY_ENV, AUTONOMY_AUDIT_ENV } from './resolve';
@@ -23,6 +26,7 @@ export {
   writeSessionOverride,
   AutonomyOverrideBusyError,
   AUTONOMY_OVERRIDE_BUSY,
+  DEFAULT_RAISE_TTL_MS,
 } from './override-store';
 export type { OverrideStoreOptions, ReadOverrideResult } from './override-store';
 export {

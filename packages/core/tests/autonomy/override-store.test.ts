@@ -25,6 +25,8 @@ describe('session override store', () => {
   });
 
   it('writes under the home dir, never under the project (D12)', () => {
+    // A raise is bound to a live session dir (D14); that dir is the ONLY project path touched.
+    fs.mkdirSync(path.join(project, '.harness', 'sessions', 's1'), { recursive: true });
     const w = writeSessionOverride(project, 's1', { level: 'trusted' }, 'cli', {
       homeDir: home,
       now: at('2026-01-01T00:00:00.000Z'),
@@ -33,24 +35,39 @@ describe('session override store', () => {
     const p = sessionOverridePath(project, 's1', { homeDir: home });
     expect(p.ok && fs.existsSync(p.value)).toBe(true);
     expect(p.ok && p.value.replaceAll('\\', '/')).toContain('/home/.harness/session-overrides/');
-    expect(fs.existsSync(path.join(project, '.harness'))).toBe(false);
+    expect(fs.readdirSync(path.join(project, '.harness'), { recursive: true }).sort()).toEqual([
+      'sessions',
+      path.join('sessions', 's1'),
+    ]);
     const back = readSessionOverride(project, 's1', { homeDir: home });
     expect(back.ok && back.value.override).toEqual({
-      level: { value: 'trusted', setAt: '2026-01-01T00:00:00.000Z', origin: 'cli' },
+      level: {
+        value: 'trusted',
+        setAt: '2026-01-01T00:00:00.000Z',
+        origin: 'cli',
+        expiresAt: '2026-01-02T00:00:00.000Z',
+      },
     });
   });
 
   it('updating one field preserves the other field and its timestamp', () => {
-    writeSessionOverride(project, 's1', { level: 'trusted' }, 'cli', {
+    fs.mkdirSync(path.join(project, '.harness', 'sessions', 's1'), { recursive: true });
+    const seed = writeSessionOverride(project, 's1', { level: 'trusted' }, 'cli', {
       homeDir: home,
       now: at('2026-01-01T00:00:00.000Z'),
     });
+    expect(seed.ok).toBe(true);
     const w = writeSessionOverride(project, 's1', { audit: true }, 'mcp', {
       homeDir: home,
       now: at('2026-01-02T00:00:00.000Z'),
     });
     expect(w.ok && w.value).toEqual({
-      level: { value: 'trusted', setAt: '2026-01-01T00:00:00.000Z', origin: 'cli' },
+      level: {
+        value: 'trusted',
+        setAt: '2026-01-01T00:00:00.000Z',
+        origin: 'cli',
+        expiresAt: '2026-01-02T00:00:00.000Z',
+      },
       audit: { value: true, setAt: '2026-01-02T00:00:00.000Z', origin: 'mcp' },
     });
   });

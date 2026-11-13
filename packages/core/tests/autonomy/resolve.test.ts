@@ -5,9 +5,17 @@ import { resolveAutonomy, type ResolveAutonomyInput } from '../../src/autonomy/r
 const NO_FILE = () => undefined;
 const cfg = (obj: unknown) => () => JSON.stringify(obj);
 const T0 = '2026-01-01T00:00:00.000Z';
+/** Raised values carry a live expiry (D14); lowered values never expire. */
+const LIVE = '2999-01-01T00:00:00.000Z';
+const field = <T>(value: T, raises: boolean, setAt: string) => ({
+  value,
+  setAt,
+  origin: 'cli' as const,
+  ...(raises && { expiresAt: LIVE }),
+});
 const sess = (level?: AutonomyLevel, audit?: boolean, setAt = T0): AutonomySessionOverride => ({
-  ...(level !== undefined && { level: { value: level, setAt, origin: 'cli' as const } }),
-  ...(audit !== undefined && { audit: { value: audit, setAt, origin: 'cli' as const } }),
+  ...(level !== undefined && { level: field(level, level !== 'supervised', setAt) }),
+  ...(audit !== undefined && { audit: field(audit, audit !== true, setAt) }),
 });
 const run = (input: ResolveAutonomyInput) =>
   resolveAutonomy({ env: {}, readFile: NO_FILE, ...input });
@@ -111,8 +119,8 @@ describe('resolveAutonomy flag-vs-session recency (D3)', () => {
   });
   it('recency is per field', () => {
     const override: AutonomySessionOverride = {
-      level: { value: 'trusted', setAt: T1, origin: 'cli' },
-      audit: { value: false, setAt: '2025-12-31T00:00:00.000Z', origin: 'cli' },
+      level: { value: 'trusted', setAt: T1, origin: 'cli', expiresAt: LIVE },
+      audit: { value: false, setAt: '2025-12-31T00:00:00.000Z', origin: 'cli', expiresAt: LIVE },
     };
     const r = run({
       flag: { level: 'supervised', audit: true, at: T0 },

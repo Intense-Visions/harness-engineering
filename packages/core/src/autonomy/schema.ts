@@ -48,8 +48,14 @@ const LevelFieldSchema = z.object({
   value: AutonomyLevelSchema,
   setAt: IsoSchema,
   origin: OriginSchema,
+  expiresAt: IsoSchema.optional(),
 });
-const AuditFieldSchema = z.object({ value: z.boolean(), setAt: IsoSchema, origin: OriginSchema });
+const AuditFieldSchema = z.object({
+  value: z.boolean(),
+  setAt: IsoSchema,
+  origin: OriginSchema,
+  expiresAt: IsoSchema.optional(),
+});
 
 export const SessionOverrideFileSchema = z.object({
   level: LevelFieldSchema.optional(),
@@ -83,6 +89,26 @@ export function parseSessionOverride(raw: string): Result<AutonomySessionOverrid
   const r = SessionOverrideFileSchema.safeParse(json.value);
   if (!r.success) return Err(new Error(describeIssues(r.error.issues)));
   return Ok(r.data as AutonomySessionOverride);
+}
+
+/** True when a level value raises autonomy (anything but exactly `supervised`; fails closed). */
+export function levelRaises(level: unknown): boolean {
+  return level !== undefined && level !== 'supervised';
+}
+
+/** True when an audit value raises autonomy (anything but exactly `true`; fails closed). */
+export function auditRaises(audit: unknown): boolean {
+  return audit !== undefined && audit !== true;
+}
+
+/**
+ * Value-based (D12): any write of `trusted` or audit=off counts as raising, even when it
+ * equals the current value, because pinning it in the session tier would outrank a later
+ * user-config lowering. Fails closed: any present value other than exactly `supervised` /
+ * `true` (e.g. a mistyped "false") counts as raising, so the predicate cannot be type-confused.
+ */
+export function isRaisingChange(change: AutonomySetting): boolean {
+  return levelRaises(change.level) || auditRaises(change.audit);
 }
 
 /** Validate an untrusted change (e.g. MCP args) before any policy decision or write. */

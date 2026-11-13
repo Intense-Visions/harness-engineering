@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/tests/autonomy'
-sourceHash: '1ecf280afc1ff6d9152a9dc69bca7275ae9447e708ef56432786f0026e549a6e'
+sourceHash: '96b357d90019acaf8bcbcbe061394ef3bac04872492c09841887cc2a24cb3ed3'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -10,6 +10,7 @@ members:
     'lower-only.test.ts',
     'override-store.test.ts',
     'paths.test.ts',
+    'raise-expiry.test.ts',
     'resolve-isolation.test.ts',
     'resolve.test.ts',
     'schema.test.ts',
@@ -26,7 +27,7 @@ members:
 ## Dependency Slice
 
 ```
-import { resolveAutonomyForSession, sessionOverridePath, writeLoweringOverride, writeSessionOverride } from '../../src/autonomy/index'
+import { AUTONOMY_SESSION_NOT_FOUND, DEFAULT_RAISE_TTL_MS, readSessionOverride, resolveAutonomy, resolveAutonomyForSession, sessionOverridePath, writeLoweringOverride, writeSessionOverride } from '../../src/autonomy/index'
 import { AUTONOMY_INVALID_SETTING, AUTONOMY_RAISE_REJECTED, isRaisingChange, writeLoweringOverride } from '../../src/autonomy/lower-only'
 import { readSessionOverride, writeSessionOverride } from '../../src/autonomy/override-store'
 import { computeRepoKey, harnessHomeDir, resolveProjectRoot, sessionOverridePath, userConfigPath, validateOverrideSlug } from '../../src/autonomy/paths'
