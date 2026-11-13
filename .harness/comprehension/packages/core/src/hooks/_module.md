@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/src/hooks'
-sourceHash: '3391cc2e98b69e6a660c2ef3aeb9e0a8861c874db710258c984235cf8fb823c9'
+sourceHash: 'a9e3a183f8eb6c59fb4c6aaabf12cfb121d3ca732d6b0152e63b55b947717d05'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -58,6 +58,6 @@ export resolveSkillHooks
 
 ```
 import { EXTENSION_MAP, SupportedLanguage, detectLanguage } from '../code-nav/types'
-import { SkillAvailability } from './canary-review-hooks'
+import { SkillAvailability, bareSkillName, declaredSkillNames, makeAvailabilityPredicate } from './skill-availability'
 import { NormalizedHook, SkillHookEntry, SkillHooksConfigHolder, defaultBlocking, resolveSkillHooks } from './skill-lifecycle'
 ```

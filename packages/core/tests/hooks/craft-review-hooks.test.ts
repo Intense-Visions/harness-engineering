@@ -1478,16 +1478,25 @@ describe('module laws', () => {
     expect('process.cwd()').toMatch(forbidden[3].re);
   });
 
-  it('imports only skill-lifecycle, the canary twin’s type, and code-nav types', () => {
+  it('imports only skill-lifecycle, the shared availability module, and code-nav types', () => {
     // Either quote style, for the same reason the purity law above accepts both.
-    const imported = [...source.matchAll(/^import .*?from ['"]([^'"]+)['"];$/gm)].map((m) => m[1]);
-    // Positive control: all four import statements were matched. A prettier wrap
-    // onto a second line would otherwise silently shrink this list to a passing
-    // subset — the regex is single-line by design.
+    //
+    // [PHASE 3] The pattern is now MULTI-LINE. It was single-line "by design",
+    // and the comment below correctly predicted the consequence: when Phase 3
+    // replaced the one-line `import type { SkillAvailability } from
+    // './canary-review-hooks';` with a four-name braced import that prettier
+    // wraps, the list silently shrank from 4 to 3 and the law failed on its own
+    // positive control rather than on the thing it guards. Widening it to
+    // [\s\S]*? keeps the count honest across wrapping.
+    const imported = [...source.matchAll(/^import [\s\S]*?from ['"]([^'"]+)['"];$/gm)].map(
+      (m) => m[1]
+    );
+    // Positive control: all four import statements were matched. A shrinking
+    // list is how this law dies quietly.
     expect(imported).toHaveLength(4);
     expect([...new Set(imported)].sort()).toEqual([
       '../code-nav/types',
-      './canary-review-hooks',
+      './skill-availability',
       './skill-lifecycle',
     ]);
   });

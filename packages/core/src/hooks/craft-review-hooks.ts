@@ -70,8 +70,13 @@
 
 import { EXTENSION_MAP, detectLanguage, type SupportedLanguage } from '../code-nav/types';
 import { resolveSkillHooks } from './skill-lifecycle';
-import type { NormalizedHook, SkillHookEntry, SkillHooksConfigHolder } from './skill-lifecycle';
-import type { SkillAvailability } from './canary-review-hooks';
+import type { NormalizedHook, SkillHooksConfigHolder } from './skill-lifecycle';
+import {
+  bareSkillName,
+  declaredSkillNames,
+  makeAvailabilityPredicate,
+  type SkillAvailability,
+} from './skill-availability';
 
 /**
  * Sentinel `supportedLanguages` for a SURFACE-BOUND domain.
@@ -474,17 +479,6 @@ function isCraftReviewEvent(hostSkill: string, event: string): boolean {
 const HARNESS_PLUGIN_PREFIX = 'harness-claude:';
 
 /**
- * Reduce a catalog entry to the bare skill name it designates. Craft skill names
- * contain no colon, so taking the final segment collapses every plugin
- * qualification depth onto the bare name losslessly. `harness-design-craft` keeps
- * its `harness-` prefix — that is part of its canonical name, not a qualification.
- */
-function bareSkillName(entry: string): string {
-  const lastColon = entry.lastIndexOf(':');
-  return lastColon === -1 ? entry : entry.slice(lastColon + 1);
-}
-
-/**
  * Every form a catalog is known to report a craft skill under. Enumerable
  * availability (Set/array) is normalized by {@link bareSkillName}, so depth is
  * irrelevant there; a PREDICATE can only be probed, which makes this list the
@@ -496,23 +490,6 @@ const CRAFT_SKILL_PROBE_FORMS: readonly ((skill: string) => string)[] = [
   (skill) => `${HARNESS_PLUGIN_PREFIX}${skill}`,
   (skill) => `${HARNESS_PLUGIN_PREFIX}skills:claude-code:${skill}:${skill}`,
 ];
-
-/** Normalize the three availability shapes into one predicate. `undefined` means nothing installed. */
-function toAvailabilityPredicate(avail: SkillAvailability | undefined): (skill: string) => boolean {
-  if (avail === undefined) return () => false;
-  if (typeof avail === 'function') {
-    return (skill) => CRAFT_SKILL_PROBE_FORMS.some((form) => avail(form(skill)));
-  }
-  // Copy UNCONDITIONALLY. Aliasing the caller's Set is safe only while this
-  // function stays read-only; the moment it grows a `set.add(...)` it would
-  // mutate the caller's collection — in practice a module-level test fixture
-  // shared by every case in the suite. No static rule can catch that: the
-  // declaration lives in the test file and the mutation would live here.
-  const set = new Set<string>(avail);
-  const bare = new Set<string>();
-  for (const entry of set) bare.add(bareSkillName(entry));
-  return (skill) => set.has(skill) || bare.has(skill);
-}
 
 /**
  * True when at least one file the domain OWNS is in a language the domain can
@@ -572,7 +549,7 @@ export function planCraftReviewDomains(
   }
 
   const files = changedFiles.map(normalizePath);
-  const isInstalled = toAvailabilityPredicate(availableSkills);
+  const isInstalled = makeAvailabilityPredicate(availableSkills, CRAFT_SKILL_PROBE_FORMS);
   const alreadyRan = new Set((opts?.alreadyRanFor ?? []).map(bareSkillName));
   const declared = new Set((opts?.declaredSkills ?? []).map(bareSkillName));
   // Clamp: a negative or fractional cap must mean "no slots", never "unbounded".
@@ -623,32 +600,6 @@ export function planCraftReviewDomains(
   }
 
   return { wired, skipped, expected, files: ownedBySkill };
-}
-
-/**
- * Skill names a project DECLARES at `skillName`/`event`, including entries parked
- * with `enabled: false`. Deliberately the RAW declared set (not the
- * post-`enabled`-filter set `resolveSkillHooks` returns): a project that parks a
- * domain with `{ type: "skill", skill: "code-craft", enabled: false }` has
- * expressed an explicit opt-out, so the craft default for that name must be
- * dropped rather than silently re-injected.
- */
-function declaredSkillNames(
-  config: SkillHooksConfigHolder | null | undefined,
-  skillName: string,
-  event: string
-): Set<string> {
-  const entries = config?.skillHooks?.[skillName]?.[event];
-  const names = new Set<string>();
-  if (!Array.isArray(entries)) return names;
-  for (const entry of entries as SkillHookEntry[]) {
-    if (typeof entry === 'string') {
-      names.add(entry);
-    } else if (entry.type === 'skill' && typeof entry.skill === 'string') {
-      names.add(entry.skill);
-    }
-  }
-  return names;
 }
 
 /**
