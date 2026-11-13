@@ -189,7 +189,9 @@ Treat the hook as a tripwire, not a wall.
    `record_auto_decision`, `emit_interaction`), under both server names a Claude Code install can
    use: `mcp__harness__…` (`harness setup-mcp`) and `mcp__plugin_harness-claude_harness__…` (the
    `harness-claude` plugin). Exact names are listed rather than `mcp__harness__*`, so a persona
-   gains nothing else; it already holds `Bash`, which reaches the same harness CLI. Inside a
+   gains nothing else. It does gain one thing it lacked: it can write the decision log, which the
+   `autonomy-guard` hook keeps closed to `Bash` and `Write`. A persona could therefore record an
+   audit status it never earned; audit statuses were already agent-reported (limitation 1). Inside a
    persona, trusted mode therefore resolves autonomy and logs ceremony pauses as in the main
    session. A subagent cannot spawn the blind auditor, so it never takes a judgment fork
    unaudited: it hands the fork back as a `judgment-fork:` handoff blocker, and autopilot audits
@@ -201,16 +203,20 @@ Treat the hook as a tripwire, not a wall.
 3. **Only autopilot and the orchestrator read headless blockers.** A headless run that hits an
    audit disagreement, or a judgment fork it cannot audit, does not choose: it writes
    `audit-disagreement: <question>` or `judgment-fork: <question>` to the handoff's `blockers` and
-   stops. Autopilot resolves these after every dispatch. The orchestrator scans a finished run's
-   session handoffs, queues a `needs-human` interaction, records the `needs-human` verdict, and
-   neither ships nor re-dispatches the unit. A headless run started some other way pages nobody;
-   check its handoff.
+   stops. Autopilot resolves these after every dispatch and removes a resolved `judgment-fork:`
+   blocker. The orchestrator scans a dispatch's handoffs (sessions, streams and the global
+   `.harness/handoff.json`) after it finishes, and on a staged dispatch after every stage. It
+   queues one `needs-human` interaction carrying the blockers and the handoff's `concerns`,
+   records the `needs-human` verdict, and neither ships nor re-dispatches the unit. A headless run
+   started some other way pages nobody; check its handoff.
 4. **Zero-width characters outside a script context still taint.** The sentinel injection
    scanner (INJ-UNI-001) accepts ZERO WIDTH NON-JOINER / JOINER only between characters of a
    joining script (Arabic, Syriac, N'Ko, Mongolian, the Indic scripts, Sinhala) or inside an emoji
    ZWJ sequence, so Persian text and family emoji in a decision-log entry no longer taint the
-   session. A ZWNJ/ZWJ next to Latin text, or at a word edge, and every ZERO WIDTH SPACE, BOM and
-   WORD JOINER, still do.
+   session. A ZWNJ/ZWJ next to Latin text or text-style symbols (`©`), wrapped in variation
+   selectors, or at a word edge, and every ZERO WIDTH SPACE, BOM and WORD JOINER, still do. The
+   residual: a ZWNJ/ZWJ between two legitimate neighbours (two Arabic letters, two emoji) is not
+   flagged, so its presence there can still carry hidden bits.
 5. **Unenumerated choices are not audited.** A spec or plan approval is a ceremony unless it embeds
    a choice between alternatives the skill text or the run's output explicitly listed. Option
    choices made inside the content without being presented as alternatives are approved as

@@ -33,19 +33,24 @@ export const AGENT_DESCRIPTIONS: Record<string, string> = {
 export const DEFAULT_TOOLS = ['Bash', 'Read', 'Write', 'Edit', 'Glob', 'Grep'] as const;
 
 /**
- * Harness MCP tools a Claude Code persona subagent needs to honour the
- * Pause Protocol: read the resolved autonomy level (`gather_context`,
- * `manage_state`), log an auto-resolved pause (`record_auto_decision`) and
- * surface an escalation (`emit_interaction`). Without them a subagent's
- * `tools:` allowlist refuses every MCP call, so trusted mode is inert inside
- * it and its judgment forks bubble up as concerns instead of being audited.
+ * Harness MCP tools a Claude Code persona subagent needs to follow the Pause
+ * Protocol: read the resolved autonomy level (`gather_context`, `manage_state`)
+ * and log an auto-resolved ceremony pause (`record_auto_decision`).
+ * `emit_interaction` is listed for the skills' non-escalation interactions; the
+ * protocol forbids it for escalations. Without these, a subagent's `tools:`
+ * allowlist refuses every MCP call and every pause inside it falls back to
+ * autopilot. A persona still cannot spawn the blind auditor, so it hands
+ * judgment forks back rather than taking them (Pause Protocol, "Handing a fork
+ * back").
  *
  * Named exactly rather than as `mcp__harness__*`: the subagent `tools` field
- * documents exact names, and the list stays the least the protocol needs.
- * Personas already hold `Bash`, which reaches the same harness CLI, so these
- * widen no capability. Both server spellings are listed — `harness` from
- * `harness setup-mcp` and the `harness-claude` plugin's server — because a
- * name that matches no connected server is simply never offered.
+ * documents exact names, and the list stays the least the protocol needs. It
+ * does widen one capability: a persona can now write the decision log, which
+ * the `autonomy-guard` hook keeps closed to Bash and Write. Audit statuses in
+ * that log were already agent-reported. None of these tools can raise autonomy
+ * (`set-autonomy` only lowers). Both server spellings are listed: `harness`
+ * from `harness setup-mcp`, and the `harness-claude` plugin's server. A name
+ * that matches no connected server is never offered.
  */
 export const PAUSE_PROTOCOL_MCP_TOOLS = [
   'gather_context',

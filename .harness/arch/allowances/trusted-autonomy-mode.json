@@ -1,0 +1,8 @@
+{
+  "reason": "trusted-autonomy-mode (docs/changes/trusted-autonomy-mode/proposal.md, #2479) adds a feature across types, core, cli and orchestrator: the autonomy resolver, session-override store, decision log and schema (core/autonomy), the autonomy CLI group, the record_auto_decision MCP tool, the autonomy-guard hook, the persona MCP grant, the INJ-UNI-001 joining-context rule, and the orchestrator's human-decision routing (core/human-decision-blockers.ts plus the per-stage engine seam). The added source moves the aggregate module-size LOC from 282896 to 285801 (+2905), just past the 1% (2829) regression tolerance. No single module crossed maxFiles 30 or maxLoc 3500, and the gate reports no new module-size finding. Complexity, coupling and dependency-depth are within tolerance (273/273, 451 vs 447, 683 vs 677), so this allowance covers module-size only; two over-threshold autonomy functions were split rather than allowed.",
+  "categories": {
+    "module-size": 285801
+  },
+  "violationIds": [],
+  "createdFrom": "bfd25aee0"
+}

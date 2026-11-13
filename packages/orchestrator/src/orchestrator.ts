@@ -686,6 +686,18 @@ export class Orchestrator extends EventEmitter {
    */
   #escalatedThisRun = new Set<string>();
   /**
+   * When each unit's current dispatch began (ms). Handoffs older than this were
+   * left by an earlier attempt in a reused worktree and are not re-read as fresh
+   * human-decision blockers. Kept here because a retry re-dispatch does not
+   * recreate the running entry (and its `startedAt`).
+   */
+  private readonly dispatchStartedAtByIssue = new Map<string, number>();
+  /**
+   * Units whose human-decision escalation is already queued: the retry-budget
+   * escalation their error exit may also produce is a duplicate and is dropped.
+   */
+  #humanDecisionQueued = new Set<string>();
+  /**
    * Spec 2 SC30 / Task 11: per-dispatch backend factory replaces the
    * Phase 1 `runner` / `localRunner` two-runner split. Each
    * `dispatchIssue()` call asks the factory for a `RoutingUseCase`-routed
@@ -2362,6 +2374,13 @@ export class Orchestrator extends EventEmitter {
    * Handles an escalation effect by writing to the interaction queue and logging.
    */
   private async handleEscalation(effect: EscalateEffect): Promise<void> {
+    if (this.#humanDecisionQueued.delete(effect.issueId)) {
+      this.logger.info(
+        `Not re-escalating ${effect.identifier}: its human-decision escalation is already queued`,
+        { issueId: effect.issueId }
+      );
+      return;
+    }
     this.logger.warn(
       `Escalating ${effect.identifier} to needs-human: ${effect.reasons.join('; ')}`,
       { issueId: effect.issueId }
@@ -2594,6 +2613,7 @@ export class Orchestrator extends EventEmitter {
       });
       return;
     }
+    this.dispatchStartedAtByIssue.set(issue.id, Date.now());
     this.logger.info(`Dispatching issue: ${issue.identifier} (attempt ${attempt})`, {
       issueId: issue.id,
     });
@@ -2746,6 +2766,7 @@ export class Orchestrator extends EventEmitter {
           // the entry. The closure supplies both on EVERY attempt, so the acceptance
           // gate re-fires across real retries instead of hollow-succeeding (SC2/SC6).
           settleSuccess: (u, r) => this.settleWorkflowSuccess(u, r, workspacePath, issue),
+          humanDecisionAfterStage: (u, r) => this.settleHumanDecision(u, r, workspacePath, issue),
           settleTerminal: (u, r, s, e) => this.settleWorkflowTerminal(u, r, s, e),
         });
         // Record the plan on the running entry (D11 in-memory cursor; the stall
@@ -3237,55 +3258,81 @@ export class Orchestrator extends EventEmitter {
   }
 
   /**
-   * Trusted autonomy (Pause Protocol, headless branch): a dispatched agent whose
-   * blind audit disagreed with its own recommendation, or that could not audit a
-   * judgment fork, does not choose. It writes an `audit-disagreement:` or
-   * `judgment-fork:` blocker to its session handoff and stops. With no parent
-   * session to settle it, the run must neither ship nor re-dispatch:
-   * queue a `needs-human` interaction, record the verdict, and mark the unit
-   * escalated so the retry the error exit schedules is skipped at dispatch (the
-   * same process-lifetime guard the bounded-retry terminal uses). Returns true
-   * when it escalated.
-   */
-  /**
-   * The unit's fresh human-decision handoff blockers. When there are any,
-   * also marks the unit escalated (so no retry re-dispatches it) and records the
-   * needs-human verdict; the caller owns how the terminal itself is settled.
+   * The unit's human-decision handoff blockers written since this dispatch began,
+   * as one-line reasons: each blocker, then the handoff's `concerns` (the options
+   * and both positions), so the human sees what to choose between even after the
+   * worktree is cleaned. When there are any, also marks the unit escalated (so no
+   * retry re-dispatches it) and records the needs-human verdict; the caller owns
+   * how the terminal itself is settled.
    */
   private markHumanDecision(issue: Issue, workspacePath: string, attempt: number | null): string[] {
-    const startedAt = Date.parse(this.state.running.get(issue.id)?.startedAt ?? '');
-    const blockers = readHumanDecisionBlockers(
+    const found = readHumanDecisionBlockers(
       workspacePath,
-      Number.isNaN(startedAt) ? 0 : startedAt
+      this.dispatchStartedAtByIssue.get(issue.id) ?? 0
     );
-    if (blockers.length === 0) return blockers;
+    if (found.blockers.length === 0) return [];
     this.#escalatedThisRun.add(issue.id);
     this.recordFlightVerdict({
       issueId: issue.id,
       identifier: issue.identifier,
       verdict: 'needs-human',
       attempt,
-      gateReason: blockers.join('; '),
+      gateReason: found.blockers.join('; '),
     });
-    return blockers;
+    return [...found.blockers, ...found.concerns.map((c) => `concern: ${c}`)];
   }
 
+  /**
+   * Trusted autonomy (Pause Protocol, headless branch): a dispatched agent whose
+   * blind audit disagreed with its own recommendation, or that could not audit a
+   * judgment fork, does not choose. It writes an `audit-disagreement:` or
+   * `judgment-fork:` blocker to its handoff and stops. With no parent session to
+   * settle it, the run must neither ship nor re-dispatch: queue one `needs-human`
+   * interaction, record the verdict, and mark the unit escalated so the retry the
+   * error exit schedules is never dispatched. If the error exit also exhausts the
+   * retry budget, {@link handleEscalation} drops that second, retry-worded
+   * escalation (`#humanDecisionQueued`). Returns true when it escalated.
+   */
   private async escalateHumanDecision(
     issue: Issue,
     workspacePath: string,
     attempt: number | null
   ): Promise<boolean> {
-    const blockers = this.markHumanDecision(issue, workspacePath, attempt);
-    if (blockers.length === 0) return false;
+    const reasons = this.markHumanDecision(issue, workspacePath, attempt);
+    if (reasons.length === 0) return false;
     await this.handleEscalation({
       type: 'escalate',
       issueId: issue.id,
       identifier: issue.identifier,
       issueTitle: issue.title,
       issueDescription: issue.description ?? null,
-      reasons: blockers,
+      reasons,
     });
-    await this.emitWorkerExit(issue.id, 'error', attempt, blockers.join('; '));
+    this.#humanDecisionQueued.add(issue.id);
+    await this.emitWorkerExit(issue.id, 'error', attempt, reasons[0]);
+    return true;
+  }
+
+  /**
+   * Staged dispatch: checked after every passing stage, so a fork the planning
+   * stage hands back stops the unit before execution builds on it (and before a
+   * later stage's handoff overwrites the blocker). Settles the unit through the
+   * needs-human terminal and returns true when there is one.
+   */
+  private async settleHumanDecision(
+    unit: string,
+    runs: StageRun[],
+    workspacePath: string,
+    issue: Issue
+  ): Promise<boolean> {
+    const reasons = this.markHumanDecision(issue, workspacePath, null);
+    if (reasons.length === 0) return false;
+    await this.settleWorkflowTerminal(
+      unit,
+      runs,
+      undefined,
+      new Error(`a judgment needs a human: ${reasons.join('; ')}`)
+    );
     return true;
   }
 
@@ -4303,17 +4350,12 @@ export class Orchestrator extends EventEmitter {
     const issue = closureIssue ?? entry?.issue;
     // Trusted autonomy: a headless audit disagreement or unaudited judgment fork is
     // a human decision, on any backend — settle through needs-human, never ship.
-    if (workspacePath !== undefined && issue !== undefined) {
-      const blockers = this.markHumanDecision(issue, workspacePath, null);
-      if (blockers.length > 0) {
-        await this.settleWorkflowTerminal(
-          unit,
-          runs,
-          undefined,
-          new Error(`a judgment needs a human: ${blockers.join('; ')}`)
-        );
-        return;
-      }
+    if (
+      workspacePath !== undefined &&
+      issue !== undefined &&
+      (await this.settleHumanDecision(unit, runs, workspacePath, issue))
+    ) {
+      return;
     }
     if (isLocal && workspacePath !== undefined && issue !== undefined) {
       // D2: the acceptance command override, recovered from the matched workflow decl

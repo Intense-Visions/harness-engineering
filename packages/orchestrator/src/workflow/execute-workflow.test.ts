@@ -1712,3 +1712,40 @@ describe('executeWorkflow — design-artifact capture → persist (full chain)',
     }
   });
 });
+
+describe('humanDecisionAfterStage (trusted autonomy hand-back)', () => {
+  it('stops after the stage that left a human decision: later stages never run, no success', async () => {
+    const base = makeFakeCtx({ sessionIds: ['sess-0', 'sess-1', 'sess-2'] });
+    const checked: number[] = [];
+    const ctx: WorkflowEngineContext = {
+      ...base.ctx,
+      humanDecisionAfterStage: async (_u, runs) => {
+        checked.push(runs.length);
+        return runs.length === 1; // the planning stage handed a fork back
+      },
+    };
+    await executeWorkflow(ctx, {
+      coherenceUnit: 'issue-1',
+      stages: [step('a'), step('b'), step('c')],
+    });
+    expect(base.runOrder).toEqual([0]);
+    expect(checked).toEqual([1]);
+    expect(base.successCalls).toHaveLength(0);
+    expect(base.terminalCalls).toHaveLength(0); // the seam owned the terminal
+  });
+
+  it('runs every stage and succeeds when no stage leaves one', async () => {
+    const base = makeFakeCtx({ sessionIds: ['sess-0', 'sess-1'] });
+    const checked: number[] = [];
+    const ctx: WorkflowEngineContext = {
+      ...base.ctx,
+      humanDecisionAfterStage: async (_u, runs) => {
+        checked.push(runs.length);
+        return false;
+      },
+    };
+    await executeWorkflow(ctx, { coherenceUnit: 'issue-1', stages: [step('a'), step('b')] });
+    expect(checked).toEqual([1, 2]);
+    expect(base.successCalls).toHaveLength(1);
+  });
+});

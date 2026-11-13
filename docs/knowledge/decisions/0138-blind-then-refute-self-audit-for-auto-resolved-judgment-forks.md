@@ -112,7 +112,9 @@ behaviour unchanged (SC10) and is a deliberate exemption, not an oversight.
   approval becomes a judgment fork).
 - **Headless disagreements reach a human only through autopilot or the orchestrator.**
   Autopilot reads `audit-disagreement:` / `judgment-fork:` handoff blockers after every
-  dispatch. The orchestrator scans a finished run's session handoffs and routes either to its
+  dispatch. The orchestrator scans a dispatch's handoffs (sessions, streams and the global
+  handoff) after it finishes, and on a staged dispatch after every stage, so a later stage never
+  builds on an unresolved fork. It routes either blocker, with the handoff's `concerns`, to its
   `needs-human` queue without shipping or re-dispatching. A headless run started any other way
   leaves them only in its handoff.
 - **Cost.** Each auto-resolved, audited fork costs up to two subagent spawns.

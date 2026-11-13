@@ -160,7 +160,7 @@ If any blocker starts with `audit-disagreement:`, the subagent hit a self-audit 
 
 _Pause point (judgment): resolve per the Pause Protocol._ <!-- pause: judgment -->
 
-If any blocker starts with `judgment-fork:`, the subagent reached a judgment fork it could not audit (Pause Protocol, Handing a fork back). Resolve it here as a `judgment` pause per the Pause Protocol, using the options and recommendation from `concerns`. In `trusted` mode, run the self-audit in this session and auto-take only on agreement. Then resume the state that dispatched the unit, passing the decision to it as context. Like a disagreement, it is not a failure and never enters the EXECUTE retry path.
+If any blocker starts with `judgment-fork:`, the subagent reached a judgment fork it could not audit (Pause Protocol, Handing a fork back). Resolve it here as a `judgment` pause per the Pause Protocol, using the options and recommendation from `concerns`. In `trusted` mode, run the self-audit in this session and auto-take only on agreement. Then remove that `judgment-fork:` blocker from `{sessionDir}/handoff.json`, so nothing later (for example the orchestrator) reads it as unresolved, and resume the state that dispatched the unit, passing the decision to it as context. Like a disagreement, it is not a failure and never enters the EXECUTE retry path.
 
 ---
 

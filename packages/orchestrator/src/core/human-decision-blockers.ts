@@ -21,13 +21,31 @@ const nodeFs: HandoffFs = {
   mtimeMs: (file) => statSync(file).mtimeMs,
 };
 
-function blockersOf(raw: string): string[] {
+/** What a human needs to settle the fork: the blockers, and the positions from `concerns`. */
+export interface HumanDecision {
+  blockers: string[];
+  concerns: string[];
+}
+
+function strings(value: unknown): string[] {
+  return Array.isArray(value) ? value.filter((v): v is string => typeof v === 'string') : [];
+}
+
+function parseHandoff(raw: string): { blockers: string[]; concerns: string[] } {
   try {
-    const parsed: unknown = JSON.parse(raw);
-    const blockers = (parsed as { blockers?: unknown } | null)?.blockers;
-    return Array.isArray(blockers)
-      ? blockers.filter((b): b is string => typeof b === 'string')
-      : [];
+    const parsed = JSON.parse(raw) as { blockers?: unknown; concerns?: unknown } | null;
+    return { blockers: strings(parsed?.blockers), concerns: strings(parsed?.concerns) };
+  } catch {
+    return { blockers: [], concerns: [] };
+  }
+}
+
+function subdirHandoffs(fs: HandoffFs, dir: string): string[] {
+  try {
+    return fs
+      .readdir(dir)
+      .sort()
+      .map((name) => join(dir, name, 'handoff.json'));
   } catch {
     return [];
   }
@@ -35,40 +53,46 @@ function blockersOf(raw: string): string[] {
 
 /**
  * The human-decision blockers ({@link HUMAN_DECISION_PREFIXES}) a dispatched
- * agent left in its session handoffs (`<workspace>/.harness/sessions/<slug>/handoff.json`).
+ * agent left in its handoffs, plus that handoff's `concerns` (where the protocol
+ * puts the options and both positions). Every state dir a handoff can resolve to
+ * is scanned: `.harness/sessions/<slug>/`, `.harness/streams/<name>/` and the
+ * global `.harness/`.
  *
  * A headless agent whose blind audit disagreed with its recommendation, or that
  * could not audit a judgment fork, must not choose (Pause Protocol): it writes
  * the blocker and stops. The orchestrator has no parent session to resolve it,
- * so it routes the run to needs-human instead of
- * shipping the run or re-dispatching it. Handoffs older than `sinceMs` (the
- * dispatch start) are ignored, so a handoff left by an earlier attempt in a
- * reused worktree never re-fires. Unreadable or malformed handoffs yield
- * nothing: this scan adds an escalation, it never blocks a run on its own.
+ * so it routes the run to needs-human instead of shipping the run or
+ * re-dispatching it. Handoffs older than `sinceMs` (this dispatch's start) are
+ * ignored, so a handoff left by an earlier attempt in a reused worktree does not
+ * re-fire. Unreadable or malformed handoffs yield nothing: this scan adds an
+ * escalation, it never blocks a run on its own.
  */
 export function readHumanDecisionBlockers(
   workspacePath: string,
   sinceMs: number,
   fs: HandoffFs = nodeFs
-): string[] {
-  const sessionsDir = join(workspacePath, '.harness', 'sessions');
-  let slugs: string[];
-  try {
-    slugs = fs.readdir(sessionsDir);
-  } catch {
-    return [];
-  }
-  const found: string[] = [];
-  for (const slug of slugs.sort()) {
-    const handoff = join(sessionsDir, slug, 'handoff.json');
+): HumanDecision {
+  const harness = join(workspacePath, '.harness');
+  const files = [
+    ...subdirHandoffs(fs, join(harness, 'sessions')),
+    ...subdirHandoffs(fs, join(harness, 'streams')),
+    join(harness, 'handoff.json'),
+  ];
+  const found: HumanDecision = { blockers: [], concerns: [] };
+  for (const file of files) {
+    let handoff: { blockers: string[]; concerns: string[] };
     try {
-      if (fs.mtimeMs(handoff) < sinceMs) continue;
-      for (const blocker of blockersOf(fs.readFile(handoff))) {
-        if (HUMAN_DECISION_PREFIXES.some((p) => blocker.startsWith(p))) found.push(blocker);
-      }
+      if (fs.mtimeMs(file) < sinceMs) continue;
+      handoff = parseHandoff(fs.readFile(file));
     } catch {
-      // No handoff in this session dir.
+      continue; // No handoff here.
     }
+    const blockers = handoff.blockers.filter((b) =>
+      HUMAN_DECISION_PREFIXES.some((p) => b.startsWith(p))
+    );
+    if (blockers.length === 0) continue;
+    found.blockers.push(...blockers);
+    found.concerns.push(...handoff.concerns);
   }
   return found;
 }

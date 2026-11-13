@@ -239,7 +239,10 @@ describe('follow-up: a subagent hands an unauditable judgment fork back, never t
     );
     expect(protocol).toContain('never take it unaudited');
     expect(protocol).toContain(
-      'Only when you are the top-level session and the host has no subagent-spawning tool'
+      'Only when you are the top-level session and your own tool list has no subagent-spawning tool'
+    );
+    expect(protocol).toContain(
+      'A run started by the orchestrator or by a person is a top-level session'
     );
     const handBack = section(protocol, '## Handing a fork back');
     expect(handBack).toContain('"blockers": ["judgment-fork: <question>"]');
@@ -254,6 +257,7 @@ describe('follow-up: a subagent hands an unauditable judgment fork back, never t
       'run the self-audit in this session and auto-take only on agreement'
     );
     expect(s.slice(fork)).toContain('never enters the EXECUTE retry path');
+    expect(s.slice(fork)).toContain('remove that `judgment-fork:` blocker');
   });
 });
 

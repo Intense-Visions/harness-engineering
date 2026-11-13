@@ -147,8 +147,10 @@ includes (`packages/cli/src/hooks/profiles.ts:5`).
   allowlist, under both install-dependent server names (`mcp__harness__…` and
   `mcp__plugin_harness-claude_harness__…`). We chose exact names over `mcp__harness__*` and over
   `disallowedTools`: the subagent `tools` field documents exact names, and the persona gains
-  only what the protocol needs. Personas already hold `Bash`, which reaches the same harness CLI,
-  so the grant widens no capability. None of these tools can raise autonomy (`manage_state
+  only what the protocol needs. The grant widens one capability: a persona can now write the
+  decision log, which the `autonomy-guard` hook keeps closed to `Bash` and `Write`, so it could
+  record an audit status it never earned. That is the same agent-reported trust the main
+  session's log entries already carry (ADR 0138, "Compliance is instruction-level"). None of these tools can raise autonomy (`manage_state
 set-autonomy` only lowers; D13). A subagent still has no spawning tool, so it cannot audit;
   instead of recording `unavailable`, it hands judgment forks back to the session that
   dispatched it ([ADR 0138](./0138-blind-then-refute-self-audit-for-auto-resolved-judgment-forks.md)).

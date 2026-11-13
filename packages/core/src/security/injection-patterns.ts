@@ -27,25 +27,37 @@ export interface InjectionPattern {
 
 // --- HIGH severity patterns ---
 
-/**
- * Characters a ZWNJ/ZWJ legitimately sits between (joining scripts, emoji).
- * Combining marks are deliberately absent: they attach to any letter, so
- * accepting them would let `a\u0301\u200D\u0301b` hide a ZWJ in Latin text.
- * An Indic virama is Script=Devanagari etc., not Inherited, so conjuncts pass.
- */
-const JOINING_CONTEXT =
+/** Joining scripts, where ZWNJ/ZWJ is ordinary text (Persian ZWNJ, Indic conjuncts). */
+const JOINING_SCRIPTS =
   '\\p{Script=Arabic}\\p{Script=Syriac}\\p{Script=Nko}\\p{Script=Mongolian}' +
   '\\p{Script=Devanagari}\\p{Script=Bengali}\\p{Script=Gurmukhi}\\p{Script=Gujarati}' +
   '\\p{Script=Oriya}\\p{Script=Tamil}\\p{Script=Telugu}\\p{Script=Kannada}' +
-  '\\p{Script=Malayalam}\\p{Script=Sinhala}\\p{Extended_Pictographic}' +
-  '\\p{Emoji_Modifier}\\uFE0F';
+  '\\p{Script=Malayalam}\\p{Script=Sinhala}';
+
+/**
+ * What may precede a legitimate ZWNJ/ZWJ: a joining-script letter, an emoji
+ * presented as emoji, a skin-tone modifier, or a pictograph made emoji by
+ * VARIATION SELECTOR-16 (as in ❤️‍🔥). VS16 counts only right after a pictograph:
+ * like a combining mark, it attaches to anything, so a bare VS16 context would
+ * let `a\uFE0F\u200D\uFE0Fb` hide a ZWJ in Latin text. Combining marks are
+ * absent for the same reason; an Indic virama is Script=Devanagari etc., not
+ * Inherited, so conjuncts pass.
+ */
+const ZW_JOINER_BEFORE = `(?:[${JOINING_SCRIPTS}\\p{Emoji_Presentation}\\p{Emoji_Modifier}]|\\p{Extended_Pictographic}\\uFE0F)`;
+
+/** What may follow a legitimate ZWNJ/ZWJ: a joining-script letter or a pictograph. */
+const ZW_JOINER_AFTER = `[${JOINING_SCRIPTS}\\p{Extended_Pictographic}]`;
 
 /**
  * INJ-UNI-001. `sentinel-post.js` carries an inline copy for degraded mode;
  * `sentinel.test.ts` holds the two to the same source and flags.
+ *
+ * Residual: ZWNJ/ZWJ between two legitimate neighbours (two Arabic letters, two
+ * emoji) is not flagged, so their presence or absence there can still carry
+ * hidden bits. Rejecting them would taint ordinary Persian text and emoji.
  */
 const ZERO_WIDTH_PATTERN = new RegExp(
-  `[\\u200B\\uFEFF\\u2060]|(?<![${JOINING_CONTEXT}])[\\u200C\\u200D]|[\\u200C\\u200D](?![${JOINING_CONTEXT}])`,
+  `[\\u200B\\uFEFF\\u2060]|(?<!${ZW_JOINER_BEFORE})[\\u200C\\u200D]|[\\u200C\\u200D](?!${ZW_JOINER_AFTER})`,
   'u'
 );
 
