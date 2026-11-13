@@ -49,7 +49,7 @@ describe('gather_context autonomy include', () => {
       writeSessionOverride(project, 's1', { level: 'trusted' }, 'cli', { homeDir: home }).ok
     ).toBe(true);
     expect((await gather({ session: 's1' })).autonomy.level).toBe('trusted');
-    await handleManageState(
+    const lowered = await handleManageState(
       {
         path: project,
         action: 'set-autonomy',
@@ -58,6 +58,7 @@ describe('gather_context autonomy include', () => {
       } as Parameters<typeof handleManageState>[0],
       { homeDir: home }
     );
+    expect(lowered.isError).toBeFalsy();
     const out = await gather({ session: 's1' });
     expect([out.autonomy.level, out.autonomy.source.level]).toEqual(['supervised', 'session']);
   });

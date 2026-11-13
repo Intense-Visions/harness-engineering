@@ -124,8 +124,10 @@ describe('raised fields carry an expiry (D14)', () => {
   });
 
   it('a later lowering of the field drops its expiry', () => {
-    writeSessionOverride(project, 's1', { level: 'trusted' }, 'cli', opts());
-    writeSessionOverride(project, 's1', { level: 'supervised' }, 'mcp', opts());
+    expect(writeSessionOverride(project, 's1', { level: 'trusted' }, 'cli', opts()).ok).toBe(true);
+    expect(writeSessionOverride(project, 's1', { level: 'supervised' }, 'mcp', opts()).ok).toBe(
+      true
+    );
     expect(readBack()?.level).toEqual({
       value: 'supervised',
       setAt: T0.toISOString(),

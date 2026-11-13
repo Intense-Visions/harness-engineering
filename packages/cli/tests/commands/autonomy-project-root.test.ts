@@ -82,11 +82,12 @@ describe('autonomy override is keyed on the project root', () => {
   });
 
   it('gather_context from proj/sub sees an override set from proj', async () => {
-    await runAutonomySet(
+    const seeded = await runAutonomySet(
       'supervised',
       { session: 's1', audit: 'on' },
       { cwd: () => proj, homeDir: home, env: {}, isInteractive: () => false }
     );
+    expect(seeded.status).toBe('written');
     const res = await handleGatherContext(
       { path: sub, intent: 'root key', include: ['autonomy'], session: 's1' } as Parameters<
         typeof handleGatherContext
@@ -107,11 +108,12 @@ describe('autonomy override is keyed on the project root', () => {
     expect(computeRepoKey(wt)).toBe(computeRepoKey(proj));
     // Positive control: before any override the worktree resolves to the default.
     expect(show(wt).source.level).toBe('default');
-    await runAutonomySet(
+    const seeded = await runAutonomySet(
       'supervised',
       { session: 's1', audit: 'on' },
       { cwd: () => sub, homeDir: home, env: {}, isInteractive: () => false }
     );
+    expect(seeded.status).toBe('written');
     expect(show(proj).source.level).toBe('session');
     expect([show(wt).level, show(wt).source.level, show(wt).audit]).toEqual([
       'supervised',

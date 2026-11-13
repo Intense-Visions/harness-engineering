@@ -71,7 +71,9 @@ describe('harness autonomy set', () => {
       writeSessionOverride(project, 's1', { level: 'supervised' }, 'cli', { homeDir: home }).ok
     ).toBe(true);
     const before = bytes();
-    await runAutonomySet('trusted', { session: 's1' }, deps(false).d);
+    expect((await runAutonomySet('trusted', { session: 's1' }, deps(false).d)).status).toBe(
+      'refused'
+    );
     expect(bytes()).toBe(before);
   });
 
@@ -191,8 +193,12 @@ describe('harness autonomy set: raise audit line (I1c, D16)', () => {
   });
 
   it('a declined raise and a lowering append nothing', async () => {
-    await runAutonomySet('trusted', { session: 's1' }, deps(true, false).d);
-    await runAutonomySet('supervised', { session: 's1', audit: 'on' }, deps(false).d);
+    expect((await runAutonomySet('trusted', { session: 's1' }, deps(true, false).d)).status).toBe(
+      'refused'
+    );
+    expect(
+      (await runAutonomySet('supervised', { session: 's1', audit: 'on' }, deps(false).d)).status
+    ).toBe('written');
     expect(log()).toEqual([]);
   });
 });
@@ -228,7 +234,12 @@ describe('harness autonomy set: --audit without a level, readable confirm (S5)',
     [undefined, 'off', 'audit=off'],
   ])('confirm for level=%s audit=%s reads %j (no JSON)', async (level, audit, text) => {
     const { confirm, d } = deps(true);
-    await runAutonomySet(level, { session: 's1', ...(audit !== undefined && { audit }) }, d);
+    const out = await runAutonomySet(
+      level,
+      { session: 's1', ...(audit !== undefined && { audit }) },
+      d
+    );
+    expect(out.status).toBe('written');
     const q = confirm.mock.calls[0]![0];
     expect(q).toContain(text);
     expect(q).not.toMatch(/[{}"]level|"audit"/);

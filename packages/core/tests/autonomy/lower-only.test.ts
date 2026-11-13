@@ -47,7 +47,9 @@ describe('writeLoweringOverride (SC13 core)', () => {
     { audit: false },
     { level: 'supervised' as const, audit: false },
   ])('rejects raising change %j and leaves the file byte-identical', (change) => {
-    writeSessionOverride(project, 's1', { level: 'supervised' }, 'cli', { homeDir: home });
+    expect(
+      writeSessionOverride(project, 's1', { level: 'supervised' }, 'cli', { homeDir: home }).ok
+    ).toBe(true);
     const before = fileBytes();
     const r = writeLoweringOverride(project, 's1', change, { homeDir: home });
     expect(r.ok).toBe(false);
@@ -92,7 +94,9 @@ describe('writer input validation (type-confusion, D12)', () => {
   it.each(confused)(
     'writeLoweringOverride rejects %j with AUTONOMY_INVALID_SETTING, file unchanged',
     (change) => {
-      writeSessionOverride(project, 's1', { level: 'supervised' }, 'cli', { homeDir: home });
+      expect(
+        writeSessionOverride(project, 's1', { level: 'supervised' }, 'cli', { homeDir: home }).ok
+      ).toBe(true);
       const before = fileBytes();
       const r = writeLoweringOverride(project, 's1', change as never, { homeDir: home });
       expect(r.ok).toBe(false);

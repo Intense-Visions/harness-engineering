@@ -103,7 +103,9 @@ describe('session override store', () => {
   });
 
   it.skipIf(process.platform === 'win32')('writes the file with mode 0600', () => {
-    writeSessionOverride(project, 's1', { level: 'supervised' }, 'cli', { homeDir: home });
+    expect(
+      writeSessionOverride(project, 's1', { level: 'supervised' }, 'cli', { homeDir: home }).ok
+    ).toBe(true);
     const p = sessionOverridePath(project, 's1', { homeDir: home });
     if (!p.ok) throw p.error;
     expect(fs.statSync(p.value).mode & 0o777).toBe(0o600);

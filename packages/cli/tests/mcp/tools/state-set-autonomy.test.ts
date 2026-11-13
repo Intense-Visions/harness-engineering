@@ -67,7 +67,9 @@ describe('manage_state set-autonomy', () => {
   it.each([{ level: 'trusted' }, { audit: false }, { level: 'supervised', audit: false }])(
     'rejects raise %j with a structured error and leaves the override unchanged (SC13)',
     async (change) => {
-      writeSessionOverride(project, 's1', { level: 'supervised' }, 'cli', { homeDir: home });
+      expect(
+        writeSessionOverride(project, 's1', { level: 'supervised' }, 'cli', { homeDir: home }).ok
+      ).toBe(true);
       const before = bytes();
       const res = await call(change);
       expect(res.isError).toBe(true);
