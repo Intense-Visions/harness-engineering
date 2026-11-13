@@ -267,10 +267,22 @@ critique class declarations and skip every method. **Rust emits the same type tw
 `struct` and once for the `impl` block, so Phase 2 must de-duplicate by (kind, name, line) or every
 Rust type costs two prompts and yields two copies of each finding.
 
-`[UNVERIFIED]` The rubric catalogs are assumed language-neutral — they critique whether a function
-tells one story at one altitude, not TypeScript syntax. No fixture proves this yet; Phase 1b's
-per-language fixtures are what will establish it. If a rubric turns out to be TS-specific it is
-marked per-language rather than silently misapplied.
+**The rubric catalogs ARE language-neutral — checked, not assumed.** All seven `code-craft` rubrics
+are prose about design, with no TypeScript syntax: `CODE-R001` asks whether a unit speaks in the
+domain's vocabulary or in incidental machinery, and cites Beck and Fowler rather than a language.
+The two apparent TS hits in a grep are the word "interface" used in its ordinary design sense.
+They carry over unchanged.
+
+**But their `appliesToKinds` does not carry over, and this is a real gap.** All seven rubrics
+declare `['function','method','class']` or `['function','method']`, and selection is
+`rubric.appliesToKinds.includes(kind)`. Go emits `type` for a struct, not `class` (measured above),
+so **every Go struct silently receives zero rubrics** — a unit that is extracted, counted and then
+critiqued by nothing. That is the exact silent-zero shape this design exists to prevent, arriving
+through the rubric selector rather than the language gate.
+
+Phase 2 must therefore normalize symbol kinds across languages (Go `type` -> `class`) or widen
+`appliesToKinds`, and must assert the mapping with a per-language fixture that fails when a
+language's units select zero rubrics. A count of extracted units is NOT evidence of critique.
 
 `[UNVERIFIED]` Async wasm parsing per file is assumed an acceptable cost against craft's current
 synchronous TS-Compiler path. The collect path is already async (`collectCodeCraftPrompts` awaits
