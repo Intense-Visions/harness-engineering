@@ -100,3 +100,33 @@ describe('every auto-wired craft skill documents its review-hook forwarding cont
     });
   }
 });
+
+// MUTATION RESULTS (2026-11-13, this tree, each mutation and its test run in
+// ONE command with the diff printed alongside the result):
+//
+//  M-CRAFT-SECTION — deleted the whole 19-line `## Invoked as a review hook`
+//    section from claude-code/docs-craft/SKILL.md (anchor verified to match
+//    exactly once). docs-craft's 3 cases RED, the other nine skills' 27 cases
+//    and the denominator GREEN: 3 failed | 28 passed.
+//  M-CRAFT-MIRROR — appended one `<!-- drift -->` line to the CURSOR copy of
+//    api-craft only. ONLY api-craft's mirror case RED ("platform mirrors have
+//    drifted: expected 2 to be 1"); api-craft's other two cases GREEN, since
+//    they read the claude-code copy; every other skill GREEN. 1 failed | 30
+//    passed. This law is the only thing in the repository that can see craft
+//    mirror drift.
+//  M-CRAFT-SCHEMA — added `promptBudget: { type: 'number' }` to design_craft's
+//    inputSchema.properties. ONLY harness-design-craft's promptBudget case RED
+//    (it now demands `— accepted` while the doc says `— not accepted`); the
+//    other nine promptBudget cases GREEN. Run together with
+//    tests/mcp/tool-tiers.test.ts as the record: 1 failed | 47 passed, so no
+//    other MCP schema test moved under it. The expectation is derived from the
+//    schema, not from a hand table.
+//
+//  M-CRAFT-MIRROR-MISSING (unregistered sub-probe, run because an absence
+//    assertion needs a control at the same scope) — deleted
+//    gemini-cli/spec-craft/SKILL.md outright. The three surviving copies still
+//    AGREE, so without the existence check "every present copy is identical"
+//    would have passed over a lost mirror. It failed on the control first:
+//    "expected [ …(3) ] to have a length of 4 but got 3".
+//
+// 3 registered mutants, 0 survivors; 1 sub-probe, also killed.
