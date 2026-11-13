@@ -101,6 +101,51 @@ A project may attach **additional skills, commands, and prompts** at lifecycle p
 - **Report the denominator, including skips.** State how many detectors ran of how many were expected and why any were skipped (e.g. "canary detectors: 0/4 ran — 4 skipped: not installed in this canary version"), so a partial or forward-wired run is never presented as a full one.
 - Detectors wire **only** at `after:REVIEW` and `after:FINAL_REVIEW`; no other phase boundary gains them.
 
+**Craft domains auto-wire at REVIEW / FINAL_REVIEW (default, zero-config, forward-wired, ADVISORY).**
+The craft family's ceiling-layer critique runs automatically at autopilot's two review moments,
+**alongside** `harness-code-reviewer` and the canary detectors, never replacing either. Resolve
+`resolveReviewHooksWithCraft(config, "harness-autopilot", "<after:REVIEW|after:FINAL_REVIEW>", { changedFiles, availableSkills, alreadyRanFor })`
+(from `@harness-engineering/core`), and use
+`planCraftReviewDomains(hostSkill, event, changedFiles, availableSkills, opts)` for the
+`{ wired, skipped, expected, files }` split.
+
+- **ADVISORY, NOT BLOCKING.** Craft hooks are emitted `blocking: false` **by contract** — NOT
+  `defaultBlocking(event)`, which is the canary default sitting one file away. Craft findings are
+  surfaced in the review report and do **not** contribute to the `error`/`warn` severity counts and
+  do **not** gate PHASE_COMPLETE. A taste judgment never blocks.
+- **DIFF-SCOPED — forward `files`, and forward them as ABSOLUTE paths.** Read `plan.files[skill]`
+  (the domain's owned, already-normalized subset) and forward it as the craft skill's `files`
+  argument together with a `promptBudget`. `plan.files` holds **repo-relative POSIX** paths; the
+  craft collectors read them with `fs.readFileSync`, which resolves a relative path against the
+  process CWD — so **resolve each entry against the project root first**. Forwarding them unresolved
+  produces `status: "collected"` with **zero prompts**: a clean report from a run that read nothing.
+  Never call `rule.owns()` yourself: it is correct only on repo-relative POSIX paths, and on raw VCS
+  output it yields false negatives and, worse, false positives (a `dist\…` build artifact leaks in).
+- **NO DIFF CONTEXT, NO ACTIVATION.** When the changed-file set is unknown, nothing activates and
+  every domain is reported `no-diff-context`. Do not fall back to a repository walk.
+- **ONCE PER PHASE PER DIFF.** The cap is per RESOLUTION, so two review moments can otherwise
+  dispatch up to 2x `maxDomains` on the same code. At `after:FINAL_REVIEW`, pass the domains wired
+  at `after:REVIEW` as `alreadyRanFor` **when the changed-file set is unchanged**; they are then
+  reported `already-run`. If the diff changed between the two moments, pass nothing — a domain
+  should re-run after fixes land.
+- **A not-installed craft domain is SKIPPED, never a hard halt.** Craft defaults are
+  harness-optimistic (forward-wired), exactly like the canary detectors: the resolver filters them
+  out and they are recorded in the denominator. A **USER-declared unresolvable hook still
+  HARD-HALTS.** Availability is matched prefix-insensitively, so a catalog reporting
+  `harness-claude:code-craft` wires the same domain as the bare name.
+- **A craft hook that FAILS at runtime is recorded, and the review does not fail.** Record it in
+  `{sessionDir}/phase-{N}-review.json` and in the denominator; an advisory reviewer that crashed is
+  a missing opinion, not a broken gate.
+- **A project can override or park any domain.** Declaring it in `skillHooks` wins (no double
+  dispatch); `{ "enabled": false }` parks it. Dedup is by canonical name — note that
+  `harness-design-craft` is the only craft skill whose canonical name carries the `harness-`
+  prefix, so declaring `design-craft` does NOT suppress it.
+- **Report the denominator, including skips.** State how many domains activated of how many were
+  expected and why each was skipped — e.g. "craft domains: 2/3 activated, 1 skipped:
+  unsupported-language". A surprising `0/M` renders as `0/M`, never as silence.
+- Craft domains wire **only** at `after:REVIEW` and `after:FINAL_REVIEW`; no other phase boundary
+  gains them.
+
 ## Rigor Levels
 
 Set at INIT (`--fast` / `--thorough`); persists for session. Default: `standard`.
