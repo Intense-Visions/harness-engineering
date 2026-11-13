@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/commands/autonomy'
-sourceHash: '5bb2608a8412451ee531433334f3d20a32290b171b6f67e97bc8d31e56f828a5'
+sourceHash: '78bd58a9eec0f021caf64f4d85a07f52dd71954ea44e9fa65bb46afbce1d71e9'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -18,7 +18,7 @@ export createAutonomyCommand
 
 ```
 import { logger } from '../../output/logger'
-import { prompt } from '../../output/prompt'
+import { confirmYesNo } from '../../output/prompt'
 import { AutonomyCliDeps } from './deps'
 import { createAutonomySetCommand } from './set'
 import { createAutonomyShowCommand } from './show'

@@ -7,7 +7,7 @@ import {
   type AutonomySetting,
 } from '@harness-engineering/core';
 import { logger } from '../../output/logger';
-import { prompt } from '../../output/prompt';
+import { confirmYesNo } from '../../output/prompt';
 import type { AutonomyCliDeps } from './deps';
 
 export interface AutonomySetOptions {
@@ -37,9 +37,9 @@ export function defaultIsInteractive(): boolean {
   return Boolean(process.stdin.isTTY && process.stdout.isTTY);
 }
 
-async function defaultConfirm(question: string): Promise<boolean> {
-  const answer = await prompt(question);
-  return answer === 'y' || answer === 'yes';
+/** EOF / a closed stdin resolves as declined (I5). */
+function defaultConfirm(question: string): Promise<boolean> {
+  return confirmYesNo(question);
 }
 
 function refuse(reason: RefuseReason, message: string): AutonomySetOutcome {

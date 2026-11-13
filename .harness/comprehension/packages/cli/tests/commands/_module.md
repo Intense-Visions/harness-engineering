@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/tests/commands'
-sourceHash: '314cf85e317c7dd8bfda5a9a38c904602c09e8b133ba1b939c5834e5ee0859fb'
+sourceHash: '17bcf86a934db9709985581dae2b6cd64e31ce9f91bab262b25a86354031bc24'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -24,6 +24,7 @@ members:
     'audit-protected.test.ts',
     'autonomy-command.test.ts',
     'autonomy-project-root.test.ts',
+    'autonomy-set-eof.test.ts',
     'autonomy-set.test.ts',
     'autonomy-show.test.ts',
     'backfill-skill-provenance.test.ts',
@@ -259,7 +260,7 @@ import { createAlignDesignSystemCommand } from '../../src/commands/align-design-
 import { createApiCraftCommand } from '../../src/commands/api-craft'
 import { createAuditProtectedCommand, runAuditProtected } from '../../src/commands/audit-protected'
 import { createAutonomyCommand } from '../../src/commands/autonomy/index'
-import { defaultIsInteractive, runAutonomySet } from '../../src/commands/autonomy/set'
+import { createAutonomySetCommand, defaultIsInteractive, runAutonomySet } from '../../src/commands/autonomy/set'
 import { createAutonomyShowCommand, formatAutonomy, runAutonomyShow } from '../../src/commands/autonomy/show'
 import { runBackfillSkillProvenance } from '../../src/commands/backfill-skill-provenance'
 import { ArchMeasurement, ConfiguredCategories, abstainedMeasurements, abstentionReason, classifyMeasurement, createCheckArchCommand, runCheckArch } from '../../src/commands/check-arch'
@@ -429,7 +430,7 @@ import '../../src/mcp/utils/graph-loader'
 import { NamingCraftInput, NamingCraftOutput } from '../../src/naming-craft/index.js'
 import { OutputFormatter, OutputMode } from '../../src/output/formatter'
 import { logger } from '../../src/output/logger'
-import { prompt } from '../../src/output/prompt'
+import { confirmYesNo, prompt } from '../../src/output/prompt'
 import { loadPersona } from '../../src/persona/loader'
 import { runPersona } from '../../src/persona/runner'
 import { getBundledSkillNames } from '../../src/registry/bundled-skills'
@@ -481,6 +482,7 @@ import * as os from 'node:os'
 import path, { join } from 'node:path'
 import * as nodePath from 'node:path'
 import * as path from 'node:path'
+import { PassThrough } from 'node:stream'
 import { mockedSetTimeout } from 'node:timers'
 import { fileURLToPath } from 'node:url'
 import * as os from 'os'
