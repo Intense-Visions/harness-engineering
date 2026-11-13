@@ -22,6 +22,29 @@ describe('scanForInjection', () => {
       expect(findings.some((f) => f.ruleId.startsWith('INJ-UNI'))).toBe(true);
     });
 
+    // A ZWNJ/ZWJ inside a joining script or an emoji ZWJ sequence is ordinary
+    // text; flagging it tainted any session that echoed Persian or a family
+    // emoji (trusted-autonomy review N1).
+    it.each([
+      ['Persian ZWNJ', 'می\u200Cخواهم'],
+      ['Devanagari conjunct ZWJ', 'क्\u200Dष'],
+      ['family emoji ZWJ sequence', '👨\u200D👩\u200D👧'],
+      ['skin-tone emoji ZWJ sequence', '👩🏽\u200D💻'],
+      ['VS16 emoji ZWJ sequence', '❤️\u200D🔥'],
+    ])('does not flag a %s', (_label, text) => {
+      expect(scanForInjection(text).some((f) => f.ruleId === 'INJ-UNI-001')).toBe(false);
+    });
+
+    it.each([
+      ['ZWJ between Latin letters', 'ign\u200Dore'],
+      ['ZWJ trailing an Arabic word', 'سلام\u200D'],
+      ['ZWJ leading an Arabic word', '\u200Dسلام'],
+      ['ZWJ wrapped in combining marks', 'a\u0301\u200D\u0301b'],
+      ['ZWSP inside Persian text', 'می\u200Bخواهم'],
+    ])('still flags a %s', (_label, text) => {
+      expect(scanForInjection(text).some((f) => f.ruleId === 'INJ-UNI-001')).toBe(true);
+    });
+
     it('detects BOM U+FEFF', () => {
       const findings = scanForInjection('\uFEFFsome content');
       expect(findings.some((f) => f.ruleId.startsWith('INJ-UNI'))).toBe(true);

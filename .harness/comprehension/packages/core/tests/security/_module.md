@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/tests/security'
-sourceHash: '954ed6d8bd2c2d6ee49630ce34f847d9083f60abf511a5968a4e0c6b68e504c8'
+sourceHash: '2c6f68c025b23ce197d967f94a9d71acbef53e4396976db78586cea706a12c01'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
