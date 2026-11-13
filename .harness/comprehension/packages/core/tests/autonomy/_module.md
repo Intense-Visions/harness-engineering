@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/tests/autonomy'
-sourceHash: '1ce4bf908365459f3f6297ddcdb45bfb3625c949bda0ea58129ae51e9d0f02b4'
+sourceHash: '15225614004fee259ec93b8e613e3e5f5637e0405ecb12883d67cfa7f4c88fa4'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent

@@ -52,11 +52,25 @@ function defaultReadFile(p: string): string | undefined {
   }
 }
 
-/** Flag vs session override. */
+function sessionIsNewer(flagAt: string | undefined, setAt: string): boolean {
+  if (flagAt === undefined) return false;
+  const f = Date.parse(flagAt);
+  const s = Date.parse(setAt);
+  if (Number.isNaN(f) || Number.isNaN(s)) return false;
+  return s > f;
+}
+
+/** Flag vs session override: the more recent wins; a flag without a parseable `at` wins (D3). */
 function pickUserTier<T>(
   flagValue: T | undefined,
+  flagAt: string | undefined,
   field: AutonomyOverrideField<T> | undefined
 ): Picked<T> | undefined {
+  if (flagValue !== undefined && field !== undefined) {
+    return sessionIsNewer(flagAt, field.setAt)
+      ? { value: field.value, source: 'session' }
+      : { value: flagValue, source: 'flag' };
+  }
   if (flagValue !== undefined) return { value: flagValue, source: 'flag' };
   if (field !== undefined) return { value: field.value, source: 'session' };
   return undefined;
@@ -101,7 +115,7 @@ function resolveLevel(
   user: AutonomyUserConfig,
   warnings: string[]
 ): Picked<AutonomyLevel> {
-  const tier = pickUserTier(input.flag?.level, input.sessionOverride?.level);
+  const tier = pickUserTier(input.flag?.level, input.flag?.at, input.sessionOverride?.level);
   if (tier) return tier;
   const fromEnv = readEnvLevel(env, warnings);
   if (fromEnv !== undefined) return { value: fromEnv, source: 'env' };
@@ -117,7 +131,7 @@ function resolveAudit(
   level: AutonomyLevel,
   warnings: string[]
 ): Picked<boolean> {
-  const tier = pickUserTier(input.flag?.audit, input.sessionOverride?.audit);
+  const tier = pickUserTier(input.flag?.audit, input.flag?.at, input.sessionOverride?.audit);
   if (tier) return tier;
   const fromEnv = readEnvAudit(env, warnings);
   if (fromEnv !== undefined) return { value: fromEnv, source: 'env' };

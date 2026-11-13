@@ -92,3 +92,39 @@ describe('resolveAutonomy fail-soft warnings', () => {
     expect(run({ env: { HARNESS_AUTONOMY_AUDIT: v } }).audit).toBe(true);
   });
 });
+
+describe('resolveAutonomy flag-vs-session recency (D3)', () => {
+  const T1 = '2026-01-01T01:00:00.000Z';
+  it('a session override newer than the flag wins', () => {
+    const r = run({
+      flag: { level: 'supervised', at: T0 },
+      sessionOverride: sess('trusted', undefined, T1),
+    });
+    expect([r.level, r.source.level]).toEqual(['trusted', 'session']);
+  });
+  it('a flag newer than the override wins', () => {
+    const r = run({
+      flag: { level: 'supervised', at: T1 },
+      sessionOverride: sess('trusted', undefined, T0),
+    });
+    expect([r.level, r.source.level]).toEqual(['supervised', 'flag']);
+  });
+  it('recency is per field', () => {
+    const override: AutonomySessionOverride = {
+      level: { value: 'trusted', setAt: T1, origin: 'cli' },
+      audit: { value: false, setAt: '2025-12-31T00:00:00.000Z', origin: 'cli' },
+    };
+    const r = run({
+      flag: { level: 'supervised', audit: true, at: T0 },
+      sessionOverride: override,
+    });
+    expect([r.source.level, r.source.audit]).toEqual(['session', 'flag']);
+  });
+  it('an unparseable flag.at falls back to flag precedence', () => {
+    const r = run({
+      flag: { level: 'supervised', at: 'nope' },
+      sessionOverride: sess('trusted', undefined, T1),
+    });
+    expect(r.source.level).toBe('flag');
+  });
+});
