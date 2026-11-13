@@ -193,7 +193,7 @@ If any blocker starts with `audit-disagreement:`, the subagent hit a self-audit 
 4. Complexity routing:
    - `low`/`medium`: auto-plan via harness-planner → PLAN.
      _Pause point (judgment): resolve per the Pause Protocol._ <!-- pause: judgment -->
-   - `high`: pause. Instruct: "Run `/harness:planning` interactively, then re-invoke `/harness:autopilot`." Wait for re-invocation.
+   - `high`: pause with two options: **auto-plan via harness-planner** (recommended: the planner's own forks are marked and audited, and APPROVE_PLAN still applies) → PLAN, as for `low`/`medium`; or **interactive planning**: instruct "Run `/harness:planning` interactively, then re-invoke `/harness:autopilot`." and wait for re-invocation.
 5. Update `currentState: "PLAN"`.
 
 ---
@@ -455,7 +455,7 @@ The blocking post-execution **spec-satisfaction gate** — the harness's ship ga
 
 1. **INIT** — Resolve spec, derive session slug, check for existing state, parse phases.
    _Pause point (judgment): resolve per the Pause Protocol._ <!-- pause: judgment -->
-2. **ASSESS** — Route by complexity: low/medium auto-plans, high pauses for interactive planning.
+2. **ASSESS** — Route by complexity: low/medium auto-plans, high pauses to choose auto-plan (recommended) or interactive planning.
 3. **PLAN → APPROVE** — Dispatch harness-planner, check approval signals, auto-approve or pause.
 4. **EXECUTE** — Dispatch harness-task-executor with plan path, handle checkpoints and retries (max 3).
 5. **VERIFY** — Dispatch harness-verifier, confirm code correctness and wiring. <!-- not-a-pause: the verifier checks correctness, not a human -->

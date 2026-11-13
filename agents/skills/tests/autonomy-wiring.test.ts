@@ -247,3 +247,14 @@ describe('review S6: absolute human-approval wording defers to the Pause Protoco
     expect(line).toContain('(per the Pause Protocol)');
   });
 });
+
+describe('review S7: the ASSESS high-complexity pause states its options and recommendation (D-B)', () => {
+  it('names auto-plan (recommended) and interactive planning', () => {
+    const line = section(skill('harness-autopilot'), '### ASSESS')
+      .split('\n')
+      .find((l) => l.trim().startsWith('- `high`:'));
+    expect(line, 'high line found').toBeDefined();
+    expect(line).toContain('**auto-plan via harness-planner** (recommended');
+    expect(line).toContain('**interactive planning**');
+  });
+});
