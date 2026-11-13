@@ -465,7 +465,7 @@ The blocking post-execution **spec-satisfaction gate** — the harness's ship ga
 4. **EXECUTE** — Dispatch harness-task-executor with plan path, handle checkpoints and retries (max 3).
 5. **VERIFY** — Dispatch harness-verifier, confirm code correctness and wiring.
 6. **INTEGRATE** — Resolve integration tier, dispatch harness-integration, verify system wiring, knowledge materialization, and documentation per tier.
-7. **REVIEW** — Dispatch harness-code-reviewer plus the effective `after:REVIEW` hooks (`resolveReviewHooksWithCanary`: project `skillHooks` plus canary's INSTALLED deterministic detectors when canary is present — forward-wired, not-installed ones skip), fix blocking findings.
+7. **REVIEW** — Dispatch harness-code-reviewer plus the effective `after:REVIEW` hooks (`resolveReviewHooksWithCanary`: project `skillHooks` plus canary's INSTALLED deterministic detectors when canary is present — forward-wired, not-installed ones skip), plus craft's ADVISORY domains (`resolveReviewHooksWithCraft`: diff-scoped, budget-capped, non-blocking, reported in a denominator), fix blocking findings.
 8. **PHASE_COMPLETE** — Summarize (including integration report), sync roadmap, loop to ASSESS for next phase or proceed to FINAL_REVIEW.
 9. **FINAL_REVIEW → OUTCOME_EVAL → DONE** — Cross-phase review, then the blocking spec-satisfaction gate (halt on a high-confidence NOT_SATISFIED), offer PR creation, write final handoff.
 
