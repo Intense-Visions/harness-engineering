@@ -6,6 +6,7 @@ import {
   CRAFT_REVIEW_EVENTS_BY_HOST,
   DEFAULT_MAX_CRAFT_DOMAINS,
   planCraftReviewDomains,
+  type CraftReviewPlan,
 } from '../../src/hooks/craft-review-hooks';
 import { defaultBlocking } from '../../src/hooks/skill-lifecycle';
 
@@ -526,5 +527,119 @@ describe('copy-craft is deliberately not activated in v1', () => {
         new Set([...ALL_CRAFT_INSTALLED, 'copy-craft'])
       ).wired.length
     ).toBeGreaterThan(0);
+  });
+});
+
+// A diff that activates FIVE installed domains: design(1), code(2), test(3),
+// naming(4), security(5).
+const FIVE_ACTIVATING = ['src/ui/Button.tsx', 'src/a.ts', 'src/a.test.ts'];
+const wiredNames = (plan: CraftReviewPlan): string[] =>
+  plan.wired.flatMap((hook) => (hook.type === 'skill' ? [hook.skill] : []));
+
+describe('budget cap (spec criterion 7)', () => {
+  it('wires at most 3 domains by default, in declared priority order', () => {
+    const plan = planCraftReviewDomains(
+      'harness-autopilot',
+      'after:REVIEW',
+      FIVE_ACTIVATING,
+      ALL_CRAFT_INSTALLED
+    );
+    expect(wiredNames(plan)).toEqual(['harness-design-craft', 'code-craft', 'test-craft']);
+    expect(reasonsFor(plan.skipped, 'naming-craft')).toEqual(['over-budget']);
+    expect(reasonsFor(plan.skipped, 'security-craft')).toEqual(['over-budget']);
+  });
+
+  it('honors an explicit maxDomains, and 0 wires nothing', () => {
+    const none = planCraftReviewDomains(
+      'harness-autopilot',
+      'after:REVIEW',
+      FIVE_ACTIVATING,
+      ALL_CRAFT_INSTALLED,
+      { maxDomains: 0 }
+    );
+    expect(none.wired).toEqual([]);
+    expect(reasonsFor(none.skipped, 'harness-design-craft')).toEqual(['over-budget']);
+
+    // POSITIVE CONTROL at the same scope: maxDomains 1 wires exactly the top priority.
+    const one = planCraftReviewDomains(
+      'harness-autopilot',
+      'after:REVIEW',
+      FIVE_ACTIVATING,
+      ALL_CRAFT_INSTALLED,
+      { maxDomains: 1 }
+    );
+    expect(wiredNames(one)).toEqual(['harness-design-craft']);
+  });
+
+  it('does not cap below the activated set when maxDomains is generous', () => {
+    const plan = planCraftReviewDomains(
+      'harness-autopilot',
+      'after:REVIEW',
+      FIVE_ACTIVATING,
+      ALL_CRAFT_INSTALLED,
+      { maxDomains: 99 }
+    );
+    expect(wiredNames(plan)).toEqual([
+      'harness-design-craft',
+      'code-craft',
+      'test-craft',
+      'naming-craft',
+      'security-craft',
+    ]);
+    expect(plan.skipped.some((s) => s.reason === 'over-budget')).toBe(false);
+  });
+
+  it('never spends a budget slot on a domain that would be skipped anyway', () => {
+    // design + test not installed; code, naming, security are. With a cap of 3,
+    // all three INSTALLED domains must wire — a slot consumed by a skip would
+    // silently drop security-craft.
+    const plan = planCraftReviewDomains(
+      'harness-autopilot',
+      'after:REVIEW',
+      FIVE_ACTIVATING,
+      new Set(['code-craft', 'naming-craft', 'security-craft'])
+    );
+    expect(wiredNames(plan)).toEqual(['code-craft', 'naming-craft', 'security-craft']);
+  });
+});
+
+describe('already-run (spec D10 input)', () => {
+  it('skips a domain listed in alreadyRanFor, and wires it without the list', () => {
+    const plan = planCraftReviewDomains(
+      'harness-autopilot',
+      'after:FINAL_REVIEW',
+      TSX_DIFF,
+      ALL_CRAFT_INSTALLED,
+      { alreadyRanFor: ['harness-design-craft'] }
+    );
+    expect(wiredNames(plan)).not.toContain('harness-design-craft');
+    expect(reasonsFor(plan.skipped, 'harness-design-craft')).toEqual(['already-run']);
+
+    // POSITIVE CONTROL at the same scope.
+    const control = planCraftReviewDomains(
+      'harness-autopilot',
+      'after:FINAL_REVIEW',
+      TSX_DIFF,
+      ALL_CRAFT_INSTALLED
+    );
+    expect(wiredNames(control)).toContain('harness-design-craft');
+  });
+
+  it('matches alreadyRanFor entries by bare name (plugin-qualified included)', () => {
+    const plan = planCraftReviewDomains(
+      'harness-autopilot',
+      'after:FINAL_REVIEW',
+      TSX_DIFF,
+      ALL_CRAFT_INSTALLED,
+      { alreadyRanFor: ['harness-claude:harness-design-craft'] }
+    );
+    expect(reasonsFor(plan.skipped, 'harness-design-craft')).toEqual(['already-run']);
+  });
+
+  it('reports not-installed ahead of already-run', () => {
+    const plan = planCraftReviewDomains('harness-autopilot', 'after:REVIEW', TSX_DIFF, new Set(), {
+      alreadyRanFor: ['harness-design-craft'],
+    });
+    expect(reasonsFor(plan.skipped, 'harness-design-craft')).toEqual(['not-installed']);
   });
 });

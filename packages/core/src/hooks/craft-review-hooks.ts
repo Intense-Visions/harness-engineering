@@ -368,7 +368,7 @@ export function planCraftReviewDomains(
   event: string,
   changedFiles: readonly string[] | undefined,
   availableSkills?: SkillAvailability,
-  _opts?: { maxDomains?: number; alreadyRanFor?: readonly string[] }
+  opts?: { maxDomains?: number; alreadyRanFor?: readonly string[] }
 ): CraftReviewPlan {
   if (!isCraftReviewEvent(hostSkill, event)) {
     return { wired: [], skipped: [], expected: [] };
@@ -386,6 +386,9 @@ export function planCraftReviewDomains(
 
   const files = changedFiles.map(normalizePath);
   const isInstalled = toAvailabilityPredicate(availableSkills);
+  const alreadyRan = new Set((opts?.alreadyRanFor ?? []).map(bareSkillName));
+  // Clamp: a negative or fractional cap must mean "no slots", never "unbounded".
+  const maxDomains = Math.max(0, Math.trunc(opts?.maxDomains ?? DEFAULT_MAX_CRAFT_DOMAINS));
   const wired: NormalizedHook[] = [];
   const skipped: CraftReviewSkip[] = [];
 
@@ -401,6 +404,14 @@ export function planCraftReviewDomains(
     }
     if (!isInstalled(rule.skill)) {
       skipped.push({ skill: rule.skill, reason: 'not-installed' });
+      continue;
+    }
+    if (alreadyRan.has(bareSkillName(rule.skill))) {
+      skipped.push({ skill: rule.skill, reason: 'already-run' });
+      continue;
+    }
+    if (wired.length >= maxDomains) {
+      skipped.push({ skill: rule.skill, reason: 'over-budget' });
       continue;
     }
     // NON-BLOCKING, deliberately. NOT `defaultBlocking(event)` — see divergence 1.
