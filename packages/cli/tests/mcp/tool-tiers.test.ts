@@ -29,6 +29,11 @@ describe('CORE_TOOL_NAMES', () => {
 });
 
 describe('STANDARD_TOOL_NAMES', () => {
+  it('exposes record_auto_decision in standard but not core (spec: tier standard)', () => {
+    expect(STANDARD_TOOL_NAMES).toContain('record_auto_decision');
+    expect(CORE_TOOL_NAMES).not.toContain('record_auto_decision');
+  });
+
   it('exposes manage_adr alongside its sibling manage_roadmap', () => {
     const std = new Set(STANDARD_TOOL_NAMES);
     expect(std.has('manage_roadmap')).toBe(true);
