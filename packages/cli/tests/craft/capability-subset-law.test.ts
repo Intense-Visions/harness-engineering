@@ -226,3 +226,41 @@ describe('the probe table itself works (the probes own positive control)', () =>
     expect(result.found, `the ${c.skill} probe is broken: ${result.detail}`).toBe(true);
   });
 });
+
+describe('THE SUBSET LAW: a declared language is a capability claim, per EXTENSION', () => {
+  // ANTI-VACUITY. Two empty sets satisfy any subset assertion, and the easiest
+  // false green in this file is a GATED list that silently became empty (e.g. a
+  // table edit flipping every domain to 'any').
+  it('has gated domains to check, and a probe for each', () => {
+    expect(GATED.length).toBeGreaterThanOrEqual(4);
+    for (const d of GATED) expect(PROBES[d.skill], `no probe for ${d.skill}`).toBeDefined();
+  });
+
+  const CASES = GATED.flatMap((d) =>
+    declaredExtensions(d.supportedLanguages as readonly SupportedLanguage[]).map((ext) => ({
+      skill: d.skill,
+      ext,
+    }))
+  );
+
+  it('covers every declared (domain, extension) pair', () => {
+    // A shrinking case list is how this law dies quietly.
+    expect(CASES.length).toBeGreaterThanOrEqual(8 * 1 + 4);
+  });
+
+  it.each(CASES)('$skill can actually extract from $ext', async ({ skill, ext }) => {
+    const { probe, sourceFor, fileFor } = PROBES[skill];
+    const source = sourceFor(ext);
+    // A MISSING FIXTURE IS A FAILURE, NOT A SKIP. A seventh language entering
+    // EXTENSION_MAP automatically enters code-craft's declared set and lands
+    // here with no fixture; that must be loud.
+    expect(source, `${skill} declares ${ext} but the probe has no fixture for it`).not.toBeNull();
+    const file = path.join(CORPUS, fileFor(ext));
+    const result = await probe(file, source as string);
+    expect(
+      result.found,
+      `${skill} DECLARES ${ext} but extracts nothing from it — wiring is ahead of ` +
+        `extraction, which is the silent zero this law exists to prevent. ${result.detail}`
+    ).toBe(true);
+  });
+});
