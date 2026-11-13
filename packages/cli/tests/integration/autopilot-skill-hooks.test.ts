@@ -172,14 +172,22 @@ describe('harness-autopilot documents the general skillHooks framework (#1481)',
   it('wires exactly the four events it advertises as wired (no silent-no-op overpromise)', () => {
     const WIRED = ['before:EXECUTE', 'after:REVIEW', 'after:FINAL_REVIEW', 'on:failure'];
     // Concrete call sites in the prose, ignoring the generic <...:<STATE>> placeholder.
-    // The review events (after:REVIEW / after:FINAL_REVIEW) resolve through
-    // resolveReviewHooksWithCanary (which layers canary's deterministic detectors
-    // on top of the configured skillHooks, #1482); the non-review events resolve
-    // through the bare resolveSkillHooks. Both are concrete wiring call sites.
+    // The review events resolve through TWO layered resolvers:
+    // resolveReviewHooksWithCanary (canary's deterministic detectors, #1482) and
+    // resolveReviewHooksWithCraft (craft's advisory domains); the non-review
+    // events resolve through the bare resolveSkillHooks. All three are concrete
+    // wiring call sites.
+    //
+    // WIDENING THIS IS NOT EVIDENCE OF ANYTHING, and the comment says so on
+    // purpose. Craft's two events are ALREADY in WIRED via canary, so this
+    // assertion is satisfied with or without the craft lines — measured, both
+    // before and after the alternation was widened. The law that can actually
+    // fail on craft is "documents the craft resolver at exactly its two review
+    // events" below, which uses craft's OWN denominator.
     const callSites = new Set(
       [
         ...md.matchAll(
-          /(?:resolveSkillHooks|resolveReviewHooksWithCanary)\(config,\s*"harness-autopilot",\s*"([^"]+)"[,)]/g
+          /(?:resolveSkillHooks|resolveReviewHooksWithCanary|resolveReviewHooksWithCraft)\(config,\s*"harness-autopilot",\s*"([^"]+)"[,)]/g
         ),
       ]
         .map((m) => m[1])
