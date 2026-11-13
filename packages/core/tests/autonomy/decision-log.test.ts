@@ -204,6 +204,19 @@ describe('readAutoDecisions archive fallback', () => {
     expect(r.value.archived).toBe(true);
     expect(r.value.file.replaceAll('\\', '/')).toContain('/archive/sessions/s2-2026-11-12-10/');
     expect(r.value.entries.map((e) => e.question)).toEqual(['newest']);
+    // s2-2026-11-01, s2-2026-11-12-2 and s2-2026-11-12 are older; the s20-/s2-latest decoys are not counted.
+    expect(r.value.olderArchives).toBe(3);
+  });
+  it('reports zero older copies for a live session and for a single archive (review N3)', () => {
+    fs.mkdirSync(sessionDir('s2'), { recursive: true });
+    const live = readAutoDecisions(project, 's2', { ...git, archiveFallback: true });
+    expect(live.ok && live.value.olderArchives).toBe(0);
+    archive('solo-2026-11-12', 'only');
+    const solo = readAutoDecisions(project, 'solo', { ...git, archiveFallback: true });
+    expect(solo.ok && { archived: solo.value.archived, older: solo.value.olderArchives }).toEqual({
+      archived: true,
+      older: 0,
+    });
   });
   it('does not fall back unless asked', () => {
     expect(codeOf(readAutoDecisions(project, 's2', git))).toBe('AUTO_DECISION_SESSION_NOT_FOUND');

@@ -70,6 +70,8 @@ export interface AutoDecisionLogRead {
   file: string;
   /** True when the live session dir was gone and an archived copy was read. */
   archived: boolean;
+  /** Archived copies of this slug older than the one read (0 when the live dir was read). */
+  olderArchives: number;
   present: boolean;
   entries: AutoDecision[];
   /** Lines that failed to parse (hand-edited or cut short), 1-based; never counted. */
@@ -174,8 +176,11 @@ function defaultReadFile(p: string): string | undefined {
 
 const ARCHIVE_SUFFIX = /^(\d{4}-\d{2}-\d{2})(?:-(\d+))?$/;
 
-/** Newest `<slug>-<date>[-<n>]` dir beside the live sessions dir, by date then numeric counter. */
-function newestArchivedSessionDir(liveDir: string, slug: string): string | undefined {
+/** Newest `<slug>-<date>[-<n>]` dir beside the live sessions dir, and how many older ones exist. */
+function newestArchivedSessionDir(
+  liveDir: string,
+  slug: string
+): { dir: string; older: number } | undefined {
   const base = path.join(liveDir, '..', '..', 'archive', 'sessions');
   let names: string[];
   try {
@@ -183,7 +188,7 @@ function newestArchivedSessionDir(liveDir: string, slug: string): string | undef
   } catch {
     return undefined;
   }
-  const newest = names
+  const copies = names
     .flatMap((name) => {
       const m = name.startsWith(`${slug}-`)
         ? ARCHIVE_SUFFIX.exec(name.slice(slug.length + 1))
@@ -191,8 +196,9 @@ function newestArchivedSessionDir(liveDir: string, slug: string): string | undef
       return m ? [{ name, date: m[1] ?? '', n: Number(m[2] ?? 0) }] : [];
     })
     .filter((c) => isDirectory(path.join(base, c.name)))
-    .sort((a, b) => (a.date === b.date ? b.n - a.n : b.date.localeCompare(a.date)))[0];
-  return newest && path.join(base, newest.name);
+    .sort((a, b) => (a.date === b.date ? b.n - a.n : b.date.localeCompare(a.date)));
+  const newest = copies[0];
+  return newest && { dir: path.join(base, newest.name), older: copies.length - 1 };
 }
 
 /** The directory to read: the live session dir, else (if allowed) its newest archived copy. */
@@ -200,10 +206,10 @@ function locateSessionForRead(
   liveDir: string,
   slug: string,
   opts: ReadAutoDecisionsOptions
-): Result<{ dir: string; archived: boolean }, Error> {
-  if (isDirectory(liveDir)) return Ok({ dir: liveDir, archived: false });
-  const archivedDir = opts.archiveFallback ? newestArchivedSessionDir(liveDir, slug) : undefined;
-  if (archivedDir !== undefined) return Ok({ dir: archivedDir, archived: true });
+): Result<{ dir: string; archived: boolean; older: number }, Error> {
+  if (isDirectory(liveDir)) return Ok({ dir: liveDir, archived: false, older: 0 });
+  const copy = opts.archiveFallback ? newestArchivedSessionDir(liveDir, slug) : undefined;
+  if (copy !== undefined) return Ok({ dir: copy.dir, archived: true, older: copy.older });
   const tail = opts.sessionNotFoundHint ?? READ_NOT_FOUND_TAIL;
   return Err(new AutoDecisionSessionNotFoundError(slug, liveDir, tail));
 }
@@ -218,7 +224,7 @@ export function readAutoDecisions(
   if (!dir.ok) return dir;
   const located = locateSessionForRead(dir.value, slug, opts);
   if (!located.ok) return located;
-  const { archived } = located.value;
+  const { archived, older: olderArchives } = located.value;
   const file = path.join(located.value.dir, AUTO_DECISIONS_FILE);
   let raw: string | undefined;
   try {
@@ -228,7 +234,8 @@ export function readAutoDecisions(
       new Error(`Cannot read ${file}: ${err instanceof Error ? err.message : String(err)}`)
     );
   }
-  if (raw === undefined) return Ok({ file, archived, present: false, entries: [], invalid: [] });
+  if (raw === undefined)
+    return Ok({ file, archived, olderArchives, present: false, entries: [], invalid: [] });
   const lines = raw.split('\n');
   if (lines[lines.length - 1] === '') lines.pop();
   const entries: AutoDecision[] = [];
@@ -243,7 +250,7 @@ export function readAutoDecisions(
     // Parse errors echo the raw line; escape it so --json never carries C1/bidi (review S6).
     else invalid.push({ line: i + 1, error: escapeUnsafeLogText(parsed.error.message) });
   });
-  return Ok({ file, archived, present: true, entries, invalid });
+  return Ok({ file, archived, olderArchives, present: true, entries, invalid });
 }
 
 // --- recordAutoDecision: the only public write path -------------------------------------
