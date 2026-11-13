@@ -60,27 +60,44 @@ describe('autonomy paths', () => {
 describe('repoKey keys on the project root', () => {
   const toplevelOf = (map: Record<string, string>) => (p: string) => map[p];
 
-  it('a subdirectory hashes to the same key as its git toplevel (injected git)', () => {
+  it('a subdirectory hashes to the same key as its repo (injected git)', () => {
     const opts = {
       realpath: identity,
       gitToplevel: toplevelOf({ '/proj/sub': '/proj', '/proj': '/proj' }),
+      gitCommonDir: toplevelOf({ '/proj/sub': '/proj/.git', '/proj': '/proj/.git' }),
     };
     expect(resolveProjectRoot('/proj/sub', opts)).toBe('/proj');
     expect(computeRepoKey('/proj/sub', opts)).toBe(computeRepoKey('/proj', opts));
   });
 
+  it('D15: the key hashes the git common dir, so worktrees with distinct toplevels share it', () => {
+    const opts = {
+      realpath: identity,
+      gitToplevel: toplevelOf({ '/main': '/main', '/wt': '/wt' }),
+      gitCommonDir: toplevelOf({ '/main': '/main/.git', '/wt': '/main/.git' }),
+    };
+    expect(computeRepoKey('/wt', opts)).toBe(computeRepoKey('/main', opts));
+    expect(computeRepoKey('/wt', opts)).toBe(
+      computeRepoKey('/main/.git', { realpath: identity, gitCommonDir: () => undefined })
+    );
+  });
+
   it('falls back to the given path when it is not in a git repo', () => {
-    const opts = { realpath: identity, gitToplevel: () => undefined };
+    const opts = {
+      realpath: identity,
+      gitToplevel: () => undefined,
+      gitCommonDir: () => undefined,
+    };
     expect(resolveProjectRoot('/x/sub', opts)).toBe('/x/sub');
     expect(computeRepoKey('/x/sub', opts)).not.toBe(computeRepoKey('/x', opts));
     // Same key as the pre-existing path-only behaviour for non-repos.
     expect(computeRepoKey('/x/sub', opts)).toBe(
-      computeRepoKey('/x/sub', { realpath: identity, gitToplevel: () => undefined })
+      computeRepoKey('/x/sub', { realpath: identity, gitCommonDir: () => undefined })
     );
   });
 
   it('sessionOverridePath uses the root key', () => {
-    const opts = { homeDir: '/h', realpath: identity, gitToplevel: () => '/proj' };
+    const opts = { homeDir: '/h', realpath: identity, gitCommonDir: () => '/proj/.git' };
     const a = sessionOverridePath('/proj/a/b', 's1', opts);
     const b = sessionOverridePath('/proj', 's1', opts);
     expect(a.ok && b.ok && a.value === b.value).toBe(true);
@@ -125,15 +142,22 @@ describe('repoKey keys on the project root', () => {
       }
     });
 
-    it('each git worktree keeps its own key (its own toplevel)', () => {
+    it('all worktrees of a repo SHARE one key (D15: git-common-dir), each keeps its own root', () => {
       const repo = setup();
       try {
         const wt = path.join(tmp, 'wt');
         git(repo, 'worktree', 'add', '-q', wt);
         fs.mkdirSync(path.join(wt, 'sub'), { recursive: true });
+        // The project root (where .harness/sessions lives) stays per worktree...
         expect(norm(resolveProjectRoot(path.join(wt, 'sub')))).toBe(norm(wt));
+        // ...but the override key is shared, so a lowering in main reaches the worktree.
         expect(computeRepoKey(path.join(wt, 'sub'))).toBe(computeRepoKey(wt));
-        expect(computeRepoKey(wt)).not.toBe(computeRepoKey(repo));
+        expect(computeRepoKey(wt)).toBe(computeRepoKey(repo));
+        // Positive control: a different repo still gets a different key.
+        const other = path.join(tmp, 'other');
+        fs.mkdirSync(other);
+        git(other, 'init', '-q');
+        expect(computeRepoKey(other)).not.toBe(computeRepoKey(repo));
       } finally {
         fs.rmSync(tmp, { recursive: true, force: true });
       }
@@ -148,6 +172,10 @@ describe('repoKey keys on the project root', () => {
       process.env.GIT_DIR = path.join(other, '.git');
       try {
         expect(norm(resolveProjectRoot(path.join(repo, 'sub')))).toBe(norm(repo));
+        expect(computeRepoKey(path.join(repo, 'sub'))).not.toBe(computeRepoKey(other));
+        expect(computeRepoKey(path.join(repo, 'sub'))).toBe(
+          computeRepoKey(path.join(repo, 'sub'), { gitCommonDir: () => path.join(repo, '.git') })
+        );
       } finally {
         if (saved === undefined) delete process.env.GIT_DIR;
         else process.env.GIT_DIR = saved;

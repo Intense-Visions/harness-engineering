@@ -11,7 +11,7 @@ import { handleGatherContext } from '../../src/mcp/tools/gather-context';
 
 /**
  * FIX 2 (D12): repoKey = sha256 of the repo ROOT, so every caller resolves the same override
- * regardless of which subdirectory it runs from. Uses real git; each worktree stays separate.
+ * regardless of which subdirectory it runs from. Uses real git; worktrees share one key (D15).
  */
 let tmp: string;
 let home: string;
@@ -101,17 +101,22 @@ describe('autonomy override is keyed on the project root', () => {
     });
   });
 
-  it('a git worktree keeps its own key: an override in proj does not apply in the worktree', async () => {
+  it('D15: worktrees share the key, so a lowering in proj reaches the worktree', async () => {
     const wt = path.join(tmp, 'wt');
     git(proj, 'worktree', 'add', '-q', wt);
-    expect(computeRepoKey(wt)).not.toBe(computeRepoKey(proj));
+    expect(computeRepoKey(wt)).toBe(computeRepoKey(proj));
+    // Positive control: before any override the worktree resolves to the default.
+    expect(show(wt).source.level).toBe('default');
     await runAutonomySet(
       'supervised',
       { session: 's1', audit: 'on' },
       { cwd: () => sub, homeDir: home, env: {}, isInteractive: () => false }
     );
     expect(show(proj).source.level).toBe('session');
-    // Positive control is the line above; the worktree resolves without the override.
-    expect(show(wt).source.level).toBe('default');
+    expect([show(wt).level, show(wt).source.level, show(wt).audit]).toEqual([
+      'supervised',
+      'session',
+      true,
+    ]);
   });
 });
