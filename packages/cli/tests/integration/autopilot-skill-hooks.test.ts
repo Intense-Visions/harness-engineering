@@ -199,6 +199,54 @@ describe('harness-autopilot documents the general skillHooks framework (#1481)',
     expect(vocab).toMatch(/not yet wired|no-op/i);
     for (const e of WIRED) expect(vocab).toContain(e);
   });
+
+  // MEASURED DURING PLANNING AND RE-MEASURED AT EXECUTION: adding a craft call
+  // site to SKILL.md left the generic "wires exactly the four events"
+  // assertion above GREEN (16/16), because the craft resolver matched neither
+  // alternative; and widening the alternation does not fix it either, because
+  // craft's two events are already in WIRED via canary. Both craft's presence
+  // AND its absence are invisible there. Craft therefore needs its OWN
+  // denominator, which is what these three tests are.
+  it('documents the craft resolver at exactly its two review events', () => {
+    const CRAFT_WIRED = ['after:REVIEW', 'after:FINAL_REVIEW'];
+    const craftSites = new Set(
+      [
+        ...md.matchAll(
+          /resolveReviewHooksWithCraft\(config,\s*"harness-autopilot",\s*"([^"]+)"[,)]/g
+        ),
+      ]
+        .map((m) => m[1])
+        // Same placeholder filter the generic law uses: the vocabulary's
+        // `"<after:REVIEW|after:FINAL_REVIEW>"` is a FORM, not a call site.
+        // Without this the law fails against correct prose, which is a law
+        // that blocks documentation rather than a law that catches drift.
+        .filter((e) => /^(before|after|on):[A-Za-z0-9_-]+$/.test(e))
+    );
+    expect([...craftSites].sort()).toEqual([...CRAFT_WIRED].sort());
+  });
+
+  it('states the craft contract the resolver cannot enforce from prose alone', () => {
+    const vocab = extractSection(md, 'Lifecycle skill hooks');
+    // Advisory, not blocking (spec D2 / criterion 3).
+    expect(vocab).toMatch(/ADVISORY, NOT BLOCKING/i);
+    expect(vocab).toMatch(/do \*\*not\*\* contribute to the `error`\/`warn` severity counts/i);
+    // Diff scope, and the ABSOLUTE-path requirement without which a run reads nothing.
+    expect(vocab).toMatch(/plan\.files\[skill\]/);
+    expect(vocab).toMatch(/ABSOLUTE paths|resolve each entry against the project root/i);
+    expect(vocab).toMatch(/promptBudget/);
+    // Once per phase per diff (D10 / criterion 8).
+    expect(vocab).toMatch(/alreadyRanFor/);
+    // Denominator (criterion 6) and graceful skip vs user hard-halt (criteria 7).
+    expect(vocab).toMatch(/craft domains: \d+\/\d+ activated/);
+    expect(vocab).toMatch(/SKIPPED, never a hard halt/i);
+    expect(vocab).toMatch(/USER-declared unresolvable hook still\s+HARD-HALTS/i);
+    expect(vocab).toMatch(/no-diff-context/);
+  });
+
+  it('names craft in both review steps, not only in the vocabulary', () => {
+    expect(extractSection(md, 'REVIEW')).toMatch(/resolveReviewHooksWithCraft/);
+    expect(extractSection(md, 'FINAL_REVIEW')).toMatch(/alreadyRanFor/);
+  });
 });
 
 describe('harness-code-review is a second skillHooks consumer (not autopilot-locked)', () => {
