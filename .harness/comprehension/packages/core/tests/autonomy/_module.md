@@ -1,12 +1,13 @@
 ---
 schemaVersion: 1
 module: 'packages/core/tests/autonomy'
-sourceHash: '5696f49412c7d12b75908cf9a95cb17f6eec19706f526f697fd0ec273b1b487e'
+sourceHash: '5c425f7d14b5ce0b899941875e8f8a3af224b51c13536dd6559c7d0aad83c64d'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
 members:
   [
+    'decision-log.test.ts',
     'decision-schema.test.ts',
     'lower-only.test.ts',
     'override-store.test.ts',
@@ -29,6 +30,7 @@ members:
 ## Dependency Slice
 
 ```
+import { MAX_AUTO_DECISION_LINE_BYTES, appendAutoDecision, autoDecisionLogPath, readAutoDecisions } from '../../src/autonomy/decision-log'
 import { AUTO_DECISION_LIMITS, parseAutoDecisionLine, validateAutoDecisionInput } from '../../src/autonomy/decision-schema'
 import { AUTONOMY_SESSION_NOT_FOUND, DEFAULT_RAISE_TTL_MS, autonomyAuditLogPath, computeRepoKey, readSessionOverride, resolveAutonomy, resolveAutonomyForSession, sessionOverridePath, writeLoweringOverride, writeSessionOverride } from '../../src/autonomy/index'
 import { AUTONOMY_INVALID_SETTING, AUTONOMY_RAISE_REJECTED, isRaisingChange, writeLoweringOverride } from '../../src/autonomy/lower-only'
@@ -36,7 +38,8 @@ import { claimStaleLock, readSessionOverride, releaseOverrideLock, writeSessionO
 import { computeRepoKey, harnessHomeDir, resolveProjectRoot, sessionOverridePath, userConfigPath, validateOverrideSlug } from '../../src/autonomy/paths'
 import { ResolveAutonomyInput, resolveAutonomy } from '../../src/autonomy/resolve'
 import { UserConfigSchema, parseSessionOverride, parseUserConfig, validateAutonomySetting } from '../../src/autonomy/schema'
-import { AutonomyLevel, AutonomySessionOverride } from '@harness-engineering/types'
+import { resolveSessionDir } from '../../src/state/session-resolver'
+import { AutoDecision, AutonomyLevel, AutonomySessionOverride } from '@harness-engineering/types'
 import { execFileSync } from 'node:child_process'
 import * as fs from 'node:fs'
 import * as os from 'node:os'
