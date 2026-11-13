@@ -263,27 +263,35 @@ describe('harness-autopilot documents the general skillHooks framework (#1481)',
     });
     expect(without).toEqual(['design_craft']);
 
-    const lines = md.split('\n');
-    const sites = lines
-      .map((line, i) => ({ line, n: i + 1 }))
-      .filter(({ line }) => line.includes('promptBudget'));
-    // CARDINALITY CONTROL. A per-site loop only visits what it finds, so a
-    // THIRD unqualified mention added later would slip past it silently.
-    expect(sites.map((s) => s.n)).toHaveLength(2);
+    // SENTENCES, not lines, and not line-blocks. Three framings were tried and
+    // the first two were measured to be wrong, so both failures are recorded:
+    //
+    //   per-LINE with a literal count of 2 — went red on the FINAL_REVIEW
+    //     rewrite, which wrapped ONE claim across three lines. It was pinning
+    //     the prose width, not the claim.
+    //   per-BLOCK (contiguous lines grouped) — passed that rewrite but SURVIVED
+    //     a mutant that inserted an unqualified "Always send a `promptBudget`."
+    //     immediately after the second site: adjacency laundered it into a
+    //     neighbour's qualified window. Measured, not reasoned.
+    //
+    // A sentence is the unit the claim is actually made in, so each sentence
+    // that mentions promptBudget must carry the qualification itself.
+    const sentences = md
+      .replace(/\n/g, ' ')
+      .split(/(?<=\.)\s+/)
+      .map((t) => t.trim())
+      .filter((t) => t.includes('promptBudget'));
 
-    for (const { n } of sites) {
-      // The claim's own sentence. This file wraps prose at ~100 cols, so a
-      // clause can land on an adjacent line. VACUITY CHECKED: the qualifier
-      // appears NOWHERE in this file pre-edit (it exists only in
-      // harness-code-review/SKILL.md:236), so no surrounding prose can
-      // satisfy a window of this width.
-      const window = lines.slice(Math.max(0, n - 2), n + 3).join(' ');
-      expect(window, `harness-autopilot/SKILL.md:${n} states promptBudget unqualified`).toMatch(
+    // CARDINALITY CONTROL: two claim sites, and a third sentence anywhere in
+    // the document reddens here rather than slipping past the loop below.
+    expect(sentences).toHaveLength(2);
+
+    for (const sentence of sentences) {
+      const where = sentence.slice(0, 60);
+      expect(sentence, `promptBudget stated unqualified: "${where}…"`).toMatch(
         /where that domain(?:'|\u2019)s MCP tool accepts one/
       );
-      expect(window, `harness-autopilot/SKILL.md:${n} does not name the exception`).toMatch(
-        /design_craft/
-      );
+      expect(sentence, `the exception is not named: "${where}…"`).toMatch(/design_craft/);
     }
   });
 });
@@ -389,6 +397,12 @@ describe('harness-code-review is a second skillHooks consumer (not autopilot-loc
 
 // MUTATION RESULTS (2026-11-13, Phase 5 promptBudget cardinality law)
 //
+// SUPERSEDED IN PART. The results below were measured against the LINE-granular
+// form of this law. FINAL_REVIEW's own fix to this SKILL.md reddened it, and the
+// law is now sentence-granular; the re-measured results are in the second block
+// at the end of this file. The line numbers quoted below are the pre-rewrite
+// ones and are kept as the record of what was run, not as current coordinates.
+//
 // PRE-EDIT EVALUATION (the control that separates a law from a fixture).
 //   Before the SKILL.md edit, `grep -c "where that domain"
 //   agents/skills/claude-code/harness-autopilot/SKILL.md` returned 0 — the
@@ -420,3 +434,35 @@ describe('harness-code-review is a second skillHooks consumer (not autopilot-loc
 //    promptBudget forces the prose to follow. 1 failed | 24 passed (25).
 //
 // 4 registered mutants, 0 survivors.
+
+// MUTATION RESULTS (2026-11-13, FINAL_REVIEW — the law regranulated twice)
+//
+// The I-2/I-6 rewrite of this SKILL.md added a third `promptBudget` line inside
+// ONE claim (a parenthetical naming the maxFiles exception), and the law went
+// red on a document that was still making exactly two claims. That is the law
+// pinning prose width. Two re-granulations were tried and BOTH were measured:
+//
+//   per-BLOCK (contiguous mentions grouped) — passed the rewrite, then SURVIVED
+//     M-AP-BUDGET-ADJACENT2 below. Discarded on the measurement, not on taste.
+//   per-SENTENCE (shipped) — a sentence is the unit the claim is made in.
+//
+//  M-AP-BUDGET-118 — stripped the qualifier from the first claim. RED:
+//    'promptBudget stated unqualified: "- **DIFF-SCOPED — forward `files`, and
+//    forward them as ABSOL…"'. 1 failed | 24 passed (25).
+//  M-AP-BUDGET-334 — stripped it from the second. RED: 'promptBudget stated
+//    unqualified: "Dispatch each wired domain as an extra reviewer with its
+//    own…"'. 1 failed | 24 passed (25).
+//  M-AP-BUDGET-COUNT — a third unqualified mention, far from both sites. RED on
+//    the cardinality control: "expected [ …(3) ] to have a length of 2 but got
+//    3". 1 failed | 24 passed (25).
+//  M-AP-BUDGET-ADJACENT2 — a third unqualified SENTENCE one line from site 2
+//    ("Always send a `promptBudget`."), i.e. the laundering case. RED, same
+//    control. 1 failed | 24 passed (25). Under the per-block form this one was
+//    GREEN, which is why that form was discarded.
+//  M-AP-BUDGET-ADJACENT (recorded as a DELIBERATE survivor) — the same text
+//    inserted MID-SENTENCE, with no sentence boundary before it. Stays green,
+//    and should: with no boundary it is a fragment of the surrounding qualified
+//    sentence, so under this law's unit there is no second claim to qualify. A
+//    survivor is recorded with its reason rather than hidden.
+//
+// 4 registered mutants killed, 1 deliberate survivor with a stated reason.

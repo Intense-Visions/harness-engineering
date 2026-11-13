@@ -99,3 +99,22 @@ describe("AGENTS.md's craft-family tier claim is derived, not hand-maintained", 
     ).toBeUndefined();
   });
 });
+
+// MUTATION RESULTS (2026-11-13, FINAL_REVIEW I-4 tier law)
+//
+//  M-I4-TEXT (also the PRE-EDIT control) — put AGENTS.md back to "11 skills,
+//    Tier 3", the sentence FINAL_REVIEW found. RED: "AGENTS.md must say Tier 2
+//    (derived from skill.yaml): expected '- **The `-craft` family (11 skills,
+//    T…' to contain 'Tier 2'". 1 failed | 3 passed (4).
+//  M-I4-YAML — set api-craft's skill.yaml to `tier: 3`, i.e. drifted the SOURCE
+//    rather than the prose. RED on the family-split law, which names the split
+//    rather than silently picking a majority: "the craft family declares mixed
+//    tiers: {"2":[…ten…],"3":["api-craft"]}: expected [ 2, 3 ] to have a length
+//    of 1 but got 2". 2 failed | 2 passed (4).
+//  M-I4-GLOB (unregistered sub-probe, run because every derived loop needs one)
+//    — changed the directory filter to `-crafty`, so the family resolved to
+//    zero skills. The denominator fired first ("expected 0 to be greater than
+//    0") and the other two cases went red behind it. Without it, an empty
+//    family would make `every(...)` and the tier derivation vacuously true.
+//
+// 2 registered mutants, 0 survivors; 1 sub-probe, also killed.

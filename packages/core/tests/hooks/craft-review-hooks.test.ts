@@ -1561,3 +1561,20 @@ describe('module laws', () => {
     expect(header).toMatch(/harness-code-review/);
   });
 });
+
+// MUTATION RESULTS (2026-11-13, FINAL_REVIEW I-1 header law)
+//
+//  M-I1-REVERT (also the PRE-EDIT control) — restored the shipped-at-review
+//    header paragraph verbatim ("Phase 1 deliberately does NOT export these
+//    symbols from `hooks/index.ts` and wires no host ... A test pins that
+//    boundary"). RED: "header claims the module is not exported: expected
+//    '// packages/core/src/hooks/craft-revi…' not to match /does NOT export
+//    these symbols/". 1 failed | 78 passed (79). The law would have been red on
+//    the document as it stood when FINAL_REVIEW read it.
+//  M-I1-DELETE — deleted the replacement paragraph outright, the obvious way to
+//    make an absence assertion pass. RED on the VACUITY CONTROL instead:
+//    "expected '// packages/core/src/hooks/craft-revi…' to contain
+//    'hooks/index.ts'". 1 failed | 78 passed (79). Deleting the claim is not a
+//    way to satisfy a law that also requires the true statement.
+//
+// 2 registered mutants, 0 survivors.

@@ -368,3 +368,37 @@ describe('a multi-language craft domain does not advertise itself as TS/JS-only'
 //    TypeError on undefined into a named missing-contract report.
 //
 // 3 registered mutants, 0 survivors.
+
+// MUTATION RESULTS (2026-11-13, FINAL_REVIEW I-2 / I-5 / I-6 laws)
+//
+//  I-2 — the 9/1 collector split. Derived, then exercised by the law's own
+//    first run: the design-craft and code-review cases came back RED because my
+//    REPLACEMENT prose had wrapped "nine collector-based domains" and
+//    `status: "collected"` onto ADJACENT lines, so a same-line probe could not
+//    see the qualifier it was demanding (5 failed | 44 passed). The law was
+//    pinning line FORMATTING, not the claim; both probes were widened to a
+//    ±2/±3-line window, as the Phase 5 promptBudget law already had to be. The
+//    failure is recorded because a same-line probe looks correct until the text
+//    wraps, and the next author will write one.
+//  M-I5-REVERT (also the PRE-EDIT control for I-5) — restored "for TS/JS
+//    source" in all four code-craft SKILL.md copies. All FOUR platform cases
+//    RED: "claude-code/code-craft: SKILL.md summary still says TS/JS-only:
+//    expected '> LLM-judgment critique of code quali…' not to match
+//    /TS\/JS source/". 4 failed.
+//  M-I5-NARROW — narrowed code-craft's declaration to TS_JS_ONLY in
+//    CRAFT_REVIEW_DOMAINS and REBUILT core (the cli test resolves core through
+//    dist, so a source-only edit is a no-op probe). The DENOMINATOR went RED —
+//    "expected [] to deeply equal [ 'code-craft' ]" — and the four per-platform
+//    cases VANISHED (54 tests became 50). That is the whole point of the
+//    denominator: a derived loop over an empty set is indistinguishable in the
+//    runner from a passing one. 1 failed | 49 passed (50).
+//  M-I6-MAXFILES — added `maxFiles` to design_craft's inputSchema. RED:
+//    "expected [] to deeply equal [ 'harness-design-craft' ]". 1 failed | 55
+//    passed (56).
+//  M-I6-STRIP-NINE — deleted `maxFiles` from code_craft's inputSchema, the
+//    other direction. RED: "expected [ Array(2) ] to deeply equal
+//    [ 'harness-design-craft' ]". 1 failed | 55 passed (56). The nine is a
+//    positive control, not decoration.
+//
+// 4 registered mutants, 0 survivors (plus one self-inflicted red that found a
+// formatting-coupled probe before it shipped).
