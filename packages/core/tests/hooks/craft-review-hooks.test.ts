@@ -1502,16 +1502,23 @@ describe('module laws', () => {
     ]);
   });
 
-  it('[PHASE BOUNDARY] is not exported from hooks/index.ts yet — Phase 3 owns the barrel', () => {
-    // Phase 1 is inert by design: no barrel export, no host wiring, no craft
-    // SKILL.md edit. Phase 3 INVERTS this assertion when it adds the export and
-    // regenerates the root barrel via scripts/generate-core-barrel.mjs. Delete it
-    // there deliberately; do not delete it to make a red go away.
+  it('[PHASE 3] IS exported from hooks/index.ts — the inversion Phase 1 scheduled', () => {
+    // Phase 1 was inert by design and asserted the ABSENCE of this export,
+    // naming Phase 3 as the owner of the inversion. This is that inversion,
+    // performed deliberately rather than deleted to make a red go away.
+    //
+    // This assertion reads the SOURCE barrel, so it proves the export line was
+    // written — it cannot prove the export reached the PUBLISHED package root
+    // (the generated text at src/index.ts is `export * from './hooks';` either
+    // way, so its --check prints "up to date" regardless). That proof lives in
+    // packages/cli/tests/integration/craft-hooks-export.test.ts, which imports
+    // from the built dist.
     const barrel = readFileSync(
       fileURLToPath(new URL('../../src/hooks/index.ts', import.meta.url)),
       'utf8'
     );
-    expect(barrel).not.toContain('craft-review-hooks');
+    expect(barrel).toContain('craft-review-hooks');
+    expect(barrel).toContain('resolveReviewHooksWithCraft');
     // Positive control: the barrel DOES export the canary twin, so a wrong path
     // or an empty read cannot pass this test.
     expect(barrel).toContain('canary-review-hooks');

@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/src/hooks'
-sourceHash: 'ee453a099a6a0cbdfe5ffedda5a7a38561fd298cc786e92151c4f52ad9ae0863'
+sourceHash: 'e166904798855c9c679b0146c10daf5945d4923d3b9b235f8a95b1df7be22c6e'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -21,7 +21,18 @@ members:
 export CANARY_REVIEW_DETECTORS
 export CANARY_REVIEW_EVENTS
 export CANARY_REVIEW_HOST_SKILL
+export CRAFT_ANY_LANGUAGE
+export CRAFT_DOMAINS_NOT_ACTIVATED_V1
+export CRAFT_REVIEW_DOMAINS
+export CRAFT_REVIEW_EVENTS_BY_HOST
 export CanaryReviewDetectorPlan
+export CraftDomainRule
+export CraftReviewHostSkill
+export CraftReviewOptions
+export CraftReviewPlan
+export CraftReviewSkip
+export CraftSkipReason
+export DEFAULT_MAX_CRAFT_DOMAINS
 export HookContext
 export NormalizedHook
 export SKILL_HOOK_EVENT_KEY_RE
@@ -35,8 +46,10 @@ export buildHookEnv
 export buildHookStdinPayload
 export defaultBlocking
 export planCanaryReviewDetectors
+export planCraftReviewDomains
 export resolveCanaryReviewHooks
 export resolveReviewHooksWithCanary
+export resolveReviewHooksWithCraft
 export resolveSkillHooks
 ```
 
