@@ -10,6 +10,6 @@ export type {
 export { detectLanguage, EXTENSION_MAP } from './types';
 export { getParser, parseFile, resetParserCache } from './parser';
 export type { ParsedFile } from './parser';
-export { getOutline, formatOutline } from './outline';
+export { getOutline, getOutlineFromSource, formatOutline } from './outline';
 export { searchSymbols } from './search';
 export { unfoldSymbol, unfoldRange } from './unfold';

@@ -18,3 +18,20 @@ export {
   resolveReviewHooksWithCanary,
 } from './canary-review-hooks';
 export type { SkillAvailability, CanaryReviewDetectorPlan } from './canary-review-hooks';
+export {
+  CRAFT_ANY_LANGUAGE,
+  CRAFT_REVIEW_DOMAINS,
+  CRAFT_REVIEW_EVENTS_BY_HOST,
+  CRAFT_DOMAINS_NOT_ACTIVATED_V1,
+  DEFAULT_MAX_CRAFT_DOMAINS,
+  planCraftReviewDomains,
+  resolveReviewHooksWithCraft,
+} from './craft-review-hooks';
+export type {
+  CraftDomainRule,
+  CraftReviewHostSkill,
+  CraftSkipReason,
+  CraftReviewSkip,
+  CraftReviewPlan,
+  CraftReviewOptions,
+} from './craft-review-hooks';

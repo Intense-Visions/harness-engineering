@@ -101,6 +101,58 @@ A project may attach **additional skills, commands, and prompts** at lifecycle p
 - **Report the denominator, including skips.** State how many detectors ran of how many were expected and why any were skipped (e.g. "canary detectors: 0/4 ran — 4 skipped: not installed in this canary version"), so a partial or forward-wired run is never presented as a full one.
 - Detectors wire **only** at `after:REVIEW` and `after:FINAL_REVIEW`; no other phase boundary gains them.
 
+**Craft domains auto-wire at REVIEW / FINAL_REVIEW (default, zero-config, forward-wired, ADVISORY).**
+The craft family's ceiling-layer critique runs automatically at autopilot's two review moments,
+**alongside** `harness-code-reviewer` and the canary detectors, never replacing either. Resolve
+`resolveReviewHooksWithCraft(config, "harness-autopilot", "<after:REVIEW|after:FINAL_REVIEW>", { changedFiles, availableSkills, alreadyRanFor })`
+(from `@harness-engineering/core`), and use
+`planCraftReviewDomains(hostSkill, event, changedFiles, availableSkills, opts)` for the
+`{ wired, skipped, expected, files }` split.
+
+- **ADVISORY, NOT BLOCKING.** Craft hooks are emitted `blocking: false` **by contract** — NOT
+  `defaultBlocking(event)`, which is the canary default sitting one file away. Craft findings are
+  surfaced in the review report and do **not** contribute to the `error`/`warn` severity counts and
+  do **not** gate PHASE_COMPLETE. A taste judgment never blocks.
+- **DIFF-SCOPED — forward `files`, and forward them as ABSOLUTE paths.** Read `plan.files[skill]`
+  (the domain's owned, already-normalized subset) and forward it as the craft skill's `files`
+  argument, together with a `promptBudget` where that domain's MCP tool accepts one (see each
+  craft skill's "Invoked as a review hook" section; `mcp__harness__design_craft` does not — it
+  accepts **neither `promptBudget` nor `maxFiles`**, so bound it with `phases` / `mode` instead or
+  it runs all three phases over 13 rubrics with no ceiling). `plan.files` holds **repo-relative
+  POSIX** paths; the collectors read them with `fs.readFileSync`, which resolves a relative path
+  against the process CWD — so **resolve each entry against the project root first**. Forwarding
+  them unresolved fails DIFFERENTLY by domain and neither failure is loud at the call site: the
+  nine collector-based domains produce `status: "collected"` with **zero prompts** — a clean report
+  from a run that read nothing — while `mcp__harness__design_craft` has no collector and instead
+  THROWS `ENOENT` out of `runCritique`, which has no try/catch. Both are pinned
+  (`packages/cli/tests/design-craft/phases/files-path-form.test.ts`).
+  Never call `rule.owns()` yourself: it is correct only on repo-relative POSIX paths, and on raw VCS
+  output it yields false negatives and, worse, false positives (a `dist\…` build artifact leaks in).
+- **NO DIFF CONTEXT, NO ACTIVATION.** When the changed-file set is unknown, nothing activates and
+  every domain is reported `no-diff-context`. Do not fall back to a repository walk.
+- **ONCE PER PHASE PER DIFF.** The cap is per RESOLUTION, so two review moments can otherwise
+  dispatch up to 2x `maxDomains` on the same code. At `after:FINAL_REVIEW`, pass the domains wired
+  at `after:REVIEW` as `alreadyRanFor` **when the changed-file set is unchanged**; they are then
+  reported `already-run`. If the diff changed between the two moments, pass nothing — a domain
+  should re-run after fixes land.
+- **A not-installed craft domain is SKIPPED, never a hard halt.** Craft defaults are
+  harness-optimistic (forward-wired), exactly like the canary detectors: the resolver filters them
+  out and they are recorded in the denominator. A **USER-declared unresolvable hook still
+  HARD-HALTS.** Availability is matched prefix-insensitively, so a catalog reporting
+  `harness-claude:code-craft` wires the same domain as the bare name.
+- **A craft hook that FAILS at runtime is recorded, and the review does not fail.** Record it in
+  `{sessionDir}/phase-{N}-review.json` and in the denominator; an advisory reviewer that crashed is
+  a missing opinion, not a broken gate.
+- **A project can override or park any domain.** Declaring it in `skillHooks` wins (no double
+  dispatch); `{ "enabled": false }` parks it. Dedup is by canonical name — note that
+  `harness-design-craft` is the only craft skill whose canonical name carries the `harness-`
+  prefix, so declaring `design-craft` does NOT suppress it.
+- **Report the denominator, including skips.** State how many domains activated of how many were
+  expected and why each was skipped — e.g. "craft domains: 2/3 activated, 1 skipped:
+  unsupported-language". A surprising `0/M` renders as `0/M`, never as silence.
+- Craft domains wire **only** at `after:REVIEW` and `after:FINAL_REVIEW`; no other phase boundary
+  gains them.
+
 ## Rigor Levels
 
 Set at INIT (`--fast` / `--thorough`); persists for session. Default: `standard`.
@@ -282,12 +334,21 @@ prompt: "Phase {N}: {name}. Session: {sessionSlug}. Follow harness-code-review. 
 
 **Then run each effective `after:REVIEW` hook.** Probe canary once (`canary_probe`; `status: "available"` ⇒ present), determine which of the four detectors are installed, and resolve `resolveReviewHooksWithCanary(config, "harness-autopilot", "after:REVIEW", { canaryPresent, availableSkills })` (from `@harness-engineering/core`). This returns the project's configured `skillHooks` (default none) followed by canary's **installed** deterministic detectors when canary is present — see "Canary detectors auto-wire" under Lifecycle skill hooks. When canary is absent it returns exactly the configured hooks (no regression). Run each hook in order by kind (see Lifecycle skill hooks): a `skill` hook is dispatched as an extra reviewer, a `command` hook runs via the command-runner, a `prompt` hook appends its text to the review brief. For a `skill` hook:
 
+**Also resolve craft's advisory domains at this moment.** Call
+`resolveReviewHooksWithCraft(config, "harness-autopilot", "after:REVIEW", { changedFiles, availableSkills })`
+and `planCraftReviewDomains("harness-autopilot", "after:REVIEW", changedFiles, availableSkills)` —
+see "Craft domains auto-wire" under Lifecycle skill hooks. Dispatch each wired domain as an extra
+reviewer with its own `plan.files[skill]` **resolved to absolute paths**, plus a `promptBudget`
+where that domain's MCP tool accepts one (`mcp__harness__design_craft` does not), and
+merge its findings as **non-blocking** advisory output that does not count toward severity. Record
+which domains wired; they are the `alreadyRanFor` input at FINAL_REVIEW.
+
 ```
 subagent_type: "<hook skill name>"
 prompt: "Phase {N}: {name}. Session: {sessionSlug}. Domain review. Context: {hook context}. Report findings (critical / important / suggestion)."
 ```
 
-If a **user-declared** hooked skill cannot be dispatched (typo / not installed), or a `command` hook cannot be spawned (missing binary), do **not** skip it silently and do **not** offer it as an overridable finding: record it in `.harness/failures.md`, set the review status to failed, and halt REVIEW with "cannot verify" — a **hard halt** (see Lifecycle skill hooks, above). (A `command` that RAN and exited non-zero is instead a normal finding, blocking per policy — not a hard halt.) A **harness-default canary detector** that is not installed is the exception: it was already filtered out by `resolveReviewHooksWithCanary` (forward-wired, graceful skip) and is recorded as skipped in the denominator, never a hard halt. Persist each hook's findings under a per-hook key in `{sessionDir}/phase-{N}-review.json` so provenance survives, and merge them into the same blocking/non-blocking aggregation as the baseline reviewer. Report the detector denominator (how many hooks ran of how many were expected, and how many were skipped-not-installed) so a partial or forward-wired run is never presented as complete.
+If a **user-declared** hooked skill cannot be dispatched (typo / not installed), or a `command` hook cannot be spawned (missing binary), do **not** skip it silently and do **not** offer it as an overridable finding: record it in `.harness/failures.md`, set the review status to failed, and halt REVIEW with "cannot verify" — a **hard halt** (see Lifecycle skill hooks, above). (A `command` that RAN and exited non-zero is instead a normal finding, blocking per policy — not a hard halt.) A **harness-default canary detector** that is not installed is the exception: it was already filtered out by `resolveReviewHooksWithCanary` (forward-wired, graceful skip) and is recorded as skipped in the denominator, never a hard halt. Persist each hook's findings under a per-hook key in `{sessionDir}/phase-{N}-review.json` so provenance survives, and merge them into the same blocking/non-blocking aggregation as the baseline reviewer. Report the detector denominator (how many hooks ran of how many were expected, and how many were skipped-not-installed) so a partial or forward-wired run is never presented as complete. Report the craft denominator in the same breath ("craft domains: N/M activated, K skipped: <reasons>") — a not-installed or unsupported-language craft domain is a graceful skip recorded in the denominator, never a hard halt and never a blocking finding.
 
 Persist findings to `{sessionDir}/phase-{N}-review.json`. No blocking (across baseline + additional reviewers) → PHASE_COMPLETE. Blocking → ask "fix / override / stop." `fix`: re-enter EXECUTE. `override`: record decision in `decisions[]` → PHASE_COMPLETE.
 
@@ -310,16 +371,30 @@ Persist findings to `{sessionDir}/phase-{N}-review.json`. No blocking (across ba
 1. Set `currentState: "FINAL_REVIEW"`, `finalReview.status: "in_progress"`.
 2. Gather per-phase findings from `{sessionDir}/phase-{N}-review.json` files.
 3. Dispatch harness-code-reviewer:
+
    ```
    subagent_type: "harness-code-reviewer"
    prompt: "Final cross-phase review. Diff: git diff {startingCommit}..HEAD. Session: {sessionSlug}. Prior findings: {collected}. Focus on cross-phase coherence: naming, duplicated utilities, architectural drift. Report findings (critical / important / suggestion)."
    ```
+
    Then run **each effective `after:FINAL_REVIEW` hook** — `resolveReviewHooksWithCanary(config, "harness-autopilot", "after:FINAL_REVIEW", { canaryPresent, availableSkills })` (configured `skillHooks` plus canary's **installed** deterministic detectors when canary is present; exactly the configured hooks when absent) — over the same cross-phase diff. Run each by kind; a `skill` hook is dispatched as an extra reviewer:
+
+   Resolve craft's advisory domains here too:
+   `resolveReviewHooksWithCraft(config, "harness-autopilot", "after:FINAL_REVIEW", { changedFiles, availableSkills, alreadyRanFor })`.
+   `alreadyRanFor` is the set of craft domains wired at this phase's `after:REVIEW` **when the
+   changed-file set is unchanged** — craft resolves once per phase per diff, and the budget is
+   per-resolution, so omitting it lets the same code be critiqued twice. Domains passed this way are
+   reported `already-run` in the denominator, not silently absent. If the cross-phase diff differs
+   from the REVIEW diff, pass nothing. Craft findings merge into `finalReview.findings` as
+   **non-blocking advisory** output and never set the final-review status to failed.
+
    ```
    subagent_type: "<hook skill name>"
    prompt: "Final cross-phase domain review. Diff: git diff {startingCommit}..HEAD. Session: {sessionSlug}. Context: {hook context}. Report findings (critical / important / suggestion)."
    ```
+
    An unresolvable **user-declared** hooked skill (a typo, a not-installed declared skill) or an un-spawnable `command` hook is a FINAL_REVIEW failure, not a skip, and not an overridable finding — record it in `.harness/failures.md`, set the final-review status to failed, and hard-halt with "cannot verify" rather than reporting a green final review that silently dropped a configured hook. A harness-default canary detector that is not installed is instead forward-wired: `resolveReviewHooksWithCanary` already filtered it out, so it is a graceful skip recorded in the denominator, never a FINAL_REVIEW failure. (A `command` that ran and exited non-zero is a normal blocking finding, not a hard halt.) Hook findings merge into the same `finalReview.findings` aggregation; report the detector denominator (including skipped-not-installed) so a partial or forward-wired run is never presented as complete.
+
 4. No blocking (across baseline + additional reviewers): store in `finalReview.findings`, set `"passed"` → OUTCOME_EVAL.
 5. Blocking: ask "fix / override / stop."
    - `fix`: increment `finalReview.retryCount` (max 3). Dispatch harness-task-executor: "Fix these blocking findings: {findings with file, line, title}. Session: {sessionSlug}. Commit each fix atomically." Run `harness validate`. Re-run FINAL_REVIEW from step 1. If retryCount > 3: stop, record in `.harness/failures.md`.
@@ -377,7 +452,7 @@ The blocking post-execution **spec-satisfaction gate** — the harness's ship ga
 4. **EXECUTE** — Dispatch harness-task-executor with plan path, handle checkpoints and retries (max 3).
 5. **VERIFY** — Dispatch harness-verifier, confirm code correctness and wiring.
 6. **INTEGRATE** — Resolve integration tier, dispatch harness-integration, verify system wiring, knowledge materialization, and documentation per tier.
-7. **REVIEW** — Dispatch harness-code-reviewer plus the effective `after:REVIEW` hooks (`resolveReviewHooksWithCanary`: project `skillHooks` plus canary's INSTALLED deterministic detectors when canary is present — forward-wired, not-installed ones skip), fix blocking findings.
+7. **REVIEW** — Dispatch harness-code-reviewer plus the effective `after:REVIEW` hooks (`resolveReviewHooksWithCanary`: project `skillHooks` plus canary's INSTALLED deterministic detectors when canary is present — forward-wired, not-installed ones skip), plus craft's ADVISORY domains (`resolveReviewHooksWithCraft`: diff-scoped, budget-capped, non-blocking, reported in a denominator), fix blocking findings.
 8. **PHASE_COMPLETE** — Summarize (including integration report), sync roadmap, loop to ASSESS for next phase or proceed to FINAL_REVIEW.
 9. **FINAL_REVIEW → OUTCOME_EVAL → DONE** — Cross-phase review, then the blocking spec-satisfaction gate (halt on a high-confidence NOT_SATISFIED), offer PR creation, write final handoff.
 

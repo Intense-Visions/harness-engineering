@@ -23,6 +23,11 @@
 
 import ts from 'typescript';
 import type { CodeUnit, UnitKind } from '../findings/schema.js';
+import { detectLanguage } from '@harness-engineering/core';
+import {
+  extractOutlineUnits,
+  usesOutlineExtraction,
+} from '../../shared/craft/extract/outline-units.js';
 
 /** A function/method body must clear one of these bars to earn a critique. */
 const MIN_BODY_STATEMENTS = 3;
@@ -39,8 +44,27 @@ const CONTROL_FLOW_KINDS = new Set<ts.SyntaxKind>([
   ts.SyntaxKind.ConditionalExpression,
 ]);
 
+/**
+ * Files the TS Compiler extractor claims: everything harness can detect a
+ * language for that the outline seam does NOT claim.
+ *
+ * Defined as the COMPLEMENT of `usesOutlineExtraction`, deliberately, so the
+ * two extractors partition `EXTENSION_MAP` by construction and cannot drift
+ * apart. The previous guard was its own regex — `/\.(ts|tsx|js|jsx|mjs|cjs)$/`
+ * — and that second list is exactly what `discover.ts` warns about. When
+ * discovery widened to `Object.keys(EXTENSION_MAP)` it picked up `.mts` and
+ * `.cts`; `detectLanguage` maps them to `typescript`, which the outline does
+ * not claim, so they fell through to this regex, which did not match them
+ * either. Measured on identical source: a.ts 1 unit, a.mts 0, a.cts 0.
+ * They were walked, counted in `filesScanned`, and folded into
+ * `filesSkippedNoUnit` — indistinguishable from "nothing substantive here".
+ */
+export function usesTsCompilerExtraction(filePath: string): boolean {
+  return detectLanguage(filePath) !== null && !usesOutlineExtraction(filePath);
+}
+
 export function extractUnits(sourceText: string, filePath: string): CodeUnit[] {
-  if (!/\.(?:ts|tsx|js|jsx|mjs|cjs)$/i.test(filePath)) return [];
+  if (!usesTsCompilerExtraction(filePath)) return [];
 
   let sourceFile: ts.SourceFile;
   try {
@@ -177,4 +201,19 @@ export function unitSource(sourceText: string, unit: CodeUnit, maxChars: number)
   const hi = Math.min(lines.length, unit.endLine);
   const slice = lines.slice(lo, hi).join('\n');
   return slice.length > maxChars ? slice.slice(0, maxChars) + '\n[…truncated for cost…]' : slice;
+}
+
+/**
+ * Language-routed unit extraction.
+ *
+ * TS/JS keep the statement-aware TS Compiler walk above, unchanged — it is the
+ * only extraction path with production mileage and it can tell a three-statement
+ * body from a three-line one. Everything else goes through the shared
+ * tree-sitter seam.
+ */
+export async function extractCodeUnits(sourceText: string, filePath: string): Promise<CodeUnit[]> {
+  if (usesOutlineExtraction(filePath)) {
+    return extractOutlineUnits(sourceText, filePath);
+  }
+  return extractUnits(sourceText, filePath);
 }

@@ -1,5 +1,5 @@
 import type Parser from 'web-tree-sitter';
-import { parseFile } from './parser';
+import { parseFile, getParser } from './parser';
 import type { OutlineResult, CodeSymbol, SymbolKind, SupportedLanguage } from './types';
 import { detectLanguage } from './types';
 
@@ -73,6 +73,21 @@ const METHOD_TYPES: Record<SupportedLanguage, string[]> = {
   go: ['method_declaration'],
   rust: ['function_item'],
   java: ['method_declaration', 'constructor_declaration'],
+};
+
+/**
+ * Container node types whose BODY must be walked as if it were top level.
+ *
+ * Rust organises ordinary code in `mod` blocks (and every `#[cfg(test)] mod
+ * tests` in the ecosystem), and `mod_item` maps to `variable`, which nothing
+ * recurses into. Measured: a file with one function inside `mod tests`
+ * reported `variable:tests` with zero children and no other symbol.
+ *
+ * Additive on purpose: the `mod` symbol is still emitted, so existing
+ * code-nav consumers see exactly what they saw before, plus the contents.
+ */
+const RECURSIVE_CONTAINER_TYPES: Partial<Record<SupportedLanguage, string>> = {
+  rust: 'mod_item',
 };
 
 const IDENTIFIER_TYPES = new Set(['identifier', 'property_identifier', 'type_identifier']);
@@ -158,6 +173,19 @@ function getSignature(node: Parser.SyntaxNode, source: string): string {
   return (lines[startLine] ?? '').trim();
 }
 
+/**
+ * tree-sitter-python wraps a decorated `def`/`class` in a `decorated_definition`,
+ * so a lookup keyed on `function_definition` finds a grandchild and fires on
+ * nothing. Measured: a class whose only method is `@staticmethod`-decorated
+ * reported `children: []`, and a `@decorator`-ed top-level def was absent from
+ * `symbols` entirely. In idiomatic Python — @property, @dataclass, @app.route,
+ * @pytest.fixture — that is most of the file, reported as a clean empty outline.
+ */
+function unwrapDecorated(node: Parser.SyntaxNode): Parser.SyntaxNode {
+  if (node.type !== 'decorated_definition') return node;
+  return node.childForFieldName('definition') ?? node;
+}
+
 function extractMethods(
   classNode: Parser.SyntaxNode,
   language: SupportedLanguage,
@@ -178,6 +206,7 @@ function extractMethods(
   if (!body) return [];
 
   return body.children
+    .map(unwrapDecorated)
     .filter((child) => methodTypes.includes(child.type))
     .map((child) => ({
       name: getNodeName(child, source),
@@ -238,7 +267,8 @@ function extractSymbols(
   const symbols: CodeSymbol[] = [];
   const topLevelTypes = TOP_LEVEL_TYPES[lang] ?? {};
 
-  for (const child of rootNode.children) {
+  for (const rawChild of rootNode.children) {
+    const child = unwrapDecorated(rawChild);
     if (child.type === 'export_statement') {
       symbols.push(processExportStatement(child, topLevelTypes, lang, source, filePath));
       continue;
@@ -252,6 +282,13 @@ function extractSymbols(
       sym.children = extractMethods(child, lang, source, filePath);
     }
     symbols.push(sym);
+
+    if (child.type === RECURSIVE_CONTAINER_TYPES[lang]) {
+      const body =
+        child.childForFieldName('body') ??
+        child.children.find((c) => c.type === 'declaration_list');
+      if (body) symbols.push(...extractSymbols(body, lang, source, filePath));
+    }
   }
 
   return symbols;
@@ -291,6 +328,34 @@ export async function getOutline(filePath: string): Promise<OutlineResult> {
   const symbols = extractSymbols(tree.rootNode, lang, source, filePath);
 
   return { file: filePath, language: lang, totalLines, symbols };
+}
+
+/**
+ * Outline a file from source text already in hand.
+ *
+ * `getOutline` reads from disk. Every craft skill already holds the source it
+ * wants critiqued, and `critiqueCodeInFile(file, { source })` lets a caller
+ * inject source that deliberately differs from disk. Routing those callers
+ * through `getOutline` would silently ignore the injected source for exactly
+ * the non-TS half of the languages — an API contract broken in one half and
+ * honoured in the other, which is the shape of defect that reads as working.
+ */
+export async function getOutlineFromSource(
+  source: string,
+  filePath: string
+): Promise<OutlineResult> {
+  const lang = detectLanguage(filePath);
+  if (!lang) return buildFailedResult(filePath, 'unknown');
+
+  let tree: Parser.Tree;
+  try {
+    const parser = await getParser(lang);
+    tree = parser.parse(source);
+  } catch {
+    return buildFailedResult(filePath, lang);
+  }
+
+  return extractOutlineFromTree(tree.rootNode, lang, source, filePath);
 }
 
 /**

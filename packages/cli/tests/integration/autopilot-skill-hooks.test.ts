@@ -11,6 +11,8 @@
 import { describe, it, expect } from 'vitest';
 import * as path from 'path';
 import * as fs from 'fs';
+import { CRAFT_REVIEW_EVENTS_BY_HOST, CRAFT_REVIEW_DOMAINS } from '@harness-engineering/core';
+import { getToolDefinitions } from '../../src/mcp/server';
 
 const REPO_ROOT = path.resolve(__dirname, '..', '..', '..', '..');
 const AUTOPILOT_SKILL_MD = path.join(
@@ -172,14 +174,22 @@ describe('harness-autopilot documents the general skillHooks framework (#1481)',
   it('wires exactly the four events it advertises as wired (no silent-no-op overpromise)', () => {
     const WIRED = ['before:EXECUTE', 'after:REVIEW', 'after:FINAL_REVIEW', 'on:failure'];
     // Concrete call sites in the prose, ignoring the generic <...:<STATE>> placeholder.
-    // The review events (after:REVIEW / after:FINAL_REVIEW) resolve through
-    // resolveReviewHooksWithCanary (which layers canary's deterministic detectors
-    // on top of the configured skillHooks, #1482); the non-review events resolve
-    // through the bare resolveSkillHooks. Both are concrete wiring call sites.
+    // The review events resolve through TWO layered resolvers:
+    // resolveReviewHooksWithCanary (canary's deterministic detectors, #1482) and
+    // resolveReviewHooksWithCraft (craft's advisory domains); the non-review
+    // events resolve through the bare resolveSkillHooks. All three are concrete
+    // wiring call sites.
+    //
+    // WIDENING THIS IS NOT EVIDENCE OF ANYTHING, and the comment says so on
+    // purpose. Craft's two events are ALREADY in WIRED via canary, so this
+    // assertion is satisfied with or without the craft lines — measured, both
+    // before and after the alternation was widened. The law that can actually
+    // fail on craft is "documents the craft resolver at exactly its two review
+    // events" below, which uses craft's OWN denominator.
     const callSites = new Set(
       [
         ...md.matchAll(
-          /(?:resolveSkillHooks|resolveReviewHooksWithCanary)\(config,\s*"harness-autopilot",\s*"([^"]+)"[,)]/g
+          /(?:resolveSkillHooks|resolveReviewHooksWithCanary|resolveReviewHooksWithCraft)\(config,\s*"harness-autopilot",\s*"([^"]+)"[,)]/g
         ),
       ]
         .map((m) => m[1])
@@ -190,6 +200,99 @@ describe('harness-autopilot documents the general skillHooks framework (#1481)',
     const vocab = extractSection(md, 'Lifecycle skill hooks');
     expect(vocab).toMatch(/not yet wired|no-op/i);
     for (const e of WIRED) expect(vocab).toContain(e);
+  });
+
+  // MEASURED DURING PLANNING AND RE-MEASURED AT EXECUTION: adding a craft call
+  // site to SKILL.md left the generic "wires exactly the four events"
+  // assertion above GREEN (16/16), because the craft resolver matched neither
+  // alternative; and widening the alternation does not fix it either, because
+  // craft's two events are already in WIRED via canary. Both craft's presence
+  // AND its absence are invisible there. Craft therefore needs its OWN
+  // denominator, which is what these three tests are.
+  it('documents the craft resolver at exactly its two review events', () => {
+    const CRAFT_WIRED = ['after:REVIEW', 'after:FINAL_REVIEW'];
+    const craftSites = new Set(
+      [
+        ...md.matchAll(
+          /resolveReviewHooksWithCraft\(config,\s*"harness-autopilot",\s*"([^"]+)"[,)]/g
+        ),
+      ]
+        .map((m) => m[1])
+        // Same placeholder filter the generic law uses: the vocabulary's
+        // `"<after:REVIEW|after:FINAL_REVIEW>"` is a FORM, not a call site.
+        // Without this the law fails against correct prose, which is a law
+        // that blocks documentation rather than a law that catches drift.
+        .filter((e) => /^(before|after|on):[A-Za-z0-9_-]+$/.test(e))
+    );
+    expect([...craftSites].sort()).toEqual([...CRAFT_WIRED].sort());
+  });
+
+  it('states the craft contract the resolver cannot enforce from prose alone', () => {
+    const vocab = extractSection(md, 'Lifecycle skill hooks');
+    // Advisory, not blocking (spec D2 / criterion 3).
+    expect(vocab).toMatch(/ADVISORY, NOT BLOCKING/i);
+    expect(vocab).toMatch(/do \*\*not\*\* contribute to the `error`\/`warn` severity counts/i);
+    // Diff scope, and the ABSOLUTE-path requirement without which a run reads nothing.
+    expect(vocab).toMatch(/plan\.files\[skill\]/);
+    expect(vocab).toMatch(/ABSOLUTE paths|resolve each entry against the project root/i);
+    expect(vocab).toMatch(/promptBudget/);
+    // Once per phase per diff (D10 / criterion 8).
+    expect(vocab).toMatch(/alreadyRanFor/);
+    // Denominator (criterion 6) and graceful skip vs user hard-halt (criteria 7).
+    expect(vocab).toMatch(/craft domains: \d+\/\d+ activated/);
+    expect(vocab).toMatch(/SKIPPED, never a hard halt/i);
+    expect(vocab).toMatch(/USER-declared unresolvable hook still\s+HARD-HALTS/i);
+    expect(vocab).toMatch(/no-diff-context/);
+  });
+
+  it('names craft in both review steps, not only in the vocabulary', () => {
+    expect(extractSection(md, 'REVIEW')).toMatch(/resolveReviewHooksWithCraft/);
+    expect(extractSection(md, 'FINAL_REVIEW')).toMatch(/alreadyRanFor/);
+  });
+
+  it('qualifies EVERY promptBudget forwarding claim \u2014 design_craft accepts none', () => {
+    // DERIVED from the schemas, never a hand table: the domain that accepts no
+    // promptBudget is read from the live tool definitions, so adding one to
+    // design_craft's schema reddens this and forces the prose to follow.
+    const TOOLS = new Map(getToolDefinitions().map((t) => [t.name, t]));
+    const without = CRAFT_REVIEW_DOMAINS.map((d) =>
+      d.skill.replace(/^harness-/, '').replace(/-/g, '_')
+    ).filter((name) => {
+      const schema = TOOLS.get(name)!.inputSchema as { properties?: Record<string, unknown> };
+      return !Object.prototype.hasOwnProperty.call(schema.properties ?? {}, 'promptBudget');
+    });
+    expect(without).toEqual(['design_craft']);
+
+    // SENTENCES, not lines, and not line-blocks. Three framings were tried and
+    // the first two were measured to be wrong, so both failures are recorded:
+    //
+    //   per-LINE with a literal count of 2 — went red on the FINAL_REVIEW
+    //     rewrite, which wrapped ONE claim across three lines. It was pinning
+    //     the prose width, not the claim.
+    //   per-BLOCK (contiguous lines grouped) — passed that rewrite but SURVIVED
+    //     a mutant that inserted an unqualified "Always send a `promptBudget`."
+    //     immediately after the second site: adjacency laundered it into a
+    //     neighbour's qualified window. Measured, not reasoned.
+    //
+    // A sentence is the unit the claim is actually made in, so each sentence
+    // that mentions promptBudget must carry the qualification itself.
+    const sentences = md
+      .replace(/\n/g, ' ')
+      .split(/(?<=\.)\s+/)
+      .map((t) => t.trim())
+      .filter((t) => t.includes('promptBudget'));
+
+    // CARDINALITY CONTROL: two claim sites, and a third sentence anywhere in
+    // the document reddens here rather than slipping past the loop below.
+    expect(sentences).toHaveLength(2);
+
+    for (const sentence of sentences) {
+      const where = sentence.slice(0, 60);
+      expect(sentence, `promptBudget stated unqualified: "${where}…"`).toMatch(
+        /where that domain(?:'|\u2019)s MCP tool accepts one/
+      );
+      expect(sentence, `the exception is not named: "${where}…"`).toMatch(/design_craft/);
+    }
   });
 });
 
@@ -204,4 +307,162 @@ describe('harness-code-review is a second skillHooks consumer (not autopilot-loc
   it('honors the framework hard-halt protection', () => {
     expect(md).toMatch(/hard halt/i);
   });
+
+  // MEASURED ON THIS TREE (cdb12047b) BEFORE THESE LAWS EXISTED, with the
+  // mutation diff printed in the same command as the test result: inserting
+  // a craft call site wired at a BOGUS event (`after:WRONG_EVENT`) plus a
+  // sentence contradicting the hard-halt rule left this file 19/19 GREEN,
+  // and so did removing craft entirely. The two `it`s above cannot fail for
+  // craft in EITHER direction: `resolveSkillHooks\(config, "harness-code-review"`
+  // does not match `resolveReviewHooksWithCraft(`, and `/hard halt/i` is
+  // already satisfied by the user-declared-hook paragraph at :204. THEIR
+  // GREEN IS NOT EVIDENCE THAT CRAFT IS WIRED HERE. The five laws below are
+  // craft's own denominator for this host — the Phase 3 CRAFT_WIRED pattern.
+  const PHASE2 = (): string => extractSection(md, 'Phase 2: MECHANICAL');
+
+  it('documents the craft resolver at exactly the event this host wires', () => {
+    // DERIVED from the per-host vocabulary, never retyped: changing
+    // CRAFT_REVIEW_EVENTS_BY_HOST without updating the prose reddens here.
+    const expected = [...CRAFT_REVIEW_EVENTS_BY_HOST['harness-code-review']];
+    expect(expected).toEqual(['after:mechanical']); // denominator pinned before use
+    const craftSites = new Set(
+      [
+        ...md.matchAll(
+          /resolveReviewHooksWithCraft\(config,\s*"harness-code-review",\s*"([^"]+)"[,)]/g
+        ),
+      ]
+        .map((m) => m[1])
+        // Same placeholder filter the autopilot laws use: a documented FORM
+        // like "<after:X|after:Y>" is not a call site.
+        .filter((e) => /^(before|after|on):[A-Za-z0-9_-]+$/.test(e))
+    );
+    expect([...craftSites].sort()).toEqual([...expected].sort());
+  });
+
+  it('records the timing asymmetry at the call site (pre-review here, post-review under autopilot)', () => {
+    const s = PHASE2();
+    expect(s).toMatch(/TIMING ASYMMETRY/);
+    // CORRECTION TO THIS LAW AS PLANNED, and it was MEASURED, not reasoned:
+    // scoped to the whole Phase 2 section, `AI fan-out` was VACUOUS. The
+    // pre-existing :204 hook paragraph already reads "...established, before
+    // the AI fan-out", so a sub-probe (M-CR-ASYM-CLAUSE) that renamed ONLY
+    // this bullet's clause to "AI dispatch" left the law 24/24 GREEN. That is
+    // the same blindness mechanism this file exists to expose, reproduced
+    // inside the fix for it. Evaluating all 15 asserted phrases against the
+    // PRE-craft section found exactly this one vacuous and the other 14
+    // able to fail. Scoping the clauses to the bullet makes it fail.
+    const bullet = s.slice(s.indexOf('- **TIMING ASYMMETRY')).split(/\n- \*\*/)[0];
+    expect(bullet).toMatch(/before\*{0,2}\s+the\s+(?:Phase 4\s+)?AI fan-out/i);
+    expect(bullet).toMatch(/after:REVIEW/);
+    expect(bullet).toMatch(/CRAFT_REVIEW_EVENTS_BY_HOST/);
+  });
+
+  it('exempts forward-wired craft defaults from this skill\u2019s hard-halt rule', () => {
+    const s = PHASE2();
+    expect(s).toMatch(/SKIPPED, never a hard halt/i);
+    expect(s).toMatch(/EXCEPTION/);
+    expect(s).toMatch(/forward-wired|harness-OPTIMISTIC/i);
+    expect(s).toMatch(/user-declared-but-unresolvable\s*=\s*hard\s+halt/i);
+  });
+
+  it('keeps craft findings out of the mechanical exclusion set and the severity counts', () => {
+    const s = PHASE2();
+    expect(s).toMatch(/MUST NOT enter the mechanical exclusion set/i);
+    expect(s).toMatch(/severity counts/i);
+  });
+
+  it('states the diff-scoped forwarding contract and the denominator', () => {
+    const s = PHASE2();
+    expect(s).toMatch(/plan\.files\[skill\]/);
+    expect(s).toMatch(/ABSOLUTE/);
+    expect(s).toMatch(/promptBudget/);
+    expect(s).toMatch(/no-diff-context/);
+    expect(s).toMatch(/craft domains: \d+\/\d+ activated/);
+  });
+
+  // MUTATION RESULTS (2026-11-13, this tree, diff printed in the same command
+  // as the result): M-CR-EVENT ("after:mechanical" -> "after:WRONG") and
+  // M-CR-EVENT-DROP (delete the call-site line) each reddened the craft-event
+  // law with `[ 'after:WRONG' ]` / `[]` against `[ 'after:mechanical' ]`,
+  // while BOTH pre-existing `it`s above stayed GREEN (verbose reporter, named
+  // explicitly) — the blindness claim measured, not asserted. M-CR-ASYM /
+  // M-CR-HALT / M-CR-EXCLUDE / M-CR-FORWARD each deleted a WHOLE bullet
+  // (7 / 8 / 6 / 8 lines, anchor verified to match exactly once) and each
+  // reddened exactly its own law, 1 failed | 23 passed, every other craft law
+  // GREEN. Under M-CR-HALT, `honors the framework hard-halt protection`
+  // remained GREEN — the pre-existing law cannot see the EXCEPTION claim at
+  // all. 0 survivors. The one vacuous assertion found by the pre-craft
+  // positive control is corrected in place above.
 });
+
+// MUTATION RESULTS (2026-11-13, Phase 5 promptBudget cardinality law)
+//
+// SUPERSEDED IN PART. The results below were measured against the LINE-granular
+// form of this law. FINAL_REVIEW's own fix to this SKILL.md reddened it, and the
+// law is now sentence-granular; the re-measured results are in the second block
+// at the end of this file. The line numbers quoted below are the pre-rewrite
+// ones and are kept as the record of what was run, not as current coordinates.
+//
+// PRE-EDIT EVALUATION (the control that separates a law from a fixture).
+//   Before the SKILL.md edit, `grep -c "where that domain"
+//   agents/skills/claude-code/harness-autopilot/SKILL.md` returned 0 — the
+//   qualifier appeared NOWHERE in the document, so no surrounding prose could
+//   satisfy the ±2-line window at either site. The law was run against the
+//   unedited document and failed at the FIRST site:
+//     "harness-autopilot/SKILL.md:118 states promptBudget unqualified"
+//   1 failed | 24 passed (25). Both sites were unqualified; the loop reports
+//   the first. Post-edit the same file is 25/25.
+//
+//  M-AP-BUDGET-118 — stripped the qualifying clause from the :118 bullet only
+//    (4 lines -> 2). RED with "harness-autopilot/SKILL.md:118 states
+//    promptBudget unqualified"; the other site's assertions GREEN; 1 failed |
+//    24 passed (25).
+//  M-AP-BUDGET-334 — stripped it from the second site only (the sentence the
+//    plan calls :334; it sits at :336 after the first site grew by two lines).
+//    RED with "harness-autopilot/SKILL.md:336 states promptBudget
+//    unqualified" — the site the mutation touched, and only that one.
+//    1 failed | 24 passed (25).
+//  M-AP-BUDGET-COUNT — added a THIRD line mentioning `promptBudget` without
+//    the qualifier, above "## When to Use". RED on the CARDINALITY CONTROL:
+//    "expected [ 5, 120, 338 ] to have a length of 2 but got 3". The per-site
+//    loop alone would have passed it — it only visits what it finds, so the
+//    new line's own window was never checked. 1 failed | 24 passed (25).
+//  M-AP-BUDGET-SCHEMA — added `promptBudget: { type: 'number' }` to
+//    design_craft's inputSchema.properties. RED on the derived list:
+//    "expected [] to deeply equal [ 'design_craft' ]". The exception is read
+//    from the live schema, not from a hand table, so a schema that gained a
+//    promptBudget forces the prose to follow. 1 failed | 24 passed (25).
+//
+// 4 registered mutants, 0 survivors.
+
+// MUTATION RESULTS (2026-11-13, FINAL_REVIEW — the law regranulated twice)
+//
+// The I-2/I-6 rewrite of this SKILL.md added a third `promptBudget` line inside
+// ONE claim (a parenthetical naming the maxFiles exception), and the law went
+// red on a document that was still making exactly two claims. That is the law
+// pinning prose width. Two re-granulations were tried and BOTH were measured:
+//
+//   per-BLOCK (contiguous mentions grouped) — passed the rewrite, then SURVIVED
+//     M-AP-BUDGET-ADJACENT2 below. Discarded on the measurement, not on taste.
+//   per-SENTENCE (shipped) — a sentence is the unit the claim is made in.
+//
+//  M-AP-BUDGET-118 — stripped the qualifier from the first claim. RED:
+//    'promptBudget stated unqualified: "- **DIFF-SCOPED — forward `files`, and
+//    forward them as ABSOL…"'. 1 failed | 24 passed (25).
+//  M-AP-BUDGET-334 — stripped it from the second. RED: 'promptBudget stated
+//    unqualified: "Dispatch each wired domain as an extra reviewer with its
+//    own…"'. 1 failed | 24 passed (25).
+//  M-AP-BUDGET-COUNT — a third unqualified mention, far from both sites. RED on
+//    the cardinality control: "expected [ …(3) ] to have a length of 2 but got
+//    3". 1 failed | 24 passed (25).
+//  M-AP-BUDGET-ADJACENT2 — a third unqualified SENTENCE one line from site 2
+//    ("Always send a `promptBudget`."), i.e. the laundering case. RED, same
+//    control. 1 failed | 24 passed (25). Under the per-block form this one was
+//    GREEN, which is why that form was discarded.
+//  M-AP-BUDGET-ADJACENT (recorded as a DELIBERATE survivor) — the same text
+//    inserted MID-SENTENCE, with no sentence boundary before it. Stays green,
+//    and should: with no boundary it is a fragment of the surrounding qualified
+//    sentence, so under this law's unit there is no second claim to qualify. A
+//    survivor is recorded with its reason rather than hidden.
+//
+// 4 registered mutants killed, 1 deliberate survivor with a stated reason.

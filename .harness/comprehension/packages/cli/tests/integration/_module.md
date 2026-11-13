@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/tests/integration'
-sourceHash: '8433488c8d68f288463ba3652d3759064f3537bcdaa1b9930283d8ad22e56fa5'
+sourceHash: '4c1f4639b5256ef71ff035fe12b54a2cd73325fcaa6a867d34bed9bdb9cad328'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -12,6 +12,10 @@ members:
     'cli.test.ts',
     'community-skill-discovery.test.ts',
     'core-clumping-export.test.ts',
+    'craft-diff-scope.test.ts',
+    'craft-family-tier-claim.test.ts',
+    'craft-hooks-export.test.ts',
+    'craft-skill-review-hook-sections.test.ts',
     'init-design-roadmap-matrix.test.ts',
     'init-design-roadmap-yes-yes-e2e.test.ts',
     'init.test.ts',
@@ -32,9 +36,11 @@ members:
 ## Dependency Slice
 
 ```
+import { collectCodeCraftPrompts } from '../../src/code-craft'
 import { runInit } from '../../src/commands/init'
 import { runPulseRunCommand } from '../../src/commands/pulse/run'
 import { runValidate } from '../../src/commands/validate'
+import { getToolDefinitions } from '../../src/mcp/server'
 import '../../src/mcp/tools/architecture'
 import '../../src/mcp/tools/assess-project'
 import '../../src/mcp/tools/entropy'
@@ -47,14 +53,17 @@ import { TemplateEngine } from '../../src/templates/engine'
 import { resolveTemplatesDir } from '../../src/utils/paths'
 import { runHarness, skipUnlessBin } from '../e2e/support'
 import { scaffoldInitFixture } from './_helpers/init-fixture'
-import { ALLOWED_FIELD_KEYS, Clump, ClumpResult, ClumpableItem, Confidence, CraftTier, DEFAULT_CLUMP_POLICY, Grade, Impact, PII_FIELD_DENYLIST, clearPulseAdapters, formClumps, parseRoadmap, registerMockAdapter, registerPulseAdapter, resolveFloor } from '@harness-engineering/core'
+import { ALLOWED_FIELD_KEYS, CRAFT_REVIEW_DOMAINS, CRAFT_REVIEW_EVENTS_BY_HOST, Clump, ClumpResult, ClumpableItem, Confidence, CraftTier, DEFAULT_CLUMP_POLICY, Grade, Impact, PII_FIELD_DENYLIST, clearPulseAdapters, formClumps, parseRoadmap, planCraftReviewDomains, registerMockAdapter, registerPulseAdapter, resolveFloor, resolveReviewHooksWithCraft } from '@harness-engineering/core'
 import * as core from '@harness-engineering/core'
 import { PulseAdapter, SanitizedResult } from '@harness-engineering/types'
 import { spawnSync } from 'child_process'
 import * as fs from 'fs'
 import fs, { mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
+import * as fs from 'node:fs'
 import os, { tmpdir } from 'node:os'
+import * as os from 'node:os'
 import path, { join } from 'node:path'
+import * as path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import * as os from 'os'
 import * as path from 'path'

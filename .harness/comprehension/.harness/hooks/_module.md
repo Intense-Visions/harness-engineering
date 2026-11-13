@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: '.harness/hooks'
-sourceHash: 'c91806abcd2b72ea25f5802a67aca1e8b0c461634a589d4553da839378bb287f'
+sourceHash: '8fc4c1f3b4967f60b6e9329bbb1f4213b319c8643ad11396263d0f25ed080f70'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -31,7 +31,7 @@ members:
 export detectFormatter
 export isRetrospectionEnabled
 export parseCodexNotifyPayload
-export readHookInput
+export parseHookInput
 export readHookStdin
 export retrospectLogLine
 export retrospectSession
@@ -41,11 +41,11 @@ export runFormatCheck
 ## Dependency Slice
 
 ```
-import { readHookInput, runFormatCheck } from './format-check.js'
+import { parseHookInput, runFormatCheck } from './format-check.js'
 import { readHookStdin } from './read-hook-stdin.js'
 import { parseCodexNotifyPayload, readHookStdin, retrospectLogLine, retrospectSession } from './session-retrospect-core.js'
-import from '@harness-engineering/core'
-import from '@harness-engineering/orchestrator'
+import '@harness-engineering/core'
+import '@harness-engineering/orchestrator'
 import { Buffer } from 'node:buffer'
 import { execFileSync } from 'node:child_process'
 import { randomUUID } from 'node:crypto'

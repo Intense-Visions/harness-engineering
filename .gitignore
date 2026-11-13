@@ -129,3 +129,9 @@ tmp-plugin-*-agents/
 
 # fix-drift / entropy autoFix backups of deleted files (#2294)
 .entropy-backups/
+
+# Local git-worktree pool (fleet lanes). Untracked work trees, each a full repo
+# copy — 63 of them add ~260k .ts files, which crashes the architecture walker
+# (it does not read .gitignore, so it is ALSO excluded via
+# architecture.excludePatterns in harness.config.json).
+_wt/

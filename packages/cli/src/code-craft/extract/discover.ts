@@ -1,7 +1,10 @@
 /**
- * Source-file discovery — walks packages/<pkg>/src/ recursively and returns
- * TS/JS source files only. Excludes test files (v1 scope; test-quality is
- * test-craft's territory) and generated / build / coverage dirs.
+ * Source-file discovery — walks packages/<pkg>/src/ recursively (falling back to
+ * src/ then app/ when there is no packages/ dir) and returns every extension in
+ * EXTENSION_MAP, NOT the TS/JS subset: Phase 2a widened SOURCE_EXTENSIONS and
+ * this sentence said "TS/JS source files only" for the whole of it. Excludes test
+ * files (v1 scope; test-quality is test-craft's territory) and generated / build /
+ * coverage dirs.
  *
  * A near-verbatim mirror of security-craft's discovery — code-craft and
  * security-craft critique the same corpus (authored source), differing only
@@ -12,8 +15,23 @@
 
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import { EXTENSION_MAP } from '@harness-engineering/core';
 
-const SOURCE_EXTENSIONS = new Set(['.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs']);
+/**
+ * Every extension harness can parse, not the TS/JS subset.
+ *
+ * Derived from EXTENSION_MAP rather than re-listed, because a second list is
+ * how `.mjs` went missing from test discovery (#1347): the walker skipped a
+ * file the extractor could read, and the summary still printed a confident
+ * zero.
+ *
+ * Widened on the STANDALONE sweep as well as the diff-scoped path.
+ * `collectFiles` returns `input.files` verbatim, so the review surface already
+ * bypasses this filter; widening only there would leave `harness code-craft .`
+ * printing `filesScanned: 0` on a Python repo while review reported findings on
+ * the same code. Two surfaces disagreeing about one repository is the defect.
+ */
+const SOURCE_EXTENSIONS = new Set(Object.keys(EXTENSION_MAP));
 
 const EXCLUDED_DIRS = new Set([
   'node_modules',
@@ -41,7 +59,23 @@ const EXCLUDED_DIRS = new Set([
  */
 const FALLBACK_SOURCE_ROOTS: ReadonlyArray<string> = ['src', 'app'];
 
-const TEST_FILE_PATTERN = /\.(test|spec)\.(ts|tsx|js|jsx|mjs|cjs)$/i;
+/**
+ * Test-file naming conventions per language. Ships alongside the widened
+ * SOURCE_EXTENSIONS: widening one without the other sweeps `test_cart.py` in
+ * as production source and bills code-craft for test-craft's territory.
+ */
+const TEST_FILE_PATTERNS: readonly RegExp[] = [
+  /\.(test|spec)\.(ts|tsx|js|jsx|mjs|cjs|mts|cts)$/i, // TS/JS (unchanged)
+  /^test_.*\.py$/i, //                                    pytest
+  /^.*_test\.py$/i, //                                    pytest, trailing form
+  /^.*_test\.go$/i, //                                    go test
+  /^.*(Test|Tests|IT)\.java$/, //                         JUnit (case-sensitive by convention)
+  /^.*_test\.rs$/i, //                                    rust, file-level convention
+];
+
+function isTestFileName(name: string): boolean {
+  return TEST_FILE_PATTERNS.some((p) => p.test(name));
+}
 
 export function discoverSourceFiles(
   projectRoot: string,
@@ -107,7 +141,7 @@ function walk(dir: string, out: string[]): void {
       continue;
     }
     if (!entry.isFile()) continue;
-    if (TEST_FILE_PATTERN.test(entry.name)) continue;
+    if (isTestFileName(entry.name)) continue;
     const ext = path.extname(entry.name);
     if (!SOURCE_EXTENSIONS.has(ext)) continue;
     out.push(full);

@@ -3,6 +3,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
 import { discoverSourceFiles } from '../../src/code-craft/extract/discover';
+import { EXTENSION_MAP } from '@harness-engineering/core';
 
 describe('discoverSourceFiles (code-craft)', () => {
   let tmpDir: string;
@@ -67,6 +68,64 @@ describe('discoverSourceFiles (code-craft)', () => {
     const files = discoverSourceFiles(tmpDir, ['api', 'cli']);
     expect(files).toHaveLength(2);
     expect(files.some((f) => f.includes('web/'))).toBe(false);
+  });
+
+  it('discovers every language harness supports, and nothing else', () => {
+    writeFile('src/a.ts');
+    writeFile('src/b.py');
+    writeFile('src/c.go');
+    writeFile('src/d.rs');
+    writeFile('src/E.java');
+    writeFile('src/notes.txt');
+    const found = discoverSourceFiles(tmpDir)
+      .map((f) => path.basename(f))
+      .sort();
+    expect(found).toEqual(['E.java', 'a.ts', 'b.py', 'c.go', 'd.rs']);
+  });
+
+  /**
+   * DRIVEN OFF EXTENSION_MAP, not off a list written here.
+   *
+   * The hand-written table above names five extensions and would have stayed
+   * green while `.mts` and `.cts` were discovered but extracted nothing (I2).
+   * This one plants one file per EXTENSION_MAP key, so a seventh language — or
+   * a new extension for an existing one — shows up as a failure the day it is
+   * added rather than as a silent zero in a run summary.
+   */
+  it('discovers one file per EXTENSION_MAP extension, with none missing', () => {
+    const extensions = Object.keys(EXTENSION_MAP);
+    expect(
+      extensions.length,
+      'EXTENSION_MAP is empty — the table below is vacuous'
+    ).toBeGreaterThanOrEqual(12);
+
+    extensions.forEach((ext, i) => writeFile(`src/unit${i}${ext}`));
+    writeFile('src/notes.txt'); // negative control: not in EXTENSION_MAP
+    writeFile('src/data.json'); // negative control
+
+    const found = discoverSourceFiles(tmpDir).map((f) => path.extname(f));
+    for (const ext of extensions) {
+      expect(found, `${ext} is in EXTENSION_MAP but discovery skipped it`).toContain(ext);
+    }
+    expect(found).not.toContain('.txt');
+    expect(found).not.toContain('.json');
+    expect(found).toHaveLength(extensions.length);
+  });
+
+  it('excludes test files in every language, not only TS/JS', () => {
+    writeFile('src/a.test.ts');
+    writeFile('src/test_b.py');
+    writeFile('src/b_test.py');
+    writeFile('src/c_test.go');
+    writeFile('src/CartTest.java');
+    writeFile('src/b.py');
+    const found = discoverSourceFiles(tmpDir).map((f) => path.basename(f));
+    expect(found).not.toContain('a.test.ts');
+    expect(found).not.toContain('test_b.py');
+    expect(found).not.toContain('b_test.py');
+    expect(found).not.toContain('c_test.go');
+    expect(found).not.toContain('CartTest.java');
+    expect(found).toContain('b.py'); // positive control: production python survives
   });
 
   it('includes .mjs / .cjs / .jsx extensions and ignores non-source', () => {

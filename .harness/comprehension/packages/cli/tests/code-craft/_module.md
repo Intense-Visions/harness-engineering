@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/tests/code-craft'
-sourceHash: 'eccfd568908f44e8c9f43fba0fa41843a4a0e25f1e97b670afebc618709f99d3'
+sourceHash: '073898e4fb31b2e018be251456ae65337cf18c09b194dc4a09f4cc7e3025a2a5'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -14,6 +14,7 @@ members:
     'discover.test.ts',
     'extractor-agreement.test.ts',
     'integration.test.ts',
+    'multilang-extraction.test.ts',
     'sibling-evidence.test.ts',
     'siblings-integration.test.ts',
     'siblings.test.ts',
@@ -36,20 +37,22 @@ import { SEED_EXEMPLARS } from '../../src/code-craft/catalog/exemplars'
 import { SEED_RUBRICS, rubricApplies } from '../../src/code-craft/catalog/rubrics'
 import { abstractionEarnsKeepRubric } from '../../src/code-craft/catalog/rubrics/abstraction-earns-keep'
 import { controlFlowHonestRubric } from '../../src/code-craft/catalog/rubrics/control-flow-honest'
+import { SEED_RUBRICS, rubricApplies } from '../../src/code-craft/catalog/rubrics/index'
 import { revealsIntentRubric } from '../../src/code-craft/catalog/rubrics/reveals-intent'
 import { discoverSourceFiles } from '../../src/code-craft/extract/discover'
 import { buildCodeCraftCloneIndex, resolveSiblingEvidence } from '../../src/code-craft/extract/siblings'
-import { extractTsUnits, extractUnits, unitSource } from '../../src/code-craft/extract/units'
+import { extractCodeUnits, extractTsUnits, extractUnits, unitSource, usesTsCompilerExtraction } from '../../src/code-craft/extract/units'
 import { extractUnits, unitSource } from '../../src/code-craft/extract/units.js'
 import { CodeUnit, UnitKind } from '../../src/code-craft/findings/schema'
 import { CodeUnit } from '../../src/code-craft/findings/schema.js'
 import { SIBLING_AWARE_RUBRIC_IDS, buildPrompt, critiqueOne } from '../../src/code-craft/phases/critique'
 import { renderSiblingEvidence } from '../../src/code-craft/phases/sibling-evidence'
+import { usesOutlineExtraction } from '../../src/shared/craft/extract/outline-units'
 import { InSessionLlmProvider, LlmCallCost, LlmProvider, MockLlmProvider } from '../../src/shared/craft/llm/provider'
-import { CloneClass, CloneIndex, CloneMember, extractEstreeUnits } from '@harness-engineering/core'
+import { CloneClass, CloneIndex, CloneMember, EXTENSION_MAP, extractEstreeUnits } from '@harness-engineering/core'
 import { parse } from '@typescript-eslint/typescript-estree'
 import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 ```
