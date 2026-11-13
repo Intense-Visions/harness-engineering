@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/tests/autonomy'
-sourceHash: '395f746c2179ca429d18a3e8f819d3f996cc10ce440608310d294b629f09e923'
+sourceHash: 'e6f8b3208e59b97e29550d1cec14de0e609f72857546ab30413c5d41623848c1'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -13,6 +13,7 @@ members:
     'resolve-isolation.test.ts',
     'resolve.test.ts',
     'schema.test.ts',
+    'session.test.ts',
   ]
 ---
 
@@ -25,6 +26,7 @@ members:
 ## Dependency Slice
 
 ```
+import { resolveAutonomyForSession, writeLoweringOverride, writeSessionOverride } from '../../src/autonomy/index'
 import { AUTONOMY_RAISE_REJECTED, isRaisingChange, writeLoweringOverride } from '../../src/autonomy/lower-only'
 import { readSessionOverride, writeSessionOverride } from '../../src/autonomy/override-store'
 import { computeRepoKey, harnessHomeDir, sessionOverridePath, userConfigPath, validateOverrideSlug } from '../../src/autonomy/paths'

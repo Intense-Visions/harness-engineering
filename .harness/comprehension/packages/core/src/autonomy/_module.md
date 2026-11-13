@@ -1,11 +1,20 @@
 ---
 schemaVersion: 1
 module: 'packages/core/src/autonomy'
-sourceHash: '378ee926070e47dcc68f19e5e57c9f741709a67eb4a50a12a7c74a8f252adad2'
+sourceHash: '8db3de84bf7b039ae90d185f8bd8ca3388efd3cf1053638f45cb735b7a29b098'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
-members: ['lower-only.ts', 'override-store.ts', 'paths.ts', 'resolve.ts', 'schema.ts']
+members:
+  [
+    'index.ts',
+    'lower-only.ts',
+    'override-store.ts',
+    'paths.ts',
+    'resolve.ts',
+    'schema.ts',
+    'session.ts',
+  ]
 ---
 
 ## Interface Contract
@@ -15,7 +24,12 @@ export AUTONOMY_AUDIT_ENV
 export AUTONOMY_ENV
 export AUTONOMY_RAISE_REJECTED
 export AutonomyLevelSchema
+export AutonomyPathOptions
 export AutonomyRaiseRejectedError
+export OverrideStoreOptions
+export ReadOverrideResult
+export ResolveAutonomyInput
+export ResolveForSessionInput
 export SessionOverrideFileSchema
 export UserConfigSchema
 export computeRepoKey
@@ -25,6 +39,7 @@ export parseSessionOverride
 export parseUserConfig
 export readSessionOverride
 export resolveAutonomy
+export resolveAutonomyForSession
 export sessionOverridePath
 export userConfigPath
 export validateOverrideSlug
@@ -36,8 +51,9 @@ export writeSessionOverride
 
 ```
 import { Err, Ok, Result } from '../shared/result'
-import { OverrideStoreOptions, writeSessionOverride } from './override-store'
+import { OverrideStoreOptions, readSessionOverride, writeSessionOverride } from './override-store'
 import { AutonomyPathOptions, sessionOverridePath, userConfigPath } from './paths'
+import { ResolveAutonomyInput, resolveAutonomy } from './resolve'
 import { parseSessionOverride, parseUserConfig } from './schema'
 import { AutonomyFlag, AutonomyLevel, AutonomyOverrideField, AutonomyOverrideOrigin, AutonomySessionOverride, AutonomySetting, AutonomySource, AutonomyUserConfig, DEFAULT_AUTONOMY_AUDIT, ResolvedAutonomy } from '@harness-engineering/types'
 import { createHash } from 'node:crypto'

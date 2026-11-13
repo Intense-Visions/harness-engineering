@@ -7,7 +7,15 @@ import { resolveAutonomy } from '../../src/autonomy/resolve';
 const norm = (p: string) => p.replaceAll('\\', '/');
 const AUTONOMY_SRC = path.join(__dirname, '../../src/autonomy');
 /** Extended in Task 9 once override-store.ts / lower-only.ts / session.ts exist. */
-const SCANNED = ['resolve.ts', 'schema.ts', 'paths.ts'];
+const SCANNED = [
+  'resolve.ts',
+  'schema.ts',
+  'paths.ts',
+  'override-store.ts',
+  'lower-only.ts',
+  'session.ts',
+  'index.ts',
+];
 
 describe('SC5: project config can never set autonomy', () => {
   it('resolves supervised even when the project config says trusted; only the user config is read', () => {
