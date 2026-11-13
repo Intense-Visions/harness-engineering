@@ -247,6 +247,34 @@ describe('the `status: "collected"` claim is made only where a collector exists'
   }
 });
 
+// FINAL_REVIEW I-6. The spec claimed "each wired hook carries a promptBudget,
+// and craft's own maxFiles (default 100) bounds a pathologically large diff".
+// A wired hook is `{ type, skill, blocking }` and the resolver sends no budget
+// at all — the HOST does, per its forwarding contract — and the priority-1
+// domain's tool accepts NEITHER knob. That makes design_craft the one domain a
+// host cannot cap with the documented pair, which is exactly why both hosts now
+// relay `phases` / `mode` instead. Derived from the schemas so the asymmetry
+// cannot quietly change under the prose.
+describe('the budget knobs a host can forward are read from the schemas', () => {
+  function accepts(skill: string, prop: string): boolean {
+    const schema = TOOLS.get(toolNameFor(skill))!.inputSchema as {
+      properties?: Record<string, unknown>;
+    };
+    return Object.prototype.hasOwnProperty.call(schema.properties ?? {}, prop);
+  }
+
+  for (const knob of ['promptBudget', 'maxFiles'] as const) {
+    it(`${knob}: accepted by every auto-wired domain except harness-design-craft`, () => {
+      const without = DOMAINS.filter((skill) => !accepts(skill, knob));
+      const with_ = DOMAINS.filter((skill) => accepts(skill, knob));
+      // BOTH halves. "design-craft lacks it" alone also holds if the probe can
+      // read no schema at all; the nine is the positive control.
+      expect(without).toEqual(['harness-design-craft']);
+      expect(with_).toHaveLength(9);
+    });
+  }
+});
+
 // FINAL_REVIEW I-5. `code-craft` declares ALL_SOURCE_LANGUAGES in
 // CRAFT_REVIEW_DOMAINS and critiques Python, Go, Rust and Java through the
 // outline seam — the one thing Phase 2a changed — while its own SKILL.md line 3

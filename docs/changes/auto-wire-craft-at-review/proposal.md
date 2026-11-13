@@ -60,7 +60,9 @@ dead-declaration shape that issue #663 closed for persona triggers.
 ### Module
 
 `packages/core/src/hooks/craft-review-hooks.ts`, a direct sibling of `canary-review-hooks.ts`
-(294 lines — the size reference). Pure and IO-free like the rest of `core/hooks`: it normalizes and
+(294 lines at spec time, **232 after this branch's own Phase 3 dedup extracted the shared
+skill-availability module** — the size reference moved under the feature that cites it). Pure and
+IO-free like the rest of `core/hooks`: it normalizes and
 resolves; dispatch stays in the consuming skills.
 
 ### Activation
@@ -359,8 +361,19 @@ loop.
 ### Budget
 
 `maxDomains` caps activated domains per review (default 3) in the deterministic `priority` order
-declared in `CRAFT_REVIEW_DOMAINS` — not a vague "highest signal first". Each wired hook carries a
-`promptBudget`, and craft's own `maxFiles` (default 100) bounds a pathologically large diff.
+declared in `CRAFT_REVIEW_DOMAINS` — not a vague "highest signal first".
+
+**The per-domain ceiling is the HOST's to send, and for the priority-1 domain there is none.**
+This sentence originally read "each wired hook carries a `promptBudget`, and craft's own `maxFiles`
+(default 100) bounds a pathologically large diff". Measured, and false in both halves: a wired hook
+is exactly `{ type: 'skill', skill, blocking: false }` and `grep -c promptBudget
+craft-review-hooks.ts` is **0** — the resolver sends no budget, the host does, per the forwarding
+contract in its SKILL.md. Nine of the ten domains' MCP tools accept `promptBudget` and `maxFiles`;
+`mcp__harness__design_craft` accepts **neither**, and its `DEFAULT_PHASES` is
+`['critique','polish','benchmark']` over 13 rubrics. So the motivating case — a `.tsx` / stylesheet
+/ token diff, at priority 1, at two review moments per autopilot phase — is dispatched with no
+ceiling of any kind. The available knob is `phases` / `mode`; `harness-design-craft`'s SKILL.md
+says so and both host SKILL.mds now relay it. A real ceiling for this domain is deferred.
 
 **The implemented priority order** is: 1 `harness-design-craft`, 2 `code-craft`, 3 `test-craft`,
 4 `security-craft`, 5 `naming-craft`, 6 `cli-ergonomics-craft`, 7 `api-craft`, 8 `spec-craft`,
@@ -536,7 +549,7 @@ disposable experiment, not work to be planned, executed and reviewed.
 `packages/core/src/hooks/craft-review-hooks.ts` — the `CRAFT_REVIEW_DOMAINS` table, the
 capability-gated activation function, `planCraftReviewDomains`, and `resolveReviewHooksWithCraft`.
 Pure core, no LLM in the loop, inert until a host calls it. Mirrors the structure of the existing
-`canary-review-hooks.ts` (294 lines).
+`canary-review-hooks.ts` (294 lines when this was written; 232 after Phase 3's dedup).
 
 Satisfies criteria 1, 3, 6, 7, 8, 9, 12, 13.
 
@@ -721,6 +734,15 @@ build(); }` contributes **zero** units — the Builder pattern, so the most conv
   changes finding identity and prompt text, so it belongs with Phase 2b's naming work.
 
 ### Seams that Phases 3 and 4 both recommended
+
+- **Extract the restated depth-calibrator path predicates.** `craft-review-hooks.ts` re-states
+  `isExcludedPath` / `isProductionTsFile` from `packages/core/src/review/depth-calibrator.ts`
+  (`:70`, `:75`) rather than importing them, because exporting them would modify a module consumed
+  by `review/fan-out.ts` and `review/pipeline-orchestrator.ts` and D6 rejects mutating the code that
+  gates every review for an advisory feature. The module's header scheduled the extraction as "a
+  Phase 3 follow-up"; Phase 3 did not do it, so it is parked here rather than left as a promise no
+  phase owns. A third copy is the trigger to act — Phase 4 already paid down the OTHER restatement
+  (the skill-availability triple) when it reached that point.
 
 - **Derive `OUTLINE_LANGUAGES` from `ALL_SOURCE_LANGUAGES`.**
   `packages/cli/src/shared/craft/extract/outline-units.ts:45` hand-lists the languages the outline
