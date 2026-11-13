@@ -89,7 +89,13 @@ describe('SC11: terminal points print the auto-decision summary', () => {
   });
 });
 
-const FLAG_SKILLS = ['harness-brainstorming', 'harness-planning'];
+const FLAG_SKILLS = [
+  'harness-brainstorming',
+  'harness-planning',
+  'harness-autopilot',
+  'harness-execution',
+  'harness-integration',
+];
 const argNames = (name: string): string[] =>
   (
     (

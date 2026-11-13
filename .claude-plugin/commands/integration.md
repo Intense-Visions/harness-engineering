@@ -1,7 +1,7 @@
 ---
 name: harness:integration
 description: Verify system wiring, materialize knowledge artifacts, and update project metadata after execution
-argument-hint: '[--path <path>] [--session-slug <session-slug>] [--fast <fast>] [--thorough <thorough>]'
+argument-hint: '[--path <path>] [--session-slug <session-slug>] [--fast <fast>] [--thorough <thorough>] [--supervised <supervised>] [--audit <audit>]'
 allowed-tools:
   - Bash
   - Read
