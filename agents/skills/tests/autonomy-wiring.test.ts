@@ -181,6 +181,19 @@ describe('B1 / D17: lowering flags are applied before any dispatch or marked poi
     expect(init).toContain(START_STEP);
     expect(init).toMatch(/include: \[[^\]]*"autonomy"[^\]]*\]/);
     expect(init.indexOf(START_STEP)).toBeLessThan(init.indexOf('→ ASSESS'));
+    // B1-r: a resumed session must apply the flags too, so the step precedes the resume check
+    const slug = init.indexOf('Derive session slug');
+    const resume = init.indexOf('Jump to recorded state');
+    expect(slug).toBeGreaterThanOrEqual(0);
+    expect(resume).toBeGreaterThanOrEqual(0);
+    expect(init.indexOf(START_STEP)).toBeGreaterThan(slug);
+    expect(init.indexOf(START_STEP)).toBeLessThan(resume);
+  });
+  it('integration applies the flags after resolving the session slug (R1)', () => {
+    const args = section(skill('harness-integration'), '### Argument Resolution');
+    const at = args.indexOf(START_STEP);
+    expect(args.indexOf('**Session slug:**')).toBeGreaterThanOrEqual(0);
+    expect(at).toBeGreaterThan(args.indexOf('**Session slug:**'));
   });
   it('every skill that declares a lowering flag carries the start step (list is complete)', () => {
     const declaring = readdirSync(SKILLS).filter(

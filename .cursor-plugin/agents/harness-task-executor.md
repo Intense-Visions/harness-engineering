@@ -270,6 +270,7 @@ Proceed? (yes/no)
 _Pause point (ceremony): resolve per the Pause Protocol._ <!-- pause: ceremony -->
 Wait for human confirmation.
 
+_Pause point (judgment): resolve per the Pause Protocol._ <!-- pause: judgment -->
 **`[checkpoint:decision]` — Present Options and Wait**
 
 _Pause point (judgment): resolve per the Pause Protocol._ <!-- pause: judgment -->
@@ -293,6 +294,7 @@ Present the options as a markdown table so tradeoffs are scannable, state your r
 _Pause point (judgment): resolve per the Pause Protocol._ <!-- pause: judgment -->
 Wait for human choice.
 
+_Pause point (gate): resolve per the Pause Protocol._ <!-- pause: gate -->
 **`[checkpoint:human-action]` — Instruct and Wait**
 
 _Pause point (gate): resolve per the Pause Protocol._ <!-- pause: gate -->
