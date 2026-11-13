@@ -123,7 +123,7 @@ describe('validateAutoDecisionInput', () => {
       )
     ).toContain('options');
   });
-  it.each(['2028', '2029', '061c', 'feff', '200b', '200c', '200d', '200e', '200f'])(
+  it.each(['2028', '2029', '061c', 'feff', '200b', '200e', '200f'])(
     'rejects U+%s (line/paragraph separator, invisible or bidi mark) in one-line and prose fields (review S6)',
     (hex) => {
       const ch = String.fromCodePoint(parseInt(hex, 16));
@@ -135,6 +135,18 @@ describe('validateAutoDecisionInput', () => {
       );
     }
   );
+  it.each([
+    ['Persian ZWNJ', '\u0645\u06cc\u200c\u062e\u0648\u0627\u0647\u0645'],
+    ['emoji ZWJ sequence', 'pair with \u{1F469}\u200d\u{1F4BB} on it'],
+  ])('accepts %s (U+200C / U+200D are legitimate text, review N1)', (_name, s) => {
+    expect(validateAutoDecisionInput({ ...ceremony, question: s }).ok).toBe(true);
+    expect(validateAutoDecisionInput({ ...ceremony, rationale: s }).ok).toBe(true);
+  });
+  it('names invisible characters in the rejection message (review N1)', () => {
+    const r = validateAutoDecisionInput({ ...ceremony, question: 'a\u200bb' });
+    expect(r.ok).toBe(false);
+    expect(!r.ok && r.error.message).toMatch(/control, bidi or invisible characters/);
+  });
   it('escapeUnsafeLogText escapes C1, bidi and separator characters as \\uXXXX', () => {
     expect(escapeUnsafeLogText('a\u202eb\u009bc\u2028d ok')).toBe('a\\u202eb\\u009bc\\u2028d ok');
   });

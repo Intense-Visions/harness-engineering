@@ -33,13 +33,14 @@ export class AutoDecisionInvalidError extends Error {
 
 /**
  * Bidi controls (U+200E/F, U+202A-E, U+2066-9, ARABIC LETTER MARK U+061C), invisible characters
- * (ZERO WIDTH SPACE / NON-JOINER / JOINER U+200B-D, BOM U+FEFF) and LINE / PARAGRAPH SEPARATOR
- * (U+2028/9, which some renderers treat as a line break). Review S6. Note: rejecting U+200D also
- * rejects emoji ZWJ sequences in log text.
+ * (ZERO WIDTH SPACE U+200B, BOM U+FEFF) and LINE / PARAGRAPH SEPARATOR (U+2028/9, which some
+ * renderers treat as a line break). Review S6. ZERO WIDTH NON-JOINER / JOINER (U+200C/D) are
+ * allowed (review N1): Persian and other scripts need ZWNJ to spell words and emoji sequences need
+ * ZWJ, and neither reorders or hides text on its own.
  */
 const INVISIBLE_OR_BIDI = new Set([
-  0x061c, 0x200b, 0x200c, 0x200d, 0x200e, 0x200f, 0x2028, 0x2029, 0x202a, 0x202b, 0x202c, 0x202d,
-  0x202e, 0x2066, 0x2067, 0x2068, 0x2069, 0xfeff,
+  0x061c, 0x200b, 0x200e, 0x200f, 0x2028, 0x2029, 0x202a, 0x202b, 0x202c, 0x202d, 0x202e, 0x2066,
+  0x2067, 0x2068, 0x2069, 0xfeff,
 ]);
 
 /**
@@ -75,8 +76,8 @@ function text(max: number, multiline = false) {
     .refine((s) => s.trim() !== '', { message: 'must not be blank' })
     .refine((s) => !hasUnsafeChars(s, multiline), {
       message: multiline
-        ? 'must not contain control or bidi characters (tab and newline are allowed)'
-        : 'must be one line with no control or bidi characters',
+        ? 'must not contain control, bidi or invisible characters (tab and newline are allowed)'
+        : 'must be one line with no control, bidi or invisible characters',
     });
 }
 
