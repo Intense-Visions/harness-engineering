@@ -598,23 +598,18 @@ describe('capability gate (spec criterion 9) — unsupported-language is EXPLICI
     expect(reasonsFor(testInCmd.skipped, 'cli-ergonomics-craft')).toEqual(['not-activated']);
   });
 
-  it('[COST OF THE D-2 WIDENING] owns EVERY file type under a command directory', () => {
-    // Pinned so the trade-off is visible rather than discovered later.
-    // CLI_COMMAND_PATTERN is a DIRECTORY pattern, not a filename pattern like
-    // api-craft's. Dropping the isProductionSource filter is what lets `.sh` and
-    // `.rb` through (the point of D-2), but it necessarily also admits prose and
-    // data files that merely LIVE under cli/, commands/, cmd/ or bin/.
+  it('[PHASE 3] owns commands under a command directory, never the data that lives there', () => {
+    // The D-2 widening (dropping isProductionSource) is what lets `.sh` and
+    // `.rb` CLIs through, and it necessarily admitted data too. The denylist
+    // keeps the back door open for unmapped LANGUAGES while closing it on
+    // DATA. It is a denylist and not an extension allowlist precisely because
+    // an allowlist would re-impose `detectLanguage(f) !== null` through the
+    // back door and re-break shell and Ruby — the defect D-2 fixed.
     //
-    // `docs/cli/guide.md` is arguably fair game — CLI help text is squarely
-    // cli-ergonomics-craft's concern — but `messages.json` and `data.yaml` are
-    // data, not commands. If this proves noisy in practice, the fix is to
-    // intersect with a command-ish extension set, NOT to restore
-    // isExtractableSource (that would re-break shell and Ruby).
-    //
-    // TRACKING: narrowing this is Phase 3's call, recorded in the spec's
-    // Activation section under the cli-ergonomics-craft predicate note. If you
-    // are here because Phase 3 narrowed the predicate and this went red, that is
-    // the intended signal — update the expectation, do not widen it back.
+    // `docs/cli/guide.md` stays owned ON PURPOSE: CLI help text is ergonomics
+    // (DP-6). The three survivors in this same assertion are the positive
+    // control — a denylist that rejected everything would fail this test too,
+    // so one mutant covers both directions.
     const cli = DOMAIN('cli-ergonomics-craft');
     expect(
       cli.owns([
@@ -623,15 +618,10 @@ describe('capability gate (spec criterion 9) — unsupported-language is EXPLICI
         'docs/cli/guide.md',
         'src/cli/messages.json',
         'src/bin/data.yaml',
+        'src/cli/schema.toml',
         'src/services/user.ts',
       ])
-    ).toEqual([
-      'cmd/root.sh',
-      'bin/tool.rb',
-      'docs/cli/guide.md',
-      'src/cli/messages.json',
-      'src/bin/data.yaml',
-    ]);
+    ).toEqual(['cmd/root.sh', 'bin/tool.rb', 'docs/cli/guide.md']);
   });
 
   it('WIRES design-craft on a stylesheet-only diff (CSS is its surface, not an incapacity)', () => {

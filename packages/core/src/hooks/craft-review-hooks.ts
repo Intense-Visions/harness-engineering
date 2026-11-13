@@ -192,6 +192,21 @@ const DESIGN_TOKEN_PATTERN =
   /(^|\/)design-tokens?(\/|\.[A-Za-z0-9]+$)|(^|\/)tokens\.(json|ya?ml|css|scss)$/;
 // Adopter-portable CLI layout markers — no `packages/*/src` assumption.
 const CLI_COMMAND_PATTERN = /(^|\/)(cli|commands|cmd|bin)\//;
+/**
+ * Data, markup and assets that merely LIVE under a command directory.
+ *
+ * A DENYLIST, never a language allowlist. An allowlist re-imposes the
+ * `detectLanguage(f) !== null` gate through the back door and re-breaks every
+ * language outside EXTENSION_MAP — `.sh` and `.rb` CLIs are exactly what
+ * `'any'` exists to serve, and that was the defect this predicate replaced
+ * (spec D-2).
+ *
+ * `.md` is deliberately ABSENT: CLI help text and command docs are squarely
+ * this domain's concern, so `docs/cli/guide.md` stays owned. Narrowing `.md`
+ * too would be a silent extra narrowing (DP-6).
+ */
+const CLI_DATA_MARKUP_PATTERN =
+  /\.(?:json|jsonc|json5|ya?ml|toml|ini|cfg|conf|lock|csv|tsv|xml|svg|png|jpe?g|gif|webp|ico|woff2?|ttf|otf|eot|pdf|zip|gz|tgz|wasm|map|snap)$/i;
 const OPENAPI_PATTERN = /(^|\/)(openapi|swagger)[^/]*\.(ya?ml|json)$/i;
 const SPEC_PROPOSAL_PATTERN = /^docs\/changes\/.+\/proposal\.md$/;
 const MARKDOWN_PATTERN = /\.md$/;
@@ -328,7 +343,13 @@ export const CRAFT_REVIEW_DOMAINS: readonly CraftDomainRule[] = Object.freeze([
     // Deliberately NOT `isExtractableSource`: `.sh` and `.rb` are not in
     // EXTENSION_MAP, and a shell or Ruby CLI is squarely this domain's surface.
     owns: (files) =>
-      files.filter((f) => !isExcludedPath(f) && !isTestFile(f) && CLI_COMMAND_PATTERN.test(f)),
+      files.filter(
+        (f) =>
+          !isExcludedPath(f) &&
+          !isTestFile(f) &&
+          !CLI_DATA_MARKUP_PATTERN.test(f) &&
+          CLI_COMMAND_PATTERN.test(f)
+      ),
   },
   {
     skill: 'api-craft',
