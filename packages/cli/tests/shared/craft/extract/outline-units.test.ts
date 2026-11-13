@@ -180,3 +180,50 @@ describe('law: a Go struct selects at least one rubric (M-KIND)', () => {
     expect(units).toContainEqual({ kind: 'method', name: 'Add', line: 8, endLine: 11 });
   });
 });
+
+describe('law: trivial units are not billed (M-SPAN)', () => {
+  it.each([
+    [
+      'cart.py',
+      [
+        'def tiny(): return 1',
+        '',
+        'def real(items):',
+        '    t = 0',
+        '    t += 1',
+        '    return t',
+      ].join('\n'),
+    ],
+    [
+      'cart.go',
+      [
+        'package cart',
+        '',
+        'func tiny() int { return 1 }',
+        '',
+        'func real(n int) int {',
+        '    t := 0',
+        '    t += n',
+        '    return t',
+        '}',
+      ].join('\n'),
+    ],
+    [
+      'cart.rs',
+      [
+        'fn tiny() -> i32 { 1 }',
+        '',
+        'fn real(n: i32) -> i32 {',
+        '    let mut t = 0;',
+        '    t += n;',
+        '    t',
+        '}',
+      ].join('\n'),
+    ],
+  ])('drops the one-liner and keeps the real unit in %s', async (file, source) => {
+    const units = await extractOutlineUnits(source, file);
+    const names = units.map((u) => u.name);
+    expect(names).not.toContain('tiny');
+    expect(names).toContain('real'); // positive control: the filter is not eating everything
+  });
+});

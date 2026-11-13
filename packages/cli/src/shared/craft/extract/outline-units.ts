@@ -49,6 +49,26 @@ const OUTLINE_LANGUAGES: ReadonlySet<SupportedLanguage> = new Set<SupportedLangu
   'java',
 ]);
 
+/**
+ * Minimum line span for an outline-derived unit.
+ *
+ * The TS Compiler extractor filters on BODY STATEMENT COUNT (3+, or any
+ * control flow). The outline exposes no statement count, so span is the
+ * available proxy. Without it, a one-line `func tiny() int { return 1 }` is a
+ * billable unit, and seven rubrics fire per unit against a default budget of
+ * 100 prompts.
+ *
+ * A proxy, honestly: a 3-line Go struct passes. That is accepted — field
+ * naming is critique-worthy, and the alternative bar ("a class must have
+ * children") would drop EVERY Go struct, because Go methods are emitted top
+ * level and never appear as children.
+ */
+const MIN_UNIT_LINES = 3;
+
+function isSubstantive(symbol: CodeSymbol): boolean {
+  return symbol.endLine - symbol.line + 1 >= MIN_UNIT_LINES;
+}
+
 export function usesOutlineExtraction(filePath: string): boolean {
   const lang = detectLanguage(filePath);
   return lang !== null && OUTLINE_LANGUAGES.has(lang);
@@ -90,7 +110,7 @@ function collect(
   out: Array<{ unit: OutlineUnit; key: string }>
 ): void {
   const kind = CRAFT_KIND_BY_SYMBOL_KIND[symbol.kind];
-  if (kind !== undefined) {
+  if (kind !== undefined && isSubstantive(symbol)) {
     const qualified = parentName === null ? symbol.name : `${parentName}.${symbol.name}`;
     out.push({
       unit: { kind, name: symbol.name, line: symbol.line, endLine: symbol.endLine },
