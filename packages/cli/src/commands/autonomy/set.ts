@@ -85,7 +85,9 @@ export async function runAutonomySet(
     if (!(deps.isInteractive ?? defaultIsInteractive)()) {
       return refuse(
         'not-a-tty',
-        'Raising autonomy requires an interactive terminal (stdin and stdout must be a TTY). Run this command yourself; an agent cannot raise autonomy.'
+        'Raising autonomy requires an interactive terminal (stdin and stdout must be a TTY) and an ' +
+          'explicit yes. Run this command yourself. The TTY check refuses scripts and ' +
+          'non-interactive agent sessions; it is not a sandbox against a process that can drive a terminal.'
       );
     }
     // D14: bound to a live session dir. Checked before prompting so the human is never asked

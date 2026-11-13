@@ -54,6 +54,14 @@ describe('harness autonomy set', () => {
     }
   );
 
+  it('the not-a-tty message is accurate: it does not claim an agent cannot raise (I1a)', async () => {
+    const out = await runAutonomySet('trusted', { session: 's1' }, deps(false).d);
+    expect(out.status === 'refused' && out.message).toMatch(/interactive terminal/);
+    // The TTY check stops non-interactive callers; it is not a sandbox (threat model).
+    expect(out.status === 'refused' && out.message).not.toMatch(/agent cannot/i);
+    expect(out.status === 'refused' && out.message).toMatch(/not a sandbox|does not stop/i);
+  });
+
   it('a refused raise leaves an existing override byte-identical', async () => {
     expect(
       writeSessionOverride(project, 's1', { level: 'supervised' }, 'cli', { homeDir: home }).ok
