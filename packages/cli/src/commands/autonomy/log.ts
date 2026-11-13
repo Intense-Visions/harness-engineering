@@ -13,6 +13,8 @@ export interface AutonomyLogReport {
   session: string;
   file: string;
   logPresent: boolean;
+  /** The live session dir was gone; `file` is in its newest archived copy. */
+  archived: boolean;
   summary: AutoDecisionSummary;
   entries: AutoDecision[];
   invalidLines: Array<{ line: number; error: string }>;
@@ -28,6 +30,7 @@ export function runAutonomyLog(
 ): AutonomyLogOutcome {
   const r = readAutoDecisions((deps.cwd ?? (() => process.cwd()))(), opts.session, {
     sessionNotFoundHint: 'Check the session slug.',
+    archiveFallback: true,
   });
   if (!r.ok) return { ok: false, message: r.error.message };
   return {
@@ -36,6 +39,7 @@ export function runAutonomyLog(
       session: opts.session,
       file: r.value.file,
       logPresent: r.value.present,
+      archived: r.value.archived,
       summary: summarizeAutoDecisions(r.value.entries),
       entries: r.value.entries,
       invalidLines: r.value.invalid,
@@ -49,12 +53,15 @@ export function formatAutonomyLog(report: AutonomyLogReport): string[] {
     invalidLines: report.invalidLines.length,
     includeJudgments: true,
   });
-  if (lines.length > 0) return lines;
-  return [
-    report.logPresent
-      ? `No auto-decisions recorded for session ${report.session} (log is empty: ${report.file}).`
-      : `No auto-decisions recorded for session ${report.session} (no log file at ${report.file}).`,
-  ];
+  const body =
+    lines.length > 0
+      ? lines
+      : [
+          report.logPresent
+            ? `No auto-decisions recorded for session ${report.session} (log is empty: ${report.file}).`
+            : `No auto-decisions recorded for session ${report.session} (no log file at ${report.file}).`,
+        ];
+  return report.archived ? [`Read from archived session: ${report.file}`, ...body] : body;
 }
 
 export function createAutonomyLogCommand(deps: AutonomyCliDeps = {}): Command {

@@ -59,10 +59,17 @@ export interface ReadAutoDecisionsOptions extends AutonomyPathOptions {
   readFile?: (p: string) => string | undefined;
   /** Replaces the session-not-found tail, e.g. "Check the session slug." for a CLI reader. */
   sessionNotFoundHint?: string;
+  /**
+   * When the live session dir is gone, read the newest archived copy
+   * (`.harness/archive/sessions/<slug>-<YYYY-MM-DD>[-<n>]`, the archiveSession naming).
+   */
+  archiveFallback?: boolean;
 }
 
 export interface AutoDecisionLogRead {
   file: string;
+  /** True when the live session dir was gone and an archived copy was read. */
+  archived: boolean;
   present: boolean;
   entries: AutoDecision[];
   /** Lines that failed to parse (hand-edited or cut short), 1-based; never counted. */
@@ -165,6 +172,42 @@ function defaultReadFile(p: string): string | undefined {
   }
 }
 
+const ARCHIVE_SUFFIX = /^(\d{4}-\d{2}-\d{2})(?:-(\d+))?$/;
+
+/** Newest `<slug>-<date>[-<n>]` dir beside the live sessions dir, by date then numeric counter. */
+function newestArchivedSessionDir(liveDir: string, slug: string): string | undefined {
+  const base = path.join(liveDir, '..', '..', 'archive', 'sessions');
+  let names: string[];
+  try {
+    names = fs.readdirSync(base);
+  } catch {
+    return undefined;
+  }
+  const newest = names
+    .flatMap((name) => {
+      const m = name.startsWith(`${slug}-`)
+        ? ARCHIVE_SUFFIX.exec(name.slice(slug.length + 1))
+        : null;
+      return m ? [{ name, date: m[1] ?? '', n: Number(m[2] ?? 0) }] : [];
+    })
+    .filter((c) => isDirectory(path.join(base, c.name)))
+    .sort((a, b) => (a.date === b.date ? b.n - a.n : b.date.localeCompare(a.date)))[0];
+  return newest && path.join(base, newest.name);
+}
+
+/** The directory to read: the live session dir, else (if allowed) its newest archived copy. */
+function locateSessionForRead(
+  liveDir: string,
+  slug: string,
+  opts: ReadAutoDecisionsOptions
+): Result<{ dir: string; archived: boolean }, Error> {
+  if (isDirectory(liveDir)) return Ok({ dir: liveDir, archived: false });
+  const archivedDir = opts.archiveFallback ? newestArchivedSessionDir(liveDir, slug) : undefined;
+  if (archivedDir !== undefined) return Ok({ dir: archivedDir, archived: true });
+  const tail = opts.sessionNotFoundHint ?? READ_NOT_FOUND_TAIL;
+  return Err(new AutoDecisionSessionNotFoundError(slug, liveDir, tail));
+}
+
 /** Read the log back. Unreadable lines are reported, never silently dropped or counted. */
 export function readAutoDecisions(
   projectPath: string,
@@ -173,11 +216,10 @@ export function readAutoDecisions(
 ): Result<AutoDecisionLogRead, Error> {
   const dir = sessionDir(projectPath, slug, opts);
   if (!dir.ok) return dir;
-  if (!isDirectory(dir.value)) {
-    const tail = opts.sessionNotFoundHint ?? READ_NOT_FOUND_TAIL;
-    return Err(new AutoDecisionSessionNotFoundError(slug, dir.value, tail));
-  }
-  const file = path.join(dir.value, AUTO_DECISIONS_FILE);
+  const located = locateSessionForRead(dir.value, slug, opts);
+  if (!located.ok) return located;
+  const { archived } = located.value;
+  const file = path.join(located.value.dir, AUTO_DECISIONS_FILE);
   let raw: string | undefined;
   try {
     raw = (opts.readFile ?? defaultReadFile)(file);
@@ -186,7 +228,7 @@ export function readAutoDecisions(
       new Error(`Cannot read ${file}: ${err instanceof Error ? err.message : String(err)}`)
     );
   }
-  if (raw === undefined) return Ok({ file, present: false, entries: [], invalid: [] });
+  if (raw === undefined) return Ok({ file, archived, present: false, entries: [], invalid: [] });
   const lines = raw.split('\n');
   if (lines[lines.length - 1] === '') lines.pop();
   const entries: AutoDecision[] = [];
@@ -201,7 +243,7 @@ export function readAutoDecisions(
     // Parse errors echo the raw line; escape it so --json never carries C1/bidi (review S6).
     else invalid.push({ line: i + 1, error: escapeUnsafeLogText(parsed.error.message) });
   });
-  return Ok({ file, present: true, entries, invalid });
+  return Ok({ file, archived, present: true, entries, invalid });
 }
 
 // --- recordAutoDecision: the only public write path -------------------------------------

@@ -177,6 +177,51 @@ describe('readAutoDecisions', () => {
   });
 });
 
+/** Review I2: `harness autonomy log` must still read a session after archiveSession moved it. */
+describe('readAutoDecisions archive fallback', () => {
+  const archive = (name: string, question?: string) => {
+    const dir = path.join(project, '.harness', 'archive', 'sessions', name);
+    fs.mkdirSync(dir, { recursive: true });
+    if (question !== undefined)
+      fs.writeFileSync(
+        path.join(dir, 'auto-decisions.jsonl'),
+        JSON.stringify(entry({ question })) + '\n'
+      );
+    return dir;
+  };
+  beforeEach(() => {
+    archive('s2-2026-11-01', 'old');
+    archive('s2-2026-11-12-2', 'counter 2');
+    archive('s2-2026-11-12-10', 'newest'); // counters compare numerically: 10 > 2
+    archive('s2-2026-11-12', 'no counter');
+    archive('s20-2026-12-31', 'other slug'); // decoy: a different slug sharing the prefix
+    archive('s2-latest', 'not archive naming'); // decoy: no date suffix
+  });
+  it('reads the newest archived copy when the live dir is gone', () => {
+    const r = readAutoDecisions(project, 's2', { ...git, archiveFallback: true });
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.value.archived).toBe(true);
+    expect(r.value.file.replaceAll('\\', '/')).toContain('/archive/sessions/s2-2026-11-12-10/');
+    expect(r.value.entries.map((e) => e.question)).toEqual(['newest']);
+  });
+  it('does not fall back unless asked', () => {
+    expect(codeOf(readAutoDecisions(project, 's2', git))).toBe('AUTO_DECISION_SESSION_NOT_FOUND');
+  });
+  it('prefers the live session dir over any archive', () => {
+    fs.mkdirSync(sessionDir('s2'), { recursive: true });
+    const r = readAutoDecisions(project, 's2', { ...git, archiveFallback: true });
+    expect(r.ok && { archived: r.value.archived, present: r.value.present }).toEqual({
+      archived: false,
+      present: false,
+    });
+  });
+  it('is still not-found when no archive matches', () => {
+    const r = readAutoDecisions(project, 'zzz', { ...git, archiveFallback: true });
+    expect(codeOf(r)).toBe('AUTO_DECISION_SESSION_NOT_FOUND');
+  });
+});
+
 describe('append-only by construction', () => {
   const src = fs.readFileSync(path.join(__dirname, '../../src/autonomy/decision-log.ts'), 'utf-8');
   it('positive control: the real module was read', () => {

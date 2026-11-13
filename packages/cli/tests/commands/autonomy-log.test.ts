@@ -88,6 +88,16 @@ describe('harness autonomy log', () => {
     expect(msg).not.toMatch(/record|pause/i);
     expect(runAutonomyLog({ session: '../x' }, deps()).ok).toBe(false);
   });
+  it('falls back to the newest archived copy of the session (review I2)', () => {
+    const dir = path.join(project, '.harness', 'archive', 'sessions', 'done-2026-11-12');
+    fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(path.join(dir, 'auto-decisions.jsonl'), JSON.stringify(ceremony) + '\n');
+    const out = runAutonomyLog({ session: 'done' }, deps());
+    expect(out.ok && out.report.archived).toBe(true);
+    const lines = out.ok ? formatAutonomyLog(out.report) : [];
+    expect(lines[0]).toMatch(/^Read from archived session: .*done-2026-11-12/);
+    expect(lines[1]).toBe('Auto-decisions (session done): 1');
+  });
   it('emits the report as JSON under the global --json flag', async () => {
     writeLog([JSON.stringify(ceremony)]);
     const log = vi.spyOn(console, 'log').mockImplementation(() => {});
