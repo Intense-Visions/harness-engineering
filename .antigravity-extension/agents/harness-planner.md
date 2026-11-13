@@ -45,6 +45,15 @@ Create detailed implementation plans from approved specs using harness methodolo
 
 ## Process
 
+### Pause points
+
+Every point below where this skill stops for the human carries a marker line, `_Pause point (<class>): resolve per the Pause Protocol._` followed by a `<!-- pause: <class> -->` comment. Resolve each one with the Pause Protocol: `agents/skills/templates/pause-protocol.md` (also shipped in the harness CLI package at `dist/agents/skills/templates/pause-protocol.md`).
+
+- Re-read autonomy at every pause point: `gather_context({ path, session, include: ["autonomy"] })`.
+- `irreversible` and `gate` pauses stop at every autonomy level.
+- A `ceremony` or `judgment` pause auto-resolves only when autonomy is `trusted`, the pause states a recommendation, a `judgment` fork passed the self-audit, and `record_auto_decision` returned `recorded: true`. In every other case, pause exactly as written below.
+- If you cannot read the protocol or resolve autonomy, pause.
+
 ### Iron Law
 
 **Every task in the plan must be completable in one context window (2-5 minutes). If a task is larger, split it.**
@@ -111,6 +120,7 @@ Store the parsed skill list for use in Phase 2 task annotation.
 6. **Apply YAGNI.** For every artifact: "Is this required for an observable truth?" If not, cut it.
 
 7. **Surface uncertainties.** Before proceeding to Phase 2, explicitly list what you do NOT know. For each uncertainty, classify it:
+   _Pause point (judgment): resolve per the Pause Protocol._ <!-- pause: judgment -->
    - **Blocking:** Cannot decompose tasks without resolving this. Escalate to user.
    - **Assumption:** Can proceed with a stated assumption. Document it. If wrong, specific tasks will need revision.
    - **Deferrable:** Does not affect task decomposition. Note for execution phase.
@@ -126,6 +136,7 @@ Store the parsed skill list for use in Phase 2 task annotation.
 
    **Read-only constraint:** Steps 1-6 above are research and analysis. Do not propose task structure, file organization, or implementation approaches during SCOPE. Record what must be true (observable truths) and what you do not know (uncertainties). Solutions belong in DECOMPOSE.
 
+   _Pause point (judgment): resolve per the Pause Protocol._ <!-- pause: judgment -->
    When scope is ambiguous, ask in plain text in your reply. **Do NOT route this through `emit_interaction`, `AskUserQuestion`, or any tool.** `emit_interaction` records the prompt but does not display it to the human — the client collapses the call to "Called harness" and the rendered text only returns to the model. `AskUserQuestion` is Claude-Code-only and caps headers at 12 chars / 4 options. Plain text in your own message is the only channel that reliably reaches the human across every tool (Claude Code, Cursor, Codex, Gemini CLI).
 
    Present the choice as a markdown table so tradeoffs are scannable, state your recommendation, then STOP and wait for the human's reply:
@@ -199,6 +210,7 @@ Before decomposing into tasks, ensure domain knowledge from PRDs and specs is do
 
 3. **Cross-check uncertainties against materialized knowledge** (from `businessKnowledge` loaded in gather_context and freshly materialized docs):
    - Remove "assumptions" from the uncertainty list that are now documented facts in `docs/knowledge/`
+     _Pause point (judgment): resolve per the Pause Protocol._ <!-- pause: judgment -->
    - Escalate if contradictions exist between PRDs and existing knowledge docs
    - Use `business_fact` nodes from the graph context to validate domain assumptions
 
@@ -212,6 +224,7 @@ Non-functional requirements (NFRs) are quality targets — how fast, how safe, h
 
 **Additive by default.** Elicitation is opt-in per dimension: every dimension offers a sensible default and an explicit skip. If the human skips every dimension, no NFR tasks are emitted and planning proceeds exactly as it would without this phase. **Skip this phase entirely** when rigor level is `fast`.
 
+_Pause point (judgment): resolve per the Pause Protocol._ <!-- pause: judgment -->
 **Elicitation protocol.** Ask one dimension at a time, in plain text in your reply — do NOT route this through `emit_interaction` or `AskUserQuestion` (same channel constraint as the rest of this skill: neither reliably displays to the human, `emit_interaction` collapses to "Called harness" and `AskUserQuestion` is Claude-Code-only). For each dimension state the question, the default, and how to skip ("skip" / blank reply), then wait for the reply before asking the next. Keep answers plain-text and short.
 
 | Dimension       | Prompt                                                                                 | Default (if skipped)                                   |
@@ -267,6 +280,7 @@ Report progress: `**[Phase 2/4]** DECOMPOSE — mapping file structure and creat
    **Estimated total:** 8 tasks, ~33 minutes
    ```
 
+   _Pause point (ceremony): resolve per the Pause Protocol._ <!-- pause: ceremony -->
    **Approval gate:** Ask in plain text in your reply — do NOT route this through `emit_interaction` or `AskUserQuestion` (they do not display to the human; `emit_interaction` collapses to "Called harness" and `AskUserQuestion` is Claude-Code-only). Ask directly: "Approve skeleton direction?" and wait. If approved, proceed to step 3. If rejected, revise and re-present.
 
 3. **Decompose into atomic tasks.** Each task must:
@@ -292,9 +306,9 @@ Report progress: `**[Phase 2/4]** DECOMPOSE — mapping file structure and creat
    Match skills to tasks based on keyword and domain overlap between the task description and the skill's purpose/keywords. Only annotate when the match is relevant to the specific task.
 
 6. **Include checkpoints.** Mark tasks requiring human input:
-   - `[checkpoint:human-verify]` — Pause, show result, wait for confirmation
-   - `[checkpoint:decision]` — Pause, present options, wait for choice
-   - `[checkpoint:human-action]` — Pause, instruct human on required action
+   - `[checkpoint:human-verify]` — Pause, show result, wait for confirmation <!-- not-a-pause: describes markers written into plans -->
+   - `[checkpoint:decision]` — Pause, present options, wait for choice <!-- not-a-pause: describes markers written into plans -->
+   - `[checkpoint:human-action]` — Pause, instruct human on required action <!-- not-a-pause: describes markers written into plans -->
 
 7. **Derive integration tasks from the spec's Integration Points section.** If the spec contains an Integration Points section, create tasks for each non-empty integration point. Skip subsections marked "None" — do not derive tasks from them. Integration tasks are normal plan tasks but tagged with `category: "integration"` in their description. They appear at the end of the task list, after all implementation tasks.
 
@@ -352,8 +366,8 @@ Report progress: `**[Phase 2/4]** DECOMPOSE — mapping file structure and creat
 3. **Verify TDD compliance.** Every code-producing task must include a test step. No "write tests later."
 4. **Run `harness validate`** to verify project health before writing the plan.
 5. **Check failures log.** Read `.harness/failures.md`. If planned approaches match known failures, flag them.
-6. **Run soundness review.** Invoke `harness-soundness-review --mode plan` against the draft. Do not proceed until the review converges with no remaining issues.
-7. **Write the plan to `docs/changes/<topic>/plans/`.** Naming: `YYYY-MM-DD-<feature-name>-plan.md`. Resolve `<topic>` from the spec path — if the spec lives at `docs/changes/<topic>/proposal.md`, the plan goes in the sibling `plans/` directory. If the spec is not under `docs/changes/`, fall back to `docs/plans/` and flag the spec location for human review. Create directories as needed.
+6. **Run soundness review.** Invoke `harness-soundness-review --mode plan` against the draft. Do not proceed until the review converges with no remaining issues. <!-- not-a-pause: internal review loop; its human pauses are labelled in harness-soundness-review -->
+7. **Write the plan to `docs/changes/<topic>/plans/`.** Naming: `YYYY-MM-DD-<feature-name>-plan.md`. Resolve `<topic>` from the spec path — if the spec lives at `docs/changes/<topic>/proposal.md`, the plan goes in the sibling `plans/` directory. If the spec is not under `docs/changes/`, fall back to `docs/plans/` and flag the spec location for human review. Create directories as needed. <!-- not-a-pause: flags a fallback location and continues -->
 8. **Commit plan artifact.** Immediately after writing the plan, commit it so the paper trail enters git history at planning time, not after execution:
 
    ```bash
@@ -373,7 +387,11 @@ Report progress: `**[Phase 2/4]** DECOMPOSE — mapping file structure and creat
 
 10. **Write session summary (if session is known).** Call `writeSessionSummary` with skill, status, plan path, keyContext, nextStep. Skip if no session slug.
 
+    _Pause point (ceremony): resolve per the Pause Protocol._ <!-- pause: ceremony -->
+
 11. **Request plan sign-off in plain text.** Ask directly in your reply — do NOT route this through `emit_interaction` or `AskUserQuestion` (the human will not see it; `emit_interaction` collapses to "Called harness" and `AskUserQuestion` is Claude-Code-only). Present the plan path, task count, and time estimate, then ask: "Proceed? (yes/no)" and wait for the reply.
+
+    _Pause point (ceremony): resolve per the Pause Protocol._ <!-- pause: ceremony -->
 
 12. **Suggest transition to execution.** After approval, call `emit_interaction` with type: `transition`, `completedPhase: "planning"`, `suggestedNext: "execution"`, `requiresConfirmation: true`. Include `qualityGate` with checks: plan-written, harness-validate, observable-truths-traced, human-approved. If confirmed: invoke harness-execution. If declined: stop (handoff already written).
 
@@ -427,7 +445,7 @@ One sentence.
 
 ### Task 2: <descriptive name>
 
-[checkpoint:human-verify] ...
+[checkpoint:human-verify] ... <!-- not-a-pause: plan template text copied into plans -->
 ```
 
 ### Integration Tier Heuristics
@@ -599,14 +617,19 @@ Files: src/types/notification.ts
 - **No tasks larger than one context window.** If a task requires exploring, deciding, or touching more than 3 files, split it.
 - **No skipping TDD.** Every code-producing task starts with a test. "Add tests later" is not allowed.
 - **No plan without observable truths.** Must start with goal-backward acceptance criteria.
+  _Pause point (ceremony): resolve per the Pause Protocol._ <!-- pause: ceremony -->
 - **No implementation during planning.** Write the plan, get approval, then use harness-execution.
 - **File map must be complete.** Every file to create or modify must appear before task decomposition.
 - **Uncertainties must be surfaced.** Phase 1 must produce an uncertainties list. Zero uncertainties means the step was skipped. Blocking uncertainties must be resolved before Phase 2.
 
 ## Escalation
 
+_Pause point (judgment): resolve per the Pause Protocol._ <!-- pause: judgment -->
+
 - **Cannot write exact code for a task:** Design is underspecified. Return to spec or brainstorm. Do not write vague placeholders.
 - **Task count exceeds 20:** Consider splitting into multiple plans with milestone boundaries.
 - **Dependencies form a cycle:** Re-examine file map. Break the cycle by extracting a shared type or interface.
+  _Pause point (judgment): resolve per the Pause Protocol._ <!-- pause: judgment -->
 - **Spec is missing information:** Do not fill gaps yourself. Escalate: "The spec does not define behavior for [scenario]. This blocks Task N."
+  _Pause point (judgment): resolve per the Pause Protocol._ <!-- pause: judgment -->
 - **Estimated time exceeds available time:** Identify a milestone boundary for pausing. Propose delivering in phases, each producing a usable increment.
