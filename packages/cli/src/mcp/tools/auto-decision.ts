@@ -10,7 +10,7 @@ import type { ToolDefinition } from '../tool-types.js';
 export const recordAutoDecisionDefinition: ToolDefinition = {
   name: 'record_auto_decision',
   description:
-    'Append an auto-taken decision (trusted autonomy) to .harness/sessions/<session>/auto-decisions.jsonl. ' +
+    'Append an auto-taken decision (trusted autonomy) to `.harness/sessions/<session>/auto-decisions.jsonl`. ' +
     'Append-only. The server stamps ts and autonomySource and refuses every entry (escalated ones ' +
     'included) unless the resolved autonomy is trusted, and a judgment with audit "off" while audit is on. ' +
     'If this returns isError (recorded:false), do NOT auto-proceed: pause and ask the human.',
