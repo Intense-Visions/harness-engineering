@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/tests/integration'
-sourceHash: '8433488c8d68f288463ba3652d3759064f3537bcdaa1b9930283d8ad22e56fa5'
+sourceHash: '1208d2aba29846488177671bdb08d025f05fb8aad05bfced64fb1bfcb734eaf2'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -12,6 +12,7 @@ members:
     'cli.test.ts',
     'community-skill-discovery.test.ts',
     'core-clumping-export.test.ts',
+    'craft-hooks-export.test.ts',
     'init-design-roadmap-matrix.test.ts',
     'init-design-roadmap-yes-yes-e2e.test.ts',
     'init.test.ts',
@@ -47,7 +48,7 @@ import { TemplateEngine } from '../../src/templates/engine'
 import { resolveTemplatesDir } from '../../src/utils/paths'
 import { runHarness, skipUnlessBin } from '../e2e/support'
 import { scaffoldInitFixture } from './_helpers/init-fixture'
-import { ALLOWED_FIELD_KEYS, Clump, ClumpResult, ClumpableItem, Confidence, CraftTier, DEFAULT_CLUMP_POLICY, Grade, Impact, PII_FIELD_DENYLIST, clearPulseAdapters, formClumps, parseRoadmap, registerMockAdapter, registerPulseAdapter, resolveFloor } from '@harness-engineering/core'
+import { ALLOWED_FIELD_KEYS, CRAFT_REVIEW_DOMAINS, CRAFT_REVIEW_EVENTS_BY_HOST, Clump, ClumpResult, ClumpableItem, Confidence, CraftTier, DEFAULT_CLUMP_POLICY, Grade, Impact, PII_FIELD_DENYLIST, clearPulseAdapters, formClumps, parseRoadmap, planCraftReviewDomains, registerMockAdapter, registerPulseAdapter, resolveFloor, resolveReviewHooksWithCraft } from '@harness-engineering/core'
 import * as core from '@harness-engineering/core'
 import { PulseAdapter, SanitizedResult } from '@harness-engineering/types'
 import { spawnSync } from 'child_process'
