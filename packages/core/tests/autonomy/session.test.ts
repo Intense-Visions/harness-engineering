@@ -159,3 +159,63 @@ describe('resolveAutonomyForSession never throws (S1)', () => {
     expect(r.warnings.join('\n')).toMatch(/disk on fire/);
   });
 });
+
+/**
+ * N2(b): the raise→session-dir binding (D14) is checked at READ time too. Worktrees share one
+ * override key (D15), so without this a raise made in worktree A would be honoured in a sibling
+ * worktree B that has no such live session. Lowerings are never gated.
+ */
+describe('a raised field is honoured only where its session dir exists at read time (N2b)', () => {
+  let wtA: string;
+  let wtB: string;
+  let common: string;
+  let opts: { homeDir: string; gitToplevel: (p: string) => string; gitCommonDir: () => string };
+  beforeEach(() => {
+    wtA = path.join(tmp, 'wt-a');
+    wtB = path.join(tmp, 'wt-b');
+    common = path.join(tmp, 'repo.git');
+    for (const d of [wtA, wtB, common]) fs.mkdirSync(d, { recursive: true });
+    fs.mkdirSync(path.join(wtA, '.harness', 'sessions', 's'), { recursive: true });
+    // Two worktrees of one repo: distinct toplevels, one shared git common dir.
+    opts = { homeDir: home, gitToplevel: (p) => p, gitCommonDir: () => common };
+  });
+  const read = (wt: string) =>
+    resolveAutonomyForSession({ projectPath: wt, session: 's', env: {}, ...opts });
+
+  it('worktree B without .harness/sessions/s/ does not honour a raise made in A', () => {
+    expect(writeSessionOverride(wtA, 's', { level: 'trusted' }, 'cli', opts).ok).toBe(true);
+    // Positive control: A, which has the session dir, honours it.
+    expect([read(wtA).level, read(wtA).source.level]).toEqual(['trusted', 'session']);
+    const b = read(wtB);
+    expect([b.level, b.source.level]).toEqual(['supervised', 'default']);
+    expect(b.warnings.some((w) => /session dir|does not exist/i.test(w))).toBe(true);
+  });
+
+  it('a raised audit=off is likewise not honoured in B', () => {
+    expect(writeSessionOverride(wtA, 's', { level: 'trusted', audit: false }, 'cli', opts).ok).toBe(
+      true
+    );
+    expect([read(wtA).audit, read(wtA).source.audit]).toEqual([false, 'session']);
+    // B falls back to the supervised default; the session's audit=off is not what it reads.
+    const b = read(wtB);
+    expect(b.source.audit).toBe('default');
+    expect(b.warnings.some((w) => /audit=false/.test(w))).toBe(true);
+  });
+
+  it('worktree B WITH .harness/sessions/s/ honours it', () => {
+    expect(writeSessionOverride(wtA, 's', { level: 'trusted' }, 'cli', opts).ok).toBe(true);
+    fs.mkdirSync(path.join(wtB, '.harness', 'sessions', 's'), { recursive: true });
+    expect([read(wtB).level, read(wtB).source.level]).toEqual(['trusted', 'session']);
+  });
+
+  it('a raise whose session dir was removed after writing is no longer honoured in A', () => {
+    expect(writeSessionOverride(wtA, 's', { level: 'trusted' }, 'cli', opts).ok).toBe(true);
+    fs.rmSync(path.join(wtA, '.harness', 'sessions', 's'), { recursive: true });
+    expect(read(wtA).source.level).toBe('default');
+  });
+
+  it('lowerings are unaffected: B without the session dir still honours a lowering', () => {
+    expect(writeLoweringOverride(wtA, 's', { level: 'supervised' }, opts).ok).toBe(true);
+    expect([read(wtB).level, read(wtB).source.level]).toEqual(['supervised', 'session']);
+  });
+});

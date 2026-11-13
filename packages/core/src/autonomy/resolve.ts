@@ -30,6 +30,12 @@ export interface ResolveAutonomyInput {
   readFile?: (p: string) => string | undefined;
   /** Clock for raise expiry (D14). Defaults to the real clock. */
   now?: () => Date;
+  /**
+   * Read-time raise binding (D14): returns why the override's session dir is NOT live here
+   * (undefined when it is). Consulted only for a raised field; when it reports an error the
+   * raise is ignored with a warning. resolveAutonomyForSession always supplies it.
+   */
+  raiseSessionError?: () => string | undefined;
 }
 
 interface Picked<T> {
@@ -84,26 +90,37 @@ const ENV_RAISE_HINT =
 
 /** Lower-only (D13): `supervised` is honoured; `trusted` is ignored with a warning naming it. */
 /**
- * D14: a RAISED session field (level trusted / audit off) applies only while unexpired; one
- * with no `expiresAt` is treated as expired, so a legacy or hand-written grant is never
- * permanent. A lowered field never expires.
+ * D14: a RAISED session field (level trusted / audit off) applies only while unexpired AND
+ * while its session dir exists at read time (worktrees share one override key, D15, so a raise
+ * made in one worktree must not be honoured in a sibling without that live session). One with
+ * no `expiresAt` is treated as expired, so a legacy or hand-written grant is never permanent.
+ * A lowered field never expires and is never gated.
  */
 function liveField<T>(
   name: 'level' | 'audit',
   field: AutonomyOverrideField<T> | undefined,
   raises: boolean,
-  now: Date,
+  input: ResolveAutonomyInput,
   warnings: string[]
 ): AutonomyOverrideField<T> | undefined {
   if (field === undefined || !raises) return field;
+  const ignoring = `Ignoring session override ${name}=${String(field.value)}`;
+  const now = (input.now ?? (() => new Date()))();
   const exp = field.expiresAt === undefined ? Number.NaN : Date.parse(field.expiresAt);
-  if (!Number.isNaN(exp) && now.getTime() < exp) return field;
-  warnings.push(
-    field.expiresAt === undefined
-      ? `Ignoring session override ${name}=${String(field.value)}: a raise must carry an expiry (D14).`
-      : `Ignoring session override ${name}=${String(field.value)}: expired at ${field.expiresAt}.`
-  );
-  return undefined;
+  if (Number.isNaN(exp) || now.getTime() >= exp) {
+    warnings.push(
+      field.expiresAt === undefined
+        ? `${ignoring}: a raise must carry an expiry (D14).`
+        : `${ignoring}: expired at ${field.expiresAt}.`
+    );
+    return undefined;
+  }
+  const unbound = input.raiseSessionError?.();
+  if (unbound !== undefined) {
+    warnings.push(`${ignoring}: ${unbound}`);
+    return undefined;
+  }
+  return field;
 }
 
 function readEnvLevel(env: NodeJS.ProcessEnv, warnings: string[]): AutonomyLevel | undefined {
@@ -159,7 +176,7 @@ function resolveLevel(
     'level',
     input.sessionOverride?.level,
     input.sessionOverride?.level?.value !== 'supervised',
-    (input.now ?? (() => new Date()))(),
+    input,
     warnings
   );
   const tier = pickUserTier(input.flag?.level, input.flag?.at, session);
@@ -182,7 +199,7 @@ function resolveAudit(
     'audit',
     input.sessionOverride?.audit,
     input.sessionOverride?.audit?.value !== true,
-    (input.now ?? (() => new Date()))(),
+    input,
     warnings
   );
   const tier = pickUserTier(input.flag?.audit, input.flag?.at, session);

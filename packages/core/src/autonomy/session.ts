@@ -5,6 +5,7 @@ import {
 } from '@harness-engineering/types';
 import { resolveAutonomy, type ResolveAutonomyInput } from './resolve';
 import { readSessionOverride, type OverrideStoreOptions } from './override-store';
+import { sessionDirForRaise } from './paths';
 
 export interface ResolveForSessionInput
   extends Omit<ResolveAutonomyInput, 'sessionOverride'>, OverrideStoreOptions {
@@ -37,7 +38,14 @@ export function resolveAutonomyForSession(input: ResolveForSessionInput): Resolv
 function resolveOrThrow(input: ResolveForSessionInput): ResolvedAutonomy {
   const warnings: string[] = [];
   let sessionOverride: AutonomySessionOverride | undefined;
+  let raiseSessionError: (() => string | undefined) | undefined;
   if (input.session !== undefined) {
+    const slug = input.session;
+    // D14 at read time: a raise is honoured only where its session dir exists in THIS worktree.
+    raiseSessionError = () => {
+      const dir = sessionDirForRaise(input.projectPath, slug, input);
+      return dir.ok ? undefined : dir.error.message;
+    };
     const read = readSessionOverride(input.projectPath, input.session, input);
     if (!read.ok) {
       warnings.push(`Session override unavailable: ${read.error.message}`);
@@ -54,6 +62,7 @@ function resolveOrThrow(input: ResolveForSessionInput): ResolvedAutonomy {
     ...(input.homeDir !== undefined && { homeDir: input.homeDir }),
     ...(input.readFile !== undefined && { readFile: input.readFile }),
     ...(input.now !== undefined && { now: input.now }),
+    ...(raiseSessionError !== undefined && { raiseSessionError }),
   });
   return { ...resolved, warnings: [...warnings, ...resolved.warnings] };
 }
