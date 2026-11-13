@@ -638,6 +638,14 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 - **Priority:** —
 - **External-ID:** github:Intense-Visions/harness-engineering#2248
 
+### Trusted autonomy mode
+
+- **Status:** planned
+- **Spec:** docs/changes/trusted-autonomy-mode/proposal.md
+- **Summary:** Trusted Autonomy Mode
+- **Blockers:** —
+- **Plan:** —
+
 ### Skill-behavior eval harness: trigger accuracy and fixture outcomes
 
 - **Status:** planned
