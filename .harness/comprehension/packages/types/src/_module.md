@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/types/src'
-sourceHash: '67fc2fc52c56668035d793b8a3c54d0b4678119c5d849f0cb69f089bdead7535'
+sourceHash: '89061f96e250e7955dc63c3e4aed345574f7a4fd347b2e35da4be5f7672975f2'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -53,6 +53,8 @@ members:
 ```ts
 export AUTONOMY_LEVELS
 export AUTONOMY_SOURCES
+export AUTO_DECISION_AUDIT_STATUSES
+export AUTO_DECISION_PAUSE_CLASSES
 export AdoptionSection
 export AdoptionSnapshot
 export AgentBackend
@@ -72,6 +74,12 @@ export AuthToken
 export AuthTokenPublic
 export AuthTokenPublicSchema
 export AuthTokenSchema
+export AutoDecision
+export AutoDecisionAudit
+export AutoDecisionAuditStatus
+export AutoDecisionInput
+export AutoDecisionPauseClass
+export AutoDecisionSummary
 export AutonomyFlag
 export AutonomyLevel
 export AutonomyOverrideField

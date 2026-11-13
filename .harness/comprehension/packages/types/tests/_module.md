@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/types/tests'
-sourceHash: '35f15c30b65793caa7f39b93b2767d273569e6ac83e777c171ce98017987ba91'
+sourceHash: '5e5c4f7ac4a494032897c79ae9a8be0077e119ea5903f78ff49e876ea4cca0d7'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -37,7 +37,7 @@ import { FLEET_CLAIM_VERSION, FleetClaim, FleetClaimSchema } from '../src/fleet-
 import { ContextBudgetSchema, FLEET_CONTEXT_BUDGET_VERSION, LeafContextEstimateSchema, LeafContextSpendSchema, safeParseLeafContextEstimate, validateLeafContextEstimate } from '../src/fleet-context-budget'
 import { FLEET_HANDOFF_BLOCKER_REQUIRED_STATUSES, FLEET_HANDOFF_RECORD_VERSION, FleetHandoffRecord, FleetHandoffRecordSchema, parseFleetHandoffRecord, validateFleetHandoffRecord } from '../src/fleet-handoff'
 import { FLEET_SPEND_BUDGET_VERSION, SpendEnvelopeSchema, validateSpendEnvelope } from '../src/fleet-spend-budget'
-import { AUTONOMY_LEVELS, AUTONOMY_SOURCES, AutonomySessionOverride, DEFAULT_AUTONOMY_AUDIT, ResolvedAutonomy } from '../src/index'
+import { AUTONOMY_LEVELS, AUTONOMY_SOURCES, AUTO_DECISION_AUDIT_STATUSES, AUTO_DECISION_PAUSE_CLASSES, AutoDecision, AutoDecisionSummary, AutonomySessionOverride, DEFAULT_AUTONOMY_AUDIT, ResolvedAutonomy } from '../src/index'
 import { Err, FAILURE_CATEGORIES, Ok, SESSION_SECTION_NAMES, STANDARD_COGNITIVE_MODES, SessionEntry, SessionEntryStatus, SessionSectionName, SessionSections, isErr, isOk } from '../src/index.js'
 import { MAINTENANCE_FINDINGS_CONTRACT_VERSION, formatFindingsContract, parseFindingsContract } from '../src/maintenance-findings'
 import { NotificationDeliveryResultSchema, NotificationEnvelopeSchema, NotificationSinkConfigSchema, NotificationsConfigSchema } from '../src/notifications'

@@ -61,3 +61,59 @@ export interface ResolvedAutonomy {
   /** Non-fatal problems met while resolving (malformed config, unrecognised env value). */
   warnings: string[];
 }
+
+/** Pause classes an auto-decision can carry (D1). irreversible and gate never auto-proceed. */
+export const AUTO_DECISION_PAUSE_CLASSES = ['ceremony', 'judgment'] as const;
+export type AutoDecisionPauseClass = (typeof AUTO_DECISION_PAUSE_CLASSES)[number];
+
+export const AUTO_DECISION_AUDIT_STATUSES = ['agreed', 'escalated', 'unavailable', 'off'] as const;
+export type AutoDecisionAuditStatus = (typeof AUTO_DECISION_AUDIT_STATUSES)[number];
+
+/** Self-audit outcome for a judgment fork (D7, D8, D11). */
+export type AutoDecisionAudit =
+  | {
+      status: 'agreed';
+      blindPick: string;
+      objection?: { severity: 'non-blocking'; text: string };
+    }
+  | {
+      status: 'escalated';
+      blindPick: string;
+      objection?: { severity: 'blocking' | 'non-blocking'; text: string };
+      humanChoice: string;
+    }
+  | { status: 'unavailable' | 'off' };
+
+/** What a caller supplies. `ts` and `autonomySource` are stamped by the writer, never the caller. */
+export interface AutoDecisionInput {
+  skill: string;
+  phase: string;
+  pauseClass: AutoDecisionPauseClass;
+  question: string;
+  options: string[];
+  chosen: string;
+  rationale: string;
+  /** Required for judgment, absent for ceremony. */
+  audit?: AutoDecisionAudit;
+}
+
+/** One line of .harness/sessions/<slug>/auto-decisions.jsonl (D6). */
+export interface AutoDecision extends AutoDecisionInput {
+  ts: string;
+  autonomySource: AutonomySource;
+}
+
+export interface AutoDecisionSummary {
+  total: number;
+  byClass: Record<AutoDecisionPauseClass, number>;
+  /** M: every judgment decision, including audit unavailable/off (SC9). */
+  judgments: number;
+  /** N: judgment decisions whose audit actually ran (agreed + escalated). */
+  audited: number;
+  agreed: number;
+  escalations: number;
+  unavailable: number;
+  off: number;
+  /** agreed / audited; null when nothing was audited (never shown as 100%). */
+  agreementRate: number | null;
+}
