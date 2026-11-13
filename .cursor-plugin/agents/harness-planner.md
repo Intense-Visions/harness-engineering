@@ -85,6 +85,8 @@ When no arguments are provided (standalone invocation), discover spec from conte
 
 ### Phase 1: SCOPE — Derive Must-Haves from Goals
 
+**Apply autonomy flags first (D17).** Before any subagent dispatch and before the first marked point below: if this skill was invoked with `--supervised`, call `manage_state({ action: "set-autonomy", path, session, level: "supervised" })`; if with `--audit`, call it with `audit: true`. Flags only lower autonomy: on `--trusted` or `--no-audit`, change nothing and print the raise hint from the Pause Protocol. Then read autonomy with `gather_context({ path, session, include: ["autonomy"] })`. With no session slug nothing can auto-resolve, so there is nothing to lower.
+
 Work backward from the goal. Start with "what must be true when we are done?"
 
 1. **State the goal.** One sentence. What does the system do when this plan is complete?

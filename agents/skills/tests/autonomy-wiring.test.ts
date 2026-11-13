@@ -3,10 +3,10 @@
 // Wiring of trusted autonomy into workflow skills: SC10 (D2), SC11, D17 flags.
 
 import { describe, it, expect } from 'vitest';
-import { readFileSync } from 'fs';
+import { readFileSync, readdirSync, existsSync } from 'fs';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
-import { SUMMARY_STEP } from './pause-markers';
+import { SUMMARY_STEP, START_STEP } from './pause-markers';
 import { parse } from 'yaml';
 
 const SKILLS = resolve(dirname(fileURLToPath(import.meta.url)), '..', 'claude-code');
@@ -141,5 +141,52 @@ describe('brainstorming sign-off states who approves in each mode (verify N5)', 
     expect(s).not.toContain(
       'The human must explicitly approve (a clear "yes") before this skill is complete.'
     );
+  });
+});
+
+/** Index of the first canonical marker line at or after `from`, or Infinity. */
+function firstMarker(md: string, from = 0): number {
+  const m =
+    /^\s*_Pause point \([a-z]+\): resolve per the Pause Protocol\._ <!-- pause: [a-z]+ -->$/m.exec(
+      md.slice(from)
+    );
+  return m ? from + m.index : Number.POSITIVE_INFINITY;
+}
+
+describe('B1 / D17: lowering flags are applied before any dispatch or marked point', () => {
+  const FLAGGED = [
+    'harness-brainstorming',
+    'harness-planning',
+    'harness-autopilot',
+    'harness-execution',
+    'harness-integration',
+  ];
+  it.each(FLAGGED)(
+    '%s carries the start step before its first dispatch and first pause marker',
+    (name) => {
+      const md = skill(name);
+      const at = md.indexOf(START_STEP);
+      expect(at, 'start step present').toBeGreaterThanOrEqual(0);
+      // autopilot's hook-policy text precedes its state machine; its run starts at INIT
+      const runStart = name === 'harness-autopilot' ? md.indexOf('## State Machine') : 0;
+      expect(runStart).toBeGreaterThanOrEqual(0);
+      expect(at).toBeGreaterThan(runStart - 1);
+      expect(at, 'before the first pause marker').toBeLessThan(firstMarker(md, runStart));
+      const dispatch = md.search(/^\s*subagent_type: "/m);
+      if (dispatch >= 0) expect(at, 'before the first dispatch').toBeLessThan(dispatch);
+    }
+  );
+  it('autopilot INIT applies the flags and reads autonomy before ASSESS', () => {
+    const init = section(skill('harness-autopilot'), '### INIT');
+    expect(init).toContain(START_STEP);
+    expect(init).toMatch(/include: \[[^\]]*"autonomy"[^\]]*\]/);
+    expect(init.indexOf(START_STEP)).toBeLessThan(init.indexOf('→ ASSESS'));
+  });
+  it('every skill that declares a lowering flag carries the start step (list is complete)', () => {
+    const declaring = readdirSync(SKILLS).filter(
+      (n) => existsSync(resolve(SKILLS, n, 'skill.yaml')) && argNames(n).includes('supervised')
+    );
+    expect(declaring.length).toBeGreaterThan(0); // control
+    expect(declaring.sort()).toEqual([...FLAGGED].sort());
   });
 });

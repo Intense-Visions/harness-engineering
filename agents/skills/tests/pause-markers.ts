@@ -64,6 +64,10 @@ export const PAUSE_PREAMBLE = [
   '- If you cannot read the protocol or resolve autonomy, pause.',
 ].join('\n');
 
+/** The start step every flag-declaring Tier-1 skill carries verbatim, before any dispatch or marked point (D17, verify B1). */
+export const START_STEP =
+  '**Apply autonomy flags first (D17).** Before any subagent dispatch and before the first marked point below: if this skill was invoked with `--supervised`, call `manage_state({ action: "set-autonomy", path, session, level: "supervised" })`; if with `--audit`, call it with `audit: true`. Flags only lower autonomy: on `--trusted` or `--no-audit`, change nothing and print the raise hint from the Pause Protocol. Then read autonomy with `gather_context({ path, session, include: ["autonomy"] })`. With no session slug nothing can auto-resolve, so there is nothing to lower.';
+
 /** The end-of-run summary step terminal skills carry verbatim (SC11). */
 export const SUMMARY_STEP =
   '**Auto-decision summary (SC11).** Run `harness autonomy log --session <session-slug>`. If its output contains a line starting `No auto-decisions recorded`, print nothing more; otherwise print the output verbatim. If the command fails or is not recognised, print `Auto-decision summary unavailable (<reason>); raw log: .harness/sessions/<session-slug>/auto-decisions.jsonl` and never report zero decisions you did not read.';

@@ -71,6 +71,8 @@ When no arguments are provided (standalone invocation), discover plan from `docs
 
 ### Phase 1: PREPARE — Load State and Verify Prerequisites
 
+**Apply autonomy flags first (D17).** Before any subagent dispatch and before the first marked point below: if this skill was invoked with `--supervised`, call `manage_state({ action: "set-autonomy", path, session, level: "supervised" })`; if with `--audit`, call it with `audit: true`. Flags only lower autonomy: on `--trusted` or `--no-audit`, change nothing and print the raise hint from the Pause Protocol. Then read autonomy with `gather_context({ path, session, include: ["autonomy"] })`. With no session slug nothing can auto-resolve, so there is nothing to lower.
+
 1. **Load the plan.** If `plan-path` argument was resolved, read from that path. Otherwise read from the resolved discovery location (`docs/changes/<topic>/plans/` preferred, `docs/plans/` legacy fallback). Identify total task count and checkpoints.
 
 2. **Gather context in one call.** Use `gather_context` to load all working context:

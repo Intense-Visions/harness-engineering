@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'agents/skills/tests'
-sourceHash: '3e2b248858d4db0d01c8b7bc1a6f6d3f17d8276ddaf4f42ae8893441bd06fce2'
+sourceHash: 'f17f9bbec16c6981e0a26baf266f734a66abc7c652fc792d59eacaff91b7e249'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -38,6 +38,7 @@ export PAUSE_CLASSES
 export PAUSE_PHRASES
 export PAUSE_PREAMBLE
 export PAUSE_PREAMBLE_HEADING
+export START_STEP
 export SUMMARY_STEP
 export SkillMetadataSchema
 export WORKFLOW_SKILLS
@@ -50,10 +51,10 @@ export scanSkill
 ## Dependency Slice
 
 ```
-import { MARKER_WINDOW, PAUSE_PREAMBLE, PAUSE_PREAMBLE_HEADING, SUMMARY_STEP, WORKFLOW_SKILLS, marker, pauseMarkerViolations, scanSkill } from './pause-markers'
+import { MARKER_WINDOW, PAUSE_PREAMBLE, PAUSE_PREAMBLE_HEADING, START_STEP, SUMMARY_STEP, WORKFLOW_SKILLS, marker, pauseMarkerViolations, scanSkill } from './pause-markers'
 import { ALLOWED_PLATFORMS, SkillMetadataSchema } from './schema'
 import { BEHAVIORAL_REQUIRED_SECTIONS, CompoundLockHeldError, KNOWLEDGE_REQUIRED_SECTIONS, RIGID_SECTIONS, acquireCompoundLock } from '@harness-engineering/core'
-import { existsSync, readFileSync } from 'fs'
+import { existsSync, readFileSync, readdirSync } from 'fs'
 import { glob } from 'glob'
 import * as fs from 'node:fs'
 import * as os from 'node:os'

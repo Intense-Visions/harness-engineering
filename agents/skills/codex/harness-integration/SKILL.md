@@ -36,6 +36,8 @@ The words "should", "probably", "seems to", and "I believe" are forbidden in int
 
 ### Argument Resolution
 
+**Apply autonomy flags first (D17).** Before any subagent dispatch and before the first marked point below: if this skill was invoked with `--supervised`, call `manage_state({ action: "set-autonomy", path, session, level: "supervised" })`; if with `--audit`, call it with `audit: true`. Flags only lower autonomy: on `--trusted` or `--no-audit`, change nothing and print the raise hint from the Pause Protocol. Then read autonomy with `gather_context({ path, session, include: ["autonomy"] })`. With no session slug nothing can auto-resolve, so there is nothing to lower.
+
 When invoked by autopilot (or with explicit arguments), resolve paths before starting:
 
 1. **Session slug:** If `session-slug` argument provided, set `{sessionDir} = .harness/sessions/<session-slug>/`. Pass to `gather_context({ session: "<session-slug>" })`. All report writes go to `{sessionDir}/`.

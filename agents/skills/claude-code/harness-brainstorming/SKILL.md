@@ -44,6 +44,8 @@ When no arguments are provided (standalone invocation), the skill operates exact
 
 ### Phase 1: EXPLORE -- Gather Context
 
+**Apply autonomy flags first (D17).** Before any subagent dispatch and before the first marked point below: if this skill was invoked with `--supervised`, call `manage_state({ action: "set-autonomy", path, session, level: "supervised" })`; if with `--audit`, call it with `audit: true`. Flags only lower autonomy: on `--trusted` or `--no-audit`, change nothing and print the raise hint from the Pause Protocol. Then read autonomy with `gather_context({ path, session, include: ["autonomy"] })`. With no session slug nothing can auto-resolve, so there is nothing to lower.
+
 0a. **Read STRATEGY.md if present at repo root (upstream grounding).** Strategy is the durable product anchor that ranks above feature-level context — read it first so the rest of EXPLORE can cross-reference. Call `read_strategy({ path: "<project-root>" })` on the harness MCP server — it returns `{ present, valid, doc?, error? }` and runs validation + parsing inside the server so the project does not need `@harness-engineering/core` installed.
 
     Fallback for environments without the MCP server (only works when core is resolvable from the project):
