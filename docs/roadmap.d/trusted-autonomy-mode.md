@@ -11,3 +11,6 @@ order: 58
 - **Summary:** Trusted Autonomy Mode
 - **Blockers:** —
 - **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#2479
