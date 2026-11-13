@@ -116,11 +116,16 @@ The craft family's ceiling-layer critique runs automatically at autopilot's two 
 - **DIFF-SCOPED — forward `files`, and forward them as ABSOLUTE paths.** Read `plan.files[skill]`
   (the domain's owned, already-normalized subset) and forward it as the craft skill's `files`
   argument, together with a `promptBudget` where that domain's MCP tool accepts one (see each
-  craft skill's "Invoked as a review hook" section; `mcp__harness__design_craft` does not).
-  `plan.files` holds **repo-relative POSIX** paths; the
-  craft collectors read them with `fs.readFileSync`, which resolves a relative path against the
-  process CWD — so **resolve each entry against the project root first**. Forwarding them unresolved
-  produces `status: "collected"` with **zero prompts**: a clean report from a run that read nothing.
+  craft skill's "Invoked as a review hook" section; `mcp__harness__design_craft` does not — it
+  accepts **neither `promptBudget` nor `maxFiles`**, so bound it with `phases` / `mode` instead or
+  it runs all three phases over 13 rubrics with no ceiling). `plan.files` holds **repo-relative
+  POSIX** paths; the collectors read them with `fs.readFileSync`, which resolves a relative path
+  against the process CWD — so **resolve each entry against the project root first**. Forwarding
+  them unresolved fails DIFFERENTLY by domain and neither failure is loud at the call site: the
+  nine collector-based domains produce `status: "collected"` with **zero prompts** — a clean report
+  from a run that read nothing — while `mcp__harness__design_craft` has no collector and instead
+  THROWS `ENOENT` out of `runCritique`, which has no try/catch. Both are pinned
+  (`packages/cli/tests/design-craft/phases/files-path-form.test.ts`).
   Never call `rule.owns()` yourself: it is correct only on repo-relative POSIX paths, and on raw VCS
   output it yields false negatives and, worse, false positives (a `dist\…` build artifact leaks in).
 - **NO DIFF CONTEXT, NO ACTIVATION.** When the changed-file set is unknown, nothing activates and

@@ -34,8 +34,10 @@ advisory and never blocking, diff-scoped, budget-capped, once per phase per diff
 graceful-skip for a harness default against a hard halt for a user-declared hook, and a reported
 denominator so a `0/M` renders as `0/M` rather than as silence. The forwarded file list must be
 resolved to ABSOLUTE paths: `CraftReviewPlan.files` carries repo-relative POSIX paths and the craft
-collectors read them against the process CWD, so forwarding them unresolved produces a run that opens
-no file and reports a confident clean pass.
+collectors read them against the process CWD. Forwarding them unresolved fails differently by domain
+and neither failure is loud at the call site: the nine collector-based domains produce a run that
+opens no file and reports a confident clean pass, while `design_craft` has no collector and throws
+`ENOENT` out of `runCritique` instead.
 
 `harness-code-review` is the second wired host, at its `after:mechanical` event, so craft reaches
 interactive and CI review and not only autopilot runs. Its SKILL.md records the four claims an

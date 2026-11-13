@@ -126,9 +126,12 @@ forwards the subset of the diff this domain owns:
 
 - **`files`** — this domain's owned subset of the changed files, as **ABSOLUTE** paths. The host
   reads it from `plan.files["harness-design-craft"]`, which holds repo-relative POSIX paths, and resolves each
-  entry against the project root before calling `mcp__harness__design_craft`. Forwarded unresolved, the
-  collectors read nothing and the run reports `status: "collected"` with zero prompts — a clean
-  report from a run that read no code.
+  entry against the project root before calling `mcp__harness__design_craft`. Forwarded unresolved,
+  this domain does NOT quietly collect nothing: it has no collector, `readSource` resolves a
+  relative entry against the process CWD, and `runCritique` has no try/catch — so the call **throws
+  `ENOENT`** and the review loses the opinion loudly. (`status: "collected"` with zero prompts is
+  the OTHER nine craft domains' failure mode; `collected` does not appear in `design-craft` at all.
+  Both halves are pinned by `packages/cli/tests/design-craft/phases/files-path-form.test.ts`.)
 - **`promptBudget`** — not accepted by `mcp__harness__design_craft`; bound the cost with `phases` / `mode` instead.
 
 Findings from a hook-triggered run are advisory: reported, never blocking, never counted toward

@@ -259,10 +259,15 @@ for the `{ wired, skipped, expected, files }` split. The full contract lives in 
   Assessment.
 - **DIFF-SCOPED — forward `plan.files[skill]` as the craft skill's `files`, resolved to ABSOLUTE
   paths**, together with a `promptBudget` where that domain's MCP tool accepts one (see each craft
-  skill's "Invoked as a review hook" section; `mcp__harness__design_craft` does not).
-  `plan.files` holds repo-relative POSIX paths and the collectors `readFileSync` them against the
-  process CWD, so forwarding them unresolved yields `status: "collected"` with zero prompts: a
-  clean report from a run that read nothing. Never call `rule.owns()` yourself. When the
+  skill's "Invoked as a review hook" section; `mcp__harness__design_craft` does not — it accepts
+  neither `promptBudget` nor `maxFiles`, so bound it with `phases` / `mode` instead or it runs all
+  three phases over 13 rubrics with no ceiling). `plan.files` holds repo-relative POSIX paths and
+  the collectors `readFileSync` them against the process CWD, so forwarding them unresolved fails
+  differently by domain and neither failure is loud here: the nine collector-based domains yield
+  `status: "collected"` with zero prompts — a clean report from a run that read nothing — while
+  `mcp__harness__design_craft` has no collector and THROWS `ENOENT` out of `runCritique`, which has
+  no try/catch. Both are pinned (`packages/cli/tests/design-craft/phases/files-path-form.test.ts`).
+  Never call `rule.owns()` yourself. When the
   changed-file set is unknown, nothing activates and every domain is reported `no-diff-context`;
   do not fall back to a repository walk.
 - **One event, so no `alreadyRanFor`.** This host resolves craft once per run; the

@@ -168,6 +168,85 @@ describe('no auto-wired craft tool instructs a repo-relative `files` path form',
   }
 });
 
+// FINAL_REVIEW I-2. "Forwarding unresolved paths yields `status: "collected"`
+// with zero prompts" was asserted in six shipped prose sites. It is TRUE for
+// the nine collector-based domains and FALSE for design_craft, which has no
+// collector at all: `grep -rn "'collected'" packages/cli/src/design-craft`
+// returns nothing, and a relative entry throws ENOENT out of runCritique
+// (pinned, with two mutants, in tests/design-craft/phases/files-path-form.ts).
+// The split is DERIVED here from CRAFT_REVIEW_DOMAINS and the source tree, so a
+// domain that gained or lost a collector reddens the prose law below with it.
+describe('the `status: "collected"` claim is made only where a collector exists', () => {
+  /** `harness-design-craft` -> src/design-craft; `code-craft` -> src/code-craft. */
+  function srcDirFor(skill: string): string {
+    return path.join(REPO_ROOT, 'packages', 'cli', 'src', skill.replace(/^harness-/, ''));
+  }
+
+  function filesUnder(dir: string): string[] {
+    const out: string[] = [];
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      const full = path.join(dir, entry.name);
+      if (entry.isDirectory()) out.push(...filesUnder(full));
+      else if (entry.name.endsWith('.ts')) out.push(full);
+    }
+    return out;
+  }
+
+  const collectorDomains = DOMAINS.filter((skill) => {
+    const dir = srcDirFor(skill);
+    if (!fs.existsSync(dir)) throw new Error(`${skill}: no source directory at ${dir}`);
+    return filesUnder(dir).some((f) => fs.readFileSync(f, 'utf-8').includes("'collected'"));
+  });
+
+  it('[denominator] exactly one auto-wired domain has no collector, and it is design-craft', () => {
+    // Both halves asserted. "design-craft has none" alone would also hold if the
+    // probe could not see ANY source — the nine is the positive control.
+    expect(DOMAINS).toHaveLength(10);
+    expect(collectorDomains).toHaveLength(9);
+    expect(DOMAINS.filter((d) => !collectorDomains.includes(d))).toEqual(['harness-design-craft']);
+  });
+
+  for (const platform of PLATFORMS) {
+    it(`${platform}: harness-design-craft's hook section does not claim it collects`, () => {
+      const body = section(skillMd(platform, 'harness-design-craft'), 'harness-design-craft');
+      // VACUITY CONTROL: `section` throws rather than returning '' when the
+      // heading is missing, and this pins that the body is the real one.
+      expect(body).toContain('`files`');
+      expect(body, `${platform}: design-craft claims the collector failure mode`).not.toMatch(
+        /the\s+collectors read nothing and the run reports/
+      );
+      // The positive half, at the same scope: it has to state what DOES happen.
+      // Matched across the line wrap (`**throws\n  \`ENOENT\`**`), because this
+      // file wraps prose at ~100 cols and a same-line probe would pin the
+      // FORMATTING rather than the claim.
+      expect(body.replace(/\s+/g, ' ')).toMatch(/no collector[\s\S]*ENOENT/);
+    });
+  }
+
+  for (const host of ['harness-autopilot', 'harness-code-review'] as const) {
+    it(`${host}: qualifies the collected claim instead of stating it uniformly`, () => {
+      const md = skillMd('claude-code', host);
+      const lines = md.split('\n');
+      const sites = lines
+        .map((line, i) => ({ line, n: i + 1 }))
+        .filter(({ line }) => line.includes('status: "collected"'));
+      // CARDINALITY: one site per host today. A second, unqualified mention
+      // added later must redden rather than slip past a per-site loop.
+      expect(sites).toHaveLength(1);
+      // WINDOW, not same-line: both hosts wrap prose at ~100 cols, so the
+      // qualifier lands on an adjacent line. VACUITY CHECKED — "nine
+      // collector-based domains" appears nowhere else in either file, so no
+      // unrelated prose can satisfy a window of this width.
+      const { n } = sites[0]!;
+      const window = lines.slice(Math.max(0, n - 3), n + 3).join(' ');
+      expect(window, `${host} states the collected claim without the exception`).toMatch(
+        /nine collector-based domains/
+      );
+      expect(window, `${host} does not name the design_craft throw`).toMatch(/ENOENT/);
+    });
+  }
+});
+
 // MUTATION RESULTS (2026-11-13, Phase 5 `files` path-form law)
 //
 //  M-DCDESC-REVERT (the PRE-EDIT control; run once, before the schema fix,
