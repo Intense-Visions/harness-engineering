@@ -8,11 +8,13 @@
  * Source: docs/changes/auto-wire-craft-at-review/plans/2026-11-13-multi-language-craft-extraction-plan.md
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import * as os from 'node:os';
 import { extractCodeUnits } from '../../src/code-craft/extract/units';
 import { SEED_RUBRICS, rubricApplies } from '../../src/code-craft/catalog/rubrics/index';
+import { collectCodeCraftPrompts } from '../../src/code-craft';
 
 function fixture(file: string): string {
   return path.join(__dirname, '..', 'fixtures', 'craft-languages', file);
@@ -84,5 +86,76 @@ describe('multi-language unit extraction', () => {
     // ~0.6ms warm. 2000ms is a regression tripwire (e.g. a lost parser cache),
     // not a performance target.
     expect(Date.now() - started).toBeLessThan(2000);
+  });
+});
+
+/**
+ * A unit count is not evidence of critique, and a rubric count is not evidence
+ * of a prompt. This closes the chain to the artifact code-craft actually emits.
+ */
+describe('multi-language prompt production', () => {
+  let root: string;
+
+  beforeAll(() => {
+    root = fs.mkdtempSync(path.join(os.tmpdir(), 'craft-multilang-'));
+    const src = path.join(root, 'src');
+    fs.mkdirSync(src, { recursive: true });
+    for (const file of [...LANGUAGES.map((l) => l.file), 'cart.ts']) {
+      fs.copyFileSync(fixture(file), path.join(src, file));
+    }
+  });
+
+  afterAll(() => {
+    fs.rmSync(root, { recursive: true, force: true });
+  });
+
+  it('produces prompts for every non-TS language', async () => {
+    const out = await collectCodeCraftPrompts({ path: root, siblings: false });
+    expect(out.status).toBe('collected');
+    for (const { file } of LANGUAGES) {
+      const forFile = out.pendingPrompts.filter((p) => p.userPrompt.includes(file));
+      expect(forFile.length, `zero prompts for ${file}`).toBeGreaterThan(0);
+    }
+  });
+
+  it('emits no duplicate (file, unit, rubric) prompt', async () => {
+    const out = await collectCodeCraftPrompts({ path: root, siblings: false });
+    const keys = out.pendingPrompts.map((p) => p.userPrompt);
+    expect(new Set(keys).size).toBe(keys.length);
+  });
+
+  /**
+   * PLAN CORRECTION. The plan asserted `/\btiny\b/.test(userPrompt)` is never
+   * true. Measured, that is wrong for a reason that is not a defect: a CLASS
+   * unit's prompt carries the class's OWN source span, and in Java `tiny` is a
+   * method inside `class Cart`, so the word appears in 4 legitimate prompts
+   * (the 4 class-applicable rubrics x the one Java class). Asserting on the
+   * word would have forced a fixture chosen to pass.
+   *
+   * What "bills nothing for `tiny`" actually means is that `tiny` is never the
+   * UNIT under review — the `Unit:` line is the billing surface, one prompt per
+   * (unit, rubric). That is what is asserted, with a positive control at the
+   * same scope so an absence cannot pass because the regex shape never matches.
+   */
+  it('never bills the one-line `tiny` as a unit in any language', async () => {
+    const out = await collectCodeCraftPrompts({ path: root, siblings: false });
+    const billedUnits = out.pendingPrompts.map(
+      (p) => p.userPrompt.match(/Unit: kind=\w+, name=(\S+?), line=/)?.[1]
+    );
+    // POSITIVE CONTROL, same scope and same regex: a real unit IS billed, so a
+    // green here cannot come from a regex that matches nothing.
+    expect(billedUnits).toContain('add');
+    expect(billedUnits.filter((n) => n === 'tiny')).toHaveLength(0);
+  });
+
+  it('bills exactly the three substantive units per language, TS included', async () => {
+    const out = await collectCodeCraftPrompts({ path: root, siblings: false });
+    for (const file of [...LANGUAGES.map((l) => l.file), 'cart.ts']) {
+      const forFile = out.pendingPrompts.filter((p) => p.userPrompt.includes(`/${file}`));
+      const units = new Set(
+        forFile.map((p) => p.userPrompt.match(/Unit: kind=(\w+), name=(\S+?), line=/)![0])
+      );
+      expect(units.size, `${file} billed ${units.size} units, expected 3`).toBe(3);
+    }
   });
 });

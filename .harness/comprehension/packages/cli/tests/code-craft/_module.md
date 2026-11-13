@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/tests/code-craft'
-sourceHash: '69d4d7638c3276fd911995dd4878f7e85d5ab71f8659b9dc5b567fd0dba0c3ec'
+sourceHash: '7ea7d79ddcd19897702c2fa7a2002222435b3850e2bd9c67df429c8ccf413913'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -53,5 +53,5 @@ import { parse } from '@typescript-eslint/typescript-estree'
 import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 ```
