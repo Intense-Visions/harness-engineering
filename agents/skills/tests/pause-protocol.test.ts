@@ -150,6 +150,9 @@ describe('end-of-run summary (SC11)', () => {
     expect(s).toContain('harness autonomy log --session <session-slug>');
     expect(s).toContain('`No auto-decisions recorded`');
     expect(s).toContain('never report zero decisions you did not read');
+    expect(s).toContain(
+      'If `.harness/sessions/<session-slug>/auto-decisions.jsonl` does not exist, print nothing.'
+    );
   });
 });
 

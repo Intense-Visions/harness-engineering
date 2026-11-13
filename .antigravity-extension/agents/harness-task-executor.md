@@ -395,7 +395,7 @@ All session-scoped files use `{sessionDir}/` when session is known, otherwise `.
 
 7. **Learnings are append-only.** Never edit or delete previous learnings.
 
-8. **Auto-decision summary (SC11).** Run `harness autonomy log --session <session-slug>`. If its output contains a line starting `No auto-decisions recorded`, print nothing more; otherwise print the output verbatim. If the command fails or is not recognised, print `Auto-decision summary unavailable (<reason>); raw log: .harness/sessions/<session-slug>/auto-decisions.jsonl` and never report zero decisions you did not read.
+8. **Auto-decision summary (SC11).** If `.harness/sessions/<session-slug>/auto-decisions.jsonl` does not exist, print nothing. Otherwise run `harness autonomy log --session <session-slug>`. If its output contains a line starting `No auto-decisions recorded`, print nothing more; otherwise print the output verbatim. If the command fails or is not recognised, print `Auto-decision summary unavailable (<reason>); raw log: .harness/sessions/<session-slug>/auto-decisions.jsonl` and never report zero decisions you did not read.
 
 9. **Auto-transition to verification.** When ALL tasks complete (not mid-plan), call:
 

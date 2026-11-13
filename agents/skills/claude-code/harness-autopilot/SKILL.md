@@ -416,7 +416,7 @@ The blocking post-execution **spec-satisfaction gate** — the harness's ship ga
 ### DONE
 
 1. Present: total phases, tasks, retries, time, `finalReview.status` + findings count, any overridden findings, and the OUTCOME_EVAL verdict (`verdict` / `confidence` / `authority`, plus any recorded override).
-2. **Auto-decision summary (SC11).** Run `harness autonomy log --session <session-slug>`. If its output contains a line starting `No auto-decisions recorded`, print nothing more; otherwise print the output verbatim. If the command fails or is not recognised, print `Auto-decision summary unavailable (<reason>); raw log: .harness/sessions/<session-slug>/auto-decisions.jsonl` and never report zero decisions you did not read.
+2. **Auto-decision summary (SC11).** If `.harness/sessions/<session-slug>/auto-decisions.jsonl` does not exist, print nothing. Otherwise run `harness autonomy log --session <session-slug>`. If its output contains a line starting `No auto-decisions recorded`, print nothing more; otherwise print the output verbatim. If the command fails or is not recognised, print `Auto-decision summary unavailable (<reason>); raw log: .harness/sessions/<session-slug>/auto-decisions.jsonl` and never report zero decisions you did not read.
 
    _Pause point (irreversible): resolve per the Pause Protocol._ <!-- pause: irreversible -->
 

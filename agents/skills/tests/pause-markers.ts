@@ -70,7 +70,7 @@ export const START_STEP =
 
 /** The end-of-run summary step terminal skills carry verbatim (SC11). */
 export const SUMMARY_STEP =
-  '**Auto-decision summary (SC11).** Run `harness autonomy log --session <session-slug>`. If its output contains a line starting `No auto-decisions recorded`, print nothing more; otherwise print the output verbatim. If the command fails or is not recognised, print `Auto-decision summary unavailable (<reason>); raw log: .harness/sessions/<session-slug>/auto-decisions.jsonl` and never report zero decisions you did not read.';
+  '**Auto-decision summary (SC11).** If `.harness/sessions/<session-slug>/auto-decisions.jsonl` does not exist, print nothing. Otherwise run `harness autonomy log --session <session-slug>`. If its output contains a line starting `No auto-decisions recorded`, print nothing more; otherwise print the output verbatim. If the command fails or is not recognised, print `Auto-decision summary unavailable (<reason>); raw log: .harness/sessions/<session-slug>/auto-decisions.jsonl` and never report zero decisions you did not read.';
 
 /** Sections that illustrate, argue, or summarise the protocol; never an instruction to pause. */
 const EXEMPT_HEADING =

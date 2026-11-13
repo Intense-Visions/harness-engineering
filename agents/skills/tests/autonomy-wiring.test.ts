@@ -71,6 +71,8 @@ describe('SC11: terminal points print the auto-decision summary', () => {
   it('the summary step keys on the CLI no-decisions sentinel', () => {
     expect(SUMMARY_STEP).toContain('`No auto-decisions recorded`');
     expect(SUMMARY_STEP).toContain('harness autonomy log --session <session-slug>');
+    // review S5: a supervised run (no log file) prints nothing, not an 'unavailable' notice
+    expect(SUMMARY_STEP).toContain('auto-decisions.jsonl` does not exist, print nothing.');
   });
   it('autopilot DONE', () => {
     expect(section(skill('harness-autopilot'), '### DONE')).toContain(SUMMARY_STEP);
