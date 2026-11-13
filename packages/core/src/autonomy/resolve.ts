@@ -124,7 +124,7 @@ function lowerOnlyFlag(
  * D14: a RAISED session field (level trusted / audit off) applies only while unexpired AND
  * while its session dir exists at read time (worktrees share one override key, D15, so a raise
  * made in one worktree must not be honoured in a sibling without that live session). One with
- * no `expiresAt` is treated as expired, so a legacy or hand-written grant is never permanent.
+ * no `expiresAt` is treated as expired, so a legacy or hand-written raise is never permanent.
  * A lowered field never expires and is never gated.
  */
 function liveField<T>(

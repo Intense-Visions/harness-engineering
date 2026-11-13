@@ -19,8 +19,8 @@ Trusted mode lets an agent auto-approve ceremony and auto-resolve judgment forks
 ADR 0138). A setting with that power is only as safe as the set of things that can turn it on.
 An agent reads untrusted text all day (issues, specs, tool output, web pages, a cloned repo's
 files), and any of it can carry an instruction. If any path an agent or a repository can reach
-were able to **raise** autonomy, an injected sentence or a malicious repo could grant itself
-trusted mode. The design question was therefore not "where is the setting stored" but "which
+were able to **raise** autonomy, an injected sentence or a malicious repo could raise itself
+into trusted mode. The design question was therefore not "where is the setting stored" but "which
 paths may raise it, and which may only lower it".
 
 The spec's threat model (`#threat-model`) scopes the answer: the gate protects against
@@ -87,7 +87,7 @@ A raise must name an existing `.harness/sessions/<slug>/` directory, checked bef
 is prompted, and it expires: default 24 hours (`DEFAULT_RAISE_TTL_MS`,
 `packages/core/src/autonomy/override-store.ts:27`), adjustable with `--for <duration>` (`--for`
 on a lowering is refused). Lowerings do not expire; only a later interactive raise replaces one.
-Otherwise an injected instruction need only name an old slug to inherit a past grant.
+Otherwise an injected instruction need only name an old slug to inherit a past raise.
 
 The shipped resolver enforces this again at read time, per field:
 

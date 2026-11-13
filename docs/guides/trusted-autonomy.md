@@ -48,8 +48,8 @@ harness autonomy set trusted --session <slug> --for 2h   # 90m, 2h, 7d, ...
 
 - A raise needs an **interactive terminal** (stdin and stdout both a TTY) and an explicit yes at
   the confirm prompt. Without a TTY it refuses.
-- The session must already exist (`.harness/sessions/<slug>/`). A raise cannot be granted to a
-  session that has not started, and naming an old slug does not inherit an old grant.
+- The session must already exist (`.harness/sessions/<slug>/`). A raise cannot target a
+  session that has not started, and naming an old slug does not inherit an old raise.
 - A raise expires after 24 hours unless you pass `--for`. `--for` applies only to a raise; passing
   it with a lowering is refused.
 - Lowering needs no TTY: `harness autonomy set supervised --session <slug>` or `--audit on`.
