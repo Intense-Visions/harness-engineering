@@ -244,9 +244,25 @@ const PINNED_CLASSES: Array<[string, string, string]> = [
   ['harness-brainstorming', '**cross-answer contradiction pass**', 'gate'],
 ];
 
+/** Opt-outs per skill as of review I8. Lowering is fine; raising needs a reason in review. */
+const MAX_OPT_OUTS: Record<string, number> = {
+  'harness-brainstorming': 4,
+  'harness-planning': 7,
+  'harness-autopilot': 6,
+  'harness-execution': 2,
+  'harness-soundness-review': 1,
+  'harness-code-review': 7,
+  'harness-integration': 2,
+};
+
 /** Every line matching one of these, in any workflow skill, is a pause of that class (verify N2). */
 const CLASS_SWEEPS: Array<[RegExp, string, number]> = [
-  [/Create a PR\?|create PR or merge|"suggestedNext": "merge"/, 'irreversible', 3],
+  // review I8: push / gh pr / PR / merge / publish / close actions next to a pause are irreversible
+  [
+    /\bgit push\b|\bpush (?:to|the) (?:branch|remote|origin|main)\b|`gh pr|\b(?:create|open) (?:a )?PR\b|PR or merge|\bmerge (?:the|this) PR\b|"suggestedNext": "merge"|\bpublish(?:es|ing)? (?:the|a|to)\b|\bclose (?:the |an? )?(?:issue|PR|branch)\b/i,
+    'irreversible',
+    3,
+  ],
   [/fix \/ (?:override|skip)/, 'gate', 4],
 ];
 
@@ -254,16 +270,24 @@ describe('critical pauses carry their pinned class', () => {
   it.each(PINNED_CLASSES)('%s: "%s" is %s', (skill, excerpt, cls) => {
     expect(classOf(skill, excerpt)).toBe(cls);
   });
-  it.each(CLASS_SWEEPS)('every line matching %s is %s (at least %i found)', (rx, cls, min) => {
-    const hits = WORKFLOW_SKILLS.flatMap((skill) => {
-      const text = read(skill);
-      return text
-        .split('\n')
-        .flatMap((l, i) =>
-          rx.test(l) ? [`${skill}:${i + 1} ${classAt(text, i) ?? 'unmarked'}`] : []
-        );
-    });
-    expect(hits.length).toBeGreaterThanOrEqual(min); // denominator: the sweep found the pauses
-    expect(hits.filter((h) => !h.endsWith(` ${cls}`))).toEqual([]);
-  });
+  it.each(CLASS_SWEEPS)(
+    'every marked line matching %s is %s (at least %i found)',
+    (rx, cls, min) => {
+      const hits = WORKFLOW_SKILLS.flatMap((skill) => {
+        const text = read(skill);
+        return text.split('\n').flatMap((l, i) => {
+          const c = rx.test(l) ? classAt(text, i) : undefined;
+          return c === undefined ? [] : [`${skill}:${i + 1} ${c}`];
+        });
+      });
+      expect(hits.length).toBeGreaterThanOrEqual(min); // denominator: the sweep found the pauses
+      expect(hits.filter((h) => !h.endsWith(` ${cls}`))).toEqual([]);
+    }
+  );
+  it.each(Object.entries(MAX_OPT_OUTS))(
+    '%s uses at most %i not-a-pause opt-outs (review I8)',
+    (skill, max) => {
+      expect(scanSkill(read(skill)).optOuts).toBeLessThanOrEqual(max);
+    }
+  );
 });
