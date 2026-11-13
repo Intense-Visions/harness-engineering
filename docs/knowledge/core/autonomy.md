@@ -18,7 +18,8 @@ autopilot's `rigorLevel`, which decides **how much is checked** (ADR 0136). It r
 (`level`, `audit`) from user-sourced tiers only: the more recent of {invocation flag, session
 override}, then `HARNESS_AUTONOMY*` env, then `~/.harness/config.json`, then the default
 `supervised`. Only `~/.harness/config.json` or a TTY-confirmed `harness autonomy set` can raise
-it; every agent- or repo-reachable path may only lower it (ADR 0137).
+it; every sanctioned agent- or repo-reachable path (MCP tools, env, flags, project files) may only
+lower it (ADR 0137).
 
 **`pause-class`**: the class of a pause point, one of `ceremony` (auto-approved in trusted mode),
 `judgment` (auto-takes the stated recommendation in trusted mode after the self-audit),
