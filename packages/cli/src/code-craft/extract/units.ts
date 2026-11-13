@@ -23,6 +23,10 @@
 
 import ts from 'typescript';
 import type { CodeUnit, UnitKind } from '../findings/schema.js';
+import {
+  extractOutlineUnits,
+  usesOutlineExtraction,
+} from '../../shared/craft/extract/outline-units.js';
 
 /** A function/method body must clear one of these bars to earn a critique. */
 const MIN_BODY_STATEMENTS = 3;
@@ -177,4 +181,19 @@ export function unitSource(sourceText: string, unit: CodeUnit, maxChars: number)
   const hi = Math.min(lines.length, unit.endLine);
   const slice = lines.slice(lo, hi).join('\n');
   return slice.length > maxChars ? slice.slice(0, maxChars) + '\n[…truncated for cost…]' : slice;
+}
+
+/**
+ * Language-routed unit extraction.
+ *
+ * TS/JS keep the statement-aware TS Compiler walk above, unchanged — it is the
+ * only extraction path with production mileage and it can tell a three-statement
+ * body from a three-line one. Everything else goes through the shared
+ * tree-sitter seam.
+ */
+export async function extractCodeUnits(sourceText: string, filePath: string): Promise<CodeUnit[]> {
+  if (usesOutlineExtraction(filePath)) {
+    return extractOutlineUnits(sourceText, filePath);
+  }
+  return extractUnits(sourceText, filePath);
 }
