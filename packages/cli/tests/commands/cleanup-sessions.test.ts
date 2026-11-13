@@ -153,3 +153,52 @@ describe('cleanup-sessions --all (Hermes Phase 2)', () => {
     expect(fs.existsSync(filePath)).toBe(false);
   });
 });
+
+/**
+ * Review I2: the auto-decision log is the audit trail of what an agent decided on its own.
+ * A TTL sweep must not delete it with the session.
+ */
+describe('sessions holding an auto-decision log survive the TTL sweep (review I2)', () => {
+  const DAY = 24 * 60 * 60 * 1000;
+  let tmpDir: string;
+  let sessionsDir: string;
+  beforeEach(() => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-test-'));
+    sessionsDir = path.join(tmpDir, '.harness', 'sessions');
+    fs.mkdirSync(sessionsDir, { recursive: true });
+  });
+  afterEach(() => fs.rmSync(tmpDir, { recursive: true, force: true }));
+
+  function staleSession(name: string, log?: string): void {
+    const dir = path.join(sessionsDir, name);
+    fs.mkdirSync(dir, { recursive: true });
+    const files = ['handoff.json', ...(log !== undefined ? ['auto-decisions.jsonl'] : [])];
+    fs.writeFileSync(path.join(dir, 'handoff.json'), '{}');
+    if (log !== undefined) fs.writeFileSync(path.join(dir, 'auto-decisions.jsonl'), log);
+    const past = new Date(Date.now() - 3 * DAY);
+    for (const f of files) fs.utimesSync(path.join(dir, f), past, past);
+    fs.utimesSync(dir, past, past);
+  }
+
+  it('runCleanupSessions keeps a stale session whose log is non-empty', async () => {
+    staleSession('audited', '{"x":1}\n');
+    staleSession('plain-stale'); // control: still removed
+    const r = await runCleanupSessions({ cwd: tmpDir, dryRun: false });
+    expect(r.ok && r.value.kept).toContain('audited');
+    expect(r.ok && r.value.removed).toEqual(['plain-stale']);
+    expect(fs.existsSync(path.join(sessionsDir, 'audited', 'auto-decisions.jsonl'))).toBe(true);
+  });
+  it('an empty log does not protect a stale session (control)', async () => {
+    staleSession('empty-log', '');
+    const r = await runCleanupSessions({ cwd: tmpDir, dryRun: false });
+    expect(r.ok && r.value.removed).toEqual(['empty-log']);
+  });
+  it('runCleanupAll (--all) keeps it too', async () => {
+    staleSession('audited', '{"x":1}\n');
+    staleSession('plain-stale');
+    const r = await runCleanupAll({ cwd: tmpDir, dryRun: false, include: ['sessions'] });
+    expect(r.ok).toBe(true);
+    expect(fs.existsSync(path.join(sessionsDir, 'audited', 'auto-decisions.jsonl'))).toBe(true);
+    expect(fs.existsSync(path.join(sessionsDir, 'plain-stale'))).toBe(false);
+  });
+});

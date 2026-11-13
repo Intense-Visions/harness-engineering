@@ -9,7 +9,7 @@ import { Command } from 'commander';
 import * as fs from 'fs';
 import * as path from 'path';
 import type { Result } from '@harness-engineering/core';
-import { Ok, Err } from '@harness-engineering/core';
+import { Ok, Err, AUTO_DECISIONS_FILE } from '@harness-engineering/core';
 import { logger } from '../output/logger';
 import { CLIError, ExitCode } from '../utils/errors';
 import { resolveConfig } from '../config/loader';
@@ -70,6 +70,19 @@ function getMostRecentMtime(dirPath: string): number {
   return latest;
 }
 
+/**
+ * A session whose auto-decision log is non-empty is never TTL-swept (review I2): the log is the
+ * audit trail of decisions an agent took on its own, and must outlive the session's working
+ * files. Archive it (or delete it by hand) instead.
+ */
+function holdsAutoDecisionLog(entryPath: string): boolean {
+  try {
+    return fs.statSync(path.join(entryPath, AUTO_DECISIONS_FILE)).size > 0;
+  } catch {
+    return false;
+  }
+}
+
 export async function runCleanupSessions(
   options: CleanupSessionsOptions
 ): Promise<Result<CleanupSessionsResult, CLIError>> {
@@ -103,7 +116,7 @@ export async function runCleanupSessions(
     const mostRecent = getMostRecentMtime(sessionPath);
     const ageMs = now - mostRecent;
 
-    if (ageMs > STALE_TTL_MS) {
+    if (ageMs > STALE_TTL_MS && !holdsAutoDecisionLog(sessionPath)) {
       result.removed.push(entry.name);
       if (!dryRun) {
         try {
@@ -232,7 +245,7 @@ async function sweepDirectory(
   for (const entry of entries) {
     const entryPath = path.join(dir, entry.name);
     const ageMs = now - mtimeOf(entryPath);
-    if (ageMs > ttlMs) {
+    if (ageMs > ttlMs && !holdsAutoDecisionLog(entryPath)) {
       removed.push(entry.name);
       if (!dryRun) {
         try {
