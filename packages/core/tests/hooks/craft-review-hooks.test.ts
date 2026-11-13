@@ -1522,4 +1522,42 @@ describe('module laws', () => {
     // or an empty read cannot pass this test.
     expect(barrel).toContain('canary-review-hooks');
   });
+
+  it('[PHASE 5] its own header does not describe the boundary the barrel refutes', () => {
+    // FINAL_REVIEW I-1. The header said "Phase 1 deliberately does NOT export
+    // these symbols from hooks/index.ts and wires no host ... A test pins that
+    // boundary." By then the barrel exported it, both hosts were wired, and the
+    // test directly above pinned the OPPOSITE. The feature's central source file
+    // told a reader nothing called it.
+    //
+    // DERIVED, not a string match on the fix: the forbidden claims are only
+    // forbidden BECAUSE the barrel exports the module. The premise is asserted
+    // first, so if the export were ever removed this law reports that instead of
+    // silently inverting into a demand for a false sentence.
+    const barrel = readFileSync(
+      fileURLToPath(new URL('../../src/hooks/index.ts', import.meta.url)),
+      'utf8'
+    );
+    const exportSites = [...barrel.matchAll(/from '\.\/craft-review-hooks';/g)];
+    // Cardinality control: values block + types block. A loop over "whatever we
+    // find" would be satisfied by finding nothing at all.
+    expect(exportSites, 'hooks/index.ts must export craft-review-hooks').toHaveLength(2);
+
+    const header = source.slice(0, source.indexOf('\nimport '));
+    // VACUITY CONTROL for the absence assertions below: an empty or mis-sliced
+    // header satisfies every `not.toMatch` trivially, so the slice must be shown
+    // to be the real header first.
+    expect(header.length).toBeGreaterThan(1000);
+    expect(header).toContain('hooks/index.ts');
+
+    expect(header, 'header claims the module is not exported').not.toMatch(
+      /does NOT export these symbols/
+    );
+    expect(header, 'header claims no host is wired').not.toMatch(/wires no host/);
+    // The positive half: the header has to say what IS true, at the same scope.
+    // Without this, deleting the paragraph outright would pass.
+    expect(header).toMatch(/ARE exported from `hooks\/index\.ts`/);
+    expect(header).toMatch(/harness-autopilot/);
+    expect(header).toMatch(/harness-code-review/);
+  });
 });

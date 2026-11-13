@@ -12,10 +12,17 @@
 // network, no spawning), exactly like `skill-lifecycle.ts` and
 // `canary-review-hooks.ts`.
 //
-// INERT UNTIL CALLED. Phase 1 deliberately does NOT export these symbols from
-// `hooks/index.ts` and wires no host; Phase 3 owns the barrel + autopilot, Phase 4
-// owns code-review, Phase 2 owns multi-language craft extraction. A test in
-// `tests/hooks/craft-review-hooks.test.ts` pins that boundary.
+// WIRED, AND INERT ONLY UNTIL A HOST CALLS IT. Phase 1 shipped this module
+// deliberately un-exported and un-wired; that boundary is GONE and this comment
+// is not a description of it. The symbols ARE exported from `hooks/index.ts`
+// (values `:21-29`, types `:30-37`), `harness-autopilot` resolves them at
+// `after:REVIEW` / `after:FINAL_REVIEW` and `harness-code-review` at
+// `after:mechanical`, and multi-language extraction landed in Phase 2a. The test
+// in `tests/hooks/craft-review-hooks.test.ts` now pins the INVERSION, not the
+// boundary: `it('[PHASE 3] IS exported from hooks/index.ts — the inversion Phase 1
+// scheduled')`. What remains true is the narrower property the original sentence
+// was protecting: this module is PURE — it probes nothing, dispatches nothing and
+// touches no IO, so nothing happens until a host calls `resolveReviewHooksWithCraft`.
 //
 // THREE DELIBERATE DIVERGENCES FROM THE CANARY TWIN (`canary-review-hooks.ts`).
 // Each is the kind of thing a future reader "fixes" toward the canary default:
@@ -62,7 +69,9 @@
 // rather than imported on purpose: exporting them would modify a module consumed
 // by `review/fan-out.ts` and `review/pipeline-orchestrator.ts`, and spec D6
 // explicitly rejects mutating the code that gates every review for an advisory
-// feature. Extracting a shared helper is a Phase 3 follow-up.
+// feature. Extracting a shared helper was scheduled here as "a Phase 3 follow-up"
+// and Phase 3 did not do it; it is parked in the spec's `## Deferred follow-ups`
+// rather than left as a promise no phase owns.
 //
 // Activation reads the DIFF, never a discovery walk — so craft's own
 // `packages/*/src` discovery assumption never reaches this path, and the budget
