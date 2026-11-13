@@ -33,7 +33,7 @@ The class is one of `ceremony`, `judgment`, `irreversible` or `gate`. Markers an
 
 ## Resolving a pause point
 
-Classes only round up: if the action behind a pause matches an irreversible or gate example, it is that class regardless of marker or checkpoint type. Any irreversible action you are about to take (push, PR, merge, publish, delete, force-push, close issues) is itself an `irreversible` pause, marked or not, including commands inside a plan task. A ceremony that approves content containing an option choice not settled through a judgment fork is `judgment`.
+Classes only round up: if the action behind a pause matches an irreversible or gate example, it is that class regardless of marker or checkpoint type. Any irreversible action you are about to take (push, PR, merge, publish, delete, force-push, close issues) is itself an `irreversible` pause, marked or not, including commands inside a plan task. Here "delete" means deleting branches, issues, or remote resources, not local scratch files. The roadmap sync steps a skill already performs (`manage_roadmap` `sync`) are not new `irreversible` pauses; run them as the skill text says. A ceremony that approves content embedding a choice between alternatives the skill explicitly enumerated (for example approaches A, B and C in a spec section) that no judgment fork settled is `judgment`. Approving a spec, plan or section that embeds no such enumerated choice stays `ceremony`.
 
 Apply these rules in order and stop at the first that applies.
 
@@ -104,7 +104,7 @@ Options (sorted alphabetically, numbered):
 Evidence:
 {{evidence}}
 
-Do not open files under `.harness/` or any `interview.md`.
+Read only the paths listed under Evidence; do not open files under `.harness/` or any `interview.md`.
 
 Pick exactly one option, copying its text verbatim from the list (without the number). Reply with JSON only:
 {"pick": "<option text>", "confidence": "high|medium|low", "reason": "<one or two sentences>"}

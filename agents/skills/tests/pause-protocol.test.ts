@@ -334,6 +334,13 @@ describe('review I3: a marker can never lower a pause, and only SKILL.md markers
     expect(section('## Resolving a pause point')).toContain(
       'Any irreversible action you are about to take (push, PR, merge, publish, delete, force-push, close issues) is itself an `irreversible` pause, marked or not, including commands inside a plan task.'
     );
+    // Phase 4 carry-forward: narrow "delete" and keep existing roadmap sync out of the irreversible class (SC10)
+    expect(section('## Resolving a pause point')).toContain(
+      'Here "delete" means deleting branches, issues, or remote resources, not local scratch files.'
+    );
+    expect(section('## Resolving a pause point')).toContain(
+      'The roadmap sync steps a skill already performs (`manage_roadmap` `sync`) are not new `irreversible` pauses; run them as the skill text says.'
+    );
   });
   it('honours markers only from SKILL.md files', () => {
     expect(section('## Marker convention')).toContain(SOURCE);
@@ -383,7 +390,7 @@ describe('review S4: the spec Pause Protocol table matches the protocol', () => 
 describe('re-review I5: source paths never lead the blind auditor to the recommendation', () => {
   it('the blind template tells the auditor which files not to open', () => {
     expect(template('blind-audit-prompt')).toContain(
-      'Do not open files under `.harness/` or any `interview.md`.'
+      'Read only the paths listed under Evidence; do not open files under `.harness/` or any `interview.md`.'
     );
     expect(blindLeaks(template('blind-audit-prompt'))).toEqual([]); // still no recommend/rationale wording
   });
@@ -406,8 +413,13 @@ describe('re-review I1a-c: audit replies saved, one option text, unsettled choic
     );
   });
   it('a ceremony approving an unsettled option choice is judgment (I1c)', () => {
-    expect(section('## Resolving a pause point')).toContain(
-      'A ceremony that approves content containing an option choice not settled through a judgment fork is `judgment`.'
+    const s = section('## Resolving a pause point');
+    expect(s).toContain(
+      'A ceremony that approves content embedding a choice between alternatives the skill explicitly enumerated (for example approaches A, B and C in a spec section) that no judgment fork settled is `judgment`.'
     );
+    expect(s).toContain(
+      'Approving a spec, plan or section that embeds no such enumerated choice stays `ceremony`.'
+    );
+    expect(s).not.toContain('an option choice not settled through a judgment fork');
   });
 });
