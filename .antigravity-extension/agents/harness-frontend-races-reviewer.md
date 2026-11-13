@@ -55,11 +55,20 @@ When no arguments are provided (standalone invocation), session slug is unknown 
 
 ## Process
 
+### Pause points
+
+Every point below where this skill stops for the human carries a marker line, `_Pause point (<class>): resolve per the Pause Protocol._` followed by a `<!-- pause: <class> -->` comment. Resolve each one with the Pause Protocol: `agents/skills/templates/pause-protocol.md` (also shipped in the harness CLI package at `dist/agents/skills/templates/pause-protocol.md`).
+
+- Re-read autonomy at every pause point: `gather_context({ path, session, include: ["autonomy"] })`.
+- `irreversible` and `gate` pauses stop at every autonomy level.
+- A `ceremony` or `judgment` pause auto-resolves only when autonomy is `trusted`, the pause states a recommendation, a `judgment` fork passed the self-audit, and `record_auto_decision` returned `recorded: true`. In every other case, pause exactly as written below.
+- If you cannot read the protocol or resolve autonomy, pause.
+
 ### Iron Law
 
 **Review identifies issues. Review never fixes them.**
 
-A reviewer who applies fixes is no longer reviewing — they are editing with reviewer authority and no review. Suggest the fix in the finding. Do not apply it. If you catch yourself writing production code during review, STOP. You have crossed the boundary.
+A reviewer who applies fixes is no longer reviewing — they are editing with reviewer authority and no review. Suggest the fix in the finding. Do not apply it. If you catch yourself writing production code during review, STOP. You have crossed the boundary. <!-- not-a-pause: self-correction, not a human ask -->
 
 The review runs as a 7-phase pipeline. Each phase has a clear input, output, and exit condition.
 
@@ -555,11 +564,11 @@ Constructs failure scenarios that fall _between_ the base 4 agents.
 
 **Issues:** Grouped by severity (Critical / Important / Suggestion). Each includes: location, problem, rationale, suggested fix.
 
-**Assessment:** Approve (no critical/important), Request Changes (critical/important present), or Comment (observations only).
+**Assessment:** Approve (no critical/important), Request Changes (critical/important present), or Comment (observations only). <!-- not-a-pause: review verdict vocabulary, not a prompt -->
 
 **Learnings Applied (thorough only):** List learnings with Jaccard scores and how they influenced review. Omitted in fast/standard.
 
-**Exit code:** 0 for Approve/Comment, 1 for Request Changes.
+**Exit code:** 0 for Approve/Comment, 1 for Request Changes. <!-- not-a-pause: review verdict vocabulary, not a prompt -->
 
 #### Inline GitHub Comments (`--comment`)
 
@@ -576,6 +585,7 @@ gh api repos/{owner}/{repo}/pulls/{pr}/comments \
 
 ### Review Acceptance
 
+_Pause point (ceremony): resolve per the Pause Protocol._ <!-- pause: ceremony -->
 Ask for acceptance directly in your reply. Do NOT route this through `emit_interaction`, `AskUserQuestion`, or any tool. `emit_interaction` records the prompt but does not display it to the human (the client collapses the call to "Called harness" and the rendered text only returns to the model); `AskUserQuestion` is Claude-Code-only and caps headers at 12 chars / 4 options. Plain text in your own message is the only channel that reliably reaches the human across every tool (Claude Code, Cursor, Codex, Gemini CLI). Present it as:
 
 ```markdown
@@ -624,6 +634,8 @@ writeSessionSummary(projectPath, sessionSlug, {
 
 **If "approve":** Emit transition:
 
+_Pause point (irreversible): resolve per the Pause Protocol._ <!-- pause: irreversible -->
+
 ```json
 {
   "type": "transition",
@@ -647,6 +659,7 @@ writeSessionSummary(projectPath, sessionSlug, {
 }
 ```
 
+_Pause point (irreversible): resolve per the Pause Protocol._ <!-- pause: irreversible -->
 If user confirms: proceed to create PR or merge. If user declines: stop.
 
 **If "request-changes":** Do NOT emit transition. Surface critical/important findings for resolution. Re-run after fixes.
@@ -865,9 +878,15 @@ These reasoning patterns sound plausible but lead to bad outcomes. Reject them.
 
 ## Escalation
 
+_Pause point (judgment): resolve per the Pause Protocol._ <!-- pause: judgment -->
+
 - **When reviewers disagree:** Escalate to the human or tech lead.
+  _Pause point (gate): resolve per the Pause Protocol._ <!-- pause: gate -->
 - **When review feedback changes the plan:** Pause review. Plan must be updated first.
+  _Pause point (judgment): resolve per the Pause Protocol._ <!-- pause: judgment -->
 - **When you cannot reproduce a reported issue:** Ask reviewer for exact reproduction steps.
+  _Pause point (gate): resolve per the Pause Protocol._ <!-- pause: gate -->
 - **When review takes more than 2 rounds:** Something is fundamentally misaligned. Stop and discuss synchronously.
+  _Pause point (gate): resolve per the Pause Protocol._ <!-- pause: gate -->
 - **When harness checks fail and you believe the check is wrong:** Do not override or skip. File an issue against harness config.
 - **When pipeline produces a false positive after validation:** Add pattern to `.harness/review-learnings.md` Noise / False Positives section.
