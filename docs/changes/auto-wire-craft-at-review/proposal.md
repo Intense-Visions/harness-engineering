@@ -421,13 +421,27 @@ visible in `skipped` as `over-budget` rather than silent.
 - No `harness.config.json` schema change and no `SkillHookEntry` change. Projects park a domain with
   the existing `enabled: false`.
 - Platform skill mirrors are symlinks (`agents/skills/{cursor,codex,gemini-cli}/<skill>` →
-  `claude-code`), so each SKILL.md is edited once; the gemini `.toml` regenerates in pre-commit.
+  `claude-code`) **for the two HOST skills only**; the gemini `.toml` regenerates in pre-commit.
+  **Measured, correcting this spec's original wording:** `harness-autopilot` and
+  `harness-code-review` are symlinks, but all 30 craft mirror directories are REAL COPIES, so a
+  craft SKILL.md is edited FOUR times, not once. Phase 4 edited all four copies per skill and added
+  a mirror-parity law; the structural fix is in the deferred list below.
 
 ### Documentation updates
 
-- `docs/reference/` — the skillHooks contract page gains a craft auto-wire section parallel to the
-  canary detector note.
-- `AGENTS.md` — one line in the craft-family section: craft fires at review automatically, advisory.
+- `docs/reference/configuration.md` — the `skillHooks` contract page gains a craft auto-wire
+  subsection. **Measured, correcting this spec's original wording:** there is no canary detector
+  note on that page to sit parallel to. The "Canary detectors auto-wire" note lives in
+  `agents/skills/claude-code/harness-autopilot/SKILL.md:91`, and before this phase `configuration.md`
+  mentioned canary only as an example config value. The craft subsection is therefore written as the
+  FIRST auto-wire note on that page, and says so, rather than claiming a parallel that does not
+  exist; its own parenthetical is now the only other mention of canary there.
+- `AGENTS.md` — one line: craft fires at review automatically, advisory. **Measured, correcting
+  this spec's original wording:** `AGENTS.md` had no craft-family section. Before this phase,
+  `grep -i craft AGENTS.md` returned exactly two hits, both the word "Handcrafted" in unrelated
+  doc-structure lines (`:121`, `:981`). The line lands in `### Skill Tier System` after the tier
+  list, which is where the family is named on that page for the first time — so that grep now
+  returns three.
 - `harness-autopilot/SKILL.md` — extend the existing denominator-reporting rule to craft domains
   ("craft domains: 2/3 activated, 1 skipped: unsupported-language").
 
@@ -439,8 +453,17 @@ visible in `skipped` as `over-budget` rather than silent.
 - **D9 (route craft extraction through `code-nav` rather than the TS Compiler API)** warrants a
   standalone ADR: it makes `code-nav` the single language-support seam for the craft family and
   determines where future language support lands.
-- **D5 (multi-host resolver)** is an amendment paragraph to the canary-hook ADR rather than its own
-  record — it generalizes a single host constant to a set.
+- **D5 (multi-host resolver)** is recorded as a named note inside the D6 ADR rather than as its own
+  record — it generalizes a single host constant to a set. **Measured, correcting this spec's
+  original wording ("an amendment paragraph to the canary-hook ADR"): there is no canary-hook ADR to
+  amend.** No ADR body names `resolveReviewHooksWithCanary`; the three ADRs that mention canary are
+  0039 (cross-ecosystem adapter), 0086 (results artifact) and 0111 (e2e framework), none of them
+  about review-hook wiring — 0111 names the file `canary-review-hooks.ts` (`:42`, `:172`) only as an
+  inventory item in a list of what canary already integrates. And `docs/changes/canary-review-detectors/`
+  holds `plans/` and `provenance.json` but no `proposal.md`. **The canary detector wiring shipped
+  with no spec and no ADR**, which is a finding about this repository worth preserving, not merely a
+  correction to one sentence: the shape craft mirrors was never itself recorded, and ADR 0136 is the
+  first record of it. The in-record-note form follows the precedent of ADR 0135.
 - D1-D4, D7, D8, D10 are implementation choices documented here.
 
 ### Knowledge impact
@@ -638,10 +661,12 @@ first.
 
 <!-- complexity: low -->
 
-ADRs for D6 (mirror-the-resolver) and D9 (`code-nav` as the craft language seam), plus the D5
-amendment paragraph on the canary-hook ADR. Update `docs/reference/`'s skillHooks contract page and
-the `AGENTS.md` craft-family section. Records the precedent once the shape has survived two hosts
-and six languages.
+ADRs for D6 (mirror-the-resolver) and D9 (`code-nav` as the craft language seam), carrying D5 as a
+named note inside the D6 record — there is no canary-hook ADR to amend, and the measurement that
+established that is in Integration points above. Update `docs/reference/configuration.md`'s
+`skillHooks` contract page (as the first auto-wire note there) and add one `AGENTS.md` line under
+`### Skill Tier System`. Records the precedent once the shape has survived two hosts and six
+languages.
 
 Phases 1 through 4 each land as their own PR; Phase 5 may ride with Phase 4.
 
