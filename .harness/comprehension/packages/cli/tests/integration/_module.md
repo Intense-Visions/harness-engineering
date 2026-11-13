@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/tests/integration'
-sourceHash: '231afc3ed07797e5456df9c055110205c25d29a4aacf406127d5b2f7470bc531'
+sourceHash: 'ad2d136b8771283985438087f9f85c9fdf6309f3c08f3dc8ac191f042cb32e7a'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -13,6 +13,7 @@ members:
     'community-skill-discovery.test.ts',
     'core-clumping-export.test.ts',
     'craft-diff-scope.test.ts',
+    'craft-family-tier-claim.test.ts',
     'craft-hooks-export.test.ts',
     'craft-skill-review-hook-sections.test.ts',
     'init-design-roadmap-matrix.test.ts',
