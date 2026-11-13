@@ -28,17 +28,17 @@ ahead of extraction.
 Nine facts were measured against this tree (`29d96a5c8`, clean) during planning. **Three contradict
 the task brief**, one of them in the direction that matters most (a green that cannot fail).
 
-| #  | Fact                                                                                                         | Status                      | Encoded as                   |
-| -- | ------------------------------------------------------------------------------------------------------------ | --------------------------- | ---------------------------- |
-| 1  | Adding a craft resolver call site to SKILL.md leaves `autopilot-skill-hooks.test.ts` **16/16 GREEN**         | **BRIEF TRAP (c) REFUTED**  | Tasks 14-15 (DP-1)           |
-| 2  | Forwarding **repo-relative** `files` to a craft collect call yields **0 prompts, `status: "collected"`**     | **NEW — silent zero**       | Tasks 9, 16 (DP-2)           |
-| 3  | `.mts` / `.cts` extract **0 units** (code-craft) and **0 signals** (security-craft) on identical source      | confirms coordinator I6     | Tasks 4, 6 (DP-3)            |
-| 4  | `extractIdentifiers` has **no extension gate**: Python/Go/Rust/Java yield non-empty **garbage** identifiers   | **NEW — defeats a naive law** | Task 3 (DP-4)                |
-| 5  | `test-craft` extracts from all 8 TS/JS extensions **including `.mts`/`.cts`**, and from `.py`                | **NEW**                     | Task 3 (probe table)         |
-| 6  | `security-craft`'s own fixtures (`security-findings/src/insecure.ts`) produce **0** `detectSignals`           | **NEW**                     | Task 3 (new signal fixture)  |
-| 7  | `toAvailabilityPredicate`'s `set.has(skill)` clause is unreachable — proven by subsumption, not asserted      | confirms brief S5           | Tasks 17-19                  |
-| 8  | `hooks/` is **not** in `SKIP_DIRS` (= `Object.keys(SELECTIVE_EXPORTS)`); the root barrel already star-exports | confirms brief trap (b)     | Task 1 (no allowlist edit)   |
-| 9  | A second agent is **actively editing this worktree** (`packages/cli/probe-review.mts`, mtime mid-session)     | **NEW — collision risk**    | Task 6 checkpoint, concerns  |
+| #   | Fact                                                                                                          | Status                        | Encoded as                  |
+| --- | ------------------------------------------------------------------------------------------------------------- | ----------------------------- | --------------------------- |
+| 1   | Adding a craft resolver call site to SKILL.md leaves `autopilot-skill-hooks.test.ts` **16/16 GREEN**          | **BRIEF TRAP (c) REFUTED**    | Tasks 14-15 (DP-1)          |
+| 2   | Forwarding **repo-relative** `files` to a craft collect call yields **0 prompts, `status: "collected"`**      | **NEW — silent zero**         | Tasks 9, 16 (DP-2)          |
+| 3   | `.mts` / `.cts` extract **0 units** (code-craft) and **0 signals** (security-craft) on identical source       | confirms coordinator I6       | Tasks 4, 6 (DP-3)           |
+| 4   | `extractIdentifiers` has **no extension gate**: Python/Go/Rust/Java yield non-empty **garbage** identifiers   | **NEW — defeats a naive law** | Task 3 (DP-4)               |
+| 5   | `test-craft` extracts from all 8 TS/JS extensions **including `.mts`/`.cts`**, and from `.py`                 | **NEW**                       | Task 3 (probe table)        |
+| 6   | `security-craft`'s own fixtures (`security-findings/src/insecure.ts`) produce **0** `detectSignals`           | **NEW**                       | Task 3 (new signal fixture) |
+| 7   | `toAvailabilityPredicate`'s `set.has(skill)` clause is unreachable — proven by subsumption, not asserted      | confirms brief S5             | Tasks 17-19                 |
+| 8   | `hooks/` is **not** in `SKIP_DIRS` (= `Object.keys(SELECTIVE_EXPORTS)`); the root barrel already star-exports | confirms brief trap (b)       | Task 1 (no allowlist edit)  |
+| 9   | A second agent is **actively editing this worktree** (`packages/cli/probe-review.mts`, mtime mid-session)     | **NEW — collision risk**      | Task 6 checkpoint, concerns |
 
 ### Fact 1 — brief trap (c) is false, and its falseness is the finding
 
@@ -111,6 +111,14 @@ zero. `security-craft` declares `typescript` and has the identical hole (`signal
 same `/\.(?:ts|tsx|js|jsx|mjs|cjs)$/i` gate as `units.ts:47`). `naming-craft` (no extension gate) and
 `test-craft` (`isTsJsTestFileName`, which includes `.mts`/`.cts`) do **not** have the hole.
 
+> **LATE UPDATE (measured after two concurrent commits landed on this branch during planning —
+> `8c6362fa5 fix(code-craft): delete the surviving second extension list (.mts/.cts)` and
+> `97da2ed93`).** `code-craft`'s gate in `units.ts` is **already fixed** by the 2a agent;
+> `security-craft`'s is **not** — `signals.ts:116` still reads
+> `/\.(?:ts|tsx|js|jsx|mjs|cjs)$/i`. So the law's expected red at Task 4 is now **two** cases
+> (`security-craft` x `.mts`, `security-craft` x `.cts`), not four, and Task 6's scope shrinks to one
+> file. Re-measure at execution time rather than trusting either number: this branch is moving.
+
 **Decision DP-3 (below): the law is expressed over EXTENSIONS, not languages.** A language-granular
 law compares `{typescript} ⊆ {typescript}` and passes while two extensions extract nothing.
 
@@ -137,7 +145,7 @@ asserts a **known declared symbol** from the fixture, not a count.
 
 **DP-1 — The doc-contract law gets a craft-specific denominator, not just a wider alternation.**
 Rejected: "update the alternation and move on." Measured (Fact 1) that both the current and the
-widened alternation are blind to craft's presence *and* its absence. A law that cannot fail is the
+widened alternation are blind to craft's presence _and_ its absence. A law that cannot fail is the
 failure. Task 15 adds `CRAFT_WIRED = ['after:REVIEW','after:FINAL_REVIEW']` compared against craft's
 own call sites, with mutant **M-DOC-CRAFT** (delete the REVIEW craft line → red).
 
@@ -149,10 +157,10 @@ exclusion patterns that are `/`-anchored and repo-relative by contract).
 **DP-3 — The subset law is EXTENSION-granular; `OUTLINE_LANGUAGES` derivation is recommended but
 out of scope.** The coordinator offered two framings. Measured, they are not alternatives:
 
-| Option                                                       | Catches `.mts`/`.cts` (exists today) | Catches a 7th language (future) | Owner                     |
-| ------------------------------------------------------------ | ------------------------------------ | ------------------------------- | ------------------------- |
-| A. Law over **extensions**                                   | **Yes**                              | **Yes** (see below)             | Phase 3 (test-side)       |
-| B. Derive `OUTLINE_LANGUAGES` from `ALL_SOURCE_LANGUAGES`    | No                                   | Yes (makes it impossible)       | Phase 2b (`outline-units.ts`) |
+| Option                                                    | Catches `.mts`/`.cts` (exists today) | Catches a 7th language (future) | Owner                         |
+| --------------------------------------------------------- | ------------------------------------ | ------------------------------- | ----------------------------- |
+| A. Law over **extensions**                                | **Yes**                              | **Yes** (see below)             | Phase 3 (test-side)           |
+| B. Derive `OUTLINE_LANGUAGES` from `ALL_SOURCE_LANGUAGES` | No                                   | Yes (makes it impossible)       | Phase 2b (`outline-units.ts`) |
 
 Option A is chosen because it is the only one that covers the hole that **already exists**, and
 because it covers the future case too: `ALL_SOURCE_LANGUAGES` is derived from `EXTENSION_MAP`, so a
@@ -180,7 +188,7 @@ and `detectLanguage`-based gating for one defect that is two characters of regex
 - Honest consequence (the brief's own discipline): **removing dead code cannot have a mutant.** A
   "restore the clause" mutant reddens nothing, and that is the proof it was dead — not a gap in
   coverage. Manufacturing a test for it would be a fixture that reads as coverage while providing
-  none. What *is* mutant-backed is the extraction itself: **M-PROBE-DEEP** deletes the deep probe
+  none. What _is_ mutant-backed is the extraction itself: **M-PROBE-DEEP** deletes the deep probe
   form in the shared module and must redden **both** `canary-review-hooks.test.ts:377` and
   `craft-review-hooks.test.ts:414`. A mutant that reddens only one proves the other host kept a
   private copy — which is exactly the half-fix the brief warns about.
@@ -205,38 +213,38 @@ Each names what makes it falsifiable. Spec criteria in brackets.
 
 1. **The system shall** export `CRAFT_REVIEW_DOMAINS`, `CRAFT_REVIEW_EVENTS_BY_HOST`,
    `planCraftReviewDomains`, `resolveReviewHooksWithCraft` and their types from the **package root**.
-   *Falsifiable by:* an import test resolving `@harness-engineering/core` (built `dist`), not by the
+   _Falsifiable by:_ an import test resolving `@harness-engineering/core` (built `dist`), not by the
    barrel `--check`, which prints "up to date" regardless (brief trap a, confirmed Fact 8).
 2. **When** a gated craft domain declares a language, **the system shall** extract a known unit /
    identifier / signal / test from **every `EXTENSION_MAP` extension of that language**.
-   *Falsifiable by:* widening `naming-craft` to all six reddens 4+ cases; the law is RED today on
+   _Falsifiable by:_ widening `naming-craft` to all six reddens 4+ cases; the law is RED today on
    `code-craft`×`.mts`, `code-craft`×`.cts`, `security-craft`×`.mts`, `security-craft`×`.cts`, which
    is the proof the probe reaches the capability rather than comparing two empty sets. [10, spec
    phase-ordering invariant]
 3. **The system shall not** treat a data or markup file under `cli/`, `commands/`, `cmd/` or `bin/`
-   as a CLI command module. *Falsifiable by:* the existing `[COST OF THE D-2 WIDENING]` expectation
+   as a CLI command module. _Falsifiable by:_ the existing `[COST OF THE D-2 WIDENING]` expectation
    must be updated, not satisfied; `cmd/root.sh`, `bin/tool.rb` and `docs/cli/guide.md` must remain
    owned in the same assertion (positive control at the same scope).
 4. **When** autopilot reaches `after:REVIEW` or `after:FINAL_REVIEW`, **the system shall** document a
    `resolveReviewHooksWithCraft(config, "harness-autopilot", "<event>", …)` call site at exactly those
-   two events. *Falsifiable by:* deleting either line turns the craft call-site law red (the generic
+   two events. _Falsifiable by:_ deleting either line turns the craft call-site law red (the generic
    alternation law, measured, does not). [spec entry points]
 5. **When** a craft domain runs as a review hook, **the system shall** critique only files in the
-   diff. *Verified by:* every `meta.prompts[].file` in `.harness/craft/runs/<runId>.json` is a member
+   diff. _Verified by:_ every `meta.prompts[].file` in `.harness/craft/runs/<runId>.json` is a member
    of the changed-file set **and** the prompt count is > 0; dropping `files` admits an out-of-diff
    file, and forwarding unresolved relative paths collapses the count to 0. [4]
 6. **When** any craft domain is skipped, **the system shall** document the denominator with each skip
-   reason. *Falsifiable by:* a doc assertion on `0/M` rendering, with a deletion mutant. [5]
+   reason. _Falsifiable by:_ a doc assertion on `0/M` rendering, with a deletion mutant. [5]
 7. **If** a craft domain's skill is not installed, **then the system shall** skip it and the review
    status **shall not** change; a **user-declared** unresolvable hook **shall** still hard-halt.
-   *Falsifiable by:* two doc assertions that must both be present (one mutant per clause). [2, 14]
+   _Falsifiable by:_ two doc assertions that must both be present (one mutant per clause). [2, 14]
 8. **When** autopilot resolves craft at both review moments on an unchanged changed-file set, **the
-   system shall** run each domain once, via `alreadyRanFor`. *Falsifiable by:* a doc assertion naming
+   system shall** run each domain once, via `alreadyRanFor`. _Falsifiable by:_ a doc assertion naming
    `alreadyRanFor` in the FINAL_REVIEW step. [11]
 9. **If** `changedFiles` is unknown at a review moment, **then the system shall** activate nothing and
    report `no-diff-context`. [12]
 10. **The system shall** resolve skill availability through one shared module, and a single mutation
-    there **shall** redden both the canary and the craft deep-form tests. *Falsifiable by:*
+    there **shall** redden both the canary and the craft deep-form tests. _Falsifiable by:_
     M-PROBE-DEEP reddening exactly one host means a private copy survived.
 11. `harness validate`'s issue set is unchanged, `packages/core` and `packages/cli` build, and the
     hooks + craft suites are green.
@@ -282,8 +290,8 @@ Platform skill mirrors are symlinks to `claude-code`, so SKILL.md is edited **on
 8. Close out: validate, suites, changeset, handoff (1 task, ~5 min)
 
 **Estimated total: 20 tasks, ~95 min.**
-*Skeleton approval: NOT OBTAINED. A subagent has no channel to the operator (the same constraint
-recorded in Phase 2a's handoff). Recorded in `concerns` for coordinator review.*
+_Skeleton approval: NOT OBTAINED. A subagent has no channel to the operator (the same constraint
+recorded in Phase 2a's handoff). Recorded in `concerns` for coordinator review._
 
 ---
 
@@ -318,7 +326,7 @@ recorded in Phase 2a's handoff). Recorded in `concerns` for coordinator review.*
 2. Regenerate the root barrel: `node scripts/generate-core-barrel.mjs`
 3. **Expect NO diff** to `packages/core/src/index.ts` — `hooks` is auto-discovered as a star module
    (`SKIP_DIRS = Object.keys(SELECTIVE_EXPORTS)` = `shared, blueprint, craft, adoption, telemetry,
-   parallelization`; `hooks` is absent) and the line `export * from './hooks';` already exists at
+parallelization`; `hooks` is absent) and the line `export * from './hooks';` already exists at
    `:276`. Confirm with `git diff --stat packages/core/src/index.ts` — an empty diff here is the
    expected result, **not** evidence the export landed (Task 2 is that evidence). Do **not** add a
    `SELECTIVE_EXPORTS` allowlist entry: that rule applies to `craft/`, not `hooks/`.
@@ -386,6 +394,7 @@ recorded in Phase 2a's handoff). Recorded in `concerns` for coordinator review.*
    ```
 
    Expect: non-empty diff, then RED. A green here means the test is reading source, not `dist`.
+
 4. Run: `harness validate`
 5. Commit: `test(hooks): prove the craft resolver reaches the package root`
 
@@ -507,6 +516,7 @@ a count (Fact 4: `extractIdentifiers` returns non-empty garbage for Python, Go, 
    family and the per-language symbol from `LANGUAGE_FIXTURE`; a missing fixture returns `null`,
    which Task 4 turns into a **failure**, never a skip. For `test-craft`, a declared non-TS/JS
    extension with no test fixture likewise returns `null`.
+
 3. Run: `npx vitest run --root packages/cli tests/craft/capability-subset-law.test.ts` (no laws yet;
    it should collect and pass trivially — this step only proves the file compiles and the imports
    resolve against the built core).
@@ -558,7 +568,10 @@ a count (Fact 4: `extractIdentifiers` returns non-empty garbage for Python, Go, 
        // A MISSING FIXTURE IS A FAILURE, NOT A SKIP. A seventh language entering
        // EXTENSION_MAP automatically enters code-craft's declared set and lands here
        // with no fixture; that must be loud.
-       expect(source, `${skill} declares ${ext} but the probe has no fixture for it`).not.toBeNull();
+       expect(
+         source,
+         `${skill} declares ${ext} but the probe has no fixture for it`
+       ).not.toBeNull();
        const file = path.join(CORPUS, `probe${ext}`);
        const result = await probe(file, source as string);
        expect(
@@ -574,6 +587,7 @@ a count (Fact 4: `extractIdentifiers` returns non-empty garbage for Python, Go, 
    except the corpus-backed languages; the TS/JS probes never touch the filesystem, so no fixture
    files are created for them (the identical-source-across-extensions design, Fact 3).
    For the corpus-backed languages, `sourceFor` reads the real file from `CORPUS`.
+
 2. Run: `npx vitest run --root packages/cli tests/craft/capability-subset-law.test.ts`
 3. **EXPECT RED**, on exactly four cases: `code-craft`×`.mts`, `code-craft`×`.cts`,
    `security-craft`×`.mts`, `security-craft`×`.cts`. **This red is the law's positive control** —
@@ -663,7 +677,7 @@ side. Before touching either file:
 4. Under B, in both files change the gate regex from
 
    ```ts
-   /\.(?:ts|tsx|js|jsx|mjs|cjs)$/i
+   /\.(?:ts|tsx|js|jsx|mjs|cjs)$/i;
    ```
 
    to
@@ -673,7 +687,7 @@ side. Before touching either file:
    // over and `supportedLanguages: ['typescript', ...]` claims them. Omitting them
    // here extracted ZERO from a declared-supported extension (measured: a.ts -> 1
    // unit, a.mts -> 0 on identical source).
-   /\.(?:ts|tsx|mts|cts|js|jsx|mjs|cjs)$/i
+   /\.(?:ts|tsx|mts|cts|js|jsx|mjs|cjs)$/i;
    ```
 
 5. **Mutants M-MTS-UNITS / M-MTS-SIGNALS** — revert one regex at a time and confirm the law reddens
@@ -689,6 +703,7 @@ side. Before touching either file:
    A mutant that reddens **both** domains would mean the two gates are not independent — investigate
    rather than proceed (the brief's "a mutant that defeats only half a fix proves nothing" applies in
    reverse here: two fixes need two mutants).
+
 6. Run: `npx vitest run --root packages/cli tests/code-craft/ tests/craft/`
 7. Run: `harness validate`
 8. Commit: `fix(craft): extract from .mts and .cts, which the table already declares`
@@ -711,6 +726,7 @@ Run each mutant with its diff and its result in one command, restoring after eac
 
    Expect RED on `.py`, `.go`, `.rs`, `.java` (4 cases) **and** on the `naming-craft` absence controls,
    which now assert a declared language — i.e. 6 failures. Both halves must move.
+
 2. **M-SUBSET-TEST** — `test-craft` to `['typescript','javascript','go']`. Expect RED on `.go` only.
    Chosen deliberately over `python`: `test-craft` genuinely extracts Python tests
    (`extractPythonTests`, measured 1 test), so a python widening is a **legitimate** future Phase 2b
@@ -795,6 +811,7 @@ Run each mutant with its diff and its result in one command, restoring after eac
    Expect RED with `messages.json`/`data.yaml`/`schema.toml` back in the result. The three survivors
    in the same assertion are the positive control: a denylist that rejected everything would fail the
    same test, so one mutant covers both directions.
+
 6. Build core: `pnpm --filter @harness-engineering/core build`
 7. Run: `harness validate`
 8. Commit: `fix(hooks): narrow cli-ergonomics-craft off data and markup files`
@@ -1025,6 +1042,7 @@ Run each mutant with its diff and its result in one command, restoring after eac
 
    Expect RED on the craft call-site law **and** on "names craft in both review steps". A green here
    means the law is as blind as the one it supplements.
+
 4. **Mutant M-DOC-ADVISORY**: replace `ADVISORY, NOT BLOCKING` with `BLOCKING` in the vocabulary →
    expect RED on the contract test. (A separate mutant because the two assertions guard two different
    failure modes; one mutant defeating only one of them would prove only half the fix.)
@@ -1221,12 +1239,7 @@ Run each mutant with its diff and its result in one command, restoring after eac
 
      it('craft wires a domain reported only in the deep plugin-qualified form', () => {
        const deep = (s: string) => s === QUALIFIED('harness-claude:', 'code-craft');
-       const plan = planCraftReviewDomains(
-         'harness-autopilot',
-         'after:REVIEW',
-         ['src/a.ts'],
-         deep
-       );
+       const plan = planCraftReviewDomains('harness-autopilot', 'after:REVIEW', ['src/a.ts'], deep);
        expect(plan.wired.map((h) => h.skill)).toContain('code-craft');
      });
 
@@ -1241,6 +1254,7 @@ Run each mutant with its diff and its result in one command, restoring after eac
 
    (Adjust `planCanaryReviewDetectors`'s argument order to its real signature when writing the file;
    the law is the deep-form behaviour, not the call shape.)
+
 2. Run: `npx vitest run --root packages/core tests/hooks/skill-availability.test.ts`
 3. **Mutant M-PROBE-DEEP** — one deletion, both halves must move:
 
@@ -1254,6 +1268,7 @@ Run each mutant with its diff and its result in one command, restoring after eac
    Expect RED in `skill-availability.test.ts` (both deep-form cases), `canary-review-hooks.test.ts:377`
    and `craft-review-hooks.test.ts:414`. If only one host reddens, the delegation in Task 18 is
    incomplete — fix the delegation, not the test.
+
 4. Run: `harness validate`
 5. Commit: `test(hooks): pin availability parity across both review hosts`
 
