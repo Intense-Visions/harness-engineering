@@ -22,7 +22,8 @@ export function summarizeAutoDecisions(entries: readonly AutoDecision[]): AutoDe
     if (status === 'agreed') s.agreed += 1;
     else if (status === 'escalated') s.escalations += 1;
     else if (status === 'unavailable') s.unavailable += 1;
-    else s.off += 1; // 'off' (or absent on a hand-edited line): never counted as audited
+    else s.off += 1; // 'off': the audit did not run, so never counted as audited. (A judgment
+    // with no audit never gets here: the strict schema rejects that line on read.)
   }
   s.audited = s.agreed + s.escalations;
   s.agreementRate = s.audited === 0 ? null : s.agreed / s.audited;
@@ -58,13 +59,16 @@ export function renderAutoDecisionSummary(
   const rate =
     s.agreementRate === null
       ? 'n/a (nothing audited)'
-      : `${Math.round(s.agreementRate * 100)}% (${s.agreed}/${s.audited})`;
+      : // Floor: 199/200 must not display as 100% while an escalation exists (review S5).
+        `${Math.floor(s.agreementRate * 100)}% (${s.agreed}/${s.audited})`;
   const lines = [
     `Auto-decisions${opts.session !== undefined ? ` (session ${oneLine(opts.session)})` : ''}: ${s.total}`,
     `  by class: ceremony ${s.byClass.ceremony}, judgment ${s.byClass.judgment}`,
     `  audited ${s.audited}/${s.judgments} (unavailable ${s.unavailable}, off ${s.off})`,
     `  agreement rate: ${rate}`,
     `  escalations: ${s.escalations}`,
+    // Statuses come from the agent's own self-audit; the log cannot verify them.
+    '  Audit statuses are agent-reported.',
   ];
   if (invalid > 0) {
     lines.push(

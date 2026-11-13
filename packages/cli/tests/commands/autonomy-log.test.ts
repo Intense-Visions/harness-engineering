@@ -59,9 +59,10 @@ describe('harness autonomy log', () => {
       'Auto-decisions (session s1): 7',
       '  by class: ceremony 2, judgment 5',
       '  audited 3/5 (unavailable 1, off 1)',
-      '  agreement rate: 67% (2/3)',
+      '  agreement rate: 66% (2/3)',
       '  escalations: 1',
     ]);
+    expect(lines[5]).toBe('  Audit statuses are agent-reported.');
     expect(lines.filter((l) => l.startsWith('  - ['))).toHaveLength(5);
   });
   it('distinguishes an absent log from an empty one (a zero is not evidence)', () => {

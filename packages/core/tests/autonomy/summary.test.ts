@@ -61,9 +61,17 @@ describe('renderAutoDecisionSummary (SC11 rendering half)', () => {
       'Auto-decisions (session s1): 7',
       '  by class: ceremony 2, judgment 5',
       '  audited 3/5 (unavailable 1, off 1)',
-      '  agreement rate: 67% (2/3)',
+      '  agreement rate: 66% (2/3)',
       '  escalations: 1',
+      '  Audit statuses are agent-reported.',
     ]);
+  });
+  it('rounds the agreement rate down: an escalation never displays as 100% (review S5)', () => {
+    const many = [
+      ...Array.from({ length: 199 }, () => judgment({ status: 'agreed', blindPick: 'A' })),
+      judgment({ status: 'escalated', blindPick: 'B', humanChoice: 'A' }),
+    ];
+    expect(renderAutoDecisionSummary(many)).toContain('  agreement rate: 99% (199/200)');
   });
   it('never presents an unaudited run as agreed', () => {
     expect(
