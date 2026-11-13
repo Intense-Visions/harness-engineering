@@ -389,3 +389,21 @@ describe('re-review I5: source paths never lead the blind auditor to the recomme
     );
   });
 });
+
+describe('re-review I1a-c: audit replies saved, one option text, unsettled choices are judgment', () => {
+  it('saves the auditor and refuter raw replies beside the prompt (I1a)', () => {
+    expect(section('## Self-audit (judgment forks)')).toContain(
+      "Save the auditor's raw reply as `.harness/sessions/<session-slug>/audits/<n>.reply.json` and the refuter's as `<n>.refuter.json`"
+    );
+  });
+  it('uses the label-stripped option text everywhere (I1b)', () => {
+    expect(section('## Self-audit (judgment forks)')).toContain(
+      'The pre-audit line, the options sent to the auditor and the `record_auto_decision` entry all use the label-stripped option text.'
+    );
+  });
+  it('a ceremony approving an unsettled option choice is judgment (I1c)', () => {
+    expect(section('## Resolving a pause point')).toContain(
+      'A ceremony that approves content containing an option choice not settled through a judgment fork is `judgment`.'
+    );
+  });
+});
