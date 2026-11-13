@@ -456,7 +456,7 @@ a count (Fact 4: `extractIdentifiers` returns non-empty garbage for Python, Go, 
    /** Non-TS/JS languages have genuinely different source, so they come from the real corpus. */
    const LANGUAGE_FIXTURE: Partial<Record<string, { file: string; symbol: string }>> = {
      '.py': { file: 'cart.py', symbol: 'compute_total' },
-     '.go': { file: 'cart.go', symbol: 'ComputeTotal' },
+     '.go': { file: 'cart.go', symbol: 'computeTotal' }, // VERIFIED against the fixture: lowercase
      '.rs': { file: 'cart.rs', symbol: 'compute_total' },
      '.java': { file: 'Cart.java', symbol: 'computeTotal' },
    };
@@ -612,7 +612,7 @@ A law that only ever asserts presence cannot distinguish "capable" from "probe i
    import "testing"
 
    func TestComputeTotal(t *testing.T) {
-       got := ComputeTotal([]int{1, 2})
+       got := computeTotal([]int{1, 2})
        if got != 3 {
            t.Fatalf("want 3, got %d", got)
        }
