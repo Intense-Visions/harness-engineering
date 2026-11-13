@@ -58,7 +58,8 @@
 // D3 exists to protect is not reintroduced through the back door.
 
 import { EXTENSION_MAP, detectLanguage, type SupportedLanguage } from '../code-nav/types';
-import type { NormalizedHook } from './skill-lifecycle';
+import { resolveSkillHooks } from './skill-lifecycle';
+import type { NormalizedHook, SkillHookEntry, SkillHooksConfigHolder } from './skill-lifecycle';
 import type { SkillAvailability } from './canary-review-hooks';
 
 /**
@@ -419,4 +420,91 @@ export function planCraftReviewDomains(
   }
 
   return { wired, skipped, expected };
+}
+
+/**
+ * Skill names a project DECLARES at `skillName`/`event`, including entries parked
+ * with `enabled: false`. Deliberately the RAW declared set (not the
+ * post-`enabled`-filter set `resolveSkillHooks` returns): a project that parks a
+ * domain with `{ type: "skill", skill: "code-craft", enabled: false }` has
+ * expressed an explicit opt-out, so the craft default for that name must be
+ * dropped rather than silently re-injected.
+ */
+function declaredSkillNames(
+  config: SkillHooksConfigHolder | null | undefined,
+  skillName: string,
+  event: string
+): Set<string> {
+  const entries = config?.skillHooks?.[skillName]?.[event];
+  const names = new Set<string>();
+  if (!Array.isArray(entries)) return names;
+  for (const entry of entries as SkillHookEntry[]) {
+    if (typeof entry === 'string') {
+      names.add(entry);
+    } else if (entry.type === 'skill' && typeof entry.skill === 'string') {
+      names.add(entry.skill);
+    }
+  }
+  return names;
+}
+
+/**
+ * The EFFECTIVE review hooks for `skillName` at `event`: the project's configured
+ * `skillHooks` (via `resolveSkillHooks`) FOLLOWED BY the activated, installed
+ * craft defaults ({@link planCraftReviewDomains}).
+ *
+ * Ordering: configured hooks first (a project's explicit intent leads), craft
+ * defaults appended NON-BLOCKING. A craft default whose domain is already
+ * DECLARED at this event is dropped — the project's entry wins, whether written
+ * bare, canonical or plugin-qualified, and `enabled: false` parks it for good.
+ *
+ * A craft default that is not activated, not installed, over budget or
+ * unreadable is never emitted here — it is reported in
+ * {@link planCraftReviewDomains}'s `skipped`, so a host never hard-halts on a
+ * harness-optimistic default while it keeps hard-halting on an unresolvable
+ * USER-declared hook (which flows through `resolveSkillHooks` untouched).
+ *
+ * When nothing activates this returns exactly `resolveSkillHooks(...)` — the
+ * no-regression guarantee, mirroring the canary contract.
+ */
+export function resolveReviewHooksWithCraft(
+  config: SkillHooksConfigHolder | null | undefined,
+  skillName: string,
+  event: string,
+  opts: {
+    changedFiles?: readonly string[];
+    availableSkills?: SkillAvailability;
+    maxDomains?: number;
+    alreadyRanFor?: readonly string[];
+  }
+): NormalizedHook[] {
+  const configured = resolveSkillHooks(config, skillName, event);
+
+  // Craft defaults only attach where a host actually wires them; any other
+  // host/event pair is returned untouched.
+  if (!isCraftReviewEvent(skillName, event)) return configured;
+
+  // `opts` is forwarded as-is rather than rebuilt as a literal: under
+  // `exactOptionalPropertyTypes`, `{ maxDomains: opts.maxDomains }` widens an
+  // ABSENT key to an explicit `undefined`, which is a different type.
+  const { wired } = planCraftReviewDomains(
+    skillName,
+    event,
+    opts.changedFiles,
+    opts.availableSkills,
+    opts
+  );
+  if (wired.length === 0) return configured;
+
+  // Dedup on the BARE name so a declaration written bare or plugin-qualified both
+  // suppress the default. `harness-design-craft` has no colon, so its canonical
+  // prefix survives normalization — naming it `design-craft` does NOT suppress it.
+  const declared = new Set<string>();
+  for (const name of declaredSkillNames(config, skillName, event)) {
+    declared.add(bareSkillName(name));
+  }
+  const additions = wired.filter(
+    (hook) => hook.type === 'skill' && !declared.has(bareSkillName(hook.skill))
+  );
+  return [...configured, ...additions];
 }

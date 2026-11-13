@@ -6,9 +6,15 @@ import {
   CRAFT_REVIEW_EVENTS_BY_HOST,
   DEFAULT_MAX_CRAFT_DOMAINS,
   planCraftReviewDomains,
+  resolveReviewHooksWithCraft,
   type CraftReviewPlan,
 } from '../../src/hooks/craft-review-hooks';
-import { defaultBlocking } from '../../src/hooks/skill-lifecycle';
+import {
+  defaultBlocking,
+  resolveSkillHooks,
+  type SkillHookEntry,
+  type SkillHooksConfigHolder,
+} from '../../src/hooks/skill-lifecycle';
 
 /**
  * Craft auto-wiring at the review moment (spec:
@@ -641,5 +647,184 @@ describe('already-run (spec D10 input)', () => {
       alreadyRanFor: ['harness-design-craft'],
     });
     expect(reasonsFor(plan.skipped, 'harness-design-craft')).toEqual(['not-installed']);
+  });
+});
+
+describe('resolveReviewHooksWithCraft', () => {
+  it('appends non-blocking craft defaults after the project’s configured hooks', () => {
+    const config: SkillHooksConfigHolder = {
+      skillHooks: {
+        'harness-autopilot': {
+          'after:REVIEW': [
+            { type: 'prompt', text: 'Prefer existing helpers.' },
+            { type: 'skill', skill: 'my-domain-reviewer', blocking: true },
+          ],
+        },
+      },
+    };
+    // DESIGN_ONLY, not ALL_CRAFT_INSTALLED: `src/ui/Button.tsx` is production
+    // source, so code-craft and naming-craft own it too and the budget would
+    // wire three defaults. This test is about MERGE ORDER (configured hooks
+    // lead, craft appended non-blocking); the priority/budget behaviour is
+    // pinned separately in "budget cap (spec criterion 7)".
+    const hooks = resolveReviewHooksWithCraft(config, 'harness-autopilot', 'after:REVIEW', {
+      changedFiles: TSX_DIFF,
+      availableSkills: DESIGN_ONLY,
+    });
+    expect(hooks).toEqual([
+      { type: 'prompt', text: 'Prefer existing helpers.' },
+      { type: 'skill', skill: 'my-domain-reviewer', blocking: true },
+      { type: 'skill', skill: 'harness-design-craft', blocking: false },
+    ]);
+  });
+
+  it('wires an activated installed domain with no skillHooks config at all (criterion 13)', () => {
+    for (const config of [undefined, null, {}, { skillHooks: {} }]) {
+      const hooks = resolveReviewHooksWithCraft(config, 'harness-autopilot', 'after:REVIEW', {
+        changedFiles: TSX_DIFF,
+        availableSkills: DESIGN_ONLY,
+      });
+      expect(hooks).toEqual([{ type: 'skill', skill: 'harness-design-craft', blocking: false }]);
+    }
+  });
+
+  it('wires at the code-review host’s after:mechanical event', () => {
+    const hooks = resolveReviewHooksWithCraft(
+      undefined,
+      'harness-code-review',
+      'after:mechanical',
+      {
+        changedFiles: TSX_DIFF,
+        availableSkills: DESIGN_ONLY,
+      }
+    );
+    expect(hooks).toEqual([{ type: 'skill', skill: 'harness-design-craft', blocking: false }]);
+  });
+
+  it('returns exactly resolveSkillHooks when nothing activates (criterion 8)', () => {
+    const config: SkillHooksConfigHolder = {
+      skillHooks: {
+        'harness-autopilot': {
+          'after:REVIEW': ['my-domain-reviewer'],
+          'before:EXECUTE': ['preflight'],
+        },
+      },
+    };
+    const baseline = (event: string) => resolveSkillHooks(config, 'harness-autopilot', event);
+
+    // (a) no diff context
+    expect(
+      resolveReviewHooksWithCraft(config, 'harness-autopilot', 'after:REVIEW', {
+        availableSkills: ALL_CRAFT_INSTALLED,
+      })
+    ).toEqual(baseline('after:REVIEW'));
+    // (b) nothing installed
+    expect(
+      resolveReviewHooksWithCraft(config, 'harness-autopilot', 'after:REVIEW', {
+        changedFiles: TSX_DIFF,
+        availableSkills: new Set(),
+      })
+    ).toEqual(baseline('after:REVIEW'));
+    // (c) an event the host does not wire craft at
+    expect(
+      resolveReviewHooksWithCraft(config, 'harness-autopilot', 'before:EXECUTE', {
+        changedFiles: TSX_DIFF,
+        availableSkills: ALL_CRAFT_INSTALLED,
+      })
+    ).toEqual(baseline('before:EXECUTE'));
+    // (d) an unknown host skill
+    expect(
+      resolveReviewHooksWithCraft(config, 'harness-tdd', 'after:REVIEW', {
+        changedFiles: TSX_DIFF,
+        availableSkills: ALL_CRAFT_INSTALLED,
+      })
+    ).toEqual(resolveSkillHooks(config, 'harness-tdd', 'after:REVIEW'));
+
+    // POSITIVE CONTROL: the same config DOES gain a craft default when it can.
+    expect(
+      resolveReviewHooksWithCraft(config, 'harness-autopilot', 'after:REVIEW', {
+        changedFiles: TSX_DIFF,
+        availableSkills: ALL_CRAFT_INSTALLED,
+      }).length
+    ).toBeGreaterThan(baseline('after:REVIEW').length);
+  });
+
+  it('a USER-declared hook flows through regardless of availability (host hard-halts, not us)', () => {
+    const config: SkillHooksConfigHolder = {
+      skillHooks: { 'harness-autopilot': { 'after:REVIEW': ['my-typo-reviewer'] } },
+    };
+    expect(
+      resolveReviewHooksWithCraft(config, 'harness-autopilot', 'after:REVIEW', {
+        changedFiles: TSX_DIFF,
+        availableSkills: new Set(),
+      })
+    ).toEqual([{ type: 'skill', skill: 'my-typo-reviewer', blocking: true }]);
+  });
+
+  describe('dedup by canonical name (criterion 6)', () => {
+    // `maxDomains: 1` keeps harness-design-craft (priority 1) the ONLY default in
+    // play, so a dedup assertion cannot be confused with a budget skip.
+    const declaring = (entry: SkillHookEntry) =>
+      resolveReviewHooksWithCraft(
+        { skillHooks: { 'harness-autopilot': { 'after:REVIEW': [entry] } } },
+        'harness-autopilot',
+        'after:REVIEW',
+        { changedFiles: TSX_DIFF, availableSkills: ALL_CRAFT_INSTALLED, maxDomains: 1 }
+      );
+
+    it('drops the default when the project declares the CANONICAL name', () => {
+      const hooks = declaring({ type: 'skill', skill: 'harness-design-craft', blocking: true });
+      expect(hooks).toEqual([{ type: 'skill', skill: 'harness-design-craft', blocking: true }]);
+    });
+
+    it('drops the default for a bare-string declaration', () => {
+      const hooks = declaring('harness-design-craft');
+      expect(hooks).toEqual([{ type: 'skill', skill: 'harness-design-craft', blocking: true }]);
+    });
+
+    it('drops the default for a plugin-qualified declaration', () => {
+      const hooks = declaring({ type: 'skill', skill: 'harness-claude:harness-design-craft' });
+      expect(
+        hooks.filter((h) => h.type === 'skill' && h.skill.endsWith('harness-design-craft'))
+      ).toHaveLength(1);
+    });
+
+    it('honors enabled:false as an opt-out — the default is not re-injected', () => {
+      const hooks = declaring({ type: 'skill', skill: 'harness-design-craft', enabled: false });
+      expect(hooks).toEqual([]);
+    });
+
+    it('does NOT suppress the default when the project names the domain WRONG', () => {
+      // THE PREFIX ASYMMETRY. harness-design-craft is the only craft skill whose
+      // canonical name carries the `harness-` prefix; the other ten are bare. A
+      // project writing `design-craft` has not named this domain, so the default
+      // must still wire — a silent suppression here is the failure the spec's
+      // [IMPORTANT] note calls out.
+      const hooks = declaring('design-craft');
+      expect(hooks).toEqual([
+        { type: 'skill', skill: 'design-craft', blocking: true },
+        { type: 'skill', skill: 'harness-design-craft', blocking: false },
+      ]);
+    });
+
+    it('dedups a bare craft name (the other ten carry no prefix)', () => {
+      const hooks = resolveReviewHooksWithCraft(
+        { skillHooks: { 'harness-autopilot': { 'after:REVIEW': ['code-craft'] } } },
+        'harness-autopilot',
+        'after:REVIEW',
+        { changedFiles: ['src/a.ts'], availableSkills: ALL_CRAFT_INSTALLED, maxDomains: 1 }
+      );
+      expect(hooks).toEqual([{ type: 'skill', skill: 'code-craft', blocking: true }]);
+    });
+
+    it('does not dedup against a declaration at a DIFFERENT event', () => {
+      const hooks = resolveReviewHooksWithCraft(
+        { skillHooks: { 'harness-autopilot': { 'after:FINAL_REVIEW': ['harness-design-craft'] } } },
+        'harness-autopilot',
+        'after:REVIEW',
+        { changedFiles: TSX_DIFF, availableSkills: DESIGN_ONLY }
+      );
+      expect(hooks).toEqual([{ type: 'skill', skill: 'harness-design-craft', blocking: false }]);
+    });
   });
 });
