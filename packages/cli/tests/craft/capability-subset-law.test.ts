@@ -264,3 +264,30 @@ describe('THE SUBSET LAW: a declared language is a capability claim, per EXTENSI
     ).toBe(true);
   });
 });
+
+describe('the probe can report absence (positive control at the same scope)', () => {
+  // Each pair is a language the domain does NOT declare. If any of these came
+  // back `found`, the probe would be answering a different question than the
+  // law asks — and `extractIdentifiers` in particular returns non-empty
+  // GARBAGE for every non-TS language (measured: cart.py -> [function:,
+  // function:, type:Cart]).
+  const NEGATIVE = [
+    { skill: 'naming-craft', ext: '.py', file: 'cart.py' },
+    { skill: 'naming-craft', ext: '.rs', file: 'cart.rs' },
+    { skill: 'security-craft', ext: '.py', file: 'cart.py' },
+    { skill: 'test-craft', ext: '.go', file: 'cart_test.go' },
+  ] as const;
+
+  it.each(NEGATIVE)('$skill cannot extract from $ext (and does not claim to)', async (c) => {
+    const declared = CRAFT_REVIEW_DOMAINS.find((d) => d.skill === c.skill)!;
+    const langs = declared.supportedLanguages as readonly SupportedLanguage[];
+    expect(langs, 'control is stale: the domain now declares this language').not.toContain(
+      EXTENSION_MAP[c.ext]
+    );
+    const file = path.join(CORPUS, c.file);
+    const result = await PROBES[c.skill].probe(file, fs.readFileSync(file, 'utf-8'));
+    expect(result.found, `probe reported capability it should not have: ${result.detail}`).toBe(
+      false
+    );
+  });
+});
