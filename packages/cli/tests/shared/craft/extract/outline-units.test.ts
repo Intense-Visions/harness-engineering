@@ -88,3 +88,53 @@ describe('law: methods nested as children become units (M-REC)', () => {
     expect(units.map((u) => `${u.kind}:${u.name}`)).toContain('method:add');
   });
 });
+
+describe('law: a type declared twice yields one unit (M-DEDUP)', () => {
+  const rust = [
+    'pub struct Cart {',
+    '    items: Vec<i32>,',
+    '}',
+    '',
+    'impl Cart {',
+    '    pub fn add(&mut self, n: i32) {',
+    '        self.items.push(n);',
+    '    }',
+    '}',
+  ].join('\n');
+
+  it('emits Cart once, not once per struct and once per impl', async () => {
+    const units = await extractOutlineUnits(rust, 'cart.rs');
+    const carts = units.filter((u) => u.kind === 'class' && u.name === 'Cart');
+    expect(carts).toHaveLength(1);
+  });
+
+  it('keeps the declaration site as the anchor', async () => {
+    const units = await extractOutlineUnits(rust, 'cart.rs');
+    const cart = units.find((u) => u.kind === 'class' && u.name === 'Cart');
+    expect(cart?.line).toBe(1); // the `struct`, not the `impl` at line 5
+  });
+
+  it('does not lose the impl block methods to the dedup', async () => {
+    const units = await extractOutlineUnits(rust, 'cart.rs');
+    expect(units).toContainEqual({ kind: 'method', name: 'add', line: 6, endLine: 8 });
+  });
+
+  it('does not collapse same-named methods on different types', async () => {
+    const java = [
+      'public class Cart {',
+      '    public void add(int n) {',
+      '        this.n = n;',
+      '        this.m = n;',
+      '    }',
+      '}',
+      'class Bag {',
+      '    public void add(int n) {',
+      '        this.n = n;',
+      '        this.m = n;',
+      '    }',
+      '}',
+    ].join('\n');
+    const units = await extractOutlineUnits(java, 'Cart.java');
+    expect(units.filter((u) => u.kind === 'method' && u.name === 'add')).toHaveLength(2);
+  });
+});

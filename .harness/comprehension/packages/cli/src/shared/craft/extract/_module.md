@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/shared/craft/extract'
-sourceHash: 'd61c79258c28de9f737fc80c906ecfe2e8a97c891ade123dfe55f4456b6d5507'
+sourceHash: '5082152b180824f53f9f68ac4921f6c68f70eb0415598d952aa47588685fea8b'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent

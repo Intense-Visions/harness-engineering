@@ -64,7 +64,24 @@ export async function extractOutlineUnits(
 
   const collected: Array<{ unit: OutlineUnit; key: string }> = [];
   for (const symbol of outline.symbols) collect(symbol, null, collected);
-  return collected.map((c) => c.unit);
+
+  // De-duplicate by (kind, qualifiedName), FIRST OCCURRENCE WINS.
+  //
+  // The key deliberately excludes `line`. Rust emits a type twice — once for
+  // the `struct`, once for the `impl` — at DIFFERENT lines (measured: L1 and
+  // L5), so the (kind, name, line) key named in the spec keeps both and every
+  // Rust type costs two LLM prompts and yields two copies of every finding.
+  //
+  // The key includes the parent name because `Cart.add` and `Bag.add` in one
+  // file are two units, and a bare-name key would silently drop one.
+  const seen = new Set<string>();
+  const units: OutlineUnit[] = [];
+  for (const { unit, key } of collected) {
+    if (seen.has(key)) continue;
+    seen.add(key);
+    units.push(unit);
+  }
+  return units;
 }
 
 function collect(
