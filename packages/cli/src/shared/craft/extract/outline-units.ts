@@ -85,15 +85,46 @@ export async function extractOutlineUnits(
   const collected: Array<{ unit: OutlineUnit; key: string }> = [];
   for (const symbol of outline.symbols) collect(symbol, null, collected);
 
-  // De-duplicate by (kind, qualifiedName), FIRST OCCURRENCE WINS.
+  // De-duplicate, FIRST OCCURRENCE WINS. The key is kind-dependent, and the
+  // asymmetry is the whole point:
   //
-  // The key deliberately excludes `line`. Rust emits a type twice — once for
-  // the `struct`, once for the `impl` — at DIFFERENT lines (measured: L1 and
-  // L5), so the (kind, name, line) key named in the spec keeps both and every
-  // Rust type costs two LLM prompts and yields two copies of every finding.
+  //   class            -> (kind, qualifiedName)
+  //   function/method  -> (kind, qualifiedName, line)
   //
-  // The key includes the parent name because `Cart.add` and `Bag.add` in one
-  // file are two units, and a bare-name key would silently drop one.
+  // WHY `line` IS EXCLUDED FOR `class`. Rust emits a type twice — once for the
+  // `struct`, once for the `impl` — at DIFFERENT lines (measured: class:Cart
+  // L1-3 and class:Cart L5-9). A key carrying `line` keeps both, so every Rust
+  // type costs two LLM prompts and yields two copies of every finding.
+  //
+  // WHY `line` IS REQUIRED FOR function/method. `qualifiedName` is only as
+  // precise as the parent the OUTLINE supplies, and for two of the four
+  // languages it supplies none, so the key degenerates to a bare name and
+  // collapses declarations that are genuinely distinct. Measured, all three:
+  //
+  //   go     `func (c *Cart) Add` and `func (b *Bag) Add` are both TOP LEVEL,
+  //          so parentName is null for both and the key is `method:Add` twice.
+  //          Bag.Add was silently dropped. This is the single most common
+  //          shape Go has.
+  //   rust   `impl From<i32> for Cart` and `impl From<u8> for Cart` both report
+  //          parent `Cart` (getRustImplName returns the TYPE, not the trait),
+  //          so both are `method:Cart.from`. The second was dropped.
+  //   rust   `mod a { mod b { fn f } fn f }` — mod contents are spliced in at
+  //          top level without the mod name, so both are `function:f`.
+  //
+  // WHY ADDING `line` BACK CANNOT RESURRECT A DUPLICATE. Measured across
+  // struct+impl, two trait impls, an inherent impl split across two blocks,
+  // impl-inside-mod, nested mods, and the two-same-named-methods shape in all
+  // four languages: EVERY true duplicate is at kind `class`, and every
+  // collision at function/method kind is a false one — two real declarations
+  // being merged. A method node is reachable by exactly one walk (root
+  // children, mod-body recursion, or class children), never two.
+  //
+  // KNOWN RESIDUAL, recorded not solved: the surviving units are correct but
+  // their `name` is still ambiguous to a human — two findings both reading
+  // `name=Add`, or `name=f`. The receiver is available in `symbol.signature`
+  // (`func (c *Cart) Add(n int) {`) and the mod name is available at the
+  // recursion site; qualifying the NAME changes finding identity and prompt
+  // text, so it is a follow-up rather than a key fix.
   const seen = new Set<string>();
   const units: OutlineUnit[] = [];
   for (const { unit, key } of collected) {
@@ -114,7 +145,10 @@ function collect(
     const qualified = parentName === null ? symbol.name : `${parentName}.${symbol.name}`;
     out.push({
       unit: { kind, name: symbol.name, line: symbol.line, endLine: symbol.endLine },
-      key: `${kind}:${qualified}`,
+      // See the key rationale in `extractOutlineUnits`. `class` is the only
+      // kind that genuinely double-emits, and it is the only kind whose key
+      // omits `line`.
+      key: kind === 'class' ? `${kind}:${qualified}` : `${kind}:${qualified}:${symbol.line}`,
     });
   }
   // Recursion happens whether or not the parent itself became a unit.

@@ -120,7 +120,13 @@ describe('law: a type declared twice yields one unit (M-DEDUP)', () => {
     expect(units).toContainEqual({ kind: 'method', name: 'add', line: 6, endLine: 8 });
   });
 
-  it('does not collapse same-named methods on different types', async () => {
+  // THE JAVA CASE PROVES THE PROPERTY ONLY WHERE IT WAS ALREADY TRUE. Java
+  // nests methods under their class, so the outline supplies a parent and
+  // `qualifiedName` disambiguates on its own. The two languages that need this
+  // law most supply NO parent, and until the key carried `line` they silently
+  // lost a unit. Those cases are the three below; this one stays as the
+  // parented-family control.
+  it('does not collapse same-named methods on different types (java: parented)', async () => {
     const java = [
       'public class Cart {',
       '    public void add(int n) {',
@@ -225,5 +231,122 @@ describe('law: trivial units are not billed (M-SPAN)', () => {
     const names = units.map((u) => u.name);
     expect(names).not.toContain('tiny');
     expect(names).toContain('real'); // positive control: the filter is not eating everything
+  });
+});
+
+/**
+ * C1 regression. The dedup key degenerated to a bare name wherever the outline
+ * supplies no parent, and silently dropped the second declaration. Each case
+ * below is the single most common shape its language has, and each pairs the
+ * survival assertion with a POSITIVE CONTROL naming the unit that always
+ * survived, so a green cannot come from an extractor that returns everything.
+ */
+describe('law: a same-named declaration without an outline parent survives (M-DEDUP-METHOD)', () => {
+  it('go: two receivers declare Add, and BOTH are units', async () => {
+    const go = [
+      'package cart', //                     1
+      '', //                                 2
+      'type Cart struct {', //               3
+      '    items []int', //                  4
+      '    total int', //                    5
+      '}', //                                6
+      'type Bag struct {', //                7
+      '    items []int', //                  8
+      '    total int', //                    9
+      '}', //                                10
+      'func (c *Cart) Add(n int) {', //      11
+      '    c.items = append(c.items, n)', // 12
+      '    c.total += n', //                 13
+      '}', //                                14
+      'func (b *Bag) Add(n int) {', //       15
+      '    b.items = append(b.items, n)', // 16
+      '    b.total += n', //                 17
+      '}', //                                18
+    ].join('\n');
+    const units = await extractOutlineUnits(go, 'two.go');
+    const adds = units.filter((u) => u.kind === 'method' && u.name === 'Add');
+    expect(
+      adds.map((u) => u.line),
+      'Go methods are TOP LEVEL, so parentName is null for both and a bare-name key drops Bag.Add'
+    ).toEqual([11, 15]);
+    // POSITIVE CONTROL: the structs are still deduped to one unit each.
+    expect(units.filter((u) => u.kind === 'class').map((u) => u.name)).toEqual(['Cart', 'Bag']);
+  });
+
+  it('rust: two trait impls for one type both declare from, and BOTH are units', async () => {
+    const rs = [
+      'pub struct Cart {', //                1
+      '    items: Vec<i32>,', //             2
+      '}', //                                3
+      'impl From<i32> for Cart {', //        4
+      '    fn from(n: i32) -> Self {', //    5
+      '        let v = vec![n];', //         6
+      '        Cart { items: v }', //        7
+      '    }', //                            8
+      '}', //                                9
+      'impl From<u8> for Cart {', //         10
+      '    fn from(n: u8) -> Self {', //     11
+      '        let v = vec![n as i32];', //  12
+      '        Cart { items: v }', //        13
+      '    }', //                            14
+      '}', //                                15
+    ].join('\n');
+    const units = await extractOutlineUnits(rs, 'two.rs');
+    const froms = units.filter((u) => u.kind === 'method' && u.name === 'from');
+    expect(
+      froms.map((u) => u.line),
+      'getRustImplName returns the TYPE not the trait, so both impls report parent `Cart`'
+    ).toEqual([5, 11]);
+    // POSITIVE CONTROL: Cart itself is still ONE unit despite struct + 2 impls.
+    expect(units.filter((u) => u.kind === 'class' && u.name === 'Cart')).toHaveLength(1);
+  });
+
+  it('rust: nested mods declaring the same fn name keep both', async () => {
+    const rs = [
+      'mod a {', //                 1
+      '    mod b {', //             2
+      '        pub fn f() {', //    3
+      '            let x = 1;', //  4
+      '            let y = 2;', //  5
+      '        }', //               6
+      '    }', //                   7
+      '    pub fn f() {', //        8
+      '        let z = 3;', //      9
+      '        let w = 4;', //      10
+      '    }', //                   11
+      '}', //                       12
+    ].join('\n');
+    const units = await extractOutlineUnits(rs, 'nested.rs');
+    expect(
+      units.filter((u) => u.kind === 'function' && u.name === 'f').map((u) => u.line),
+      'mod contents are spliced in at top level WITHOUT the mod name, so both are `function:f`'
+    ).toEqual([3, 8]);
+  });
+
+  // THE OTHER HALF OF THE FIX. Adding `line` back for function/method must not
+  // resurrect the class duplicate the line-less key exists to collapse.
+  it('still collapses the struct+impl double emission it was written for', async () => {
+    const rs = [
+      'pub struct C {', //            1
+      '    a: i32,', //               2
+      '}', //                         3
+      'impl C {', //                  4
+      '    pub fn one(&self) -> i32 {', // 5
+      '        let x = 1;', //        6
+      '        x', //                 7
+      '    }', //                     8
+      '}', //                         9
+      'impl C {', //                  10
+      '    pub fn two(&self) -> i32 {', // 11
+      '        let x = 2;', //        12
+      '        x', //                 13
+      '    }', //                     14
+      '}', //                         15
+    ].join('\n');
+    const units = await extractOutlineUnits(rs, 'split.rs');
+    // One struct + TWO inherent impl blocks = three `class:C` emissions, one unit.
+    expect(units.filter((u) => u.kind === 'class' && u.name === 'C')).toHaveLength(1);
+    // POSITIVE CONTROL: both impl blocks' methods survive independently.
+    expect(units.filter((u) => u.kind === 'method').map((u) => u.name)).toEqual(['one', 'two']);
   });
 });
