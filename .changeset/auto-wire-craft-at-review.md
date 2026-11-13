@@ -37,6 +37,19 @@ resolved to ABSOLUTE paths: `CraftReviewPlan.files` carries repo-relative POSIX 
 collectors read them against the process CWD, so forwarding them unresolved produces a run that opens
 no file and reports a confident clean pass.
 
+`harness-code-review` is the second wired host, at its `after:mechanical` event, so craft reaches
+interactive and CI review and not only autopilot runs. Its SKILL.md records the four claims an
+implementer cannot infer from the resolver: the timing asymmetry (craft resolves BEFORE the AI
+fan-out here, AFTER the review under autopilot), the hard-halt EXCEPTION that keeps a missing craft
+default a skip rather than the halt this skill's own contract would otherwise impose, the rule that
+craft findings must never enter the mechanical exclusion set — a craft taste judgment at `file:line`
+discarding a reviewer's real finding at the same `file:line` would be a false green manufactured by
+this very wiring — and the same ABSOLUTE-path forwarding requirement. All ten auto-wired craft
+skills now carry an "Invoked as a review hook" section stating the contract they are invoked under,
+including whether their own MCP tool accepts a `promptBudget`: `design_craft` does not, so the
+uniform "files plus promptBudget" claim was false for the priority-1 domain and is now qualified
+wherever it appears.
+
 `security-craft` now extracts from `.mts` and `.cts`, which its `supportedLanguages` already claimed.
 It carried the same second extension list that was deleted from `code-craft`, so on identical source
 a `.ts` file yielded three signals and a `.mts` file yielded zero — a clean security report from a
