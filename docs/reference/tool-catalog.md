@@ -4079,7 +4079,7 @@ Recommend skills based on codebase health. Returns sequenced workflow with urgen
 
 ### `record_auto_decision`
 
-Append an auto-taken decision (trusted autonomy) to .harness/sessions/&lt;session>/auto-decisions.jsonl. Append-only. The server stamps ts and autonomySource and refuses every entry (escalated ones included) unless the resolved autonomy is trusted, and a judgment with audit "off" while audit is on. If this returns isError (recorded:false), do NOT auto-proceed: pause and ask the human.
+Append an auto-taken decision (trusted autonomy) to `.harness/sessions/&lt;session>/auto-decisions.jsonl`. Append-only. The server stamps ts and autonomySource and refuses every entry (escalated ones included) unless the resolved autonomy is trusted, and a judgment with audit "off" while audit is on. If this returns isError (recorded:false), do NOT auto-proceed: pause and ask the human.
 
 **Input schema:**
 
