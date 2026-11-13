@@ -378,3 +378,153 @@ describe('craft hooks are NON-BLOCKING (spec criterion 3)', () => {
     }
   });
 });
+
+describe('capability gate (spec criterion 9) — unsupported-language is EXPLICIT', () => {
+  // DIVERGENCE 3. A domain that cannot extract the languages of the files IT OWNS
+  // is skipped BEFORE dispatch. An empty finding set is never an acceptable
+  // substitute: it is indistinguishable from "this code is fine".
+  // Scoped to cli-ergonomics-craft ALONE so the budget cap cannot be mistaken
+  // for the capability gate: with the full catalog installed, code/naming/security
+  // fill all three slots before cli-ergonomics-craft is reached.
+  const CLI_ONLY = new Set<string>(['cli-ergonomics-craft']);
+
+  it('skips a ts/js-only domain on a Python file it owns, and does not wire it', () => {
+    const plan = planCraftReviewDomains(
+      'harness-autopilot',
+      'after:REVIEW',
+      ['packages/cli/src/commands/run.py'],
+      CLI_ONLY
+    );
+    expect(reasonsFor(plan.skipped, 'cli-ergonomics-craft')).toEqual(['unsupported-language']);
+    expect(plan.wired).toEqual([]);
+
+    // POSITIVE CONTROL at the same scope: the same CLI path in a supported
+    // language WIRES. Without this, a green could mean "the resolver never ran".
+    const control = planCraftReviewDomains(
+      'harness-autopilot',
+      'after:REVIEW',
+      ['packages/cli/src/commands/run.ts'],
+      CLI_ONLY
+    );
+    expect(control.wired).toEqual([
+      { type: 'skill', skill: 'cli-ergonomics-craft', blocking: false },
+    ]);
+  });
+
+  it('skips design-craft on a stylesheet-only diff, and wires it when a .tsx joins', () => {
+    const cssOnly = planCraftReviewDomains(
+      'harness-autopilot',
+      'after:REVIEW',
+      ['src/ui/button.module.css'],
+      ALL_CRAFT_INSTALLED
+    );
+    expect(reasonsFor(cssOnly.skipped, 'harness-design-craft')).toEqual(['unsupported-language']);
+
+    const withTsx = planCraftReviewDomains(
+      'harness-autopilot',
+      'after:REVIEW',
+      ['src/ui/button.module.css', 'src/ui/Button.tsx'],
+      ALL_CRAFT_INSTALLED
+    );
+    expect(withTsx.wired.map((h) => h.type === 'skill' && h.skill)).toContain(
+      'harness-design-craft'
+    );
+  });
+
+  it('gates on the OWNED subset, not on any file in the diff', () => {
+    // A .ts elsewhere in the diff must NOT satisfy cli-ergonomics-craft's gate for
+    // the Python command module it owns.
+    const plan = planCraftReviewDomains(
+      'harness-autopilot',
+      'after:REVIEW',
+      ['packages/cli/src/commands/run.py', 'src/services/user.ts'],
+      ALL_CRAFT_INSTALLED
+    );
+    expect(reasonsFor(plan.skipped, 'cli-ergonomics-craft')).toEqual(['unsupported-language']);
+    // Same call, positive control: code-craft owns the .ts and the .py and wires.
+    expect(plan.wired.map((h) => h.type === 'skill' && h.skill)).toContain('code-craft');
+  });
+
+  it('never language-gates a prose domain', () => {
+    const plan = planCraftReviewDomains(
+      'harness-autopilot',
+      'after:REVIEW',
+      ['docs/guide.md'],
+      ALL_CRAFT_INSTALLED
+    );
+    expect(plan.wired.map((h) => h.type === 'skill' && h.skill)).toContain('docs-craft');
+    expect(reasonsFor(plan.skipped, 'docs-craft')).toEqual([]);
+  });
+
+  it('reports capability BEFORE availability when both would skip', () => {
+    // Precedence pin: cli-ergonomics-craft is neither installed nor able to read
+    // Python. `unsupported-language` is the more informative reason and wins.
+    const plan = planCraftReviewDomains(
+      'harness-autopilot',
+      'after:REVIEW',
+      ['packages/cli/src/commands/run.py'],
+      new Set()
+    );
+    expect(reasonsFor(plan.skipped, 'cli-ergonomics-craft')).toEqual(['unsupported-language']);
+  });
+
+  it('reports surface BEFORE capability when both would skip', () => {
+    const plan = planCraftReviewDomains(
+      'harness-autopilot',
+      'after:REVIEW',
+      ['src/a.py'],
+      ALL_CRAFT_INSTALLED
+    );
+    expect(reasonsFor(plan.skipped, 'harness-design-craft')).toEqual(['not-activated']);
+  });
+
+  it('reports exactly one reason per expected domain, and nothing outside expected', () => {
+    const plan = planCraftReviewDomains(
+      'harness-autopilot',
+      'after:REVIEW',
+      ['src/ui/Button.tsx', 'src/a.py', 'docs/guide.md'],
+      ALL_CRAFT_INSTALLED
+    );
+    const accounted = [
+      ...plan.wired.map((h) => (h.type === 'skill' ? h.skill : '')),
+      ...plan.skipped.map((s) => s.skill),
+    ];
+    expect([...accounted].sort()).toEqual([...ALL_DOMAIN_NAMES].sort());
+  });
+});
+
+describe('copy-craft is deliberately not activated in v1', () => {
+  it('never appears in wired or skipped for any diff shape', () => {
+    const diffs: string[][] = [
+      ['src/errors.ts'],
+      ['src/ui/Button.tsx'],
+      ['docs/guide.md'],
+      ['docs/changes/x/proposal.md'],
+      ['src/cli/messages.ts'],
+      [],
+    ];
+    for (const diff of diffs) {
+      const plan = planCraftReviewDomains(
+        'harness-autopilot',
+        'after:REVIEW',
+        diff,
+        new Set([...ALL_CRAFT_INSTALLED, 'copy-craft'])
+      );
+      const named = [
+        ...plan.wired.map((h) => (h.type === 'skill' ? h.skill : '')),
+        ...plan.skipped.map((s) => s.skill),
+        ...plan.expected,
+      ];
+      expect(named).not.toContain('copy-craft');
+    }
+    // Positive control: the same installed catalog DOES wire other domains.
+    expect(
+      planCraftReviewDomains(
+        'harness-autopilot',
+        'after:REVIEW',
+        ['src/errors.ts'],
+        new Set([...ALL_CRAFT_INSTALLED, 'copy-craft'])
+      ).wired.length
+    ).toBeGreaterThan(0);
+  });
+});

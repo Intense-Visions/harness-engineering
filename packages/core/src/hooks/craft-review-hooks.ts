@@ -335,6 +335,20 @@ function toAvailabilityPredicate(avail: SkillAvailability | undefined): (skill: 
 }
 
 /**
+ * True when at least one file the domain OWNS is in a language the domain can
+ * extract. Prose domains ({@link CRAFT_ANY_LANGUAGE}) are never language-gated.
+ * This runs over the owned subset on purpose — see {@link CraftDomainRule.owns}.
+ */
+function hasSupportedLanguage(rule: CraftDomainRule, ownedFiles: readonly string[]): boolean {
+  if (rule.supportedLanguages === CRAFT_ANY_LANGUAGE) return true;
+  const supported = new Set<SupportedLanguage>(rule.supportedLanguages);
+  return ownedFiles.some((file) => {
+    const language = detectLanguage(file);
+    return language !== null && supported.has(language);
+  });
+}
+
+/**
  * Plan craft's default domains for `hostSkill` at `event`, given the diff and
  * which skills are installed.
  *
@@ -379,6 +393,10 @@ export function planCraftReviewDomains(
     const owned = rule.owns(files);
     if (owned.length === 0) {
       skipped.push({ skill: rule.skill, reason: 'not-activated' });
+      continue;
+    }
+    if (!hasSupportedLanguage(rule, owned)) {
+      skipped.push({ skill: rule.skill, reason: 'unsupported-language' });
       continue;
     }
     if (!isInstalled(rule.skill)) {
