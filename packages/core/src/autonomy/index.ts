@@ -18,7 +18,12 @@ export {
 export type { AutonomyPathOptions } from './paths';
 export { resolveAutonomy, AUTONOMY_ENV, AUTONOMY_AUDIT_ENV } from './resolve';
 export type { ResolveAutonomyInput } from './resolve';
-export { readSessionOverride, writeSessionOverride } from './override-store';
+export {
+  readSessionOverride,
+  writeSessionOverride,
+  AutonomyOverrideBusyError,
+  AUTONOMY_OVERRIDE_BUSY,
+} from './override-store';
 export type { OverrideStoreOptions, ReadOverrideResult } from './override-store';
 export {
   isRaisingChange,

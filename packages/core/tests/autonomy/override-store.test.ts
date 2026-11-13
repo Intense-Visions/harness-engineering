@@ -226,3 +226,80 @@ describe('fail-closed degradation on read', () => {
     });
   });
 });
+
+/**
+ * I3: the read-merge-write is serialized by an O_EXCL lock next to the override file. Without
+ * it, a writer that read before a concurrent human lowering would write its stale merge back
+ * and silently drop that lowering. `beforeWrite` runs inside the outer writer's critical
+ * section, so the inner writer below is deterministically interleaved.
+ */
+describe('override writes are serialized (I3)', () => {
+  const readBack = () => {
+    const r = readSessionOverride(project, 's1', { homeDir: home });
+    if (!r.ok) throw r.error;
+    return r.value.override;
+  };
+
+  it('an interleaved writer cannot drop a human lowering', () => {
+    let inner: ReturnType<typeof writeSessionOverride> | undefined;
+    const outer = writeSessionOverride(project, 's1', { audit: true }, 'mcp', {
+      homeDir: home,
+      beforeWrite: () => {
+        inner = writeSessionOverride(project, 's1', { level: 'supervised' }, 'cli', {
+          homeDir: home,
+          lockTimeoutMs: 30,
+        });
+      },
+    });
+    expect(outer.ok).toBe(true);
+    expect(inner).toBeDefined();
+    // The invariant: a lowering that REPORTED success is in the final file.
+    if (inner?.ok) expect(readBack()?.level?.value).toBe('supervised');
+    // With the lock, the interleaved writer is refused (busy) rather than silently lost...
+    expect(inner?.ok).toBe(false);
+    expect(!inner?.ok && (inner?.error as { code?: string }).code).toBe('AUTONOMY_OVERRIDE_BUSY');
+    // ...and a retry after the outer write lands, keeping both fields.
+    expect(
+      writeSessionOverride(project, 's1', { level: 'supervised' }, 'cli', { homeDir: home }).ok
+    ).toBe(true);
+    expect(readBack()).toMatchObject({ level: { value: 'supervised' }, audit: { value: true } });
+  });
+
+  it('releases the lock after a write (a second write succeeds immediately)', () => {
+    const opts = { homeDir: home, lockTimeoutMs: 0 };
+    expect(writeSessionOverride(project, 's1', { audit: true }, 'mcp', opts).ok).toBe(true);
+    expect(writeSessionOverride(project, 's1', { level: 'supervised' }, 'mcp', opts).ok).toBe(true);
+    const p = sessionOverridePath(project, 's1', { homeDir: home });
+    if (!p.ok) throw p.error;
+    expect(fs.existsSync(`${p.value}.lock`)).toBe(false);
+  });
+
+  it('breaks a stale lock left by a crashed writer', () => {
+    const p = sessionOverridePath(project, 's1', { homeDir: home });
+    if (!p.ok) throw p.error;
+    fs.mkdirSync(path.dirname(p.value), { recursive: true });
+    fs.writeFileSync(`${p.value}.lock`, '999999');
+    const old = new Date(Date.now() - 60_000);
+    fs.utimesSync(`${p.value}.lock`, old, old);
+    expect(
+      writeSessionOverride(project, 's1', { audit: true }, 'mcp', {
+        homeDir: home,
+        lockTimeoutMs: 30,
+      }).ok
+    ).toBe(true);
+  });
+
+  it('a fresh lock held by another writer times out with AUTONOMY_OVERRIDE_BUSY, file untouched', () => {
+    const p = sessionOverridePath(project, 's1', { homeDir: home });
+    if (!p.ok) throw p.error;
+    fs.mkdirSync(path.dirname(p.value), { recursive: true });
+    fs.writeFileSync(`${p.value}.lock`, '1');
+    const w = writeSessionOverride(project, 's1', { audit: true }, 'mcp', {
+      homeDir: home,
+      lockTimeoutMs: 30,
+    });
+    expect(w.ok).toBe(false);
+    expect(fs.existsSync(p.value)).toBe(false);
+    fs.unlinkSync(`${p.value}.lock`);
+  });
+});

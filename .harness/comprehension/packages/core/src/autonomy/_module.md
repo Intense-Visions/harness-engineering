@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/src/autonomy'
-sourceHash: '853a1a0923e3d50ac555aa0bbf2192770f31861012af0fc60b5cdea74c6aee41'
+sourceHash: '254c776ce93e625aeace644f235a119a95dd51adb771c21e5e0db882dd0f1049'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -23,9 +23,11 @@ members:
 export AUTONOMY_AUDIT_ENV
 export AUTONOMY_ENV
 export AUTONOMY_INVALID_SETTING
+export AUTONOMY_OVERRIDE_BUSY
 export AUTONOMY_RAISE_REJECTED
 export AutonomyInvalidSettingError
 export AutonomyLevelSchema
+export AutonomyOverrideBusyError
 export AutonomyPathOptions
 export AutonomyRaiseRejectedError
 export AutonomySettingSchema
