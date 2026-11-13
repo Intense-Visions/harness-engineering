@@ -54,6 +54,7 @@ Each of these resolves to **pause**:
 - There is no session slug, so no decision-log entry can be written.
 - `record_auto_decision` did not return `recorded: true`.
 - You cannot read this protocol or resolve autonomy.
+- The skill text at this pause says it never auto-resolves (for example plan approval when `--review-plans` is set).
 
 ### `record_auto_decision` call
 

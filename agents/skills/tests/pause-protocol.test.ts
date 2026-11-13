@@ -101,16 +101,17 @@ describe('record before proceeding (SC14) and fail-safe rules', () => {
     expect(s).toMatch(/`recorded: false`[^\n]*pause exactly as supervised mode would/);
     expect(s).toContain('An unlogged auto-decision is never taken');
   });
-  it('lists five fail-safe rules, all resolving to pause', () => {
+  it('lists six fail-safe rules, all resolving to pause', () => {
     const s = section('### Fail-safe rules');
     expect(s).toContain('Each of these resolves to **pause**');
-    expect(s.split('\n').filter((l) => l.startsWith('- '))).toHaveLength(5);
+    expect(s.split('\n').filter((l) => l.startsWith('- '))).toHaveLength(6);
     for (const phrase of [
       'no stated recommendation',
       'no marker',
       'no session slug',
       'did not return `recorded: true`',
       'cannot read this protocol or resolve autonomy',
+      'skill text at this pause says it never auto-resolves',
     ]) {
       expect(s).toContain(phrase);
     }
