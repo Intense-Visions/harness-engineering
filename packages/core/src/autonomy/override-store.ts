@@ -1,4 +1,5 @@
 import * as fs from 'node:fs';
+import { randomUUID } from 'node:crypto';
 import * as path from 'node:path';
 import type {
   AutonomyOverrideOrigin,
@@ -145,6 +146,49 @@ export function claimStaleLock(lockPath: string, staleMs: number): boolean {
   }
 }
 
+let lockSeq = 0;
+
+/** Unique per acquisition (a pid alone repeats across sequential writers in one process). */
+function newLockToken(): string {
+  return `${process.pid}:${Date.now()}:${lockSeq++}:${randomUUID()}`;
+}
+
+function readLockToken(p: string): string | undefined {
+  try {
+    return fs.readFileSync(p, 'utf-8');
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * Release a lock only if this writer still owns it. If this writer overran staleLockMs, another
+ * writer may have broken the lock and re-acquired it; an unconditional unlink would delete THAT
+ * writer's lock. The lock is claimed by atomic rename (as in claimStaleLock), its token compared,
+ * and a lock that is not ours is restored with link(2), which never clobbers a lock created
+ * meanwhile. Returns true when this writer's own lock was removed.
+ * @internal Exported for the ownership race test.
+ */
+export function releaseOverrideLock(lockPath: string, token: string): boolean {
+  const claimed = `${lockPath}.release.${process.pid}.${Date.now()}.${claimSeq++}`;
+  try {
+    fs.renameSync(lockPath, claimed);
+  } catch {
+    return false; // already gone (broken by another writer, or never ours)
+  }
+  try {
+    if (readLockToken(claimed) === token) return true;
+    try {
+      fs.linkSync(claimed, lockPath); // not ours: hand it back to its holder
+    } catch {
+      // A newer lock already exists; leave it.
+    }
+    return false;
+  } finally {
+    fs.rmSync(claimed, { force: true });
+  }
+}
+
 /**
  * Run `fn` holding an O_EXCL lock file beside the override (I3), so concurrent writers serialize
  * their read-merge-write instead of one silently dropping the other's field. Same mechanism as
@@ -158,10 +202,11 @@ function withOverrideLock<T>(
   const lockPath = `${file}.lock`;
   const deadline = Date.now() + (opts.lockTimeoutMs ?? 2000);
   fs.mkdirSync(path.dirname(file), { recursive: true, mode: 0o700 });
+  const token = newLockToken();
   for (;;) {
     try {
       const fd = fs.openSync(lockPath, 'wx', 0o600);
-      fs.writeSync(fd, String(process.pid));
+      fs.writeSync(fd, token);
       fs.closeSync(fd);
       break;
     } catch (err) {
@@ -179,7 +224,7 @@ function withOverrideLock<T>(
   try {
     return fn();
   } finally {
-    fs.rmSync(lockPath, { force: true });
+    releaseOverrideLock(lockPath, token);
   }
 }
 

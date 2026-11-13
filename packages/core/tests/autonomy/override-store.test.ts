@@ -5,6 +5,7 @@ import * as path from 'node:path';
 import {
   claimStaleLock,
   readSessionOverride,
+  releaseOverrideLock,
   writeSessionOverride,
 } from '../../src/autonomy/override-store';
 import { sessionOverridePath } from '../../src/autonomy/paths';
@@ -383,6 +384,56 @@ describe('override writes are serialized (I3)', () => {
       fs.utimesSync(lock, new Date(), new Date()); // re-acquired / refreshed since judged stale
       expect(claimStaleLock(lock, 30_000)).toBe(false);
       expect(fs.readFileSync(lock, 'utf-8')).toBe('crashed');
+    });
+  });
+
+  /**
+   * Carry-forward (Phase 1 review): release must verify ownership. A writer that overran
+   * staleLockMs can have its lock broken and re-acquired by writer B; an unconditional unlink at
+   * A's release would delete B's lock and admit a third writer into B's critical section.
+   */
+  describe('lock release verifies ownership', () => {
+    it("does not delete a lock another writer re-acquired during this writer's critical section", () => {
+      const p = sessionOverridePath(project, 's1', { homeDir: home });
+      if (!p.ok) throw p.error;
+      const lock = `${p.value}.lock`;
+      const w = writeSessionOverride(project, 's1', { audit: true }, 'mcp', {
+        homeDir: home,
+        beforeWrite: () => {
+          fs.rmSync(lock); // B broke A's lock (judged stale)...
+          fs.writeFileSync(lock, 'writer-B-token', { flag: 'wx' }); // ...and took it
+        },
+      });
+      expect(w.ok).toBe(true);
+      expect(fs.readFileSync(lock, 'utf-8')).toBe('writer-B-token');
+      expect(fs.readdirSync(path.dirname(lock)).filter((n) => n.includes('.release.'))).toEqual([]);
+    });
+
+    it('writes a per-acquisition token beginning with the pid', () => {
+      const p = sessionOverridePath(project, 's1', { homeDir: home });
+      if (!p.ok) throw p.error;
+      const seen: string[] = [];
+      const opts = {
+        homeDir: home,
+        beforeWrite: () => seen.push(fs.readFileSync(`${p.value}.lock`, 'utf-8')),
+      };
+      expect(writeSessionOverride(project, 's1', { audit: true }, 'mcp', opts).ok).toBe(true);
+      expect(writeSessionOverride(project, 's1', { audit: true }, 'mcp', opts).ok).toBe(true);
+      expect(seen).toHaveLength(2);
+      expect(seen[0]).not.toBe(seen[1]);
+      for (const t of seen) expect(t.startsWith(`${process.pid}:`)).toBe(true);
+      expect(fs.existsSync(`${p.value}.lock`)).toBe(false); // own lock still released
+    });
+
+    it('releaseOverrideLock removes only a lock holding the given token', () => {
+      const lock = path.join(tmp, 'x.lock');
+      fs.writeFileSync(lock, 'mine');
+      expect(releaseOverrideLock(lock, 'theirs')).toBe(false);
+      expect(fs.readFileSync(lock, 'utf-8')).toBe('mine');
+      expect(releaseOverrideLock(lock, 'mine')).toBe(true);
+      expect(fs.existsSync(lock)).toBe(false);
+      expect(releaseOverrideLock(lock, 'mine')).toBe(false); // already gone
+      expect(fs.readdirSync(tmp).filter((n) => n.includes('.release.'))).toEqual([]);
     });
   });
 });
