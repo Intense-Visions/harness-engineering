@@ -7,7 +7,7 @@ import type {
 } from '@harness-engineering/types';
 import type { Result } from '../shared/result';
 import { Ok, Err } from '../shared/result';
-import { parseSessionOverride, validateAutonomySetting } from './schema';
+import { parseSessionOverrideFields, validateAutonomySetting } from './schema';
 import { sessionOverridePath, type AutonomyPathOptions } from './paths';
 
 export interface OverrideStoreOptions extends AutonomyPathOptions {
@@ -37,14 +37,18 @@ export function readSessionOverride(
   if (!p.ok) return p;
   const raw = (opts.readFile ?? defaultReadFile)(p.value);
   if (raw === undefined) return Ok({ override: null, warnings: [] });
-  const parsed = parseSessionOverride(raw);
+  const parsed = parseSessionOverrideFields(raw);
   if (!parsed.ok) {
     return Ok({
       override: null,
       warnings: [`Ignoring malformed session override ${p.value}: ${parsed.error.message}`],
     });
   }
-  return Ok({ override: parsed.value, warnings: [] });
+  // Degrade per field: drop only the invalid field(s); valid siblings still apply.
+  const warnings = parsed.value.invalid.map(
+    (msg) => `Ignoring invalid field in session override ${p.value}: ${msg}`
+  );
+  return Ok({ override: parsed.value.override, warnings });
 }
 
 function atomicWrite(file: string, content: string): void {

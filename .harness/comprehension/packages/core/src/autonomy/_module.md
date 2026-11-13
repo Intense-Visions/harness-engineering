@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/src/autonomy'
-sourceHash: '42a6bb3b495a60b4edf116ab2501e40729d590cc2ac4fe368c7ef4c71ccd5e81'
+sourceHash: 'f70edec8cb0c44f03036f453e5ba80c25c2aba8ce8c4e95673488331acc0e5b8'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -58,7 +58,7 @@ import { Err, Ok, Result } from '../shared/result'
 import { OverrideStoreOptions, readSessionOverride, writeSessionOverride } from './override-store'
 import { AutonomyPathOptions, sessionOverridePath, userConfigPath } from './paths'
 import { ResolveAutonomyInput, resolveAutonomy } from './resolve'
-import { parseSessionOverride, parseUserConfig, validateAutonomySetting } from './schema'
+import { parseSessionOverrideFields, parseUserConfig, validateAutonomySetting } from './schema'
 import { AutonomyFlag, AutonomyLevel, AutonomyOverrideField, AutonomyOverrideOrigin, AutonomySessionOverride, AutonomySetting, AutonomySource, AutonomyUserConfig, DEFAULT_AUTONOMY_AUDIT, ResolvedAutonomy } from '@harness-engineering/types'
 import { createHash } from 'node:crypto'
 import * as fs from 'node:fs'

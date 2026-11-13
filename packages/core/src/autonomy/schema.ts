@@ -44,11 +44,16 @@ const IsoSchema = z.string().refine((s) => !Number.isNaN(Date.parse(s)), {
   message: 'must be an ISO timestamp',
 });
 
+const LevelFieldSchema = z.object({
+  value: AutonomyLevelSchema,
+  setAt: IsoSchema,
+  origin: OriginSchema,
+});
+const AuditFieldSchema = z.object({ value: z.boolean(), setAt: IsoSchema, origin: OriginSchema });
+
 export const SessionOverrideFileSchema = z.object({
-  level: z
-    .object({ value: AutonomyLevelSchema, setAt: IsoSchema, origin: OriginSchema })
-    .optional(),
-  audit: z.object({ value: z.boolean(), setAt: IsoSchema, origin: OriginSchema }).optional(),
+  level: LevelFieldSchema.optional(),
+  audit: AuditFieldSchema.optional(),
 });
 
 function parseJson(raw: string): Result<unknown, Error> {
@@ -85,4 +90,40 @@ export function validateAutonomySetting(change: unknown): Result<AutonomySetting
   const r = AutonomySettingSchema.safeParse(change);
   if (!r.success) return Err(new AutonomyInvalidSettingError(describeIssues(r.error.issues)));
   return Ok(r.data as AutonomySetting);
+}
+
+export interface ParsedOverrideFields {
+  /** Null when no field is valid. */
+  override: AutonomySessionOverride | null;
+  /** One message per present-but-invalid field; that field is dropped, valid siblings kept. */
+  invalid: string[];
+}
+
+/**
+ * Per-field parse (D12): a corrupt field must not discard a valid sibling, or a corrupt
+ * `audit` would erase a human's `level: supervised` lowering and let a trusted user config
+ * through. Err only when the document itself is unparseable or not an object.
+ */
+export function parseSessionOverrideFields(raw: string): Result<ParsedOverrideFields, Error> {
+  const json = parseJson(raw);
+  if (!json.ok) return json;
+  const doc = json.value;
+  if (typeof doc !== 'object' || doc === null || Array.isArray(doc)) {
+    return Err(new Error('(root): expected an object'));
+  }
+  const record = doc as Record<string, unknown>;
+  const override: AutonomySessionOverride = {};
+  const invalid: string[] = [];
+  if (record.level !== undefined) {
+    const r = LevelFieldSchema.safeParse(record.level);
+    if (r.success) override.level = r.data;
+    else invalid.push(`level: ${describeIssues(r.error.issues)}`);
+  }
+  if (record.audit !== undefined) {
+    const r = AuditFieldSchema.safeParse(record.audit);
+    if (r.success) override.audit = r.data;
+    else invalid.push(`audit: ${describeIssues(r.error.issues)}`);
+  }
+  const empty = override.level === undefined && override.audit === undefined;
+  return Ok({ override: empty ? null : override, invalid });
 }
