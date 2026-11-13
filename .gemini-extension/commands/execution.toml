@@ -119,7 +119,7 @@ Fall back to file-based commands if no graph is available.
 
 When you encounter an unknown during task execution, classify it immediately:
 
-_Pause point (judgment): resolve per the Pause Protocol._ <!-- pause: judgment -->
+_Pause point (gate): resolve per the Pause Protocol._ <!-- pause: gate -->
 
 - **Blocking:** Cannot complete the task as written without resolving this (e.g., referenced file doesn't exist, spec behavior undefined for this scenario). STOP. Record as a blocker and report.
 - **Assumption:** Can proceed if assumption is stated (e.g., "the API returns JSON, not XML"). Document the assumption in the commit message. If wrong, the task must be revisited.

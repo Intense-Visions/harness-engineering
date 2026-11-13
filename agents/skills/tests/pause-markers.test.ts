@@ -13,6 +13,7 @@ import {
   PAUSE_PREAMBLE,
   PAUSE_PREAMBLE_HEADING,
   canonicalMarkerLine as marker,
+  MARKER_WINDOW,
   pauseMarkerViolations,
   scanSkill,
 } from './pause-markers';
@@ -160,4 +161,29 @@ describe('SC12: every pause point in the seven workflow skills is marked', () =>
     };
     it(title, check);
   }
+});
+
+/** Class of the nearest marker at most MARKER_WINDOW lines above the first line containing `excerpt`. */
+function classOf(skill: string, excerpt: string): string | undefined {
+  const text = read(skill);
+  const idx = text.split('\n').findIndex((l) => l.includes(excerpt));
+  if (idx < 0) throw new Error(`${skill}: excerpt not found: ${excerpt}`);
+  const near = scanSkill(text)
+    .markers.filter((m) => m.line - 1 <= idx && m.line - 1 >= idx - MARKER_WINDOW)
+    .sort((a, b) => b.line - a.line);
+  return near[0]?.cls;
+}
+
+/** Pauses whose class is policy, not taste (verify N2 / N4). Relabelling one must fail here. */
+const PINNED_CLASSES: Array<[string, string, string]> = [
+  // N4: a blocking uncertainty stops, like execution's "Hit a blocker"
+  ['harness-execution', '- **Blocking:** Cannot complete the task as written', 'gate'],
+  ['harness-planning', '- **Blocking:** Cannot decompose tasks without resolving this', 'gate'],
+  ['harness-planning', '- **Spec is missing information:**', 'gate'],
+];
+
+describe('critical pauses carry their pinned class', () => {
+  it.each(PINNED_CLASSES)('%s: "%s" is %s', (skill, excerpt, cls) => {
+    expect(classOf(skill, excerpt)).toBe(cls);
+  });
 });

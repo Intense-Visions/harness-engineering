@@ -120,7 +120,7 @@ Store the parsed skill list for use in Phase 2 task annotation.
 6. **Apply YAGNI.** For every artifact: "Is this required for an observable truth?" If not, cut it.
 
 7. **Surface uncertainties.** Before proceeding to Phase 2, explicitly list what you do NOT know. For each uncertainty, classify it:
-   _Pause point (judgment): resolve per the Pause Protocol._ <!-- pause: judgment -->
+   _Pause point (gate): resolve per the Pause Protocol._ <!-- pause: gate -->
    - **Blocking:** Cannot decompose tasks without resolving this. Escalate to user.
    - **Assumption:** Can proceed with a stated assumption. Document it. If wrong, specific tasks will need revision.
    - **Deferrable:** Does not affect task decomposition. Note for execution phase.
@@ -629,7 +629,11 @@ _Pause point (judgment): resolve per the Pause Protocol._ <!-- pause: judgment -
 - **Cannot write exact code for a task:** Design is underspecified. Return to spec or brainstorm. Do not write vague placeholders.
 - **Task count exceeds 20:** Consider splitting into multiple plans with milestone boundaries.
 - **Dependencies form a cycle:** Re-examine file map. Break the cycle by extracting a shared type or interface.
-  _Pause point (judgment): resolve per the Pause Protocol._ <!-- pause: judgment -->
+
+  _Pause point (gate): resolve per the Pause Protocol._ <!-- pause: gate -->
+
 - **Spec is missing information:** Do not fill gaps yourself. Escalate: "The spec does not define behavior for [scenario]. This blocks Task N."
+
   _Pause point (judgment): resolve per the Pause Protocol._ <!-- pause: judgment -->
+
 - **Estimated time exceeds available time:** Identify a milestone boundary for pausing. Propose delivering in phases, each producing a usable increment.
