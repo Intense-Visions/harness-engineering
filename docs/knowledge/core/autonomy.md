@@ -15,9 +15,12 @@ knowledge pipeline ingests them as graph nodes. Unrelated to the roadmap auto-tr
 **`autonomy-level`**: the user-level setting (`supervised` | `trusted`) that decides **who
 decides** at a non-mechanical pause point in a harness workflow skill. It is orthogonal to
 autopilot's `rigorLevel`, which decides **how much is checked** (ADR 0136). It resolves per field
-(`level`, `audit`) from user-sourced tiers only: the more recent of {invocation flag, session
-override}, then `HARNESS_AUTONOMY*` env, then `~/.harness/config.json`, then the default
-`supervised`. Only `~/.harness/config.json` or a TTY-confirmed `harness autonomy set` can raise
+(`level`, `audit`) from user-sourced tiers only: the session override, then `HARNESS_AUTONOMY*`
+env, then `~/.harness/config.json`, then the default `supervised`. `resolveAutonomy` also accepts
+an invocation-flag tier (lower-only, tied with the session override by recency), but it is
+API-only: no production caller passes a flag. Skills apply an invocation flag such as
+`--supervised` through `manage_state set-autonomy`, so it reaches the resolver as a session
+override. Only `~/.harness/config.json` or a TTY-confirmed `harness autonomy set` can raise
 it; every sanctioned agent- or repo-reachable path (MCP tools, env, flags, project files) may only
 lower it (ADR 0137).
 

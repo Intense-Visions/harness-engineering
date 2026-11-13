@@ -32,10 +32,14 @@ sandbox against code running as the same OS user.
 
 ### Precedence (D3)
 
-Per field (`level` and `audit` resolve independently), highest first: the more recent of
-{invocation flag, session override}, then the `HARNESS_AUTONOMY` / `HARNESS_AUTONOMY_AUDIT` env,
-then `~/.harness/config.json`, then the default `supervised`. Implemented by `resolveAutonomy` (`packages/core/src/autonomy/resolve.ts:252`;
+Per field (`level` and `audit` resolve independently), highest first: the session override, then
+the `HARNESS_AUTONOMY` / `HARNESS_AUTONOMY_AUDIT` env, then `~/.harness/config.json`, then the
+default `supervised`. Implemented by `resolveAutonomy` (`packages/core/src/autonomy/resolve.ts`;
 `resolveLevel` picks the flag/session tier first, then env, then user config, then default).
+`resolveAutonomy` also accepts an invocation-flag tier, lower-only (D17) and tied with the session
+override by recency, but it is API-only: no production caller passes a flag. Skills apply an
+invocation flag such as `--supervised` through `manage_state set-autonomy`, so in practice a flag
+reaches the resolver as a session override and no flag-vs-session recency tie-break happens.
 `resolveAutonomy` never reads `harness.config.json`: a project key is ignored (SC5).
 
 ### Lower-only tiers
@@ -74,8 +78,8 @@ is the first 16 hex chars of the sha256 of the realpath of `git rev-parse --git-
 shares overrides: a human lowering in the main checkout reaches agents in sibling worktrees. A
 raise does not travel the same way (see D14 below): it is honoured only where its session
 directory exists in the worktree that reads it.
-Each written field carries its own `setAt` and origin, so "the more recent of flag and session"
-is decided per field.
+Each written field carries its own `setAt` and origin, so a lower-only write to one field never
+re-dates a human-set value in the other.
 
 ### Raises are session-bound and expire; lowerings do not expire (D14)
 

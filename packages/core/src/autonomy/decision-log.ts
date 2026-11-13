@@ -257,7 +257,10 @@ export class AutoDecisionNotAuthorizedError extends Error {
   }
 }
 
-/** No invocation flag: a flag relayed by an agent is agent-asserted (Phase 1 deferral to Phase 3). */
+/**
+ * No invocation flag: a flag relayed by an agent is agent-asserted. Skills apply flags through
+ * manage_state set-autonomy (D17), so the session override already carries them.
+ */
 export type RecordAutoDecisionOptions = DecisionLogOptions &
   Omit<ResolveForSessionInput, 'projectPath' | 'session' | 'flag'>;
 
