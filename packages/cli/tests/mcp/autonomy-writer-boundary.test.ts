@@ -50,3 +50,48 @@ describe('MCP never references the unrestricted override writer (S4)', () => {
     expect(offenders).toEqual([]);
   });
 });
+
+/**
+ * S3: the same boundary across every package's src/, not just cli's MCP tree. The only callers
+ * allowed are the TTY-gated human CLI (`harness autonomy set`) and core's own autonomy module
+ * (the definition, the lower-only wrapper that delegates to it, and the barrel re-export).
+ */
+describe('only the human CLI and core autonomy reference writeSessionOverride (S3)', () => {
+  const REPO = path.resolve(__dirname, '../../../..');
+  const ALLOWED = new Set([
+    'packages/cli/src/commands/autonomy/set.ts',
+    'packages/core/src/autonomy/override-store.ts',
+    'packages/core/src/autonomy/lower-only.ts',
+    'packages/core/src/autonomy/index.ts',
+  ]);
+  const srcDirs = fs
+    .readdirSync(path.join(REPO, 'packages'), { withFileTypes: true })
+    .filter((e) => e.isDirectory())
+    .map((e) => path.join(REPO, 'packages', e.name, 'src'))
+    .filter((d) => fs.existsSync(d));
+  const files = srcDirs.flatMap(walk);
+  const rel = (f: string) => path.relative(REPO, f).replaceAll('\\', '/');
+
+  it('scans a real denominator: several packages, including cli and core', () => {
+    expect(srcDirs.length).toBeGreaterThan(5);
+    expect(files.length).toBeGreaterThan(500);
+    const names = new Set(files.map(rel));
+    for (const f of ALLOWED) expect(names.has(f), f).toBe(true);
+  });
+
+  it('positive control: the allowlisted human CLI really references it', () => {
+    const set = fs.readFileSync(
+      path.join(REPO, 'packages/cli/src/commands/autonomy/set.ts'),
+      'utf-8'
+    );
+    expect(FORBIDDEN.test(set)).toBe(true);
+  });
+
+  it('no other file under packages/*/src references writeSessionOverride', () => {
+    const offenders = files
+      .filter((f) => !ALLOWED.has(rel(f)))
+      .filter((f) => FORBIDDEN.test(fs.readFileSync(f, 'utf-8')))
+      .map(rel);
+    expect(offenders).toEqual([]);
+  });
+});
