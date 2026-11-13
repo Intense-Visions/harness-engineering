@@ -1,9 +1,9 @@
 {
   "profile": "standard",
   "fileHashes": {
-    "block-no-verify.js": "9d224eb5dbdfea4f6ae9ae8b82a431a61a983c4589b1bf9230b70f71efafa9e8",
+    "block-no-verify.js": "aa1db9030f9a83eeea6aedbe0385c0588e5068f8cc8535eeacf8e9cfab4156e1",
     "autonomy-guard.js": "c13691f6a34ba503e266cafe3cdd3168ff7fc1c2d36865408ef8c03f73831ad3",
-    "protect-config.js": "91a2b8af5a3f15ca82efaf9f465ebcf936ad9c772fde4fe717f5ac2d8b877c87",
+    "protect-config.js": "270a5ccecf6bf49e0f08efa849796e89e6d4ba01af517e928252376a92cb9ae2",
     "quality-warner.js": "acf787c9904277d18679a5fef98e1bea381ea0938dfe0c150c940f835613f3a8",
     "pre-compact-state.js": "4b562a64b69c293d73c7a9f902164a59865145a46393be09f3cea430542fb206",
     "adoption-tracker.js": "211e336a8b63b41e0d7aec020cd6d383bbf2eec7aa2194fb37ae7d1d26c51666",

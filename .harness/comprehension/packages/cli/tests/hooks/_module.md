@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/tests/hooks'
-sourceHash: '9d67ca61716ea622bfe8d189563a95f822f494ec44f7c4148223e61a17660ae5'
+sourceHash: '49b46ba5ced17e2953d8c9c890d503e026ef76b997242bd08a2b2ddbea5ee0d5'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -12,6 +12,7 @@ members:
     'autonomy-guard.test.ts',
     'block-no-verify.test.ts',
     'cost-tracker.test.ts',
+    'dogfood-hook-parity.test.ts',
     'format-check.test.ts',
     'hooks-cli-integration.test.ts',
     'integration.test.ts',
@@ -55,6 +56,7 @@ import { HOOK_SCRIPTS, PROFILES } from '../../src/hooks/profiles.js'
 import { parseCodexNotifyPayload } from '../../src/hooks/session-retrospect-core.js'
 import { RoadmapMeta, Shard, parseRoadmap, serializeMeta, serializeShard } from '@harness-engineering/core'
 import { execFileSync, execSync, spawnSync } from 'node:child_process'
+import { createHash } from 'node:crypto'
 import { chmodSync, closeSync, copyFileSync, existsSync, mkdirSync, mkdtempSync, openSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import * as fs from 'node:fs'
 import { tmpdir } from 'node:os'
