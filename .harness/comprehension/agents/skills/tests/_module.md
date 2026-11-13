@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'agents/skills/tests'
-sourceHash: '2ba0be11943e5aef51e938bfcb7888886be368f13bc2e77c7592da46ac80a439'
+sourceHash: 'a9436a45989f3441d1c794af5abda12bee5755d09a758d73fcf9dad1710300ba'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -16,6 +16,8 @@ members:
     'interaction-channel.test.ts',
     'internal-refs.test.ts',
     'issue-fleet-routes.test.ts',
+    'pause-markers.test.ts',
+    'pause-markers.ts',
     'pause-protocol.test.ts',
     'platform-parity.test.ts',
     'references.test.ts',
@@ -30,12 +32,24 @@ members:
 ```ts
 export ALLOWED_PLATFORMS
 export ALLOWED_TRIGGERS
+export MARKER_WINDOW
+export PAUSE_CLASSES
+export PAUSE_PHRASES
+export PAUSE_PREAMBLE
+export PAUSE_PREAMBLE_HEADING
+export SUMMARY_STEP
 export SkillMetadataSchema
+export WORKFLOW_SKILLS
+export canonicalMarkerLine
+export isPausePhrase
+export pauseMarkerViolations
+export scanSkill
 ```
 
 ## Dependency Slice
 
 ```
+import { PAUSE_PREAMBLE, PAUSE_PREAMBLE_HEADING, WORKFLOW_SKILLS, marker, pauseMarkerViolations, scanSkill } from './pause-markers'
 import { ALLOWED_PLATFORMS, SkillMetadataSchema } from './schema'
 import { BEHAVIORAL_REQUIRED_SECTIONS, CompoundLockHeldError, KNOWLEDGE_REQUIRED_SECTIONS, RIGID_SECTIONS, acquireCompoundLock } from '@harness-engineering/core'
 import { existsSync, readFileSync } from 'fs'
