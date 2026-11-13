@@ -1,11 +1,11 @@
 ---
 schemaVersion: 1
 module: 'packages/core/tests/autonomy'
-sourceHash: 'eb2fc1eedbe9f974b83425dc7e44a0cec62862672a05540aa30138b0ae98ce43'
+sourceHash: '698da72930379cf8effba68947e5f5d15525b79bbaac3848b3f582bd1bd734d1'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
-members: ['schema.test.ts']
+members: ['paths.test.ts', 'schema.test.ts']
 ---
 
 ## Interface Contract
@@ -17,6 +17,10 @@ members: ['schema.test.ts']
 ## Dependency Slice
 
 ```
+import { computeRepoKey, harnessHomeDir, sessionOverridePath, userConfigPath, validateOverrideSlug } from '../../src/autonomy/paths'
 import { UserConfigSchema, parseSessionOverride, parseUserConfig } from '../../src/autonomy/schema'
+import * as fs from 'node:fs'
+import * as os from 'node:os'
+import * as path from 'node:path'
 import { describe, expect, it } from 'vitest'
 ```
