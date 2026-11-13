@@ -1,4 +1,4 @@
-import { paginate, CHARS_PER_TOKEN } from '@harness-engineering/core';
+import { paginate, CHARS_PER_TOKEN, resolveAutonomyForSession } from '@harness-engineering/core';
 import { sanitizePath } from '../utils/sanitize-path.js';
 
 interface GraphContextBlock {
@@ -432,9 +432,10 @@ export async function handleGatherContext(
     : Promise.resolve(null);
 
   // Trusted Autonomy Mode: user-sourced only (D3/D12). Opt-in; never in the default set.
+  // core is already statically imported above, so a lazy import() would load nothing new.
   const autonomyPromise = includeSet.has('autonomy')
-    ? import('@harness-engineering/core').then((core) =>
-        core.resolveAutonomyForSession({
+    ? Promise.resolve().then(() =>
+        resolveAutonomyForSession({
           projectPath,
           ...(input.session !== undefined && { session: input.session }),
           env: deps.env ?? process.env,
