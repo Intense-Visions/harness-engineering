@@ -171,6 +171,16 @@ INIT → ASSESS → PLAN → APPROVE_PLAN → EXECUTE → VERIFY → INTEGRATE �
 
 ---
 
+### After every dispatch
+
+After every subagent dispatch (planner, task-executor, verifier, integration, reviewers, hooks), read `{sessionDir}/handoff.json` `blockers` and `concerns`.
+
+_Pause point (gate): resolve per the Pause Protocol._ <!-- pause: gate -->
+
+If any blocker starts with `audit-disagreement:`, the subagent hit a self-audit disagreement it could not settle headless (Pause Protocol, Escalation): present both positions from `concerns` to the human in plain text and wait for their choice. This escalation stops at every autonomy level. It is not a failure: it never enters the EXECUTE retry path, and the same unit is never re-dispatched to settle it. Once the human answers, record the answer per the Pause Protocol (Escalation) and resume the state that dispatched the unit, passing the answer to it as context.
+
+---
+
 ### ASSESS
 
 1. Read current phase at `currentPhase`.
@@ -283,7 +293,7 @@ _Pause point (gate): resolve per the Pause Protocol._ <!-- pause: gate -->
 
 After each passing checkpoint: `commitAtCheckpoint()`.
 
-**Outcome:** All tasks complete → VERIFY. Task fails → retry logic:
+**Outcome:** All tasks complete → VERIFY. A handoff blocker starting `audit-disagreement:` is not a task failure; handle it per After every dispatch. Task fails → retry logic:
 
 - Attempt 1: read error, apply obvious fix, re-dispatch for failed task.
 - Attempt 2: expand context — read related files, check `learnings.md`, re-dispatch.

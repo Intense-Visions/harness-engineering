@@ -204,6 +204,8 @@ const PINNED_CLASSES: Array<[string, string, string]> = [
   ['harness-autopilot', '5. Blocking: ask "fix / override / stop."', 'gate'],
   ['harness-autopilot', 'HALT before DONE', 'gate'],
   ['harness-integration', '**On FAIL:** Do NOT emit a transition.', 'gate'],
+  // N6: a headless audit disagreement is an escalation that stops at every level
+  ['harness-autopilot', 'If any blocker starts with `audit-disagreement:`', 'gate'],
   // N2: strategy contradictions are never auto-resolved (D-A, overridden to gate)
   ['harness-brainstorming', '**Surface strategy contradictions.**', 'gate'],
   ['harness-brainstorming', '**cross-answer contradiction pass**', 'gate'],

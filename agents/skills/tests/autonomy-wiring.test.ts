@@ -190,3 +190,26 @@ describe('B1 / D17: lowering flags are applied before any dispatch or marked poi
     expect(declaring.sort()).toEqual([...FLAGGED].sort());
   });
 });
+
+describe('N6: autopilot routes a headless audit disagreement to the human, never to retry', () => {
+  const ap = skill('harness-autopilot');
+  it('reads handoff blockers and concerns after every dispatch', () => {
+    const s = section(ap, '### After every dispatch');
+    expect(s).toContain('read `{sessionDir}/handoff.json` `blockers` and `concerns`');
+    expect(s).toContain('If any blocker starts with `audit-disagreement:`');
+    expect(s).toContain('present both positions from `concerns` to the human in plain text');
+  });
+  it('never retries or re-dispatches the unit to settle it', () => {
+    const s = section(ap, '### After every dispatch');
+    expect(s).toContain('it never enters the EXECUTE retry path');
+    expect(s).toContain('the same unit is never re-dispatched to settle it');
+  });
+  it('the EXECUTE retry logic excludes it', () => {
+    const s = section(ap, '### EXECUTE');
+    const exclusion = s.indexOf(
+      'A handoff blocker starting `audit-disagreement:` is not a task failure'
+    );
+    expect(exclusion).toBeGreaterThanOrEqual(0);
+    expect(exclusion).toBeLessThan(s.indexOf('Attempt 1:'));
+  });
+});
