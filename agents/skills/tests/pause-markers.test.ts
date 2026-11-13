@@ -163,15 +163,28 @@ describe('SC12: every pause point in the seven workflow skills is marked', () =>
   }
 });
 
-/** Class of the nearest marker at most MARKER_WINDOW lines above the first line containing `excerpt`. */
+/** A fenced line is anchored at its opening fence, as the detector anchors it. */
+function anchorIndex(lines: string[], idx: number): number {
+  let open = -1;
+  for (let k = 0; k < idx; k += 1)
+    if (/^\s*(?:```|~~~)/.test(lines[k] ?? '')) open = open < 0 ? k : -1;
+  return open < 0 ? idx : open;
+}
+
+/** Class of the nearest marker at most MARKER_WINDOW lines above line `idx` (0-based) or its fence. */
+function classAt(text: string, idx: number): string | undefined {
+  const at = anchorIndex(text.split('\n'), idx);
+  const near = scanSkill(text)
+    .markers.filter((m) => m.line - 1 <= at && m.line - 1 >= at - MARKER_WINDOW)
+    .sort((a, b) => b.line - a.line);
+  return near[0]?.cls;
+}
+
 function classOf(skill: string, excerpt: string): string | undefined {
   const text = read(skill);
   const idx = text.split('\n').findIndex((l) => l.includes(excerpt));
   if (idx < 0) throw new Error(`${skill}: excerpt not found: ${excerpt}`);
-  const near = scanSkill(text)
-    .markers.filter((m) => m.line - 1 <= idx && m.line - 1 >= idx - MARKER_WINDOW)
-    .sort((a, b) => b.line - a.line);
-  return near[0]?.cls;
+  return classAt(text, idx);
 }
 
 /** Pauses whose class is policy, not taste (verify N2 / N4). Relabelling one must fail here. */
@@ -180,10 +193,42 @@ const PINNED_CLASSES: Array<[string, string, string]> = [
   ['harness-execution', '- **Blocking:** Cannot complete the task as written', 'gate'],
   ['harness-planning', '- **Blocking:** Cannot decompose tasks without resolving this', 'gate'],
   ['harness-planning', '- **Spec is missing information:**', 'gate'],
+  // N2: opening a PR / merging is irreversible (D-F)
+  ['harness-autopilot', 'Ask "Create a PR? (yes / no)."', 'irreversible'],
+  ['harness-code-review', 'If user confirms: proceed to create PR or merge.', 'irreversible'],
+  ['harness-code-review', '"suggestedNext": "merge"', 'irreversible'],
+  // N2: fix / override / skip after a failed check is a gate (D-G)
+  ['harness-autopilot', 'Fail → ask "fix / skip verification / stop."', 'gate'],
+  ['harness-autopilot', 'Ask "fix / skip integration / stop"', 'gate'],
+  ['harness-autopilot', 'Blocking → ask "fix / override / stop."', 'gate'],
+  ['harness-autopilot', '5. Blocking: ask "fix / override / stop."', 'gate'],
+  ['harness-autopilot', 'HALT before DONE', 'gate'],
+  ['harness-integration', '**On FAIL:** Do NOT emit a transition.', 'gate'],
+  // N2: strategy contradictions are never auto-resolved (D-A, overridden to gate)
+  ['harness-brainstorming', '**Surface strategy contradictions.**', 'gate'],
+  ['harness-brainstorming', '**cross-answer contradiction pass**', 'gate'],
+];
+
+/** Every line matching one of these, in any workflow skill, is a pause of that class (verify N2). */
+const CLASS_SWEEPS: Array<[RegExp, string, number]> = [
+  [/Create a PR\?|create PR or merge|"suggestedNext": "merge"/, 'irreversible', 3],
+  [/fix \/ (?:override|skip)/, 'gate', 4],
 ];
 
 describe('critical pauses carry their pinned class', () => {
   it.each(PINNED_CLASSES)('%s: "%s" is %s', (skill, excerpt, cls) => {
     expect(classOf(skill, excerpt)).toBe(cls);
+  });
+  it.each(CLASS_SWEEPS)('every line matching %s is %s (at least %i found)', (rx, cls, min) => {
+    const hits = WORKFLOW_SKILLS.flatMap((skill) => {
+      const text = read(skill);
+      return text
+        .split('\n')
+        .flatMap((l, i) =>
+          rx.test(l) ? [`${skill}:${i + 1} ${classAt(text, i) ?? 'unmarked'}`] : []
+        );
+    });
+    expect(hits.length).toBeGreaterThanOrEqual(min); // denominator: the sweep found the pauses
+    expect(hits.filter((h) => !h.endsWith(` ${cls}`))).toEqual([]);
   });
 });
