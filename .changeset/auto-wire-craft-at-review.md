@@ -26,3 +26,23 @@ find the top-level one. That resolution rule is now pinned by a test rather than
 and Java as well as TypeScript and JavaScript — recursing into nested methods, de-duplicating Rust's
 struct/impl double emission, and normalizing Go's struct kind so its units actually select rubrics
 instead of being extracted, counted and critiqued by nothing.
+
+`harness-autopilot` now resolves those domains at both of its review moments. Its SKILL.md documents
+`resolveReviewHooksWithCraft` at `after:REVIEW` and `after:FINAL_REVIEW` alongside the canary
+detectors it already resolves there, with the contract the resolver cannot enforce from prose alone:
+advisory and never blocking, diff-scoped, budget-capped, once per phase per diff via `alreadyRanFor`,
+graceful-skip for a harness default against a hard halt for a user-declared hook, and a reported
+denominator so a `0/M` renders as `0/M` rather than as silence. The forwarded file list must be
+resolved to ABSOLUTE paths: `CraftReviewPlan.files` carries repo-relative POSIX paths and the craft
+collectors read them against the process CWD, so forwarding them unresolved produces a run that opens
+no file and reports a confident clean pass.
+
+`security-craft` now extracts from `.mts` and `.cts`, which its `supportedLanguages` already claimed.
+It carried the same second extension list that was deleted from `code-craft`, so on identical source
+a `.ts` file yielded three signals and a `.mts` file yielded zero — a clean security report from a
+scan that read nothing. `cli-ergonomics-craft` no longer owns the data and markup that merely lives
+under `cli/`, `commands/`, `cmd/` or `bin/` (a denylist, so unmapped LANGUAGES like `.sh` and `.rb`
+still pass; `.md` stays owned, because CLI help text is ergonomics).
+
+Skill availability now resolves through one shared module for both review hosts, removing a
+byte-identical triple of private helpers and an unreachable predicate clause.
