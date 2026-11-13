@@ -136,7 +136,9 @@ The craft family's ceiling-layer critique runs automatically at autopilot's two 
   do **not** gate PHASE_COMPLETE. A taste judgment never blocks.
 - **DIFF-SCOPED — forward `files`, and forward them as ABSOLUTE paths.** Read `plan.files[skill]`
   (the domain's owned, already-normalized subset) and forward it as the craft skill's `files`
-  argument together with a `promptBudget`. `plan.files` holds **repo-relative POSIX** paths; the
+  argument, together with a `promptBudget` where that domain's MCP tool accepts one (see each
+  craft skill's "Invoked as a review hook" section; `mcp__harness__design_craft` does not).
+  `plan.files` holds **repo-relative POSIX** paths; the
   craft collectors read them with `fs.readFileSync`, which resolves a relative path against the
   process CWD — so **resolve each entry against the project root first**. Forwarding them unresolved
   produces `status: "collected"` with **zero prompts**: a clean report from a run that read nothing.
@@ -352,7 +354,8 @@ prompt: "Phase {N}: {name}. Session: {sessionSlug}. Follow harness-code-review. 
 `resolveReviewHooksWithCraft(config, "harness-autopilot", "after:REVIEW", { changedFiles, availableSkills })`
 and `planCraftReviewDomains("harness-autopilot", "after:REVIEW", changedFiles, availableSkills)` —
 see "Craft domains auto-wire" under Lifecycle skill hooks. Dispatch each wired domain as an extra
-reviewer with its own `plan.files[skill]` **resolved to absolute paths** plus a `promptBudget`, and
+reviewer with its own `plan.files[skill]` **resolved to absolute paths**, plus a `promptBudget`
+where that domain's MCP tool accepts one (`mcp__harness__design_craft` does not), and
 merge its findings as **non-blocking** advisory output that does not count toward severity. Record
 which domains wired; they are the `alreadyRanFor` input at FINAL_REVIEW.
 

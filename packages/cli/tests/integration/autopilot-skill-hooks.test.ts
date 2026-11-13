@@ -11,7 +11,8 @@
 import { describe, it, expect } from 'vitest';
 import * as path from 'path';
 import * as fs from 'fs';
-import { CRAFT_REVIEW_EVENTS_BY_HOST } from '@harness-engineering/core';
+import { CRAFT_REVIEW_EVENTS_BY_HOST, CRAFT_REVIEW_DOMAINS } from '@harness-engineering/core';
+import { getToolDefinitions } from '../../src/mcp/server';
 
 const REPO_ROOT = path.resolve(__dirname, '..', '..', '..', '..');
 const AUTOPILOT_SKILL_MD = path.join(
@@ -247,6 +248,43 @@ describe('harness-autopilot documents the general skillHooks framework (#1481)',
   it('names craft in both review steps, not only in the vocabulary', () => {
     expect(extractSection(md, 'REVIEW')).toMatch(/resolveReviewHooksWithCraft/);
     expect(extractSection(md, 'FINAL_REVIEW')).toMatch(/alreadyRanFor/);
+  });
+
+  it('qualifies EVERY promptBudget forwarding claim \u2014 design_craft accepts none', () => {
+    // DERIVED from the schemas, never a hand table: the domain that accepts no
+    // promptBudget is read from the live tool definitions, so adding one to
+    // design_craft's schema reddens this and forces the prose to follow.
+    const TOOLS = new Map(getToolDefinitions().map((t) => [t.name, t]));
+    const without = CRAFT_REVIEW_DOMAINS.map((d) =>
+      d.skill.replace(/^harness-/, '').replace(/-/g, '_')
+    ).filter((name) => {
+      const schema = TOOLS.get(name)!.inputSchema as { properties?: Record<string, unknown> };
+      return !Object.prototype.hasOwnProperty.call(schema.properties ?? {}, 'promptBudget');
+    });
+    expect(without).toEqual(['design_craft']);
+
+    const lines = md.split('\n');
+    const sites = lines
+      .map((line, i) => ({ line, n: i + 1 }))
+      .filter(({ line }) => line.includes('promptBudget'));
+    // CARDINALITY CONTROL. A per-site loop only visits what it finds, so a
+    // THIRD unqualified mention added later would slip past it silently.
+    expect(sites.map((s) => s.n)).toHaveLength(2);
+
+    for (const { n } of sites) {
+      // The claim's own sentence. This file wraps prose at ~100 cols, so a
+      // clause can land on an adjacent line. VACUITY CHECKED: the qualifier
+      // appears NOWHERE in this file pre-edit (it exists only in
+      // harness-code-review/SKILL.md:236), so no surrounding prose can
+      // satisfy a window of this width.
+      const window = lines.slice(Math.max(0, n - 2), n + 3).join(' ');
+      expect(window, `harness-autopilot/SKILL.md:${n} states promptBudget unqualified`).toMatch(
+        /where that domain(?:'|\u2019)s MCP tool accepts one/
+      );
+      expect(window, `harness-autopilot/SKILL.md:${n} does not name the exception`).toMatch(
+        /design_craft/
+      );
+    }
   });
 });
 
