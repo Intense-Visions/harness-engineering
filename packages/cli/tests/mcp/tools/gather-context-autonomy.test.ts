@@ -93,6 +93,12 @@ describe('gather_context autonomy include', () => {
     );
     expect((await gather({})).autonomy.source.level).toBe('default');
   });
+  it('S1: a non-string session resolves to the supervised default instead of erroring', async () => {
+    const out = await gather({ session: 42 });
+    expect(out.autonomy).toMatchObject({ level: 'supervised' });
+    expect(out.autonomy.warnings.join('\n')).toMatch(/session/i);
+  });
+
   it('omits the autonomy key when not requested', async () => {
     const res = await handleGatherContext(
       { path: project, intent: 'x', include: ['handoff'] } as Parameters<

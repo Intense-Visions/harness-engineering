@@ -502,11 +502,17 @@ async function handleSetAutonomy(
   input: StateInput,
   deps: SetAutonomyDeps
 ): Promise<McpResponse> {
-  if (!input.session) return mcpError('Error: session is required for set-autonomy action');
+  const core = await import('@harness-engineering/core');
+  // S1: the session arrives untyped; anything but a valid slug string is a structured error.
+  const session: unknown = input.session;
+  const slug =
+    session === undefined
+      ? { ok: false as const, error: new Error('session is required for set-autonomy') }
+      : core.validateOverrideSlug(session as string);
+  if (!slug.ok) return invalidAutonomyInput(Object.assign(slug.error, { fields: ['session'] }));
   if (input.level === undefined && input.audit === undefined) {
     return mcpError('Error: set-autonomy requires level and/or audit');
   }
-  const core = await import('@harness-engineering/core');
   // D12/SC13: MCP args reach handlers unvalidated, so a mistyped value (audit:"false") must be
   // rejected before the value-based raise check. Validated ONCE, by core (S3).
   const valid = core.validateAutonomySetting({
@@ -515,7 +521,7 @@ async function handleSetAutonomy(
   });
   if (!valid.ok) return invalidAutonomyInput(valid.error);
   const change = valid.value;
-  const result = core.writeLoweringOverride(projectPath, input.session, change, {
+  const result = core.writeLoweringOverride(projectPath, slug.value, change, {
     ...(deps.homeDir !== undefined && { homeDir: deps.homeDir }),
     ...(deps.now !== undefined && { now: deps.now }),
   });
@@ -533,7 +539,7 @@ async function handleSetAutonomy(
     }
     return resultToMcpResponse(result);
   }
-  return resultToMcpResponse(Ok({ session: input.session, override: result.value }));
+  return resultToMcpResponse(Ok({ session: slug.value, override: result.value }));
 }
 
 const ACTION_HANDLERS: Record<

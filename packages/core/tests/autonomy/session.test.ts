@@ -131,3 +131,31 @@ describe('corrupt fields fail closed at resolution (I4)', () => {
     expect([r.level, r.source.level]).toEqual(['supervised', 'session']);
   });
 });
+
+describe('resolveAutonomyForSession never throws (S1)', () => {
+  it.each([[42], [{}], [['s1']], [null]])('a non-string session %j → warning, not a throw', (s) => {
+    const r = resolveAutonomyForSession({
+      projectPath: project,
+      session: s as unknown as string,
+      env: {},
+      homeDir: home,
+    });
+    expect(r.level).toBe('supervised');
+    expect(r.warnings.some((w) => /session/i.test(w))).toBe(true);
+  });
+
+  it('an internal throw resolves to the supervised default (fail closed), even over a trusted flag', () => {
+    const r = resolveAutonomyForSession({
+      projectPath: project,
+      session: 's1',
+      env: {},
+      homeDir: home,
+      flag: { level: 'trusted' },
+      readFile: () => {
+        throw new Error('disk on fire');
+      },
+    });
+    expect([r.level, r.audit, r.source.level]).toEqual(['supervised', false, 'default']);
+    expect(r.warnings.join('\n')).toMatch(/disk on fire/);
+  });
+});

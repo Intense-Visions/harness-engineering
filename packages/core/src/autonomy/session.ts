@@ -1,4 +1,8 @@
-import type { AutonomySessionOverride, ResolvedAutonomy } from '@harness-engineering/types';
+import {
+  DEFAULT_AUTONOMY_AUDIT,
+  type AutonomySessionOverride,
+  type ResolvedAutonomy,
+} from '@harness-engineering/types';
 import { resolveAutonomy, type ResolveAutonomyInput } from './resolve';
 import { readSessionOverride, type OverrideStoreOptions } from './override-store';
 
@@ -9,8 +13,28 @@ export interface ResolveForSessionInput
   session?: string;
 }
 
-/** Read the session's home-dir override (if any) and resolve. Never throws. */
+/**
+ * Read the session's home-dir override (if any) and resolve. Never throws (S1): any internal
+ * failure (an unreadable path, a throwing injected reader, a non-string session from an
+ * untrusted caller) resolves to the supervised default with the error as a warning. Failing
+ * to resolve never grants autonomy, even over a trusted flag.
+ */
 export function resolveAutonomyForSession(input: ResolveForSessionInput): ResolvedAutonomy {
+  try {
+    return resolveOrThrow(input);
+  } catch (err) {
+    return {
+      level: 'supervised',
+      audit: DEFAULT_AUTONOMY_AUDIT.supervised,
+      source: { level: 'default', audit: 'default' },
+      warnings: [
+        `Autonomy resolution failed; using the supervised default: ${err instanceof Error ? err.message : String(err)}`,
+      ],
+    };
+  }
+}
+
+function resolveOrThrow(input: ResolveForSessionInput): ResolvedAutonomy {
   const warnings: string[] = [];
   let sessionOverride: AutonomySessionOverride | undefined;
   if (input.session !== undefined) {

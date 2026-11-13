@@ -180,3 +180,39 @@ describe('manage_state set-autonomy type-confusion (SC13)', () => {
     expect(sha()).not.toBe(before);
   });
 });
+
+describe('manage_state set-autonomy session validation (S1)', () => {
+  it.each([[42], [{}], [['s1']], [true], [''], ['CON'], ['../x']])(
+    'rejects session %j with a structured AUTONOMY_INVALID_INPUT naming the field',
+    async (session) => {
+      const res = await handleManageState(
+        {
+          path: project,
+          action: 'set-autonomy',
+          session,
+          level: 'supervised',
+        } as unknown as Parameters<typeof handleManageState>[0],
+        { homeDir: home }
+      );
+      expect(res.isError).toBe(true);
+      expect(JSON.parse(res.content[0]!.text)).toMatchObject({
+        error: 'AUTONOMY_INVALID_INPUT',
+        field: 'session',
+      });
+      expect(fs.existsSync(home)).toBe(false);
+    }
+  );
+
+  it('a missing session is the same structured error', async () => {
+    const res = await handleManageState(
+      { path: project, action: 'set-autonomy', level: 'supervised' } as Parameters<
+        typeof handleManageState
+      >[0],
+      { homeDir: home }
+    );
+    expect(JSON.parse(res.content[0]!.text)).toMatchObject({
+      error: 'AUTONOMY_INVALID_INPUT',
+      field: 'session',
+    });
+  });
+});
