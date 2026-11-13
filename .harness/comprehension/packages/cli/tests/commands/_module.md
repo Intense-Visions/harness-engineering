@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/tests/commands'
-sourceHash: 'b00aa0704606abef1aa69c7ffa86c52e38d696938ceebb8127217051b60f5216'
+sourceHash: 'fc6fd47ccffe4bae7c882a699f54079859066c5fb385de71459f167e4ae09f48'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -421,6 +421,7 @@ import { NETWORK_TOOL_NAMES, deriveScope, deriveToolCapabilities, deriveToolCapa
 import { TOOL_CAPABILITY_DECLARATIONS } from '../../src/mcp/tool-capability-declarations'
 import { runAnatomyAudit, runComponentAnatomyAudit } from '../../src/mcp/tools/audit-anatomy'
 import { runAuditBrand } from '../../src/mcp/tools/audit-brand'
+import { handleRecordAutoDecision } from '../../src/mcp/tools/auto-decision'
 import { runDesignCraft } from '../../src/mcp/tools/design-craft'
 import { runDetectDrift } from '../../src/mcp/tools/detect-drift'
 import { handleGatherContext } from '../../src/mcp/tools/gather-context'

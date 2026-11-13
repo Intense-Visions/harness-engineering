@@ -169,15 +169,15 @@ describe('a raised field is honoured only where its session dir exists at read t
   let wtA: string;
   let wtB: string;
   let common: string;
-  let opts: { homeDir: string; gitToplevel: (p: string) => string; gitCommonDir: () => string };
+  let opts: { homeDir: string; gitCommonDir: () => string };
   beforeEach(() => {
     wtA = path.join(tmp, 'wt-a');
     wtB = path.join(tmp, 'wt-b');
     common = path.join(tmp, 'repo.git');
     for (const d of [wtA, wtB, common]) fs.mkdirSync(d, { recursive: true });
     fs.mkdirSync(path.join(wtA, '.harness', 'sessions', 's'), { recursive: true });
-    // Two worktrees of one repo: distinct toplevels, one shared git common dir.
-    opts = { homeDir: home, gitToplevel: (p) => p, gitCommonDir: () => common };
+    // Two worktrees of one repo: distinct directories, one shared git common dir.
+    opts = { homeDir: home, gitCommonDir: () => common };
   });
   const read = (wt: string) =>
     resolveAutonomyForSession({ projectPath: wt, session: 's', env: {}, ...opts });

@@ -106,7 +106,7 @@ export async function runAutonomySet(
     }
     // D14: bound to a live session dir. Checked before prompting so the human is never asked
     // to confirm a raise that would then be refused.
-    const dir = sessionDirForRaise(cwd, opts.session, pathOpts);
+    const dir = sessionDirForRaise(cwd, opts.session);
     if (!dir.ok) return refuse('no-session', dir.error.message);
     const ok = await (deps.confirm ?? defaultConfirm)(
       `Raise autonomy for session "${opts.session}" to ${describeChange(change)} for ${forArg}? ` +

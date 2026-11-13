@@ -13,7 +13,7 @@ import { resolveSessionDir } from '../../src/state/session-resolver';
 
 let tmp: string;
 let project: string;
-const git = { gitToplevel: () => undefined, gitCommonDir: () => undefined };
+const git = { gitCommonDir: () => undefined };
 const entry = (over: Partial<AutoDecision> = {}): AutoDecision => ({
   ts: '2026-11-13T00:00:00.000Z',
   skill: 'harness-planning',
@@ -40,14 +40,12 @@ afterEach(() => fs.rmSync(tmp, { recursive: true, force: true }));
 
 describe('autoDecisionLogPath', () => {
   /**
-   * Covers the NON-GIT case only (git seams return undefined, so the root is `project`). There the
-   * two agree. They differ inside a git work tree: autoDecisionLogPath roots at the git toplevel
-   * (resolveProjectRoot, per worktree), while resolveSessionDir joins `projectPath` as given, so a
-   * caller passing a subdirectory of the repo gets different paths. Autonomy must not import state/
-   * (dependency-depth), hence a layout check rather than a shared helper.
+   * autoDecisionLogPath joins `projectPath` AS GIVEN, exactly like resolveSessionDir (the writer
+   * manage_state and handoffs use), so a monorepo subproject's log is under the subproject.
+   * Autonomy must not import state/ (dependency-depth), hence a layout check, not a shared helper.
    */
   it('outside a git work tree, matches the resolveSessionDir layout (projectPath as given)', () => {
-    const p = autoDecisionLogPath(project, 's1', git);
+    const p = autoDecisionLogPath(project, 's1');
     const dir = resolveSessionDir(project, 's1');
     expect(p.ok && dir.ok).toBe(true);
     if (p.ok && dir.ok) {
@@ -56,19 +54,22 @@ describe('autoDecisionLogPath', () => {
       );
     }
   });
-  it('inside a git work tree, roots at the git toplevel, not the projectPath as given', () => {
+  it('for a subdirectory of a repo, matches resolveSessionDir (the subdirectory, not the git root)', () => {
     const sub = path.join(project, 'packages', 'x');
-    const p = autoDecisionLogPath(sub, 's1', { ...git, gitToplevel: () => project });
+    const p = autoDecisionLogPath(sub, 's1');
     const dir = resolveSessionDir(sub, 's1');
-    expect(p.ok && p.value.replaceAll('\\', '/')).toBe(
-      path.join(project, '.harness', 'sessions', 's1', 'auto-decisions.jsonl').replaceAll('\\', '/')
-    );
-    expect(dir.ok && dir.value.replaceAll('\\', '/')).toBe(
-      path.join(sub, '.harness', 'sessions', 's1').replaceAll('\\', '/')
-    );
+    expect(p.ok && dir.ok).toBe(true);
+    if (p.ok && dir.ok) {
+      expect(p.value.replaceAll('\\', '/')).toBe(
+        path.join(dir.value, 'auto-decisions.jsonl').replaceAll('\\', '/')
+      );
+      expect(p.value.replaceAll('\\', '/')).toBe(
+        path.join(sub, '.harness', 'sessions', 's1', 'auto-decisions.jsonl').replaceAll('\\', '/')
+      );
+    }
   });
   it.each(['../x', 'CON', ' s1', 'a/b', ''])('rejects slug %j via the shared rule', (slug) => {
-    expect(autoDecisionLogPath(project, slug, git).ok).toBe(false);
+    expect(autoDecisionLogPath(project, slug).ok).toBe(false);
     expect(appendAutoDecision(project, slug, entry(), git).ok).toBe(false);
   });
 });

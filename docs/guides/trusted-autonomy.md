@@ -62,8 +62,11 @@ Overrides are stored in your home directory, at
 `~/.harness/session-overrides/<repoKey>/<slug>.json`, never in the repo. `repoKey` is derived from
 the repo's git common directory, so every worktree of a repo shares them: lowering in your main
 checkout reaches an agent working in a sibling worktree. A raise does **not** travel the same way:
-it is honoured only where `.harness/sessions/<slug>/` exists in the worktree reading it, so a raise
-for a session in one worktree does not reach a sibling worktree that lacks that session directory.
+it is honoured only where `.harness/sessions/<slug>/` exists under the project path reading it, so
+a raise for a session in one worktree does not reach a sibling worktree that lacks that session
+directory. The session directory is found exactly where `manage_state` writes it: the project path
+as given, not the git toplevel. In a monorepo subproject that is `app/.harness/sessions/<slug>/`, so
+run `harness autonomy` from the same directory the session was started in.
 A raised field with no expiry is treated as expired, and a corrupt field reads as its
 lowest-autonomy value (`supervised`, audit on). Every successful raise appends a line to
 `~/.harness/autonomy-audit.log`.

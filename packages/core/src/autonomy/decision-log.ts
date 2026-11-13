@@ -79,21 +79,13 @@ export interface AutoDecisionLogRead {
 }
 
 /** The session dir (paths.sessionDirPath); a bad slug is AUTO_DECISION_INVALID on `session`. */
-function sessionDir(
-  projectPath: string,
-  slug: string,
-  opts: AutonomyPathOptions
-): Result<string, Error> {
-  const dir = sessionDirPath(projectPath, slug, opts);
+function sessionDir(projectPath: string, slug: string): Result<string, Error> {
+  const dir = sessionDirPath(projectPath, slug);
   return dir.ok ? dir : Err(new AutoDecisionInvalidError(dir.error.message, ['session']));
 }
 
-export function autoDecisionLogPath(
-  projectPath: string,
-  slug: string,
-  opts: AutonomyPathOptions = {}
-): Result<string, Error> {
-  const dir = sessionDir(projectPath, slug, opts);
+export function autoDecisionLogPath(projectPath: string, slug: string): Result<string, Error> {
+  const dir = sessionDir(projectPath, slug);
   return dir.ok ? Ok(path.join(dir.value, AUTO_DECISIONS_FILE)) : dir;
 }
 
@@ -137,7 +129,7 @@ export function appendAutoDecision(
   entry: AutoDecision,
   opts: DecisionLogOptions = {}
 ): Result<string, Error> {
-  const dir = sessionDir(projectPath, slug, opts);
+  const dir = sessionDir(projectPath, slug);
   if (!dir.ok) return dir;
   if (!isDirectory(dir.value)) return Err(new AutoDecisionSessionNotFoundError(slug, dir.value));
   const file = path.join(dir.value, AUTO_DECISIONS_FILE);
@@ -220,7 +212,7 @@ export function readAutoDecisions(
   slug: string,
   opts: ReadAutoDecisionsOptions = {}
 ): Result<AutoDecisionLogRead, Error> {
-  const dir = sessionDir(projectPath, slug, opts);
+  const dir = sessionDir(projectPath, slug);
   if (!dir.ok) return dir;
   const located = locateSessionForRead(dir.value, slug, opts);
   if (!located.ok) return located;

@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/src/autonomy'
-sourceHash: 'cf49c8f8144a0fb6dd61edeedf01e9157d203f2dcb0aeb216138fadf7ef1c760'
+sourceHash: 'c49784250e8bd58168cbaec5a295a5ab19a355cdf8e4abe2d01c3aeb2b7b37c0'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -75,7 +75,6 @@ export recordAutoDecision
 export renderAutoDecisionSummary
 export resolveAutonomy
 export resolveAutonomyForSession
-export resolveProjectRoot
 export sessionDirForRaise
 export sessionOverridePath
 export summarizeAutoDecisions

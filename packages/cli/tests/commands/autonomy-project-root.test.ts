@@ -8,6 +8,8 @@ import { runAutonomySet } from '../../src/commands/autonomy/set';
 import { runAutonomyShow } from '../../src/commands/autonomy/show';
 import { handleManageState } from '../../src/mcp/tools/state';
 import { handleGatherContext } from '../../src/mcp/tools/gather-context';
+import { handleRecordAutoDecision } from '../../src/mcp/tools/auto-decision';
+import { runAutonomyLog } from '../../src/commands/autonomy/log';
 
 /**
  * FIX 2 (D12): repoKey = sha256 of the repo ROOT, so every caller resolves the same override
@@ -120,5 +122,77 @@ describe('autonomy override is keyed on the project root', () => {
       'session',
       true,
     ]);
+  });
+});
+
+/**
+ * I1: the session dir is the path AS GIVEN joined with .harness/sessions/<slug> (exactly
+ * resolveSessionDir, which manage_state and handoffs write through), never the git toplevel.
+ * Only the override key (repoKey) uses the git common dir (D15).
+ */
+describe('session dir in a monorepo subproject is rooted at the path as given', () => {
+  const NOW = new Date('2026-11-13T12:00:00.000Z');
+  let app: string;
+  beforeEach(() => {
+    app = path.join(proj, 'app');
+    fs.mkdirSync(path.join(app, '.harness', 'sessions', 's1'), { recursive: true });
+  });
+  const raise = (cwd: string) =>
+    runAutonomySet(
+      'trusted',
+      { session: 's1' },
+      {
+        cwd: () => cwd,
+        homeDir: home,
+        env: {},
+        isInteractive: () => true,
+        confirm: async () => true,
+      }
+    );
+  const showAt = (cwd: string) =>
+    runAutonomyShow({ session: 's1' }, { cwd: () => cwd, homeDir: home, env: {} });
+
+  it('set, resolve, record and log all find app/.harness/sessions/s1', async () => {
+    // Positive control: nothing exists at the git toplevel, so a toplevel-rooted lookup fails.
+    expect(fs.existsSync(path.join(proj, '.harness', 'sessions', 's1'))).toBe(false);
+    const set = await raise(app);
+    expect(set).toMatchObject({ status: 'written' });
+    expect([showAt(app).level, showAt(app).source.level]).toEqual(['trusted', 'session']);
+    const rec = await handleRecordAutoDecision(
+      {
+        path: app,
+        session: 's1',
+        skill: 'harness-planning',
+        phase: 'VALIDATE',
+        pauseClass: 'ceremony',
+        question: 'Approve the plan?',
+        options: ['approve', 'revise'],
+        chosen: 'approve',
+        rationale: 'all truths traced',
+      },
+      { homeDir: home, env: {}, now: () => NOW }
+    );
+    expect(rec.isError).toBeFalsy();
+    const logFile = path.join(app, '.harness', 'sessions', 's1', 'auto-decisions.jsonl');
+    expect(fs.readFileSync(logFile, 'utf-8').trim().split('\n')).toHaveLength(1);
+    const log = runAutonomyLog({ session: 's1' }, { cwd: () => app });
+    expect(log.ok && [log.report.file, log.report.logPresent, log.report.entries.length]).toEqual([
+      logFile,
+      true,
+      1,
+    ]);
+  });
+
+  it('D14: the raise does not reach a sibling worktree lacking the session dir', async () => {
+    const wt = path.join(tmp, 'wt');
+    git(proj, 'worktree', 'add', '-q', wt);
+    expect((await raise(app)).status).toBe('written');
+    expect(showAt(app).level).toBe('trusted'); // positive control
+    const sibling = path.join(wt, 'app');
+    fs.mkdirSync(sibling, { recursive: true });
+    expect(showAt(sibling).level).toBe('supervised');
+    // ...and does once that worktree's subproject has the session dir.
+    fs.mkdirSync(path.join(sibling, '.harness', 'sessions', 's1'), { recursive: true });
+    expect(showAt(sibling).level).toBe('trusted');
   });
 });

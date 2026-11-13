@@ -18,7 +18,7 @@ let tmp: string;
 let home: string;
 let project: string;
 const T0 = new Date('2026-06-01T00:00:00.000Z');
-const noGit = { gitToplevel: () => undefined, gitCommonDir: () => undefined };
+const noGit = { gitCommonDir: () => undefined };
 const opts = (extra: object = {}) => ({ homeDir: home, now: () => T0, ...noGit, ...extra });
 const logLines = (p = autonomyAuditLogPath({ homeDir: home })) =>
   fs.existsSync(p)

@@ -24,7 +24,7 @@ let project: string;
 const T0 = new Date('2026-06-01T00:00:00.000Z');
 const plus = (ms: number) => new Date(T0.getTime() + ms);
 const H = 3_600_000;
-const noGit = { gitToplevel: () => undefined, gitCommonDir: () => undefined };
+const noGit = { gitCommonDir: () => undefined };
 
 beforeEach(() => {
   tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'autonomy-raise-'));
@@ -78,22 +78,21 @@ describe('raising writes are bound to an existing session dir (D14)', () => {
     expect(readBack()?.audit?.expiresAt).toBeUndefined();
   });
 
-  it('the session dir is looked up under the project ROOT (git toplevel), not the cwd', () => {
+  it('the session dir is looked up under the path AS GIVEN (resolveSessionDir), not the git root', () => {
     mkSession();
     const sub = path.join(project, 'deep', 'er');
     fs.mkdirSync(sub, { recursive: true });
-    const w = writeSessionOverride(project, 's1', { level: 'trusted' }, 'cli', {
-      ...opts(),
-      gitToplevel: () => project,
-      gitCommonDir: () => path.join(project, '.git'),
-    });
-    expect(w.ok).toBe(true);
-    const fromSub = writeSessionOverride(sub, 's1', { level: 'trusted' }, 'cli', {
-      ...opts(),
-      gitToplevel: () => project,
-      gitCommonDir: () => path.join(project, '.git'),
-    });
-    expect(fromSub.ok).toBe(true);
+    const git = { ...opts(), gitCommonDir: () => path.join(project, '.git') };
+    // Positive control: the project, which has .harness/sessions/s1, accepts the raise.
+    expect(writeSessionOverride(project, 's1', { level: 'trusted' }, 'cli', git).ok).toBe(true);
+    // A subdirectory of the same repo has no session dir of its own, so the raise is refused.
+    const fromSub = writeSessionOverride(sub, 's1', { level: 'trusted' }, 'cli', git);
+    expect(!fromSub.ok && (fromSub.error as { code?: string }).code).toBe(
+      'AUTONOMY_SESSION_NOT_FOUND'
+    );
+    // ...until that subdirectory (a monorepo subproject) has its own session dir.
+    fs.mkdirSync(path.join(sub, '.harness', 'sessions', 's1'), { recursive: true });
+    expect(writeSessionOverride(sub, 's1', { level: 'trusted' }, 'cli', git).ok).toBe(true);
   });
 });
 

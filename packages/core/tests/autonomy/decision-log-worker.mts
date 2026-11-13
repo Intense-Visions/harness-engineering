@@ -25,7 +25,7 @@ for (let i = 0; i < count; i++) {
       rationale: `${writer}:${i}:${pad}`.slice(0, 4000),
       autonomySource: 'user-config',
     },
-    { gitToplevel: () => undefined, gitCommonDir: () => undefined }
+    { gitCommonDir: () => undefined }
   );
   if (!r.ok) {
     console.error(String(r.error));

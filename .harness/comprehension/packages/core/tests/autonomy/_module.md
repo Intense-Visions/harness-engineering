@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/tests/autonomy'
-sourceHash: '87d3046416cef95411bca6ed67c6ccd764862c02e2a33b0d891d623a73778baa'
+sourceHash: 'b2aa6eea161721396e8ce651c9ff124c1f5f95f93f90b90ae46029328de4fe0a'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -40,7 +40,7 @@ import { AUTONOMY_SESSION_NOT_FOUND, DEFAULT_RAISE_TTL_MS, autonomyAuditLogPath,
 import * as autonomy from '../../src/autonomy/index'
 import { AUTONOMY_INVALID_SETTING, AUTONOMY_RAISE_REJECTED, isRaisingChange, writeLoweringOverride } from '../../src/autonomy/lower-only'
 import { claimStaleLock, readSessionOverride, releaseOverrideLock, writeSessionOverride } from '../../src/autonomy/override-store'
-import { computeRepoKey, harnessHomeDir, resolveProjectRoot, sessionOverridePath, userConfigPath, validateOverrideSlug } from '../../src/autonomy/paths'
+import { computeRepoKey, harnessHomeDir, sessionDirPath, sessionOverridePath, userConfigPath, validateOverrideSlug } from '../../src/autonomy/paths'
 import { ResolveAutonomyInput, resolveAutonomy } from '../../src/autonomy/resolve'
 import { UserConfigSchema, parseSessionOverride, parseUserConfig, validateAutonomySetting } from '../../src/autonomy/schema'
 import { renderAutoDecisionSummary, summarizeAutoDecisions } from '../../src/autonomy/summary'

@@ -43,7 +43,7 @@ function resolveOrThrow(input: ResolveForSessionInput): ResolvedAutonomy {
     const slug = input.session;
     // D14 at read time: a raise is honoured only where its session dir exists in THIS worktree.
     raiseSessionError = () => {
-      const dir = sessionDirForRaise(input.projectPath, slug, input);
+      const dir = sessionDirForRaise(input.projectPath, slug);
       return dir.ok ? undefined : dir.error.message;
     };
     const read = readSessionOverride(input.projectPath, input.session, input);

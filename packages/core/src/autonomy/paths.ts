@@ -11,8 +11,6 @@ import { sessionSlugError } from '../shared/session-slug';
 export interface AutonomyPathOptions {
   homeDir?: string;
   realpath?: (p: string) => string;
-  /** Git toplevel containing `p`, or undefined when `p` is not in a work tree. */
-  gitToplevel?: (p: string) => string | undefined;
   /** Absolute git common dir for `p` (shared by every worktree), or undefined outside a repo. */
   gitCommonDir?: (p: string) => string | undefined;
 }
@@ -66,23 +64,10 @@ function runGit(p: string, args: string[]): string | undefined {
   }
 }
 
-function defaultGitToplevel(p: string): string | undefined {
-  return runGit(p, ['rev-parse', '--show-toplevel']);
-}
-
 function defaultGitCommonDir(p: string): string | undefined {
   const out = runGit(p, ['rev-parse', '--git-common-dir']);
   // Older git prints the common dir relative to cwd (e.g. ".git").
   return out === undefined ? undefined : path.resolve(p, out);
-}
-
-/**
- * The project root for `projectPath`: its git toplevel, or `projectPath` itself when it is not
- * in a git work tree (or git is unavailable). Each git worktree is its own toplevel, so this is
- * where that worktree's `.harness/sessions/` lives. Override keys use computeRepoKey (D15).
- */
-export function resolveProjectRoot(projectPath: string, opts: AutonomyPathOptions = {}): string {
-  return (opts.gitToplevel ?? defaultGitToplevel)(projectPath) ?? projectPath;
 }
 
 /**
@@ -125,29 +110,23 @@ export class AutonomySessionNotFoundError extends Error {
 }
 
 /**
- * `<project root>/.harness/sessions/<slug>`: the resolveSessionDir layout, rooted at the git
- * toplevel (per worktree). Validates the slug; does not check that the directory exists.
+ * `<projectPath>/.harness/sessions/<slug>`, with `projectPath` joined AS GIVEN: exactly the
+ * resolveSessionDir layout that manage_state and handoffs write through, so a monorepo
+ * subproject's sessions live under it, not under the git toplevel. Only the override key uses git
+ * (computeRepoKey, D15). Validates the slug; does not check that the directory exists.
  */
-export function sessionDirPath(
-  projectPath: string,
-  slug: string,
-  opts: AutonomyPathOptions = {}
-): Result<string, Error> {
+export function sessionDirPath(projectPath: string, slug: string): Result<string, Error> {
   const valid = validateOverrideSlug(slug);
   if (!valid.ok) return valid;
-  return Ok(path.join(resolveProjectRoot(projectPath, opts), '.harness', 'sessions', slug));
+  return Ok(path.join(projectPath, '.harness', 'sessions', slug));
 }
 
 /**
- * The session directory a raise is bound to (D14): `<project root>/.harness/sessions/<slug>/`,
- * where the root is the git toplevel (per worktree). Err unless it exists as a directory.
+ * The session directory a raise is bound to (D14): sessionDirPath, checked at write time and
+ * again at read time. Err unless it exists as a directory.
  */
-export function sessionDirForRaise(
-  projectPath: string,
-  slug: string,
-  opts: AutonomyPathOptions = {}
-): Result<string, Error> {
-  const dir = sessionDirPath(projectPath, slug, opts);
+export function sessionDirForRaise(projectPath: string, slug: string): Result<string, Error> {
+  const dir = sessionDirPath(projectPath, slug);
   if (!dir.ok) return dir;
   return isDirectory(dir.value) ? dir : Err(new AutonomySessionNotFoundError(slug, dir.value));
 }

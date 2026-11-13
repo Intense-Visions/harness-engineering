@@ -11,7 +11,6 @@ export {
   harnessHomeDir,
   userConfigPath,
   computeRepoKey,
-  resolveProjectRoot,
   validateOverrideSlug,
   sessionOverridePath,
   sessionDirForRaise,

@@ -250,7 +250,7 @@ export function writeSessionOverride(
   if (!p.ok) return p;
   // D14: a raise is bound to a live session dir, so naming an old slug cannot inherit a grant.
   if (isRaisingChange(valid.value)) {
-    const dir = sessionDirForRaise(projectPath, slug, opts);
+    const dir = sessionDirForRaise(projectPath, slug);
     if (!dir.ok) return dir;
   }
   try {

@@ -33,7 +33,6 @@ const opts = () => ({
   homeDir: home,
   env: {},
   now: () => new Date(NOW),
-  gitToplevel: () => undefined,
   gitCommonDir: () => undefined,
 });
 const logFile = () => path.join(project, '.harness', 'sessions', 's1', 'auto-decisions.jsonl');

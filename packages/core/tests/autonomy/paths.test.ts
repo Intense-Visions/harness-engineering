@@ -4,8 +4,8 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import {
-  resolveProjectRoot,
   harnessHomeDir,
+  sessionDirPath,
   userConfigPath,
   computeRepoKey,
   sessionOverridePath,
@@ -13,12 +13,6 @@ import {
 } from '../../src/autonomy/paths';
 
 const norm = (p: string) => p.replaceAll('\\', '/');
-/**
- * S7: compare real filesystem paths with the SAME resolver on both sides. git prints its own
- * canonical form (e.g. /private/var on macOS, long names on Windows); realpathSync.native
- * normalizes both the expected and the actual to what the OS reports.
- */
-const real = (p: string) => norm(fs.realpathSync.native(p));
 const identity = (p: string) => p;
 
 describe('autonomy paths', () => {
@@ -69,17 +63,14 @@ describe('repoKey keys on the project root', () => {
   it('a subdirectory hashes to the same key as its repo (injected git)', () => {
     const opts = {
       realpath: identity,
-      gitToplevel: toplevelOf({ '/proj/sub': '/proj', '/proj': '/proj' }),
       gitCommonDir: toplevelOf({ '/proj/sub': '/proj/.git', '/proj': '/proj/.git' }),
     };
-    expect(resolveProjectRoot('/proj/sub', opts)).toBe('/proj');
     expect(computeRepoKey('/proj/sub', opts)).toBe(computeRepoKey('/proj', opts));
   });
 
   it('D15: the key hashes the git common dir, so worktrees with distinct toplevels share it', () => {
     const opts = {
       realpath: identity,
-      gitToplevel: toplevelOf({ '/main': '/main', '/wt': '/wt' }),
       gitCommonDir: toplevelOf({ '/main': '/main/.git', '/wt': '/main/.git' }),
     };
     expect(computeRepoKey('/wt', opts)).toBe(computeRepoKey('/main', opts));
@@ -91,10 +82,8 @@ describe('repoKey keys on the project root', () => {
   it('falls back to the given path when it is not in a git repo', () => {
     const opts = {
       realpath: identity,
-      gitToplevel: () => undefined,
       gitCommonDir: () => undefined,
     };
-    expect(resolveProjectRoot('/x/sub', opts)).toBe('/x/sub');
     expect(computeRepoKey('/x/sub', opts)).not.toBe(computeRepoKey('/x', opts));
     // Same key as the pre-existing path-only behaviour for non-repos.
     expect(computeRepoKey('/x/sub', opts)).toBe(
@@ -141,21 +130,23 @@ describe('repoKey keys on the project root', () => {
     it('a nested subdirectory resolves to the repo root key', () => {
       const repo = setup();
       try {
-        expect(real(resolveProjectRoot(path.join(repo, 'sub', 'deeper')))).toBe(real(repo));
         expect(computeRepoKey(path.join(repo, 'sub', 'deeper'))).toBe(computeRepoKey(repo));
       } finally {
         fs.rmSync(tmp, { recursive: true, force: true });
       }
     });
 
-    it('all worktrees of a repo SHARE one key (D15: git-common-dir), each keeps its own root', () => {
+    it('all worktrees of a repo SHARE one key (D15: git-common-dir), session dirs stay as given', () => {
       const repo = setup();
       try {
         const wt = path.join(tmp, 'wt');
         git(repo, 'worktree', 'add', '-q', wt);
         fs.mkdirSync(path.join(wt, 'sub'), { recursive: true });
-        // The project root (where .harness/sessions lives) stays per worktree...
-        expect(real(resolveProjectRoot(path.join(wt, 'sub')))).toBe(real(wt));
+        // The session dir is the path as given (resolveSessionDir), never re-rooted by git...
+        const dir = sessionDirPath(path.join(wt, 'sub'), 's1');
+        expect(dir.ok && norm(dir.value)).toBe(
+          norm(path.join(wt, 'sub', '.harness', 'sessions', 's1'))
+        );
         // ...but the override key is shared, so a lowering in main reaches the worktree.
         expect(computeRepoKey(path.join(wt, 'sub'))).toBe(computeRepoKey(wt));
         expect(computeRepoKey(wt)).toBe(computeRepoKey(repo));
@@ -177,7 +168,6 @@ describe('repoKey keys on the project root', () => {
       const saved = process.env.GIT_DIR;
       process.env.GIT_DIR = path.join(other, '.git');
       try {
-        expect(real(resolveProjectRoot(path.join(repo, 'sub')))).toBe(real(repo));
         expect(computeRepoKey(path.join(repo, 'sub'))).not.toBe(computeRepoKey(other));
         expect(computeRepoKey(path.join(repo, 'sub'))).toBe(
           computeRepoKey(path.join(repo, 'sub'), { gitCommonDir: () => path.join(repo, '.git') })
@@ -194,7 +184,6 @@ describe('repoKey keys on the project root', () => {
       try {
         const sub = path.join(tmp, 'sub');
         fs.mkdirSync(sub);
-        expect(real(resolveProjectRoot(sub))).toBe(real(sub));
         expect(computeRepoKey(sub)).not.toBe(computeRepoKey(tmp));
       } finally {
         fs.rmSync(tmp, { recursive: true, force: true });

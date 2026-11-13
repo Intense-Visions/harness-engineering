@@ -88,10 +88,12 @@ Otherwise an injected instruction need only name an old slug to inherit a past g
 The shipped resolver enforces this again at read time, per field:
 
 - **Session dir at read time.** A raised field is honoured only while `.harness/sessions/<slug>/`
-  exists in the worktree resolving it (`resolveAutonomyForSession`,
-  `packages/core/src/autonomy/session.ts`). Because the override file is shared across worktrees
-  (D15) but the session dir is not, a raise made for a session in one worktree does not reach a
-  sibling worktree, whereas a lowering does.
+  exists under the project path resolving it (`resolveAutonomyForSession`,
+  `packages/core/src/autonomy/session.ts`). The session dir is that path joined as given, the
+  same layout `resolveSessionDir` writes (so a monorepo subproject's sessions live under the
+  subproject, not the git toplevel); only the override key uses git. Because the override file is
+  shared across worktrees (D15) but the session dir is not, a raise made for a session in one
+  worktree does not reach a sibling worktree, whereas a lowering does.
 - **No expiry means expired.** A raised field without `expiresAt` (or with an unparseable one) is
   ignored with a warning, the same as an expired one (`liveField`,
   `packages/core/src/autonomy/resolve.ts`).

@@ -37,7 +37,6 @@ describe('concurrent appends never interleave partial lines', () => {
     const writers = Array.from({ length: N }, (_, i) => `w${i}`);
     await Promise.all(writers.map((w) => runWorker(project, w, K)));
     const r = readAutoDecisions(project, 's1', {
-      gitToplevel: () => undefined,
       gitCommonDir: () => undefined,
     });
     expect(r.ok).toBe(true);
