@@ -131,6 +131,16 @@ function pathViolation(target, cwd) {
 const HEREDOC = /<<-?\s*['"]?(\w+)['"]?[^\n]*\n([\s\S]*?)\n\s*\1\b/g;
 const SEGMENT_SEPARATOR = /&&|\|\||\|&?|;|(?<![<>])&(?!>)|\n|[()`]/;
 
+/**
+ * A quoted word with no whitespace, `$` or backtick is the same word to the shell
+ * (`"autonomy"` === `autonomy`, `auto''nomy` === `autonomy`), so it is restored into the code
+ * stream verbatim (no padding — adjacent text concatenates). Anything else is literal text
+ * and becomes a placeholder.
+ */
+const RESTORABLE = /^[^\s$`]*$/;
+const RESTORE_MARK = (i) => `\u0000${i}\u0000`;
+const RESTORE_REF = /\u0000(\d+)\u0000/g;
+
 /** Separate a command into code (quotes → placeholder) plus the literal texts it carries. */
 function split(cmd) {
   const heredocs = [];
@@ -140,16 +150,28 @@ function split(cmd) {
   });
   const singles = [];
   const doubles = [];
+  const restored = [];
+  const keep = (text) => {
+    restored.push(text);
+    return RESTORE_MARK(restored.length - 1);
+  };
   s = s.replace(/'([^']*)'/g, (_m, body) => {
     singles.push(body);
-    return ` ${QUOTED} `;
+    return RESTORABLE.test(body) ? keep(body) : ` ${QUOTED} `;
   });
   s = s.replace(/"((?:[^"\\]|\\.)*)"/g, (_m, body) => {
     doubles.push(body);
-    return ` ${QUOTED} `;
+    // Inside double quotes a backslash only escapes $ ` " \ — elsewhere it is literal.
+    return RESTORABLE.test(body) ? keep(body.replace(/\\([$`"\\])/g, '$1')) : ` ${QUOTED} `;
   });
   s = s.replace(/(^|[\s;&|`(])#[^\n]*/g, '$1'); // comments
-  return { code: s.replace(/\\\r?\n/g, ' '), heredocs, singles, doubles };
+  // Unquoted, `\y` is just `y`: strip backslashes before word characters (after joining
+  // line continuations) BEFORE restoring quoted words, whose backslashes are literal.
+  const code = s
+    .replace(/\\\r?\n/g, ' ')
+    .replace(/\\(?=\w)/g, '')
+    .replace(RESTORE_REF, (_m, i) => restored[Number(i)]);
+  return { code, heredocs, singles, doubles };
 }
 
 function tokens(segment) {

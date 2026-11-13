@@ -63,6 +63,39 @@ describe('autonomy-guard: raising `harness autonomy set` from Bash is blocked', 
   });
 });
 
+// B1: a quoted word with no whitespace and no `$` is the same word to the shell, and a
+// backslash before a word character is a no-op — both must be seen through. Each variant is
+// also wrapped in a `script(1)` pty with a piped confirmation, the shape that was proven to
+// land a raise end to end.
+const QUOTE_EVASIONS = [
+  'harness "autonomy" set trusted --session s1',
+  'harness autonomy "set" trusted --session s1',
+  "harness 'autonomy' 'set' trusted --session s1",
+  'harness autonom\\y set trusted --session s1',
+];
+const PTY_WRAP = (c: string) => `(sleep 1; echo y) | script -q /dev/null ${c}`;
+
+describe('autonomy-guard: quoting / backslash-escaping the subcommand does not evade (B1)', () => {
+  it.each([...QUOTE_EVASIONS, ...QUOTE_EVASIONS.map(PTY_WRAP)])('blocks %j', (command) => {
+    const { exitCode, stderr } = bash(command);
+    expect(exitCode).toBe(2);
+    expect(stderr).toMatch(/autonomy set/);
+  });
+
+  it.each([
+    'harness "autonomy" set supervised --session s1',
+    "harness 'autonomy' 'set' 'supervised' --session s1",
+    'harness autonom\\y set --audit on --session s1',
+    PTY_WRAP('harness "autonomy" "set" supervised --session s1'),
+    'git commit -m "docs: never run harness autonomy set trusted from an agent"',
+    'git commit -m \'note: harness "autonomy" set trusted is human-only\'',
+  ])('allows %j (lowering / commit-message control)', (command) => {
+    const { exitCode, stderr } = bash(command);
+    expect(stderr).toBe('');
+    expect(exitCode).toBe(0);
+  });
+});
+
 describe('autonomy-guard: lowerings and unrelated commands are allowed (positive controls)', () => {
   it.each([
     'harness autonomy set supervised --session s1',
