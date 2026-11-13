@@ -20,7 +20,7 @@
 | **harness-integration** | **`harness-verifier`**  | **INTEGRATE**        |
 | harness-code-review     | `harness-code-reviewer` | REVIEW, FINAL_REVIEW |
 
-**Iron Law:** Autopilot delegates, never reimplements. If writing plan/execute/verify/review logic, STOP — delegate via `subagent_type`. Always use dedicated persona agents, never general-purpose agents.
+**Iron Law:** Autopilot delegates, never reimplements. If writing plan/execute/verify/review logic, STOP — delegate via `subagent_type`. Always use dedicated persona agents, never general-purpose agents. <!-- not-a-pause: self-correction against reimplementing skills -->
 
 ### Lifecycle skill hooks (project-declared) — `skillHooks`
 
@@ -55,6 +55,7 @@ A project may attach **additional skills, commands, and prompts** at lifecycle p
 - **`prompt`** — `{ "type": "prompt", "text": "<text>" }`. Mechanically APPEND `text` to that phase's persona-agent prompt/context. Purely declarative — runs no process, has no pass/fail, always non-blocking. (Static text in v1; `{{token}}` templating is RESERVED v2.)
 - **`command`** — `{ "type": "command", "run": "<shell>", "blocking"?: bool }`. Mechanically RUN the command at the hook point via the harness command-runner (honoring cwd), capturing exit code + stdout/stderr into the phase record. Deterministic, no LLM.
 
+_Pause point (gate): resolve per the Pause Protocol._ <!-- pause: gate -->
 **Blocking & hard-halt policy (per kind).**
 
 - **`skill`** — an unresolvable/undispatchable skill (typo, not installed) is a **HARD HALT**, not a silent skip and not an overridable finding: record it in `.harness/failures.md`, set the stage status to failed, and stop (resumable once config is fixed). Findings block per the default-blocking policy (review/verify events default `blocking:true`, else `false`; a per-entry `blocking` overrides).
@@ -115,6 +116,15 @@ Set at INIT (`--fast` / `--thorough`); persists for session. Default: `standard`
 
 Rigor decides how much is checked; autonomy decides who approves (see the Pause Protocol, D2). `--fast` never approves a plan or INTEGRATE on its own.
 
+### Pause points
+
+Every point below where this skill stops for the human carries a marker line, `_Pause point (<class>): resolve per the Pause Protocol._` followed by a `<!-- pause: <class> -->` comment. Resolve each one with the Pause Protocol: `agents/skills/templates/pause-protocol.md` (also shipped in the harness CLI package at `dist/agents/skills/templates/pause-protocol.md`).
+
+- Re-read autonomy at every pause point: `gather_context({ path, session, include: ["autonomy"] })`.
+- `irreversible` and `gate` pauses stop at every autonomy level.
+- A `ceremony` or `judgment` pause auto-resolves only when autonomy is `trusted`, the pause states a recommendation, a `judgment` fork passed the self-audit, and `record_auto_decision` returned `recorded: true`. In every other case, pause exactly as written below.
+- If you cannot read the protocol or resolve autonomy, pause.
+
 ## State Machine
 
 ```
@@ -150,6 +160,7 @@ INIT → ASSESS → PLAN → APPROVE_PLAN → EXECUTE → VERIFY → INTEGRATE �
    - If no orchestrator, the MCP tool signals above are sufficient.
 4. Complexity routing:
    - `low`/`medium`: auto-plan via harness-planner → PLAN.
+     _Pause point (judgment): resolve per the Pause Protocol._ <!-- pause: judgment -->
    - `high`: pause. Instruct: "Run `/harness:planning` interactively, then re-invoke `/harness:autopilot`." Wait for re-invocation.
 5. Update `currentState: "PLAN"`.
 
@@ -175,6 +186,7 @@ On return: read `planPath` from `{sessionDir}/handoff.json`. Complexity override
 1. Gather: task count, checkpoint count, concerns from `{sessionDir}/handoff.json` (default `[]`).
 2. `"fast"` → same signals as `"standard"` (D2: `--fast` reduces checking; it never approves on its own).
 3. `"thorough"` → force `shouldPauseForReview = true`.
+   _Pause point (ceremony): resolve per the Pause Protocol._ <!-- pause: ceremony -->
 4. Signals (any true → pause; all false → auto-approve):
    - `reviewPlans: true`
    - `phase.complexity === "high"`
@@ -183,6 +195,7 @@ On return: read `planPath` from `{sessionDir}/handoff.json`. Complexity override
    - Task count > 15
    - Knowledge gaps: `harness knowledge-pipeline --domain <phase-domain>` reports `totalGaps > 0` and `--fix` was not run during planning
 5. **Auto-approve:** emit report (mode, complexity, concerns, task count). Record decision with signal snapshot in `decisions[]`. → EXECUTE.
+   _Pause point (ceremony): resolve per the Pause Protocol._ <!-- pause: ceremony -->
 6. **Pause:** show triggered signals. Ask "Approve? (yes / revise / skip phase / stop)." Record decision. Route accordingly. If `reviewPlans` is `true`, this approval never auto-resolves: the human asked to see every plan.
 
 ---
@@ -205,6 +218,8 @@ On return: read `planPath` from `{sessionDir}/handoff.json`. Complexity override
 
    It returns a `ParallelizationPlan`: `waves[]` (each `{ tasks, severity, firing, analysisLevel }`), `serialized[]`, `cyclic[]`, `narration`, and `ownershipForecast`. Forwarding each task's `owns` lets the cheap deterministic owns-overlap check contribute implicit edges to the wave DAG and surface any overlapping ownership pairs in `ownershipForecast`. Omit `owns` for tasks that declare none — it stays a no-op.
 
+   _Pause point (gate): resolve per the Pause Protocol._ <!-- pause: gate -->
+
 2. **If `cyclic` is non-empty:** STOP. Surface the cycle and route back to PLAN/APPROVE_PLAN (a dependency cycle is a plan defect). Do not dispatch.
 
 3. **Announce (announce-and-proceed):** emit `narration` verbatim. Do NOT pause here — announcing is not a gate.
@@ -215,6 +230,7 @@ On return: read `planPath` from `{sessionDir}/handoff.json`. Complexity override
 
 5. **For each wave, honor its `firing`:**
    - `auto-dispatch` (multi-task): emit that wave's line from `narration`, then dispatch the wave via the **harness-parallel-agents** skill with **worktree-per-unit isolation** per `docs/guides/agent-worktree-patterns.md` ("Worktree-per-Milestone" / "Parallel Agent Work": one worktree per task, sequential commits, squash-merge at integrate). **Announce and proceed — do NOT stop for confirmation.**
+     _Pause point (judgment): resolve per the Pause Protocol._ <!-- pause: judgment -->
    - `confirm`: surface the wave and its `narration` line, then take exactly ONE plain-text confirmation — "Dispatch wave [{tasks}] in parallel? (yes / serial)". `yes` → dispatch via harness-parallel-agents (worktree-per-unit). `serial` or decline → run the wave's tasks serially (`harness-task-executor` each). Record the choice in `decisions[]`.
    - `serialize`, or any single-task wave: run serially via `harness-task-executor`, exactly as today.
 
@@ -229,18 +245,35 @@ subagent_type: "harness-task-executor"
 prompt: "Phase {N}: {name}. Plan: {planPath}. Session: {sessionSlug}. Rigor: {rigorLevel}. Update {sessionDir}/state.json per task. Write {sessionDir}/handoff.json when done or blocked."
 ```
 
-**Checkpoints:** `[checkpoint:human-verify]` → show output, confirm, resume. `[checkpoint:decision]` → present options, record choice, resume. `[checkpoint:human-action]` → instruct user, wait for confirmation, resume. After each passing checkpoint: `commitAtCheckpoint()`.
+**Checkpoints:**
+
+_Pause point (ceremony): resolve per the Pause Protocol._ <!-- pause: ceremony -->
+
+- `[checkpoint:human-verify]` → show output, confirm, resume.
+
+_Pause point (judgment): resolve per the Pause Protocol._ <!-- pause: judgment -->
+
+- `[checkpoint:decision]` → present options, record choice, resume.
+
+_Pause point (gate): resolve per the Pause Protocol._ <!-- pause: gate -->
+
+- `[checkpoint:human-action]` → instruct user, wait for confirmation, resume.
+
+After each passing checkpoint: `commitAtCheckpoint()`.
 
 **Outcome:** All tasks complete → VERIFY. Task fails → retry logic:
 
 - Attempt 1: read error, apply obvious fix, re-dispatch for failed task.
 - Attempt 2: expand context — read related files, check `learnings.md`, re-dispatch.
 - Attempt 3: full context — test output, imports, plan instructions, re-dispatch.
+  _Pause point (gate): resolve per the Pause Protocol._ <!-- pause: gate -->
 - Budget exhausted: recovery commit (`[autopilot][recovery]` prefix in message), record in `.harness/failures.md`. **Fire `on:failure` hooks** — `resolveSkillHooks(config, "harness-autopilot", "on:failure")` — passing the hook context with `HARNESS_FAILURE_REASON` set to the failure summary (a `command` hook e.g. `scripts/notify.sh` is the natural use; these are advisory and never block the failure path). Then ask: "fix manually and continue / revise plan / stop." The same `on:failure` fan-out runs whenever autopilot writes a hard-halt/failure to `.harness/failures.md` (e.g. an unresolvable review hook).
 
 ---
 
 ### VERIFY
+
+_Pause point (gate): resolve per the Pause Protocol._ <!-- pause: gate -->
 
 - `"fast"`: run `harness validate`. Pass → INTEGRATE. Fail → surface to user.
 - `"standard"`/`"thorough"`: dispatch harness-verifier:
@@ -248,6 +281,7 @@ prompt: "Phase {N}: {name}. Plan: {planPath}. Session: {sessionSlug}. Rigor: {ri
   subagent_type: "harness-verifier"
   prompt: "Phase {N}: {name}. Session: {sessionSlug}. Rigor: {rigorLevel}. Verify and report pass/fail with findings."
   ```
+  _Pause point (gate): resolve per the Pause Protocol._ <!-- pause: gate -->
   Pass → INTEGRATE. Fail → ask "fix / skip verification / stop." `fix`: re-enter EXECUTE (retry budget resets).
 
 ---
@@ -266,6 +300,7 @@ prompt: "Phase {N}: {name}. Plan: {planPath}. Session: {sessionSlug}. Rigor: {ri
    - `"standard"`: Full tier-appropriate checks (WIRE + MATERIALIZE + UPDATE per tier).
    - `"thorough"`: Full checks + human reviews every ADR draft + force knowledge graph verification.
 4. Pass → REVIEW.
+   _Pause point (gate): resolve per the Pause Protocol._ <!-- pause: gate -->
 5. Fail → report incomplete items. Ask "fix / skip integration / stop":
    - **fix:** re-enter EXECUTE with integration-specific fix tasks, then re-VERIFY, re-INTEGRATE. Retry budget resets.
    - **skip:** record decision in `decisions[]`, proceed to REVIEW (human override).
@@ -289,8 +324,10 @@ subagent_type: "<hook skill name>"
 prompt: "Phase {N}: {name}. Session: {sessionSlug}. Domain review. Context: {hook context}. Report findings (critical / important / suggestion)."
 ```
 
+_Pause point (gate): resolve per the Pause Protocol._ <!-- pause: gate -->
 If a **user-declared** hooked skill cannot be dispatched (typo / not installed), or a `command` hook cannot be spawned (missing binary), do **not** skip it silently and do **not** offer it as an overridable finding: record it in `.harness/failures.md`, set the review status to failed, and halt REVIEW with "cannot verify" — a **hard halt** (see Lifecycle skill hooks, above). (A `command` that RAN and exited non-zero is instead a normal finding, blocking per policy — not a hard halt.) A **harness-default canary detector** that is not installed is the exception: it was already filtered out by `resolveReviewHooksWithCanary` (forward-wired, graceful skip) and is recorded as skipped in the denominator, never a hard halt. Persist each hook's findings under a per-hook key in `{sessionDir}/phase-{N}-review.json` so provenance survives, and merge them into the same blocking/non-blocking aggregation as the baseline reviewer. Report the detector denominator (how many hooks ran of how many were expected, and how many were skipped-not-installed) so a partial or forward-wired run is never presented as complete.
 
+_Pause point (gate): resolve per the Pause Protocol._ <!-- pause: gate -->
 Persist findings to `{sessionDir}/phase-{N}-review.json`. No blocking (across baseline + additional reviewers) → PHASE_COMPLETE. Blocking → ask "fix / override / stop." `fix`: re-enter EXECUTE. `override`: record decision in `decisions[]` → PHASE_COMPLETE.
 
 ---
@@ -302,6 +339,7 @@ Persist findings to `{sessionDir}/phase-{N}-review.json`. No blocking (across ba
 3. Mark phase `complete` in state. Clear scratchpad: `clearScratchpad({ session, phase, projectPath })`.
 4. Sync roadmap: `manage_roadmap sync apply:true` (skip if no roadmap; never `force_sync: true`).
 5. Write session summary: `writeSessionSummary(projectPath, sessionSlug, { session, lastActive, skill: "harness-autopilot", phase, status, spec, plan, keyContext, nextStep })`.
+   _Pause point (ceremony): resolve per the Pause Protocol._ <!-- pause: ceremony -->
 6. More phases: "Phase {N} complete. Next: {N+1}: {name} ({complexity}). Continue? (yes / stop)." `yes` → increment `currentPhase`, reset `retryBudget`, → ASSESS. `stop` → save and exit.
 7. No more phases: → FINAL_REVIEW.
 
@@ -321,8 +359,12 @@ Persist findings to `{sessionDir}/phase-{N}-review.json`. No blocking (across ba
    subagent_type: "<hook skill name>"
    prompt: "Final cross-phase domain review. Diff: git diff {startingCommit}..HEAD. Session: {sessionSlug}. Context: {hook context}. Report findings (critical / important / suggestion)."
    ```
+   _Pause point (gate): resolve per the Pause Protocol._ <!-- pause: gate -->
    An unresolvable **user-declared** hooked skill (a typo, a not-installed declared skill) or an un-spawnable `command` hook is a FINAL_REVIEW failure, not a skip, and not an overridable finding — record it in `.harness/failures.md`, set the final-review status to failed, and hard-halt with "cannot verify" rather than reporting a green final review that silently dropped a configured hook. A harness-default canary detector that is not installed is instead forward-wired: `resolveReviewHooksWithCanary` already filtered it out, so it is a graceful skip recorded in the denominator, never a FINAL_REVIEW failure. (A `command` that ran and exited non-zero is a normal blocking finding, not a hard halt.) Hook findings merge into the same `finalReview.findings` aggregation; report the detector denominator (including skipped-not-installed) so a partial or forward-wired run is never presented as complete.
 4. No blocking (across baseline + additional reviewers): store in `finalReview.findings`, set `"passed"` → OUTCOME_EVAL.
+
+   _Pause point (gate): resolve per the Pause Protocol._ <!-- pause: gate -->
+
 5. Blocking: ask "fix / override / stop."
    - `fix`: increment `finalReview.retryCount` (max 3). Dispatch harness-task-executor: "Fix these blocking findings: {findings with file, line, title}. Session: {sessionSlug}. Commit each fix atomically." Run `harness validate`. Re-run FINAL_REVIEW from step 1. If retryCount > 3: stop, record in `.harness/failures.md`.
    - `override`: record rationale in `decisions[]`. Set `"overridden"` → OUTCOME_EVAL.
@@ -351,6 +393,7 @@ The blocking post-execution **spec-satisfaction gate** — the harness's ship ga
 
 4. **Honor the TS-derived authority — never the LLM.** `authority` is computed in TypeScript from `(verdict, confidence)`; read it, never recompute or override it.
    - `authority === "advisory"` (all `SATISFIED`, all `INCONCLUSIVE`, and every `medium`/`low` `NOT_SATISFIED`): record the verdict in `finalReview` and proceed → DONE. An advisory `NOT_SATISFIED` is surfaced for human attention but does not halt.
+     _Pause point (gate): resolve per the Pause Protocol._ <!-- pause: gate -->
    - `authority === "blocking"` (a high-confidence `NOT_SATISFIED`, and ONLY that): HALT before DONE. Report `unmetCriteria` and ask "fix / override / stop."
      - `fix`: increment `finalReview.retryCount` (max 3). Dispatch harness-task-executor to address the unmet criteria, run `harness validate`, then re-enter OUTCOME_EVAL. If retryCount > 3: stop, record in `.harness/failures.md`.
      - `override`: record the rationale in `decisions[]` — the audit trail for shipping over a blocking verdict → DONE.
@@ -362,6 +405,9 @@ The blocking post-execution **spec-satisfaction gate** — the harness's ship ga
 ### DONE
 
 1. Present: total phases, tasks, retries, time, `finalReview.status` + findings count, any overridden findings, and the OUTCOME_EVAL verdict (`verdict` / `confidence` / `authority`, plus any recorded override).
+
+   _Pause point (irreversible): resolve per the Pause Protocol._ <!-- pause: irreversible -->
+
 2. Ask "Create a PR? (yes / no)." When creating the PR, include a bare closing line `Closes #<N>` where `<N>` is the issue number from the roadmap row's `External-ID`. The keyword MUST sit IMMEDIATELY before the ref — no intervening words (`Closes #<N>`, never `Closes roadmap #<N>`), or GitHub will not link/close the issue and roadmap auto-done will skip the row.
 3. Write final handoff to `{sessionDir}/handoff.json`. Append learnings to `.harness/learnings.md`. Call `promoteSessionLearnings(projectPath, sessionSlug)`. If learnings count > 30, suggest `harness learnings prune`.
 4. If `docs/roadmap.md` exists: call `manage_roadmap update` to set feature done. Skip if not found.
@@ -374,6 +420,7 @@ The blocking post-execution **spec-satisfaction gate** — the harness's ship ga
 **Prompt the human in plain text** — every phase-continue and human-decision interaction in this skill is plain text only. Do not elevate to `AskUserQuestion`: natural headers like "Continue phase" exceed its 12-char cap, rendering the call as ERR.
 
 1. **INIT** — Resolve spec, derive session slug, check for existing state, parse phases.
+   _Pause point (judgment): resolve per the Pause Protocol._ <!-- pause: judgment -->
 2. **ASSESS** — Route by complexity: low/medium auto-plans, high pauses for interactive planning.
 3. **PLAN → APPROVE** — Dispatch harness-planner, check approval signals, auto-approve or pause.
 4. **EXECUTE** — Dispatch harness-task-executor with plan path, handle checkpoints and retries (max 3).
@@ -381,6 +428,9 @@ The blocking post-execution **spec-satisfaction gate** — the harness's ship ga
 6. **INTEGRATE** — Resolve integration tier, dispatch harness-integration, verify system wiring, knowledge materialization, and documentation per tier.
 7. **REVIEW** — Dispatch harness-code-reviewer plus the effective `after:REVIEW` hooks (`resolveReviewHooksWithCanary`: project `skillHooks` plus canary's INSTALLED deterministic detectors when canary is present — forward-wired, not-installed ones skip), fix blocking findings.
 8. **PHASE_COMPLETE** — Summarize (including integration report), sync roadmap, loop to ASSESS for next phase or proceed to FINAL_REVIEW.
+
+   _Pause point (gate): resolve per the Pause Protocol._ <!-- pause: gate -->
+
 9. **FINAL_REVIEW → OUTCOME_EVAL → DONE** — Cross-phase review, then the blocking spec-satisfaction gate (halt on a high-confidence NOT_SATISFIED), offer PR creation, write final handoff.
 
 ### Context-Budget Trip Wire
@@ -412,7 +462,7 @@ Autopilot keeps context fresh **between** phases — every state dispatches a di
 
 ## Gates
 
-- **No reimplementing delegated skills.** Writing planning/execution/verification/review/integration logic → STOP. Delegate via `subagent_type`.
+- **No reimplementing delegated skills.** Writing planning/execution/verification/review/integration logic → STOP. Delegate via `subagent_type`. <!-- not-a-pause: self-correction against reimplementing skills -->
 - **No executing without plan approval.** Every plan passes APPROVE_PLAN. No exceptions.
 - **No skipping VERIFY, INTEGRATE, REVIEW, or OUTCOME_EVAL.** Human can override findings; steps cannot be skipped. INTEGRATE may be skipped only via explicit "skip" choice with decision recorded in `decisions[]`.
 - **Ship authority for OUTCOME_EVAL is derived in TypeScript, never read from the LLM.** Read `authority` off the verdict; do not recompute or override it. A high-confidence `NOT_SATISFIED` (`authority: "blocking"`) HALTS before DONE — shipping over it requires an explicit `override` recorded in `decisions[]`. Every other verdict is advisory.

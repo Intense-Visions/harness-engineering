@@ -92,7 +92,7 @@ describe('pause marker detector controls', () => {
 const MIN_PAUSE_PHRASES: Record<(typeof WORKFLOW_SKILLS)[number], number> = {
   'harness-brainstorming': 22,
   'harness-planning': 16,
-  'harness-autopilot': 17,
+  'harness-autopilot': 19,
   'harness-execution': 21,
   'harness-soundness-review': 2,
   'harness-code-review': 10,
@@ -101,7 +101,6 @@ const MIN_PAUSE_PHRASES: Record<(typeof WORKFLOW_SKILLS)[number], number> = {
 
 /** Skills not yet labelled; their compliance check runs as it.fails. Tasks 12-18 empty this. */
 const UNLABELLED = new Set<string>([
-  'harness-autopilot',
   'harness-execution',
   'harness-soundness-review',
   'harness-code-review',
