@@ -2631,6 +2631,17 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 - **Priority:** —
 - **External-ID:** github:Intense-Visions/harness-engineering#383
 
+### auto-wire-craft-at-review
+
+- **Status:** planned
+- **Spec:** docs/changes/auto-wire-craft-at-review/proposal.md
+- **Summary:** Auto-wire craft critique at the review moment
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#2478
+
 ### craft: documentation quality in docs/guides
 
 - **Status:** planned
