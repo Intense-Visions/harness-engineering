@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/tests/code-craft'
-sourceHash: '0e27149529eb2892b396bf0d240a81d16bc63873ef19f33e94cc189a7df83273'
+sourceHash: '073898e4fb31b2e018be251456ae65337cf18c09b194dc4a09f4cc7e3025a2a5'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -41,14 +41,15 @@ import { SEED_RUBRICS, rubricApplies } from '../../src/code-craft/catalog/rubric
 import { revealsIntentRubric } from '../../src/code-craft/catalog/rubrics/reveals-intent'
 import { discoverSourceFiles } from '../../src/code-craft/extract/discover'
 import { buildCodeCraftCloneIndex, resolveSiblingEvidence } from '../../src/code-craft/extract/siblings'
-import { extractCodeUnits, extractTsUnits, extractUnits, unitSource } from '../../src/code-craft/extract/units'
+import { extractCodeUnits, extractTsUnits, extractUnits, unitSource, usesTsCompilerExtraction } from '../../src/code-craft/extract/units'
 import { extractUnits, unitSource } from '../../src/code-craft/extract/units.js'
 import { CodeUnit, UnitKind } from '../../src/code-craft/findings/schema'
 import { CodeUnit } from '../../src/code-craft/findings/schema.js'
 import { SIBLING_AWARE_RUBRIC_IDS, buildPrompt, critiqueOne } from '../../src/code-craft/phases/critique'
 import { renderSiblingEvidence } from '../../src/code-craft/phases/sibling-evidence'
+import { usesOutlineExtraction } from '../../src/shared/craft/extract/outline-units'
 import { InSessionLlmProvider, LlmCallCost, LlmProvider, MockLlmProvider } from '../../src/shared/craft/llm/provider'
-import { CloneClass, CloneIndex, CloneMember, extractEstreeUnits } from '@harness-engineering/core'
+import { CloneClass, CloneIndex, CloneMember, EXTENSION_MAP, extractEstreeUnits } from '@harness-engineering/core'
 import { parse } from '@typescript-eslint/typescript-estree'
 import * as fs from 'node:fs'
 import * as os from 'node:os'

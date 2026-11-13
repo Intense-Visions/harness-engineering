@@ -15,6 +15,9 @@ import * as os from 'node:os';
 import { extractCodeUnits } from '../../src/code-craft/extract/units';
 import { SEED_RUBRICS, rubricApplies } from '../../src/code-craft/catalog/rubrics/index';
 import { collectCodeCraftPrompts } from '../../src/code-craft';
+import { usesTsCompilerExtraction } from '../../src/code-craft/extract/units';
+import { usesOutlineExtraction } from '../../src/shared/craft/extract/outline-units';
+import { EXTENSION_MAP } from '@harness-engineering/core';
 
 function fixture(file: string): string {
   return path.join(__dirname, '..', 'fixtures', 'craft-languages', file);
@@ -166,5 +169,69 @@ describe('multi-language prompt production', () => {
       );
       expect(units.size, `${file} billed ${units.size} units, expected 3`).toBe(3);
     }
+  });
+});
+
+/**
+ * I2 regression. The extractors must PARTITION the extensions harness can
+ * parse: every extension claimed by exactly one, none claimed by neither.
+ *
+ * The tables are derived from EXTENSION_MAP rather than written out, which is
+ * the whole point — a hand-written list is how `.mts` and `.cts` fell into the
+ * gap between a widened `SOURCE_EXTENSIONS` and an un-widened extractor guard,
+ * where they were walked, counted in `filesScanned`, and reported as
+ * `filesSkippedNoUnit`. A seventh extension added to EXTENSION_MAP lands here
+ * on the next run instead of going silently un-extracted.
+ */
+describe('extractor partition over EXTENSION_MAP', () => {
+  const EXTENSIONS = Object.keys(EXTENSION_MAP);
+
+  it('has something to iterate (the laws below are vacuous otherwise)', () => {
+    expect(EXTENSIONS.length).toBeGreaterThanOrEqual(12);
+  });
+
+  it.each(EXTENSIONS)('%s is claimed by exactly one extractor', (ext) => {
+    const file = `cart${ext}`;
+    const claims = [usesOutlineExtraction(file), usesTsCompilerExtraction(file)].filter(Boolean);
+    expect(
+      claims,
+      `${ext} is claimed by ${claims.length} extractors, expected exactly 1`
+    ).toHaveLength(1);
+  });
+
+  it('claims nothing for an extension harness cannot parse', () => {
+    expect(usesOutlineExtraction('notes.txt')).toBe(false);
+    expect(usesTsCompilerExtraction('notes.txt')).toBe(false);
+  });
+
+  /**
+   * The BEHAVIOURAL half. Claiming an extension is not the same as extracting
+   * from it: `.mts` was claimed by `detectLanguage` as typescript and still
+   * yielded zero units. Identical source, every TS/JS extension, same answer.
+   */
+  const TS_JS_EXTENSIONS = Object.entries(EXTENSION_MAP)
+    .filter(([, lang]) => lang === 'typescript' || lang === 'javascript')
+    .map(([ext]) => ext);
+
+  const SHARED_SOURCE = [
+    'export function computeTotal(items) {',
+    '  let total = 0;',
+    '  for (const item of items) {',
+    '    total += item;',
+    '  }',
+    '  return total;',
+    '}',
+  ].join('\n');
+
+  it('covers all eight TS/JS extensions', () => {
+    expect(TS_JS_EXTENSIONS).toHaveLength(8);
+  });
+
+  it.each(TS_JS_EXTENSIONS)('%s extracts the same unit from identical source', async (ext) => {
+    const units = await extractCodeUnits(SHARED_SOURCE, `/x/a${ext}`);
+    expect(
+      units.map((u) => u.name),
+      `${ext} extracted nothing from source that .ts extracts a unit from`
+    ).toEqual(['computeTotal']);
   });
 });

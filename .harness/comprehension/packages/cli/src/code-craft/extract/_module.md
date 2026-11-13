@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/code-craft/extract'
-sourceHash: '4629e51a1bca12747c7b00a17e7770526266f47b9162acf5cd50d41d26e4cca9'
+sourceHash: '8b5ca21fb0ae4baf13bc6ddfcf9dbcee7a0cfaccb595e6e1d730616f53152cf4'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -17,6 +17,7 @@ export extractCodeUnits
 export extractUnits
 export resolveSiblingEvidence
 export unitSource
+export usesTsCompilerExtraction
 ```
 
 ## Dependency Slice
@@ -25,7 +26,7 @@ export unitSource
 import { extractOutlineUnits, usesOutlineExtraction } from '../../shared/craft/extract/outline-units.js'
 import { CodeUnit, UnitKind } from '../findings/schema.js'
 import { discoverSourceFiles } from './discover.js'
-import { CloneClass, CloneIndex, CloneMember, EXTENSION_MAP, buildCloneIndex } from '@harness-engineering/core'
+import { CloneClass, CloneIndex, CloneMember, EXTENSION_MAP, buildCloneIndex, detectLanguage } from '@harness-engineering/core'
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import ts from 'typescript'
