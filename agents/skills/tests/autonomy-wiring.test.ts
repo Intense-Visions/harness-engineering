@@ -258,3 +258,15 @@ describe('review S7: the ASSESS high-complexity pause states its options and rec
     expect(line).toContain('**interactive planning**');
   });
 });
+
+describe('re-review I4: soundness-review "user must always decide" does not trip fail-safe 6', () => {
+  it('qualifies the Gates line with the Pause Protocol class', () => {
+    const line = skill('harness-soundness-review')
+      .split('\n')
+      .find((l) => l.includes('**No silent resolution of design decisions.**'));
+    expect(line, 'line found').toBeDefined();
+    expect(line).toContain(
+      'The user must always decide (per the Pause Protocol: design findings are `judgment`).'
+    );
+  });
+});

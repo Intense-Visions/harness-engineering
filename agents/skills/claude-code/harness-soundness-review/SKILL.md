@@ -1150,7 +1150,7 @@ CLEAN EXIT — returning control to harness-planning for sign-off.
 These are hard stops. Violating any gate means the process has broken down.
 
 - **No sign-off without convergence.** The soundness review must reach a clean exit (zero findings) before the parent skill proceeds to write the spec or plan. If issues remain, the user must resolve them.
-- **No silent resolution of design decisions.** Contradictions (S1), feasibility concerns (S5), YAGNI violations (S6), scope drift (P6), and task-level feasibility (P7) are NEVER auto-fixed. The user must always decide.
+- **No silent resolution of design decisions.** Contradictions (S1), feasibility concerns (S5), YAGNI violations (S6), scope drift (P6), and task-level feasibility (P7) are NEVER auto-fixed. The user must always decide (per the Pause Protocol: design findings are `judgment`).
 - **No auto-fix without logging.** Every auto-fix must be logged with what changed and why. Silent, unlogged mutations are not allowed.
 - **Convergence must terminate.** The loop stops when issue count stops decreasing. There is no retry cap — but "no progress" is the hard stop.
 
