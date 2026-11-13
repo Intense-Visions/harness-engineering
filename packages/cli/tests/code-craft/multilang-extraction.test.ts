@@ -138,7 +138,14 @@ describe('multi-language prompt production', () => {
    * same scope so an absence cannot pass because the regex shape never matches.
    */
   it('never bills the one-line `tiny` as a unit in any language', async () => {
-    const out = await collectCodeCraftPrompts({ path: root, siblings: false });
+    // Budget raised ON PURPOSE. Under the DEFAULT budget of 100 this law was
+    // not falsifiable on its own terms: measured, any mutation that bills the
+    // four `tiny` one-liners also pushes the corpus past 100 prompts, so the
+    // run returns `budget-exceeded` with a truncated prompt list and the test
+    // reddens through its POSITIVE CONTROL rather than through the assertion it
+    // exists to make. Verified by M-SPAN-1 (MIN_UNIT_LINES = 1). The realistic
+    // default-budget cost path is asserted by the first test in this block.
+    const out = await collectCodeCraftPrompts({ path: root, siblings: false, promptBudget: 500 });
     const billedUnits = out.pendingPrompts.map(
       (p) => p.userPrompt.match(/Unit: kind=\w+, name=(\S+?), line=/)?.[1]
     );
@@ -149,7 +156,9 @@ describe('multi-language prompt production', () => {
   });
 
   it('bills exactly the three substantive units per language, TS included', async () => {
-    const out = await collectCodeCraftPrompts({ path: root, siblings: false });
+    // Raised for the same reason as above: a truncated prompt list would make
+    // this count red for the wrong reason.
+    const out = await collectCodeCraftPrompts({ path: root, siblings: false, promptBudget: 500 });
     for (const file of [...LANGUAGES.map((l) => l.file), 'cart.ts']) {
       const forFile = out.pendingPrompts.filter((p) => p.userPrompt.includes(`/${file}`));
       const units = new Set(

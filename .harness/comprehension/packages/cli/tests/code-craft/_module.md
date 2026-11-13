@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/tests/code-craft'
-sourceHash: '7ea7d79ddcd19897702c2fa7a2002222435b3850e2bd9c67df429c8ccf413913'
+sourceHash: '0e27149529eb2892b396bf0d240a81d16bc63873ef19f33e94cc189a7df83273'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
