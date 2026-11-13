@@ -11,6 +11,13 @@
 //   3. Blocks a `harness` invocation followed by a runtime-built argument (`$`, backtick,
 //      `$(`), and any `cd` / variable assignment aimed at ~/.harness — indirection the
 //      literal matcher cannot follow.
+//   4. Blocks agent writes to the append-only decision log
+//      `.harness/sessions/<slug>/auto-decisions.jsonl` (Write / Edit / MultiEdit, relative or
+//      absolute, resolved against the payload cwd; and Bash that redirects into it, names it
+//      in a non-read-only command, assigns it to a variable, or hands it to a shell). Reads
+//      stay allowed (the Read tool; `cat` / `tail` / `jq` / `grep` …), and the sanctioned
+//      writer, the record_auto_decision MCP tool, never passes through this hook. In Bash any
+//      file named auto-decisions.jsonl is treated as the log (a `cd` first defeats a path match).
 //
 // A raise must come from the human in their own terminal (interactive confirm) or from
 // the user config they edit themselves. This hook is a tripwire, not a sandbox: a
@@ -36,6 +43,46 @@ const QUOTED = '__Q__';
 // Placeholder for quoted text the shell expands at runtime (contains `$` or a backtick).
 const QUOTED_DYNAMIC = '__Q$__';
 const MAX_DEPTH = 4;
+// Tools that cannot modify a file: never blocked (the hook matcher excludes them; this keeps a
+// mis-registered matcher from turning the guard into a read barrier).
+const READ_ONLY_TOOLS = new Set(['Read', 'NotebookRead', 'Glob', 'Grep', 'LS']);
+// Normalized (lower-cased, forward-slash) absolute path of a session decision log.
+const DECISION_LOG_PATH = /\/\.harness\/sessions\/[^/]+\/auto-decisions\.jsonl$/;
+const DECISION_LOG_MENTION = /auto-decisions\.jsonl/i;
+// A redirect whose target is the log: >, >>, 1>>, >|, &>, &>>, and <> (opens read-write).
+const DECISION_LOG_REDIRECT = /(?:\d*>>?|>\||&>>?|<>)\s*[^\s;&|<>]*auto-decisions\.jsonl/i;
+// Commands that only read their file arguments (no in-place / output-file option).
+const READ_ONLY_COMMANDS = new Set([
+  'cat',
+  'head',
+  'tail',
+  'less',
+  'more',
+  'wc',
+  'grep',
+  'egrep',
+  'fgrep',
+  'rg',
+  'jq',
+  'stat',
+  'ls',
+  'file',
+  'diff',
+  'cmp',
+  'sha256sum',
+  'shasum',
+  'md5',
+  'md5sum',
+  'hexdump',
+  'od',
+  'tac',
+  'nl',
+  'realpath',
+  'readlink',
+  'du',
+  'test',
+  '[',
+]);
 
 function main() {
   const stdin = readHookStdin();
@@ -57,6 +104,7 @@ function main() {
   }
 
   try {
+    if (READ_ONLY_TOOLS.has(input?.tool_name)) process.exit(0);
     const toolInput = input?.tool_input ?? {};
     const cwd = typeof input?.cwd === 'string' && input.cwd ? input.cwd : process.cwd();
     let reason = null;
@@ -125,8 +173,18 @@ function isProtectedPath(abs) {
   return false;
 }
 
+function isDecisionLogPath(abs) {
+  return [norm(abs), norm(realpathLoose(abs))].some((c) => DECISION_LOG_PATH.test(c));
+}
+
+const DECISION_LOG_MESSAGE =
+  'is the append-only auto-decision log (auto-decisions.jsonl). Agents may not write, ' +
+  'truncate or replace it; record decisions through the record_auto_decision MCP tool, and ' +
+  'read it with the Read tool or `harness autonomy log`.';
+
 function pathViolation(target, cwd) {
   const abs = path.resolve(cwd, expandTilde(target));
+  if (isDecisionLogPath(abs)) return `${target} ${DECISION_LOG_MESSAGE}`;
   if (!isProtectedPath(abs)) return null;
   return (
     `${target} is user-level autonomy state (~/.harness/config.json, session-overrides/, ` +
@@ -292,6 +350,29 @@ function mentionsProtectedState(cmd) {
   return shell && heredocs.some((h) => PROTECTED_MENTION.test(h));
 }
 
+/**
+ * True when a Bash command could modify a file named auto-decisions.jsonl. Fail-closed by
+ * allowlist: every command segment that names the log must start with a read-only command,
+ * nothing may redirect into it, and a shell / eval that executes text naming it is blocked.
+ */
+function writesDecisionLog(cmd) {
+  const { code } = split(cmd);
+  const shell = hasShellToken(code);
+  // Heredoc bodies fed to non-shells are data (e.g. a commit message).
+  const text = shell ? cmd : cmd.replace(HEREDOC, ' ');
+  const flat = text.replace(/['"\\]/g, '');
+  if (!DECISION_LOG_MENTION.test(flat)) return false;
+  if (shell || DECISION_LOG_REDIRECT.test(flat)) return true;
+  return flat.split(SEGMENT_SEPARATOR).some((seg) => {
+    if (!DECISION_LOG_MENTION.test(seg)) return false;
+    const toks = tokens(seg);
+    let i = 0;
+    while (i < toks.length && /^[A-Za-z_]\w*\+?=/.test(toks[i])) i++; // env assignments
+    if (i >= toks.length) return true; // a variable assigned the log path: indirection
+    return !READ_ONLY_COMMANDS.has(toks[i].split('/').pop());
+  });
+}
+
 function bashViolation(cmd) {
   if (raisesAutonomy(cmd)) {
     return (
@@ -317,6 +398,14 @@ function bashViolation(cmd) {
       'this command touches user-level autonomy state (~/.harness/config.json, ' +
       'session-overrides/, autonomy-audit.log). Agents may not modify it (D16); to inspect it ' +
       'use the Read tool or `harness autonomy show`.'
+    );
+  }
+  if (writesDecisionLog(cmd)) {
+    return (
+      'this command can modify .harness/sessions/<slug>/auto-decisions.jsonl, the append-only ' +
+      'auto-decision log. Agents may not write it directly; record decisions through the ' +
+      'record_auto_decision MCP tool. Reading is allowed (cat, tail, jq, grep, the Read tool, ' +
+      '`harness autonomy log`).'
     );
   }
   return null;

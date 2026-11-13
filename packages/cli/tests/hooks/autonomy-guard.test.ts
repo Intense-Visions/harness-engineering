@@ -3,6 +3,7 @@ import { spawnSync } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
+import { HOOK_SCRIPTS } from '../../src/hooks/profiles';
 
 /**
  * D16 / I1(b): PreToolUse guard that narrows the same-user residual of the threat model.
@@ -228,6 +229,103 @@ describe('autonomy-guard: Write/Edit targeting user-level autonomy state is bloc
     const { exitCode, stderr } = write('Write', p());
     expect(stderr).toBe('');
     expect(exitCode).toBe(0);
+  });
+});
+
+/**
+ * Phase 2 (decision log): an agent with Write/Edit/Bash could rewrite
+ * .harness/sessions/<slug>/auto-decisions.jsonl directly, bypassing the append-only
+ * record_auto_decision path. The guard blocks agent writes to it; reads stay allowed, and the
+ * MCP tool never passes through this hook.
+ */
+describe('autonomy-guard: agent writes to auto-decisions.jsonl are blocked (decision log)', () => {
+  const log = () => path.join(project, '.harness', 'sessions', 's1', 'auto-decisions.jsonl');
+  const read = (file_path: string) =>
+    runHook({ tool_name: 'Read', tool_input: { file_path }, cwd: project });
+
+  it.each(['Write', 'Edit', 'MultiEdit'])('%s to the absolute log path', (tool) => {
+    const { exitCode, stderr } = write(tool, log());
+    expect(exitCode).toBe(2);
+    expect(stderr).toMatch(/BLOCKED: .*auto-decisions\.jsonl.*record_auto_decision/);
+  });
+  it('a relative path resolved against the payload cwd', () => {
+    expect(write('Write', '.harness/sessions/s1/auto-decisions.jsonl').exitCode).toBe(2);
+    expect(write('Edit', './.harness/sessions/other/auto-decisions.jsonl').exitCode).toBe(2);
+  });
+  it('a ..-laundered and a case-variant path', () => {
+    expect(write('Write', '.harness/sessions/x/../s1/auto-decisions.jsonl').exitCode).toBe(2);
+    expect(write('Write', '.HARNESS/Sessions/s1/Auto-Decisions.JSONL').exitCode).toBe(2);
+  });
+
+  it.each([
+    'echo {} >> .harness/sessions/s1/auto-decisions.jsonl',
+    'echo {} > .harness/sessions/s1/auto-decisions.jsonl',
+    ': > "$PWD/.harness/sessions/s1/auto-decisions.jsonl"',
+    'printf x 1>>.harness/sessions/s1/auto-decisions.jsonl',
+    'echo x | tee -a .harness/sessions/s1/auto-decisions.jsonl',
+    // a read-only command is still a write when it redirects into the log
+    'cat /tmp/forged.jsonl > .harness/sessions/s1/auto-decisions.jsonl',
+    'jq -c . /tmp/x.json >> .harness/sessions/s1/auto-decisions.jsonl',
+    'cat .harness/sessions/s1/auto-decisions.jsonl 1<>.harness/sessions/s1/auto-decisions.jsonl',
+    'rm .harness/sessions/s1/auto-decisions.jsonl',
+    'truncate -s 0 .harness/sessions/s1/auto-decisions.jsonl',
+    "sed -i '' 1d .harness/sessions/s1/auto-decisions.jsonl",
+    'mv /tmp/forged.jsonl .harness/sessions/s1/auto-decisions.jsonl',
+    'cp /tmp/forged.jsonl .harness/sessions/s1/auto-decisions.jsonl',
+    'cd .harness/sessions/s1 && echo x >> auto-decisions.jsonl',
+    'F=.harness/sessions/s1/auto-decisions.jsonl; echo x >> $F',
+    'echo x >> .harness/sessions/s1/auto-"decisions".jsonl',
+    "node -e \"require('fs').writeFileSync('.harness/sessions/s1/auto-decisions.jsonl','')\"",
+    "bash -c 'echo x >> .harness/sessions/s1/auto-decisions.jsonl'",
+  ])('blocks Bash %j', (command) => {
+    const { exitCode, stderr } = bash(command);
+    expect(exitCode).toBe(2);
+    expect(stderr).toMatch(/BLOCKED/);
+  });
+  it('blocks the literal absolute path in Bash', () => {
+    expect(bash(`echo x >> ${log()}`).exitCode).toBe(2);
+  });
+
+  it.each([
+    'cat .harness/sessions/s1/auto-decisions.jsonl',
+    'tail -n 5 .harness/sessions/s1/auto-decisions.jsonl | jq .',
+    'wc -l .harness/sessions/s1/auto-decisions.jsonl',
+    'grep judgment .harness/sessions/s1/auto-decisions.jsonl > /tmp/judgments.txt',
+    'harness autonomy log --session s1',
+    'git commit -m "$(cat <<\'EOF\'\ndocs: auto-decisions.jsonl is append-only\nEOF\n)"',
+  ])('allows read-only Bash %j (control)', (command) => {
+    const { exitCode, stderr } = bash(command);
+    expect(stderr).toBe('');
+    expect(exitCode).toBe(0);
+  });
+  it('allows cat of the literal absolute path (control)', () => {
+    const { exitCode, stderr } = bash(`cat ${log()}`);
+    expect(stderr).toBe('');
+    expect(exitCode).toBe(0);
+  });
+  it('allows the Read tool on the log (read control)', () => {
+    const { exitCode, stderr } = read(log());
+    expect(stderr).toBe('');
+    expect(exitCode).toBe(0);
+  });
+  it('allows writes to other files in the session dir (control)', () => {
+    expect(
+      write('Write', path.join(project, '.harness', 'sessions', 's1', 'state.json')).exitCode
+    ).toBe(0);
+  });
+  it('allows a record_auto_decision MCP payload, and its tool never matches the hook', () => {
+    const mcp = runHook({
+      tool_name: 'mcp__harness__record_auto_decision',
+      tool_input: { path: project, session: 's1', skill: 'x' },
+      cwd: project,
+    });
+    expect(mcp.exitCode).toBe(0);
+    const matcher = HOOK_SCRIPTS.find((h) => h.name === 'autonomy-guard')?.matcher;
+    expect(matcher).toBeDefined();
+    const re = new RegExp(`^(?:${matcher})$`);
+    expect(re.test('Write')).toBe(true); // positive control
+    expect(re.test('mcp__harness__record_auto_decision')).toBe(false);
+    expect(re.test('Read')).toBe(false);
   });
 });
 
