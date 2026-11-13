@@ -104,7 +104,7 @@ Overrides are stored at `~/.harness/session-overrides/<repoKey>/<slug>.json` (`r
 - `manage_state` action `set-autonomy` (`packages/cli/src/mcp/tools/state.ts`, alongside `append_entry` / `task-transition`): rejects any write that would raise autonomy (`supervised`→`trusted`, or audit on→off) with a structured error.
 - `harness autonomy set`: may raise or lower; raising refuses unless `process.stdin.isTTY` and the user confirms interactively.
 
-The flag-vs-override tie is broken by recency (D3): the invocation flag carries the session start time, and an override with a later `setAt` wins. CLI: `harness autonomy set <supervised|trusted> [--audit on|off] --session <slug>`, `harness autonomy show [--session <slug>]` (prints resolved value and source of each field).
+The flag-vs-override tie is broken by recency (D3): the invocation flag carries the session start time, and an override with a later `setAt` wins. CLI: `harness autonomy set [supervised|trusted] [--audit on|off] [--for <duration>] --session <slug>` (a level or `--audit` is required; `--for` applies to raises only), `harness autonomy show [--session <slug>]` (prints resolved value and source of each field).
 
 ### Context delivery
 
