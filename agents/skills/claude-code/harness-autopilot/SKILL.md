@@ -537,7 +537,7 @@ _Pause point (gate): resolve per the Pause Protocol._ <!-- pause: gate -->
 
 **Phase 3:** auto-plans and executes. **FINAL_REVIEW:** harness-code-reviewer on `startingCommit..HEAD`. 0 blocking, 1 warning. Passed.
 
-**DONE:** 3 phases, 30 tasks, 1 retry. "Create PR? → yes"
+**DONE:** 3 phases, 30 tasks, 1 retry. "Create PR? → yes" <!-- not-a-pause: worked example output, not a step -->
 
 **Retry exhaustion (during any phase):**
 

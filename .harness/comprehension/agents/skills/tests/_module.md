@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'agents/skills/tests'
-sourceHash: '2300cf5eb308e94ebe89cc3e9e86e4c215177946f99ea2847557f7c9043a3ae4'
+sourceHash: '2b56454a9dcc0feb3f5ce61ac878840571dcebe23f4837a6cb4992743a1b11c1'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent

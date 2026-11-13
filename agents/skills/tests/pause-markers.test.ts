@@ -274,12 +274,14 @@ const PINNED_CLASSES: Array<[string, string, string]> = [
 const MAX_OPT_OUTS: Record<string, number> = {
   'harness-brainstorming': 4,
   'harness-planning': 7,
-  'harness-autopilot': 6,
+  'harness-autopilot': 7, // +1 re-review I8: the Examples "Create PR?" output line
   'harness-execution': 2,
   'harness-soundness-review': 1,
   'harness-code-review': 7,
   'harness-integration': 2,
 };
+
+const OPTED_OUT = /<!--\s*not-a-pause:/;
 
 /** Every line matching one of these, in any workflow skill, is a pause of that class (verify N2). */
 const CLASS_SWEEPS: Array<[RegExp, string, number]> = [
@@ -314,12 +316,16 @@ describe('critical pauses carry their pinned class', () => {
     expect(classOf(skill, excerpt)).toBe(cls);
   });
   it.each(CLASS_SWEEPS)(
-    'every marked line matching %s is %s (at least %i found)',
+    'every line matching %s is %s or opted out (at least %i found)',
     (rx, cls, min) => {
       const hits = WORKFLOW_SKILLS.flatMap((skill) => {
         const text = read(skill);
-        return text.split('\n').flatMap((l, i) => {
-          const c = rx.test(l) ? classAt(text, i) : undefined;
+        const lines = text.split('\n');
+        return lines.flatMap((l, i) => {
+          if (!rx.test(l)) return [];
+          // re-review I8: an unmarked match must say why it is not a pause
+          const opted = OPTED_OUT.test(`${lines[i - 1] ?? ''}${l}`);
+          const c = classAt(text, i) ?? (opted ? undefined : 'unmarked');
           return c === undefined ? [] : [`${skill}:${i + 1} ${c}`];
         });
       });
