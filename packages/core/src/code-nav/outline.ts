@@ -1,5 +1,5 @@
 import type Parser from 'web-tree-sitter';
-import { parseFile } from './parser';
+import { parseFile, getParser } from './parser';
 import type { OutlineResult, CodeSymbol, SymbolKind, SupportedLanguage } from './types';
 import { detectLanguage } from './types';
 
@@ -291,6 +291,34 @@ export async function getOutline(filePath: string): Promise<OutlineResult> {
   const symbols = extractSymbols(tree.rootNode, lang, source, filePath);
 
   return { file: filePath, language: lang, totalLines, symbols };
+}
+
+/**
+ * Outline a file from source text already in hand.
+ *
+ * `getOutline` reads from disk. Every craft skill already holds the source it
+ * wants critiqued, and `critiqueCodeInFile(file, { source })` lets a caller
+ * inject source that deliberately differs from disk. Routing those callers
+ * through `getOutline` would silently ignore the injected source for exactly
+ * the non-TS half of the languages — an API contract broken in one half and
+ * honoured in the other, which is the shape of defect that reads as working.
+ */
+export async function getOutlineFromSource(
+  source: string,
+  filePath: string
+): Promise<OutlineResult> {
+  const lang = detectLanguage(filePath);
+  if (!lang) return buildFailedResult(filePath, 'unknown');
+
+  let tree: Parser.Tree;
+  try {
+    const parser = await getParser(lang);
+    tree = parser.parse(source);
+  } catch {
+    return buildFailedResult(filePath, lang);
+  }
+
+  return extractOutlineFromTree(tree.rootNode, lang, source, filePath);
 }
 
 /**
