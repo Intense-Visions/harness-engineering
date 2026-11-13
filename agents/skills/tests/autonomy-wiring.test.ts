@@ -230,3 +230,20 @@ describe('N6: autopilot routes a headless audit disagreement to the human, never
     expect(exclusion).toBeLessThan(s.indexOf('Attempt 1:'));
   });
 });
+
+describe('review S6: absolute human-approval wording defers to the Pause Protocol', () => {
+  it.each([
+    [
+      'harness-brainstorming',
+      '**No implementation may begin before the design is approved by the human',
+    ],
+    ['harness-brainstorming', '- Human explicitly approved before any implementation'],
+    ['harness-execution', 'Checkpoints are non-negotiable pause points.'],
+  ])('%s: "%s" says (per the Pause Protocol)', (name, excerpt) => {
+    const line = skill(name)
+      .split('\n')
+      .find((l) => l.includes(excerpt));
+    expect(line, 'line found').toBeDefined();
+    expect(line).toContain('(per the Pause Protocol)');
+  });
+});

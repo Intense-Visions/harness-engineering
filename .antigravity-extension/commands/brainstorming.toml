@@ -45,7 +45,7 @@ Every point below where this skill stops for the human carries a marker line, `_
 
 ### Iron Law
 
-**No implementation may begin before the design is approved by the human.**
+**No implementation may begin before the design is approved by the human (per the Pause Protocol).**
 
 If you find yourself writing production code, tests, or scaffolding before sign-off, STOP. Brainstorming produces a spec document, not code. <!-- not-a-pause: self-correction, not a human ask -->
 
@@ -441,7 +441,7 @@ Apply when output includes specific behavioral expectations.
 ## Success Criteria
 
 - Spec exists in `docs/` with all required sections (overview, decisions, technical design, integration points, success criteria, implementation order)
-- Human explicitly approved before any implementation
+- Human explicitly approved before any implementation (per the Pause Protocol)
 - YAGNI applied: no speculative features in the spec
 - 2-3 approaches presented with honest tradeoffs before decision
 - Questions asked one at a time with multiple-choice options where possible
