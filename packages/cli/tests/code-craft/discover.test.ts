@@ -69,6 +69,19 @@ describe('discoverSourceFiles (code-craft)', () => {
     expect(files.some((f) => f.includes('web/'))).toBe(false);
   });
 
+  it('discovers every language harness supports, and nothing else', () => {
+    writeFile('src/a.ts');
+    writeFile('src/b.py');
+    writeFile('src/c.go');
+    writeFile('src/d.rs');
+    writeFile('src/E.java');
+    writeFile('src/notes.txt');
+    const found = discoverSourceFiles(tmpDir)
+      .map((f) => path.basename(f))
+      .sort();
+    expect(found).toEqual(['E.java', 'a.ts', 'b.py', 'c.go', 'd.rs']);
+  });
+
   it('includes .mjs / .cjs / .jsx extensions and ignores non-source', () => {
     writeFile('packages/api/src/esm.mjs');
     writeFile('packages/api/src/cjs.cjs');

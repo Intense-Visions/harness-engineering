@@ -12,8 +12,23 @@
 
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import { EXTENSION_MAP } from '@harness-engineering/core';
 
-const SOURCE_EXTENSIONS = new Set(['.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs']);
+/**
+ * Every extension harness can parse, not the TS/JS subset.
+ *
+ * Derived from EXTENSION_MAP rather than re-listed, because a second list is
+ * how `.mjs` went missing from test discovery (#1347): the walker skipped a
+ * file the extractor could read, and the summary still printed a confident
+ * zero.
+ *
+ * Widened on the STANDALONE sweep as well as the diff-scoped path.
+ * `collectFiles` returns `input.files` verbatim, so the review surface already
+ * bypasses this filter; widening only there would leave `harness code-craft .`
+ * printing `filesScanned: 0` on a Python repo while review reported findings on
+ * the same code. Two surfaces disagreeing about one repository is the defect.
+ */
+const SOURCE_EXTENSIONS = new Set(Object.keys(EXTENSION_MAP));
 
 const EXCLUDED_DIRS = new Set([
   'node_modules',
