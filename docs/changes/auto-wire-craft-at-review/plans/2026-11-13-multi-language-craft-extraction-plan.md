@@ -1537,6 +1537,75 @@ Per-language signal catalogs plus a call-site tree walk. See DP-3. Not a seam ad
 
 ---
 
+## Follow-ups raised by the Phase 2a code review (recorded, NOT fixed here)
+
+The review returned 1 critical and 5 important findings. C1 (dedup key), I2 (`.mts`/`.cts`) and I4
+(shadowed symbol resolution) were FIXED in this phase. The items below predate the phase but are
+newly load-bearing, because `code-craft` now claims these languages. Every one is **measured here**,
+not relayed, each with the probe output.
+
+### FU-1 — Python nested classes are invisible
+
+`METHOD_TYPES.python` is `['function_definition']` only, so a nested `class` inside a class body is
+never walked. Measured:
+
+```
+class Article:  def save(self): …   class Meta: ordering/verbose_name/db_table
+  outline symbols -> class:Article[save]          <-- `Meta` absent entirely
+  craft units     -> class:Article | method:save
+```
+
+Hits Django `class Meta` and Pydantic `class Config`, which is most Django/Pydantic models.
+
+### FU-2 — Java inner and static nested classes are invisible
+
+Same shape in `TOP_LEVEL_TYPES.java` / `extractMethods`: a nested `class` is neither a method nor a
+root child. Measured:
+
+```
+public class Order { int total(); public static class Builder { qty(); build(); } }
+  outline symbols -> class:Order[total]           <-- Builder, qty, build ALL absent
+  craft units     -> class:Order | method:total
+```
+
+That is the Builder pattern, endemic in Java: a `public static class Builder` contributes **zero**
+units, so the most convention-heavy code in the file is never critiqued.
+
+### FU-3 — Python definitions under a conditional produce zero symbols, with no error
+
+`extractSymbols` walks `rootNode.children` for declaration types; an `if_statement` or
+`try_statement` is neither, and nothing recurses into it. Measured, **with a positive control** so
+the zero is not mistaken for a broken probe:
+
+```
+if TYPE_CHECKING:  def helper(x): …        -> symbols = (NONE), error = none
+try: def fast_path(x): … except ImportError-> symbols = (NONE), error = none
+def helper(x): …            [CONTROL]      -> symbols = function:helper
+```
+
+A clean parse returning nothing is the exact silent-zero shape this phase existed to remove — it is
+simply one nesting level deeper than the two gaps that were fixed.
+
+### FU-4 (review I6) — the capability claim is per-LANGUAGE, the capability is per-EXTENSION
+
+`CraftDomainRule.supportedLanguages` is `readonly SupportedLanguage[]`, but extraction is gated per
+file extension. The review's first example (`code-craft` declares `typescript` yet could not extract
+`.mts`/`.cts`) **was fixed in this phase by I2** — all eight TS/JS extensions now extract, and a law
+derived from `EXTENSION_MAP` pins it. The granularity mismatch itself remains: a seventh language
+added to `EXTENSION_MAP` would be auto-discovered, auto-declared by `ALL_SOURCE_LANGUAGES`, and
+extract zero units, and Phase 3's subset law compares at language granularity so it would not catch
+that. The coordinator is raising this with the Phase 3 planner separately.
+
+### FU-5 — surviving units are correct but their names are ambiguous
+
+A consequence of the C1 fix, not a regression. Two Go methods both report `name=Add`, and two
+Rust functions in sibling mods both report `name=f`. The disambiguators exist — the receiver is in
+`symbol.signature` (`func (c *Cart) Add(n int) {`), the mod name is available at the recursion site
+— but qualifying the **name** changes finding identity and prompt text, so it belongs with the
+naming work in Phase 2b rather than in a dedup-key fix.
+
+---
+
 ## Links
 
 - Spec: `docs/changes/auto-wire-craft-at-review/proposal.md` (Phase 2, Phase 1b, phase-ordering invariant)
