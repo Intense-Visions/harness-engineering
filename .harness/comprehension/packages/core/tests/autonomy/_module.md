@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/tests/autonomy'
-sourceHash: 'f3a12cee87c1c099370617b0f62e1e939794ba82c5be1ee7478d867eefc550ca'
+sourceHash: 'd8a2352520fed70ba26a56f9278aaf78f5ce55e09c852f972b325c718d25a6d3'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -19,6 +19,7 @@ members:
     'resolve.test.ts',
     'schema.test.ts',
     'session.test.ts',
+    'summary.test.ts',
   ]
 ---
 
@@ -39,6 +40,7 @@ import { claimStaleLock, readSessionOverride, releaseOverrideLock, writeSessionO
 import { computeRepoKey, harnessHomeDir, resolveProjectRoot, sessionOverridePath, userConfigPath, validateOverrideSlug } from '../../src/autonomy/paths'
 import { ResolveAutonomyInput, resolveAutonomy } from '../../src/autonomy/resolve'
 import { UserConfigSchema, parseSessionOverride, parseUserConfig, validateAutonomySetting } from '../../src/autonomy/schema'
+import { renderAutoDecisionSummary, summarizeAutoDecisions } from '../../src/autonomy/summary'
 import { resolveSessionDir } from '../../src/state/session-resolver'
 import { AutoDecision, AutonomyLevel, AutonomySessionOverride } from '@harness-engineering/types'
 import { execFileSync, spawn } from 'node:child_process'
