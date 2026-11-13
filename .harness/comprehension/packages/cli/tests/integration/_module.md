@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/tests/integration'
-sourceHash: '91fe262ace8ba7c9c228f0b70c13631f88618a6e83b31027344083c78a773992'
+sourceHash: 'a5258e228a3af6509e003d72d43e8566b736b60e9a3b5e384da5cd492b46e53b'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -12,6 +12,7 @@ members:
     'cli.test.ts',
     'community-skill-discovery.test.ts',
     'core-clumping-export.test.ts',
+    'craft-diff-scope.test.ts',
     'craft-hooks-export.test.ts',
     'init-design-roadmap-matrix.test.ts',
     'init-design-roadmap-yes-yes-e2e.test.ts',
@@ -33,6 +34,7 @@ members:
 ## Dependency Slice
 
 ```
+import { collectCodeCraftPrompts } from '../../src/code-craft'
 import { runInit } from '../../src/commands/init'
 import { runPulseRunCommand } from '../../src/commands/pulse/run'
 import { runValidate } from '../../src/commands/validate'
@@ -54,8 +56,11 @@ import { PulseAdapter, SanitizedResult } from '@harness-engineering/types'
 import { spawnSync } from 'child_process'
 import * as fs from 'fs'
 import fs, { mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
+import * as fs from 'node:fs'
 import os, { tmpdir } from 'node:os'
+import * as os from 'node:os'
 import path, { join } from 'node:path'
+import * as path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import * as os from 'os'
 import * as path from 'path'
