@@ -1,11 +1,18 @@
 ---
 schemaVersion: 1
 module: 'packages/core/src/hooks'
-sourceHash: 'd2646bb6111db3caf2bc79693ca614edd3638b0b0edef2dbb536c09856139d04'
+sourceHash: 'df3eb849e2eed7862e6de29f3286ba1353976658e27f75e25134fcfec2fdab66'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
-members: ['canary-review-hooks.ts', 'hook-context.ts', 'index.ts', 'skill-lifecycle.ts']
+members:
+  [
+    'canary-review-hooks.ts',
+    'craft-review-hooks.ts',
+    'hook-context.ts',
+    'index.ts',
+    'skill-lifecycle.ts',
+  ]
 ---
 
 ## Interface Contract
@@ -36,5 +43,6 @@ export resolveSkillHooks
 ## Dependency Slice
 
 ```
+import { EXTENSION_MAP, SupportedLanguage, detectLanguage } from '../code-nav/types'
 import { NormalizedHook, SkillHookEntry, SkillHooksConfigHolder, defaultBlocking, resolveSkillHooks } from './skill-lifecycle'
 ```
