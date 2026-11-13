@@ -551,3 +551,17 @@ export type {
 
 // --- Stats (explore/exploit bandit + SPRT shared shapes, stats-explore-exploit) ---
 export type { Pull, ArmState, BanditConfig, Choice, SprtVerdict, SprtConfig } from './stats';
+
+// --- Trusted Autonomy Mode (Phase 1) ---
+export { AUTONOMY_LEVELS, AUTONOMY_SOURCES, DEFAULT_AUTONOMY_AUDIT } from './autonomy';
+export type {
+  AutonomyLevel,
+  AutonomySource,
+  AutonomySetting,
+  AutonomyFlag,
+  AutonomyOverrideOrigin,
+  AutonomyOverrideField,
+  AutonomySessionOverride,
+  AutonomyUserConfig,
+  ResolvedAutonomy,
+} from './autonomy';
