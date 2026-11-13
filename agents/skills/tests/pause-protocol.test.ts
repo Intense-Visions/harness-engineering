@@ -169,6 +169,32 @@ const render = (t: string, vars: Record<string, string>) =>
     return v;
   });
 
+/** The protocol's option construction (review I5): no labels, no markers, alphabetical, numbered 1..n. */
+const LABEL = /^\s*(?:[-*]\s+)?(?:[A-Za-z]|\d{1,2})[).:]\s+/;
+const MARKER = /\s*\((?:recommended|confidence:[^)]*)\)/gi;
+const blindOptions = (raw: string[]) =>
+  raw
+    .map((o) => o.replace(LABEL, '').replace(MARKER, '').trim())
+    .sort((a, b) => a.localeCompare(b))
+    .map((o, i) => `${i + 1}. ${o}`)
+    .join('\n');
+/** The protocol's evidence filter: drop the Recommendation line and graded rows. */
+const blindEvidence = (shown: string) =>
+  shown
+    .split('\n')
+    .filter((l) => !/Recommendation|\*\*(?:Risk|Effort)\*\*|confidence/i.test(l))
+    .join('\n');
+/** Option labels like `A)` or `- B)` that would let the auditor map options back to the pause. */
+const labelLeaks = (rendered: string) =>
+  rendered.split('\n').filter((l) => /^\s*(?:-\s+)?[A-Z]\)\s/.test(l));
+
+const SHOWN = [
+  '|            | A) Include Y   | B) Defer Y   |',
+  '| **Pros**   | complete       | focused      |',
+  '| **Risk**   | medium         | low          |',
+  '| **Effort** | medium         | low          |',
+  '**Recommendation:** B) Defer Y (confidence: medium) RECO-7f3a',
+].join('\n');
 const RECO = 'Recommendation: B) Defer Y (confidence: medium) RECO-7f3a';
 const RATIONALE = 'Keeps the plan focused on the stated goal RAT-91c2';
 /** A full decision, including what the blind auditor must never see. */
@@ -176,11 +202,11 @@ const decision: Record<string, string> = {
   skill: 'harness-planning',
   phase: 'SCOPE',
   question: 'Include Y in this plan?',
-  options: '- C) Update the spec first\n- A) Include Y\n- B) Defer Y',
-  evidence: 'Spec section 3 omits Y; the YAGNI review flagged it.',
+  options: blindOptions(['C) Update the spec first', 'A) Include Y', 'B) Defer Y (recommended)']),
+  evidence: `${blindEvidence(SHOWN)}\nSources you may read: docs/changes/y/proposal.md`,
   recommendation: RECO,
   rationale: RATIONALE,
-  pick: 'B) Defer Y',
+  pick: 'Defer Y',
 };
 
 /** Every way a template could let the blind auditor see the conclusion. */
@@ -204,7 +230,11 @@ describe('SC8: the blind auditor never sees the recommendation', () => {
   it('renders a full decision without the recommendation or its rationale', () => {
     const out = render(template('blind-audit-prompt'), decision);
     expect(out).toContain('Include Y in this plan?'); // control: the decision was rendered
-    expect(out).toContain('B) Defer Y'); // the option itself is shown, unlabelled
+    expect(out).toContain('1. Defer Y\n2. Include Y\n3. Update the spec first'); // relabelled, sorted
+    expect(labelLeaks(out)).toEqual([]);
+    expect(out).not.toMatch(/\*\*(?:Risk|Effort)\*\*|confidence:/i);
+    expect(out).toContain('**Pros**'); // control: ungraded evidence survives
+    expect(out).toContain('docs/changes/y/proposal.md');
     expect(out).not.toContain('RECO-7f3a');
     expect(out).not.toContain('RAT-91c2');
     expect(out).not.toMatch(/recommend/i);
@@ -224,15 +254,31 @@ describe('SC8: the blind auditor never sees the recommendation', () => {
     const t = template('refuter-prompt');
     expect(slots(t)).toEqual([...BLIND_SLOTS, 'pick'].sort());
     const out = render(t, decision);
-    expect(out).toContain('Chosen option:\nB) Defer Y');
+    expect(out).toContain('Chosen option:\nDefer Y');
     expect(out).not.toContain('RECO-7f3a');
     expect(out).not.toContain('RAT-91c2');
   });
-  it('tells the agent to shuffle options and strip recommendation markers first', () => {
-    expect(md).toContain(
-      'Shuffle the options into a random order and strip every recommendation marker'
+  it('negative control: options rendered with their pause labels are caught', () => {
+    const raw = render(template('blind-audit-prompt'), {
+      ...decision,
+      options: '- C) Update the spec first\n- A) Include Y\n- B) Defer Y',
+    });
+    expect(labelLeaks(raw)).toHaveLength(3);
+  });
+  it('states the construction: labels stripped, alphabetical, numbered; verbatim question; filtered evidence; saved prompt (review I5)', () => {
+    const audit = section('## Self-audit (judgment forks)');
+    expect(audit).toContain(
+      "Strip each option's leading label (`A)`, `-`, `1.`) and every recommendation marker, order the options alphabetically by text, and number them 1..n."
     );
-    expect(template('blind-audit-prompt')).toMatch(/order is random/i);
+    expect(audit).toContain('Copy the question verbatim, as the human would see it.');
+    expect(audit).toContain(
+      'The evidence is the material shown at the pause minus the Recommendation line and minus graded rows (Risk, Effort, confidence), plus the source paths (spec, plan, files) the auditor may read itself.'
+    );
+    expect(audit).toContain(
+      'Write the rendered auditor prompt to `.harness/sessions/<session-slug>/audits/<n>.md`'
+    );
+    expect(template('blind-audit-prompt')).toMatch(/sorted alphabetically/);
+    expect(md).not.toMatch(/order is random|Shuffle the options/);
   });
 });
 
