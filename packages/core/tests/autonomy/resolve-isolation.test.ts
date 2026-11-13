@@ -49,6 +49,8 @@ describe('SC5: project config can never set autonomy', () => {
   it('positive control: the scan covers every known autonomy module', () => {
     expect(SCANNED).toEqual(
       expect.arrayContaining([
+        'decision-log.ts',
+        'decision-schema.ts',
         'index.ts',
         'lower-only.ts',
         'override-store.ts',
@@ -56,6 +58,7 @@ describe('SC5: project config can never set autonomy', () => {
         'resolve.ts',
         'schema.ts',
         'session.ts',
+        'summary.ts',
       ])
     );
   });

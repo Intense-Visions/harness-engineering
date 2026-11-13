@@ -40,3 +40,34 @@ export {
 } from './lower-only';
 export { resolveAutonomyForSession } from './session';
 export type { ResolveForSessionInput } from './session';
+export {
+  AUTO_DECISION_LIMITS,
+  AUTO_DECISION_INVALID,
+  AutoDecisionInvalidError,
+  AutoDecisionAuditSchema,
+  AutoDecisionInputSchema,
+  AutoDecisionSchema,
+  validateAutoDecisionInput,
+  parseAutoDecisionLine,
+} from './decision-schema';
+// appendAutoDecision is deliberately NOT exported: recordAutoDecision is the only write path.
+export {
+  AUTO_DECISIONS_FILE,
+  MAX_AUTO_DECISION_LINE_BYTES,
+  AUTO_DECISION_SESSION_NOT_FOUND,
+  AUTO_DECISION_WRITE_FAILED,
+  AutoDecisionSessionNotFoundError,
+  AutoDecisionWriteFailedError,
+  autoDecisionLogPath,
+  readAutoDecisions,
+  recordAutoDecision,
+  AUTO_DECISION_NOT_AUTHORIZED,
+  AutoDecisionNotAuthorizedError,
+} from './decision-log';
+export type {
+  AutoDecisionLogRead,
+  ReadAutoDecisionsOptions,
+  RecordAutoDecisionOptions,
+} from './decision-log';
+export { summarizeAutoDecisions, renderAutoDecisionSummary } from './summary';
+export type { RenderAutoDecisionOptions } from './summary';
