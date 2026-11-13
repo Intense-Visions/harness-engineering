@@ -6,16 +6,11 @@ import { resolveAutonomy } from '../../src/autonomy/resolve';
 
 const norm = (p: string) => p.replaceAll('\\', '/');
 const AUTONOMY_SRC = path.join(__dirname, '../../src/autonomy');
-/** Extended in Task 9 once override-store.ts / lower-only.ts / session.ts exist. */
-const SCANNED = [
-  'resolve.ts',
-  'schema.ts',
-  'paths.ts',
-  'override-store.ts',
-  'lower-only.ts',
-  'session.ts',
-  'index.ts',
-];
+/** Every source module in src/autonomy, listed from disk so a new module cannot escape the scan. */
+const SCANNED = fs
+  .readdirSync(AUTONOMY_SRC)
+  .filter((f) => f.endsWith('.ts'))
+  .sort();
 
 describe('SC5: project config can never set autonomy', () => {
   it('resolves supervised even when the project config says trusted; only the user config is read', () => {
@@ -49,6 +44,20 @@ describe('SC5: project config can never set autonomy', () => {
       readFile: () => JSON.stringify({ autonomy: { level: 'trusted' } }),
     });
     expect([r.level, r.source.level]).toEqual(['trusted', 'user-config']);
+  });
+
+  it('positive control: the scan covers every known autonomy module', () => {
+    expect(SCANNED).toEqual(
+      expect.arrayContaining([
+        'index.ts',
+        'lower-only.ts',
+        'override-store.ts',
+        'paths.ts',
+        'resolve.ts',
+        'schema.ts',
+        'session.ts',
+      ])
+    );
   });
 
   it.each(SCANNED)('%s never references the project config file', (file) => {
