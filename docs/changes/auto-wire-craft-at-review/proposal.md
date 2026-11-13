@@ -463,6 +463,41 @@ Satisfies criterion 10.
 
 ### Phase 3: Autopilot host wiring
 
+<!-- carried from Phase 1 verification -->
+
+**Three verification traps in this phase, found during Phase 1 integration.** Each one makes a
+green signal mean less than it appears to:
+
+1. **The barrel check cannot confirm this phase's export.** The root barrel's text is
+   `export * from './hooks';` whatever `hooks/index.ts` contains, so adding craft symbols changes
+   nothing and `node scripts/generate-core-barrel.mjs --check` keeps printing "up to date". That
+   green is not evidence the export landed. Verify through `packages/core/dist/index.d.ts` or a
+   root-level import test instead.
+2. **`packages/core/src/craft/` IS a `SELECTIVE_EXPORTS` directory; `hooks/` is not.** The repo rule
+   "a new core export needs a generator allowlist edit" holds only for selective directories.
+   Because this feature is called _craft_, it is easy to apply the `craft/` rule to a file that
+   actually lives in `hooks/` and conclude an edit is needed when it is not. Verified: `SKIP_DIRS`
+   is `shared, blueprint, craft, adoption, telemetry, parallelization`, and `hooks` is absent, so
+   `hooks` is auto-discovered as a star module.
+3. **An existing executable doc-contract test will fail, and that failure is correct.**
+   `packages/cli/tests/integration/autopilot-skill-hooks.test.ts:171-182` asserts the SKILL.md
+   "wired today" set EQUALS the concrete call sites, via a regex alternation matching only
+   `resolveSkillHooks|resolveReviewHooksWithCanary`. Adding a craft resolver call site means that
+   regex no longer matches and the equality assertion fails. Update the alternation deliberately —
+   it is this phase's work, not a flake.
+
+**Required in this phase, carried from Phase 1:** `cli-ergonomics-craft`'s `owns` currently admits
+any file type under `cli|commands|cmd|bin`, because `CLI_COMMAND_PATTERN` is a directory pattern
+(`/(^|\/)(cli|commands|cmd|bin)\//`) with no extension constraint. Phase 1 removed the
+`isProductionSource` filter deliberately — it required `detectLanguage(f) !== null` and so excluded
+the `.sh`/`.rb` CLIs that `'any'` exists to serve — but the replacement admits `messages.json` and
+`data.yaml`, which are data, not commands. Dispatching a critique at a JSON data file spends prompts
+to produce noise, which is exactly the cost this design is budgeting against. Narrow it with a
+**data/markup denylist** (`.json`, `.yaml`, `.yml`, `.toml`, `.ini`, `.lock`, `.csv`, `.xml`, plus
+assets), never with a language allowlist — an allowlist re-breaks every language outside
+`EXTENSION_MAP`, which is the defect this replaced. The widening is pinned by a test today, so the
+narrowing must update that test rather than silently satisfy it.
+
 <!-- complexity: medium -->
 
 Export the new symbols from `packages/core/src/hooks/index.ts` and regenerate the root core barrel
