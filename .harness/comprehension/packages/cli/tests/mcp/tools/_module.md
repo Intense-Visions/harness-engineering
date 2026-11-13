@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/tests/mcp/tools'
-sourceHash: 'c596acbc751d73010fe6e6e825d87f6a22013c99fed880931e524ae5936dbf7f'
+sourceHash: 'fcc94242b0821694f39274d14cb0fbab64808925468f4553f009ec662d7d2c63'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -41,6 +41,7 @@ members:
     'event-emitter.test.ts',
     'events-jsonl-retired.guard.test.ts',
     'feedback.test.ts',
+    'gather-context-autonomy.test.ts',
     'gather-context-comprehension.test.ts',
     'gather-context-cov544.test.ts',
     'gather-context-extra.test.ts',
