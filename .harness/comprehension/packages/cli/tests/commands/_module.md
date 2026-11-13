@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/tests/commands'
-sourceHash: '2d39571be982cbf984e69018a18fb69c2fa603d94b690230dba95f9d8b79e789'
+sourceHash: '41a947bd976b45987ed15c65a901ee96594a6bcc20dfd540528be222f5201a5b'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -23,6 +23,7 @@ members:
     'audit-protected-cov544b.test.ts',
     'audit-protected.test.ts',
     'autonomy-command.test.ts',
+    'autonomy-log.test.ts',
     'autonomy-project-root.test.ts',
     'autonomy-set-eof.test.ts',
     'autonomy-set.test.ts',
@@ -260,6 +261,7 @@ import { createAlignDesignSystemCommand } from '../../src/commands/align-design-
 import { createApiCraftCommand } from '../../src/commands/api-craft'
 import { createAuditProtectedCommand, runAuditProtected } from '../../src/commands/audit-protected'
 import { createAutonomyCommand } from '../../src/commands/autonomy/index'
+import { createAutonomyLogCommand, formatAutonomyLog, runAutonomyLog } from '../../src/commands/autonomy/log'
 import { createAutonomySetCommand, defaultIsInteractive, runAutonomySet } from '../../src/commands/autonomy/set'
 import { createAutonomyShowCommand, formatAutonomy, runAutonomyShow } from '../../src/commands/autonomy/show'
 import { runBackfillSkillProvenance } from '../../src/commands/backfill-skill-provenance'
