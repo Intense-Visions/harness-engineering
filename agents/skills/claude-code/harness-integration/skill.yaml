@@ -29,7 +29,7 @@ cli:
       description: Session slug for scoped state/handoff (passed by autopilot)
       required: false
     - name: fast
-      description: WIRE only -- defaults, auto-approve, no ADR drafting
+      description: Reduced rigor -- WIRE sub-phase only (default checks), no ADR drafting
       required: false
     - name: thorough
       description: Full checks + human reviews every ADR draft + force knowledge graph verification

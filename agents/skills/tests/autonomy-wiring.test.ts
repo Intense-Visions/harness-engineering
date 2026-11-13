@@ -114,3 +114,20 @@ describe('D17: Tier-1 workflow skills accept only lowering autonomy flags', () =
     expect(a).not.toContain('no-audit');
   });
 });
+
+describe('D2: rigor flag descriptions describe checking only, never approval', () => {
+  const argDesc = (name: string, arg: string): string | undefined =>
+    (
+      parse(readFileSync(resolve(SKILLS, name, 'skill.yaml'), 'utf-8')) as {
+        cli?: { args?: Array<{ name: string; description?: string }> };
+      }
+    ).cli?.args?.find((a) => a.name === arg)?.description;
+  it.each(['harness-autopilot', 'harness-integration', 'harness-planning', 'harness-execution'])(
+    '%s --fast description has no approval wording',
+    (name) => {
+      const d = argDesc(name, 'fast');
+      expect(d).toBeDefined(); // control: the arg exists
+      expect(d).not.toMatch(/approv/i);
+    }
+  );
+});
