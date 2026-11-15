@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/tests/entropy/detectors'
-sourceHash: 'fbd0c76db77d055132625221931a5f3f699f9459d3d2609ebc4f4d4dab29fb98'
+sourceHash: '9fa4e1c4fd08830f2bc059f3eca953980da50613b9e07b67bda2740524194e5f'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -12,6 +12,7 @@ members:
     'dead-code-path-alias.test.ts',
     'dead-code-public-api.test.ts',
     'dead-code.test.ts',
+    'drift-declared-symbols.test.ts',
     'drift.test.ts',
     'duplication-registration.test.ts',
     'duplication.perf.test.ts',
@@ -45,7 +46,7 @@ import { checkConfigPattern, detectPatternViolations } from '../../../src/entrop
 import { detectSizeBudgetViolations, parseSize } from '../../../src/entropy/detectors/size-budget'
 import '../../../src/entropy/index'
 import { buildSnapshot } from '../../../src/entropy/snapshot'
-import { CodebaseSnapshot, ComplexityConfig, ConfigPattern, CouplingConfig, DeadCodeConfig, SizeBudgetConfig, SourceFile } from '../../../src/entropy/types'
+import { CodebaseSnapshot, ComplexityConfig, ConfigPattern, CouplingConfig, DeadCodeConfig, DocumentationDrift, SizeBudgetConfig, SourceFile } from '../../../src/entropy/types'
 import { findFiles, relativePosix } from '../../../src/shared/fs-utils'
 import { TypeScriptParser } from '../../../src/shared/parsers'
 import { isOk } from '../../../src/shared/result'
