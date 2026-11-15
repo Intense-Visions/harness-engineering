@@ -8,6 +8,7 @@ import {
   mapSecurityFindings,
   computeOverallSeverity,
   computeScanExitCode,
+  suppressMarkdownStructureFindings,
 } from '@harness-engineering/core';
 import type {
   ScanConfigFileResult,
@@ -80,10 +81,13 @@ async function scanSingleFile(
   // (.mcp.json only) would fire on CLAUDE.md/AGENTS.md, causing false positives.
   const secFindings = await scanner.scanFile(filePath);
   findings.push(...mapSecurityFindings(secFindings, findings));
+  // Markdown structure is not live text (#2052): table padding/separators and
+  // fenced code samples no longer trip INJ-SUS-001/002 or SEC-PTH-*.
+  const reported = suppressMarkdownStructureFindings(findings, content, filePath);
 
   // Downgrade noisy patterns after all findings are collected so the
   // severity adjustment applies uniformly to both injection and security findings.
-  const adjusted = adjustFindingSeverity(findings);
+  const adjusted = adjustFindingSeverity(reported);
 
   return {
     file: relative(targetDir, filePath).replaceAll('\\', '/'),
