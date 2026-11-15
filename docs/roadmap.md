@@ -629,12 +629,12 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 
 ### Trusted autonomy mode
 
-- **Status:** in-progress
+- **Status:** done
 - **Spec:** docs/changes/trusted-autonomy-mode/proposal.md
 - **Summary:** Trusted Autonomy Mode
 - **Blockers:** —
 - **Plan:** docs/changes/trusted-autonomy-mode/plans/2026-11-13-trusted-autonomy-phase-1-plan.md
-- **Assignee:** Chad Warner
+- **Assignee:** —
 - **Priority:** —
 - **External-ID:** github:Intense-Visions/harness-engineering#2479
 
@@ -3690,6 +3690,11 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 - **Date:** 2026-11-12
 
 - **Feature:** auto-wire-craft-at-review
+- **Assignee:** Chad Warner
+- **Action:** unassigned
+- **Date:** 2026-11-15
+
+- **Feature:** Trusted autonomy mode
 - **Assignee:** Chad Warner
 - **Action:** unassigned
 - **Date:** 2026-11-15
