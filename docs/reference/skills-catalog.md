@@ -321,7 +321,7 @@ LLM-judgment critique of command-line ergonomics quality — the ceiling counter
 
 ### code-craft
 
-LLM-judgment critique of code quality / readability (TS/JS source) — the ceiling counterpart to the rule-based code floor (entropy-cleaner for dead code / drift, enforce-architecture for boundaries + deps, complexity thresholds). Asks whether the code reveals intent and reads in the domain's language, whether the control flow is honest, whether a function tells one story at one altitude, whether each abstraction earns its keep, whether it is as simple as it could be, whether the signature keeps its promise, and whether a senior would nod or wince. Per-unit critique of functions, methods, and classes; identifier-level naming is delegated to naming-craft. Structural twin of harness-security-craft.
+LLM-judgment critique of code quality / readability (TypeScript, JavaScript, Python, Go, Rust and Java source) — the ceiling counterpart to the rule-based code floor (entropy-cleaner for dead code / drift, enforce-architecture for boundaries + deps, complexity thresholds). Asks whether the code reveals intent and reads in the domain's language, whether the control flow is honest, whether a function tells one story at one altitude, whether each abstraction earns its keep, whether it is as simple as it could be, whether the signature keeps its promise, and whether a senior would nod or wince. Per-unit critique of functions, methods, and classes; identifier-level naming is delegated to naming-craft. Structural twin of harness-security-craft.
 
 - **Triggers:** manual, on_pr, on_new_feature
 - **Platforms:** claude-code

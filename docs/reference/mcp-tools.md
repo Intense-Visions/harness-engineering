@@ -610,7 +610,7 @@ Run the harness-design-craft skill: CRITIQUE / POLISH / BENCHMARK phases over a 
 - `path` (string, required) — Project root path
 - `mode` (string, optional) — fast (code-only LLM judgment) or deep (vision judgment of rendered screenshots — requires `captures`). Deep mode applies to BOTH critique and benchmark; only deep-mode benchmark can clear the award bar, since innovation/coherence/surface cannot be honestly scored from source code.
 - `phases` (array, optional) — Subset of phases to run. Defaults to all three.
-- `files` (array, optional) — Optional file scoping. Each entry is a path relative to project root.
+- `files` (array, optional) — Optional file scoping. Absolute paths are accepted and are what the review hosts forward; a relative entry is resolved against the process working directory.
 - `autoCapture` (string, optional) — Deep-mode capture behavior when no `captures` are supplied. "skip" never runs the capture command; "prompt"/"auto" run `captureCommand` when one is configured.
 - `captureCommand` (string, optional) — Deep-mode render+screenshot command. Receives the candidate files via the HARNESS_DESIGN_CRAFT_FILES env var (JSON array) and must print a JSON array of { file, image, component? } to stdout. Used to obtain captures without a built-in browser.
 - `designStrictness` (string, optional) — Overall design strictness (passed through to harness-design when chained).

@@ -113,7 +113,17 @@ const SECRET_SINK_METHODS = new Set([
 ]);
 
 export function detectSignals(sourceText: string, filePath: string): SecuritySignal[] {
-  if (!/\.(?:ts|tsx|js|jsx|mjs|cjs)$/i.test(filePath)) return [];
+  // `.mts`/`.cts` are TypeScript and are in EXTENSION_MAP, so discovery hands
+  // them over and `supportedLanguages: ['typescript', 'javascript']` claims
+  // them. Omitting them here extracted ZERO from a declared-supported
+  // extension (measured on identical source: a.ts 3 signals, a.mts 0, a.cts 0)
+  // and reported a CONFIDENT CLEAN SECURITY PASS, which is worse than not
+  // scanning at all. This is the twin of the second extension list deleted
+  // from code-craft's units.ts in 8c6362fa5; the complement construction used
+  // there does not fit here, because security-craft genuinely cannot read
+  // Python, Go, Rust or Java and `detectLanguage(f) !== null` would admit all
+  // four. Pinned by tests/craft/capability-subset-law.test.ts.
+  if (!/\.(?:ts|tsx|mts|cts|js|jsx|mjs|cjs)$/i.test(filePath)) return [];
 
   let sourceFile: ts.SourceFile;
   try {

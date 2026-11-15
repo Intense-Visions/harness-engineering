@@ -36,8 +36,14 @@
 // skipped: the safe default is "wire nothing extra", never "wire an optimistic
 // default that then hard-halts".
 
+import {
+  bareSkillName,
+  declaredSkillNames,
+  makeAvailabilityPredicate,
+  type SkillAvailability,
+} from './skill-availability';
 import { defaultBlocking, resolveSkillHooks } from './skill-lifecycle';
-import type { NormalizedHook, SkillHookEntry, SkillHooksConfigHolder } from './skill-lifecycle';
+import type { NormalizedHook, SkillHooksConfigHolder } from './skill-lifecycle';
 
 /**
  * Canary's DETERMINISTIC test detectors, in dispatch order. Each finds a
@@ -73,14 +79,11 @@ export const CANARY_REVIEW_EVENTS = ['after:REVIEW', 'after:FINAL_REVIEW'] as co
 export const CANARY_REVIEW_HOST_SKILL = 'harness-autopilot';
 
 /**
- * How a caller reports which skills are installed/dispatchable. A set or array of
- * skill names, or a predicate. `undefined` means "availability unknown" — every
- * detector is then treated as NOT installed (skipped), never optimistically wired.
+ * Re-exported from `./skill-availability` so every existing importer of this
+ * module keeps working. The type is DEFINED there, beside the predicate that
+ * consumes it.
  */
-export type SkillAvailability =
-  | ReadonlySet<string>
-  | readonly string[]
-  | ((skill: string) => boolean);
+export type { SkillAvailability };
 
 /**
  * The outcome of resolving canary's default detectors at a review event: which
@@ -109,24 +112,6 @@ function isCanaryReviewEvent(event: string): boolean {
 const CANARY_SKILL_PREFIX = 'canary:';
 
 /**
- * Reduce a catalog entry to the bare skill name it designates.
- *
- * Canary exposes its skills plugin-qualified, so a real installed catalog reports
- * `canary:canary-cassandra` — or, depending on the surface, a deeper path like
- * `canary:skills:claude-code:canary-cassandra:canary-cassandra`. The detector
- * constants in {@link CANARY_REVIEW_DETECTORS} are BARE, so a plain `set.has()`
- * missed on every lookup and silently skipped all four detectors. That failure was
- * invisible precisely because a skipped detector is contractually silent.
- *
- * Detector names contain no colon, so taking the final segment is lossless for
- * them and collapses every qualification depth onto the bare name.
- */
-function bareSkillName(entry: string): string {
-  const lastColon = entry.lastIndexOf(':');
-  return lastColon === -1 ? entry : entry.slice(lastColon + 1);
-}
-
-/**
  * Every form a catalog is known to report a canary detector under, for the one
  * availability shape we cannot enumerate.
  *
@@ -144,53 +129,6 @@ const CANARY_SKILL_PROBE_FORMS: readonly ((skill: string) => string)[] = [
   (skill) => `${CANARY_SKILL_PREFIX}${skill}`,
   (skill) => `${CANARY_SKILL_PREFIX}skills:claude-code:${skill}:${skill}`,
 ];
-
-/**
- * Normalize the three availability shapes into a single predicate.
- *
- * Matching is PREFIX-INSENSITIVE: a detector counts as installed when the catalog
- * reports it bare or under any plugin qualification. An enumerable catalog is
- * collapsed onto bare names; a predicate is probed with
- * {@link CANARY_SKILL_PROBE_FORMS}.
- */
-function toAvailabilityPredicate(avail: SkillAvailability | undefined): (skill: string) => boolean {
-  if (avail === undefined) return () => false;
-  if (typeof avail === 'function') {
-    return (skill) => CANARY_SKILL_PROBE_FORMS.some((form) => avail(form(skill)));
-  }
-  const set = avail instanceof Set ? avail : new Set(avail);
-  const bare = new Set<string>();
-  for (const entry of set) bare.add(bareSkillName(entry));
-  return (skill) => set.has(skill) || bare.has(skill);
-}
-
-/**
- * Skill names a project DECLARES at `skillName`/`event`, including entries parked
- * with `enabled: false`. This is deliberately the RAW declared set (not the
- * post-`enabled`-filter set `resolveSkillHooks` returns): a project that parks a
- * detector via `{ type: "skill", skill: "canary-cassandra", enabled: false }` has
- * expressed an explicit opt-out, so the canary default for that name must be
- * dropped rather than silently re-injected. Honors the `enabled: false` "park a
- * hook without running it" contract for the auto-wired defaults too. Bare strings
- * and `{ type: "skill" }` objects both name a skill.
- */
-function declaredSkillNames(
-  config: SkillHooksConfigHolder | null | undefined,
-  skillName: string,
-  event: string
-): Set<string> {
-  const entries = config?.skillHooks?.[skillName]?.[event];
-  const names = new Set<string>();
-  if (!Array.isArray(entries)) return names;
-  for (const entry of entries as SkillHookEntry[]) {
-    if (typeof entry === 'string') {
-      names.add(entry);
-    } else if (entry.type === 'skill' && typeof entry.skill === 'string') {
-      names.add(entry.skill);
-    }
-  }
-  return names;
-}
 
 /**
  * Plan canary's default detectors at `event`, given canary presence and which
@@ -212,7 +150,7 @@ export function planCanaryReviewDetectors(
     return { wired: [], skipped: [], expected: [] };
   }
   const blocking = defaultBlocking(event);
-  const isInstalled = toAvailabilityPredicate(availableSkills);
+  const isInstalled = makeAvailabilityPredicate(availableSkills, CANARY_SKILL_PROBE_FORMS);
   const wired: NormalizedHook[] = [];
   const skipped: string[] = [];
   for (const skill of CANARY_REVIEW_DETECTORS) {

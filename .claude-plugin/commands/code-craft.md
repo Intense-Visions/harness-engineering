@@ -1,6 +1,6 @@
 ---
 name: harness:code-craft
-description: LLM-judgment critique of code quality / readability (TS/JS source) — the ceiling counterpart to the rule-based code floor (entropy-cleaner for dead code / drift, enforce-architecture for boundaries + deps, complexity thresholds). Asks whether the code reveals intent and reads in the domain's language, whether the control flow is honest, whether a function tells one story at one altitude, whether each abstraction earns its keep, whether it is as simple as it could be, whether the signature keeps its promise, and whether a senior would nod or wince. Per-unit critique of functions, methods, and classes; identifier-level naming is delegated to naming-craft. Structural twin of harness-security-craft.
+description: LLM-judgment critique of code quality / readability (TypeScript, JavaScript, Python, Go, Rust and Java source) — the ceiling counterpart to the rule-based code floor (entropy-cleaner for dead code / drift, enforce-architecture for boundaries + deps, complexity thresholds). Asks whether the code reveals intent and reads in the domain's language, whether the control flow is honest, whether a function tells one story at one altitude, whether each abstraction earns its keep, whether it is as simple as it could be, whether the signature keeps its promise, and whether a senior would nod or wince. Per-unit critique of functions, methods, and classes; identifier-level naming is delegated to naming-craft. Structural twin of harness-security-craft.
 argument-hint: '[--path <path>] [--files <files>] [--packages <packages>] [--max-files <max-files>] [--max-units-per-file <max-units-per-file>]'
 allowed-tools:
   - Bash
@@ -17,11 +17,11 @@ Type: rigid
 </context>
 
 <objective>
-LLM-judgment critique of code quality / readability (TS/JS source) — the ceiling counterpart to the rule-based code floor (entropy-cleaner for dead code / drift, enforce-architecture for boundaries + deps, complexity thresholds). Asks whether the code reveals intent and reads in the domain's language, whether the control flow is honest, whether a function tells one story at one altitude, whether each abstraction earns its keep, whether it is as simple as it could be, whether the signature keeps its promise, and whether a senior would nod or wince. Per-unit critique of functions, methods, and classes; identifier-level naming is delegated to naming-craft. Structural twin of harness-security-craft.
+LLM-judgment critique of code quality / readability (TypeScript, JavaScript, Python, Go, Rust and Java source) — the ceiling counterpart to the rule-based code floor (entropy-cleaner for dead code / drift, enforce-architecture for boundaries + deps, complexity thresholds). Asks whether the code reveals intent and reads in the domain's language, whether the control flow is honest, whether a function tells one story at one altitude, whether each abstraction earns its keep, whether it is as simple as it could be, whether the signature keeps its promise, and whether a senior would nod or wince. Per-unit critique of functions, methods, and classes; identifier-level naming is delegated to naming-craft. Structural twin of harness-security-craft.
 
 Phases:
 
-- discover: Walk packages/STAR/src/ recursively; exclude tests + build dirs
+- discover: Walk packages/STAR/src/ recursively, or src/ then app/ when the project has no packages/ dir; every extension in EXTENSION_MAP, not the TS/JS subset; exclude tests + build dirs
 - units: AST-driven extraction of substantive code units (functions, methods, classes); trivial units skipped
 - critique: LLM-rubric loop per (unit, rubric) filtered by unit kind, with conservative-confidence bias — 7 seed rubrics
 - report: Aggregate findings + rubric/exemplar catalog + cost telemetry + file/unit counts

@@ -33,7 +33,7 @@ import {
 } from '../shared/craft/runs/store.js';
 import type { CloneClass, CloneIndex, CloneMember } from '@harness-engineering/core';
 import { discoverSourceFiles } from './extract/discover.js';
-import { extractUnits } from './extract/units.js';
+import { extractCodeUnits } from './extract/units.js';
 import { buildCodeCraftCloneIndex, resolveSiblingEvidence } from './extract/siblings.js';
 import { SEED_RUBRICS, rubricApplies, type CodeRubric } from './catalog/rubrics/index.js';
 import { SEED_EXEMPLARS } from './catalog/exemplars/index.js';
@@ -234,7 +234,7 @@ export async function collectCodeCraftPrompts(
     } catch {
       continue;
     }
-    const units = extractUnits(source, file);
+    const units = await extractCodeUnits(source, file);
     if (units.length === 0) {
       filesSkippedNoUnit++;
       continue;
@@ -392,7 +392,7 @@ async function critiqueFile(
   } catch {
     return;
   }
-  const units = extractUnits(source, file);
+  const units = await extractCodeUnits(source, file);
   if (units.length === 0) {
     acc.filesSkippedNoUnit++;
     return;
@@ -528,7 +528,10 @@ export async function critiqueCodeInFile(
   } = {}
 ): Promise<CodeFinding[]> {
   const source = opts.source ?? fs.readFileSync(file, 'utf-8');
-  const units = extractUnits(source, file).slice(0, opts.maxUnits ?? DEFAULT_MAX_UNITS_PER_FILE);
+  const units = (await extractCodeUnits(source, file)).slice(
+    0,
+    opts.maxUnits ?? DEFAULT_MAX_UNITS_PER_FILE
+  );
   if (units.length === 0) return [];
   const rubrics = opts.rubrics ?? SEED_RUBRICS;
   const provider = opts.provider ?? getProvider();

@@ -6,17 +6,31 @@
 // entrypoint decide what to do with it.
 //
 // Result shape:
-//   { status: 'clean' | 'violations' | 'infra-error', name, output, message }
+//   { status: 'clean' | 'violations' | 'infra-error', name, output, message,
+//     reason? }
+//
+// `reason` is set on every `infra-error` result:
+//   'not-installed' — the binary could not be spawned (ENOENT);
+//   'timeout'       — the tool was killed by our spawn timeout, so there is NO
+//                     verdict (it may well have found violations, #2337);
+//   'failed'        — it ran but produced nothing parseable as violations.
+// Callers that must not report a pass without a verdict (the strict gate)
+// branch on `reason === 'timeout'`.
+//
+// The spawn timeout defaults per tool and can be overridden with the
+// HARNESS_FORMAT_CHECK_TIMEOUT_MS env var (positive integer, milliseconds).
 //
 // Disambiguation contract (load-bearing): `violations` (the formatter spawned
 // and reported real format/lint problems) MUST be distinguishable from
 // `infra-error` (the tool is absent, timed out, or could not run). The strict
-// gate blocks only on `violations`; everything ambiguous defaults to
+// gate blocks on `violations` and on an `infra-error` whose reason is
+// 'timeout' (no verdict); every other ambiguous outcome defaults to
 // `infra-error` so the gate fails open rather than walling off every edit.
 
-import { accessSync, readFileSync } from 'node:fs';
+import { accessSync } from 'node:fs';
 import { join } from 'node:path';
 import { execFileSync } from 'node:child_process';
+import process from 'node:process';
 
 // Detection order: first match wins
 const DETECTORS = [
@@ -63,6 +77,20 @@ export function detectFormatter(cwd) {
     }
   }
   return null;
+}
+
+/** Spawn timeout: HARNESS_FORMAT_CHECK_TIMEOUT_MS when valid, else `fallbackMs`. */
+function spawnTimeout(fallbackMs) {
+  const override = Number.parseInt(process.env.HARNESS_FORMAT_CHECK_TIMEOUT_MS ?? '', 10);
+  return Number.isFinite(override) && override > 0 ? override : fallbackMs;
+}
+
+/** Why a spawn produced no verdict: 'not-installed' | 'timeout' | 'failed'. */
+function infraReason(err) {
+  if (err?.code === 'ENOENT') return 'not-installed';
+  // execFileSync's timeout kills the child with a signal and sets ETIMEDOUT.
+  if (err?.code === 'ETIMEDOUT' || err?.signal) return 'timeout';
+  return 'failed';
 }
 
 /** Concatenate whatever a failed execFileSync left on stdout/stderr. */
@@ -120,7 +148,7 @@ export function runFormatCheck(input, cwd) {
       const result = execFileSync('gofmt', ['-l', filePath], {
         encoding: 'utf-8',
         cwd,
-        timeout: 10000,
+        timeout: spawnTimeout(10000),
       });
       if (result.trim()) {
         return {
@@ -132,12 +160,17 @@ export function runFormatCheck(input, cwd) {
       }
       return { status: 'clean', name: 'gofmt', output: '', message: 'gofmt check passed' };
     } catch (err) {
-      // gofmt not available or failed to run — fail open.
+      // gofmt not available, timed out, or failed to run — no verdict.
+      const reason = infraReason(err);
       return {
         status: 'infra-error',
+        reason,
         name: 'gofmt',
         output: errorOutput(err),
-        message: 'gofmt check failed (tool may not be installed)',
+        message:
+          reason === 'timeout'
+            ? 'gofmt check timed out before reporting a verdict'
+            : 'gofmt check failed (tool may not be installed)',
       };
     }
   }
@@ -152,7 +185,7 @@ export function runFormatCheck(input, cwd) {
     execFileSync(detector.cmd, detector.args, {
       encoding: 'utf-8',
       cwd,
-      timeout: 30000,
+      timeout: spawnTimeout(30000),
       stdio: ['pipe', 'pipe', 'pipe'],
     });
     return {
@@ -171,28 +204,28 @@ export function runFormatCheck(input, cwd) {
         message: `${detector.name} check reported issues:\n${output}`,
       };
     }
+    const reason = infraReason(err);
     return {
       status: 'infra-error',
+      reason,
       name: detector.name,
       output,
-      message: `${detector.name} check could not run (treated as non-blocking):\n${output}`,
+      message:
+        reason === 'timeout'
+          ? `${detector.name} check timed out before reporting a verdict`
+          : `${detector.name} check could not run (treated as non-blocking):\n${output}`,
     };
   }
 }
 
 /**
- * Read and parse hook stdin (the JSON event payload). Returns null when stdin
- * is empty or malformed so callers can fail open.
+ * Parse hook stdin (the JSON event payload) already read by the caller via
+ * read-hook-stdin.js. Returns null when it is empty or malformed so callers can
+ * fail open on a legitimately empty payload.
  *
- * @param {number} fd  File descriptor to read (0 = stdin).
+ * @param {string} raw
  */
-export function readHookInput(fd) {
-  let raw;
-  try {
-    raw = readFileSync(fd, 'utf-8');
-  } catch {
-    return null;
-  }
+export function parseHookInput(raw) {
   if (!raw.trim()) return null;
   try {
     return JSON.parse(raw);

@@ -1,6 +1,6 @@
 name: code-craft
 version: "0.1.0"
-description: LLM-judgment critique of code quality / readability (TS/JS source) — the ceiling counterpart to the rule-based code floor (entropy-cleaner for dead code / drift, enforce-architecture for boundaries + deps, complexity thresholds). Asks whether the code reveals intent and reads in the domain's language, whether the control flow is honest, whether a function tells one story at one altitude, whether each abstraction earns its keep, whether it is as simple as it could be, whether the signature keeps its promise, and whether a senior would nod or wince. Per-unit critique of functions, methods, and classes; identifier-level naming is delegated to naming-craft. Structural twin of harness-security-craft.
+description: LLM-judgment critique of code quality / readability (TypeScript, JavaScript, Python, Go, Rust and Java source) — the ceiling counterpart to the rule-based code floor (entropy-cleaner for dead code / drift, enforce-architecture for boundaries + deps, complexity thresholds). Asks whether the code reveals intent and reads in the domain's language, whether the control flow is honest, whether a function tells one story at one altitude, whether each abstraction earns its keep, whether it is as simple as it could be, whether the signature keeps its promise, and whether a senior would nod or wince. Per-unit critique of functions, methods, and classes; identifier-level naming is delegated to naming-craft. Structural twin of harness-security-craft.
 stability: draft
 cognitive_mode: constructive-architect
 triggers:
@@ -40,7 +40,7 @@ type: rigid
 tier: 2
 phases:
   - name: discover
-    description: Walk packages/STAR/src/ recursively; exclude tests + build dirs
+    description: Walk packages/STAR/src/ recursively, or src/ then app/ when the project has no packages/ dir; every extension in EXTENSION_MAP, not the TS/JS subset; exclude tests + build dirs
     required: true
   - name: units
     description: AST-driven extraction of substantive code units (functions, methods, classes); trivial units skipped
