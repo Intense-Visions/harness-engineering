@@ -1229,6 +1229,14 @@ export const ComprehensionConfigSchema = z.object({
   concurrency: z.number().int().positive().default(4),
   ci: z.enum(['verify', 'refresh', 'off']).default('verify'),
   /**
+   * #2063 — optional ceiling on the committed substrate's `semantic: absent`
+   * share, as a fraction in [0, 1]. Default unset ⇒ OFF: `comprehend --check`
+   * only WARNS with the ratio on `main`. When set, `--check` on the `main`
+   * context fails when the absent ratio strictly exceeds it. Never applies on
+   * `--context pr`, where static-only units are the designed outcome (ADR 0116 §4).
+   */
+  maxSemanticAbsentRatio: z.number().min(0).max(1).optional(),
+  /**
    * Opt-in git pre-commit hook (default OFF). When true, a config-gated,
    * static-only, NON-BLOCKING pre-commit step runs `harness comprehend --changed
    * --static --stage` so a source change lands with its refreshed comprehension

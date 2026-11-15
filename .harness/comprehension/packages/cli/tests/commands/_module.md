@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/tests/commands'
-sourceHash: '966196a8c1f73721eb699364c9c54af951e595a3c92a8e1dfe7597043fe95571'
+sourceHash: 'ff78d215d55b2c02d95be86a639776eb5592d811c8770b8dfb9acda5518dac14'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -397,7 +397,7 @@ import { runCrossCheck } from '../../src/commands/validate-cross-check'
 import { SCOPED_WALKERS, deriveChangedSurface, filterToDesignSurface } from '../../src/commands/validate-scope'
 import { createWaypointCommand } from '../../src/commands/waypoint'
 import { runComprehend, runComprehendCheck, runComprehendStats } from '../../src/comprehension/compile-run'
-import { resolveComprehensionCiMode } from '../../src/comprehension/config'
+import { readComprehensionConfig, resolveComprehensionCiMode } from '../../src/comprehension/config'
 import { shouldRunComprehendHook } from '../../src/comprehension/hook'
 import { committedSemanticAllowed } from '../../src/comprehension/policy'
 import { explainInactiveRefreshGate, resolveRefreshJobGate } from '../../src/comprehension/refresh-gate'

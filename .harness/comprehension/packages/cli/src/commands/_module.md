@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/commands'
-sourceHash: 'b2e575e75bc2ec7f9f90855be9a9500419a6f25e9284d30fd36ae8555feccee9'
+sourceHash: '201de2bc1b478aadd0030ecc3419c3dbda3bd8ee225e5b4b2a60ff1e29d979e5'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -428,7 +428,7 @@ import { AnatomyFinding } from '../audit/component-anatomy/findings/finding'
 import { BrandFinding } from '../brand/findings/finding'
 import { CliErgonomicsCraftInput, CliErgonomicsCraftOutput, runCliErgonomicsCraft } from '../cli-ergonomics-craft/index.js'
 import { CodeCraftInput, CodeCraftOutput, runCodeCraft } from '../code-craft/index.js'
-import { ComprehendRunResult, runComprehend, runComprehendCheck, runComprehendStats } from '../comprehension/compile-run'
+import { ComprehendCheckResult, ComprehendRunResult, runComprehend, runComprehendCheck, runComprehendStats } from '../comprehension/compile-run'
 import { comprehensionCli, comprehensionEndpoint, readComprehensionConfig, resolveComprehensionCiMode, selectSemanticModel } from '../comprehension/config'
 import { maybeCreateGenerateSemantic } from '../comprehension/generate-semantic'
 import { shouldRunComprehendHook } from '../comprehension/hook'
@@ -436,6 +436,7 @@ import { enumerateModules, filesToModules } from '../comprehension/invalidation'
 import { committedSemanticAllowed } from '../comprehension/policy'
 import { RefreshJobGateReason, explainInactiveRefreshGate, resolveRefreshJobGate } from '../comprehension/refresh-gate'
 import { RefReadDeps, RegressionContext, SemanticState, defaultRefReadDeps, detectCommittedSemanticOnBranch, detectSemanticRegressions, readSemanticMapAtRef } from '../comprehension/regression'
+import { assessSemanticCoverage, formatSemanticCoverage } from '../comprehension/semantic-coverage'
 import { createStaticExtractor } from '../comprehension/static-extractor'
 import { loadAnalysisExclude, loadDesignExclude } from '../config/analysis-schema.js'
 import { withDependencyRules } from '../config/arch-dependency-rules'
