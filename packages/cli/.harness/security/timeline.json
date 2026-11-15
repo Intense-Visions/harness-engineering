@@ -391,28 +391,6 @@
       },
       "suppressionCount": 0,
       "findingIds": []
-    },
-    {
-      "capturedAt": "2026-11-15T20:52:34.847Z",
-      "commitHash": "230ea293f2ac67d22bba30ad22b9bf95bdb99ed8",
-      "securityScore": 100,
-      "totalFindings": 0,
-      "bySeverity": {
-        "error": 0,
-        "warning": 0,
-        "info": 0
-      },
-      "byCategory": {},
-      "supplyChain": {
-        "critical": 0,
-        "high": 0,
-        "moderate": 0,
-        "low": 0,
-        "info": 0,
-        "total": 0
-      },
-      "suppressionCount": 0,
-      "findingIds": []
     }
   ],
   "findingLifecycles": [
