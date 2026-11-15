@@ -61,7 +61,7 @@ describe('attachSemantic', () => {
 
     expect(outcome.status).toBe('written');
     expect(store.writes).toHaveLength(1);
-    const written = store.writes[0];
+    const written = store.writes[0]!;
     expect(written.provenance.semantic).toBe('present');
     expect(written.provenance.model).toBe('test-agent');
     expect(written.summary).toBe(payload.summary);
@@ -106,8 +106,8 @@ describe('attachSemantic', () => {
     const deps: AttachSemanticDeps = { store, reader: fakeReader(SRC) };
     const outcome = await attachSemantic(MODULE, { summary: 'trivial', invariants: [] }, deps);
     expect(outcome.status).toBe('written');
-    expect(store.writes[0].invariants).toEqual([]);
-    expect(store.writes[0].provenance.model).toBeNull(); // no model provided
+    expect(store.writes[0]!.invariants).toEqual([]);
+    expect(store.writes[0]!.provenance.model).toBeNull(); // no model provided
   });
 
   it('rejects a summary containing an owned section heading (would corrupt the static half)', async () => {
@@ -168,7 +168,7 @@ describe('handlePutComprehension (envelope)', () => {
       deps
     );
     expect(res.isError).toBeUndefined();
-    const body = JSON.parse(res.content[0].text);
+    const body = JSON.parse(res.content[0]!.text);
     expect(body).toMatchObject({ module: MODULE, written: true, semantic: 'present' });
     expect(body.unit).toContain(payload.summary);
   });
@@ -179,7 +179,7 @@ describe('handlePutComprehension (envelope)', () => {
       { path: '/repo', module: MODULE, summary: 's', invariants: [] },
       deps
     );
-    const body = JSON.parse(res.content[0].text);
+    const body = JSON.parse(res.content[0]!.text);
     expect(body.written).toBe(false);
     expect(body.reason).toMatch(/get_comprehension/);
   });
@@ -261,7 +261,7 @@ describe('attachSemantic — ADR 0116 §1 single-writer policy', () => {
       deps
     );
     expect(res.isError).toBeUndefined();
-    const body = JSON.parse(res.content[0].text);
+    const body = JSON.parse(res.content[0]!.text);
     expect(body).toMatchObject({ module: MODULE, written: false, deferred: true });
   });
 });

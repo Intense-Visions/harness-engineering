@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'scripts'
-sourceHash: '947c8d5c67aa9f4add5f623293259ce3a1d1a1d010e0dadc726ea9f74d2203e1'
+sourceHash: '9f58af49f6e262e8f9523a513d4551adb8e65a10c97f02ee5a06c456da1c5370'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -87,6 +87,7 @@ export waitForVisibility
 
 ```
 import { assertBaselineOnly } from './lib/baseline-diff-guard.mjs'
+import { computePublicSymbols, diffSymbols, parseManifest, renderManifest } from './lib/core-public-symbols.mjs'
 import { assertDiffScope } from './lib/diff-scope-guard.mjs'
 import { STANDARD_HOOKS, getConfig } from './lib/plugin-config.mjs'
 import { execFileSync, execSync, spawn, spawnSync } from 'node:child_process'

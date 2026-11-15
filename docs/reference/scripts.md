@@ -68,7 +68,7 @@ Scans `packages/cli/src/commands/` for files exporting a `createXxxCommand()` fu
 
 [`scripts/generate-core-barrel.mjs`](/scripts/generate-core-barrel.mjs)
 
-Regenerates the public barrel at `packages/core/src/index.ts` by star-exporting every directory that has an `index.ts`. Directories listed in the hand-maintained selective-export table are excluded from auto-discovery and get explicit export blocks instead — a new symbol in one of those modules is not exported until that table is edited. `--check` gates freshness in CI.
+Regenerates the public barrel at `packages/core/src/index.ts` by star-exporting every directory that has an `index.ts`. Directories listed in the hand-maintained selective-export table are excluded from auto-discovery and get explicit export blocks instead — a new symbol in one of those modules is not exported until that table is edited. It also writes `packages/core/public-symbols.txt`, the barrel's export names resolved through every `export *` chain, because a symbol published behind `export *` leaves the barrel text byte-identical. `--check` fails on a stale barrel or on any added/removed public symbol, and runs in CI and the pre-push hook.
 
 ## scripts/generate-docs.mjs
 
@@ -101,6 +101,12 @@ Boots the live MCP tool definitions from the built CLI dist together with every 
 The pure, unit-testable decision behind the baseline-refresh self-approval guard. It delegates to the shared scope check as a pure exact-match case, because two of the baseline files are bare `baselines.json` paths that a glob pattern would wrongly exclude. The allowlist is passed in by the workflow so there is a single source of truth.
 
 **Exports:** `assertBaselineOnly`
+
+## scripts/lib/core-public-symbols.mjs
+
+[`scripts/lib/core-public-symbols.mjs`](/scripts/lib/core-public-symbols.mjs)
+
+Resolves the export names of `@harness-engineering/core`'s barrel through the TypeScript checker (following `export *`, mapping workspace packages to source so a stale dist cannot change the answer) and renders, parses and diffs the `packages/core/public-symbols.txt` manifest that `generate-core-barrel.mjs --check` compares against.
 
 ## scripts/lib/diff-scope-guard.mjs
 

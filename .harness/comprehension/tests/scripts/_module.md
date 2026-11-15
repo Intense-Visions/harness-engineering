@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'tests/scripts'
-sourceHash: '80c467b791549466971572ad30554b931f32f0a7a73f60c31cf87f65a2323696'
+sourceHash: '554cae9e474d182f52929d2d84b419d504bfd367c6836b6d4990fa879d529860'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -11,6 +11,7 @@ members:
     'audit-exceptions.test.mjs',
     'baseline-gating.test.mjs',
     'check-changesets.test.mjs',
+    'core-public-symbols.test.mjs',
     'design-capture.test.mjs',
     'ensure-node-pin.test.mjs',
     'generate-barrel-exports.test.ts',
@@ -42,13 +43,14 @@ import { mergeBenchmarkBaselines } from '../../scripts/benchmark-check.mjs'
 import { parseChangesetFrontmatter } from '../../scripts/check-changesets.mjs'
 import { evaluateCoverage, mergeCoverageBaselines, pruneCoverageSummaries, toleranceFor } from '../../scripts/coverage-ratchet.mjs'
 import { baseUrl, pageFiles, parseTargetFiles, slugForFile } from '../../scripts/design-capture.mjs'
+import { computePublicSymbols, diffSymbols, parseManifest, renderManifest } from '../../scripts/lib/core-public-symbols.mjs'
 import { PLUGIN_CONFIGS, getConfig } from '../../scripts/lib/plugin-config.mjs'
 import { ALARM_LABEL, ALARM_MARKER, EXIT, decideAction, deliverAlarm, evaluateHealth, fetchRuns, findOpenAlarmIssue, renderIssueBody, renderSummary, selectDecisiveRuns } from '../../scripts/main-health-check.mjs'
 import { classifyPublish, parsePublishOutput, registryUrl, runRelease, waitForVisibility } from '../../scripts/release-publish.mjs'
 import { MANIFEST_PATHS, findPinnedVersion, readCliVersion, syncManifestContent } from '../../scripts/sync-plugin-pin.mjs'
 import assert from 'node:assert/strict'
 import { execFileSync, spawnSync } from 'node:child_process'
-import { chmodSync, copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
+import { appendFileSync, chmodSync, copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path, { dirname, join, resolve } from 'node:path'
 import { test } from 'node:test'

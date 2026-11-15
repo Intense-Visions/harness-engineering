@@ -140,3 +140,8 @@ pnpm run generate:tool-catalog:check
 # Unscoped on purpose: ~18s, and a path filter would have to track every input
 # the generator reads; a missed one would silently skip the check.
 pnpm run generate:plugin:check
+# Barrels (cli command registry + core barrel) AND the core public-symbol
+# manifest must match their sources (#2473). The symbol half catches a public
+# export added or removed behind `export *`, which leaves the barrel text
+# byte-identical. Unscoped for the same reason as the plugin check (~4s).
+pnpm run generate:barrels:check
