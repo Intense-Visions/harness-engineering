@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import * as path from 'node:path';
 
 const mockDiscover = vi.fn();
 const mockRun = vi.fn();
@@ -6,6 +7,8 @@ const mockBaselineLoad = vi.fn();
 const mockBaselineSave = vi.fn();
 const mockResolve = vi.fn();
 const mockAnalyze = vi.fn();
+const analyzerCtorArgs: unknown[] = [];
+const mockResolveProject = vi.fn();
 
 vi.mock('@harness-engineering/core', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@harness-engineering/core')>();
@@ -28,7 +31,9 @@ vi.mock('@harness-engineering/core', async (importOriginal) => {
 
   class MockEntropyAnalyzer {
     analyze = mockAnalyze;
-    constructor(_opts: unknown) {}
+    constructor(opts: unknown) {
+      analyzerCtorArgs.push(opts);
+    }
   }
 
   return {
@@ -48,11 +53,22 @@ vi.mock('node:child_process', async (importOriginal) => {
   };
 });
 
+vi.mock('../../src/config/loader', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../src/config/loader')>();
+  return {
+    ...actual,
+    resolveProject: (...args: unknown[]) => mockResolveProject(...args),
+  };
+});
+
 import { createPerfCommand } from '../../src/commands/perf';
+import { ExitCode } from '../../src/utils/errors';
 
 describe('perf command', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    analyzerCtorArgs.length = 0;
+    mockResolveProject.mockReturnValue({ ok: false, error: new Error('no config') });
   });
 
   describe('createPerfCommand', () => {
@@ -267,6 +283,101 @@ describe('perf command', () => {
         }
       });
       expect(jsonCalls.length).toBeGreaterThan(0);
+      logSpy.mockRestore();
+    });
+  });
+  // #2084: a failed analysis used to log and return, so `perf report` exited 0
+  // over an analysis that never ran.
+  describe('report subcommand', () => {
+    function stubExit() {
+      return vi.spyOn(process, 'exit').mockImplementation(((code?: number) => {
+        throw new Error(`process.exit(${code})`);
+      }) as never);
+    }
+
+    it('exits non-zero in text mode when the analysis fails', async () => {
+      mockAnalyze.mockResolvedValue({
+        ok: false,
+        error: { message: 'Could not resolve entry points' },
+      });
+      const exitSpy = stubExit();
+      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+      const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+
+      const cmd = createPerfCommand();
+      await expect(cmd.parseAsync(['report'], { from: 'user' })).rejects.toThrow(
+        `process.exit(${ExitCode.ERROR})`
+      );
+      expect(exitSpy).toHaveBeenCalledWith(ExitCode.ERROR);
+
+      exitSpy.mockRestore();
+      errorSpy.mockRestore();
+      logSpy.mockRestore();
+    });
+
+    it('exits non-zero and emits a JSON error object in --json mode when the analysis fails', async () => {
+      mockAnalyze.mockResolvedValue({
+        ok: false,
+        error: { message: 'Could not resolve entry points' },
+      });
+      const exitSpy = stubExit();
+      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+      const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+
+      const cmd = createPerfCommand();
+      cmd.option('--json', 'JSON output');
+      await expect(cmd.parseAsync(['--json', 'report'], { from: 'user' })).rejects.toThrow(
+        `process.exit(${ExitCode.ERROR})`
+      );
+      expect(exitSpy).toHaveBeenCalledWith(ExitCode.ERROR);
+      const jsonOut = logSpy.mock.calls
+        .map((c) => {
+          try {
+            return JSON.parse(String(c[0]));
+          } catch {
+            return undefined;
+          }
+        })
+        .find((v) => v !== undefined);
+      expect(jsonOut).toEqual({ error: 'Could not resolve entry points' });
+
+      exitSpy.mockRestore();
+      errorSpy.mockRestore();
+      logSpy.mockRestore();
+    });
+
+    it('passes configured performance.entryPoints to the analyzer', async () => {
+      mockResolveProject.mockReturnValue({
+        ok: true,
+        value: {
+          config: { performance: { entryPoints: ['packages/a/src/index.ts'] } },
+          configPath: '/proj/harness.config.json',
+          root: '/proj',
+        },
+      });
+      mockAnalyze.mockResolvedValue({ ok: true, value: {} });
+      const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+
+      const cmd = createPerfCommand();
+      await cmd.parseAsync(['report'], { from: 'user' });
+
+      expect(analyzerCtorArgs).toHaveLength(1);
+      expect(analyzerCtorArgs[0]).toMatchObject({
+        rootDir: path.resolve('/proj'),
+        entryPoints: ['packages/a/src/index.ts'],
+      });
+      logSpy.mockRestore();
+    });
+
+    it('leaves entry points to auto-detection when none are configured', async () => {
+      mockAnalyze.mockResolvedValue({ ok: true, value: {} });
+      const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+
+      const cmd = createPerfCommand();
+      await cmd.parseAsync(['report'], { from: 'user' });
+
+      expect(analyzerCtorArgs).toHaveLength(1);
+      expect(analyzerCtorArgs[0]).not.toHaveProperty('entryPoints');
       logSpy.mockRestore();
     });
   });
