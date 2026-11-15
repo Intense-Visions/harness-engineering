@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'tests/scripts'
-sourceHash: '80c467b791549466971572ad30554b931f32f0a7a73f60c31cf87f65a2323696'
+sourceHash: '8f3ce31c7b40aeb511ff4c96a37b50a2f89d1bd9384835508bea516b736f6bbe'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -16,6 +16,7 @@ members:
     'generate-barrel-exports.test.ts',
     'generate-docs-determinism.test.ts',
     'main-health-check.test.mjs',
+    'persona-workflow-paths.test.mjs',
     'plugin-antigravity-target.test.mjs',
     'plugin-pin-sync.test.mjs',
     'precommit-plugin-stage.test.mjs',
@@ -54,5 +55,5 @@ import path, { dirname, join, resolve } from 'node:path'
 import { test } from 'node:test'
 import { fileURLToPath } from 'node:url'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { parseYaml } from 'yaml'
+import { parse, parseYaml } from 'yaml'
 ```
