@@ -139,3 +139,8 @@ milestones:
 - **Assignee:** Chad Warner
 - **Action:** unassigned
 - **Date:** 2026-11-15
+
+- **Feature:** Trusted autonomy mode
+- **Assignee:** Chad Warner
+- **Action:** unassigned
+- **Date:** 2026-11-15
