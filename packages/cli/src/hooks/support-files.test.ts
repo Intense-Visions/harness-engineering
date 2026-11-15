@@ -23,6 +23,7 @@ describe('HOOK_SUPPORT_FILES registry', () => {
     // Extracted in #994; each hook below `import`s './read-hook-stdin.js'.
     for (const name of [
       'block-no-verify',
+      'autonomy-guard',
       'protect-config',
       'cost-tracker',
       'sentinel-pre',

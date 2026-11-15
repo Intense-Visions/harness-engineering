@@ -9,7 +9,7 @@ import { Command } from 'commander';
 import * as fs from 'fs';
 import * as path from 'path';
 import type { Result } from '@harness-engineering/core';
-import { Ok, Err } from '@harness-engineering/core';
+import { Ok, Err, AUTO_DECISIONS_FILE } from '@harness-engineering/core';
 import { logger } from '../output/logger';
 import { CLIError, ExitCode } from '../utils/errors';
 import { resolveConfig } from '../config/loader';
@@ -47,9 +47,11 @@ interface CleanupSessionsOptions {
   dryRun?: boolean;
 }
 
-interface CleanupSessionsResult {
+export interface CleanupSessionsResult {
   removed: string[];
   kept: string[];
+  /** Stale sessions kept only because they hold a non-empty auto-decision log (review N4); a subset of kept. */
+  retained: string[];
 }
 
 function getMostRecentMtime(dirPath: string): number {
@@ -70,6 +72,27 @@ function getMostRecentMtime(dirPath: string): number {
   return latest;
 }
 
+/**
+ * A session whose auto-decision log is non-empty is never TTL-swept (review I2): the log is the
+ * audit trail of decisions an agent took on its own, and must outlive the session's working
+ * files. Archive it (or delete it by hand) instead.
+ */
+function holdsAutoDecisionLog(entryPath: string): boolean {
+  try {
+    return fs.statSync(path.join(entryPath, AUTO_DECISIONS_FILE)).size > 0;
+  } catch {
+    return false;
+  }
+}
+
+type SweepVerdict = 'remove' | 'keep' | 'retain';
+
+/** Stale entries are removed unless they hold an auto-decision log, which retains them (review I2/N4). */
+function sweepVerdict(entryPath: string, ageMs: number, ttlMs: number): SweepVerdict {
+  if (ageMs <= ttlMs) return 'keep';
+  return holdsAutoDecisionLog(entryPath) ? 'retain' : 'remove';
+}
+
 export async function runCleanupSessions(
   options: CleanupSessionsOptions
 ): Promise<Result<CleanupSessionsResult, CLIError>> {
@@ -77,7 +100,7 @@ export async function runCleanupSessions(
   const dryRun = options.dryRun ?? false;
   const sessionsDir = path.join(cwd, '.harness', 'sessions');
 
-  const result: CleanupSessionsResult = { removed: [], kept: [] };
+  const result: CleanupSessionsResult = { removed: [], kept: [], retained: [] };
 
   if (!fs.existsSync(sessionsDir)) {
     return Ok(result);
@@ -100,25 +123,24 @@ export async function runCleanupSessions(
   for (const entry of entries) {
     if (!entry.isDirectory()) continue;
     const sessionPath = path.join(sessionsDir, entry.name);
-    const mostRecent = getMostRecentMtime(sessionPath);
-    const ageMs = now - mostRecent;
-
-    if (ageMs > STALE_TTL_MS) {
-      result.removed.push(entry.name);
-      if (!dryRun) {
-        try {
-          fs.rmSync(sessionPath, { recursive: true, force: true });
-        } catch (err) {
-          return Err(
-            new CLIError(
-              `Failed to remove session ${entry.name}: ${err instanceof Error ? err.message : String(err)}`,
-              ExitCode.ERROR
-            )
-          );
-        }
-      }
-    } else {
+    const verdict = sweepVerdict(sessionPath, now - getMostRecentMtime(sessionPath), STALE_TTL_MS);
+    if (verdict !== 'remove') {
       result.kept.push(entry.name);
+      if (verdict === 'retain') result.retained.push(entry.name);
+      continue;
+    }
+    result.removed.push(entry.name);
+    if (!dryRun) {
+      try {
+        fs.rmSync(sessionPath, { recursive: true, force: true });
+      } catch (err) {
+        return Err(
+          new CLIError(
+            `Failed to remove session ${entry.name}: ${err instanceof Error ? err.message : String(err)}`,
+            ExitCode.ERROR
+          )
+        );
+      }
     }
   }
 
@@ -131,10 +153,14 @@ function printSessionList(label: string, sessions: string[]): void {
   for (const s of sessions) console.log(`  - ${s}`);
 }
 
-function printResult(result: CleanupSessionsResult, dryRun: boolean, asJson: boolean): void {
+export function printCleanupSessionsResult(
+  result: CleanupSessionsResult,
+  dryRun: boolean,
+  asJson: boolean
+): void {
   const { removed, kept } = result;
   if (asJson) {
-    console.log(JSON.stringify({ removed, kept, dryRun }, null, 2));
+    console.log(JSON.stringify({ removed, kept, retained: result.retained, dryRun }, null, 2));
     return;
   }
   if (removed.length === 0 && kept.length === 0) {
@@ -144,6 +170,7 @@ function printResult(result: CleanupSessionsResult, dryRun: boolean, asJson: boo
   const removeLabel = dryRun ? 'Stale (would remove)' : 'Removed';
   printSessionList(removeLabel, removed);
   printSessionList('Kept', kept);
+  printSessionList('Kept because it holds an auto-decision log', result.retained);
   if (!dryRun && removed.length > 0) {
     console.log(`\nCleaned up ${removed.length} stale session(s).`);
   }
@@ -159,6 +186,8 @@ export interface CleanupTargetResult {
   target: string;
   removed: string[];
   kept: string[];
+  /** Stale sessions kept only because they hold a non-empty auto-decision log (review N4); a subset of kept. */
+  retained: string[];
 }
 
 export interface CleanupAllOptions {
@@ -211,10 +240,11 @@ async function sweepDirectory(
   dir: string,
   ttlMs: number,
   dryRun: boolean
-): Promise<Result<{ removed: string[]; kept: string[] }, CLIError>> {
+): Promise<Result<{ removed: string[]; kept: string[]; retained: string[] }, CLIError>> {
   const removed: string[] = [];
   const kept: string[] = [];
-  if (!fs.existsSync(dir)) return Ok({ removed, kept });
+  const retained: string[] = [];
+  if (!fs.existsSync(dir)) return Ok({ removed, kept, retained });
 
   let entries: fs.Dirent[];
   try {
@@ -231,26 +261,27 @@ async function sweepDirectory(
   const now = Date.now();
   for (const entry of entries) {
     const entryPath = path.join(dir, entry.name);
-    const ageMs = now - mtimeOf(entryPath);
-    if (ageMs > ttlMs) {
-      removed.push(entry.name);
-      if (!dryRun) {
-        try {
-          fs.rmSync(entryPath, { recursive: true, force: true });
-        } catch (err) {
-          return Err(
-            new CLIError(
-              `Failed to remove ${entryPath}: ${err instanceof Error ? err.message : String(err)}`,
-              ExitCode.ERROR
-            )
-          );
-        }
-      }
-    } else {
+    const verdict = sweepVerdict(entryPath, now - mtimeOf(entryPath), ttlMs);
+    if (verdict !== 'remove') {
       kept.push(entry.name);
+      if (verdict === 'retain') retained.push(entry.name);
+      continue;
+    }
+    removed.push(entry.name);
+    if (!dryRun) {
+      try {
+        fs.rmSync(entryPath, { recursive: true, force: true });
+      } catch (err) {
+        return Err(
+          new CLIError(
+            `Failed to remove ${entryPath}: ${err instanceof Error ? err.message : String(err)}`,
+            ExitCode.ERROR
+          )
+        );
+      }
     }
   }
-  return Ok({ removed, kept });
+  return Ok({ removed, kept, retained });
 }
 
 function mtimeOf(target: string): number {
@@ -263,7 +294,11 @@ function mtimeOf(target: string): number {
   }
 }
 
-function printAllResult(results: CleanupTargetResult[], dryRun: boolean, asJson: boolean): void {
+export function printCleanupAllResult(
+  results: CleanupTargetResult[],
+  dryRun: boolean,
+  asJson: boolean
+): void {
   if (asJson) {
     console.log(JSON.stringify({ results, dryRun }, null, 2));
     return;
@@ -276,8 +311,10 @@ function printAllResult(results: CleanupTargetResult[], dryRun: boolean, asJson:
       continue;
     }
     const verb = dryRun ? 'would remove' : 'removed';
+    const held =
+      r.retained.length > 0 ? `, ${r.retained.length} kept for an auto-decision log` : '';
     console.log(
-      `[cleanup] ${r.target.padEnd(18)} ${String(total).padStart(3)} entries  ${r.removed.length} ${verb}`
+      `[cleanup] ${r.target.padEnd(18)} ${String(total).padStart(3)} entries  ${r.removed.length} ${verb}${held}`
     );
     totalRemoved += r.removed.length;
   }
@@ -340,7 +377,7 @@ async function runExtendedSweep(
     process.exit(result.error.exitCode);
     return;
   }
-  printAllResult(result.value, Boolean(opts.dryRun), asJson);
+  printCleanupAllResult(result.value, Boolean(opts.dryRun), asJson);
   process.exit(ExitCode.SUCCESS);
 }
 
@@ -355,6 +392,6 @@ async function runSessionsOnlySweep(
     process.exit(result.error.exitCode);
     return;
   }
-  printResult(result.value, Boolean(opts.dryRun), asJson);
+  printCleanupSessionsResult(result.value, Boolean(opts.dryRun), asJson);
   process.exit(ExitCode.SUCCESS);
 }

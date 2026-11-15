@@ -879,6 +879,40 @@ Run an agent task
 - `--persona` — Run a persona by name
 - `--trigger` — Trigger context (auto, on_pr, on_commit, manual) (default: "auto")
 
+## Autonomy Commands
+
+Show, set, or review autonomy. Only ~/.harness/config.json or an interactive `autonomy set` can raise it; environment variables (including a project .env) can only lower it
+
+### `harness autonomy log`
+
+Summarize a session’s auto-decisions: counts by class, audited N/M, agreement rate, escalations
+
+**Options:**
+
+- `--session` — Session whose auto-decisions.jsonl to read
+
+### `harness autonomy set [level]`
+
+Set the session autonomy override (raising requires an interactive terminal)
+
+**Arguments:**
+
+- `level` (optional) — supervised | trusted (omit to change only --audit)
+
+**Options:**
+
+- `--session` — Session slug to override
+- `--audit` — Self-audit on judgment forks
+- `--for` — How long a raise lasts, e.g. 90m, 2h, 7d (default 24h)
+
+### `harness autonomy show`
+
+Show the resolved autonomy level and audit setting, and the source of each
+
+**Options:**
+
+- `--session` — Include this session’s override
+
 ## Black-box Commands
 
 Inspect durable per-run orchestrator flight records (provenance, verdicts, tool-use)

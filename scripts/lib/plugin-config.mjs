@@ -119,6 +119,7 @@ export const PLUGIN_CONFIGS = {
 // Filtered to the `standard` profile (default).
 export const STANDARD_HOOKS = [
   { name: 'block-no-verify', event: 'PreToolUse', matcher: 'Bash' },
+  { name: 'autonomy-guard', event: 'PreToolUse', matcher: 'Bash|Write|Edit|MultiEdit' },
   { name: 'protect-config', event: 'PreToolUse', matcher: 'Write|Edit' },
   { name: 'quality-warner', event: 'PostToolUse', matcher: 'Edit|Write' },
   { name: 'pre-compact-state', event: 'PreCompact', matcher: '*' },

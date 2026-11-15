@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/tests/commands'
-sourceHash: 'f4d37b29f2dc2afb28f18881d398bb9389051ae11f9dd5b8cd02cc164f7f4dfc'
+sourceHash: '966196a8c1f73721eb699364c9c54af951e595a3c92a8e1dfe7597043fe95571'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -22,6 +22,12 @@ members:
     'api-craft-cov544.test.ts',
     'audit-protected-cov544b.test.ts',
     'audit-protected.test.ts',
+    'autonomy-command.test.ts',
+    'autonomy-log.test.ts',
+    'autonomy-project-root.test.ts',
+    'autonomy-set-eof.test.ts',
+    'autonomy-set.test.ts',
+    'autonomy-show.test.ts',
     'backfill-skill-provenance.test.ts',
     'bugfleet-publish-analyses-prefix-crosstalk.test.ts',
     'check-arch-dependency-rules.test.ts',
@@ -245,6 +251,7 @@ import { CliErgonomicsCraftOutput, CliErgonomicsFinding } from '../../src/cli-er
 import { CliErgonomicsCraftInput, runCliErgonomicsCraft } from '../../src/cli-ergonomics-craft/index.js'
 import { CodeCraftOutput, CodeFinding } from '../../src/code-craft/findings/schema.js'
 import { CodeCraftInput, runCodeCraft } from '../../src/code-craft/index.js'
+import { commandCreators } from '../../src/commands/_registry'
 import { createAddCommand, runAdd } from '../../src/commands/add'
 import { createAdoptionCommand } from '../../src/commands/adoption'
 import { createAgentCommand } from '../../src/commands/agent'
@@ -253,6 +260,10 @@ import { createRunCommand, runAgentTask } from '../../src/commands/agent/run'
 import { createAlignDesignSystemCommand } from '../../src/commands/align-design-system'
 import { createApiCraftCommand } from '../../src/commands/api-craft'
 import { createAuditProtectedCommand, runAuditProtected } from '../../src/commands/audit-protected'
+import { createAutonomyCommand } from '../../src/commands/autonomy/index'
+import { createAutonomyLogCommand, formatAutonomyLog, runAutonomyLog } from '../../src/commands/autonomy/log'
+import { createAutonomySetCommand, defaultIsInteractive, runAutonomySet } from '../../src/commands/autonomy/set'
+import { createAutonomyShowCommand, formatAutonomy, runAutonomyShow } from '../../src/commands/autonomy/show'
 import { runBackfillSkillProvenance } from '../../src/commands/backfill-skill-provenance'
 import { ArchMeasurement, ConfiguredCategories, abstainedMeasurements, abstentionReason, classifyMeasurement, createCheckArchCommand, runCheckArch } from '../../src/commands/check-arch'
 import { createCheckDeploymentCommand, runCheckDeployment } from '../../src/commands/check-deployment'
@@ -267,7 +278,7 @@ import { createCheckSecurityCommand, runCheckSecurity } from '../../src/commands
 import { createCheckVocabularyCommand, runCheckVocabulary } from '../../src/commands/check-vocabulary'
 import '../../src/commands/ci/check'
 import { createCleanupCommand, printCleanupResult, runCleanup } from '../../src/commands/cleanup'
-import { createCleanupSessionsCommand, runCleanupAll, runCleanupSessions } from '../../src/commands/cleanup-sessions'
+import { createCleanupSessionsCommand, printCleanupAllResult, printCleanupSessionsResult, runCleanupAll, runCleanupSessions } from '../../src/commands/cleanup-sessions'
 import { createCliErgonomicsCraftCommand } from '../../src/commands/cli-ergonomics-craft'
 import { createCodeCraftCommand } from '../../src/commands/code-craft'
 import { runCompoundScanCandidatesCommand } from '../../src/commands/compound/scan-candidates'
@@ -410,16 +421,19 @@ import { NETWORK_TOOL_NAMES, deriveScope, deriveToolCapabilities, deriveToolCapa
 import { TOOL_CAPABILITY_DECLARATIONS } from '../../src/mcp/tool-capability-declarations'
 import { runAnatomyAudit, runComponentAnatomyAudit } from '../../src/mcp/tools/audit-anatomy'
 import { runAuditBrand } from '../../src/mcp/tools/audit-brand'
+import { handleRecordAutoDecision } from '../../src/mcp/tools/auto-decision'
 import { runDesignCraft } from '../../src/mcp/tools/design-craft'
 import { runDetectDrift } from '../../src/mcp/tools/detect-drift'
+import { handleGatherContext } from '../../src/mcp/tools/gather-context'
 import { handleGetImpact } from '../../src/mcp/tools/graph/index'
 import { runInstructionDensityAudit } from '../../src/mcp/tools/instruction-density'
+import { handleManageState } from '../../src/mcp/tools/state'
 import { resolveAnalysisProvider } from '../../src/mcp/utils/analysis-provider'
 import '../../src/mcp/utils/graph-loader'
 import { NamingCraftInput, NamingCraftOutput } from '../../src/naming-craft/index.js'
 import { OutputFormatter, OutputMode } from '../../src/output/formatter'
 import { logger } from '../../src/output/logger'
-import { prompt } from '../../src/output/prompt'
+import { confirmYesNo, prompt } from '../../src/output/prompt'
 import { loadPersona } from '../../src/persona/loader'
 import { runPersona } from '../../src/persona/runner'
 import { getBundledSkillNames } from '../../src/registry/bundled-skills'
@@ -448,7 +462,7 @@ import { CraftCommandRun, DEFAULT_CWD, runCraftCommand } from './craft-command-h
 import { llmCalls, runCraftCommand } from './craft-command-harness.js'
 import { parseJsonStdout, runCommand } from './design-command-harness'
 import * as clack from '@clack/prompts'
-import { ArchConfigSchema, CiReviewResult, ConstraintError, DEFAULT_REMOTE_URL, DiffInfo, Err, GoldenFileChange, GoldenSnapshot, Ok, RefinementDemandReport, RollbackDecision, RunCiReviewOptions, SECURITY_SCAN_EXTENSIONS, SECURITY_SCAN_GLOB, applyFixes, archiveStream, buildSnapshot, checkTaint, clearTaint, createError, createFixes, createModelProposal, createProposal, createStream, detectDeadCode, detectDocDrift, extractBundle, generateSuggestions, listStreams, listTaintedSessions, loadStreamIndex, parseCiReviewVerdict, parseDiff, parseManifest, readAdoptionRecords, requestPeerReview, resetWaypointEmitterForTests, runReviewPipeline, setActiveStream, validateAgentConfigs, validateAgentsMap, validateDecisionNumbers, validateKnowledgeMap, validatePulseConfig, validateRoadmapMode, validateSolutionsDir, validateStrategy, writeConfig } from '@harness-engineering/core'
+import { ArchConfigSchema, CiReviewResult, ConstraintError, DEFAULT_REMOTE_URL, DiffInfo, Err, GoldenFileChange, GoldenSnapshot, Ok, RefinementDemandReport, RollbackDecision, RunCiReviewOptions, SECURITY_SCAN_EXTENSIONS, SECURITY_SCAN_GLOB, applyFixes, archiveStream, buildSnapshot, checkTaint, clearTaint, computeRepoKey, createError, createFixes, createModelProposal, createProposal, createStream, detectDeadCode, detectDocDrift, extractBundle, generateSuggestions, listStreams, listTaintedSessions, loadStreamIndex, parseCiReviewVerdict, parseDiff, parseManifest, readAdoptionRecords, requestPeerReview, resetWaypointEmitterForTests, runReviewPipeline, sessionOverridePath, setActiveStream, validateAgentConfigs, validateAgentsMap, validateDecisionNumbers, validateKnowledgeMap, validatePulseConfig, validateRoadmapMode, validateSolutionsDir, validateStrategy, writeConfig, writeSessionOverride } from '@harness-engineering/core'
 import '@harness-engineering/graph'
 import { GUARDIAN_ANALYSIS_SCHEMA, GUARDIAN_ANALYSIS_VERSION, GuardianAnalysis, OutcomeVerdict, SkillRegressionFixture, SkillRegressionVerdict } from '@harness-engineering/intelligence'
 import { AnalysisRecord, MockBackend, RunMode, RunResult, SyncMainResult, TaskDefinition, renderAnalysisComment } from '@harness-engineering/orchestrator'
@@ -471,6 +485,7 @@ import * as os from 'node:os'
 import path, { join } from 'node:path'
 import * as nodePath from 'node:path'
 import * as path from 'node:path'
+import { PassThrough } from 'node:stream'
 import { mockedSetTimeout } from 'node:timers'
 import { fileURLToPath } from 'node:url'
 import * as os from 'os'

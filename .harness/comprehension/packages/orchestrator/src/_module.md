@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/orchestrator/src'
-sourceHash: 'a8368e5b806f1ce6c06329a8293e2b7038b63ad01e8e31374377e30e0fc8c622'
+sourceHash: 'a47c0a3cee90e8e9eca8df590a30f9c6a6f4564efb589d9558371dd61b34153b'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -229,6 +229,7 @@ import { AnalysisArchive } from './core/analysis-archive'
 import { getBudgetStatus } from './core/budget-governor'
 import { ClaimManager } from './core/claim-manager'
 import { FlightRecorder, Verdict, gatherProvenance } from './core/flight-recorder'
+import { readHumanDecisionBlockers } from './core/human-decision-blockers'
 import { applyEvent, isEligible, selectCandidates } from './core/index.js'
 import { InteractionQueue } from './core/interaction-queue'
 import { OrchestratorLaneSignal, PersistedLanes, persistLane, readPersistedLanes } from './core/lane-persistence'

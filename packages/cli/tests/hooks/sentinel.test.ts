@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { execSync, spawnSync } from 'node:child_process';
-import { mkdirSync, rmSync, writeFileSync, existsSync } from 'node:fs';
+import { mkdirSync, rmSync, writeFileSync, existsSync, readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 
 const PROJECT_ROOT = resolve(import.meta.dirname, '../../../..');
@@ -405,5 +405,17 @@ describe('SC13: hook profile includes sentinel', () => {
     const { PROFILES } = await import('../../src/hooks/profiles');
     expect(PROFILES.minimal).not.toContain('sentinel-pre');
     expect(PROFILES.minimal).not.toContain('sentinel-post');
+  });
+});
+
+describe('sentinel-post inline INJ-UNI-001 parity', () => {
+  it('matches core ZERO_WIDTH_PATTERN source and flags exactly', async () => {
+    const { getInjectionPatterns } = await import('@harness-engineering/core');
+    const core = getInjectionPatterns().find((p) => p.ruleId === 'INJ-UNI-001')!.pattern;
+    const hookSource = readFileSync(join(HOOKS_DIR, 'sentinel-post.js'), 'utf-8');
+    const line = hookSource.split('\n').find((l) => l.includes("ruleId: 'INJ-UNI-001'"))!;
+    const literal = /pattern: \/(.*)\/([a-z]*) \},$/.exec(line.trim())!;
+    expect(literal[1]).toBe(core.source);
+    expect(literal[2]).toBe(core.flags);
   });
 });

@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/tests/mcp/tools'
-sourceHash: '79950e50c01bdcc1f234b736d0eea7eab67a771e75f8e7827696d6934a6efd52'
+sourceHash: '2eb3f5b3daa251c8dcd6c89d73d12243b175ffd54d8a0434715a4a4c563a1017'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -18,6 +18,8 @@ members:
     'assess-project-cov544.test.ts',
     'assess-project-error-handling.test.ts',
     'assess-project.test.ts',
+    'auto-decision.test.ts',
+    'autonomy-sc7-e2e.test.ts',
     'brainstorming-file-less-smoke.test.ts',
     'ci-abstention.test.ts',
     'cli-ergonomics-craft.test.ts',
@@ -41,6 +43,7 @@ members:
     'event-emitter.test.ts',
     'events-jsonl-retired.guard.test.ts',
     'feedback.test.ts',
+    'gather-context-autonomy.test.ts',
     'gather-context-comprehension.test.ts',
     'gather-context-cov544.test.ts',
     'gather-context-extra.test.ts',
@@ -100,6 +103,7 @@ members:
     'state-events.test.ts',
     'state-extra.test.ts',
     'state-sc1-guard.test.ts',
+    'state-set-autonomy.test.ts',
     'state.test.ts',
     'task-independence.test.ts',
     'test-craft.test.ts',
@@ -124,6 +128,7 @@ export writeShardedProject
 ```
 import { computeLoadPlan } from '../../../../core/src/context/progressive-loader'
 import { extractLevel } from '../../../../core/src/context/section-parser'
+import { runAutonomyShow } from '../../../src/commands/autonomy/show'
 import { findConfigFile, loadConfig } from '../../../src/config/loader'
 import { MockLlmProvider } from '../../../src/design-craft/llm/provider.js'
 import { resolveDocsPublishConnector } from '../../../src/docs-publish/index'
@@ -135,6 +140,7 @@ import { addComponentDefinition, handleAddComponent, handleRunAgentTask, runAgen
 import { apiCraftDefinition, apiCraftFinalizeDefinition, handleApiCraft, handleApiCraftFinalize } from '../../../src/mcp/tools/api-craft'
 import { checkDependenciesDefinition, handleCheckDependencies } from '../../../src/mcp/tools/architecture'
 import { assessProjectDefinition, handleAssessProject, parseToolResponse, resolveLintCommand } from '../../../src/mcp/tools/assess-project'
+import { handleRecordAutoDecision, recordAutoDecisionDefinition } from '../../../src/mcp/tools/auto-decision'
 import { handleRunCIChecks, runCIChecksDefinition } from '../../../src/mcp/tools/ci'
 import { cliErgonomicsCraftDefinition, cliErgonomicsCraftFinalizeDefinition, handleCliErgonomicsCraft, handleCliErgonomicsCraftFinalize } from '../../../src/mcp/tools/cli-ergonomics-craft'
 import { codeCraftDefinition, codeCraftFinalizeDefinition, handleCodeCraft, handleCodeCraftFinalize } from '../../../src/mcp/tools/code-craft'
@@ -209,14 +215,16 @@ import { HealthSnapshot, captureHealthSnapshot, isSnapshotFresh, loadCachedSnaps
 import { loadOrRebuildIndex } from '../../../src/skill/index-builder'
 import { recommend } from '../../../src/skill/recommendation-engine'
 import { loadOrGenerateProfile } from '../../../src/skill/stack-profile'
-import { COMPILER_VERSION, ComprehensionSourceFile, ComprehensionStore, ComprehensionUnit, ConflictError, Err, ExtractStatic, FeaturePatch, HistoryEvent, NewFeatureInput, Ok, PnyonTrackerAdapter, Result, RoadmapTrackerClient, SCHEMA_VERSION, TrackedFeature, compileModule, computeSourceHash, createNodeComprehensionIO, createNodeModuleSourceReader, detectStaleConstraints, loadTrackerConfig, parseDiff, parseRoadmap, roadmapToShards, serializeMeta, serializeShard } from '@harness-engineering/core'
+import { COMPILER_VERSION, ComprehensionSourceFile, ComprehensionStore, ComprehensionUnit, ConflictError, Err, ExtractStatic, FeaturePatch, HistoryEvent, NewFeatureInput, Ok, PnyonTrackerAdapter, Result, RoadmapTrackerClient, SCHEMA_VERSION, TrackedFeature, compileModule, computeSourceHash, createNodeComprehensionIO, createNodeModuleSourceReader, detectStaleConstraints, loadTrackerConfig, parseDiff, parseRoadmap, resolveAutonomyForSession, roadmapToShards, serializeMeta, serializeShard, sessionOverridePath, writeSessionOverride } from '@harness-engineering/core'
 import { queryTraceability } from '@harness-engineering/graph'
 import { deriveAcceptanceAuthority } from '@harness-engineering/intelligence'
 import { Err, Ok, Result } from '@harness-engineering/types'
 import { execFileSync } from 'child_process'
+import { loadDotenv } from 'dotenv'
 import * as fs from 'fs'
 import * as fs from 'fs/promises'
 import { execFileSync, execSync } from 'node:child_process'
+import { createHash } from 'node:crypto'
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import * as fs from 'node:fs'
 import * as fsp from 'node:fs/promises'

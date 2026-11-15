@@ -38,6 +38,7 @@ describe('gather_context tool', () => {
         'events',
         'businessKnowledge',
         'comprehension',
+        'autonomy',
       ]);
     });
 

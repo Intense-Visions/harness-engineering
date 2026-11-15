@@ -20,6 +20,7 @@ export const HOOK_SUPPORT_FILES: Record<string, string[]> = {
   // non-blocking failure that silently stops the gate from running. The
   // registry↔import drift guard in support-files.test.ts pins this invariant.
   'block-no-verify': ['read-hook-stdin.js'],
+  'autonomy-guard': ['read-hook-stdin.js'],
   'adoption-tracker': ['read-hook-stdin.js'],
   'cost-tracker': ['read-hook-stdin.js'],
   'protect-config': ['read-hook-stdin.js'],

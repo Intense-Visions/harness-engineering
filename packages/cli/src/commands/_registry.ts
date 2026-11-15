@@ -9,6 +9,7 @@ import { createAgentCommand } from './agent';
 import { createAlignDesignSystemCommand } from './align-design-system';
 import { createApiCraftCommand } from './api-craft';
 import { createAuditProtectedCommand } from './audit-protected';
+import { createAutonomyCommand } from './autonomy';
 import { createBackfillSkillProvenanceCommand } from './backfill-skill-provenance';
 import { createBlackBoxCommand } from './orchestrator-black-box';
 import { createBlueprintCommand } from './blueprint';
@@ -131,6 +132,7 @@ export const commandCreators: Array<() => Command> = [
   createAlignDesignSystemCommand,
   createApiCraftCommand,
   createAuditProtectedCommand,
+  createAutonomyCommand,
   createBackfillSkillProvenanceCommand,
   createBlackBoxCommand,
   createBlueprintCommand,

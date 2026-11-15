@@ -3,6 +3,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import type { Result } from '../shared/result';
 import { Ok, Err } from '../shared/result';
+import { sessionSlugError } from '../shared/session-slug';
 import { HARNESS_DIR, SESSIONS_DIR, SESSION_INDEX_FILE } from './constants';
 import { ensureIdentity } from '../identity/store';
 
@@ -15,15 +16,8 @@ export function resolveSessionDir(
   sessionSlug: string,
   options?: { create?: boolean }
 ): Result<string, Error> {
-  if (!sessionSlug || sessionSlug.trim() === '') {
-    return Err(new Error('Session slug must not be empty'));
-  }
-
-  if (sessionSlug.includes('..') || sessionSlug.includes('/') || sessionSlug.includes('\\')) {
-    return Err(
-      new Error(`Invalid session slug '${sessionSlug}': must not contain path traversal characters`)
-    );
-  }
+  const slugError = sessionSlugError(sessionSlug);
+  if (slugError !== null) return Err(new Error(slugError));
 
   const sessionDir = path.join(projectPath, HARNESS_DIR, SESSIONS_DIR, sessionSlug);
 

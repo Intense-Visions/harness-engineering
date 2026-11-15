@@ -190,6 +190,8 @@ import {
 import { subscribeWebhookDefinition, handleSubscribeWebhook } from './tools/webhook-tools.js';
 // Phase 4: emit a skill proposal into `.harness/proposals/`.
 import { emitSkillProposalDefinition, handleEmitSkillProposal } from './tools/skill-proposal.js';
+// Trusted Autonomy Mode Phase 2: append-only auto-decision log (D6).
+import { recordAutoDecisionDefinition, handleRecordAutoDecision } from './tools/auto-decision.js';
 // design-pipeline #2: component-anatomy audit (definition findings; ANAT-D*).
 import { auditAnatomyDefinition, handleAuditAnatomy } from './tools/audit-anatomy.js';
 // design-pipeline #6: design-craft LLM-judgment skill (CRITIQUE / POLISH / BENCHMARK).
@@ -400,6 +402,7 @@ const TOOL_DEFINITIONS: ToolDefinition[] = [
   summarizeSessionDefinition,
   insightsSummaryDefinition,
   emitSkillProposalDefinition,
+  recordAutoDecisionDefinition,
   auditAnatomyDefinition,
   designCraftToolDefinition,
   detectDriftDefinition,
@@ -524,6 +527,7 @@ const TOOL_HANDLERS: Record<string, ToolHandler> = {
   summarize_session: handleSummarizeSession as unknown as ToolHandler,
   insights_summary: handleInsightsSummary as unknown as ToolHandler,
   emit_skill_proposal: handleEmitSkillProposal as unknown as ToolHandler,
+  record_auto_decision: handleRecordAutoDecision as unknown as ToolHandler,
   audit_anatomy: handleAuditAnatomy as unknown as ToolHandler,
   design_craft: handleDesignCraft as unknown as ToolHandler,
   detect_drift: handleDetectDrift as unknown as ToolHandler,

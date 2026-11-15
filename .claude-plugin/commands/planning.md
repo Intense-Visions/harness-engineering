@@ -1,7 +1,7 @@
 ---
 name: harness:planning
 description: Structured project planning with harness constraints and validation
-argument-hint: '[--path <path>] [--spec-path <spec-path>] [--session-slug <session-slug>] [--fast <fast>] [--thorough <thorough>]'
+argument-hint: '[--path <path>] [--spec-path <spec-path>] [--session-slug <session-slug>] [--fast <fast>] [--thorough <thorough>] [--supervised <supervised>] [--audit <audit>]'
 allowed-tools:
   - Bash
   - Read

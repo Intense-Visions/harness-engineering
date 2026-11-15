@@ -1,12 +1,13 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/tests/mcp'
-sourceHash: 'fe2eafe846799460758b01f83119203c6e475cf590832cbcb98b4bc2f8427914'
+sourceHash: '7a9efa77dfb05d6322a0866cf0dd501ad541976489847b0c164d4daa3d033a02'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
 members:
   [
+    'autonomy-writer-boundary.test.ts',
     'config-resolver.test.ts',
     'context-surface-cov544b.test.ts',
     'context-surface.test.ts',

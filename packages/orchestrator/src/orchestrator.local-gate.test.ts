@@ -19,13 +19,25 @@ import { Ok } from '@harness-engineering/types';
 // so a test can invoke the settle exactly as the engine would — proving the gate
 // re-fires across REAL re-dispatches (no manual running-entry re-seed).
 const capturedSettleSuccess: Array<(unit: string, runs: StageRun[]) => Promise<void>> = [];
+const capturedHumanDecision: Array<{
+  workspacePath: string;
+  check: ((unit: string, runs: StageRun[]) => Promise<boolean>) | undefined;
+}> = [];
 vi.mock('./workflow/execute-workflow.js', async (importOriginal) => {
   const actual = await importOriginal<typeof import('./workflow/execute-workflow.js')>();
   return {
     ...actual,
     executeWorkflow: vi.fn(
-      async (ctx: { emitWorkflowSuccess: (u: string, r: StageRun[]) => Promise<void> }) => {
+      async (ctx: {
+        emitWorkflowSuccess: (u: string, r: StageRun[]) => Promise<void>;
+        workspacePath: string;
+        humanDecisionAfterStage?: (u: string, r: StageRun[]) => Promise<boolean>;
+      }) => {
         capturedSettleSuccess.push((u, r) => ctx.emitWorkflowSuccess(u, r));
+        capturedHumanDecision.push({
+          workspacePath: ctx.workspacePath,
+          check: ctx.humanDecisionAfterStage,
+        });
       }
     ),
   };
@@ -1254,6 +1266,25 @@ describe('settleWorkflowSuccess — gate re-fires across REAL retries (blocking 
 
   beforeEach(() => {
     capturedSettleSuccess.length = 0;
+    capturedHumanDecision.length = 0;
+  });
+
+  it('a real staged dispatch wires the per-stage human-decision check to the needs-human terminal', async () => {
+    const verify = vi.fn(async () => ({ ok: true, output: '' }));
+    const orch = newStagedOrch(verify, async () => ({ hasChanges: true }));
+    stubBackgroundLaunch(orch);
+    const terminal = vi.fn(async () => undefined);
+    (orch as unknown as { settleWorkflowTerminal: unknown }).settleWorkflowTerminal = terminal;
+
+    await dispatch(orch, ISSUE, 'local');
+    const { workspacePath, check } = capturedHumanDecision[0]!;
+    expect(check).toBeDefined();
+    expect(await check!('i1', [stageRun('local') as StageRun])).toBe(false);
+
+    writeHandoff(workspacePath, ['judgment-fork: which index'], 'plan');
+    expect(await check!('i1', [stageRun('local') as StageRun])).toBe(true);
+    expect(terminal).toHaveBeenCalledTimes(1);
+    expect(verify).not.toHaveBeenCalled();
   });
 
   it('two-retry: gate FIRES on attempt 1 (fail→re-dispatch) AND on attempt 2 (now-passing→success), without re-seeding the running entry', async () => {
@@ -1825,5 +1856,153 @@ describe('bounded-retry needs-human terminal — no re-dispatch loop (#escalated
     const other = activeIssue('i2', 'ISS-2');
     await dispatch(orch, other, 'local');
     expect(persistSpy).toHaveBeenCalledWith('i2', 'dispatch');
+  });
+});
+
+/** Write a session handoff into the workspace the way a dispatched agent would. */
+function writeHandoff(ws: string, blockers: string[], slug = 'changes--x--proposal'): string {
+  const dir = path.join(ws, '.harness', 'sessions', slug);
+  fs.mkdirSync(dir, { recursive: true });
+  const file = path.join(dir, 'handoff.json');
+  fs.writeFileSync(file, JSON.stringify({ fromSkill: 'harness-planning', blockers }));
+  return file;
+}
+
+function spyInteractionPush(orch: Orchestrator): ReturnType<typeof vi.fn> {
+  const spy = vi.fn(async () => undefined);
+  (orch as unknown as { interactionQueue: { push: unknown } }).interactionQueue.push = spy;
+  return spy;
+}
+
+describe('headless audit disagreement → needs-human (trusted autonomy)', () => {
+  const BLOCKER = 'audit-disagreement: which cache layer — the auditor picked 2, the plan picked 1';
+
+  it('single dispatch: a fresh blocker queues needs-human and exits error, never normal or gated', async () => {
+    const verify = vi.fn(async () => ({ ok: true, output: '' }));
+    const orch = newOrch({ claude: CLAUDE_BACKEND }, 'claude', verify);
+    const emit = spyEmitWorkerExit(orch);
+    const push = spyInteractionPush(orch);
+    writeHandoff(tmpDir, ['unrelated blocker', BLOCKER]);
+
+    await finalize(orch)(ISSUE, tmpDir, 1, undefined);
+
+    expect(push).toHaveBeenCalledTimes(1);
+    const interaction = push.mock.calls[0]![0] as { type: string; reasons: string[] };
+    expect(interaction.type).toBe('needs-human');
+    expect(interaction.reasons).toEqual([BLOCKER]);
+    expect(emit).toHaveBeenCalledTimes(1);
+    expect(emit.mock.calls[0]![1]).toBe('error');
+    expect(verify).not.toHaveBeenCalled();
+  });
+
+  it('single dispatch: the retry the error exit schedules is skipped at dispatch', async () => {
+    const orch = newOrch({ claude: CLAUDE_BACKEND }, 'claude');
+    spyEmitWorkerExit(orch);
+    spyInteractionPush(orch);
+    writeHandoff(tmpDir, [BLOCKER]);
+    await finalize(orch)(ISSUE, tmpDir, 1, undefined);
+
+    const log = vi.spyOn(
+      (orch as unknown as { logger: { info: (m: string) => void } }).logger,
+      'info'
+    );
+    await (
+      orch as unknown as { dispatchIssue: (i: Issue, a: number | null) => Promise<void> }
+    ).dispatchIssue(ISSUE, 2);
+    expect(
+      log.mock.calls.some((c) => String(c[0]).includes('Skipping dispatch of escalated'))
+    ).toBe(true);
+  });
+
+  it('single dispatch: no audit-disagreement blocker → completes normally', async () => {
+    const orch = newOrch({ claude: CLAUDE_BACKEND }, 'claude');
+    const emit = spyEmitWorkerExit(orch);
+    const push = spyInteractionPush(orch);
+    writeHandoff(tmpDir, ['tests are slow']);
+
+    await finalize(orch)(ISSUE, tmpDir, 1, undefined);
+
+    expect(push).not.toHaveBeenCalled();
+    expect(emit.mock.calls[0]![1]).toBe('normal');
+  });
+
+  it('a handoff older than this dispatch is ignored, even on a retry with no running entry', async () => {
+    const orch = newOrch({ claude: CLAUDE_BACKEND }, 'claude');
+    const file = writeHandoff(tmpDir, [BLOCKER]);
+    const old = new Date(Date.now() - 60 * 60 * 1000);
+    fs.utimesSync(file, old, old);
+    // A retry re-dispatch records its own start; no running entry exists.
+    (
+      orch as unknown as { dispatchStartedAtByIssue: Map<string, number> }
+    ).dispatchStartedAtByIssue.set('i1', Date.now());
+    const emit = spyEmitWorkerExit(orch);
+    const push = spyInteractionPush(orch);
+
+    await finalize(orch)(ISSUE, tmpDir, 2, undefined);
+
+    expect(push).not.toHaveBeenCalled();
+    expect(emit.mock.calls[0]![1]).toBe('normal');
+  });
+
+  it('the needs-human reasons carry the handoff concerns (options and positions)', async () => {
+    const orch = newOrch({ claude: CLAUDE_BACKEND }, 'claude');
+    spyEmitWorkerExit(orch);
+    const push = spyInteractionPush(orch);
+    const dir = path.join(tmpDir, '.harness', 'sessions', 's');
+    fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(
+      path.join(dir, 'handoff.json'),
+      JSON.stringify({ blockers: [BLOCKER], concerns: ['recommend 1: cheaper', 'auditor: 2'] })
+    );
+
+    await finalize(orch)(ISSUE, tmpDir, 1, undefined);
+
+    expect((push.mock.calls[0]![0] as { reasons: string[] }).reasons).toEqual([
+      BLOCKER,
+      'concern: recommend 1: cheaper',
+      'concern: auditor: 2',
+    ]);
+  });
+
+  it('the retry-budget escalation the error exit produces is dropped as a duplicate', async () => {
+    const orch = newOrch({ claude: CLAUDE_BACKEND }, 'claude');
+    const push = spyInteractionPush(orch);
+    // Simulate the last attempt: the error exit yields the state machine's own escalation.
+    (orch as unknown as { emitWorkerExit: unknown }).emitWorkerExit = vi.fn(async () => {
+      await (
+        orch as unknown as { handleEscalation: (e: unknown) => Promise<void> }
+      ).handleEscalation({
+        type: 'escalate',
+        issueId: 'i1',
+        identifier: 'ISS-1',
+        reasons: ['exceeded max retries (5)'],
+      });
+    });
+    writeHandoff(tmpDir, [BLOCKER]);
+
+    await finalize(orch)(ISSUE, tmpDir, 5, undefined);
+
+    expect(push).toHaveBeenCalledTimes(1);
+    expect((push.mock.calls[0]![0] as { reasons: string[] }).reasons).toEqual([BLOCKER]);
+  });
+
+  it('staged: a blocker settles through the needs-human terminal instead of shipping', async () => {
+    const verify = vi.fn(async () => ({ ok: true, output: '' }));
+    const orch = newOrch({ local: LOCAL_BACKEND }, 'local', verify);
+    seedRunningAttempt(orch, 'i1', tmpDir, 0);
+    writeHandoff(tmpDir, [BLOCKER]);
+    const terminal = vi.fn(async () => undefined);
+    (orch as unknown as { settleWorkflowTerminal: unknown }).settleWorkflowTerminal = terminal;
+    const persistSpy = vi.spyOn(
+      orch as unknown as { persistLaneSafe: (u: string, l: string) => Promise<void> },
+      'persistLaneSafe'
+    );
+
+    await settleSuccess(orch)('i1', [stageRun('local')]);
+
+    expect(terminal).toHaveBeenCalledTimes(1);
+    expect(String((terminal.mock.calls[0] as unknown[])[3])).toContain('audit-disagreement');
+    expect(verify).not.toHaveBeenCalled();
+    expect(persistSpy).not.toHaveBeenCalledWith('i1', 'success');
   });
 });

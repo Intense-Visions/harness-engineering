@@ -281,6 +281,11 @@ export * from './hooks';
 export * from './accessibility';
 
 /**
+ * Autonomy module.
+ */
+export * from './autonomy';
+
+/**
  * Deployment module.
  */
 export * from './deployment';

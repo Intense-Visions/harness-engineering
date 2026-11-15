@@ -43,6 +43,7 @@ describe('hook scripts integration', () => {
       // All hooks fail-open on empty stdin (exit 0)
       const failOpenHooks = [
         'block-no-verify',
+        'autonomy-guard',
         'protect-config',
         'quality-warner',
         'strict-quality-gate',

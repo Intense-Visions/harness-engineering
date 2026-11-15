@@ -27,14 +27,51 @@ export interface InjectionPattern {
 
 // --- HIGH severity patterns ---
 
+/** Joining scripts, where ZWNJ/ZWJ is ordinary text (Persian ZWNJ, Indic conjuncts). */
+const JOINING_SCRIPTS =
+  '\\p{Script=Arabic}\\p{Script=Syriac}\\p{Script=Nko}\\p{Script=Mongolian}' +
+  '\\p{Script=Devanagari}\\p{Script=Bengali}\\p{Script=Gurmukhi}\\p{Script=Gujarati}' +
+  '\\p{Script=Oriya}\\p{Script=Tamil}\\p{Script=Telugu}\\p{Script=Kannada}' +
+  '\\p{Script=Malayalam}\\p{Script=Sinhala}';
+
+/**
+ * What may precede a legitimate ZWNJ/ZWJ: a joining-script letter, an emoji
+ * presented as emoji, a skin-tone modifier, or a pictograph made emoji by
+ * VARIATION SELECTOR-16 (as in ❤️‍🔥). VS16 counts only right after a pictograph:
+ * like a combining mark, it attaches to anything, so a bare VS16 context would
+ * let `a\uFE0F\u200D\uFE0Fb` hide a ZWJ in Latin text. Combining marks are
+ * absent for the same reason; an Indic virama is Script=Devanagari etc., not
+ * Inherited, so conjuncts pass.
+ */
+const ZW_JOINER_BEFORE = `(?:[${JOINING_SCRIPTS}\\p{Emoji_Presentation}\\p{Emoji_Modifier}]|\\p{Extended_Pictographic}\\uFE0F)`;
+
+/** What may follow a legitimate ZWNJ/ZWJ: a joining-script letter or a pictograph. */
+const ZW_JOINER_AFTER = `[${JOINING_SCRIPTS}\\p{Extended_Pictographic}]`;
+
+/**
+ * INJ-UNI-001. `sentinel-post.js` carries an inline copy for degraded mode;
+ * `sentinel.test.ts` holds the two to the same source and flags.
+ *
+ * Residual: ZWNJ/ZWJ between two legitimate neighbours (two Arabic letters, two
+ * emoji) is not flagged, so their presence or absence there can still carry
+ * hidden bits. Rejecting them would taint ordinary Persian text and emoji.
+ */
+const ZERO_WIDTH_PATTERN = new RegExp(
+  `[\\u200B\\uFEFF\\u2060]|(?<!${ZW_JOINER_BEFORE})[\\u200C\\u200D]|[\\u200C\\u200D](?!${ZW_JOINER_AFTER})`,
+  'u'
+);
+
 const hiddenUnicodePatterns: InjectionPattern[] = [
   {
     ruleId: 'INJ-UNI-001',
     severity: 'high',
     category: 'hidden-unicode',
     description: 'Zero-width characters that can hide malicious instructions',
-    // eslint-disable-next-line no-misleading-character-class -- intentional: regex detects zero-width chars for security scanning
-    pattern: /[\u200B\u200C\u200D\uFEFF\u2060]/,
+    // U+200B/FEFF/2060 always match. ZWNJ (U+200C) and ZWJ (U+200D) are
+    // ordinary text inside joining scripts (Persian ZWNJ, Indic conjuncts) and
+    // emoji ZWJ sequences, so they match only when a neighbour falls outside
+    // those contexts — e.g. a ZWJ hidden between two ASCII letters.
+    pattern: ZERO_WIDTH_PATTERN,
   },
   {
     ruleId: 'INJ-UNI-002',

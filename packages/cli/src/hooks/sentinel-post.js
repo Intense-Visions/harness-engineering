@@ -17,9 +17,11 @@ import { readHookStdin } from './read-hook-stdin.js';
 // This is a pure structural extraction of the original per-rule `if` blocks —
 // every rule's pattern, severity, ruleId, and ordering is byte-for-byte preserved.
 const INLINE_RULES = [
-  // HIGH: INJ-UNI-001 — Zero-width characters
-  // eslint-disable-next-line no-misleading-character-class -- intentional: detects zero-width chars for security
-  { severity: 'high', ruleId: 'INJ-UNI-001', pattern: /[\u200B\u200C\u200D\uFEFF\u2060]/ },
+  // HIGH: INJ-UNI-001 — Zero-width characters. ZWNJ/ZWJ match only outside
+  // joining-script and emoji context (Persian ZWNJ, Indic conjuncts and emoji
+  // ZWJ sequences are ordinary text); VS16 counts only after a pictograph.
+  // Must equal core's ZERO_WIDTH_PATTERN (parity-tested in sentinel.test.ts).
+  { severity: 'high', ruleId: 'INJ-UNI-001', pattern: /[\u200B\uFEFF\u2060]|(?<!(?:[\p{Script=Arabic}\p{Script=Syriac}\p{Script=Nko}\p{Script=Mongolian}\p{Script=Devanagari}\p{Script=Bengali}\p{Script=Gurmukhi}\p{Script=Gujarati}\p{Script=Oriya}\p{Script=Tamil}\p{Script=Telugu}\p{Script=Kannada}\p{Script=Malayalam}\p{Script=Sinhala}\p{Emoji_Presentation}\p{Emoji_Modifier}]|\p{Extended_Pictographic}\uFE0F))[\u200C\u200D]|[\u200C\u200D](?![\p{Script=Arabic}\p{Script=Syriac}\p{Script=Nko}\p{Script=Mongolian}\p{Script=Devanagari}\p{Script=Bengali}\p{Script=Gurmukhi}\p{Script=Gujarati}\p{Script=Oriya}\p{Script=Tamil}\p{Script=Telugu}\p{Script=Kannada}\p{Script=Malayalam}\p{Script=Sinhala}\p{Extended_Pictographic}])/u },
   // HIGH: INJ-UNI-002 — RTL/LTR override characters
   { severity: 'high', ruleId: 'INJ-UNI-002', pattern: /[\u202A-\u202E\u2066-\u2069]/ },
   // HIGH: INJ-REROL-001 — Ignore previous instructions

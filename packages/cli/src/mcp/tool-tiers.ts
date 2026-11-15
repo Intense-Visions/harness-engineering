@@ -70,6 +70,8 @@ const STANDARD_EXTRA: readonly string[] = [
   'summarize_session',
   // Hermes Phase 4 — agents emit skill proposals into the review queue
   'emit_skill_proposal',
+  // Trusted Autonomy Mode Phase 2 — skills record auto-taken decisions (D6)
+  'record_auto_decision',
 ];
 
 export const STANDARD_TOOL_NAMES: readonly string[] = [...CORE_TOOL_NAMES, ...STANDARD_EXTRA];

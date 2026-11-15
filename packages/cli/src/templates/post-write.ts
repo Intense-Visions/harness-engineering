@@ -55,7 +55,7 @@ export function ensureHarnessGitignore(targetDir: string): void {
   const gitignorePath = path.join(targetDir, '.harness', '.gitignore');
 
   // Tracked categories (intentionally NOT ignored):
-  //   hooks/                       — team-policy enforcement scripts (block-no-verify,
+  //   hooks/                       — team-policy enforcement scripts (block-no-verify, autonomy-guard,
   //                                  protect-config, quality-warner, …) plus profile.json.
   //                                  Treated like a lockfile: review CLI-upgrade diffs.
   //   security/timeline.json       — shared security trend ledger keyed by commit hash.

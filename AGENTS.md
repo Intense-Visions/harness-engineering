@@ -514,6 +514,16 @@ dominant cost term in agent operation (context replay, not generation).
 - **Concepts:** `docs/knowledge/comprehension/comprehension-substrate.md`; ADRs
   0106 (`claude`-CLI resolver fallback), 0107 (committed substrate), 0108 (hash gate).
 
+### Autonomy
+
+**Autonomy** (`supervised` default | `trusted`) decides **who decides** at a workflow skill's pause points; autopilot's `rigorLevel` decides **how much is checked**, and neither changes the other (`--fast` never auto-approves). Every pause point is one of four classes: `ceremony` (auto-approved in trusted mode), `judgment` (recommendation auto-taken after a self-audit), `irreversible` (always pauses) and `gate` (always stops). Unrelated to the roadmap auto-triage `ratchetStage` "autonomy".
+
+- **Raising:** only `~/.harness/config.json` or a TTY-confirmed `harness autonomy set trusted --session <slug>` (session-bound, expires, default 24h). The sanctioned agent- and repo-reachable paths (flags, `HARNESS_AUTONOMY*` env, `manage_state set-autonomy`, project files; `harness.config.json` is ignored) can only lower; the same-user shell residual is narrowed by the `autonomy-guard` hook, not closed.
+- **Still pauses:** irreversible actions (merge, push, PR, publish, deleting branches/issues/remote resources or local work not recoverable from git), gates (red verify, `NOT_SATISFIED`, blocking findings, a strategy contradiction), audit disagreements, and every fail-safe.
+- **Audit + log:** judgment forks pass a blind-then-refute self-audit; every auto-decision goes through `record_auto_decision` to `.harness/sessions/<slug>/auto-decisions.jsonl`. `harness autonomy show|set|log` reports the resolved value, changes it, and summarizes the log (`audited N/M`, agreement rate).
+- **Subagents:** Claude Code persona subagents get exactly the four Pause Protocol MCP tools (`gather_context`, `manage_state`, `record_auto_decision`, `emit_interaction`), so ceremony pauses auto-resolve inside them; they cannot spawn the auditor, so they hand judgment forks back to autopilot as `judgment-fork:` handoff blockers. The orchestrator routes `audit-disagreement:` / `judgment-fork:` blockers to `needs-human`. See the guide.
+- **See:** [guide](docs/guides/trusted-autonomy.md), [knowledge node](docs/knowledge/core/autonomy.md), ADRs [0136](docs/knowledge/decisions/0136-autonomy-is-orthogonal-to-rigor.md) / [0137](docs/knowledge/decisions/0137-autonomy-trust-boundary-is-user-level-and-raise-only-by-the-human.md) / [0138](docs/knowledge/decisions/0138-blind-then-refute-self-audit-for-auto-resolved-judgment-forks.md), [`agents/skills/templates/pause-protocol.md`](agents/skills/templates/pause-protocol.md).
+
 ### Result<T, E> Pattern
 
 We use a Result type (similar to Rust) for explicit error handling:

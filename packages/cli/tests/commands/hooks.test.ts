@@ -27,19 +27,21 @@ describe('createHooksCommand', () => {
 });
 
 describe('buildSettingsHooks', () => {
-  it('builds minimal profile with only block-no-verify', () => {
+  it('builds minimal profile with block-no-verify and autonomy-guard', () => {
     const hooks = buildSettingsHooks('minimal');
-    expect(hooks.PreToolUse).toHaveLength(1);
+    expect(hooks.PreToolUse).toHaveLength(2);
     expect(hooks.PreToolUse[0].matcher).toBe('Bash');
     expect(hooks.PreToolUse[0].hooks[0].command).toContain('block-no-verify.js');
+    expect(hooks.PreToolUse[1].matcher).toBe('Bash|Write|Edit|MultiEdit');
+    expect(hooks.PreToolUse[1].hooks[0].command).toContain('autonomy-guard.js');
     expect(hooks.PostToolUse).toBeUndefined();
     expect(hooks.PreCompact).toBeUndefined();
     expect(hooks.Stop).toBeUndefined();
   });
 
-  it('builds standard profile with 9 hooks across 4 events', () => {
+  it('builds standard profile with 10 hooks across 4 events', () => {
     const hooks = buildSettingsHooks('standard');
-    expect(hooks.PreToolUse).toHaveLength(3); // block-no-verify, protect-config, sentinel-pre
+    expect(hooks.PreToolUse).toHaveLength(4); // block-no-verify, autonomy-guard, protect-config, sentinel-pre
     expect(hooks.PostToolUse).toHaveLength(2); // quality-warner, sentinel-post
     expect(hooks.PreCompact).toHaveLength(1);
     expect(hooks.Stop).toHaveLength(3);
@@ -48,9 +50,9 @@ describe('buildSettingsHooks', () => {
     expect(hooks.Stop[2].hooks[0].command).toContain('session-retrospect.js');
   });
 
-  it('builds strict profile with all 11 hooks across 4 events', () => {
+  it('builds strict profile with all 12 hooks across 4 events', () => {
     const hooks = buildSettingsHooks('strict');
-    expect(hooks.PreToolUse).toHaveLength(3); // block-no-verify, protect-config, sentinel-pre (all from standard)
+    expect(hooks.PreToolUse).toHaveLength(4); // block-no-verify, autonomy-guard, protect-config, sentinel-pre (all from standard)
     expect(hooks.PostToolUse).toHaveLength(3); // quality-warner, sentinel-post (from standard), strict-quality-gate
     expect(hooks.PreCompact).toHaveLength(1);
     expect(hooks.Stop).toHaveLength(4);
@@ -193,7 +195,7 @@ describe('initHooks', () => {
     expect(fs.existsSync(settingsPath)).toBe(true);
     const settings = JSON.parse(fs.readFileSync(settingsPath, 'utf-8'));
     expect(settings.hooks).toBeDefined();
-    expect(settings.hooks.PreToolUse).toHaveLength(1);
+    expect(settings.hooks.PreToolUse).toHaveLength(2); // block-no-verify + autonomy-guard
   });
 
   it('preserves existing settings.json content', () => {
@@ -235,8 +237,12 @@ describe('initHooks', () => {
 
     initHooks({ profile: 'minimal', projectDir: tmpDir });
     const minimalFiles = fs.readdirSync(hooksDir).filter((f) => f.endsWith('.js'));
-    // minimal ships block-no-verify.js plus its shared support module.
-    expect(minimalFiles.sort()).toEqual(['block-no-verify.js', 'read-hook-stdin.js']);
+    // minimal ships the two safety-floor hooks plus their shared support module.
+    expect(minimalFiles.sort()).toEqual([
+      'autonomy-guard.js',
+      'block-no-verify.js',
+      'read-hook-stdin.js',
+    ]);
   });
 });
 
@@ -367,7 +373,11 @@ describe('initHooks support files (format-check.js)', () => {
     const remaining = fs.readdirSync(hooksDir()).filter((f) => f.endsWith('.js'));
     // format-check.js is orphaned by the downgrade and dropped; block-no-verify
     // and its own support module read-hook-stdin.js remain.
-    expect(remaining.sort()).toEqual(['block-no-verify.js', 'read-hook-stdin.js']);
+    expect(remaining.sort()).toEqual([
+      'autonomy-guard.js',
+      'block-no-verify.js',
+      'read-hook-stdin.js',
+    ]);
     expect(remaining).not.toContain('format-check.js');
   });
 
@@ -465,13 +475,13 @@ describe('listHooks', () => {
     const result = listHooks(tmpDir);
     expect(result.installed).toBe(true);
     expect(result.profile).toBe('strict');
-    expect(result.hooks).toHaveLength(11); // all hooks incl. strict-quality-gate, adoption-tracker, telemetry-reporter, session-retrospect, sentinel-pre, and sentinel-post
+    expect(result.hooks).toHaveLength(12); // all hooks incl. autonomy-guard, incl. strict-quality-gate, adoption-tracker, telemetry-reporter, session-retrospect, sentinel-pre, and sentinel-post
   });
 
   it('returns correct hook metadata', () => {
     initHooks({ profile: 'minimal', projectDir: tmpDir });
     const result = listHooks(tmpDir);
-    expect(result.hooks).toHaveLength(1);
+    expect(result.hooks).toHaveLength(2);
     expect(result.hooks[0].name).toBe('block-no-verify');
     expect(result.hooks[0].event).toBe('PreToolUse');
     expect(result.hooks[0].matcher).toBe('Bash');

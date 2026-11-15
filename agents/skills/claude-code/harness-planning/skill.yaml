@@ -37,6 +37,12 @@ cli:
     - name: thorough
       description: Always produce skeleton for approval before full expansion
       required: false
+    - name: supervised
+      description: Lower autonomy to supervised for this session (lower-only, D17; see the Pause Protocol)
+      required: false
+    - name: audit
+      description: Turn the judgment self-audit on for this session (lower-only, D17; see the Pause Protocol)
+      required: false
 mcp:
   tool: run_skill
   input:

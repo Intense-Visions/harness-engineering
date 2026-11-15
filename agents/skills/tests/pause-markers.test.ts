@@ -1,0 +1,342 @@
+// agents/skills/tests/pause-markers.test.ts
+//
+// SC12: a test fails if any pause point in the seven workflow skills lacks a
+// `<!-- pause: <class> -->` marker or uses a class outside the four defined. Detection is
+// phrase-based (see pause-markers.ts); the denominator is printed and floored per skill.
+
+import { describe, it, expect } from 'vitest';
+import { readFileSync } from 'fs';
+import { resolve, dirname } from 'path';
+import { fileURLToPath } from 'url';
+import {
+  WORKFLOW_SKILLS,
+  PAUSE_PREAMBLE,
+  PAUSE_PREAMBLE_HEADING,
+  canonicalMarkerLine as marker,
+  MARKER_WINDOW,
+  pauseMarkerViolations,
+  scanSkill,
+} from './pause-markers';
+
+const SKILLS_DIR = resolve(dirname(fileURLToPath(import.meta.url)), '..', 'claude-code');
+const read = (s: string) => readFileSync(resolve(SKILLS_DIR, s, 'SKILL.md'), 'utf-8');
+const violations = (t: string) => pauseMarkerViolations(scanSkill(t));
+
+describe('pause marker detector controls', () => {
+  it('fails an unmarked pause (positive control)', () => {
+    expect(violations('Intro\n\nAsk the human. Proceed? (yes/no)\n')).toEqual([
+      expect.stringMatching(/^line 3: unmarked pause point/),
+    ]);
+  });
+  it('accepts a marker up to three lines above, and rejects one four lines above', () => {
+    expect(violations(`${marker('ceremony')}\na\nb\nProceed? (yes/no)\n`)).toEqual([]);
+    expect(violations(`${marker('ceremony')}\na\nb\nc\nProceed? (yes/no)\n`)).toHaveLength(1);
+  });
+  it('anchors a pause inside a fence at the opening fence', () => {
+    const deep = `${marker('ceremony')}\n\n\`\`\`\nApprove spec at x?\n1\n2\n3\n4\nProceed? (yes/no)\n\`\`\`\n`;
+    expect(violations(deep)).toEqual([]);
+    expect(
+      violations(`${marker('ceremony')}\n1\n2\n3\n\`\`\`\nProceed? (yes/no)\n\`\`\`\n`)
+    ).toHaveLength(1);
+  });
+  it('fails a pause whose window holds markers of two different classes (nearest-wins is never relied on)', () => {
+    expect(violations(`${marker('gate')}\n${marker('judgment')}\nSTOP.\n`)).toEqual([
+      expect.stringMatching(
+        /^line 3: pause point has markers of more than one class in its window \(gate, judgment\)/
+      ),
+    ]);
+    expect(
+      violations(`${marker('gate')}\n- a. STOP.\n${marker('judgment')}\n- b. Proceed? (yes/no)\n`)
+    ).toEqual([expect.stringMatching(/^line 4: .*\(gate, judgment\)/)]);
+    // a hand-marked line (no detector phrase) is held to the same rule
+    expect(
+      violations(
+        `${marker('judgment')}\n- a. ask the reviewer\n${marker('gate')}\n- b. talk it over\n`
+      )
+    ).toEqual([
+      expect.stringMatching(
+        /^line 4: marked line has markers of more than one class in its window \(gate, judgment\)/
+      ),
+    ]);
+    // control: the same class twice, or a different class pushed out of the window, is fine
+    expect(violations(`${marker('gate')}\n${marker('gate')}\nSTOP.\n`)).toEqual([]);
+    expect(
+      violations(
+        `${marker('gate')}\n- a. STOP.\n\n${marker('judgment')}\n\n- b. Proceed? (yes/no)\n`
+      )
+    ).toEqual([]);
+  });
+  it('anchors every table row at the first row', () => {
+    const rows = Array.from({ length: 5 }, (_, i) => `| r${i} | **STOP.** |`).join('\n');
+    expect(violations(`${marker('gate')}\n| a | b |\n|---|---|\n${rows}\n`)).toEqual([]);
+  });
+  it('rejects an unknown class, a bare marker, a mismatched reference, and two markers on a line', () => {
+    expect(violations('<!-- pause: maybe -->\n')).toEqual([
+      expect.stringMatching(/unknown pause class "maybe"/),
+    ]);
+    expect(violations('<!-- pause: gate -->\nSTOP.\n')[0]).toMatch(/non-canonical marker line/);
+    expect(
+      violations(
+        '_Pause point (gate): resolve per the Pause Protocol._ <!-- pause: ceremony -->\n'
+      )[0]
+    ).toMatch(/non-canonical/);
+    expect(violations(`${marker('gate')} <!-- pause: gate -->\n`)[0]).toMatch(/more than one/);
+  });
+  it('ignores exempt sections only until the next heading, and not across fenced headings', () => {
+    expect(violations('## Red Flags\n\n| x | STOP. |\n\n## Process\n\nok\n')).toEqual([]);
+    expect(violations('## Red Flags\n\nSTOP.\n\n## Process\n\nSTOP.\n')).toEqual([
+      expect.stringMatching(/^line 7:/),
+    ]);
+    expect(violations('## Red Flags\n\n```bash\n# Process\n```\nSTOP.\n')).toEqual([]);
+  });
+  it.each([
+    'Then wait.',
+    'Wait until the human replies.',
+    'Ask: "Should we split it?"',
+    'Ask user for the key.',
+    'Ask reviewer for exact reproduction steps.',
+    'Stop and discuss synchronously.',
+    'take exactly ONE plain-text confirmation',
+    'Show output, confirm, resume.',
+  ])('detects the review I7 phrase in %j', (line) => {
+    expect(scanSkill(`${line}\n`).pausePhrases).toHaveLength(1);
+  });
+  it.each(['await the promise', 'a stopwatch', 'the waiting room'])(
+    'does not detect %j (control)',
+    (line) => {
+      expect(scanSkill(`${line}\n`).pausePhrases).toEqual([]);
+    }
+  );
+  it('keeps an exempt section exempt through its deeper subheadings', () => {
+    expect(violations('## Red Flags\n\n### Universal\n\nStop.\n\n## Process\n\nStop.\n')).toEqual([
+      expect.stringMatching(/^line 9:/),
+    ]);
+  });
+  it('does not count negated pauses or the protocol name', () => {
+    expect(scanSkill('Announce. Do NOT pause here. Never pause there.\n').pausePhrases).toEqual([]);
+    expect(scanSkill('Apply the Pause Protocol (`pause-protocol.md`).\n').pausePhrases).toEqual([]);
+  });
+  it('needs a three-word opt-out reason, covering its own line, the next line, or a fence below it', () => {
+    expect(violations('STOP. <!-- not-a-pause: no -->\n')[0]).toMatch(/at least three words/);
+    expect(violations('STOP. <!-- not-a-pause: self-correction, not a human ask -->\n')).toEqual(
+      []
+    );
+    expect(
+      violations(
+        '<!-- not-a-pause: plan template copied into plans -->\n```\n[checkpoint:human-verify] ...\n```\n'
+      )
+    ).toEqual([]);
+    expect(violations('<!-- not-a-pause: too far above it -->\n\nSTOP.\n')).toHaveLength(1);
+  });
+  it('the preamble section is exempt and ends at the next heading', () => {
+    const t = `# S\n\n## Process\n\n${PAUSE_PREAMBLE}\n\n### Iron Law\n\nSTOP.\n`;
+    const s = scanSkill(t);
+    expect(s.errors).toEqual([]);
+    expect(s.exemptHits).toBeGreaterThan(0);
+    expect(pauseMarkerViolations(s)).toEqual([
+      expect.stringMatching(/unmarked pause point: STOP\./),
+    ]);
+  });
+});
+
+/** Pause phrases found per skill (review I7 phrase list). Raise when a skill gains pauses; never lower. */
+const MIN_PAUSE_PHRASES: Record<(typeof WORKFLOW_SKILLS)[number], number> = {
+  'harness-brainstorming': 28,
+  'harness-planning': 17,
+  'harness-autopilot': 28,
+  'harness-execution': 27,
+  'harness-soundness-review': 3,
+  'harness-code-review': 16,
+  'harness-integration': 10,
+};
+
+const rows = WORKFLOW_SKILLS.map((skill) => {
+  const text = read(skill);
+  return { skill, text, scan: scanSkill(text) };
+});
+
+describe('SC12: every pause point in the seven workflow skills is marked', () => {
+  it('finds at least the pinned number of pause phrases in every skill (denominator)', () => {
+    console.info(
+      rows
+        .map(
+          (r) =>
+            `${r.skill}: ${r.scan.pausePhrases.length} pause phrases, ${r.scan.markers.length} markers, ` +
+            `${r.scan.optOuts} opt-outs, ${r.scan.exemptHits} in exempt sections`
+        )
+        .join('\n')
+    );
+    for (const r of rows) {
+      expect(r.scan.pausePhrases.length, r.skill).toBeGreaterThanOrEqual(
+        MIN_PAUSE_PHRASES[r.skill]
+      );
+    }
+  });
+  for (const r of rows) {
+    const title = `${r.skill}: all ${r.scan.pausePhrases.length} pause phrases marked; classes known; preamble present`;
+    const check = () => {
+      expect(pauseMarkerViolations(r.scan)).toEqual([]);
+      expect(r.scan.markers.length).toBeGreaterThan(0);
+      const at = r.text.indexOf(PAUSE_PREAMBLE);
+      expect(at, 'canonical Pause points preamble').toBeGreaterThanOrEqual(0);
+      expect(r.text.split(PAUSE_PREAMBLE_HEADING).length - 1, 'one Pause points heading').toBe(1);
+      expect(r.text.slice(at + PAUSE_PREAMBLE.length).replace(/^\n+/, '')).toMatch(/^#{1,6} /);
+    };
+    it(title, check);
+  }
+});
+
+const isFence = (l: string | undefined) => /^\s*(?:```|~~~)/.test(l ?? '');
+const isRow = (l: string | undefined) => /^\s*\|/.test(l ?? '');
+
+/** Opening fence of the fenced block containing line `idx`, or -1. */
+function fenceStart(lines: string[], idx: number): number {
+  let open = -1;
+  for (let k = 0; k < idx; k += 1) if (isFence(lines[k])) open = open < 0 ? k : -1;
+  return open;
+}
+
+/** First row of the table containing line `idx` (idx itself when it is not a row). */
+function tableStart(lines: string[], idx: number): number {
+  let start = idx;
+  while (isRow(lines[idx]) && isRow(lines[start - 1])) start -= 1;
+  return start;
+}
+
+/** A fenced line or table row is anchored at its block's first line, as the detector anchors it. */
+function anchorIndex(lines: string[], idx: number): number {
+  const open = fenceStart(lines, idx);
+  return open >= 0 ? open : tableStart(lines, idx);
+}
+
+/** Class of the nearest marker at most MARKER_WINDOW lines above line `idx` (0-based) or its fence. */
+function classAt(text: string, idx: number): string | undefined {
+  const at = anchorIndex(text.split('\n'), idx);
+  const near = scanSkill(text)
+    .markers.filter((m) => m.line - 1 <= at && m.line - 1 >= at - MARKER_WINDOW)
+    .sort((a, b) => b.line - a.line);
+  return near[0]?.cls;
+}
+
+function classOf(skill: string, excerpt: string): string | undefined {
+  const text = read(skill);
+  const idx = text.split('\n').findIndex((l) => l.includes(excerpt));
+  if (idx < 0) throw new Error(`${skill}: excerpt not found: ${excerpt}`);
+  return classAt(text, idx);
+}
+
+/** Pauses whose class is policy, not taste (verify N2 / N4). Relabelling one must fail here. */
+const PINNED_CLASSES: Array<[string, string, string]> = [
+  // N4: a blocking uncertainty stops, like execution's "Hit a blocker"
+  ['harness-execution', '- **Blocking:** Cannot complete the task as written', 'gate'],
+  ['harness-planning', '- **Blocking:** Cannot decompose tasks without resolving this', 'gate'],
+  ['harness-planning', '- **Spec is missing information:**', 'gate'],
+  // N2: opening a PR / merging is irreversible (D-F)
+  ['harness-autopilot', 'Ask "Create a PR? (yes / no)."', 'irreversible'],
+  ['harness-code-review', 'If user confirms: proceed to create PR or merge.', 'irreversible'],
+  ['harness-code-review', '"suggestedNext": "merge"', 'irreversible'],
+  // N2: fix / override / skip after a failed check is a gate (D-G)
+  ['harness-autopilot', 'Fail → ask "fix / skip verification / stop."', 'gate'],
+  ['harness-autopilot', 'Ask "fix / skip integration / stop"', 'gate'],
+  ['harness-autopilot', 'Blocking → ask "fix / override / stop."', 'gate'],
+  ['harness-autopilot', '5. Blocking: ask "fix / override / stop."', 'gate'],
+  ['harness-autopilot', 'HALT before DONE', 'gate'],
+  ['harness-integration', '**On FAIL:** Do NOT emit a transition.', 'gate'],
+  // R2: each checkpoint heading carries its own class, not the previous section's
+  ['harness-execution', '**`[checkpoint:human-verify]` — Show and Confirm**', 'ceremony'],
+  ['harness-execution', '**`[checkpoint:decision]` — Present Options and Wait**', 'judgment'],
+  ['harness-execution', '**`[checkpoint:human-action]` — Instruct and Wait**', 'gate'],
+  // review I7: pauses the extended phrase list newly detects
+  ['harness-autopilot', '**Interactive plan (high):**', 'judgment'],
+  ['harness-autopilot', '- **Spec missing Implementation Order:**', 'gate'],
+  ['harness-autopilot', '- **Delegated skill fails to produce output:**', 'gate'],
+  ['harness-autopilot', '- `confirm`: surface the wave', 'judgment'],
+  ['harness-execution', '5. Per wave: `auto-dispatch` (multi-task)', 'judgment'],
+  // review S2: unresolved disagreement / contradiction is a stop, not an auditable fork
+  [
+    'harness-code-review',
+    '- **When reviewers disagree:** Escalate to the human or tech lead.',
+    'gate',
+  ],
+  [
+    'harness-planning',
+    '- Escalate if contradictions exist between PRDs and existing knowledge docs',
+    'gate',
+  ],
+  // N6: a headless audit disagreement is an escalation that stops at every level
+  ['harness-autopilot', 'If any blocker starts with `audit-disagreement:`', 'gate'],
+  // N2: strategy contradictions are never auto-resolved (D-A, overridden to gate)
+  ['harness-brainstorming', '**Surface strategy contradictions.**', 'gate'],
+  ['harness-brainstorming', '**cross-answer contradiction pass**', 'gate'],
+];
+
+/** Opt-outs per skill as of review I8. Lowering is fine; raising needs a reason in review. */
+const MAX_OPT_OUTS: Record<string, number> = {
+  'harness-brainstorming': 4,
+  'harness-planning': 7,
+  'harness-autopilot': 7, // +1 re-review I8: the Examples "Create PR?" output line
+  'harness-execution': 2,
+  'harness-soundness-review': 1,
+  'harness-code-review': 7,
+  'harness-integration': 2,
+};
+
+const OPTED_OUT = /<!--\s*not-a-pause:/;
+
+/** Every line matching one of these, in any workflow skill, is a pause of that class (verify N2). */
+const CLASS_SWEEPS: Array<[RegExp, string, number]> = [
+  // review I8: push / gh pr / PR / merge / publish / close actions next to a pause are irreversible
+  [
+    /\bgit push\b|\bpush (?:to|the) (?:branch|remote|origin|main)\b|`gh pr|\b(?:create|open) (?:a )?PR\b|PR or merge|\bmerge (?:the|this) PR\b|"suggestedNext": "merge"|\bpublish(?:es|ing)? (?:the|a|to)\b|\bclose (?:the |an? )?(?:issue|PR|branch)\b/i,
+    'irreversible',
+    3,
+  ],
+  [/fix \/ (?:override|skip)/, 'gate', 4],
+];
+
+/** Non-pause lines that must sit outside every marker window (review S3). */
+const NOT_PAUSES: Array<[string, string]> = [
+  ['harness-integration', '- **ADR directory does not exist:**'],
+  ['harness-integration', '- **Plan has no integration tier:**'],
+  ['harness-code-review', '- **When pipeline produces a false positive after validation:**'],
+];
+
+describe('critical pauses carry their pinned class', () => {
+  it('classAt anchors table rows and fenced lines at the block start, like the detector (review S8)', () => {
+    const table = `${marker('gate')}\n| a | b |\n|---|---|\n| 1 | x |\n| 2 | x |\n| 3 | x |\n| 4 | STOP. |\n`;
+    expect(classAt(table, 6)).toBe('gate');
+    const fence = `${marker('ceremony')}\n\`\`\`\n1\n2\n3\n4\nProceed? (yes/no)\n\`\`\`\n`;
+    expect(classAt(fence, 6)).toBe('ceremony');
+    expect(classAt(`${marker('gate')}\na\nb\nc\nd\n`, 4)).toBeUndefined(); // control: plain text is not anchored
+  });
+  it.each(NOT_PAUSES)('%s: "%s" is in no marker window', (skill, excerpt) => {
+    expect(classOf(skill, excerpt)).toBeUndefined();
+  });
+  it.each(PINNED_CLASSES)('%s: "%s" is %s', (skill, excerpt, cls) => {
+    expect(classOf(skill, excerpt)).toBe(cls);
+  });
+  it.each(CLASS_SWEEPS)(
+    'every line matching %s is %s or opted out (at least %i found)',
+    (rx, cls, min) => {
+      const hits = WORKFLOW_SKILLS.flatMap((skill) => {
+        const text = read(skill);
+        const lines = text.split('\n');
+        return lines.flatMap((l, i) => {
+          if (!rx.test(l)) return [];
+          // re-review I8: an unmarked match must say why it is not a pause
+          const opted = OPTED_OUT.test(`${lines[i - 1] ?? ''}${l}`);
+          const c = classAt(text, i) ?? (opted ? undefined : 'unmarked');
+          return c === undefined ? [] : [`${skill}:${i + 1} ${c}`];
+        });
+      });
+      expect(hits.length).toBeGreaterThanOrEqual(min); // denominator: the sweep found the pauses
+      expect(hits.filter((h) => !h.endsWith(` ${cls}`))).toEqual([]);
+    }
+  );
+  it.each(Object.entries(MAX_OPT_OUTS))(
+    '%s uses at most %i not-a-pause opt-outs (review I8)',
+    (skill, max) => {
+      expect(scanSkill(read(skill)).optOuts).toBeLessThanOrEqual(max);
+    }
+  );
+});

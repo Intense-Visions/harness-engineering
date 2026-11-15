@@ -129,6 +129,7 @@ export const TOOL_CAPABILITY_DECLARATIONS: Readonly<Record<string, ToolCapabilit
   emit_interaction: { scopes: ['write'] }, // persists interaction/approval events
   edit_file: { scopes: ['write'] }, // surgical writeFile to a single file
   emit_skill_proposal: { scopes: ['write'] }, // createProposal writes .harness/proposals/
+  record_auto_decision: { scopes: ['write'] }, // appends one line to .harness/sessions/<slug>/auto-decisions.jsonl
   align_design_system: { scopes: ['write'] }, // applies codemods + writes last-batch/handoff
   outcome_eval: { scopes: ['read', 'write'] }, // reads diff/tests; persists execution_outcome graph node
   uat_signoff: { scopes: ['read', 'write'] }, // loads graph; persists one human-signoff execution_outcome node

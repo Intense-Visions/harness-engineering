@@ -1,4 +1,4 @@
-import { paginate, CHARS_PER_TOKEN } from '@harness-engineering/core';
+import { paginate, CHARS_PER_TOKEN, resolveAutonomyForSession } from '@harness-engineering/core';
 import { sanitizePath } from '../utils/sanitize-path.js';
 
 interface GraphContextBlock {
@@ -105,7 +105,8 @@ type IncludeKey =
   | 'sessions'
   | 'events'
   | 'businessKnowledge'
-  | 'comprehension';
+  | 'comprehension'
+  | 'autonomy';
 
 export const gatherContextDefinition = {
   name: 'gather_context',
@@ -142,9 +143,11 @@ export const gatherContextDefinition = {
             'events',
             'businessKnowledge',
             'comprehension',
+            'autonomy',
           ],
         },
-        description: 'Which constituents to include (default: all)',
+        description:
+          'Which constituents to include (default: all). "autonomy" (opt-in) returns the resolved user-level autonomy for the session.',
       },
       includeEvents: {
         type: 'boolean',
@@ -193,21 +196,24 @@ export const gatherContextDefinition = {
   },
 };
 
-export async function handleGatherContext(input: {
-  path: string;
-  intent: string;
-  skill?: string;
-  tokenBudget?: number;
-  include?: IncludeKey[];
-  includeEvents?: boolean;
-  mode?: 'summary' | 'detailed';
-  learningsBudget?: number;
-  session?: string;
-  depth?: 'index' | 'summary' | 'full';
-  section?: 'graphContext' | 'learnings' | 'sessionSections';
-  offset?: number;
-  limit?: number;
-}) {
+export async function handleGatherContext(
+  input: {
+    path: string;
+    intent: string;
+    skill?: string;
+    tokenBudget?: number;
+    include?: IncludeKey[];
+    includeEvents?: boolean;
+    mode?: 'summary' | 'detailed';
+    learningsBudget?: number;
+    session?: string;
+    depth?: 'index' | 'summary' | 'full';
+    section?: 'graphContext' | 'learnings' | 'sessionSections';
+    offset?: number;
+    limit?: number;
+  },
+  deps: { homeDir?: string; env?: NodeJS.ProcessEnv } = {}
+) {
   const start = Date.now();
 
   let projectPath: string;
@@ -425,6 +431,19 @@ export async function handleGatherContext(input: {
       })()
     : Promise.resolve(null);
 
+  // Trusted Autonomy Mode: user-sourced only (D3/D12). Opt-in; never in the default set.
+  // core is already statically imported above, so a lazy import() would load nothing new.
+  const autonomyPromise = includeSet.has('autonomy')
+    ? Promise.resolve().then(() =>
+        resolveAutonomyForSession({
+          projectPath,
+          ...(input.session !== undefined && { session: input.session }),
+          env: deps.env ?? process.env,
+          ...(deps.homeDir !== undefined && { homeDir: deps.homeDir }),
+        })
+      )
+    : Promise.resolve(null);
+
   // Execute all in parallel
   const [
     stateResult,
@@ -436,6 +455,7 @@ export async function handleGatherContext(input: {
     eventsResult,
     businessKnowledgeResult,
     comprehensionResult,
+    autonomyResult,
   ] = await Promise.allSettled([
     statePromise,
     learningsPromise,
@@ -446,6 +466,7 @@ export async function handleGatherContext(input: {
     eventsPromise,
     businessKnowledgePromise,
     comprehensionPromise,
+    autonomyPromise,
   ]);
 
   // Extract results, recording errors
@@ -465,6 +486,7 @@ export async function handleGatherContext(input: {
   const sessionsRaw = extract(sessionsResult, 'sessions');
   const eventsTimeline = extract(eventsResult, 'events');
   const businessKnowledgeRaw = extract(businessKnowledgeResult, 'businessKnowledge');
+  const autonomyRaw = extract(autonomyResult, 'autonomy');
   const comprehensionRaw = extract(comprehensionResult, 'comprehension') as {
     served: Array<{ module: string; markdown: string }>;
     stale: Array<{ module: string; recompile: true }>;
@@ -592,6 +614,7 @@ export async function handleGatherContext(input: {
     sessionSections: sessionSections ?? null,
     events: eventsTimeline || null,
     businessKnowledge: businessKnowledgeRaw ?? null,
+    ...(includeSet.has('autonomy') && { autonomy: autonomyRaw }),
     meta: {
       assembledIn,
       graphAvailable: graphContext !== null,

@@ -1,7 +1,7 @@
 ---
 name: harness:execution
 description: Execute a planned set of tasks with harness validation and state tracking
-argument-hint: '[--path <path>] [--plan-path <plan-path>] [--session-slug <session-slug>] [--fast <fast>] [--thorough <thorough>]'
+argument-hint: '[--path <path>] [--plan-path <plan-path>] [--session-slug <session-slug>] [--fast <fast>] [--thorough <thorough>] [--supervised <supervised>] [--audit <audit>]'
 allowed-tools:
   - Bash
   - Read

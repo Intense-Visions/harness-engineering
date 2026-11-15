@@ -1,7 +1,7 @@
 ---
 name: harness:autopilot
 description: Autonomous phase execution loop — chains planning, execution, verification, and review, pausing only at human decision points
-argument-hint: '[--spec <spec>] [--path <path>] [--review-plans <review-plans>] [--fast <fast>] [--thorough <thorough>]'
+argument-hint: '[--spec <spec>] [--path <path>] [--review-plans <review-plans>] [--fast <fast>] [--thorough <thorough>] [--supervised <supervised>] [--audit <audit>]'
 allowed-tools:
   - Bash
   - Read

@@ -11,6 +11,15 @@
         ]
       },
       {
+        "matcher": "Bash|Write|Edit|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"./.harness/hooks/autonomy-guard.js\""
+          }
+        ]
+      },
+      {
         "matcher": "Write|Edit",
         "hooks": [
           {

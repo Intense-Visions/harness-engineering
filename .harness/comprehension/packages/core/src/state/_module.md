@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/src/state'
-sourceHash: '87e6a715f589c390b4914791ccff998c9726b75df3283075629780f2ceea5d2f'
+sourceHash: '7307f97998447f67259c05ecab2520bf417adfc1bd08ffe904be539ccc58af95'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -137,6 +137,7 @@ export writeSessionSummary
 ```
 import { assignNumber, ensureIdentity } from '../identity/store'
 import { Err, Ok, Result } from '../shared/result'
+import { sessionSlugError } from '../shared/session-slug'
 import { ARCHIVE_DIR, CONTENT_HASHES_FILE, HARNESS_DIR, INDEX_FILE, LEARNINGS_FILE, SESSIONS_DIR, SESSION_INDEX_FILE, SESSION_STATE_FILE, SUMMARY_FILE } from './constants'
 import { EVENT_BLOBS_DIR, EVENT_LOG_FILE, SNAPSHOT_FILE } from './event-sourcing/constants'
 import { ContentHashIndex, LearningPattern, LearningsFrontmatter, LearningsIndexEntry, analyzeLearningPatterns, computeContentHash, computeEntryHash, estimateTokens, extractIndexEntry, loadContentHashes, normalizeLearningContent, parseDateFromEntry, parseFrontmatter, rebuildContentHashes, saveContentHashes, scoreRelevance } from './learnings-content'

@@ -30,10 +30,16 @@ cli:
       description: Force human review of all plans (overrides auto-approve)
       required: false
     - name: fast
-      description: Run with reduced rigor — skip skeleton approval, skip scratchpad, minimal verification
+      description: Run with reduced rigor — skip the skeleton pass, skip scratchpad, minimal verification
       required: false
     - name: thorough
       description: Run with maximum rigor — require skeleton approval, verbose scratchpad, full verification
+      required: false
+    - name: supervised
+      description: Lower autonomy to supervised for this session (lower-only, D17; see the Pause Protocol)
+      required: false
+    - name: audit
+      description: Turn the judgment self-audit on for this session (lower-only, D17; see the Pause Protocol)
       required: false
 mcp:
   tool: run_skill

@@ -45,12 +45,14 @@ describe('runMinimalInit (ADR 0101)', () => {
       expect(fs.existsSync(preCommit)).toBe(true);
       expect(fs.readFileSync(preCommit, 'utf-8')).toContain('harness check-arch');
 
-      // 5. One permission boundary — block-no-verify.
+      // 5. One permission boundary — the safety-floor guard hooks.
       expect(fs.existsSync(path.join(dir, '.harness', 'hooks', 'block-no-verify.js'))).toBe(true);
+      expect(fs.existsSync(path.join(dir, '.harness', 'hooks', 'autonomy-guard.js'))).toBe(true);
       const settings = JSON.parse(
         fs.readFileSync(path.join(dir, '.claude', 'settings.json'), 'utf-8')
       );
       expect(JSON.stringify(settings.hooks)).toContain('block-no-verify');
+      expect(JSON.stringify(settings.hooks)).toContain('autonomy-guard');
     } finally {
       fs.rmSync(dir, { recursive: true, force: true });
     }

@@ -4,7 +4,7 @@
 
 Canonical, regenerated-and-gated reference for every shipped MCP tool and skill. Unlike the summary in [MCP Tools Reference](./mcp-tools.md), this catalog serializes each tool’s **full live input schema** and each skill’s **full declared contract**, so a divergence between a definition’s real schema and its documentation is caught by `pnpm run generate:tool-catalog:check` in CI rather than drifting silently.
 
-## MCP Tools (115)
+## MCP Tools (116)
 
 Every shipped MCP tool, booted live from the built server, with its full input schema. A drift between a tool’s real schema and this catalog fails the build.
 
@@ -2476,7 +2476,7 @@ Assemble all working context an agent needs in a single call: state, learnings, 
       "type": "string"
     },
     "include": {
-      "description": "Which constituents to include (default: all)",
+      "description": "Which constituents to include (default: all). \"autonomy\" (opt-in) returns the resolved user-level autonomy for the session.",
       "items": {
         "enum": [
           "state",
@@ -2487,7 +2487,8 @@ Assemble all working context an agent needs in a single call: state, learnings, 
           "sessions",
           "events",
           "businessKnowledge",
-          "comprehension"
+          "comprehension",
+          "autonomy"
         ],
         "type": "string"
       },
@@ -3410,7 +3411,7 @@ Manage the project roadmap: show, add, update, remove, promote, sync, groom feat
 
 ### `manage_state`
 
-Manage harness project state: show current state, record learnings/failures, archive failures, reset state, run mechanical gate checks, or save/load session handoff
+Manage harness project state: show current state, record learnings/failures, archive failures, reset state, run mechanical gate checks, save/load session handoff, or lower session autonomy (set-autonomy; lower-only)
 
 **Input schema:**
 
@@ -3437,13 +3438,18 @@ Manage harness project state: show current state, record learnings/failures, arc
         "task-complete",
         "phase-start",
         "phase-complete",
-        "task-transition"
+        "task-transition",
+        "set-autonomy"
       ],
       "type": "string"
     },
     "actor": {
       "description": "Actor for a forced transition",
       "type": "string"
+    },
+    "audit": {
+      "description": "Audit setting for set-autonomy. Agent calls may only turn audit on; false is rejected.",
+      "type": "boolean"
     },
     "authorSkill": {
       "description": "Name of the skill authoring the entry (required for append_entry)",
@@ -3489,6 +3495,14 @@ Manage harness project state: show current state, record learnings/failures, arc
     },
     "learning": {
       "description": "Learning text to record (required for learn)",
+      "type": "string"
+    },
+    "level": {
+      "description": "Autonomy level for set-autonomy. Agent calls may only lower: \"trusted\" is rejected (raise with `harness autonomy set` on a TTY).",
+      "enum": [
+        "supervised",
+        "trusted"
+      ],
       "type": "string"
     },
     "newStatus": {
@@ -4059,6 +4073,117 @@ Recommend skills based on codebase health. Returns sequenced workflow with urgen
     }
   },
   "required": [],
+  "type": "object"
+}
+```
+
+### `record_auto_decision`
+
+Append an auto-taken decision (trusted autonomy) to `.harness/sessions/&lt;session>/auto-decisions.jsonl`. Append-only. The server stamps ts and autonomySource and refuses every entry (escalated ones included) unless the resolved autonomy is trusted, and a judgment with audit "off" while audit is on. If this returns isError (recorded:false), do NOT auto-proceed: pause and ask the human.
+
+**Input schema:**
+
+```json
+{
+  "properties": {
+    "audit": {
+      "description": "Required for judgment, omitted for ceremony. agreed: {status,blindPick(=chosen),objection?{severity:\"non-blocking\",text}}; escalated: {status,blindPick,objection?,humanChoice(=chosen)}; or {status:\"unavailable\"|\"off\"}",
+      "properties": {
+        "blindPick": {
+          "type": "string"
+        },
+        "humanChoice": {
+          "type": "string"
+        },
+        "objection": {
+          "properties": {
+            "severity": {
+              "enum": [
+                "blocking",
+                "non-blocking"
+              ],
+              "type": "string"
+            },
+            "text": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "severity",
+            "text"
+          ],
+          "type": "object"
+        },
+        "status": {
+          "enum": [
+            "agreed",
+            "escalated",
+            "unavailable",
+            "off"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "status"
+      ],
+      "type": "object"
+    },
+    "chosen": {
+      "description": "One of options (escalated: the human choice)",
+      "type": "string"
+    },
+    "options": {
+      "description": "Distinct options offered",
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "path": {
+      "description": "Path to project root",
+      "type": "string"
+    },
+    "pauseClass": {
+      "description": "irreversible and gate pauses never auto-proceed and cannot be recorded",
+      "enum": [
+        "ceremony",
+        "judgment"
+      ],
+      "type": "string"
+    },
+    "phase": {
+      "description": "Skill phase, e.g. \"VALIDATE\"",
+      "type": "string"
+    },
+    "question": {
+      "description": "The question the pause would have asked",
+      "type": "string"
+    },
+    "rationale": {
+      "description": "Why this option was taken",
+      "type": "string"
+    },
+    "session": {
+      "description": "Session slug; .harness/sessions/<slug>/ must exist",
+      "type": "string"
+    },
+    "skill": {
+      "description": "Skill at the pause point, e.g. \"harness-planning\"",
+      "type": "string"
+    }
+  },
+  "required": [
+    "path",
+    "session",
+    "skill",
+    "phase",
+    "pauseClass",
+    "question",
+    "options",
+    "chosen",
+    "rationale"
+  ],
   "type": "object"
 }
 ```

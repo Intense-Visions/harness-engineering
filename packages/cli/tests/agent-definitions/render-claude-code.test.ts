@@ -21,7 +21,26 @@ describe('renderClaudeCodeAgent', () => {
     expect(output).toMatch(/^---\n/);
     expect(output).toContain('name: harness-code-reviewer');
     expect(output).toContain('description:');
-    expect(output).toContain('tools: Bash, Read, Glob, Grep');
+    expect(output).toContain('tools: Bash, Read, Glob, Grep, mcp__harness__gather_context');
+  });
+
+  it('grants the Pause Protocol MCP tools under both harness server names', () => {
+    const toolsLine = renderClaudeCodeAgent(mockDef)
+      .split('\n')
+      .find((line) => line.startsWith('tools: '))!;
+    const tools = toolsLine.slice('tools: '.length).split(', ');
+    for (const server of ['mcp__harness__', 'mcp__plugin_harness-claude_harness__']) {
+      for (const tool of [
+        'gather_context',
+        'manage_state',
+        'record_auto_decision',
+        'emit_interaction',
+      ]) {
+        expect(tools).toContain(`${server}${tool}`);
+      }
+    }
+    // Exact names only: a server-wide wildcard would grant every harness tool.
+    expect(tools.some((t) => t.includes('*'))).toBe(false);
   });
 
   it('includes generated header', () => {

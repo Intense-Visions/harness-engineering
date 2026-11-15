@@ -1,7 +1,7 @@
 ---
 name: harness:brainstorming
 description: Structured ideation and exploration with harness methodology
-argument-hint: '[--path <path>] [--session-slug <session-slug>]'
+argument-hint: '[--path <path>] [--session-slug <session-slug>] [--supervised <supervised>] [--audit <audit>]'
 allowed-tools:
   - Bash
   - Read

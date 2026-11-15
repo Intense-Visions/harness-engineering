@@ -1,12 +1,13 @@
 ---
 schemaVersion: 1
 module: 'agents/skills/tests'
-sourceHash: 'eb4ea504b6315ff77d86beec82b0fd7c9185c93121087aed56a727810088d067'
+sourceHash: '4f57ff4280dfbd4592391875c49eae0cc076074c1b7b46ac88108ee1fd8aaab8'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
 members:
   [
+    'autonomy-wiring.test.ts',
     'fleet-clump-lane-unit.test.ts',
     'fleet-command-gated-lane-isolation.test.ts',
     'harness-compound.test.ts',
@@ -16,6 +17,9 @@ members:
     'interaction-channel.test.ts',
     'internal-refs.test.ts',
     'issue-fleet-routes.test.ts',
+    'pause-markers.test.ts',
+    'pause-markers.ts',
+    'pause-protocol.test.ts',
     'platform-parity.test.ts',
     'references.test.ts',
     'schema.test.ts',
@@ -29,15 +33,28 @@ members:
 ```ts
 export ALLOWED_PLATFORMS
 export ALLOWED_TRIGGERS
+export MARKER_WINDOW
+export PAUSE_CLASSES
+export PAUSE_PHRASES
+export PAUSE_PREAMBLE
+export PAUSE_PREAMBLE_HEADING
+export START_STEP
+export SUMMARY_STEP
 export SkillMetadataSchema
+export WORKFLOW_SKILLS
+export canonicalMarkerLine
+export isPausePhrase
+export pauseMarkerViolations
+export scanSkill
 ```
 
 ## Dependency Slice
 
 ```
+import { MARKER_WINDOW, PAUSE_PREAMBLE, PAUSE_PREAMBLE_HEADING, START_STEP, SUMMARY_STEP, WORKFLOW_SKILLS, marker, pauseMarkerViolations, scanSkill } from './pause-markers'
 import { ALLOWED_PLATFORMS, SkillMetadataSchema } from './schema'
 import { BEHAVIORAL_REQUIRED_SECTIONS, CompoundLockHeldError, KNOWLEDGE_REQUIRED_SECTIONS, RIGID_SECTIONS, acquireCompoundLock } from '@harness-engineering/core'
-import { existsSync, readFileSync } from 'fs'
+import { existsSync, readFileSync, readdirSync } from 'fs'
 import { glob } from 'glob'
 import * as fs from 'node:fs'
 import * as os from 'node:os'

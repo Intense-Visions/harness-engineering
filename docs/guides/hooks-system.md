@@ -131,6 +131,14 @@ Appends token usage data to `.harness/metrics/costs.jsonl` when a session ends. 
 
 Blocks any Bash command containing `--no-verify` or `git commit -n`. This prevents the agent from skipping git hooks, which are a critical part of the quality enforcement chain.
 
+### autonomy-guard.js
+
+**Event:** `PreToolUse:Bash|Write|Edit|MultiEdit` | **Profile:** minimal | **Can block:** Yes
+
+Narrows the same-user residual of [trusted autonomy](../changes/trusted-autonomy-mode/proposal.md#threat-model) (D16). Blocks Bash invocations of `harness autonomy set` that raise autonomy (`trusted`, `--audit off`) or whose arguments are not literally a lowering (a quoted or `$VAR` level), including through `bash -c`, `eval` and command substitution. It also blocks a `harness` invocation with a runtime-built argument (`$VAR`, `$(…)`, backticks) when that argument could select `autonomy set`: the subcommand word is itself runtime-built (or a runtime-built option precedes it), or it is `autonomy` followed by anything other than a literal `log` or `show`. Runtime-built arguments to any other literal subcommand are allowed (`harness validate --path "$PWD"`, `harness autonomy log --session $s`). It blocks `cd` or a variable assignment aimed at `~/.harness`, and Bash, Write and Edit that target user-level autonomy state: `~/.harness/config.json`, `~/.harness/session-overrides/` and `~/.harness/autonomy-audit.log`, plus agent writes to a session's `auto-decisions.jsonl`. Lowering (`harness autonomy set supervised`, `--audit on`) stays allowed; use the Read tool or `harness autonomy show` to inspect the state. This is a tripwire, not a sandbox: a process running as the same user can still reach these files.
+
+See the [Trusted Autonomy guide](./trusted-autonomy.md) for what trusted mode is, how to enable it, and its threat model.
+
 ### adoption-tracker.js
 
 **Event:** `Stop:*` | **Profile:** standard | **Can block:** No
@@ -193,43 +201,46 @@ Profiles are **additive** -- each higher tier includes all hooks from lower tier
 
 ### minimal
 
-The safety floor. Includes only `block-no-verify`.
+The safety floor. Includes `block-no-verify` and `autonomy-guard`.
 
-| Hook            | Event      | Matcher |
-| --------------- | ---------- | ------- |
-| block-no-verify | PreToolUse | Bash    |
+| Hook            | Event      | Matcher                      |
+| --------------- | ---------- | ---------------------------- |
+| block-no-verify | PreToolUse | Bash                         |
+| autonomy-guard  | PreToolUse | Bash\|Write\|Edit\|MultiEdit |
 
 ### standard (default)
 
 Adds config protection, quality checks, state preservation, and usage tracking.
 
-| Hook               | Event       | Matcher     |
-| ------------------ | ----------- | ----------- |
-| block-no-verify    | PreToolUse  | Bash        |
-| protect-config     | PreToolUse  | Write\|Edit |
-| quality-warner     | PostToolUse | Edit\|Write |
-| pre-compact-state  | PreCompact  | \*          |
-| adoption-tracker   | Stop        | \*          |
-| telemetry-reporter | Stop        | \*          |
-| session-retrospect | Stop        | \*          |
+| Hook               | Event       | Matcher                      |
+| ------------------ | ----------- | ---------------------------- |
+| block-no-verify    | PreToolUse  | Bash                         |
+| autonomy-guard     | PreToolUse  | Bash\|Write\|Edit\|MultiEdit |
+| protect-config     | PreToolUse  | Write\|Edit                  |
+| quality-warner     | PostToolUse | Edit\|Write                  |
+| pre-compact-state  | PreCompact  | \*                           |
+| adoption-tracker   | Stop        | \*                           |
+| telemetry-reporter | Stop        | \*                           |
+| session-retrospect | Stop        | \*                           |
 
 ### strict
 
 Adds full prompt injection defense and cost tracking.
 
-| Hook                | Event       | Matcher     |
-| ------------------- | ----------- | ----------- |
-| block-no-verify     | PreToolUse  | Bash        |
-| protect-config      | PreToolUse  | Write\|Edit |
-| quality-warner      | PostToolUse | Edit\|Write |
-| pre-compact-state   | PreCompact  | \*          |
-| adoption-tracker    | Stop        | \*          |
-| telemetry-reporter  | Stop        | \*          |
-| session-retrospect  | Stop        | \*          |
-| strict-quality-gate | PostToolUse | Edit\|Write |
-| cost-tracker        | Stop        | \*          |
-| sentinel-pre        | PreToolUse  | \*          |
-| sentinel-post       | PostToolUse | \*          |
+| Hook                | Event       | Matcher                      |
+| ------------------- | ----------- | ---------------------------- |
+| block-no-verify     | PreToolUse  | Bash                         |
+| autonomy-guard      | PreToolUse  | Bash\|Write\|Edit\|MultiEdit |
+| protect-config      | PreToolUse  | Write\|Edit                  |
+| quality-warner      | PostToolUse | Edit\|Write                  |
+| pre-compact-state   | PreCompact  | \*                           |
+| adoption-tracker    | Stop        | \*                           |
+| telemetry-reporter  | Stop        | \*                           |
+| session-retrospect  | Stop        | \*                           |
+| strict-quality-gate | PostToolUse | Edit\|Write                  |
+| cost-tracker        | Stop        | \*                           |
+| sentinel-pre        | PreToolUse  | \*                           |
+| sentinel-post       | PostToolUse | \*                           |
 
 ## Installation
 
