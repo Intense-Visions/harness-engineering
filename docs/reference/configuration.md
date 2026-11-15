@@ -820,6 +820,45 @@ When a hook fires, the host skill threads the invocation context.
 declaring its event vocabulary in its SKILL.md, calling `resolveSkillHooks`, and
 honoring the blocking + hard-halt rules; remaining skills follow as a follow-up.
 
+### Craft domains auto-wire (default, zero-config, advisory)
+
+The `-craft` skills are the project's ceiling layer, and both wired consumers resolve
+them automatically at their review moments — `harness-autopilot` at `after:REVIEW` and
+`after:FINAL_REVIEW`, `harness-code-review` at `after:mechanical`. This needs **no
+`skillHooks` entry**: it is an additional default layer resolved by
+`resolveReviewHooksWithCraft` from `@harness-engineering/core`, and a project in which
+nothing activates gets byte-identical behaviour to `resolveSkillHooks` alone.
+
+(Canary's deterministic test detectors auto-wire the same way at autopilot's two review
+events. That layer is documented in `harness-autopilot`'s SKILL.md rather than here, so
+this is the first auto-wire note on this page rather than a second one.)
+
+- **Activation reads the DIFF, never a discovery walk.** A domain activates when the
+  changed files include a surface it owns **and** — for the domains that parse source
+  into units — a language it can actually extract from. A domain that cannot read the
+  changed files is reported as an explicit skip, never as an empty finding set, because
+  an empty finding set is indistinguishable from "this code is fine".
+- **Findings are ADVISORY.** They are surfaced in the review report and never contribute
+  to the `error`/`warn` severity counts, never gate a phase, and never enter
+  `harness-code-review`'s mechanical exclusion set.
+- **A missing craft skill is a SKIP, not a hard halt.** The hard-halt rule above is
+  reserved for hooks a project declared. A harness-supplied default that is not installed
+  is reported in `skipped` with reason `not-installed`, and the review continues.
+- **The denominator is always reported** — `craft domains: 2/3 activated, 1 skipped:
+unsupported-language` — so a surprising `0/M` renders as `0/M` rather than as silence.
+- **Parking a domain uses the existing switch.** Declaring a domain explicitly also
+  suppresses the default for it, so a domain is never wired twice:
+
+```jsonc
+{
+  "skillHooks": {
+    "harness-code-review": {
+      "after:mechanical": [{ "type": "skill", "skill": "docs-craft", "enabled": false }],
+    },
+  },
+}
+```
+
 ## `integrations`
 
 - **Type:** `IntegrationsConfig`

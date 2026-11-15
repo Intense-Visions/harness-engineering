@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/code-craft'
-sourceHash: '9927648e69cf2e0c5b92911bdcfe5d9c12948cfa81ad859fbe2fe81417a90660'
+sourceHash: '88a469f551196f940df24daa1c6cc73acb618377c83715fde8c7424c5d3eb945'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -37,7 +37,7 @@ import { SEED_EXEMPLARS } from './catalog/exemplars/index.js'
 import { CodeRubric, SEED_RUBRICS, rubricApplies } from './catalog/rubrics/index.js'
 import { discoverSourceFiles } from './extract/discover.js'
 import { buildCodeCraftCloneIndex, resolveSiblingEvidence } from './extract/siblings.js'
-import { extractUnits } from './extract/units.js'
+import { extractCodeUnits } from './extract/units.js'
 import { CodeCraftOutput, CodeFinding, CodeUnit } from './findings/schema.js'
 import { CRITIQUE_SYSTEM_PROMPT, buildPrompt, critiqueOne, parseFindingFromRaw } from './phases/critique.js'
 import { CloneClass, CloneIndex, CloneMember } from '@harness-engineering/core'

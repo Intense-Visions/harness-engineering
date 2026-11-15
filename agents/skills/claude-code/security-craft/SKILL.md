@@ -101,6 +101,25 @@ Emit `SecurityCraftOutput`:
 - **Cross-cutting API:** `critiqueSecurityInFile(file, opts)` exported from `packages/cli/src/security-craft/index.ts`. Returns `[]` for files with no security signals (consistent with the orchestrator's FP-management strategy).
 - **Shared craft infrastructure:** `LlmProvider`, `MockLlmProvider`, `derivePriority`, 3-axis types all live in `packages/cli/src/shared/craft/`.
 
+## Invoked as a review hook
+
+`security-craft` auto-activates as an **advisory** review hook whenever a diff touches the surface it
+owns — `harness-autopilot` at `after:REVIEW` / `after:FINAL_REVIEW`, and `harness-code-review` at
+`after:mechanical`. The domain table is `CRAFT_REVIEW_DOMAINS` and the per-host events are
+`CRAFT_REVIEW_EVENTS_BY_HOST`, both in `packages/core/src/hooks/craft-review-hooks.ts`. The host
+forwards the subset of the diff this domain owns:
+
+- **`files`** — this domain's owned subset of the changed files, as **ABSOLUTE** paths. The host
+  reads it from `plan.files["security-craft"]`, which holds repo-relative POSIX paths, and resolves each
+  entry against the project root before calling `mcp__harness__security_craft`. Forwarded unresolved, the
+  collectors read nothing and the run reports `status: "collected"` with zero prompts — a clean
+  report from a run that read no code.
+- **`promptBudget`** — accepted; raises the prompt ceiling for the forwarded scope when the diff subset is large.
+
+Findings from a hook-triggered run are advisory: reported, never blocking, never counted toward
+review severity, and never entered into a host's mechanical exclusion set. A hook-triggered run
+that fails is a missing opinion, not a broken gate.
+
 ## Success Criteria
 
 See `docs/changes/craft-pipeline/security-craft/proposal.md` for the full 29 success criteria. Highlights:
