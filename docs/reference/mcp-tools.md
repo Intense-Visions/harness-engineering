@@ -1341,7 +1341,7 @@ Manage Architecture Decision Records (ADRs) in docs/knowledge/decisions/: create
 
 **Parameters:**
 
-- `path` (string, required) — Path to project root
+- `path` (string, required) — Path to project root. Every action reads and writes ADRs under &lt;path>/docs/knowledge/decisions/ — pass your worktree here; the server's own checkout is never used. Must exist.
 - `action` (string, required) — Action to perform
 - `ref` (string, optional) — ADR reference for read/update: an ADR number ("92" or "0092"), a slug, or a filename
 - `title` (string, optional) — ADR title (required for create; optional for update)

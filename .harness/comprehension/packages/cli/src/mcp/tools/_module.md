@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/mcp/tools'
-sourceHash: 'e51f21ed68d7bbf298b5665a24e4507b266dd825d526197ab0a6a4351878b8f4'
+sourceHash: '382529722f15da58917f19527d914db8b00ec48568c5d4fae13837ecf11508a5'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -179,6 +179,7 @@ export allocateNextNumber
 export analyzeDiffDefinition
 export apiCraftDefinition
 export apiCraftFinalizeDefinition
+export assertProjectRoot
 export assessProjectDefinition
 export attachSemantic
 export auditAnatomyDefinition
@@ -392,7 +393,6 @@ export renderTransition
 export requestPeerReviewDefinition
 export resolveLintCommand
 export resolveTestContent
-export resolveWorktreeRoot
 export reviewChangesDefinition
 export runAgentTaskDefinition
 export runAlignDesignSystem
@@ -538,7 +538,7 @@ import { McpToolResponse, bigIntSafeReplacer, resultToMcpResponse } from '../uti
 import { sanitizePath } from '../utils/sanitize-path.js'
 import { sortFindingsBySeverity } from '../utils/severity.js'
 import { emitAcceptanceVerdictEvent, emitOutcomeVerdictEvent, emitUatSignoffEvent } from '../utils/waypoint-emission.js'
-import { AdrStoreError, CreateAdrInput, UpdateAdrInput, createAdr, listAdrs, readAdr, resolveWorktreeRoot, updateAdr } from './adr-store.js'
+import { AdrStoreError, CreateAdrInput, UpdateAdrInput, assertProjectRoot, createAdr, listAdrs, readAdr, updateAdr } from './adr-store.js'
 import { adviseSkillsDefinition, handleAdviseSkills } from './advise-skills.js'
 import './architecture.js'
 import { generateBlueprintDefinition, handleGenerateBlueprint } from './blueprint.js'
