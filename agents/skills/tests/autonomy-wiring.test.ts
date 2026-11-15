@@ -200,9 +200,15 @@ describe('B1 / D17: lowering flags are applied before any dispatch or marked poi
     expect(at).toBeGreaterThan(args.indexOf('**Session slug:**'));
   });
   it('every skill that declares a lowering flag carries the start step (list is complete)', () => {
-    const declaring = readdirSync(SKILLS).filter(
-      (n) => existsSync(resolve(SKILLS, n, 'skill.yaml')) && argNames(n).includes('supervised')
-    );
+    // Parse only files that mention the flag; parsing all ~800 yaml files overran CI's 5s timeout.
+    const declaring = readdirSync(SKILLS).filter((n) => {
+      const yaml = resolve(SKILLS, n, 'skill.yaml');
+      return (
+        existsSync(yaml) &&
+        readFileSync(yaml, 'utf-8').includes('supervised') &&
+        argNames(n).includes('supervised')
+      );
+    });
     expect(declaring.length).toBeGreaterThan(0); // control
     expect(declaring.sort()).toEqual([...FLAGGED].sort());
   });
