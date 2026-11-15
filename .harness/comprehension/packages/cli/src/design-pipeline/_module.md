@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/design-pipeline'
-sourceHash: 'b03f11fc35c225a5bd464258d17fd49dad91e766f4bcbe1f94daecfb2fbe4b3b'
+sourceHash: '0f953f17c51ef1a2ca3a9fac9837212c18ea029aa3aa14d854eecb89f91c1771'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -35,7 +35,7 @@ import { runAudit } from './phases/audit.js'
 import { runDetect } from './phases/detect.js'
 import { runFill } from './phases/fill.js'
 import { runFix } from './phases/fix.js'
-import { probeGraphAvailable, runFreshen } from './phases/freshen.js'
+import { listMissingInputs, probeGraphAvailable, probeInputs, runFreshen } from './phases/freshen.js'
 import { runReport } from './phases/report.js'
 import { VerifierRegistry } from './registry.js'
 ```
