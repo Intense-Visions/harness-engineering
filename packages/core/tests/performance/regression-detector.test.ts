@@ -9,6 +9,7 @@ describe('RegressionDetector', () => {
   const criticalPaths: CriticalPathSet = {
     entries: [{ file: 'hot.bench.ts', function: 'hotFn', source: 'annotation' }],
     stats: { annotated: 1, graphInferred: 0, total: 1 },
+    graphInference: { status: 'ran' },
   };
 
   it('detects >10% regression as Tier 2 warning', () => {

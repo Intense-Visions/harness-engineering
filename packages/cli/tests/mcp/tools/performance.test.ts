@@ -134,6 +134,9 @@ describe('handleGetCriticalPaths', () => {
     const set = payload(await handleGetCriticalPaths({ path: dir }));
     expect(set.stats.total).toBe(0);
     expect(set.entries).toEqual([]);
+    // #2327: the empty set must be marked as an abstention, not a clean zero.
+    expect(set.graphInference.status).toBe('not-run');
+    expect(set.noSignal.reason).toMatch(/graph inference did not run/);
   });
 
   it('surfaces functions carrying a @perf-critical annotation', async () => {
