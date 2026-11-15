@@ -163,7 +163,14 @@ describe('multi-language prompt production', () => {
     // this count red for the wrong reason.
     const out = await collectCodeCraftPrompts({ path: root, siblings: false, promptBudget: 500 });
     for (const file of [...LANGUAGES.map((l) => l.file), 'cart.ts']) {
-      const forFile = out.pendingPrompts.filter((p) => p.userPrompt.includes(`/${file}`));
+      // The prompt renders the path the collector was handed, so on win32 it
+      // is `...\\cart.py` and a hardcoded `/` needle matches NOTHING — the
+      // filter returns [] and the count reads 0, which looks exactly like
+      // "this language extracted nothing". Normalize the haystack instead:
+      // the separator is not what this law is about.
+      const forFile = out.pendingPrompts.filter((p) =>
+        p.userPrompt.replace(/\\/g, '/').includes(`/${file}`)
+      );
       const units = new Set(
         forFile.map((p) => p.userPrompt.match(/Unit: kind=(\w+), name=(\S+?), line=/)![0])
       );

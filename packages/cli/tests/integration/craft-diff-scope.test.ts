@@ -67,8 +67,17 @@ describe('a hook-triggered craft run critiques only files in the diff (criterion
     expect(out.runFile).toBeTruthy();
     const seen = promptFiles(out.runFile as string);
     expect(seen.length).toBeGreaterThan(0);
+    // SEPARATOR-INSENSITIVE ON PURPOSE, and it is the contract rather than a
+    // test convenience. `plan.files` carries repo-relative POSIX paths, the
+    // host resolves them with `path.join`/`path.resolve`, and on win32 that
+    // round-trip comes back `src\\in-diff.ts` while `changed` holds
+    // `src/in-diff.ts`. Criterion 4's membership claim is about WHICH FILES
+    // were read, not about how a platform spells a separator. Comparing raw
+    // strings made this law pass on posix and fail on win32 CI for a reason
+    // that had nothing to do with diff scoping.
+    const toPosix = (rel: string): string => rel.split(path.sep).join('/');
     for (const f of seen) {
-      expect(changed).toContain(path.relative(root, f));
+      expect(changed).toContain(toPosix(path.relative(root, f)));
     }
   });
 
