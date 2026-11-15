@@ -14,7 +14,14 @@ let repo: string;
 let home: string;
 
 const childEnv = (): NodeJS.ProcessEnv => {
-  const env: NodeJS.ProcessEnv = { ...process.env, HOME: home, USERPROFILE: home };
+  // No update check: it spawns a detached child whose cwd is the repo, which locks the
+  // dir on Windows past the test (EBUSY on cleanup).
+  const env: NodeJS.ProcessEnv = {
+    ...process.env,
+    HOME: home,
+    USERPROFILE: home,
+    HARNESS_NO_UPDATE_CHECK: '1',
+  };
   // dotenv never overrides an existing var: strip ours so the repo .env is what the CLI sees.
   for (const k of Object.keys(env)) {
     if (k.startsWith('HARNESS_AUTONOMY') || k.startsWith('GIT_')) delete env[k];
@@ -51,7 +58,6 @@ beforeEach(() => {
     'HARNESS_AUTONOMY=trusted\nHARNESS_AUTONOMY_AUDIT=off\n'
   );
 });
-// Windows can hold the repo dir briefly after the spawned CLI exits (EBUSY), so retry.
 afterEach(() => fs.rmSync(tmp, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 }));
 
 describe.skipIf(skipUnlessBin)('repo .env cannot raise autonomy (spawned CLI, D13)', () => {

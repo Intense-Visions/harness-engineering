@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { join } from 'node:path';
+import { join, sep } from 'node:path';
 import { readHumanDecisionBlockers, type HandoffFs } from './human-decision-blockers';
 
 const WS = '/ws';
@@ -86,7 +86,7 @@ describe('readHumanDecisionBlockers', () => {
     const fs: HandoffFs = {
       readdir: (dir) => {
         const kids = Object.keys(files)
-          .filter((f) => f.startsWith(dir + '/') && f.slice(dir.length + 1).includes('/'))
+          .filter((f) => f.startsWith(dir + sep) && f.slice(dir.length + 1).includes(sep))
           .map((f) => f.slice(dir.length + 1).split(/[\\/]/)[0]!);
         if (kids.length === 0) throw new Error('ENOENT');
         return [...new Set(kids)];
