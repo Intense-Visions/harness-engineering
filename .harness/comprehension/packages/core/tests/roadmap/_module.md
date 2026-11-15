@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/tests/roadmap'
-sourceHash: '167d879c200ead11072227aadb242c8dcb9caa47b62b514e86e8c133a21af1d2'
+sourceHash: '89e31222dc17e610eae1f9e25dcead0aa2e5476b795bf6adab0f591eb84e5537'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -39,6 +39,7 @@ members:
     'referenced-issues.test.ts',
     'repro-1862-history-silent-deletion.test.ts',
     'repro-assignment-history-pipe.test.ts',
+    'roundtrip-inverse-2166.test.ts',
     'serialize-extended.test.ts',
     'serialize-groups.test.ts',
     'serialize-list-field-comma.test.ts',
