@@ -203,5 +203,14 @@ export async function detectCircularDepsInFiles(
     return graphResult as Result<CircularDepsResult, ConstraintError>;
   }
 
-  return detectCircularDeps(graphResult.value);
+  const detected = detectCircularDeps(graphResult.value);
+  if (!detected.ok) return detected;
+  // Carry the parse coverage through, so a caller can tell a cycle-free graph
+  // from one with files missing (#2073).
+  const { unparsedFiles, analyzedFiles } = graphResult.value;
+  return Ok({
+    ...detected.value,
+    ...(analyzedFiles !== undefined ? { analyzedFiles } : {}),
+    ...(unparsedFiles ? { unparsedFiles } : {}),
+  });
 }

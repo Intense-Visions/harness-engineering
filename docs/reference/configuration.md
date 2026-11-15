@@ -217,7 +217,9 @@ Tunes `harness check-deps` discovery — the set of files considered for both la
 
 Mirrors [`analysis.exclude`](#analysis) and [`design.exclude`](#design). Prefer `deps.exclude` over narrowing a layer `pattern` to silence a finding — narrowing the pattern also shrinks what the gate actually checks.
 
-`check-deps` reports the analyzed-module count ("Analyzed N module(s) across M layer(s).") so the scanned denominator is observable. A run with layers configured that discovers **zero** modules fails rather than reporting clean.
+`check-deps` reports the analyzed-module count ("Analyzed N module(s) across M layer(s).") so the scanned denominator is observable. The count is the number of source files whose imports were actually read — directories, non-source files a layer glob happens to match, and files that failed to parse are not counted. A run with layers configured that discovers **zero** modules fails rather than reporting clean.
+
+A source file that **fails to parse** (a syntax error, or import extraction failing) is never dropped silently: its imports — and any layer violation or cycle among them — were not checked. Each such file is reported by path on the "checks that could not run" channel below and is treated like an engine abstention: exit `3` by default, downgraded to `0` (still reported) under `fallbackBehavior: "warn"`. Fix the file, or exclude it with `deps.exclude`.
 
 #### When the analysis engine cannot run
 

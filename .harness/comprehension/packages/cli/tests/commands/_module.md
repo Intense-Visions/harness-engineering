@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/tests/commands'
-sourceHash: '966196a8c1f73721eb699364c9c54af951e595a3c92a8e1dfe7597043fe95571'
+sourceHash: '56582e52062ad853fb84efe159da1a4ddc8ecce3523007c1f209708ebdb619dd'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -38,6 +38,7 @@ members:
     'check-deps-err-swallow.test.ts',
     'check-deps-no-layers-cycle.test.ts',
     'check-deps-skipped-abstention.test.ts',
+    'check-deps-unparseable-files.test.ts',
     'check-deps.test.ts',
     'check-design-cov544.test.ts',
     'check-design-json-abstention.test.ts',
