@@ -134,3 +134,8 @@ milestones:
 - **Assignee:** Chad Warner
 - **Action:** unassigned
 - **Date:** 2026-11-12
+
+- **Feature:** auto-wire-craft-at-review
+- **Assignee:** Chad Warner
+- **Action:** unassigned
+- **Date:** 2026-11-15
