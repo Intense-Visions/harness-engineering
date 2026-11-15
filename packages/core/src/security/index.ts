@@ -140,6 +140,8 @@ export {
   TimeToFixResultSchema,
   securityFindingId,
   EMPTY_SUPPLY_CHAIN,
+  isSupplyChainMeasured,
+  UNMEASURED_SUPPLY_CHAIN_SCORE_CEILING,
 } from './security-timeline-types';
 
 export type {
@@ -157,3 +159,4 @@ export type {
 } from './security-timeline-types';
 
 export { SecurityTimelineManager } from './security-timeline-manager';
+export type { AuditCommandRunner } from './security-timeline-manager';

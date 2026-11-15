@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/tests/security'
-sourceHash: 'f297ad02c9cc2688eda451a680abefcd111a431a6c2bc7e7a521b810989807a8'
+sourceHash: 'c3d992694e6f62926cd91dda70edf38b15558841376f9fb1407384eab9afab64'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -39,7 +39,7 @@ import { SECURITY_SCAN_DEFAULT_IGNORE, SECURITY_SCAN_EXTENSIONS, SECURITY_SCAN_G
 import { SecurityScanner, parseHarnessIgnore } from '../../src/security/scanner'
 import { extractQuotedSecretValue, isReferenceOnlySecretValue } from '../../src/security/secret-reference'
 import { SecurityTimelineManager } from '../../src/security/security-timeline-manager'
-import { EMPTY_SUPPLY_CHAIN, SecurityTimelineFile, securityFindingId } from '../../src/security/security-timeline-types'
+import { EMPTY_SUPPLY_CHAIN, SecurityTimelineFile, UNMEASURED_SUPPLY_CHAIN_SCORE_CEILING, isSupplyChainMeasured, securityFindingId } from '../../src/security/security-timeline-types'
 import { detectStack } from '../../src/security/stack-detector'
 import { checkTaint, clearTaint, getTaintFilePath, listTaintedSessions, readTaint, writeTaint } from '../../src/security/taint'
 import { DEFAULT_SECURITY_CONFIG, ScanResult, SecurityCategory, SecurityConfidence, SecurityConfig, SecurityFinding, SecurityRule, SecuritySeverity } from '../../src/security/types'
