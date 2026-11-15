@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'tests/scripts'
-sourceHash: '80c467b791549466971572ad30554b931f32f0a7a73f60c31cf87f65a2323696'
+sourceHash: 'ce5d7c532f8ba262c3cb72b050d0312ca50b51b4433b9f32b7de990888d66cca'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -16,6 +16,7 @@ members:
     'generate-barrel-exports.test.ts',
     'generate-docs-determinism.test.ts',
     'main-health-check.test.mjs',
+    'override-floors.test.mjs',
     'plugin-antigravity-target.test.mjs',
     'plugin-pin-sync.test.mjs',
     'precommit-plugin-stage.test.mjs',
@@ -44,6 +45,7 @@ import { evaluateCoverage, mergeCoverageBaselines, pruneCoverageSummaries, toler
 import { baseUrl, pageFiles, parseTargetFiles, slugForFile } from '../../scripts/design-capture.mjs'
 import { PLUGIN_CONFIGS, getConfig } from '../../scripts/lib/plugin-config.mjs'
 import { ALARM_LABEL, ALARM_MARKER, EXIT, decideAction, deliverAlarm, evaluateHealth, fetchRuns, findOpenAlarmIssue, renderIssueBody, renderSummary, selectDecisiveRuns } from '../../scripts/main-health-check.mjs'
+import { checkFloors, findAdvancements, parseLockfile, parseOverrideKey, satisfies } from '../../scripts/override-floors.mjs'
 import { classifyPublish, parsePublishOutput, registryUrl, runRelease, waitForVisibility } from '../../scripts/release-publish.mjs'
 import { MANIFEST_PATHS, findPinnedVersion, readCliVersion, syncManifestContent } from '../../scripts/sync-plugin-pin.mjs'
 import assert from 'node:assert/strict'

@@ -52,6 +52,7 @@
     "changeset": "changeset",
     "check:changesets": "BASE_REF=origin/main node scripts/check-changesets.mjs",
     "check:audit-exceptions": "node scripts/audit-exceptions.mjs",
+    "check:override-floors": "node scripts/override-floors.mjs",
     "version": "changeset version && node scripts/sync-plugin-pin.mjs",
     "release": "pnpm build && node scripts/release-publish.mjs",
     "prepare": "husky"
