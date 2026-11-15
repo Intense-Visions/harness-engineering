@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'tests/scripts'
-sourceHash: '80c467b791549466971572ad30554b931f32f0a7a73f60c31cf87f65a2323696'
+sourceHash: 'd30d87133a7175e8ae6f37f9608bc1434797d7ba28f8e497e20880f235186538'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -37,7 +37,7 @@ members:
 
 ```
 import { EXIT, assessVitestLog, stripAnsi } from '../../scripts/assert-vitest-ran.mjs'
-import { extractAdvisories, lapseReason, reconcile } from '../../scripts/audit-exceptions.mjs'
+import { classifyLockfiles, extractAdvisories, extractNpmAdvisories, lapseReason, reconcile } from '../../scripts/audit-exceptions.mjs'
 import { mergeBenchmarkBaselines } from '../../scripts/benchmark-check.mjs'
 import { parseChangesetFrontmatter } from '../../scripts/check-changesets.mjs'
 import { evaluateCoverage, mergeCoverageBaselines, pruneCoverageSummaries, toleranceFor } from '../../scripts/coverage-ratchet.mjs'
