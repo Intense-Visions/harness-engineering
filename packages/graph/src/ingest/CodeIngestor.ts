@@ -273,6 +273,32 @@ function countParameterList(paramsStr: string, lang: string): number {
   return segmentHasContent ? count + 1 : count;
 }
 
+/** One module specifier a file depends on, as found by the import scanners. */
+interface ImportPathRef {
+  importPath: string;
+  isTypeOnly: boolean;
+  /** `export … from` — the file re-exports the target rather than importing it. */
+  isReexport?: boolean;
+}
+
+/**
+ * `export { A } from './x'`, `export type { T } from './x'`, `export * from './x'`
+ * and `export * as ns from './x'`. A re-export loads the target module exactly as
+ * an import does, so it is a dependency edge. Without it a pure barrel — an
+ * `index.ts` or ANY plain-named module that only re-exports — is a dead end in
+ * the graph, and every file reached only through it looks untested (#2079).
+ */
+function extractReexportPaths(content: string): ImportPathRef[] {
+  const reexportRegex =
+    /export\s+(type\s+)?(?:\{[^}]*\}|\*(?:\s+as\s+[\w$]+)?)\s+from\s+['"]([^'"]+)['"]/g;
+  const results: ImportPathRef[] = [];
+  let match: RegExpExecArray | null;
+  while ((match = reexportRegex.exec(content)) !== null) {
+    results.push({ importPath: match[2]!, isTypeOnly: match[1] !== undefined, isReexport: true });
+  }
+  return results;
+}
+
 /**
  * Ingests source files into the graph via regex-based parsing.
  * Supports TypeScript, JavaScript, Python, Go, Rust, and Java.
@@ -919,34 +945,45 @@ export class CodeIngestor {
     const lang = this.detectLanguage(relativePath);
     const edges: GraphEdge[] = [];
 
+    // One edge per resolved target. A file can reach the same target through
+    // several statements (`import type` + `import`, or `import` + `export … from`);
+    // GraphStore dedupes by (from, to, type) and merges metadata last-wins, so
+    // fold here: any value import makes the edge static, any re-export marks it.
+    const byTarget = new Map<string, { isTypeOnly: boolean; isReexport: boolean }>();
     const importPaths = this.extractImportPaths(content, lang);
-    for (const { importPath, isTypeOnly } of importPaths) {
+    for (const { importPath, isTypeOnly, isReexport } of importPaths) {
       // Only resolve relative imports for TS/JS; all imports for other languages
       if ((lang === 'typescript' || lang === 'javascript') && !importPath.startsWith('.')) continue;
 
       const resolvedPath = await this.resolveImportPath(relativePath, importPath, rootDir);
-      if (resolvedPath) {
-        const targetId = `file:${resolvedPath}`;
-        edges.push({
-          from: fileId,
-          to: targetId,
-          type: 'imports',
-          // Import statement is AST-explicit, but the target file id comes
-          // from resolveImportPath — a resolver-derived link.
-          provenance: 'INFERRED',
-          metadata: { importType: isTypeOnly ? 'type-only' : 'static' },
-        });
-      }
+      if (!resolvedPath) continue;
+      const prior = byTarget.get(resolvedPath);
+      byTarget.set(resolvedPath, {
+        isTypeOnly: (prior?.isTypeOnly ?? true) && isTypeOnly,
+        isReexport: (prior?.isReexport ?? false) || isReexport === true,
+      });
+    }
+
+    for (const [resolvedPath, { isTypeOnly, isReexport }] of byTarget) {
+      edges.push({
+        from: fileId,
+        to: `file:${resolvedPath}`,
+        type: 'imports',
+        // Import statement is AST-explicit, but the target file id comes
+        // from resolveImportPath — a resolver-derived link.
+        provenance: 'INFERRED',
+        metadata: {
+          importType: isTypeOnly ? 'type-only' : 'static',
+          ...(isReexport ? { reexport: true } : {}),
+        },
+      });
     }
 
     return edges;
   }
 
-  private extractImportPaths(
-    content: string,
-    lang: string
-  ): Array<{ importPath: string; isTypeOnly: boolean }> {
-    const results: Array<{ importPath: string; isTypeOnly: boolean }> = [];
+  private extractImportPaths(content: string, lang: string): ImportPathRef[] {
+    const results: ImportPathRef[] = [];
 
     if (lang === 'typescript' || lang === 'javascript') {
       const importRegex = /import\s+(?:type\s+)?(?:\{[^}]*\}|[\w*]+)\s+from\s+['"]([^'"]+)['"]/g;
@@ -957,6 +994,7 @@ export class CodeIngestor {
           isTypeOnly: match[0]!.includes('import type'),
         });
       }
+      results.push(...extractReexportPaths(content));
     } else if (lang === 'python') {
       // from X import Y  or  import X
       const fromImport = /(?:from\s+([\w.]+)\s+import|import\s+([\w.]+))/g;
