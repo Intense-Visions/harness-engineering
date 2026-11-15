@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/commands'
-sourceHash: 'b2e575e75bc2ec7f9f90855be9a9500419a6f25e9284d30fd36ae8555feccee9'
+sourceHash: '91e08e77b9304b5850878283ce19051d88b1079a2e0d33ff60f73df3c4ee3b63'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -490,6 +490,7 @@ import { CraftScanTally, formatCraftDiagnostic } from '../shared/craft/diagnosti
 import { findOrchestratorMd, readBackendsFromOrchestratorMd } from '../shared/craft/llm/orchestrator-md'
 import { CraftLlmResolution, resolveCraftLlmConfig } from '../shared/craft/llm/provider.js'
 import { ENTROPY_ISSUE_TYPES, EntropyIssueType, describeDuplicationNotRun, describeUnknownIssueType, isEntropyIssueType, resolveDuplicationRequest } from '../shared/duplication-request'
+import { resolveInsightsEntropyGatherer } from '../shared/insights-entropy'
 import { matchContent } from '../skill/content-matcher'
 import { ContentMatchResult, SkillMatch } from '../skill/content-matcher-types'
 import { HealthSnapshot, captureHealthSnapshot, isSnapshotFresh, loadCachedSnapshot } from '../skill/health-snapshot'

@@ -1,11 +1,18 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/shared'
-sourceHash: '8a84f299b5360057fe952d59c043534f9ca4bf4cad096e9ebb72ccfb5e44d260'
+sourceHash: 'a8eee03b6c1ad648093891c5b8775cb3635a200bd0417201050ce8c30150bdc4'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
-members: ['design-scan-targets.ts', 'duplication-request.ts', 'state-events.ts', 'verifier.ts']
+members:
+  [
+    'design-scan-targets.ts',
+    'duplication-request.ts',
+    'insights-entropy.ts',
+    'state-events.ts',
+    'verifier.ts',
+  ]
 ---
 
 ## Interface Contract
@@ -29,14 +36,18 @@ export readAuditTimeline
 export readHarnessState
 export resolveDesignExcludePatterns
 export resolveDuplicationRequest
+export resolveInsightsEntropyGatherer
 ```
 
 ## Dependency Slice
 
 ```
+import { runCleanup } from '../commands/cleanup'
 import { loadAnalysisExclude, loadDesignExclude } from '../config/analysis-schema.js'
-import { DuplicationConfig, HarnessState, Ok, Result, eventSourcing } from '@harness-engineering/core'
+import { findConfigFile } from '../config/loader'
+import { DuplicationConfig, HarnessState, InsightsEntropyGatherer, Ok, Result, eventSourcing } from '@harness-engineering/core'
 import { minimatch } from 'minimatch'
 import * as fs from 'node:fs'
 import * as path from 'node:path'
+import * as path from 'path'
 ```

@@ -10,6 +10,7 @@ import type {
 } from '@harness-engineering/types';
 import { TELEMETRY_SYNTHESIS_SECTIONS } from '@harness-engineering/types';
 import { logger } from '../../output/logger';
+import { resolveInsightsEntropyGatherer } from '../../shared/insights-entropy';
 
 /** The section names a caller may `--skip`. */
 const SKIPPABLE = new Set<string>(TELEMETRY_SYNTHESIS_SECTIONS);
@@ -104,7 +105,8 @@ async function loadInsights(cwd: string, skip: boolean): Promise<InsightsReport 
   if (skip) return null;
   try {
     const { composeInsights } = await import('@harness-engineering/core');
-    return await composeInsights(cwd);
+    const gatherEntropy = resolveInsightsEntropyGatherer(cwd);
+    return await composeInsights(cwd, { ...(gatherEntropy && { gatherEntropy }) });
   } catch {
     return null;
   }

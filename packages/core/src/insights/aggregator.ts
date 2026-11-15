@@ -30,7 +30,18 @@ export interface ComposeInsightsOptions {
   skip?: InsightsKey[];
   /** Per-component timeout — currently used as a soft signal, not enforced (analyzers are sync). */
   perAnalyzerTimeoutMs?: number;
+  /**
+   * Produces the entropy counts. Callers that can read the project's
+   * `harness.config.json` (the CLI and MCP tool) inject the same analysis
+   * `harness cleanup` runs, so the two commands cannot disagree about one
+   * repository (#2192). Must THROW on a failed analysis — never return zeros.
+   * Defaults to an unconfigured scan of the conventional layouts.
+   */
+  gatherEntropy?: InsightsEntropyGatherer;
 }
+
+/** Computes the entropy block for a project root; throws when it cannot measure. */
+export type InsightsEntropyGatherer = (projectPath: string) => Promise<InsightsEntropyBlock>;
 
 async function safeGather<T>(
   key: InsightsKey,
@@ -50,14 +61,19 @@ function arrayLen(arr: unknown): number {
   return Array.isArray(arr) ? arr.length : 0;
 }
 
-/** Gather the entropy block via the existing EntropyAnalyzer on the project root. */
+/**
+ * Default entropy gatherer: an unconfigured scan of the conventional layouts,
+ * used when the caller injects no config-aware gatherer. Drift is requested
+ * because `driftCount` is reported — with `drift: false` it was zero by
+ * construction (#2192).
+ */
 async function gatherEntropyBlock(projectPath: string): Promise<InsightsEntropyBlock> {
   const { EntropyAnalyzer } = await import('../entropy/analyzer.js');
   const analyzer = new EntropyAnalyzer({
     rootDir: projectPath,
-    include: ['src/**/*.ts', 'src/**/*.tsx', 'packages/*/src/**/*.ts'],
+    include: ['src/**/*.ts', 'src/**/*.tsx', 'packages/*/src/**/*.ts', 'packages/*/src/**/*.tsx'],
     exclude: ['node_modules/**', 'dist/**', '**/*.test.ts', '**/*.spec.ts'],
-    analyze: { drift: false, deadCode: true, patterns: false, complexity: false },
+    analyze: { drift: true, deadCode: true, patterns: false, complexity: false },
   });
   const result = await analyzer.analyze();
   // Throw, never return zeros: `safeGather` turns a throw into `null` plus a
@@ -154,10 +170,15 @@ async function gatherImpactBlock(projectPath: string): Promise<InsightsImpactBlo
   }
 }
 
-/** Gather the health block — pass/fail summary from check outputs. */
-async function gatherHealthBlock(projectPath: string): Promise<InsightsHealthBlock> {
-  // Reuse the entropy-based health signal as a cheap baseline.
-  const entropy = await gatherEntropyBlock(projectPath);
+/**
+ * Gather the health block. It is a pass/fail SUMMARY of the entropy block, not
+ * an independent check: when the entropy analysis fails, this rejects too, so
+ * health is reported as not measured rather than PASS.
+ */
+async function gatherHealthBlock(
+  entropyBlock: Promise<InsightsEntropyBlock>
+): Promise<InsightsHealthBlock> {
+  const entropy = await entropyBlock;
   const signals: string[] = [];
   if (entropy.driftCount > 0) signals.push(`${entropy.driftCount} drift findings`);
   if (entropy.deadFiles > 0) signals.push(`${entropy.deadFiles} dead files`);
@@ -180,12 +201,19 @@ export async function composeInsights(
 
   const wantedKeys = INSIGHTS_KEYS.filter((k) => !skip.has(k));
 
+  // Health and entropy share ONE analysis run (it can take minutes on a large
+  // repository); the promise is created lazily so skipping both runs nothing.
+  const gather = opts.gatherEntropy ?? gatherEntropyBlock;
+  let entropyRun: Promise<InsightsEntropyBlock> | undefined;
+  const entropyOnce = (): Promise<InsightsEntropyBlock> =>
+    (entropyRun ??= Promise.resolve().then(() => gather(projectPath)));
+
   const [healthRes, entropyRes, decayRes, attentionRes, impactRes] = await Promise.all([
     wantedKeys.includes('health')
-      ? safeGather('health', () => gatherHealthBlock(projectPath), warnings)
+      ? safeGather('health', () => gatherHealthBlock(entropyOnce()), warnings)
       : Promise.resolve(null),
     wantedKeys.includes('entropy')
-      ? safeGather('entropy', () => gatherEntropyBlock(projectPath), warnings)
+      ? safeGather('entropy', entropyOnce, warnings)
       : Promise.resolve(null),
     wantedKeys.includes('decay')
       ? safeGather('decay', () => gatherDecayBlock(projectPath), warnings)

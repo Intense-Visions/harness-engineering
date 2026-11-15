@@ -5,9 +5,13 @@ import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { createInsightsCommand } from '../../src/commands/insights';
+import { runCleanup } from '../../src/commands/cleanup';
 
 async function runCommand(cwd: string, args: string[]): Promise<void> {
-  const parent = new Command();
+  // Mirror the real root program (`packages/cli/src/index.ts`), which declares
+  // its own `--json`: commander hands that flag to the ROOT, so a subcommand
+  // reading only its local `opts.json` never sees it (#2192).
+  const parent = new Command().option('--json', 'Output as JSON');
   parent.addCommand(createInsightsCommand());
   parent.exitOverride();
   const cwdSpy = vi.spyOn(process, 'cwd').mockReturnValue(cwd);
@@ -144,6 +148,65 @@ describe('insights command', () => {
           expect.stringMatching(/^entropy: entropy analysis failed \(ENTRY_POINT_NOT_FOUND\)/),
         ])
       );
+    });
+  });
+
+  describe('honours harness.config.json entropy config, as cleanup does (#2192)', () => {
+    /**
+     * A layout the old hard-coded include globs (`src/**`, `packages/*\/src/**`)
+     * never see, whose only entry point is declared in harness.config.json.
+     * `harness cleanup` reads that config; insights used to ignore it, fail to
+     * resolve an entry point, and report nothing.
+     */
+    function writeConfiguredProject(entryPoints: string[]): void {
+      rmSync(join(tmp, 'package.json'));
+      rmSync(join(tmp, 'src'), { recursive: true });
+      mkdirSync(join(tmp, 'app'));
+      writeFileSync(join(tmp, 'app', 'main.ts'), "import { used } from './lib';\nused();\n");
+      writeFileSync(
+        join(tmp, 'app', 'lib.ts'),
+        'export function used(): void {}\nexport function neverUsed(): void {}\n'
+      );
+      writeFileSync(join(tmp, 'app', 'orphan.ts'), 'export const orphan = 2;\n');
+      writeFileSync(
+        join(tmp, 'harness.config.json'),
+        JSON.stringify({ version: 1, entropy: { entryPoints } })
+      );
+    }
+
+    it('reports the same drift and dead-code counts as runCleanup', async () => {
+      writeConfiguredProject(['app/main.ts']);
+      const cleanup = await runCleanup({ cwd: tmp, configPath: join(tmp, 'harness.config.json') });
+      expect(cleanup.ok).toBe(true);
+      if (!cleanup.ok) return;
+      const dead = cleanup.value.deadCode;
+
+      await runCommand(tmp, ['--json', '--skip', 'decay,attention,impact']);
+      const parsed = JSON.parse(logOutput.join('\n').trim()) as {
+        entropy: { driftCount: number; deadFiles: number; deadExports: number } | null;
+        health: { passed: boolean } | null;
+        warnings: string[];
+      };
+
+      expect(parsed.warnings).toEqual([]);
+      expect(parsed.entropy).toEqual({
+        driftCount: cleanup.value.driftIssues.length,
+        deadFiles: dead.filter((d) => d.symbol === undefined).length,
+        deadExports: dead.filter((d) => d.symbol !== undefined).length,
+      });
+      // Non-vacuous: the fixture really has dead code for both to agree on.
+      expect(parsed.entropy!.deadFiles).toBeGreaterThan(0);
+      expect(parsed.health?.passed).toBe(false);
+    });
+
+    it('a configured analysis that fails is NOT MEASURED with a warning, never PASS', async () => {
+      writeConfiguredProject(['app/does-not-exist.ts']);
+      await runCommand(tmp, ['--skip', 'decay,attention,impact']);
+      const all = logOutput.join('\n');
+      expect(all).not.toMatch(/PASS/);
+      expect(all).toMatch(/Health {6}: NOT MEASURED \(see warnings\)/);
+      expect(all).toMatch(/Entropy {5}: NOT MEASURED \(see warnings\)/);
+      expect(all).toMatch(/- entropy: .*does-not-exist/);
     });
   });
 });
