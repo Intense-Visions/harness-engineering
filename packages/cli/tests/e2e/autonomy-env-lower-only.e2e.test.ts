@@ -51,7 +51,8 @@ beforeEach(() => {
     'HARNESS_AUTONOMY=trusted\nHARNESS_AUTONOMY_AUDIT=off\n'
   );
 });
-afterEach(() => fs.rmSync(tmp, { recursive: true, force: true }));
+// Windows can hold the repo dir briefly after the spawned CLI exits (EBUSY), so retry.
+afterEach(() => fs.rmSync(tmp, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 }));
 
 describe.skipIf(skipUnlessBin)('repo .env cannot raise autonomy (spawned CLI, D13)', () => {
   it('empty HOME: .env trusted/audit-off resolves supervised, neither field from env', () => {

@@ -10,7 +10,7 @@ function fakeFs(files: Record<string, { body: string; mtimeMs?: number }>): Hand
     readdir: (dir) => {
       if (dir !== SESSIONS) throw new Error('ENOENT');
       return [
-        ...new Set(Object.keys(files).map((f) => f.slice(SESSIONS.length + 1).split('/')[0]!)),
+        ...new Set(Object.keys(files).map((f) => f.slice(SESSIONS.length + 1).split(/[\\/]/)[0]!)),
       ];
     },
     readFile: (file) => {
@@ -87,7 +87,7 @@ describe('readHumanDecisionBlockers', () => {
       readdir: (dir) => {
         const kids = Object.keys(files)
           .filter((f) => f.startsWith(dir + '/') && f.slice(dir.length + 1).includes('/'))
-          .map((f) => f.slice(dir.length + 1).split('/')[0]!);
+          .map((f) => f.slice(dir.length + 1).split(/[\\/]/)[0]!);
         if (kids.length === 0) throw new Error('ENOENT');
         return [...new Set(kids)];
       },
