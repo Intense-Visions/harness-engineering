@@ -457,28 +457,52 @@ function missingReasonError(baselinePath: string): CLIError {
   );
 }
 
-/** Build the allowance payload from the still-uncovered items of a filtered diff. */
+/**
+ * Build the allowance payload from the still-uncovered items of a filtered diff.
+ *
+ * Merges with the branch's previous allowance (#2474) rather than replacing it: ids that
+ * were already acknowledged keep the reason they were recorded under (a legacy file with no
+ * per-id map attributes them to its top-level reason), only newly-added ids take `reason`,
+ * and the top-level `reason` accumulates every distinct justification instead of being
+ * overwritten by the latest one.
+ */
 function buildAllowance(
   filtered: AllowanceFilteredDiff,
   reason: string,
-  cwd: string
+  cwd: string,
+  previous: ArchAllowance | undefined
 ): ArchAllowance {
   const categories: Partial<Record<ArchMetricCategory, number>> = {};
   for (const r of filtered.regressions) categories[r.category] = r.currentValue;
+  const newReason = reason.trim();
+  const violationIds = filtered.newViolations.map((v) => v.id).sort();
+  const previousIds = new Set(previous?.violationIds ?? []);
+  const violationReasons: Record<string, string> = {};
+  for (const id of violationIds) {
+    const recorded =
+      previous?.violationReasons[id] ?? (previousIds.has(id) ? previous?.reason : undefined);
+    violationReasons[id] = recorded ?? newReason;
+  }
+  // Line-wise union, so a bare re-run (which reuses the accumulated reason) adds nothing.
+  const reasons: string[] = [];
+  for (const line of `${previous?.reason ?? ''}\n${newReason}`.split('\n')) {
+    if (line.trim() !== '' && !reasons.includes(line)) reasons.push(line);
+  }
   return {
-    reason: reason.trim(),
+    reason: reasons.join('\n'),
     categories,
-    violationIds: filtered.newViolations.map((v) => v.id).sort(),
+    violationIds,
+    violationReasons,
     createdFrom: getCommitHash(cwd),
   };
 }
 
-/** The `reason` recorded in an existing allowance file, if it parses; else undefined. */
-function existingAllowanceReason(ownFile: string): string | undefined {
+/** This branch's existing allowance, if the file is present and parses; else undefined. */
+function readOwnAllowance(ownFile: string): ArchAllowance | undefined {
   if (!fs.existsSync(ownFile)) return undefined;
   try {
     const parsed = ArchAllowanceSchema.safeParse(JSON.parse(fs.readFileSync(ownFile, 'utf-8')));
-    return parsed.success ? parsed.data.reason : undefined;
+    return parsed.success ? parsed.data : undefined;
   } catch {
     return undefined;
   }
@@ -523,13 +547,14 @@ function writeAllowanceUpdate(
 
   // A bare `--update-baseline` re-run (no new --reason) reuses the reason already recorded
   // in this branch's own allowance, so iterating never demands the reason be re-typed.
-  const effectiveReason = reason?.trim() || existingAllowanceReason(ownFile);
+  const previous = readOwnAllowance(ownFile);
+  const effectiveReason = reason?.trim() || previous?.reason;
   if (!effectiveReason) return Err(missingReasonError(archConfig.baselinePath));
 
   const file = writeArchAllowance(
     cwd,
     archConfig.baselinePath,
-    buildAllowance(filtered, effectiveReason, cwd),
+    buildAllowance(filtered, effectiveReason, cwd, previous),
     slug
   );
   return Ok(
