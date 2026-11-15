@@ -92,6 +92,20 @@ async function runBaselinesShow(globalOpts: { json?: boolean }): Promise<void> {
   }
 }
 
+/**
+ * Report a `perf` failure in the active output mode and exit non-zero, so a
+ * command that could not do its job never reads as green (#2084). Under
+ * `--json` the error goes to stdout as `{ error }`, as `check-perf` does.
+ */
+function failPerfCommand(json: boolean | undefined, message: string): never {
+  if (json) {
+    console.log(JSON.stringify({ error: message }));
+  } else {
+    logger.error(message);
+  }
+  process.exit(ExitCode.ERROR);
+}
+
 async function runBaselinesUpdate(globalOpts: { json?: boolean }): Promise<void> {
   const cwd = process.cwd();
   const { BenchmarkRunner } = await import('@harness-engineering/core');
@@ -102,10 +116,10 @@ async function runBaselinesUpdate(globalOpts: { json?: boolean }): Promise<void>
   const benchResult = await runner.run({ cwd });
 
   if (!benchResult.success || benchResult.results.length === 0) {
-    logger.error(
+    failPerfCommand(
+      globalOpts.json,
       'No benchmark results to save. Run `harness perf bench` first to verify benchmarks work.'
     );
-    return;
   }
 
   const commitHash = await getCommitHash(cwd);
@@ -166,16 +180,6 @@ function configuredPerfEntryPoints(config: HarnessConfig): string[] | undefined 
   return undefined;
 }
 
-/** Report a `perf report` failure in the active output mode and exit non-zero (#2084). */
-function failReport(json: boolean | undefined, message: string): never {
-  if (json) {
-    console.log(JSON.stringify({ error: message }));
-  } else {
-    logger.error(message);
-  }
-  process.exit(ExitCode.ERROR);
-}
-
 function registerReportCommand(perf: Command): void {
   perf
     .command('report')
@@ -188,7 +192,7 @@ function registerReportCommand(perf: Command): void {
       // cannot be loaded is an error, never a silent fall back to cwd.
       const project = resolveProject(globalOpts.config);
       if (!project.ok && globalOpts.config !== undefined) {
-        failReport(globalOpts.json, project.error.message);
+        failPerfCommand(globalOpts.json, project.error.message);
       }
       const root = project.ok ? project.value.root : process.cwd();
       const entryPoints = project.ok ? configuredPerfEntryPoints(project.value.config) : undefined;
@@ -202,7 +206,7 @@ function registerReportCommand(perf: Command): void {
 
       const result = await analyzer.analyze();
       if (!result.ok) {
-        failReport(globalOpts.json, result.error.message);
+        failPerfCommand(globalOpts.json, result.error.message);
       }
 
       const report = result.value;

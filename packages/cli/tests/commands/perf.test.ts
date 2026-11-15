@@ -214,15 +214,55 @@ describe('perf command', () => {
   });
 
   describe('baselines update subcommand', () => {
-    it('shows error when benchmark run fails', async () => {
+    // #2084: a run with no results used to log and return, so `perf baselines
+    // update` exited 0 without saving anything.
+    it('exits non-zero in text mode when the benchmark run produces no results', async () => {
       mockRun.mockResolvedValue({ success: false, results: [] });
+      const exitSpy = vi.spyOn(process, 'exit').mockImplementation(((code?: number) => {
+        throw new Error(`process.exit(${code})`);
+      }) as never);
       const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
       const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 
       const cmd = createPerfCommand();
-      await cmd.parseAsync(['baselines', 'update'], { from: 'user' });
-
+      await expect(cmd.parseAsync(['baselines', 'update'], { from: 'user' })).rejects.toThrow(
+        `process.exit(${ExitCode.ERROR})`
+      );
+      expect(exitSpy).toHaveBeenCalledWith(ExitCode.ERROR);
       expect(mockBaselineSave).not.toHaveBeenCalled();
+
+      exitSpy.mockRestore();
+      logSpy.mockRestore();
+      errorSpy.mockRestore();
+    });
+
+    it('exits non-zero and emits a JSON error object in --json mode when there are no results', async () => {
+      mockRun.mockResolvedValue({ success: true, results: [] });
+      const exitSpy = vi.spyOn(process, 'exit').mockImplementation(((code?: number) => {
+        throw new Error(`process.exit(${code})`);
+      }) as never);
+      const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+      const cmd = createPerfCommand();
+      cmd.option('--json', 'JSON output');
+      await expect(
+        cmd.parseAsync(['--json', 'baselines', 'update'], { from: 'user' })
+      ).rejects.toThrow(`process.exit(${ExitCode.ERROR})`);
+      expect(exitSpy).toHaveBeenCalledWith(ExitCode.ERROR);
+      const jsonOut = logSpy.mock.calls
+        .map((c) => {
+          try {
+            return JSON.parse(String(c[0]));
+          } catch {
+            return undefined;
+          }
+        })
+        .find((v) => v !== undefined);
+      expect(jsonOut).toEqual({ error: expect.stringContaining('No benchmark results to save') });
+      expect(mockBaselineSave).not.toHaveBeenCalled();
+
+      exitSpy.mockRestore();
       logSpy.mockRestore();
       errorSpy.mockRestore();
     });
