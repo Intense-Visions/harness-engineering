@@ -2,8 +2,9 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { Hono } from 'hono';
 import type { ServerContext } from '../../../src/server/context';
 import { DataCache } from '../../../src/server/cache';
+import type { RoadmapData } from '../../../src/shared/types';
 
-const FAKE_ROADMAP_DATA = {
+const FAKE_ROADMAP_DATA: RoadmapData = {
   milestones: [
     {
       name: 'M1',
@@ -14,6 +15,7 @@ const FAKE_ROADMAP_DATA = {
       planned: 1,
       blocked: 0,
       backlog: 0,
+      needsHuman: 0,
     },
   ],
   features: [
@@ -126,7 +128,7 @@ describe('GET /api/roadmap/charts', () => {
     const { gatherRoadmap } = await import('../../../src/server/gather/roadmap');
     vi.mocked(gatherRoadmap).mockResolvedValueOnce({
       ...FAKE_ROADMAP_DATA,
-      features: [{ ...FAKE_ROADMAP_DATA.features[0], blockedBy: [] }],
+      features: [{ ...FAKE_ROADMAP_DATA.features[0]!, blockedBy: [] }],
     });
     const res = await app.request('/api/roadmap/charts');
     const body = (await res.json()) as { data: { blockerEdges: unknown[] } };

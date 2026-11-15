@@ -19,7 +19,7 @@
     "build:server": "tsup src/server/serve.ts --format esm --outDir dist/server --tsconfig tsconfig.build.json",
     "build:client": "vite build --config vite.config.ts",
     "lint": "eslint src",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit && tsc -p tsconfig.tests.json",
     "test": "vitest run",
     "test:watch": "vitest",
     "clean": "node ../../scripts/clean.mjs dist"
