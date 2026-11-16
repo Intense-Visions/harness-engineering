@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/src/entropy/detectors'
-sourceHash: '6bff3c14896e574e16290919ca2622d1d8639d7711393c6ac45ea2b874349b53'
+sourceHash: 'adccb4f9911820a323dbe6591ce213ff92025b8499f31518aab5034f0d0d3715'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -10,7 +10,6 @@ members:
     'complexity.ts',
     'coupling.ts',
     'dead-code.ts',
-    'drift-symbols.ts',
     'drift.ts',
     'duplication.ts',
     'index.ts',
@@ -43,10 +42,9 @@ import { AST } from '../../shared/parsers'
 import { Err, Ok, Result } from '../../shared/result'
 import { resolveAliasCandidates } from '../path-aliases'
 import { CodebaseSnapshot, ComplexityConfig, ComplexityReport, ComplexityViolation, ConfigPattern, CouplingConfig, CouplingReport, CouplingViolation, DeadCodeReport, DeadExport, DeadFile, DeadInternal, DocumentationDrift, DriftConfig, DriftReport, DuplicationReport, EntropyError, PatternConfig, PatternMatch, PatternReport, PatternViolation, SizeBudgetConfig, SizeBudgetReport, SizeBudgetViolation, SourceFile, UnusedImport } from '../types'
-import { collectDeclaredNames, resolveReferenceName } from './drift-symbols'
 import { DEFAULT_SKIP_DIRS } from '@harness-engineering/graph'
 import { minimatch } from 'minimatch'
-import { readFileSync, readdirSync, statSync } from 'node:fs'
+import { readdirSync, statSync } from 'node:fs'
 import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { basename, dirname, extname, resolve } from 'path'

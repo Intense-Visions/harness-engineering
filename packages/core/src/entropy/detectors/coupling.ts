@@ -35,10 +35,11 @@ interface FileMetrics {
 
 function computeMetricsFromSnapshot(snapshot: CodebaseSnapshot): FileMetrics[] {
   const fanInMap = new Map<string, number>();
+  const filePaths = new Set(snapshot.files.map((f) => f.path));
 
   for (const file of snapshot.files) {
     for (const imp of file.imports) {
-      const resolved = resolveImportSource(imp.source, file.path, snapshot);
+      const resolved = resolveImportSource(imp.source, file.path, filePaths);
       if (resolved) {
         fanInMap.set(resolved, (fanInMap.get(resolved) || 0) + 1);
       }
@@ -75,19 +76,49 @@ function resolveRelativePath(from: string, source: string): string {
   return parts.join('/');
 }
 
+/**
+ * Runtime extension written in a specifier -> the source extensions it can name.
+ *
+ * Under TS `"module": "NodeNext"` (and `"Bundler"`) a relative specifier MUST
+ * carry the runtime extension, so `./foo.js` names `foo.ts` (or `foo.tsx`),
+ * `./foo.mjs` names `foo.mts` and `./foo.cjs` names `foo.cts`. Resolving the
+ * specifier literally found no such file, so every importer of an ESM module
+ * was invisible: fanIn stayed 0 and couplingRatio pinned to 1.00 (#2153).
+ * Same table as the dead-code detector and `constraints/dependencies` (#279).
+ */
+const JS_EXT_FALLBACKS: Record<string, readonly string[]> = {
+  '.js': ['.ts', '.tsx', '.jsx'],
+  '.jsx': ['.tsx'],
+  '.mjs': ['.mts'],
+  '.cjs': ['.cts'],
+};
+
+function runtimeExtensionCandidates(resolved: string): string[] {
+  const slash = resolved.lastIndexOf('/');
+  const dot = resolved.lastIndexOf('.');
+  if (dot <= slash + 1) return [];
+  const ext = resolved.slice(dot);
+  const fallbacks = JS_EXT_FALLBACKS[ext];
+  if (!fallbacks) return [];
+  const base = resolved.slice(0, dot);
+  return fallbacks.map((sourceExt) => base + sourceExt);
+}
+
 function resolveImportSource(
   source: string,
   fromFile: string,
-  snapshot: CodebaseSnapshot
+  filePaths: ReadonlySet<string>
 ): string | undefined {
   if (!source.startsWith('.') && !source.startsWith('/')) {
     return undefined;
   }
 
   const resolved = resolveRelativePath(fromFile, source);
-  const filePaths = snapshot.files.map((f) => f.path);
 
+  // The TS source a runtime extension names wins over a literal match, so a
+  // stale compiled `foo.js` next to `foo.ts` does not steal the edge.
   const candidates = [
+    ...runtimeExtensionCandidates(resolved),
     resolved,
     `${resolved}.ts`,
     `${resolved}.tsx`,
@@ -95,12 +126,7 @@ function resolveImportSource(
     `${resolved}/index.tsx`,
   ];
 
-  for (const candidate of candidates) {
-    const match = filePaths.find((fp) => fp === candidate);
-    if (match) return match;
-  }
-
-  return undefined;
+  return candidates.find((candidate) => filePaths.has(candidate));
 }
 
 type ResolvedThresholds = {
