@@ -1,7 +1,7 @@
 {
   "version": 1,
-  "updatedAt": "2026-11-16T16:36:01.395Z",
-  "updatedFrom": "894c1ad",
+  "updatedAt": "2026-11-16T18:39:14.491Z",
+  "updatedFrom": "6aa5b50",
   "metrics": {
     "circular-deps": {
       "value": 0,
@@ -12,7 +12,7 @@
       "violationIds": []
     },
     "complexity": {
-      "value": 283,
+      "value": 284,
       "violationIds": [
         "007f01231e26e527dfaa5a251c21e9a18b0abc300ad8d49258b910f878f23cdf",
         "015dadca6008b916e11c3fc7d66f1420c0baa06f714552b7ad770d761fd7ec25",
@@ -203,6 +203,7 @@
         "a99f4e9203f8158712dbb49b709df479924761262e9e7ba45988eb3d812b6cb9",
         "aaa5a0f71d94e9e47cf0387a3f8c093c5420e18f9dae993aabdc8fde7bed1f54",
         "ab5bb3060210c45c39ab07dcf2de065fa6c179653edea190c57bc9c7a29f799b",
+        "ab74bdc88f947dc259106242a90e4a8a50b35bdad1ae9102ed0e5c71d20c9688",
         "abead4cc825cce611f48c4eeb2c460881ace7573c2da5376ead6ebce3e1df4ab",
         "ac5d2db9c38d6025f9531c162a198343c5c501a7bd8991906470993853d89055",
         "b082b68ccc3bfc44c9743756f3bc2212a76717725c1e0c320c2e77fd6e54e4ae",
@@ -299,7 +300,7 @@
       ]
     },
     "coupling": {
-      "value": 454,
+      "value": 455,
       "violationIds": [
         "00c8f0f71c0d7f2f8cc14ed1a0ca84c329e7d749e9a44503cd743b6ede053f35",
         "013572a465d26674561019c50e9319d61d0ab482074ce1a342c647cd9d3e25d1",
@@ -438,6 +439,7 @@
         "559cb4e13861b49080617335320f4f4b641bdd74d2bb57f31af6b9eb73e11b70",
         "5613aa08f8cf8a89787dc8d71dec40576c9a2bba8ab6d3d6db04e0dc18df32b3",
         "564e2334dfac1076cda1225f0c753ba434a678da8f9a40233f9591c82a1a4e88",
+        "56c10fd966e7e2acedc23764c040dd8f3abb52929ceb614b70a989f7f8c861e4",
         "57504727572b7c69cd92bbddbdfc862b0dcb2b5991c22ef1210f0d1f870dc4d7",
         "57eab14cfbabc466921376547eb11e0f75dc5710ba76f0138eb1cf39c99da381",
         "57fb2d7f6e8491547bdff9aa4c76939a822cd4f85d2abf1097eb90baeb9d1125",
@@ -762,7 +764,7 @@
       "violationIds": []
     },
     "module-size": {
-      "value": 292175,
+      "value": 292621,
       "violationIds": [
         "14c3c7cf4350a3212158ff69554ef83629eb26d75ffaf4d24bbded2841aa58ad",
         "437c6eb4373d8364bad6b657c69c6c24f217186e2539bff92a73b928ef3c1304",
