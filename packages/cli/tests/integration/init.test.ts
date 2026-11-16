@@ -125,7 +125,7 @@ describe('harness init integration', () => {
       {
         framework: 'spring-boot',
         language: 'java',
-        expectFile: 'src/main/java/Main.java',
+        expectFile: 'src/main/java/Application.java',
         expectConfig: 'pom.xml',
       },
     ];

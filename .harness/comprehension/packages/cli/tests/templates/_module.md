@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/tests/templates'
-sourceHash: 'e2335c5e13c2213804c6127b7c441a1ad8b524de981e705f5b7d415e5b504b8b'
+sourceHash: 'cf2d0843a5b8d4d5d812d95be0a6a72495e10e3a07c24e39988b383d43b2e426'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -13,7 +13,9 @@ members:
     'config-template-validates.test.ts',
     'engine-cov544.test.ts',
     'engine.test.ts',
+    'eslint-plugin-pin.test.ts',
     'framework-entry-points.test.ts',
+    'java-entry-class.test.ts',
     'merger.test.ts',
     'performance-entry-points.test.ts',
     'post-write.test.ts',
@@ -43,6 +45,7 @@ import { ResolvedTemplate, TemplateContext, TemplateEngine } from '../../src/tem
 import { deepMergeJson, mergePackageJson } from '../../src/templates/merger'
 import { applyEcosystemAfterCreate, ensureComprehensionSearchIgnore, ensureHarnessGitignore, persistToolingConfig } from '../../src/templates/post-write'
 import { TemplateMetadataSchema } from '../../src/templates/schema'
+import '../../tsup.config'
 import { COMPREHENSION_ROOT, SECURITY_SCAN_EXTENSIONS } from '@harness-engineering/core'
 import * as fs from 'fs'
 import { spawnSync } from 'node:child_process'
