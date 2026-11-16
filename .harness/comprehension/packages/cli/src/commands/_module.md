@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/commands'
-sourceHash: '24dd2ec093765307b6135279e7fb002e2c667345dcdcfb0f6df4cc6c491496e0'
+sourceHash: '808ae82dc9c75ddbb82efbe05f8ad5e36ead9960a1951ebe5342a90ce5cd8839'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -316,7 +316,6 @@ export loadMaintenanceConfig
 export loadOutcomeStore
 export loadRunHistory
 export makeResolveBackend
-export measuredNothing
 export mergeResolvedTasks
 export normalizeRel
 export offerGenerateSlashCommands
@@ -493,6 +492,7 @@ import { SETUP_CLIENTS } from '../setup/clients'
 import { CraftScanTally, formatCraftDiagnostic } from '../shared/craft/diagnostics.js'
 import { findOrchestratorMd, readBackendsFromOrchestratorMd } from '../shared/craft/llm/orchestrator-md'
 import { CraftLlmResolution, resolveCraftLlmConfig } from '../shared/craft/llm/provider.js'
+import { DuplicationBaselineDelta, UPDATE_BASELINE_WITHOUT_SCAN, formatDuplicationBaselineLine, recordOrCompareBaseline } from '../shared/duplication-baseline'
 import { ENTROPY_ISSUE_TYPES, EntropyIssueType, describeDuplicationNotRun, describeUnknownIssueType, isEntropyIssueType, resolveDuplicationRequest } from '../shared/duplication-request'
 import { matchContent } from '../skill/content-matcher'
 import { ContentMatchResult, SkillMatch } from '../skill/content-matcher-types'
