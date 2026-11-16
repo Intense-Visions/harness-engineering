@@ -112,6 +112,117 @@ const SECRET_SINK_METHODS = new Set([
   'stringify',
 ]);
 
+/**
+ * Namespaces the call tables above are keyed on. A module import only
+ * resolves to a namespace in this set; anything else keeps its literal local
+ * name, so `import { spawnSync } from './my-wrapper'` is NOT a privileged call.
+ */
+const KNOWN_NAMESPACES = new Set(
+  [...PRIVILEGED_NAMESPACE_CALLS, ...AUTH_API_CALLS, ...EGRESS_NAMESPACE_CALLS].map((e) => e.ns)
+);
+
+/** Module specifiers that resolve to a table namespace other than their own name. */
+const MODULE_NAMESPACE_ALIASES: Readonly<Record<string, string>> = {
+  'fs/promises': 'fs',
+};
+
+/**
+ * What the file's import / require bindings resolve to (#2234).
+ *
+ * Before this, only literal `child_process.spawnSync(...)` matched: the common
+ * `import { spawnSync } from 'node:child_process'` then bare `spawnSync(...)`
+ * produced no signal, so exactly the files most worth a security critique were
+ * skipped as "no signal".
+ */
+interface ImportBindings {
+  /** Local name → table namespace, for `import * as x` / default / `const x = require(...)`. */
+  namespaces: Map<string, string>;
+  /** Local name → (namespace, exported member), for named imports and destructured requires. */
+  members: Map<string, { ns: string; method: string }>;
+}
+
+function namespaceForModule(specifier: string): string | undefined {
+  const bare = specifier.startsWith('node:') ? specifier.slice('node:'.length) : specifier;
+  const ns = MODULE_NAMESPACE_ALIASES[bare] ?? bare;
+  return KNOWN_NAMESPACES.has(ns) ? ns : undefined;
+}
+
+function collectImportBindings(sf: ts.SourceFile): ImportBindings {
+  const bindings: ImportBindings = { namespaces: new Map(), members: new Map() };
+  for (const stmt of sf.statements) {
+    if (ts.isImportDeclaration(stmt)) collectEsmImport(stmt, bindings);
+    else if (ts.isVariableStatement(stmt)) {
+      for (const decl of stmt.declarationList.declarations) collectRequire(decl, bindings);
+    }
+  }
+  return bindings;
+}
+
+function collectEsmImport(stmt: ts.ImportDeclaration, bindings: ImportBindings): void {
+  const clause = stmt.importClause;
+  if (clause === undefined || clause.isTypeOnly) return;
+  if (!ts.isStringLiteral(stmt.moduleSpecifier)) return;
+  const ns = namespaceForModule(stmt.moduleSpecifier.text);
+  if (ns === undefined) return;
+  if (clause.name !== undefined) bindings.namespaces.set(clause.name.text, ns);
+  const named = clause.namedBindings;
+  if (named === undefined) return;
+  if (ts.isNamespaceImport(named)) {
+    bindings.namespaces.set(named.name.text, ns);
+    return;
+  }
+  for (const el of named.elements) {
+    if (el.isTypeOnly) continue;
+    const method = (el.propertyName ?? el.name).text;
+    bindings.members.set(el.name.text, { ns, method });
+  }
+}
+
+/** `const x = require('m')` and `const { a, b: c } = require('m')`. */
+function collectRequire(decl: ts.VariableDeclaration, bindings: ImportBindings): void {
+  const init = decl.initializer;
+  if (init === undefined || !ts.isCallExpression(init)) return;
+  if (!ts.isIdentifier(init.expression) || init.expression.text !== 'require') return;
+  const arg = init.arguments[0];
+  if (arg === undefined || !ts.isStringLiteral(arg)) return;
+  const ns = namespaceForModule(arg.text);
+  if (ns === undefined) return;
+  if (ts.isIdentifier(decl.name)) {
+    bindings.namespaces.set(decl.name.text, ns);
+    return;
+  }
+  if (!ts.isObjectBindingPattern(decl.name)) return;
+  for (const el of decl.name.elements) {
+    if (!ts.isIdentifier(el.name)) continue;
+    const prop = el.propertyName;
+    const method =
+      prop === undefined ? el.name.text : ts.isIdentifier(prop) ? prop.text : undefined;
+    if (method !== undefined) bindings.members.set(el.name.text, { ns, method });
+  }
+}
+
+/** Emit the signal a resolved `ns.method` call earns, if any. Returns whether one fired. */
+function emitNamespaceCall(
+  out: SecuritySignal[],
+  seen: Set<string>,
+  ns: string,
+  method: string,
+  line: number
+): boolean {
+  const tables: ReadonlyArray<[ReadonlyArray<{ ns: string; method: string }>, SignalKind]> = [
+    [PRIVILEGED_NAMESPACE_CALLS, 'privileged-op'],
+    [AUTH_API_CALLS, 'auth-api'],
+    [EGRESS_NAMESPACE_CALLS, 'data-egress'],
+  ];
+  for (const [table, kind] of tables) {
+    if (table.some((e) => e.ns === ns && e.method === method)) {
+      emit(out, seen, kind, `${ns}.${method}`, line);
+      return true;
+    }
+  }
+  return false;
+}
+
 export function detectSignals(sourceText: string, filePath: string): SecuritySignal[] {
   // `.mts`/`.cts` are TypeScript and are in EXTENSION_MAP, so discovery hands
   // them over and `supportedLanguages: ['typescript', 'javascript']` claims
@@ -144,7 +255,8 @@ export function detectSignals(sourceText: string, filePath: string): SecuritySig
   // signals.
   const seen = new Set<string>();
 
-  visit(sourceFile, sourceFile, out, seen);
+  const bindings = collectImportBindings(sourceFile);
+  visit(sourceFile, sourceFile, out, seen, bindings);
   return out;
 }
 
@@ -165,7 +277,13 @@ function lineOf(node: ts.Node, sf: ts.SourceFile): number {
   return sf.getLineAndCharacterOfPosition(node.getStart(sf)).line + 1;
 }
 
-function visit(node: ts.Node, sf: ts.SourceFile, out: SecuritySignal[], seen: Set<string>): void {
+function visit(
+  node: ts.Node,
+  sf: ts.SourceFile,
+  out: SecuritySignal[],
+  seen: Set<string>,
+  bindings: ImportBindings
+): void {
   // HTTP handler / middleware detection on function-like nodes
   detectHandlerOrMiddleware(node, sf, out, seen);
 
@@ -174,7 +292,7 @@ function visit(node: ts.Node, sf: ts.SourceFile, out: SecuritySignal[], seen: Se
 
   // Call expressions: most signal kinds are call-shaped
   if (ts.isCallExpression(node)) {
-    detectCallSignals(node, sf, out, seen);
+    detectCallSignals(node, sf, out, seen, bindings);
   }
 
   // Function constructor expression — detected via NewExpression on identifier 'Function'
@@ -193,7 +311,7 @@ function visit(node: ts.Node, sf: ts.SourceFile, out: SecuritySignal[], seen: Se
   // Secret in template literal interpolation inside a sink call is covered
   // by detectSecretSink (it inspects arguments).
 
-  ts.forEachChild(node, (child) => visit(child, sf, out, seen));
+  ts.forEachChild(node, (child) => visit(child, sf, out, seen, bindings));
 }
 
 function detectHandlerOrMiddleware(
@@ -249,13 +367,19 @@ function detectCallSignals(
   node: ts.CallExpression,
   sf: ts.SourceFile,
   out: SecuritySignal[],
-  seen: Set<string>
+  seen: Set<string>,
+  bindings: ImportBindings
 ): void {
   const callee = node.expression;
   const line = lineOf(node, sf);
 
-  // Bare identifier call expressions — match against BARE_PRIVILEGED_IDENTIFIERS / BARE_EGRESS_IDENTIFIERS
+  // Bare identifier call expressions — a named import / destructured require
+  // of a privileged member first, then BARE_PRIVILEGED_IDENTIFIERS / BARE_EGRESS_IDENTIFIERS
   if (ts.isIdentifier(callee)) {
+    const member = bindings.members.get(callee.text);
+    if (member !== undefined && emitNamespaceCall(out, seen, member.ns, member.method, line)) {
+      return;
+    }
     if (BARE_PRIVILEGED_IDENTIFIERS.has(callee.text)) {
       emit(out, seen, 'privileged-op', callee.text, line);
       return;
@@ -273,25 +397,10 @@ function detectCallSignals(
     const obj = callee.expression;
     // Namespace.method matches
     if (ts.isIdentifier(obj)) {
-      const ns = obj.text;
-      for (const entry of PRIVILEGED_NAMESPACE_CALLS) {
-        if (entry.ns === ns && entry.method === method) {
-          emit(out, seen, 'privileged-op', `${ns}.${method}`, line);
-          return;
-        }
-      }
-      for (const entry of AUTH_API_CALLS) {
-        if (entry.ns === ns && entry.method === method) {
-          emit(out, seen, 'auth-api', `${ns}.${method}`, line);
-          return;
-        }
-      }
-      for (const entry of EGRESS_NAMESPACE_CALLS) {
-        if (entry.ns === ns && entry.method === method) {
-          emit(out, seen, 'data-egress', `${ns}.${method}`, line);
-          return;
-        }
-      }
+      // An aliased namespace (`import * as cp from 'node:child_process'`)
+      // resolves to its module; an unbound identifier keeps its literal name.
+      const ns = bindings.namespaces.get(obj.text) ?? obj.text;
+      if (emitNamespaceCall(out, seen, ns, method, line)) return;
       // req.session.* / req.cookies / passport.*
       if (ns === 'passport') {
         emit(out, seen, 'auth-api', `passport.${method}`, line);

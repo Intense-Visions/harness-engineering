@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/src/state/event-sourcing'
-sourceHash: 'd70e6f2a882403108cf8c58312bb3ea7b7000427a61d2cc7e73ac0201b13301b'
+sourceHash: '6a5edb5c47447b78764bf9a062c1539f3f2a7f9e205b723fc5897b4b15581605'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -67,6 +67,7 @@ export getWriterId
 export importLegacyState
 export isAllowedTransition
 export isBlobRef
+export isGradedOutcome
 export isStale
 export isTerminal
 export loadEvents

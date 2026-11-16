@@ -52,6 +52,13 @@ describe('runReport', () => {
     expect(ctx.summary.totalFindings).toBe(0);
   });
 
+  it('verdict=warn when an input is missing even though nothing was bootstrapped (#1960)', () => {
+    const ctx = newContext();
+    runReport({ context: ctx, missingInputs: ['design-system/DESIGN.md'] });
+    expect(ctx.verdict).toBe('warn');
+    expect(ctx.degradedBy).toEqual([]);
+  });
+
   it('verdict=warn when only warn-severity findings present', () => {
     const ctx = newContext();
     ctx.driftFindings.push(drift('warn', 'T003'));
