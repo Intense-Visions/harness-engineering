@@ -12,9 +12,9 @@
 //    language-granular law compares {typescript} subset-of {typescript} and
 //    passes while `.mts` and `.cts` extract nothing.
 // 2. Each probe asserts a KNOWN DECLARED SYMBOL, never a count (DP-4).
-//    `extractIdentifiers` has no extension gate and returns non-empty GARBAGE
-//    for Python, Go, Rust and Java (measured: cart.py -> [function:,
-//    function:, type:Cart] — two empty names, `compute_total` absent). A
+//    `extractIdentifiers` had no extension gate (added in #1967) and returned
+//    non-empty GARBAGE for Python, Go, Rust and Java (measured: cart.py ->
+//    [function:, function:, type:Cart] — two empty names, `compute_total` absent). A
 //    "returns something" probe would pass for all four and would not redden
 //    when naming-craft is widened. It would be decorative.
 import { describe, it, expect } from 'vitest';
@@ -278,9 +278,9 @@ describe('THE SUBSET LAW: a declared language is a capability claim, per EXTENSI
 describe('the probe can report absence (positive control at the same scope)', () => {
   // Each pair is a language the domain does NOT declare. If any of these came
   // back `found`, the probe would be answering a different question than the
-  // law asks — and `extractIdentifiers` in particular returns non-empty
-  // GARBAGE for every non-TS language (measured: cart.py -> [function:,
-  // function:, type:Cart]).
+  // law asks — and `extractIdentifiers` in particular returned non-empty
+  // GARBAGE for every non-TS language before its #1967 extension gate
+  // (measured: cart.py -> [function:, function:, type:Cart]).
   const NEGATIVE = [
     { skill: 'naming-craft', ext: '.py', file: 'cart.py' },
     { skill: 'naming-craft', ext: '.rs', file: 'cart.rs' },

@@ -1,7 +1,7 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach, type Mock } from 'vitest';
 import { renderHook, waitFor } from '@testing-library/react';
 import { useAttentionSync } from '../../../src/client/hooks/useAttentionSync';
-import { useThreadStore } from '../../../src/client/stores/threadStore';
+import { useThreadStore, type ThreadStore } from '../../../src/client/stores/threadStore';
 import type {
   PendingInteraction,
   InteractionContext,
@@ -80,12 +80,12 @@ function stubInteractionsFetch(
 // test so call counts and thread state never leak between cases. createThread
 // still delegates to the real implementation so threads are genuinely created.
 const realCreateThread = useThreadStore.getState().createThread;
-let markSourceHydrated: ReturnType<typeof vi.fn>;
-let createThread: ReturnType<typeof vi.fn>;
+let markSourceHydrated: Mock<ThreadStore['markSourceHydrated']>;
+let createThread: Mock<ThreadStore['createThread']>;
 
 beforeEach(() => {
   vi.restoreAllMocks();
-  markSourceHydrated = vi.fn();
+  markSourceHydrated = vi.fn<ThreadStore['markSourceHydrated']>();
   createThread = vi.fn(realCreateThread);
   useThreadStore.setState({
     threads: new Map(),

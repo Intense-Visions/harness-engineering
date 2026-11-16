@@ -50,6 +50,16 @@ Persists in-session craft runs to disk so a two-step MCP flow (collect → final
 
 **Exports:** `CraftRunState`, `saveRunState`, `loadRunState`, `deleteRunState`, `pruneOldRuns`
 
+`.harness/craft/runs/` is a temporary store for in-flight collect → finalize runs, pruned by `pruneOldRuns` and deleted on finalize. It is not a history of findings: an empty directory says nothing about how many findings are waiting.
+
+## packages/cli/src/shared/craft/extract/source-roots.ts
+
+[`packages/cli/src/shared/craft/extract/source-roots.ts`](/packages/cli/src/shared/craft/extract/source-roots.ts)
+
+Source-root resolution shared by the code-craft and security-craft discoverers: each `packages/<pkg>/src` in a monorepo, else the `src/` and `app/` fallback roots.
+
+**Exports:** `FALLBACK_SOURCE_ROOTS`, `resolveSourceRoots`
+
 ## packages/cli/src/shared/state-events.ts
 
 [`packages/cli/src/shared/state-events.ts`](/packages/cli/src/shared/state-events.ts)

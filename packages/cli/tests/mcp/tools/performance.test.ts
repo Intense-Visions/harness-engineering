@@ -66,7 +66,9 @@ describe('performance tool definitions', () => {
     ]);
 
     expect(getCriticalPathsDefinition.name).toBe('get_critical_paths');
-    expect(getCriticalPathsDefinition.inputSchema.required).toEqual(['path']);
+    // Project root is optional: path, its projectPath alias, or the server cwd (#2253).
+    expect(getCriticalPathsDefinition.inputSchema.required).toEqual([]);
+    expect(getCriticalPathsDefinition.inputSchema.properties).toHaveProperty('projectPath');
   });
 });
 
@@ -134,6 +136,9 @@ describe('handleGetCriticalPaths', () => {
     const set = payload(await handleGetCriticalPaths({ path: dir }));
     expect(set.stats.total).toBe(0);
     expect(set.entries).toEqual([]);
+    // #2327: the empty set must be marked as an abstention, not a clean zero.
+    expect(set.graphInference.status).toBe('not-run');
+    expect(set.noSignal.reason).toMatch(/graph inference did not run/);
   });
 
   it('surfaces functions carrying a @perf-critical annotation', async () => {

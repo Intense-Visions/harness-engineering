@@ -35,4 +35,5 @@ export type {
   RegressionReport,
   CriticalPathEntry,
   CriticalPathSet,
+  CriticalPathGraphInference,
 } from './types';
