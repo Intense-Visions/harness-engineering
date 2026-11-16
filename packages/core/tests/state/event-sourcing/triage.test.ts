@@ -108,6 +108,24 @@ describe('triage outcome-log store', () => {
   });
 });
 
+describe('ungraded (fail-safe) outcomes — #2264', () => {
+  it('round-trips graded:false so aggregation can exclude a fail-safe block', async () => {
+    await recordTriageOutcome(dir, { ...outcome('FS-1', false), graded: false });
+    const records = await unwrap(loadTriageRecords(dir));
+    expect(records[0]!.outcome?.graded).toBe(false);
+  });
+
+  it('a legacy outcome (no graded field) projects exactly as before — no graded key', async () => {
+    await recordTriageOutcome(dir, outcome('OLD-1', false));
+    const records = await unwrap(loadTriageRecords(dir));
+    expect(records[0]!.outcome).toEqual({
+      actual: outcome('OLD-1', false).actual,
+      exceededBy: 2,
+      matched: false,
+    });
+  });
+});
+
 describe('projectTriageRecords (pure fold)', () => {
   it('is order-driven: last append for a slice wins', async () => {
     await recordTriagePrediction(dir, prediction('ISSUE-3'));

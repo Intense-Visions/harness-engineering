@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/orchestrator/src/agent'
-sourceHash: '6615061c58db8c064b745ec5ab894dd49fa7498db60f3d5324ab0da3143257be'
+sourceHash: 'c397a41ce139d1ce975ef0344bb420582f4bb02f73226467d8697594b7681dfd'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -178,6 +178,7 @@ import { makeLiveClassify } from './live-classify.js'
 import { LocalModelResolver } from './local-model-resolver'
 import { hasIntroducedSecurityDefect, outcomeVerdictToQualityFail, parseIntroducedHunks } from './quality-verdict'
 import { QualityVerdict, afterCleanSecurityScan, cleanVerdict, defectVerdict, describeVerdict, failSafeVerdict, outcomeVerdictToQualityVerdict, qualityVerdictLogFields, retrospectiveFailSafeReason, toOutcomeClass, unjudgedVerdict } from './quality-verdict-kind'
+import { retrospectiveFailSafeReason } from './quality-verdict-kind.js'
 import { IntroducedHunk } from './quality-verdict.js'
 import { AgentRunner } from './runner.js'
 import { DockerRuntime } from './runtime/docker.js'

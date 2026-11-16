@@ -134,6 +134,56 @@ describe('buildTriageOutcomeInput', () => {
   });
 });
 
+describe('fail-safe retrospective blocks are recorded ungraded (#2264)', () => {
+  it('an unjudgeable comparison still block-escalates but is recorded graded:false', async () => {
+    const res = await runRetrospective({
+      hunks: [hunk('a.ts', 2)],
+      textOnly: TEXT_ONLY,
+      prediction: undefined,
+      riskHigh: false,
+      prompt: 'x',
+    });
+    // Safety unchanged: the fail-safe still blocks.
+    expect(res.comparison.action).toBe('block-escalate');
+    expect(res.comparison.reason).toBe('unjudgeable-prediction');
+    const input = buildTriageOutcomeInput('EXT-1', 'k', res);
+    expect(input.graded).toBe(false);
+  });
+
+  it('a JUDGED overrun is recorded as a graded outcome (no ungraded flag)', async () => {
+    const res = await runRetrospective({
+      hunks: Array.from({ length: 30 }, (_, i) => hunk(`packages/p${i}/src/l${i}/f.ts`, 200)),
+      textOnly: TEXT_ONLY,
+      prediction: prediction('trivial', 1),
+      riskHigh: false,
+      prompt: 'x',
+    });
+    expect(res.comparison.action).toBe('block-escalate');
+    expect(res.comparison.reason).not.toMatch(/^unjudgeable/);
+    const input = buildTriageOutcomeInput('EXT-2', 'k', res);
+    expect(input.matched).toBe(false);
+    expect('graded' in input).toBe(false);
+  });
+
+  it('precedent: a fail-safe outcome leaves the base rate untouched; a judged miss moves it', () => {
+    const base = [
+      { shapeKey: 'k', outcome: { matched: true } },
+      { shapeKey: 'k', outcome: { matched: true } },
+    ];
+    const before = precedentLookupFromStored(base).rateForShape('k');
+    const withFailSafe = precedentLookupFromStored([
+      ...base,
+      { shapeKey: 'k', outcome: { matched: false, graded: false } },
+    ]).rateForShape('k');
+    const withJudged = precedentLookupFromStored([
+      ...base,
+      { shapeKey: 'k', outcome: { matched: false } },
+    ]).rateForShape('k');
+    expect(withFailSafe).toEqual(before);
+    expect(withJudged).toEqual({ kind: 'rate', matched: 2, total: 3, rate: 2 / 3 });
+  });
+});
+
 describe('precedentLookupFromStored (SC5 — real base-rates, closes the loop)', () => {
   it('cold-start (no outcome-bearing records) ⇒ unknown for every shape', () => {
     const lookup = precedentLookupFromStored([{ shapeKey: 'k' }]);

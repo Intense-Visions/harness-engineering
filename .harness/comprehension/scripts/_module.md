@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'scripts'
-sourceHash: '947c8d5c67aa9f4add5f623293259ce3a1d1a1d010e0dadc726ea9f74d2203e1'
+sourceHash: '6ac854d894b6b579186638d61da651d48799ed37d05005436587fafd5f56a6a7'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -24,6 +24,7 @@ members:
     'generate-plugin.mjs',
     'generate-tool-catalog.mjs',
     'main-health-check.mjs',
+    'merge-arch-timeline.mjs',
     'refresh-model-candidates.mjs',
     'release-publish.mjs',
     'summarize-test-failures.mjs',
@@ -61,6 +62,7 @@ export lapseReason
 export main
 export mergeBenchmarkBaselines
 export mergeCoverageBaselines
+export mergeTimelines
 export pageFiles
 export parseChangesetFrontmatter
 export parsePublishOutput

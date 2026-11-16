@@ -4,6 +4,7 @@ import type {
   RoadmapMilestone,
   RoadmapFeature,
   RoadmapGroup,
+  RoadmapOptionalFieldKey,
   FeatureStatus,
   Priority,
   Result,
@@ -41,6 +42,17 @@ const VALID_STATUSES: ReadonlySet<string> = new Set([
 const EM_DASH = '\u2014';
 
 const VALID_PRIORITIES: ReadonlySet<string> = new Set(['P0', 'P1', 'P2', 'P3']);
+
+/**
+ * Optional bullets whose authored empty form (`- **Priority:** —`) is recorded on
+ * the feature so the serializer can re-emit it (#2166). Order is emission order.
+ */
+const OPTIONAL_FIELD_KEYS: readonly RoadmapOptionalFieldKey[] = [
+  'Assignee',
+  'Priority',
+  'External-ID',
+  'Updated-At',
+];
 
 /**
  * Parse a roadmap markdown string into a structured Roadmap object.
@@ -329,7 +341,7 @@ export function parseFeatureBlock(name: string, body: string): Result<RoadmapFea
   const priorityResult = validatePriority(name, fieldMap);
   if (!priorityResult.ok) return priorityResult;
 
-  return Ok({
+  const feature: RoadmapFeature = {
     name,
     status: statusResult.value,
     spec: optionalField(fieldMap, 'Spec'),
@@ -340,5 +352,34 @@ export function parseFeatureBlock(name: string, body: string): Result<RoadmapFea
     priority: priorityResult.value,
     externalId: optionalField(fieldMap, 'External-ID'),
     updatedAt: optionalField(fieldMap, 'Updated-At'),
-  });
+  };
+  const emptyOptionalFields = keptEmptyOptionalFields(feature, fieldMap);
+  if (emptyOptionalFields.length > 0) feature.emptyOptionalFields = emptyOptionalFields;
+  return Ok(feature);
+}
+
+/**
+ * The empty optional bullets the serializer would NOT re-emit from the row's values
+ * alone, so the row must remember them to survive a round-trip (#2166).
+ *
+ * Whenever any extended field has a value, `serializeFeature` already emits the
+ * whole Assignee / Priority / External-ID block (dashes included), so only an
+ * empty `Updated-At` needs recording then. With no extended value, the serializer
+ * emits nothing, so every authored empty bullet is recorded. Recording only the
+ * otherwise-lost bullets keeps the model's shape unchanged for every row the
+ * serializer already round-tripped (the `toEqual` fixtures depend on it), and the
+ * field is attached ONLY when non-empty for the same reason.
+ */
+function keptEmptyOptionalFields(
+  feature: RoadmapFeature,
+  fieldMap: Map<string, string>
+): RoadmapOptionalFieldKey[] {
+  const hasExtended =
+    feature.assignee !== null ||
+    feature.priority !== null ||
+    feature.externalId !== null ||
+    feature.updatedAt !== null;
+  return OPTIONAL_FIELD_KEYS.filter(
+    (key) => fieldMap.get(key) === EM_DASH && (!hasExtended || key === 'Updated-At')
+  );
 }

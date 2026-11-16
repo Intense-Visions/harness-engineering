@@ -427,6 +427,29 @@ describe('runHealthChecks', () => {
     expect(checks.lint.passed).toBe(true);
   });
 
+  // Issue #2474: a health snapshot is a read-only probe, but it ran the security
+  // scan through the MCP handler with its default timeline capture, so dispatching
+  // skills appended a snapshot to the tracked `.harness/security/timeline.json`.
+  it('runs the security scan without recording to the tracked timeline (#2474)', async () => {
+    const ok = { content: [{ type: 'text', text: '{}' }] };
+    vi.doMock('../../src/mcp/tools/assess-project', () => ({
+      handleAssessProject: vi.fn().mockResolvedValue(ok),
+    }));
+    vi.doMock('../../src/mcp/tools/architecture', () => ({
+      handleCheckDependencies: vi.fn().mockResolvedValue(ok),
+    }));
+    vi.doMock('../../src/mcp/tools/entropy', () => ({
+      handleDetectEntropy: vi.fn().mockResolvedValue(ok),
+    }));
+    const scan = vi.fn().mockResolvedValue(ok);
+    vi.doMock('../../src/mcp/tools/security', () => ({ handleRunSecurityScan: scan }));
+
+    const { runHealthChecks } = await import('../../src/skill/health-snapshot');
+    await runHealthChecks('/tmp/test-project');
+
+    expect(scan).toHaveBeenCalledWith({ path: '/tmp/test-project', record: false });
+  });
+
   it('does not crash when a tool returns isError with non-JSON text', async () => {
     // Regression: previously parseToolResult called JSON.parse on the error text and
     // crashed with `Unexpected token 'E', "Error: Max"... is not valid JSON`, breaking

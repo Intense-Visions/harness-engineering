@@ -2,6 +2,11 @@ import type { Roadmap, RoadmapFeature, Priority } from '@harness-engineering/typ
 import { getRoadmapMode, type RoadmapMode, type RoadmapModeConfig } from './mode';
 import { scoreRoadmapCandidatesFileLess } from './pilot-scoring-file-less';
 import type { TrackedFeature } from './tracker';
+import {
+  createBlockerResolver,
+  isPilotStatus,
+  type BlockerResolutionOptions,
+} from './blocker-resolution';
 
 /**
  * A candidate feature with computed scores for the pilot selection algorithm.
@@ -23,7 +28,7 @@ export interface ScoredCandidate {
   priorityTier: number | null;
 }
 
-export interface PilotScoringOptions {
+export interface PilotScoringOptions extends BlockerResolutionOptions {
   /** Current user identifier for affinity matching */
   currentUser?: string;
 }
@@ -38,19 +43,6 @@ const PRIORITY_RANK: Record<Priority, number> = {
 const POSITION_WEIGHT = 0.5;
 const DEPENDENTS_WEIGHT = 0.3;
 const AFFINITY_WEIGHT = 0.2;
-
-function isEligibleCandidate(
-  feature: RoadmapFeature,
-  allFeatureNames: Set<string>,
-  doneFeatures: Set<string>
-): boolean {
-  if (feature.status !== 'planned' && feature.status !== 'backlog') return false;
-  const isBlocked = feature.blockedBy.some((blocker) => {
-    const key = blocker.toLowerCase();
-    return allFeatureNames.has(key) && !doneFeatures.has(key);
-  });
-  return !isBlocked;
-}
 
 function computeAffinityScore(
   feature: RoadmapFeature,
@@ -71,6 +63,9 @@ function computeAffinityScore(
 /**
  * Score and sort unblocked planned/backlog items using the two-tier algorithm.
  *
+ * A row is unblocked when every `Blockers` entry resolves to `done` rows; rows
+ * withheld as blocked are listed by `findBlockedRoadmapCandidates`.
+ *
  * Tier 1: Items with explicit priority sorted by priority level (P0 > P1 > P2 > P3).
  * Tier 2: Items without priority sorted by weighted score.
  * Within the same priority tier, items are sorted by weighted score.
@@ -82,10 +77,11 @@ export function scoreRoadmapCandidates(
   options?: PilotScoringOptions
 ): ScoredCandidate[] {
   const allFeatures = roadmap.milestones.flatMap((m) => m.features);
-  const allFeatureNames = new Set(allFeatures.map((f) => f.name.toLowerCase()));
-  const doneFeatures = new Set(
-    allFeatures.filter((f) => f.status === 'done').map((f) => f.name.toLowerCase())
-  );
+  // Eligibility: a planned/backlog row is dispatchable only when none of its
+  // blockers still holds. See `blocker-resolution.ts` for the forms a Blockers
+  // entry takes and why an unresolvable one fails closed (#2255). Rows withheld
+  // here are reported by `findBlockedRoadmapCandidates`.
+  const heldBlockers = createBlockerResolver(roadmap, options);
 
   // Build dependents map: feature name -> count of features that list it as a blocker
   const dependentsCount = new Map<string, number>();
@@ -132,7 +128,7 @@ export function scoreRoadmapCandidates(
     for (const feature of ms.features) {
       globalPosition++;
 
-      if (!isEligibleCandidate(feature, allFeatureNames, doneFeatures)) continue;
+      if (!isPilotStatus(feature) || heldBlockers(feature).length > 0) continue;
 
       const positionScore = 1 - (globalPosition - 1) / totalPositions;
       const deps = dependentsCount.get(feature.name.toLowerCase()) ?? 0;

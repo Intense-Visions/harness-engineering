@@ -243,7 +243,11 @@ export class KnowledgePipelineRunner {
       gapReport = await this.detect(options);
     }
 
-    await this.stageNewFindings(driftResult, options);
+    // Staging is a REMEDIATE step: detect-only (the default) must leave
+    // .harness/knowledge/staged/ untouched so nothing unapproved is queued (#2237).
+    if (options.fix) {
+      await this.stageNewFindings(driftResult, options);
+    }
 
     return this.buildResult(
       driftResult,

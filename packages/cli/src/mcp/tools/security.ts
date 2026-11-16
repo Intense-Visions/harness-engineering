@@ -31,6 +31,12 @@ export async function handleRunSecurityScan(input: {
   path: string;
   files?: string[];
   strict?: boolean;
+  /**
+   * Append this scan to the tracked `.harness/security/timeline.json` (default
+   * true, the MCP tool's behaviour). Internal read-only callers such as the health
+   * snapshot pass false so probing never dirties tracked state (#2474).
+   */
+  record?: boolean;
 }) {
   try {
     const core = await import('@harness-engineering/core');
@@ -77,16 +83,18 @@ export async function handleRunSecurityScan(input: {
     const result = await scanner.scanFiles(filesToScan);
 
     // Best-effort timeline capture — never break the scan response
-    try {
-      const commitHash = execSync('git rev-parse HEAD', {
-        cwd: projectRoot,
-        encoding: 'utf-8',
-      }).trim();
-      const timelineManager = new core.SecurityTimelineManager(projectRoot);
-      timelineManager.capture(result, commitHash);
-      timelineManager.updateLifecycles(result.findings, commitHash);
-    } catch {
-      // Timeline capture is best-effort
+    if (input.record !== false) {
+      try {
+        const commitHash = execSync('git rev-parse HEAD', {
+          cwd: projectRoot,
+          encoding: 'utf-8',
+        }).trim();
+        const timelineManager = new core.SecurityTimelineManager(projectRoot);
+        timelineManager.capture(result, commitHash);
+        timelineManager.updateLifecycles(result.findings, commitHash);
+      } catch {
+        // Timeline capture is best-effort
+      }
     }
 
     return {

@@ -258,7 +258,8 @@ export async function runHealthChecks(projectPath: string): Promise<HealthChecks
     }),
     handleCheckDependencies({ path: projectPath }),
     handleDetectEntropy({ path: projectPath, type: 'all' }),
-    handleRunSecurityScan({ path: projectPath }),
+    // Read-only probe: never append to the tracked security timeline (#2474).
+    handleRunSecurityScan({ path: projectPath, record: false }),
   ]);
 
   const assessData = parseToolResult(assessResult, 'assess_project');

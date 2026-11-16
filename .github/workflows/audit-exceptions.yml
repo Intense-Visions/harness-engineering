@@ -37,6 +37,13 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
+      # Blocking, offline (issue #2258): every root `pnpm.overrides` security
+      # floor must actually be in force in pnpm-lock.yaml. Fails when a resolved
+      # version sits below its override's range (an inert floor) or when the
+      # lockfile's recorded overrides drift from package.json. No network.
+      - name: Check pnpm.overrides floors are in force
+        run: node scripts/override-floors.mjs
+
       # Blocking: an uncovered or lapsed advisory fails the PR. The script runs
       # `pnpm audit --json` itself and exits non-zero on any failure.
       - name: Reconcile auditExceptions

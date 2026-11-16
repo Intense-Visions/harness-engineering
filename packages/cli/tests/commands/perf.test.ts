@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import * as path from 'node:path';
 
 const mockDiscover = vi.fn();
 const mockRun = vi.fn();
@@ -6,6 +7,8 @@ const mockBaselineLoad = vi.fn();
 const mockBaselineSave = vi.fn();
 const mockResolve = vi.fn();
 const mockAnalyze = vi.fn();
+const analyzerCtorArgs: unknown[] = [];
+const mockResolveProject = vi.fn();
 
 vi.mock('@harness-engineering/core', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@harness-engineering/core')>();
@@ -28,7 +31,9 @@ vi.mock('@harness-engineering/core', async (importOriginal) => {
 
   class MockEntropyAnalyzer {
     analyze = mockAnalyze;
-    constructor(_opts: unknown) {}
+    constructor(opts: unknown) {
+      analyzerCtorArgs.push(opts);
+    }
   }
 
   return {
@@ -48,11 +53,22 @@ vi.mock('node:child_process', async (importOriginal) => {
   };
 });
 
+vi.mock('../../src/config/loader', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../src/config/loader')>();
+  return {
+    ...actual,
+    resolveProject: (...args: unknown[]) => mockResolveProject(...args),
+  };
+});
+
 import { createPerfCommand } from '../../src/commands/perf';
+import { ExitCode } from '../../src/utils/errors';
 
 describe('perf command', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    analyzerCtorArgs.length = 0;
+    mockResolveProject.mockReturnValue({ ok: false, error: new Error('no config') });
   });
 
   describe('createPerfCommand', () => {
@@ -169,6 +185,30 @@ describe('perf command', () => {
       logSpy.mockRestore();
     });
 
+    // #2327: an empty set printed "Critical paths: 0 (0 annotated, 0 graph-inferred)",
+    // which reads as a clean measurement. It must read as an abstention.
+    it('reports an empty set as no signal, not a clean zero', async () => {
+      mockResolve.mockResolvedValue({
+        stats: { total: 0, annotated: 0, graphInferred: 0 },
+        entries: [],
+        graphInference: { status: 'not-run', reason: 'graph inference did not run: no data' },
+        noSignal: { reason: 'no annotated production functions and graph inference did not run' },
+      });
+      const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+      const cmd = createPerfCommand();
+      await cmd.parseAsync(['critical-paths'], { from: 'user' });
+
+      const out = [...logSpy.mock.calls, ...warnSpy.mock.calls].map((c) => c.join(' ')).join('\n');
+      expect(out).not.toMatch(/0 graph-inferred/);
+      expect(out).toMatch(/graph inference not run/);
+      expect(out).toMatch(/no critical-path signal/i);
+      expect(out).toMatch(/graph inference did not run/);
+      logSpy.mockRestore();
+      warnSpy.mockRestore();
+    });
+
     it('prints JSON when --json flag is set', async () => {
       mockBaselineLoad.mockReturnValue({
         updatedAt: '2026-04-15T00:00:00.000Z',
@@ -198,15 +238,55 @@ describe('perf command', () => {
   });
 
   describe('baselines update subcommand', () => {
-    it('shows error when benchmark run fails', async () => {
+    // #2084: a run with no results used to log and return, so `perf baselines
+    // update` exited 0 without saving anything.
+    it('exits non-zero in text mode when the benchmark run produces no results', async () => {
       mockRun.mockResolvedValue({ success: false, results: [] });
+      const exitSpy = vi.spyOn(process, 'exit').mockImplementation(((code?: number) => {
+        throw new Error(`process.exit(${code})`);
+      }) as never);
       const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
       const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 
       const cmd = createPerfCommand();
-      await cmd.parseAsync(['baselines', 'update'], { from: 'user' });
-
+      await expect(cmd.parseAsync(['baselines', 'update'], { from: 'user' })).rejects.toThrow(
+        `process.exit(${ExitCode.ERROR})`
+      );
+      expect(exitSpy).toHaveBeenCalledWith(ExitCode.ERROR);
       expect(mockBaselineSave).not.toHaveBeenCalled();
+
+      exitSpy.mockRestore();
+      logSpy.mockRestore();
+      errorSpy.mockRestore();
+    });
+
+    it('exits non-zero and emits a JSON error object in --json mode when there are no results', async () => {
+      mockRun.mockResolvedValue({ success: true, results: [] });
+      const exitSpy = vi.spyOn(process, 'exit').mockImplementation(((code?: number) => {
+        throw new Error(`process.exit(${code})`);
+      }) as never);
+      const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+      const cmd = createPerfCommand();
+      cmd.option('--json', 'JSON output');
+      await expect(
+        cmd.parseAsync(['--json', 'baselines', 'update'], { from: 'user' })
+      ).rejects.toThrow(`process.exit(${ExitCode.ERROR})`);
+      expect(exitSpy).toHaveBeenCalledWith(ExitCode.ERROR);
+      const jsonOut = logSpy.mock.calls
+        .map((c) => {
+          try {
+            return JSON.parse(String(c[0]));
+          } catch {
+            return undefined;
+          }
+        })
+        .find((v) => v !== undefined);
+      expect(jsonOut).toEqual({ error: expect.stringContaining('No benchmark results to save') });
+      expect(mockBaselineSave).not.toHaveBeenCalled();
+
+      exitSpy.mockRestore();
       logSpy.mockRestore();
       errorSpy.mockRestore();
     });
@@ -233,6 +313,7 @@ describe('perf command', () => {
     it('prints critical paths in text mode', async () => {
       mockResolve.mockResolvedValue({
         stats: { total: 2, annotated: 1, graphInferred: 1 },
+        graphInference: { status: 'ran' },
         entries: [
           { file: 'src/core.ts', function: 'init', source: 'annotation', fanIn: 5 },
           { file: 'src/hub.ts', function: 'route', source: 'graph', fanIn: undefined },
@@ -250,6 +331,7 @@ describe('perf command', () => {
     it('prints JSON when --json flag is set', async () => {
       mockResolve.mockResolvedValue({
         stats: { total: 1, annotated: 1, graphInferred: 0 },
+        graphInference: { status: 'not-run', reason: 'no graph data' },
         entries: [{ file: 'src/core.ts', function: 'init', source: 'annotation', fanIn: 3 }],
       });
       const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
@@ -267,6 +349,101 @@ describe('perf command', () => {
         }
       });
       expect(jsonCalls.length).toBeGreaterThan(0);
+      logSpy.mockRestore();
+    });
+  });
+  // #2084: a failed analysis used to log and return, so `perf report` exited 0
+  // over an analysis that never ran.
+  describe('report subcommand', () => {
+    function stubExit() {
+      return vi.spyOn(process, 'exit').mockImplementation(((code?: number) => {
+        throw new Error(`process.exit(${code})`);
+      }) as never);
+    }
+
+    it('exits non-zero in text mode when the analysis fails', async () => {
+      mockAnalyze.mockResolvedValue({
+        ok: false,
+        error: { message: 'Could not resolve entry points' },
+      });
+      const exitSpy = stubExit();
+      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+      const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+
+      const cmd = createPerfCommand();
+      await expect(cmd.parseAsync(['report'], { from: 'user' })).rejects.toThrow(
+        `process.exit(${ExitCode.ERROR})`
+      );
+      expect(exitSpy).toHaveBeenCalledWith(ExitCode.ERROR);
+
+      exitSpy.mockRestore();
+      errorSpy.mockRestore();
+      logSpy.mockRestore();
+    });
+
+    it('exits non-zero and emits a JSON error object in --json mode when the analysis fails', async () => {
+      mockAnalyze.mockResolvedValue({
+        ok: false,
+        error: { message: 'Could not resolve entry points' },
+      });
+      const exitSpy = stubExit();
+      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+      const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+
+      const cmd = createPerfCommand();
+      cmd.option('--json', 'JSON output');
+      await expect(cmd.parseAsync(['--json', 'report'], { from: 'user' })).rejects.toThrow(
+        `process.exit(${ExitCode.ERROR})`
+      );
+      expect(exitSpy).toHaveBeenCalledWith(ExitCode.ERROR);
+      const jsonOut = logSpy.mock.calls
+        .map((c) => {
+          try {
+            return JSON.parse(String(c[0]));
+          } catch {
+            return undefined;
+          }
+        })
+        .find((v) => v !== undefined);
+      expect(jsonOut).toEqual({ error: 'Could not resolve entry points' });
+
+      exitSpy.mockRestore();
+      errorSpy.mockRestore();
+      logSpy.mockRestore();
+    });
+
+    it('passes configured performance.entryPoints to the analyzer', async () => {
+      mockResolveProject.mockReturnValue({
+        ok: true,
+        value: {
+          config: { performance: { entryPoints: ['packages/a/src/index.ts'] } },
+          configPath: '/proj/harness.config.json',
+          root: '/proj',
+        },
+      });
+      mockAnalyze.mockResolvedValue({ ok: true, value: {} });
+      const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+
+      const cmd = createPerfCommand();
+      await cmd.parseAsync(['report'], { from: 'user' });
+
+      expect(analyzerCtorArgs).toHaveLength(1);
+      expect(analyzerCtorArgs[0]).toMatchObject({
+        rootDir: path.resolve('/proj'),
+        entryPoints: ['packages/a/src/index.ts'],
+      });
+      logSpy.mockRestore();
+    });
+
+    it('leaves entry points to auto-detection when none are configured', async () => {
+      mockAnalyze.mockResolvedValue({ ok: true, value: {} });
+      const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+
+      const cmd = createPerfCommand();
+      await cmd.parseAsync(['report'], { from: 'user' });
+
+      expect(analyzerCtorArgs).toHaveLength(1);
+      expect(analyzerCtorArgs[0]).not.toHaveProperty('entryPoints');
       logSpy.mockRestore();
     });
   });
