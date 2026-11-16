@@ -1,0 +1,20 @@
+{
+  "//": "Type-checks the test files whose assertions are TYPE-LEVEL (expectTypeOf, assertType, @ts-expect-error, or an explicit `@type-gate` marker). tsconfig.json excludes tests/ and vitest strips types without checking them, so without this project those assertions are inert (#2473). tests/type-tests-coverage.test.ts at the repo root fails if a file carrying one of those markers is missing from `files`.",
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "rootDir": ".",
+    "composite": false,
+    "incremental": false,
+    "declaration": false,
+    "declarationMap": false,
+    "paths": { "@harness-engineering/core": ["./src/index.ts"] }
+  },
+  "files": [
+    "tests/metrics/census.test.ts",
+    "tests/metrics/denominate.test.ts",
+    "tests/roadmap/tracker/factory.test.ts",
+    "tests/roadmap/tracker/index.test.ts",
+    "tests/roadmap/tracker/public-surface.test.ts"
+  ]
+}

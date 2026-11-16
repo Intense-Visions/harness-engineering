@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { PROFILES, type HookProfile, HOOK_SCRIPTS } from '../../src/hooks/profiles';
+import { PROFILES, HOOK_SCRIPTS } from '../../src/hooks/profiles';
 
 describe('profiles', () => {
   it('exports minimal, standard, and strict profiles', () => {

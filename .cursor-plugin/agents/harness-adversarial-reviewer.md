@@ -269,12 +269,14 @@ for the `{ wired, skipped, expected, files }` split. The full contract lives in 
   paths**, together with a `promptBudget` where that domain's MCP tool accepts one (see each craft
   skill's "Invoked as a review hook" section; `mcp__harness__design_craft` does not — it accepts
   neither `promptBudget` nor `maxFiles`, so bound it with `phases` / `mode` instead or it runs all
-  three phases over 13 rubrics with no ceiling). `plan.files` holds repo-relative POSIX paths and
-  the collectors `readFileSync` them against the process CWD, so forwarding them unresolved fails
-  differently by domain and neither failure is loud here: the nine collector-based domains yield
-  `status: "collected"` with zero prompts — a clean report from a run that read nothing — while
-  `mcp__harness__design_craft` has no collector and THROWS `ENOENT` out of `runCritique`, which has
-  no try/catch. Both are pinned (`packages/cli/tests/design-craft/phases/files-path-form.test.ts`).
+  three phases over 13 rubrics with no ceiling). `plan.files` holds repo-relative POSIX paths, and
+  forwarding them unresolved behaves differently by domain: the nine collector-based domains
+  resolve a relative entry against the tool's `path` (never the process CWD), so they still read
+  the in-diff file (`packages/cli/tests/shared/craft/relative-files-scope.test.ts`), while
+  `mcp__harness__design_craft` has no collector, resolves a relative entry against the process
+  CWD, and THROWS `ENOENT` out of `runCritique`, which has no try/catch
+  (`packages/cli/tests/design-craft/phases/files-path-form.test.ts`). Resolving every entry to an
+  absolute path first is correct for all ten domains and required for design_craft.
   Never call `rule.owns()` yourself. When the
   changed-file set is unknown, nothing activates and every domain is reported `no-diff-context`;
   do not fall back to a repository walk.
