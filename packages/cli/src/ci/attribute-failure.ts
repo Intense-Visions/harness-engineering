@@ -38,17 +38,9 @@ export const execGh: GhRunner = (args) =>
       args,
       { encoding: 'utf-8', maxBuffer: 512 * 1024 * 1024 },
       (error, stdout, stderr) => {
-        const code =
-          error && typeof (error as { code?: unknown }).code === 'number'
-            ? ((error as { code: number }).code ?? 1)
-            : error
-              ? 1
-              : 0;
-        resolve({
-          code,
-          stdout: String(stdout ?? ''),
-          stderr: String(stderr ?? error?.message ?? ''),
-        });
+        const raw = (error as { code?: unknown } | null)?.code;
+        const code = !error ? 0 : typeof raw === 'number' ? raw : 1;
+        resolve({ code, stdout: String(stdout), stderr: String(stderr || error?.message || '') });
       }
     );
   });

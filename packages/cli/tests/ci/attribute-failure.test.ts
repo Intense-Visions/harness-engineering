@@ -4,7 +4,10 @@ import {
   describeLogFailure,
   type GhRunner,
 } from '../../src/ci/attribute-failure';
-import { runAttributeFailure } from '../../src/commands/ci/attribute-failure';
+import {
+  formatAttributionReport,
+  runAttributeFailure,
+} from '../../src/commands/ci/attribute-failure';
 
 /**
  * Fake `gh`: routes by argv to canned responses. Every call is recorded so a
@@ -27,7 +30,7 @@ interface OtherRun {
   id: number;
   branch: string;
   event?: string;
-  conclusion: 'success' | 'failure' | 'cancelled';
+  conclusion: 'success' | 'failure' | 'cancelled' | 'timed_out' | null;
   jobId: number;
   createdAt?: string;
   /** Log for a failed job; `null` = BlobNotFound. */
@@ -36,6 +39,11 @@ interface OtherRun {
 
 interface Fixture {
   prFiles?: string[];
+  /** Override the PR's check rollup (default: one failing macOS job, one green lint). */
+  rollup?: Array<{ name: string; conclusion: string; detailsUrl?: string }>;
+  /** argv prefixes that should fail (exit 1) or return garbage JSON. */
+  failing?: string[];
+  garbage?: string[];
   ownLog?: string | null;
   others?: OtherRun[];
 }
@@ -55,13 +63,16 @@ function fakeGh(fx: Fixture): { gh: GhRunner; calls: string[][] } {
   const gh: GhRunner = async (args) => {
     calls.push(args);
     const a = args.join(' ');
+    if (fx.failing?.some((p) => a.startsWith(p)))
+      return { code: 1, stdout: '', stderr: 'HTTP 502: boom' };
+    if (fx.garbage?.some((p) => a.startsWith(p))) return { code: 0, stdout: '<html>', stderr: '' };
     if (a === `api repos/${REPO}`) return ok({ full_name: REPO, default_branch: 'main' });
     if (a.startsWith(`pr view 42 --repo ${REPO}`)) {
       return ok({
         headRefName: 'feat/mine',
         headRefOid: 'a'.repeat(40),
         files: (fx.prFiles ?? ['packages/cli/src/unrelated.ts']).map((path) => ({ path })),
-        statusCheckRollup: [
+        statusCheckRollup: fx.rollup ?? [
           {
             __typename: 'CheckRun',
             name: JOB,
@@ -109,7 +120,16 @@ function fakeGh(fx: Fixture): { gh: GhRunner; calls: string[][] } {
       const o = (fx.others ?? []).find((x) => x.id === Number(runJobs[1]));
       return ok({
         jobs: o
-          ? [{ id: o.jobId, name: JOB, run_id: o.id, run_attempt: 1, conclusion: o.conclusion }]
+          ? [
+              { id: o.jobId, name: JOB, run_id: o.id, run_attempt: 1, conclusion: o.conclusion },
+              {
+                id: o.jobId + 1,
+                name: 'lint',
+                run_id: o.id,
+                run_attempt: 1,
+                conclusion: 'failure',
+              },
+            ]
           : [],
       });
     }
@@ -290,6 +310,10 @@ describe('correlation window', () => {
 });
 
 describe('describeLogFailure', () => {
+  it('has a fallback for an empty stderr', () => {
+    expect(describeLogFailure('')).toBe('log fetch failed');
+  });
+
   it.each([
     'HTTP 404: BlobNotFound: The specified blob does not exist.',
     'HTTP 410: Gone',
@@ -342,5 +366,202 @@ describe('runAttributeFailure (exit codes + JSON)', () => {
     const code = await runAttributeFailure({ ...cli, pr: 'abc' }, { json: true }, gh);
     log.mockRestore();
     expect(code).toBe(2);
+  });
+});
+
+describe('attributePrFailure — check selection and degraded GitHub', () => {
+  it('ignores cancelled / in-progress jobs and treats timed_out like a failure', async () => {
+    const { gh } = fakeGh({
+      others: [
+        { id: 201, branch: 'fix/a', conclusion: 'timed_out', jobId: 2010 },
+        { id: 202, branch: 'fix/b', conclusion: 'cancelled', jobId: 2020 },
+        { id: 203, branch: 'fix/c', conclusion: null, jobId: 2030 },
+        { id: 204, branch: 'main', event: 'push', conclusion: 'failure', jobId: 2040 },
+      ],
+    });
+    const report = await attributePrFailure(gh, OPTS);
+    expect(report.jobs[0]!.examinedRuns.map((r) => r.runId)).toEqual([201, 204]);
+    expect(report.verdict).toBe('environmental');
+  });
+
+  it('skips a run whose job listing fails or is unparseable instead of aborting', async () => {
+    const { gh } = fakeGh({
+      failing: [`api repos/${REPO}/actions/runs/201/jobs`],
+      garbage: [`api repos/${REPO}/actions/runs/202/jobs`],
+      others: [
+        { id: 201, branch: 'fix/a', conclusion: 'failure', jobId: 2010 },
+        { id: 202, branch: 'fix/b', conclusion: 'failure', jobId: 2020 },
+        { id: 203, branch: 'fix/c', conclusion: 'success', jobId: 2030 },
+      ],
+    });
+    const report = await attributePrFailure(gh, OPTS);
+    expect(report.jobs[0]!.examinedRuns.map((r) => r.runId)).toEqual([203]);
+    expect(report.verdict).toBe('inconclusive');
+  });
+
+  it('selects only failing checks, filtered by --job substring', async () => {
+    const { gh } = fakeGh({
+      rollup: [
+        {
+          name: JOB,
+          conclusion: 'FAILURE',
+          detailsUrl: `https://github.com/${REPO}/actions/runs/100/job/1000`,
+        },
+        {
+          name: 'docs',
+          conclusion: 'TIMED_OUT',
+          detailsUrl: `https://github.com/${REPO}/actions/runs/100/job/1002`,
+        },
+        { name: 'no-url', conclusion: 'FAILURE' },
+        {
+          name: 'lint',
+          conclusion: 'SUCCESS',
+          detailsUrl: `https://github.com/${REPO}/actions/runs/100/job/1001`,
+        },
+      ],
+      others: [],
+    });
+    const report = await attributePrFailure(gh, { ...OPTS, job: 'macos' });
+    expect(report.jobs.map((j) => j.jobId)).toEqual([1000]);
+  });
+
+  it('abstains when the PR has no failing check', async () => {
+    const { gh } = fakeGh({ rollup: [{ name: 'lint', conclusion: 'SUCCESS' }] });
+    const report = await attributePrFailure(gh, OPTS);
+    expect(report).toMatchObject({ verdict: 'inconclusive', abstained: true, jobs: [] });
+    expect(report.reason).toMatch(/no failing check/);
+  });
+
+  it('fails loudly (AttributeFailureError) when the PR lookup fails or returns garbage', async () => {
+    await expect(attributePrFailure(fakeGh({ failing: ['pr view'] }).gh, OPTS)).rejects.toThrow(
+      /PR #42 lookup failed: HTTP 502: boom/
+    );
+    await expect(attributePrFailure(fakeGh({ garbage: ['pr view'] }).gh, OPTS)).rejects.toThrow(
+      /unparseable JSON/
+    );
+  });
+
+  it('resolves the repository from the working directory when --repo is omitted', async () => {
+    const { gh, calls } = fakeGh({ others: [] });
+    const routed: GhRunner = async (args) =>
+      args.join(' ') === 'api repos/{owner}/{repo}' ? gh([`api`, `repos/${REPO}`]) : gh(args);
+    const { repo: _omit, ...noRepo } = OPTS;
+    const report = await attributePrFailure(routed, noRepo);
+    expect(report.repo).toBe(REPO);
+    expect(calls.length).toBeGreaterThan(0);
+  });
+});
+
+describe('formatAttributionReport / text mode', () => {
+  it('renders each job, the run mix, per-test reasons and the verdict', async () => {
+    const { gh } = fakeGh({
+      others: [
+        { id: 201, branch: 'fix/a', conclusion: 'failure', jobId: 2010 },
+        { id: 203, branch: 'main', event: 'push', conclusion: 'failure', jobId: 2030 },
+        { id: 204, branch: 'feat/mine', conclusion: 'success', jobId: 2040 },
+      ],
+    });
+    const text = formatAttributionReport(await attributePrFailure(gh, OPTS));
+    expect(text).toContain('PR #42 (feat/mine @ aaaaaaa)');
+    expect(text).toContain('failing step(s): Test');
+    expect(text).toContain(
+      'examined 3 other run(s): 1 main, 1 unrelated PR, 1 same-branch (excluded)'
+    );
+    expect(text).toContain(`[environmental] ${TEST_FILE} > ${TEST_NAME}`);
+    expect(text).toMatch(/Verdict: environmental — /);
+  });
+
+  it('renders an unreadable log and an abstention', async () => {
+    const { gh } = fakeGh({ ownLog: null });
+    const text = formatAttributionReport(await attributePrFailure(gh, OPTS));
+    expect(text).toMatch(/log: unavailable — BlobNotFound/);
+    expect(text).toMatch(/Verdict: inconclusive \(abstained\)/);
+  });
+
+  it('renders a name-less (file-only) failure without a trailing separator', () => {
+    const text = formatAttributionReport({
+      repo: REPO,
+      pr: 1,
+      branch: 'b',
+      headSha: 'c'.repeat(40),
+      windowHours: 24,
+      verdict: 'inconclusive',
+      abstained: false,
+      reason: 'r',
+      jobs: [
+        {
+          jobId: 1,
+          jobName: 'j',
+          runId: 2,
+          workflow: 'CI',
+          failingSteps: [],
+          log: 'read',
+          failingTests: [{ file: 'a.test.ts', name: '' }],
+          examinedRuns: [],
+          result: {
+            verdict: 'inconclusive',
+            abstained: false,
+            minIndependentFailures: 2,
+            reason: 'r',
+            tests: [
+              {
+                test: { file: 'a.test.ts', name: '' },
+                verdict: 'inconclusive',
+                inDiff: false,
+                diffMatches: [],
+                independentFailures: 0,
+                failedRuns: 0,
+                passedRuns: 0,
+                failedOtherRuns: 0,
+                unknownRuns: 0,
+                mainFailures: 0,
+                denominator: 0,
+                reason: 'why',
+              },
+            ],
+          },
+        },
+      ],
+    });
+    expect(text).toContain('  [inconclusive] a.test.ts\n');
+    expect(text).not.toContain('failing step(s)');
+  });
+
+  it('prints text (not JSON) by default and nothing in quiet mode', async () => {
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {});
+    const cliOpts = {
+      pr: '42',
+      repo: REPO,
+      windowHours: '24',
+      maxRuns: '40',
+      maxLogs: '15',
+      minFailures: '2',
+    };
+    await runAttributeFailure(cliOpts, {}, fakeGh({ others: [] }).gh);
+    expect(String(log.mock.calls[0]?.[0])).toMatch(/^PR #42/);
+    log.mockClear();
+    await runAttributeFailure(cliOpts, { quiet: true }, fakeGh({ others: [] }).gh);
+    expect(log).not.toHaveBeenCalled();
+    log.mockRestore();
+  });
+
+  it('passes --job and --job-id through, and reports gh errors as text on stderr', async () => {
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {});
+    const cliOpts = {
+      pr: '42',
+      repo: REPO,
+      windowHours: '24',
+      maxRuns: '40',
+      maxLogs: '15',
+      minFailures: '2',
+    };
+    const { gh, calls } = fakeGh({ others: [] });
+    expect(
+      await runAttributeFailure({ ...cliOpts, jobId: '1000', job: 'mac' }, { json: true }, gh)
+    ).toBe(3);
+    expect(calls.some((c) => c.join(' ') === `api repos/${REPO}/actions/jobs/1000`)).toBe(true);
+    expect(await runAttributeFailure({ ...cliOpts, maxRuns: '-1' }, {}, gh)).toBe(2);
+    expect(await runAttributeFailure(cliOpts, {}, fakeGh({ failing: ['pr view'] }).gh)).toBe(2);
+    log.mockRestore();
   });
 });

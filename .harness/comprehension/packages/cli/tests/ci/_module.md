@@ -1,12 +1,13 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/tests/ci'
-sourceHash: 'd14342bf73c3746a1cd9a44e0e87475c96191d525f84fec2f78009d83fc5565c'
+sourceHash: 'bcaced0e53d206352fa4da3e40c1429c6fae02f9a548635d4d02dfdf9f2d8574'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
 members:
   [
+    'attribute-failure-exec.test.ts',
     'attribute-failure.test.ts',
     'baseline-diff-guard.test.ts',
     'check.test.ts',
@@ -35,7 +36,7 @@ import { assertDiffScope } from '../../../../scripts/lib/diff-scope-guard.mjs'
 import { extractFailures, findReportPaths, formatSummary } from '../../../../scripts/summarize-test-failures.mjs'
 import { prepushTestOptions } from '../../../../scripts/vitest-prepush-reporter.mjs'
 import { GhRunner, attributePrFailure, describeLogFailure } from '../../src/ci/attribute-failure'
-import { runAttributeFailure } from '../../src/commands/ci/attribute-failure'
+import { formatAttributionReport, runAttributeFailure } from '../../src/commands/ci/attribute-failure'
 import { createCheckCommand, runCICheck } from '../../src/commands/ci/check'
 import { createInitCommand, generateCIConfig } from '../../src/commands/ci/init'
 import { createNotifyCommand } from '../../src/commands/ci/notify'
