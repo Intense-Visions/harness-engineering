@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/tests/roadmap'
-sourceHash: '9372ecd8b22d986716a97f57328081584f05712f87f4c98e868e8b577ca286f0'
+sourceHash: '59abc711dd59894965dfe3e489ee9962bcc676f850f328bf230ea7ce8142b940'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -32,6 +32,7 @@ members:
     'parse.test.ts',
     'pilot-scoring-blockers.test.ts',
     'pilot-scoring-file-less.test.ts',
+    'pilot-scoring-inputs.test.ts',
     'pilot-scoring-mode-stub.test.ts',
     'pilot-scoring.test.ts',
     'preservation.test.ts',

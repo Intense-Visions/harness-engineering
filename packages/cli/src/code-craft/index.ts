@@ -54,6 +54,7 @@ import type {
   SiblingIndexOutcome,
 } from './findings/schema.js';
 import { craftClumpView } from '../shared/craft/findings/clumpable.js';
+import { resolveScopedFiles } from '../shared/craft/extract/scoped-files.js';
 
 export type CodeCraftMode = 'inline' | 'in-session';
 
@@ -619,7 +620,7 @@ export async function critiqueCodeInFile(
 
 function collectFiles(projectRoot: string, input: CodeCraftInput): string[] {
   if (input.files !== undefined && input.files.length > 0) {
-    return [...input.files];
+    return resolveScopedFiles(projectRoot, input.files);
   }
   return discoverSourceFiles(projectRoot, input.packages);
 }

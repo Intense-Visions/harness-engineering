@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/tests/integration'
-sourceHash: 'd6a14629657af72dd7e3bc4ad640b3d55f0369714eb264335342e857d7399364'
+sourceHash: '9b3cf77f4a931f8e0c78198986b9aa23fbbaf51954c0e4c2754091f8914b337f'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -10,6 +10,7 @@ members:
     'autopilot-skill-hooks.test.ts',
     'check-deps-exit-code.e2e.test.ts',
     'cleanup-duplication-exit-code.e2e.test.ts',
+    'cleanup-findings-enumerable.e2e.test.ts',
     'cli.test.ts',
     'community-skill-discovery.test.ts',
     'core-clumping-export.test.ts',
@@ -52,13 +53,14 @@ import { RecommendationResult } from '../../src/skill/recommendation-types'
 import { SkillSource, normalizeSkills } from '../../src/slash-commands/normalize'
 import { TemplateEngine } from '../../src/templates/engine'
 import { resolveTemplatesDir } from '../../src/utils/paths'
-import { runHarness, skipUnlessBin } from '../e2e/support'
+import { HARNESS_BIN, cleanup, runHarness, scaffoldProject, skipUnlessBin } from '../e2e/support'
+import { runHarness } from '../e2e/support/harness-cli'
 import { scaffoldInitFixture } from './_helpers/init-fixture'
 import { ALLOWED_FIELD_KEYS, CRAFT_REVIEW_DOMAINS, CRAFT_REVIEW_EVENTS_BY_HOST, Clump, ClumpResult, ClumpableItem, Confidence, CraftTier, DEFAULT_CLUMP_POLICY, Grade, Impact, PII_FIELD_DENYLIST, clearPulseAdapters, formClumps, parseRoadmap, planCraftReviewDomains, registerMockAdapter, registerPulseAdapter, resolveFloor, resolveReviewHooksWithCraft } from '@harness-engineering/core'
 import * as core from '@harness-engineering/core'
 import { PulseAdapter, SanitizedResult } from '@harness-engineering/types'
-import { spawnSync } from 'child_process'
 import * as fs from 'fs'
+import { spawnSync } from 'node:child_process'
 import fs, { mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import * as fs from 'node:fs'
 import os, { tmpdir } from 'node:os'
@@ -68,5 +70,5 @@ import * as path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import * as os from 'os'
 import * as path from 'path'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 ```
