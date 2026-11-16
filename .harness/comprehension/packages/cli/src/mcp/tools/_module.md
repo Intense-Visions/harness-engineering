@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/mcp/tools'
-sourceHash: 'ee3be3da8bfa57c056816eb23e8251256273566a99a1b51acc3e848731c06aef'
+sourceHash: 'ccd42b3ccaa665d2099549587432d334d8a4adeb23d3a6f97c88d1e59acd917e'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -512,6 +512,7 @@ import { craftPathError, withCraftAbstention } from '../../shared/craft/scope.js
 import { collectDesignScanFiles, designScanAbstention, noFilesScannedError, resolveDesignExcludePatterns } from '../../shared/design-scan-targets.js'
 import { baselineDeltaForReport } from '../../shared/duplication-baseline.js'
 import { ENTROPY_ISSUE_TYPES, describeDuplicationNotRun, describeUnknownIssueType, isEntropyIssueType, resolveDuplicationRequest } from '../../shared/duplication-request.js'
+import { resolveEntropyGate } from '../../shared/entropy-gate.js'
 import { EntropyScope, resolveEntropyScope } from '../../shared/entropy-scope.js'
 import { resolveInsightsEntropyGatherer } from '../../shared/insights-entropy.js'
 import '../../shared/state-events.js'

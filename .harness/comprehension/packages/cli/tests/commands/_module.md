@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/tests/commands'
-sourceHash: 'd9fe03419c7383d0fdd59e67eb1885d763745b04d8da581ca38231e382cdd191'
+sourceHash: 'df110bb775e6d775d2a8852ef67ef147c394beeec79bbb198a7e82788b032658'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -61,6 +61,7 @@ members:
     'cleanup-cov544b.test.ts',
     'cleanup-duplication-baseline.test.ts',
     'cleanup-duplication.test.ts',
+    'cleanup-entropy-enabled.test.ts',
     'cleanup-findings-items.test.ts',
     'cleanup-sessions-cov544.test.ts',
     'cleanup-sessions.test.ts',
@@ -435,6 +436,7 @@ import { runAuditBrand } from '../../src/mcp/tools/audit-brand'
 import { handleRecordAutoDecision } from '../../src/mcp/tools/auto-decision'
 import { runDesignCraft } from '../../src/mcp/tools/design-craft'
 import { runDetectDrift } from '../../src/mcp/tools/detect-drift'
+import { handleDetectEntropy } from '../../src/mcp/tools/entropy'
 import { handleGatherContext } from '../../src/mcp/tools/gather-context'
 import { handleGetImpact } from '../../src/mcp/tools/graph/index'
 import { runInstructionDensityAudit } from '../../src/mcp/tools/instruction-density'

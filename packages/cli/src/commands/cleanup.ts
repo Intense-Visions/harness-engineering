@@ -30,6 +30,7 @@ import {
   UPDATE_BASELINE_WITHOUT_SCAN,
   type DuplicationBaselineDelta,
 } from '../shared/duplication-baseline';
+import { resolveEntropyGate } from '../shared/entropy-gate';
 
 type CleanupType = EntropyIssueType;
 
@@ -139,6 +140,12 @@ interface CleanupResult {
    * `shared/duplication-baseline.ts`.
    */
   duplicationBaseline?: DuplicationBaselineDelta;
+  /**
+   * Set when `entropy.enabled: false` kept the gating analyzers (drift, dead
+   * code, patterns) off under `-t all` — the reason, so a not-applicable gate
+   * is reported as such rather than as "0 issues" (#2633). Absent otherwise.
+   */
+  disabledByConfig?: string;
 }
 
 /**
@@ -225,6 +232,15 @@ export async function runCleanup(
   }
   const { config, root: cwd } = projectResult.value;
 
+  // `entropy.enabled: false` declares the drift / dead-code gate not
+  // applicable (#2071). An explicit request for one of its analyzers refuses;
+  // `all` leaves them off and says so (#2633).
+  const gate = resolveEntropyGate(type, config.entropy?.enabled);
+  if (gate.kind === 'refuse') {
+    return Err(new CLIError(gate.message, ExitCode.VALIDATION_FAILED));
+  }
+  const gatingAllowed = gate.kind === 'run';
+
   const result: CleanupResult = {
     driftIssues: [],
     deadCode: [],
@@ -245,7 +261,7 @@ export async function runCleanup(
   // from the TOP LEVEL of EntropyConfig, not from `analyze.drift`, so the
   // hard-coded value below stayed in force and the configured one was inert —
   // while the MCP `detect_entropy` tool honored it.
-  const driftEnabled = type === 'all' || type === 'drift';
+  const driftEnabled = gatingAllowed && (type === 'all' || type === 'drift');
   const driftConfig = config.entropy?.drift as Partial<DriftConfig> | undefined;
 
   // Pattern rules come from `entropy.patterns` in harness.config.json. The
@@ -254,7 +270,7 @@ export async function runCleanup(
   // "Entropy issues: 0" and exited 0 — a pass indistinguishable from a real
   // check that found nothing (#1760). Read the configured rules instead, and
   // refuse to green-tick a patterns check that has nothing to evaluate.
-  const patternsRequested = type === 'all' || type === 'patterns';
+  const patternsRequested = gatingAllowed && (type === 'all' || type === 'patterns');
   const patternConfig = config.entropy?.patterns as PatternConfig | undefined;
   const configuredRuleCount =
     (patternConfig?.patterns?.length ?? 0) + (patternConfig?.customPatterns?.length ?? 0);
@@ -289,6 +305,16 @@ export async function runCleanup(
     return Err(new CLIError(duplicationRequest.message, ExitCode.VALIDATION_FAILED));
   }
 
+  if (gate.kind === 'disabled') {
+    result.disabledByConfig = gate.message;
+    // Nothing left to run: skip the analyzer (and its snapshot build) outright.
+    if (duplicationRequest.kind !== 'run') {
+      return options.updateBaseline
+        ? Err(new CLIError(UPDATE_BASELINE_WITHOUT_SCAN, ExitCode.VALIDATION_FAILED))
+        : Ok(result);
+    }
+  }
+
   const entropyConfig: EntropyConfig = {
     rootDir,
     ...(config.entropy?.entryPoints && { entryPoints: config.entropy.entryPoints }),
@@ -298,7 +324,7 @@ export async function runCleanup(
     docPaths: driftConfig?.docPaths ?? [path.join(docsDir, '**/*.md')],
     analyze: {
       drift: driftEnabled ? (driftConfig ?? true) : false,
-      deadCode: type === 'all' || type === 'dead-code',
+      deadCode: gatingAllowed && (type === 'all' || type === 'dead-code'),
       // Only run the pattern analyzer when real rules exist; an empty rule set
       // is a no-op that misrepresents "checked" as "passed" (#1760).
       patterns: patternsRequested && hasPatternRules && patternConfig ? patternConfig : false,
@@ -402,6 +428,10 @@ export async function runCleanup(
  * never ran — #1760 one layer out.
  */
 function printEntropyIssueCount(value: CleanupResult, formatter: OutputFormatter): void {
+  if (value.disabledByConfig !== undefined) {
+    console.log(`Entropy issues: not checked — ${value.disabledByConfig}`);
+    return;
+  }
   const gatingRan = value.ran.drift || value.ran.deadCode || value.ran.patterns;
   if (!gatingRan) {
     console.log('Entropy issues: not checked (no doc-drift, dead-code or pattern analyzer ran)');

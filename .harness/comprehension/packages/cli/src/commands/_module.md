@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/commands'
-sourceHash: 'b216a53d9bc894abb3e83415b9ded47c33f2e6e7f46c8f993fe0739037bb890d'
+sourceHash: '11315e9b65ca3938bbf07a274a6091ad3d7300227347a5ff2b4344e33a06bde5'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -498,6 +498,7 @@ import { CraftLlmResolution, resolveCraftLlmConfig } from '../shared/craft/llm/p
 import { isDesignScanPath, isExcluded, resolveDesignExcludePatterns } from '../shared/design-scan-targets.js'
 import { DuplicationBaselineDelta, UPDATE_BASELINE_WITHOUT_SCAN, formatDuplicationBaselineLine, recordOrCompareBaseline } from '../shared/duplication-baseline'
 import { ENTROPY_ISSUE_TYPES, EntropyIssueType, describeDuplicationNotRun, describeUnknownIssueType, isEntropyIssueType, resolveDuplicationRequest } from '../shared/duplication-request'
+import { resolveEntropyGate } from '../shared/entropy-gate'
 import { resolveInsightsEntropyGatherer } from '../shared/insights-entropy'
 import { matchContent } from '../skill/content-matcher'
 import { ContentMatchResult, SkillMatch } from '../skill/content-matcher-types'
