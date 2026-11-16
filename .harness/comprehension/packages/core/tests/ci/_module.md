@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/tests/ci'
-sourceHash: '7c19720e595161d133665afafe75ef79056b189f9364607be156f5b342fe6d2a'
+sourceHash: '217e042f11cd9479dd5907ecaf0feef1ce378655b758abc4504aad5235d73c1b'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -14,6 +14,7 @@ members:
     'constraint-packs-orchestrator.test.ts',
     'constraint-packs-real-scanner.test.ts',
     'deps-config-parity.behavior.test.ts',
+    'flake-attribution.test.ts',
     'notifier.test.ts',
     'report-formatter.test.ts',
     'verdict-cache.test.ts',
@@ -32,6 +33,7 @@ members:
 import '../../src/architecture'
 import { classifyBaseFreshness } from '../../src/ci/base-freshness'
 import { runCIChecks } from '../../src/ci/check-orchestrator'
+import { CorrelatedRun, FailingTest, attributeFailure, matchDiff, pairedSourceCandidates, parseFailingTests, testKey } from '../../src/ci/flake-attribution'
 import { CINotifier } from '../../src/ci/notifier'
 import { formatCIReportAsMarkdown } from '../../src/ci/report-formatter'
 import { DEFAULT_VERDICT_CACHE_DIR, GATE_VERSIONS, MEMOIZABLE_CHECKS, VerdictCache, VerdictCacheStatsCollector, computeConfigHash, computeProjectInputHash, computeVerdictKey, parseVerdictCacheConfig, shouldCacheResult } from '../../src/ci/verdict-cache'
