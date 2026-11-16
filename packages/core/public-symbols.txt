@@ -1884,6 +1884,7 @@ findBlockedRoadmapCandidates
 findFencedCodeLines
 findFixture
 findMergeCandidates
+findOrphanModules
 findParallelGroups
 findRoadmapReadSourceViolations
 fingerprintFile

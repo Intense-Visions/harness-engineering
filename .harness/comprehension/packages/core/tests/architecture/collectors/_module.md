@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/tests/architecture/collectors'
-sourceHash: 'ee9b57d500b989f663edc5c7d6493f8406dbd765f04685234815f04fa37bd8d1'
+sourceHash: '29453a733cb90b860efb9acb2f32440587344a1b78fdb54d05ec347fd1d90ba7'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -17,6 +17,7 @@ members:
     'get-rules.test.ts',
     'hash.test.ts',
     'index.test.ts',
+    'layer-violations-workspace.test.ts',
     'layer-violations.test.ts',
     'module-size.test.ts',
     'planted-positives.test.ts',
@@ -34,6 +35,7 @@ members:
 ## Dependency Slice
 
 ```
+import { runAll } from '../../../src/architecture/collectors'
 import { CircularDepsCollector } from '../../../src/architecture/collectors/circular-deps'
 import { ComplexityCollector } from '../../../src/architecture/collectors/complexity'
 import { CouplingCollector } from '../../../src/architecture/collectors/coupling'
@@ -44,7 +46,9 @@ import { defaultCollectors, runAll } from '../../../src/architecture/collectors/
 import { LayerViolationCollector } from '../../../src/architecture/collectors/layer-violations'
 import { ModuleSizeCollector } from '../../../src/architecture/collectors/module-size'
 import { SharedImportParser, createCollectorRunContext } from '../../../src/architecture/collectors/run-context'
-import { ArchConfig, Collector, ConstraintRule, MetricResult } from '../../../src/architecture/types'
+import { readDependencyRules, withDependencyRules } from '../../../src/architecture/dependency-rules'
+import { ArchConfig, ArchConfigSchema, Collector, ConstraintRule, MetricResult } from '../../../src/architecture/types'
+import { runCIChecks } from '../../../src/ci/check-orchestrator'
 import { detectCircularDeps } from '../../../src/constraints/circular-deps'
 import { buildDependencyGraph, validateDependencies } from '../../../src/constraints/dependencies'
 import { detectComplexityViolations } from '../../../src/entropy/detectors/complexity'
@@ -54,6 +58,7 @@ import { AST, Import, LanguageParser, ParseError } from '../../../src/shared/par
 import { getDefaultRegistry, resetDefaultRegistry } from '../../../src/shared/parsers/registry'
 import { TypeScriptParser } from '../../../src/shared/parsers/typescript'
 import { Err, Ok } from '../../../src/shared/result'
+import { CICheckName } from '@harness-engineering/types'
 import { mkdir, mkdtemp, rm, writeFile } from 'fs/promises'
 import * as fs from 'node:fs'
 import * as fsp from 'node:fs/promises'

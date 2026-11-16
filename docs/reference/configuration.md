@@ -228,7 +228,7 @@ By default only **relative** imports become edges in the layer check, so in a mo
 
 `deps.resolveWorkspacePackages: true` resolves a bare specifier that names a workspace package to a source file inside it. Workspace members come from `pnpm-workspace.yaml` `packages`, or the root `package.json` `workspaces` field, keyed by each member's `package.json` `name`. The package's `exports` (or `source`/`module`/`main`) target is mapped back from a build directory (`dist/`, `build/`, `lib/`, `out/`) to `src/`, falling back to `src/index` (or `src/<subpath>`). A specifier that names no workspace package — `lodash`, `node:fs` — is ignored, as before. Wildcard (`./*`) export patterns are not expanded.
 
-It is **opt-in** because turning it on in an existing monorepo can surface violations that were previously invisible. Enable it, triage what it reports (fix the import, or update the layer's `allowedDependencies` if the dependency is intended), then keep it on. It applies to `harness check-deps` and the `check_dependencies` MCP tool.
+It is **opt-in** because turning it on in an existing monorepo can surface violations that were previously invisible. Enable it, triage what it reports (fix the import, or update the layer's `allowedDependencies` if the dependency is intended), then keep it on. It applies to `harness check-deps`, the `check_dependencies` MCP tool, the `layer-violations` metric of `harness check-arch`, and the `deps` step of `harness ci check`, so all four agree on cross-package edges.
 
 #### When the analysis engine cannot run
 

@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/src/entropy'
-sourceHash: '142fc4da5e4c674feaa4ef7761d10eb575de9be8f49cbdfaa92ba2f9714fdec1'
+sourceHash: 'f881d6cadec27e13e968929dc24e095b519faf7fdd1e69ea7686ec8e8956ef4d'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -16,6 +16,7 @@ members:
     'snapshot.ts',
     'types.ts',
     'unanalysed-entry-points.ts',
+    'workspace-specifiers.ts',
   ]
 ---
 
@@ -115,6 +116,7 @@ export validatePatternConfig
 
 ```
 import { buildDependencyGraphFromParsed } from '../constraints/dependencies'
+import { loadWorkspacePackages, resolveWorkspaceSpecifier, splitBareSpecifier } from '../constraints/workspace-packages'
 import { createEntropyError } from '../shared/errors'
 import { fileExists, findFiles, readFileContent, relativePosix } from '../shared/fs-utils'
 import { AST, Export, LanguageParser, getDefaultRegistry } from '../shared/parsers'
@@ -133,6 +135,7 @@ import { loadPathAliases } from './path-aliases'
 import { buildSnapshot } from './snapshot'
 import { AnalysisError, CodeBlock, CodeReference, CodebaseSnapshot, ComplexityReport, CouplingReport, DeadCodeReport, DocumentationFile, DriftConfig, DriftReport, DuplicationReport, EntropyConfig, EntropyError, EntropyReport, ExportMap, InlineReference, InternalSymbol, JSDocComment, PatternConfig, PatternReport, SizeBudgetReport, SourceFile, SuggestionReport, TestImportSource } from './types'
 import { findUnanalysedEntryPoints, reportUnanalysedEntries } from './unanalysed-entry-points'
+import { loadWorkspaceSpecifiers } from './workspace-specifiers'
 import { DEFAULT_SKIP_DIRS, skipDirGlobs } from '@harness-engineering/graph'
 import * as fs from 'fs'
 import { stat } from 'fs/promises'

@@ -147,8 +147,9 @@ function resolveCandidatePath(resolved: string, hasFile: (p: string) => boolean)
  * Relative specifiers resolve against the importing file's directory. Non-relative
  * specifiers are matched against the project's tsconfig `paths` aliases (e.g.
  * `@lib/*` → `src/lib/*`); without this a file reached only through an alias
- * import was falsely reported dead (issue #1759). Anything that matches no alias
- * is treated as an external package.
+ * import was falsely reported dead (issue #1759). A specifier naming a workspace
+ * package (`@scope/pkg[/sub]`) is then looked up in the snapshot's pre-resolved
+ * map (issue #2189). Anything else is treated as an external package.
  */
 function resolveImportToFile(
   importSource: string,
@@ -173,6 +174,11 @@ function resolveImportToFile(
       if (match) return match;
     }
   }
+
+  // Non-relative naming a workspace package (`@scope/pkg[/sub]`), pre-resolved
+  // at snapshot time (#2189). External packages are absent from the map.
+  const workspaceTarget = snapshot.workspaceSpecifiers?.[importSource];
+  if (workspaceTarget && hasFile(workspaceTarget)) return workspaceTarget;
 
   return null; // External package
 }
