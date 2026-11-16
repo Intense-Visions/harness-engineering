@@ -2888,7 +2888,7 @@ snapshot-test -- A Java project managed with Harness Engineering practices.
   </build>
 </project>
 ",
-  "src/main/java/Application.java": "package com.example.snapshottest;
+  "src/main/java/com/example/snapshottest/Application.java": "package com.example.snapshottest;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;

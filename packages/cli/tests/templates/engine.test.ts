@@ -859,14 +859,14 @@ describe('TemplateEngine', () => {
       if (!rendered.ok) return;
 
       const paths = rendered.value.files.map((f) => f.relativePath);
-      expect(paths).toContain('src/main/java/Application.java');
+      expect(paths).toContain('src/main/java/com/example/myapp/Application.java');
       expect(paths).toContain('pom.xml');
       expect(paths).toContain('checkstyle.xml');
       expect(paths).toContain('AGENTS.md');
       expect(paths).toContain('harness.config.json');
 
       const app = rendered.value.files.find(
-        (f) => f.relativePath === 'src/main/java/Application.java'
+        (f) => f.relativePath === 'src/main/java/com/example/myapp/Application.java'
       );
       expect(app!.content).toContain('@SpringBootApplication');
       expect(app!.content).toContain('SpringApplication.run');

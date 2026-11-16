@@ -100,7 +100,7 @@ describe('template snapshots', () => {
     {
       framework: 'spring-boot',
       language: 'java' as const,
-      expectedFile: 'src/main/java/Application.java',
+      expectedFile: 'src/main/java/com/example/snapshottest/Application.java',
     },
   ] as const;
 

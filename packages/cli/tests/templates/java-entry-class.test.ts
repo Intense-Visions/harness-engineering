@@ -72,7 +72,9 @@ describe('java scaffolds ship exactly one main class (#2630)', () => {
   });
 
   it('java-base + spring-boot renders Application.java only', () => {
-    expect(javaSources(renderJava('spring-boot'))).toEqual(['src/main/java/Application.java']);
+    expect(javaSources(renderJava('spring-boot'))).toEqual([
+      'src/main/java/com/example/javaentrytest/Application.java',
+    ]);
   });
 
   it('declares no entryPoints that name a file the scaffold does not ship', () => {
@@ -110,6 +112,48 @@ describe('java scaffolds ship exactly one main class (#2630)', () => {
     },
     30_000
   );
+});
+
+/**
+ * #2630 follow-up: every rendered .java file must live in the directory its
+ * `package` line names. spring-boot's Application.java declares
+ * `package {{javaGroupId}};` but was rendered at `src/main/java/Application.java`,
+ * which javac/Maven/IDEs reject as a package/directory mismatch and which roots
+ * @SpringBootApplication's component scan nowhere sensible.
+ */
+describe('java scaffolds place each class under its package directory (#2630)', () => {
+  function expectedDir(source: string): string {
+    const match = /^\s*package\s+([\w.]+)\s*;/m.exec(source);
+    const pkgPath = match ? match[1]!.split('.').join('/') : '';
+    return pkgPath ? `src/main/java/${pkgPath}` : 'src/main/java';
+  }
+
+  it.each([
+    ['java-base', undefined],
+    ['spring-boot', 'spring-boot'],
+  ])('%s: every .java file path matches its package line', (_label, framework) => {
+    const files = renderJava(framework);
+    const sources = javaSources(files);
+    expect(sources.length).toBeGreaterThan(0);
+    for (const rel of sources) {
+      expect(path.posix.dirname(rel)).toBe(expectedDir(files.get(rel)!));
+    }
+  });
+
+  it('spring-boot follows an explicit javaGroupId', () => {
+    const resolved = engine.resolveTemplate(undefined, 'spring-boot', 'java');
+    if (!resolved.ok) throw new Error(resolved.error.message);
+    const rendered = engine.render(resolved.value, {
+      projectName: 'x',
+      language: 'java',
+      framework: 'spring-boot',
+      javaGroupId: 'org.acme.shop',
+    });
+    if (!rendered.ok) throw new Error(rendered.error.message);
+    const app = rendered.value.files.find((f) => f.relativePath.endsWith('Application.java'))!;
+    expect(app.relativePath).toBe('src/main/java/org/acme/shop/Application.java');
+    expect(app.content).toMatch(/^package org\.acme\.shop;/m);
+  });
 });
 
 describe('template.json `replaces`', () => {
@@ -165,5 +209,51 @@ describe('template.json `replaces`', () => {
     expect(resolved.ok).toBe(false);
     if (resolved.ok) return;
     expect(resolved.error.message).toMatch(/Gone\.java/);
+  });
+});
+
+describe('template path placeholders', () => {
+  function fixture(): TemplateEngine {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-pathvar-'));
+    tmpDirs.push(root);
+    const write = (rel: string, content: string) => {
+      fs.mkdirSync(path.dirname(path.join(root, rel)), { recursive: true });
+      fs.writeFileSync(path.join(root, rel), content);
+    };
+    write(
+      'java-base/template.json',
+      JSON.stringify({ name: 'java-base', description: 'b', version: 1, language: 'java' })
+    );
+    write('java-base/src/{{javaPackagePath}}/A.java.hbs', 'package {{javaGroupId}};\n');
+    write('java-base/src/{{rustEdition}}/plain.txt', 'x\n');
+    return new TemplateEngine(root);
+  }
+
+  it('renders {{name}} path segments from the context, including non-.hbs files', () => {
+    const engine = fixture();
+    const resolved = engine.resolveTemplate(undefined, undefined, 'java');
+    if (!resolved.ok) throw new Error(resolved.error.message);
+    const rendered = engine.render(resolved.value, {
+      projectName: 'p',
+      language: 'java',
+      javaGroupId: 'a.b',
+      rustEdition: 'ed',
+    });
+    if (!rendered.ok) throw new Error(rendered.error.message);
+    expect(rendered.value.files.map((f) => f.relativePath).sort()).toEqual([
+      'src/a/b/A.java',
+      'src/ed/plain.txt',
+    ]);
+  });
+
+  it('fails loudly when a path placeholder has no value', () => {
+    const engine = fixture();
+    const resolved = engine.resolveTemplate(undefined, undefined, 'java');
+    if (!resolved.ok) throw new Error(resolved.error.message);
+    // rustEdition is only defaulted for rust, so it is absent here.
+    const rendered = engine.render(resolved.value, { projectName: 'p', language: 'java' });
+    expect(rendered.ok).toBe(false);
+    if (rendered.ok) return;
+    expect(rendered.error.message).toMatch(/\{\{rustEdition\}\}/);
   });
 });
