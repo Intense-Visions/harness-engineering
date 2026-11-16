@@ -732,6 +732,7 @@ InlineReference
 InsightsAttentionBlock
 InsightsDecayBlock
 InsightsEntropyBlock
+InsightsEntropyGatherer
 InsightsHealthBlock
 InsightsImpactBlock
 InsightsKey

@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/commands'
-sourceHash: '91e08e77b9304b5850878283ce19051d88b1079a2e0d33ff60f73df3c4ee3b63'
+sourceHash: 'b216a53d9bc894abb3e83415b9ded47c33f2e6e7f46c8f993fe0739037bb890d'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -153,6 +153,7 @@ export actStatusCommand
 export aggregateReport
 export assertKnownRunner
 export buildBriefBody
+export buildCleanupFindingItems
 export buildDegradedResult
 export buildDiffInfo
 export buildOutcomeBody
@@ -315,6 +316,7 @@ export loadMaintenanceConfig
 export loadOutcomeStore
 export loadRunHistory
 export makeResolveBackend
+export measuredNothing
 export mergeResolvedTasks
 export normalizeRel
 export offerGenerateSlashCommands
@@ -410,6 +412,7 @@ export runVerify
 export setupMcp
 export stageCompiledUnits
 export summarizeSweepReport
+export unparsedFileChecks
 export upsertComment
 export writeTelemetryConfig
 ```
@@ -427,19 +430,22 @@ import { ApiCraftInput, ApiCraftOutput, runApiCraft } from '../api-craft/index.j
 import { AnatomyFinding } from '../audit/component-anatomy/findings/finding'
 import { BrandFinding } from '../brand/findings/finding'
 import { CliErgonomicsCraftInput, CliErgonomicsCraftOutput, runCliErgonomicsCraft } from '../cli-ergonomics-craft/index.js'
-import { CodeCraftInput, CodeCraftOutput, runCodeCraft } from '../code-craft/index.js'
-import { ComprehendRunResult, runComprehend, runComprehendCheck, runComprehendStats } from '../comprehension/compile-run'
+import { CodeCraftInput, CodeCraftOutput, SiblingIndexOutcome, runCodeCraft } from '../code-craft/index.js'
+import { ComprehendCheckResult, ComprehendRunResult, runComprehend, runComprehendCheck, runComprehendStats } from '../comprehension/compile-run'
 import { comprehensionCli, comprehensionEndpoint, readComprehensionConfig, resolveComprehensionCiMode, selectSemanticModel } from '../comprehension/config'
 import { maybeCreateGenerateSemantic } from '../comprehension/generate-semantic'
 import { shouldRunComprehendHook } from '../comprehension/hook'
 import { enumerateModules, filesToModules } from '../comprehension/invalidation'
 import { committedSemanticAllowed } from '../comprehension/policy'
+import { pruneOrphanUnits } from '../comprehension/prune'
 import { RefreshJobGateReason, explainInactiveRefreshGate, resolveRefreshJobGate } from '../comprehension/refresh-gate'
 import { RefReadDeps, RegressionContext, SemanticState, defaultRefReadDeps, detectCommittedSemanticOnBranch, detectSemanticRegressions, readSemanticMapAtRef } from '../comprehension/regression'
+import { assessSemanticCoverage, formatSemanticCoverage } from '../comprehension/semantic-coverage'
 import { createStaticExtractor } from '../comprehension/static-extractor'
-import { loadAnalysisExclude, loadDesignExclude } from '../config/analysis-schema.js'
+import { loadAnalysisExclude } from '../config/analysis-schema.js'
 import { withDependencyRules } from '../config/arch-dependency-rules'
 import { findConfigFile, resolveCommandRoot, resolveConfig, resolveProject } from '../config/loader'
+import { resolveConfiguredEntryPoints, resolveExcludePatterns } from '../config/perf-scope'
 import { BranchingConfigSchema, ComprehensionConfig, HarnessConfig, VocabularyConfigSchema, loadDepsExclude } from '../config/schema'
 import { CopyCraftInput, CopyCraftOutput, CopySurface, runCopyCraft } from '../copy-craft/index.js'
 import { CraftFinding } from '../design-craft/findings/schema'
@@ -489,6 +495,8 @@ import { SETUP_CLIENTS } from '../setup/clients'
 import { CraftScanTally, formatCraftDiagnostic } from '../shared/craft/diagnostics.js'
 import { findOrchestratorMd, readBackendsFromOrchestratorMd } from '../shared/craft/llm/orchestrator-md'
 import { CraftLlmResolution, resolveCraftLlmConfig } from '../shared/craft/llm/provider.js'
+import { isDesignScanPath, isExcluded, resolveDesignExcludePatterns } from '../shared/design-scan-targets.js'
+import { DuplicationBaselineDelta, UPDATE_BASELINE_WITHOUT_SCAN, formatDuplicationBaselineLine, recordOrCompareBaseline } from '../shared/duplication-baseline'
 import { ENTROPY_ISSUE_TYPES, EntropyIssueType, describeDuplicationNotRun, describeUnknownIssueType, isEntropyIssueType, resolveDuplicationRequest } from '../shared/duplication-request'
 import { resolveInsightsEntropyGatherer } from '../shared/insights-entropy'
 import { matchContent } from '../skill/content-matcher'
@@ -654,7 +662,7 @@ import { ChangedSurface, SCOPED_WALKERS, deriveChangedSurface, filterToDesignSur
 import { createVerifyCommand, runVerify } from './verify'
 import { createWaypointCommand } from './waypoint'
 import * as clack from '@clack/prompts'
-import { ABSTENTION_PLACEHOLDER, AUTO_DECISIONS_FILE, AdjustedForecast, AgentConfigValidation, AllowanceFilteredDiff, AnnotationIssue, ArchAllowance, ArchAllowanceSchema, ArchBaseline, ArchBaselineManager, ArchConfig, ArchConfigSchema, ArchDiffResult, ArchMetricCategory, AuditResult, BaselineManager, BlueprintGenerator, BranchingConfig, Bundle, BundleSchema, CI_ASSESSMENTS, COMPREHENSION_ROOT, CiBlockOn, CiReviewResult, ComprehensionStore, ConflictReport, ConstraintNodeStore, Contributions, CriticalPathResolver, DEFAULT_RELEASE_INVENTORY_THRESHOLDS, DEFAULT_REMOTE_URL, DeploymentExitCode, DeploymentFsPort, DeploymentGateConfig, DeploymentGateResult, DetectStaleResult, DiffInfo, DriftConfig, DuplicationConfig, DuplicationReport, EntropyAnalyzer, EntropyConfig, Err, HarnessStrengthAuditor, InjectionFinding, LayerConfig, ListProposalsOptions, LocalEndpointInvoke, Lockfile, LockfilePackage, MetricResult, ModelDriftResult, Ok, OsvAdvisory, OsvCheckResult, PROVENANCE_TRAILER_KEYS, PatternConfig, PredictionEngine, PredictionResult, PredictionWarning, ProjectScanner, Proposal, ProposalStatus, ProtectedRegion, ProvenanceShapeResult, RUNNER_PRESETS, RawBackendsMap, RecoveryRecordSchema, RehearsalManifest, RehearsalScore, ReleaseChannel, ReleaseInventoryFsPort, ReleaseInventoryGitPort, ReleaseInventoryResult, ReleaseInventoryThresholds, ReleaseTag, Result, ReworkReport, RoadmapMeta, RollbackDecision, RollbackIO, RunCiReviewOptions, RunnerId, SECURITY_SCAN_DEFAULT_IGNORE, SECURITY_SCAN_GLOB, ScanConfigFileResult, ScanConfigFinding, ScanConfigResult, SecurityFinding, SecurityScanner, SecuritySeverity, SecurityTimelineManager, SentinelRecord, Severity, SpecImpactEstimator, StrengthFinding, TimelineManager, TimelineSnapshot, TrendLine, TrendResult, TypeScriptParser, UnreleasedCommit, Violation, acknowledgeModelDrift, addProvenance, applyFixes, archAllowanceSlug, archAllowancesDir, buildCiReviewVerdict, buildSnapshot, checkDocCoverage, checkRoadmapAggregateDrift, checkRoadmapHealth, checkTaint, classifyRevert, clearTaint, computeOverallSeverity, computeReleaseInventory, computeRework, computeScanExitCode, createFixes, createNodeComprehensionIO, createNodeModuleSourceReader, createNodeRoadmapIO, createOsvClient, createTrackerClient, deepMergeConstraints, defineLayer, deriveDeploymentExitCode, detectCircularDepsInFiles, detectDeadCode, detectDeploymentSurface, detectDocDrift, detectRoadmapStorageMode, detectStaleConstraints, diff, evaluateDeploymentGate, evaluateModelSentinel, evaluateReleaseInventory, extractBundle, filterDiffByAllowances, findFixture, generateAgentsMap, generateSuggestions, getProposal, hasUnacknowledgedMaterialDrift, invalidateCheckState, isWholeSnapshotContext, listProposals, listTaintedSessions, loadArchAllowances, loadCatalog, loadProjectRoadmapMode, loadTrackerClientConfigFromProject, loadTrackerSyncConfig, mapInjectionFindings, mapSecurityFindings, needsMergeOursDriverWarning, parseDiff, parseFileRegions, parseManifest, parseRoadmap, parseSecurityConfig, plannedIssuesFromExternalIds, readLockfile, readSentinelHistory, regenerate, removeContributions, removeProvenance, resolveArchBaseline, resolveRoadmapStore, roadmapSourceExists, runAll, runCiReview, scanForInjection, scoreRecovery, serializeMeta, updateProposal, validateAgentConfigs, validateAgentsMap, validateBranchName, validateDecisionNumbers, validateDependencies, validateKnowledgeMap, validateProvenanceTrailer, validatePulseConfig, validateRoadmapMode, validateSolutionsDir, validateStrategy, writeArchAllowance, writeConfig, writeLockfile } from '@harness-engineering/core'
+import { ABSTENTION_PLACEHOLDER, AUTO_DECISIONS_FILE, AdjustedForecast, AgentConfigValidation, AllowanceFilteredDiff, AnnotationIssue, ArchAllowance, ArchAllowanceSchema, ArchBaseline, ArchBaselineManager, ArchConfig, ArchConfigSchema, ArchDiffResult, ArchMetricCategory, AuditResult, BaselineManager, BlueprintGenerator, BranchingConfig, Bundle, BundleSchema, CI_ASSESSMENTS, COMPREHENSION_ROOT, CiBlockOn, CiReviewResult, ComprehensionStore, ConflictReport, ConstraintNodeStore, Contributions, CriticalPathResolver, DEFAULT_RELEASE_INVENTORY_THRESHOLDS, DEFAULT_REMOTE_URL, DeploymentExitCode, DeploymentFsPort, DeploymentGateConfig, DeploymentGateResult, DetectStaleResult, DiffInfo, DriftConfig, DuplicationConfig, DuplicationReport, EntropyAnalyzer, EntropyConfig, Err, HarnessStrengthAuditor, InjectionFinding, ListProposalsOptions, LocalEndpointInvoke, Lockfile, LockfilePackage, MetricResult, ModelDriftResult, Ok, OsvAdvisory, OsvCheckResult, PROVENANCE_TRAILER_KEYS, PatternConfig, PredictionEngine, PredictionResult, PredictionWarning, ProjectScanner, Proposal, ProposalStatus, ProtectedRegion, ProvenanceShapeResult, RUNNER_PRESETS, RawBackendsMap, RecoveryRecordSchema, RehearsalManifest, RehearsalScore, ReleaseChannel, ReleaseInventoryFsPort, ReleaseInventoryGitPort, ReleaseInventoryResult, ReleaseInventoryThresholds, ReleaseTag, Result, ReworkReport, RoadmapMeta, RollbackDecision, RollbackIO, RunCiReviewOptions, RunnerId, SECURITY_SCAN_DEFAULT_IGNORE, SECURITY_SCAN_GLOB, ScanConfigFileResult, ScanConfigFinding, ScanConfigResult, SecurityFinding, SecurityScanner, SecuritySeverity, SecurityTimelineManager, SentinelRecord, Severity, SpecImpactEstimator, StrengthFinding, TimelineManager, TimelineSnapshot, TrendLine, TrendResult, TypeScriptParser, UnparsedFile, UnreleasedCommit, Violation, acknowledgeModelDrift, addProvenance, applyFixes, archAllowanceSlug, archAllowancesDir, buildCiReviewVerdict, buildSnapshot, checkDocCoverage, checkRoadmapAggregateDrift, checkRoadmapHealth, checkTaint, classifyRevert, clearTaint, computeOverallSeverity, computeReleaseInventory, computeRework, computeScanExitCode, createFixes, createNodeComprehensionIO, createNodeModuleSourceReader, createNodeRoadmapIO, createOsvClient, createTrackerClient, deepMergeConstraints, deriveDeploymentExitCode, detectCircularDepsInFiles, detectDeadCode, detectDeploymentSurface, detectDocDrift, detectRoadmapStorageMode, detectStaleConstraints, diff, evaluateDeploymentGate, evaluateModelSentinel, evaluateReleaseInventory, extractBundle, filterDiffByAllowances, findFixture, generateAgentsMap, generateSuggestions, getProposal, hasUnacknowledgedMaterialDrift, invalidateCheckState, isWholeSnapshotContext, listProposals, listTaintedSessions, loadArchAllowances, loadCatalog, loadProjectRoadmapMode, loadTrackerClientConfigFromProject, loadTrackerSyncConfig, mapInjectionFindings, mapSecurityFindings, needsMergeOursDriverWarning, parseDiff, parseFileRegions, parseManifest, parseRoadmap, parseSecurityConfig, plannedIssuesFromExternalIds, readLockfile, readSentinelHistory, regenerate, removeContributions, removeProvenance, resolveArchBaseline, resolveDepsSettings, resolveRoadmapStore, roadmapSourceExists, runAll, runCiReview, scanForInjection, scoreRecovery, serializeMeta, sortMetricResults, suppressMarkdownStructureFindings, toLayerConfig, updateProposal, validateAgentConfigs, validateAgentsMap, validateBranchName, validateDecisionNumbers, validateDependencies, validateKnowledgeMap, validateProvenanceTrailer, validatePulseConfig, validateRoadmapMode, validateSolutionsDir, validateStrategy, writeArchAllowance, writeConfig, writeLockfile } from '@harness-engineering/core'
 import { CraftFindingRecord, DEFAULT_SKIP_DIRS, DesignConstraintAdapter, GraphStore, KnowledgePipelineResult, NodeType, skipDirGlobs } from '@harness-engineering/graph'
 import { AbandonedSkill, AnalysisProvider, FailingSkill, GuardianAnalysis, OpenAICompatibleAnalysisProvider, OutcomeVerdict, SkillEffectivenessScore, SkillRegressionFixture, SkillRegressionVerdict, guardianFileLines, guardianFlags, readGuardianAnalyses, summarizeGuardian } from '@harness-engineering/intelligence'
 import { AgentDispatcher, AnalysisRecord, BUILT_IN_TASKS, CheckCommandRunner, CheckScriptRunner, CommandExecutor, FlightRecorder, MAINTENANCE_CHECK_MAX_BUFFER, MAINTENANCE_CHECK_TIMEOUT_MS, MaintenanceReporter, Orchestrator, PersistedOutputEntry, RunMode, RunRecord, RunResult, SyncMainResult, TaskDefinition, TaskOutputStore, TaskRunner, TaskSelectionFilter, UnitVerdict, WorkflowLoader, createAgentDispatcher, defaultFetchModels, defaultSyncMain, discoverCandidates, launchTUI, loadPublishedIndex, makeBackendResolver, migrateAgentConfig, renderAnalysisComment, runHarnessCheck, savePublishedIndex, selectTasks } from '@harness-engineering/orchestrator'
