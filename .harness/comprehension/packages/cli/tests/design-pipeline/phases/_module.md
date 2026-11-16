@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/tests/design-pipeline/phases'
-sourceHash: 'b6abf3e2bec930b34a122ee0e522fcb8888c35c09c4089d44f5bbb7b3bc3b2a1'
+sourceHash: '4013c4c6bea12add722b283471042580756d6d5206bf32f659aa2d9ede26d4c7'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent

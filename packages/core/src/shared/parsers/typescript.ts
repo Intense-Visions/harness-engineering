@@ -109,6 +109,8 @@ function processImportSpecifiers(importDecl: TSESTree.ImportDeclaration, imp: Im
       imp.namespace = spec.local.name;
     } else if (spec.type === 'ImportSpecifier') {
       imp.specifiers.push(spec.local.name);
+      // `{ a as b }`: `b` is the local binding, `a` the name `source` exports.
+      (imp.importedNames ??= []).push(getExportedName(spec.imported));
       if (spec.importKind === 'type') {
         imp.kind = 'type';
       }
@@ -128,12 +130,16 @@ function processReExportSpecifiers(
 ): void {
   for (const spec of exportDecl.specifiers) {
     if (spec.type !== 'ExportSpecifier') continue;
+    const name = getExportedName(spec.exported);
+    const localName = getExportedName(spec.local);
     exports.push({
-      name: getExportedName(spec.exported),
+      name,
       type: 'named',
       location: makeLocation(exportDecl),
       isReExport: true,
       source: exportDecl.source!.value as string,
+      // `export { default as Foo } from './foo'` re-exports foo's `default`.
+      ...(localName !== name ? { localName } : {}),
     });
   }
 }
@@ -288,6 +294,7 @@ export class TypeScriptParser implements LanguageParser {
             specifiers: [],
             location: makeLocation(importExpr),
             kind: 'value',
+            dynamic: true,
           });
         }
       }
