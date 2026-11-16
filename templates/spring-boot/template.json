@@ -5,6 +5,7 @@
   "language": "java",
   "framework": "spring-boot",
   "extends": "java-base",
+  "replaces": ["src/main/java/Main.java"],
   "tooling": {
     "packageManager": "maven",
     "linter": "checkstyle",

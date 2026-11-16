@@ -1,7 +1,21 @@
 import { defineConfig } from 'tsup';
+import fs from 'fs';
 import path from 'path';
 
 const workspaceRoot = path.resolve(__dirname, '../..');
+
+/**
+ * The eslint-plugin version scaffolds pin (#2630), embedded as a literal: the
+ * published CLI does not depend on the plugin, so it cannot read it at runtime.
+ * Read at build time, after changesets has bumped every package.json.
+ */
+export const ESLINT_PLUGIN_VERSION_DEFINE = JSON.stringify(
+  (
+    JSON.parse(
+      fs.readFileSync(path.join(workspaceRoot, 'packages/eslint-plugin/package.json'), 'utf-8')
+    ) as { version: string }
+  ).version
+);
 
 export default defineConfig([
   // Main CLI — bundles workspace packages, generates type declarations
@@ -10,6 +24,7 @@ export default defineConfig([
     format: ['esm'],
     dts: true,
     outDir: 'dist',
+    define: { __HARNESS_ESLINT_PLUGIN_VERSION__: ESLINT_PLUGIN_VERSION_DEFINE },
     external: [
       '@modelcontextprotocol/sdk',
       'web-tree-sitter',
