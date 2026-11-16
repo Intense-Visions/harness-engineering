@@ -9,7 +9,7 @@
 // provider path; it is skipped by default.
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, mkdirSync, writeFileSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 // eslint-disable-next-line import/no-relative-packages -- shared repo-root test helper (#2089)
@@ -27,11 +27,15 @@ function comprehend(
   env?: NodeJS.ProcessEnv
 ): { status: number; stdout: string; stderr: string } {
   // Spawn via process.execPath + the .js entry (NOT the .bin shim — win32-safe).
+  // HARNESS_NO_UPDATE_CHECK=1: the CLI otherwise fires detached background
+  // update/freshness probes at startup. This smoke test is not about them, and
+  // a probe that outlives the CLI must never be able to hold `cwd` (the scratch
+  // project) open on Windows and red the teardown with EBUSY (#2652).
   const res = spawnSync(process.execPath, [BIN, 'comprehend', ...args], {
     cwd,
     encoding: 'utf8',
     timeout: 60_000,
-    ...(env ? { env } : {}),
+    env: { ...(env ?? process.env), HARNESS_NO_UPDATE_CHECK: '1' },
   });
   return { status: res.status ?? -1, stdout: res.stdout ?? '', stderr: res.stderr ?? '' };
 }
@@ -150,7 +154,7 @@ describe.skipIf(!HAS_BIN)('harness comprehend --all — write-time shard formatt
   });
 
   afterAll(() => {
-    if (proj) rmSync(proj, { recursive: true, force: true });
+    removeTempDirSafely(proj);
   });
 
   it('a shard written via the bulk --all path is already prettier-stable (no format:check drift)', async () => {
@@ -227,8 +231,8 @@ process.stdout.write(JSON.stringify(chatty ? prose : good));
   });
 
   afterAll(() => {
-    if (proj) rmSync(proj, { recursive: true, force: true });
-    if (binDir) rmSync(binDir, { recursive: true, force: true });
+    removeTempDirSafely(proj);
+    removeTempDirSafely(binDir);
   });
 
   // Env that steers the D8 resolver onto the claude-CLI path and finds our fake:
@@ -286,7 +290,7 @@ process.stdout.write(JSON.stringify(chatty ? prose : good));
       expect(unit).toContain('semantic: absent');
       expect(unit).not.toContain('FAKE_SUMMARY');
     } finally {
-      rmSync(fresh, { recursive: true, force: true });
+      removeTempDirSafely(fresh);
     }
   });
 
@@ -303,8 +307,8 @@ process.stdout.write(JSON.stringify(chatty ? prose : good));
       expect(unit).toContain('semantic: present');
       expect(unit).toContain('FAKE_SUMMARY');
     } finally {
-      rmSync(fresh, { recursive: true, force: true });
-      rmSync(counter, { force: true });
+      removeTempDirSafely(fresh);
+      removeTempDirSafely(counter);
     }
   });
 });
@@ -329,7 +333,7 @@ describe.skipIf(!HAS_BIN || !process.env.HARNESS_E2E_LIVE)(
     });
 
     afterAll(() => {
-      if (proj) rmSync(proj, { recursive: true, force: true });
+      removeTempDirSafely(proj);
     });
 
     it('produces a valid, source-fresh unit whether the LLM resolves or degrades', () => {
@@ -398,7 +402,7 @@ describe.skipIf(!HAS_BIN)('harness comprehend --refresh — E2E opt-in gate (#16
       // No shard written at all — the gate short-circuited before any compile.
       expect(existsSync(path.join(proj, UNIT))).toBe(false);
     } finally {
-      rmSync(proj, { recursive: true, force: true });
+      removeTempDirSafely(proj);
     }
   });
 
@@ -413,7 +417,7 @@ describe.skipIf(!HAS_BIN)('harness comprehend --refresh — E2E opt-in gate (#16
       expect(r.status).toBe(0);
       expect(existsSync(path.join(proj, UNIT))).toBe(false);
     } finally {
-      rmSync(proj, { recursive: true, force: true });
+      removeTempDirSafely(proj);
     }
   });
 
@@ -432,7 +436,7 @@ describe.skipIf(!HAS_BIN)('harness comprehend --refresh — E2E opt-in gate (#16
       // Nothing regenerated: CI stayed token-free.
       expect(existsSync(path.join(proj, UNIT))).toBe(false);
     } finally {
-      rmSync(proj, { recursive: true, force: true });
+      removeTempDirSafely(proj);
     }
   });
 
@@ -452,7 +456,7 @@ describe.skipIf(!HAS_BIN)('harness comprehend --refresh — E2E opt-in gate (#16
       expect(r.stdout + r.stderr).toMatch(/off the main-pass|belongs to|single writer/i);
       expect(existsSync(path.join(proj, UNIT))).toBe(false);
     } finally {
-      rmSync(proj, { recursive: true, force: true });
+      removeTempDirSafely(proj);
     }
   });
 });
@@ -476,7 +480,7 @@ process.stdout.write(JSON.stringify(good));
     });
 
     afterAll(() => {
-      if (binDir) rmSync(binDir, { recursive: true, force: true });
+      removeTempDirSafely(binDir);
     });
 
     function scaffoldRefresh(): string {
@@ -518,7 +522,7 @@ process.stdout.write(JSON.stringify(good));
         // The freshly written semantic unit serves (hash equality holds).
         expect(comprehend(proj, ['--check'], activeEnv()).status).toBe(0);
       } finally {
-        rmSync(proj, { recursive: true, force: true });
+        removeTempDirSafely(proj);
       }
     });
 
@@ -532,7 +536,7 @@ process.stdout.write(JSON.stringify(good));
         // no CI loop even without [skip ci].
         expect(second.stdout).toMatch(/already source-fresh|nothing to regenerate/i);
       } finally {
-        rmSync(proj, { recursive: true, force: true });
+        removeTempDirSafely(proj);
       }
     });
   }

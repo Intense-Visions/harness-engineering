@@ -53,6 +53,20 @@ describe('runHarness', () => {
     expect(JSON.parse(r.stdout)).toEqual(['validate', '--json']);
   });
 
+  it('disables the background update/freshness probes by default (#2652)', () => {
+    const envBin = path.join(dir, 'env.js');
+    fs.writeFileSync(
+      envBin,
+      'process.stdout.write(String(process.env.HARNESS_NO_UPDATE_CHECK));\n'
+    );
+    expect(runHarness([], { cwd: dir, bin: envBin }).stdout).toBe('1');
+    expect(runHarness([], { cwd: dir, bin: envBin, env: { PATH: '' } }).stdout).toBe('1');
+    // An explicit caller value wins.
+    expect(
+      runHarness([], { cwd: dir, bin: envBin, env: { HARNESS_NO_UPDATE_CHECK: '0' } }).stdout
+    ).toBe('0');
+  });
+
   it('throws a descriptive error instead of hanging when the CLI never exits', () => {
     const started = Date.now();
     expect(() =>

@@ -210,6 +210,15 @@ describe('spawnBackgroundFreshnessCheck', () => {
     expect(mockUnref).toHaveBeenCalledTimes(1);
   });
 
+  it('runs the child from os.tmpdir(), never the caller cwd (#2652)', () => {
+    // Windows holds a handle on a process's current directory; inheriting the
+    // CLI's cwd would pin the user's project dir while the probe runs (EBUSY).
+    spawnBackgroundFreshnessCheck(['/some/skills-lock.json']);
+    const opts = mockSpawn.mock.calls[0]![2] as { cwd?: string };
+    expect(opts.cwd).toBe(os.tmpdir());
+    expect(opts.cwd).not.toBe(process.cwd());
+  });
+
   it('swallows spawn() throwing', () => {
     mockSpawn.mockImplementationOnce(() => {
       throw new Error('ENOENT');
