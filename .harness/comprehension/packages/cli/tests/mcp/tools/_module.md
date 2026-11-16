@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/tests/mcp/tools'
-sourceHash: '633363b83dd6d2280f9f5b90c6463e8ef2c4163cdb152e256bac3767e6277141'
+sourceHash: 'adbd4955e9fd2dbd1db123cf743870e3ff36a029faff6af33e685876eec423d4'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -39,6 +39,7 @@ members:
     'docs.test.ts',
     'entropy-cleanup-parity.test.ts',
     'entropy-config-threading.test.ts',
+    'entropy-duplication-baseline.test.ts',
     'entropy-duplication.test.ts',
     'entropy-patterns-empty-ruleset.test.ts',
     'entropy.test.ts',

@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/commands'
-sourceHash: '788890da69269718aa77e5461138a22a268da1eb412350b4244cb019719bb94d'
+sourceHash: '808ae82dc9c75ddbb82efbe05f8ad5e36ead9960a1951ebe5342a90ce5cd8839'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -492,6 +492,7 @@ import { SETUP_CLIENTS } from '../setup/clients'
 import { CraftScanTally, formatCraftDiagnostic } from '../shared/craft/diagnostics.js'
 import { findOrchestratorMd, readBackendsFromOrchestratorMd } from '../shared/craft/llm/orchestrator-md'
 import { CraftLlmResolution, resolveCraftLlmConfig } from '../shared/craft/llm/provider.js'
+import { DuplicationBaselineDelta, UPDATE_BASELINE_WITHOUT_SCAN, formatDuplicationBaselineLine, recordOrCompareBaseline } from '../shared/duplication-baseline'
 import { ENTROPY_ISSUE_TYPES, EntropyIssueType, describeDuplicationNotRun, describeUnknownIssueType, isEntropyIssueType, resolveDuplicationRequest } from '../shared/duplication-request'
 import { matchContent } from '../skill/content-matcher'
 import { ContentMatchResult, SkillMatch } from '../skill/content-matcher-types'
