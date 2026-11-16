@@ -158,6 +158,13 @@ export interface ArchDependencyRules {
   layers?: ArchLayerRule[] | undefined;
   /** Forbidden-import rules; `from` / `disallow` globs are `rootDir`-relative. */
   forbiddenImports?: ArchForbiddenImportRule[] | undefined;
+  /**
+   * `deps.resolveWorkspacePackages` from harness.config.json (#2216): resolve
+   * workspace-package specifiers (`@scope/pkg`) so the layer-violation collector
+   * enforces `allowedDependencies` BETWEEN packages, exactly as `check-deps`
+   * does. Absent (the default) means off — byte-identical to before.
+   */
+  resolveWorkspacePackages?: boolean | undefined;
 }
 
 export type ArchConfig = z.infer<typeof ArchConfigSchema> & ArchDependencyRules;

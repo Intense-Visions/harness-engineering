@@ -119,6 +119,35 @@ describe('check-arch measures the configured dependency rules (issue #2235)', ()
   });
 });
 
+describe('check-arch honours deps.resolveWorkspacePackages (issue #2216)', () => {
+  // Two workspace packages; the bottom layer imports the top one by bare name —
+  // an edge check-deps flags once the project opts in, and check-arch must agree.
+  const files = {
+    'pnpm-workspace.yaml': "packages:\n  - 'packages/*'\n",
+    'packages/low/package.json': JSON.stringify({ name: '@fx/low', main: './dist/index.js' }),
+    'packages/high/package.json': JSON.stringify({ name: '@fx/high', main: './dist/index.js' }),
+    'packages/high/src/index.ts': "import { base } from '@fx/low';\nexport const h = base;\n",
+    'packages/low/src/index.ts': "import { h } from '@fx/high';\nexport const base = h;\n",
+  };
+  const layers = [
+    { name: 'low', pattern: 'packages/low/src/**', allowedDependencies: [] },
+    { name: 'high', pattern: 'packages/high/src/**', allowedDependencies: ['low'] },
+  ];
+
+  it('counts the cross-package layer violation when the flag is on', async () => {
+    const root = fixture(files, { version: 1, layers, deps: { resolveWorkspacePackages: true } });
+    const { metrics } = await recordedBaseline(root);
+    expect(metrics['layer-violations']!.value).toBe(1);
+  });
+
+  it('flag off: unchanged — the bare import is not followed (0 over a real denominator)', async () => {
+    const root = fixture(files, { version: 1, layers });
+    const { metrics, denominators } = await recordedBaseline(root);
+    expect(metrics['layer-violations']!.value).toBe(0);
+    expect(denominators['layer-violations']!.modulesAnalyzed as number).toBeGreaterThan(0);
+  });
+});
+
 describe('withDependencyRules', () => {
   const arch = ArchConfigSchema.parse({});
 
