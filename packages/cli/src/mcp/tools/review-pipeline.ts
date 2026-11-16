@@ -185,6 +185,9 @@ export async function handleRunCodeReview(input: {
                 : undefined,
               terminalOutput: result.terminalOutput,
               githubCommentCount: result.githubComments.length,
+              // #2476: what the grouping did, so a count far below findingCount
+              // is explained rather than silent. Absent when no comments formed.
+              githubCommentReport: result.githubCommentReport,
               exitCode: result.exitCode,
             }),
           },
@@ -218,6 +221,9 @@ export async function handleRunCodeReview(input: {
                 : undefined,
               terminalOutput: result.terminalOutput,
               githubCommentCount: result.githubComments.length,
+              // #2476: what the grouping did, so a count far below findingCount
+              // is explained rather than silent. Absent when no comments formed.
+              githubCommentReport: result.githubCommentReport,
               exitCode: result.exitCode,
             },
             null,
