@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/tests/mcp/tools'
-sourceHash: 'b9718cec3dffd5b71d0017599fd58a220e3713b70b93fffdc3e202daab1ebab1'
+sourceHash: '7202b81f06884d0d6dfb3bda9c728483ae5098b3a6c7e20ffa19afc7e55c3d97'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -36,7 +36,6 @@ members:
     'docs-craft.test.ts',
     'docs-publish-cov544.test.ts',
     'docs.test.ts',
-    'entropy-cleanup-parity.test.ts',
     'entropy-config-threading.test.ts',
     'entropy-duplication.test.ts',
     'entropy-patterns-empty-ruleset.test.ts',
@@ -130,7 +129,6 @@ export writeShardedProject
 import { computeLoadPlan } from '../../../../core/src/context/progressive-loader'
 import { extractLevel } from '../../../../core/src/context/section-parser'
 import { runAutonomyShow } from '../../../src/commands/autonomy/show'
-import { runCleanup } from '../../../src/commands/cleanup'
 import { findConfigFile, loadConfig } from '../../../src/config/loader'
 import { MockLlmProvider } from '../../../src/design-craft/llm/provider.js'
 import { resolveDocsPublishConnector } from '../../../src/docs-publish/index'
