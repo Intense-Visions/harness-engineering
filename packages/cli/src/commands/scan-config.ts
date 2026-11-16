@@ -9,6 +9,7 @@ import {
   mapSecurityFindings,
   computeOverallSeverity,
   computeScanExitCode,
+  suppressMarkdownStructureFindings,
 } from '@harness-engineering/core';
 import type {
   InjectionFinding,
@@ -106,6 +107,9 @@ function scanSingleFile(
   // It takes the content already in hand rather than re-reading from disk.
   const secFindings = scanner.scanFileContent(content, filePath);
   findings.push(...mapSecurityFindings(secFindings, findings));
+  // Markdown structure is not live text (#2052): table padding/separators and
+  // fenced code samples no longer trip INJ-SUS-001/002 or SEC-PTH-*.
+  const reported = suppressMarkdownStructureFindings(findings, content, filePath);
 
   if (options.fix) {
     applyFix(filePath, targetDir, content, injectionFindings);
@@ -113,8 +117,8 @@ function scanSingleFile(
 
   return {
     file: relative(targetDir, filePath).replaceAll('\\', '/'),
-    findings,
-    overallSeverity: computeOverallSeverity(findings),
+    findings: reported,
+    overallSeverity: computeOverallSeverity(reported),
   };
 }
 

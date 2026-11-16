@@ -107,6 +107,19 @@ export {
   scoreRoadmapCandidatesForMode,
 } from './pilot-scoring';
 export type { ScoredCandidate, PilotScoringOptions } from './pilot-scoring';
+export {
+  findBlockedRoadmapCandidates,
+  createBlockerResolver,
+  shardSlugAliases,
+} from './blocker-resolution';
+export type {
+  BlockerResolutionOptions,
+  SlugAliases,
+  BlockedCandidate,
+  HeldBlocker,
+  BlockerHoldReason,
+  BlockerResolver,
+} from './blocker-resolution';
 
 /**
  * Assignee lifecycle authority — the `assignee ≠ null ⟺ in-progress` invariant,

@@ -120,7 +120,19 @@ if [ "$AFFECTED_OK" = "1" ]; then
   fi
   # Partial mode: --affected skips unchanged packages, so tolerate their missing coverage.
   # CI's ratchet runs flagless (full/authoritative) and is unaffected.
-  node scripts/coverage-ratchet.mjs --allow-missing
+  # --scope-from hands the ratchet the SAME --affected selection (turbo dry run)
+  # so its zero-measured floor (#2307) can tell "nothing was in scope" (docs-only
+  # push: clean skip, exit 0) from "packages were in scope but none produced
+  # coverage" (abstain, exit 3 — blocks the push). If the dry run itself fails,
+  # the file is unreadable, scope reads as unknown and the floor still applies.
+  COVERAGE_SCOPE=$(mktemp)
+  pnpm exec turbo run test:coverage --affected --dry=json >"$COVERAGE_SCOPE" 2>/dev/null || :
+  RATCHET_RC=0
+  node scripts/coverage-ratchet.mjs --allow-missing --scope-from "$COVERAGE_SCOPE" || RATCHET_RC=$?
+  rm -f "$COVERAGE_SCOPE"
+  if [ "$RATCHET_RC" != "0" ]; then
+    exit "$RATCHET_RC"
+  fi
 else
   # Full fallback: whole-tree prettier + all-package typecheck/test.
   pnpm run format:check

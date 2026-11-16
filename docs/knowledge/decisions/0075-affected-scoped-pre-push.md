@@ -27,7 +27,11 @@ CI-only.
 - typecheck and test run via `turbo run … --affected` (base `origin/main`,
   dependents included);
 - `coverage-ratchet` runs with `--allow-missing`, tolerating packages that
-  `--affected` skipped.
+  `--affected` skipped. It is handed the same selection via
+  `--scope-from <turbo --dry=json>` so it keeps a floor (#2307): zero packages
+  graded while ratcheted packages were in scope (or scope is unknown) abstains
+  with exit 3, never a pass; a push whose affected set holds no ratcheted
+  package (e.g. docs-only) is an explicit clean skip.
 
 **CI remains the authoritative full net:** the 3-OS matrix runs the whole suite
 and the flagless (full) coverage ratchet on every PR. No gate moved to CI-only.

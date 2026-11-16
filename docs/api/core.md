@@ -610,13 +610,16 @@ Detects the technology stack of a project (Node, React, Go, etc.).
 
 ### Security Timeline
 
-| Export                       | Description                                          |
-| ---------------------------- | ---------------------------------------------------- |
-| `SecurityTimelineManager`    | Manages security metric timelines and trend analysis |
-| `securityFindingId(finding)` | Deterministic hash ID for a security finding         |
-| `EMPTY_SUPPLY_CHAIN`         | Empty supply chain snapshot constant                 |
+| Export                                                   | Description                                                                       |
+| -------------------------------------------------------- | --------------------------------------------------------------------------------- |
+| `SecurityTimelineManager`                                | Manages security metric timelines and trend analysis                              |
+| `securityFindingId(finding)`                             | Deterministic hash ID for a security finding                                      |
+| `EMPTY_SUPPLY_CHAIN`                                     | Empty supply chain snapshot constant (`measured: false`)                          |
+| `isSupplyChainMeasured(sc)`                              | True only when an audit produced the counts (legacy snapshots read as unmeasured) |
+| `UNMEASURED_SUPPLY_CHAIN_SCORE_CEILING`                  | Max `securityScore` while the supply chain is unmeasured (90)                     |
+| `SecurityTimelineManager.supplyChainFromAuditJson(json)` | Parse `pnpm`/`npm audit --json` output into a measured snapshot                   |
 
-**Types:** `SecurityCategorySnapshot`, `SupplyChainSnapshot`, `SecurityTimelineSnapshot`, `FindingLifecycle`, `SecurityTimelineFile`, `SecurityDirection`, `SecurityTrendLine`, `TrendAttribution`, `SecurityTrendResult`, `TimeToFixStats`, `TimeToFixResult`
+**Types:** `SecurityCategorySnapshot`, `SupplyChainSnapshot`, `SecurityTimelineSnapshot`, `FindingLifecycle`, `SecurityTimelineFile`, `SecurityDirection`, `SecurityTrendLine`, `TrendAttribution`, `SecurityTrendResult`, `TimeToFixStats`, `TimeToFixResult`, `AuditCommandRunner`
 
 **Schemas:** `SecurityConfigSchema`, `SecurityCategorySnapshotSchema`, `SupplyChainSnapshotSchema`, `SecurityTimelineSnapshotSchema`, `FindingLifecycleSchema`, `SecurityTimelineFileSchema`, `SecurityTrendLineSchema`, `TrendAttributionSchema`, `SecurityTrendResultSchema`, `TimeToFixStatsSchema`, `TimeToFixResultSchema`
 
@@ -1282,7 +1285,7 @@ Architecture metric collection, baseline management, regression detection, trend
 | `ModuleSizeCollector`      | module-size       | Measures module file counts/sizes  |
 | `DepDepthCollector`        | dep-depth         | Measures dependency chain depth    |
 
-All collectors implement the `Collector` interface: `collect(config: ArchConfig, rootDir: string): Promise<MetricResult[]>`.
+All collectors implement the `Collector` interface: `collect(config: ArchConfig, rootDir: string, context?: CollectorRunContext): Promise<MetricResult[]>`. `context` is the run-scoped state `runAll` shares across the collectors of one call; a collector called on its own builds its own.
 
 ### `runAll(config, rootDir, collectors?)`
 
@@ -1294,7 +1297,7 @@ function runAll(
 ): Promise<MetricResult[]>;
 ```
 
-Runs all collectors in parallel and returns a flat array of metric results. Defaults to `defaultCollectors`. Failed collectors produce a zero-value result with error metadata.
+Runs all collectors in parallel and returns a flat array of metric results. Defaults to `defaultCollectors`. Failed collectors produce a zero-value result with error metadata. Every collector in one call shares a single `CollectorRunContext`, so a file read by several dependency collectors (circular-deps, layer-violations, forbidden-imports) is parsed once per call rather than once per collector; the context is dropped when the call returns.
 
 ### `defaultCollectors`
 

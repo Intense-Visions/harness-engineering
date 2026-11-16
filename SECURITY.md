@@ -27,7 +27,7 @@ Harness includes a built-in security scanner that runs as part of the CI check p
 | XSS             | SEC-XSS-001 to SEC-XSS-003 | Error        | innerHTML, dangerouslySetInnerHTML, document.write |
 | Crypto          | SEC-CRY-001 to SEC-CRY-002 | Error        | MD5/SHA1 for security, hardcoded encryption keys   |
 | Path Traversal  | SEC-PTH-001                | Warning      | ../ in file operations                             |
-| Network         | SEC-NET-001 to SEC-NET-003 | Warning/Info | CORS wildcards, disabled TLS, HTTP URLs            |
+| Network         | SEC-NET-001 to SEC-NET-004 | Warning/Info | CORS wildcards, disabled TLS, HTTP URLs            |
 | Deserialization | SEC-DES-001                | Warning      | JSON.parse on untrusted input                      |
 
 ### Stack-Adaptive Rules

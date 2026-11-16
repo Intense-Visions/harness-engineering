@@ -104,7 +104,10 @@ function printResult(
   const verbose = mode === OutputMode.VERBOSE;
   const { findings, summary } = result;
 
-  if (findings.length === 0) {
+  if (summary.abstention !== undefined) {
+    // 0 files examined: an empty findings list here is not a clean result (#2234).
+    console.log(`Abstained: ${summary.abstention.message}`);
+  } else if (findings.length === 0) {
     console.log('No security findings.');
   } else {
     const byFile = new Map<string, typeof findings>();

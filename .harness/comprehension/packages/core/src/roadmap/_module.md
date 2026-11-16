@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/src/roadmap'
-sourceHash: '0d3d62ef9ad85241f986ab3f5cb3b8492efc218720f8e54f384e4819298e50f9'
+sourceHash: '4831fb243296ceaad4b7c4f93d7a14045d2c3703c20e20820ef50c3978809990'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -9,6 +9,7 @@ members:
   [
     'assignee-lifecycle.ts',
     'assignment-history.ts',
+    'blocker-resolution.ts',
     'derive-repo.ts',
     'external-id.ts',
     'heading.ts',
@@ -40,13 +41,18 @@ members:
 
 ```ts
 export *
+export BlockedCandidate
+export BlockerHoldReason
 export BlockerRef
+export BlockerResolutionOptions
+export BlockerResolver
 export ConflictError
 export ETagStore
 export ExternalSyncOptions
 export FeaturePatch
 export FileLessScoredCandidate
 export GitHubIssuesSyncAdapter
+export HeldBlocker
 export HistoryEvent
 export HistoryEventType
 export Issue
@@ -81,6 +87,7 @@ export RoadmapTrackerClient
 export STATUS_RANK
 export SYNC_SUPPORTED_TRACKER_KINDS
 export ScoredCandidate
+export SlugAliases
 export SyncChange
 export SyncOptions
 export TicketWriteOptions
@@ -105,6 +112,7 @@ export assigneeInvariantHolds
 export buildExternalId
 export checkRoadmapHealth
 export claim
+export createBlockerResolver
 export createTrackerClient
 export decidePromotionForRow
 export defaultIsArchive
@@ -113,6 +121,7 @@ export detectRoadmapStorageMode
 export diagnoseTrackerShape
 export diagnoseTrackerSyncConfig
 export explainTrackerSyncConfig
+export findBlockedRoadmapCandidates
 export fullSync
 export getRoadmapMode
 export getTrackerKindRegistration
@@ -143,6 +152,7 @@ export scoreRoadmapCandidatesFileLess
 export scoreRoadmapCandidatesForMode
 export serializeRoadmap
 export setStatus
+export shardSlugAliases
 export syncFromExternal
 export syncRoadmap
 export syncRowToExternal
@@ -157,6 +167,7 @@ import * as eventSourcing from '../state/event-sourcing'
 import { emitRoadmapClaim, emitRoadmapRelease, emitRoadmapStatusChange } from '../waypoint/events'
 import { assigneeInvariantHolds, isMachineAssignee, setStatus } from './assignee-lifecycle'
 import { ASSIGNMENT_HISTORY_HEADING, parseAssignmentHistory, serializeAssignmentHistory } from './assignment-history'
+import { BlockerResolutionOptions, createBlockerResolver, isPilotStatus } from './blocker-resolution'
 import { deriveRepoFromGitRemote } from './derive-repo'
 import { GROUP_PREFIX, matchFeatureHeadings, serializeFeatureHeading } from './heading'
 import { decodeListField, encodeListField } from './list-field'
@@ -166,13 +177,14 @@ import { scoreRoadmapCandidatesFileLess } from './pilot-scoring-file-less'
 import { isRegression } from './status-rank'
 import { applyRoadmapDiff } from './store/apply-diff'
 import { resolveRoadmapStore } from './store/factory'
+import { slugifyFeatureName } from './store/monolith-store'
 import { RoadmapStore } from './store/roadmap-store'
 import { decodeSummaryField, encodeSummaryField } from './summary-field'
 import { TrackedFeature } from './tracker'
 import { ExternalSyncOptions, TicketWriteOptions, TrackerSyncAdapter, resolveReverseStatus } from './tracker-sync'
 import { TrackerClientConfig } from './tracker/factory'
 import { getTrackerKindRegistration, listRegisteredTrackerKinds } from './tracker/registry'
-import { AssignmentRecord, Err, ExternalTicket, ExternalTicketState, FeatureStatus, Ok, Priority, Result, Roadmap, RoadmapFeature, RoadmapFrontmatter, RoadmapGroup, RoadmapMilestone, RowSyncResult, SyncResult, TrackerComment, TrackerSyncConfig } from '@harness-engineering/types'
+import { AssignmentRecord, Err, ExternalTicket, ExternalTicketState, FeatureStatus, Ok, Priority, Result, Roadmap, RoadmapFeature, RoadmapFrontmatter, RoadmapGroup, RoadmapMilestone, RoadmapOptionalFieldKey, RowSyncResult, SyncResult, TrackerComment, TrackerSyncConfig } from '@harness-engineering/types'
 import * as fs from 'fs'
 import { execFileSync } from 'node:child_process'
 import * as fs from 'node:fs'

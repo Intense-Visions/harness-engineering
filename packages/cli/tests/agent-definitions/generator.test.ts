@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   generateAgentDefinition,
+  inlineRelativeLinks,
   AGENT_DESCRIPTIONS,
   DEFAULT_TOOLS,
   GEMINI_TOOL_MAP,
@@ -77,5 +78,41 @@ describe('generateAgentDefinition', () => {
     expect(AGENT_DESCRIPTIONS['architecture-enforcer']).toBeDefined();
     expect(AGENT_DESCRIPTIONS['documentation-maintainer']).toBeDefined();
     expect(AGENT_DESCRIPTIONS['entropy-cleaner']).toBeDefined();
+  });
+});
+
+describe('inlineRelativeLinks (#2132)', () => {
+  it('names a sibling reference by its skill-qualified path instead of linking it', () => {
+    expect(
+      inlineRelativeLinks(
+        'per the [confidence rubric](references/confidence-rubric.md).',
+        'harness-code-review'
+      )
+    ).toBe('per the confidence rubric (`harness-code-review/references/confidence-rubric.md`).');
+  });
+
+  it('does not repeat the path when the link text already is the path', () => {
+    expect(
+      inlineRelativeLinks('[references/risk-keywords.md](references/risk-keywords.md)', 'cr')
+    ).toBe('`cr/references/risk-keywords.md`');
+  });
+
+  it('keeps only the in-repo tail of a path that climbs out of the skill directory', () => {
+    expect(
+      inlineRelativeLinks(
+        'See [`auto-done.md`](../../../../docs/knowledge/roadmap/auto-done.md).',
+        'harness-execution'
+      )
+    ).toBe('See `auto-done.md` (`docs/knowledge/roadmap/auto-done.md`).');
+  });
+
+  it('leaves URLs, anchors, absolute paths and code untouched', () => {
+    const input = [
+      '[site](https://example.com/a.md) [top](#top) [abs](/etc/x.md) `[x](y.md)`',
+      '```',
+      '[fenced](references/x.md)',
+      '```',
+    ].join('\n');
+    expect(inlineRelativeLinks(input, 'skill')).toBe(input);
   });
 });

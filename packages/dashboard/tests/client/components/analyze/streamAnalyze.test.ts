@@ -105,7 +105,7 @@ describe('streamAnalyze', () => {
   });
 
   it('POSTs the analyze body to /api/analyze with the abort signal', async () => {
-    const fetchMock = vi.fn(async () => makeStreamResponse([DONE_LINE]));
+    const fetchMock = vi.fn<typeof fetch>(async () => makeStreamResponse([DONE_LINE]));
     vi.stubGlobal('fetch', fetchMock);
     const c = makeCallbacks();
     const controller = new AbortController();
@@ -118,6 +118,7 @@ describe('streamAnalyze', () => {
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
     const [url, init] = fetchMock.mock.calls[0]!;
+    if (!init) throw new Error('fetch was called without a RequestInit');
     expect(url).toBe('/api/analyze');
     expect(init.method).toBe('POST');
     expect(init.headers).toEqual({ 'Content-Type': 'application/json' });
@@ -134,7 +135,7 @@ describe('streamAnalyze', () => {
     const cml = { overall: 42 } as unknown as CMLResult;
     const pesl = { abort: false } as unknown as PESLResult;
     const signals: Signal[] = [{ name: 'sig', reason: 'because' }];
-    const fetchMock = vi.fn(async () =>
+    const fetchMock = vi.fn<typeof fetch>(async () =>
       makeStreamResponse([
         sse({ type: 'status', text: 'analyzing' }),
         sse({ type: 'sel_result', data: sel as unknown as Record<string, unknown> }),
@@ -161,7 +162,7 @@ describe('streamAnalyze', () => {
   it('reassembles a data line split across two reads', async () => {
     const line = sse({ type: 'status', text: 'streamed-status' });
     const mid = Math.floor(line.length / 2);
-    const fetchMock = vi.fn(async () =>
+    const fetchMock = vi.fn<typeof fetch>(async () =>
       makeStreamResponse([line.slice(0, mid), line.slice(mid), DONE_LINE])
     );
     vi.stubGlobal('fetch', fetchMock);
@@ -174,7 +175,7 @@ describe('streamAnalyze', () => {
   });
 
   it('routes an error event to onError and stops processing further lines', async () => {
-    const fetchMock = vi.fn(async () =>
+    const fetchMock = vi.fn<typeof fetch>(async () =>
       makeStreamResponse([
         sse({ type: 'error', error: 'boom' }),
         sse({ type: 'status', text: 'should-not-arrive' }),
@@ -192,7 +193,7 @@ describe('streamAnalyze', () => {
   });
 
   it('skips malformed JSON lines and lines without a data: prefix', async () => {
-    const fetchMock = vi.fn(async () =>
+    const fetchMock = vi.fn<typeof fetch>(async () =>
       makeStreamResponse([
         ': this is a comment line\n',
         'data: {not valid json}\n',
@@ -211,7 +212,7 @@ describe('streamAnalyze', () => {
   });
 
   it('skips JSON payloads that are not objects with a type field', async () => {
-    const fetchMock = vi.fn(async () =>
+    const fetchMock = vi.fn<typeof fetch>(async () =>
       makeStreamResponse([
         'data: null\n',
         'data: 42\n',
@@ -230,7 +231,7 @@ describe('streamAnalyze', () => {
   });
 
   it('ignores an unknown event type without stopping the stream', async () => {
-    const fetchMock = vi.fn(async () =>
+    const fetchMock = vi.fn<typeof fetch>(async () =>
       makeStreamResponse([
         'data: {"type":"mystery"}\n',
         sse({ type: 'status', text: 'after-unknown' }),
@@ -247,7 +248,7 @@ describe('streamAnalyze', () => {
   });
 
   it('calls onDone when the stream ends without an explicit [DONE]', async () => {
-    const fetchMock = vi.fn(async () =>
+    const fetchMock = vi.fn<typeof fetch>(async () =>
       makeStreamResponse([sse({ type: 'status', text: 'trailing' })])
     );
     vi.stubGlobal('fetch', fetchMock);
@@ -260,7 +261,7 @@ describe('streamAnalyze', () => {
   });
 
   it('reports the server-provided error on a non-ok JSON response', async () => {
-    const fetchMock = vi.fn(async () =>
+    const fetchMock = vi.fn<typeof fetch>(async () =>
       makeStreamResponse([], {
         ok: false,
         status: 500,
@@ -278,7 +279,7 @@ describe('streamAnalyze', () => {
   });
 
   it('falls back to HTTP status on a non-ok JSON response without an error field', async () => {
-    const fetchMock = vi.fn(async () =>
+    const fetchMock = vi.fn<typeof fetch>(async () =>
       makeStreamResponse([], {
         ok: false,
         status: 422,
@@ -295,7 +296,7 @@ describe('streamAnalyze', () => {
   });
 
   it('reports HTTP status on a non-ok non-JSON response', async () => {
-    const fetchMock = vi.fn(async () =>
+    const fetchMock = vi.fn<typeof fetch>(async () =>
       makeStreamResponse([], { ok: false, status: 503, contentType: 'text/plain' })
     );
     vi.stubGlobal('fetch', fetchMock);
@@ -307,7 +308,7 @@ describe('streamAnalyze', () => {
   });
 
   it('reports a missing response stream', async () => {
-    const fetchMock = vi.fn(async () =>
+    const fetchMock = vi.fn<typeof fetch>(async () =>
       makeStreamResponse([], { ok: true, status: 200, hasBody: false })
     );
     vi.stubGlobal('fetch', fetchMock);
@@ -321,7 +322,7 @@ describe('streamAnalyze', () => {
   it('swallows AbortError without calling onError', async () => {
     const abortErr = new Error('aborted');
     abortErr.name = 'AbortError';
-    const fetchMock = vi.fn(async () => {
+    const fetchMock = vi.fn<typeof fetch>(async () => {
       throw abortErr;
     });
     vi.stubGlobal('fetch', fetchMock);
@@ -334,7 +335,7 @@ describe('streamAnalyze', () => {
   });
 
   it('reports the message of a non-abort network failure', async () => {
-    const fetchMock = vi.fn(async () => {
+    const fetchMock = vi.fn<typeof fetch>(async () => {
       throw new Error('connection reset');
     });
     vi.stubGlobal('fetch', fetchMock);

@@ -1,13 +1,40 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { DEFAULT_SKIP_DIRS } from '@harness-engineering/graph';
-import type { CriticalPathEntry, CriticalPathSet } from './types';
+import type { CriticalPathEntry, CriticalPathGraphInference, CriticalPathSet } from './types';
 
 export interface GraphCriticalPathData {
   highFanInFunctions: Array<{ file: string; function: string; fanIn: number }>;
 }
 
 const SOURCE_EXTENSIONS = new Set(['.ts', '.tsx', '.js', '.jsx']);
+
+/**
+ * Test, fixture, and mock code is never a production hot path. Without this
+ * filter every annotated path in this repo resolved into test files whose
+ * string fixtures happen to contain the marker (#2256).
+ */
+const NON_PRODUCTION_DIRS = new Set([
+  'test',
+  'tests',
+  '__tests__',
+  'fixtures',
+  '__fixtures__',
+  '__mocks__',
+]);
+const NON_PRODUCTION_FILE_RE = /\.(?:test|spec|bench)\.[cm]?[jt]sx?$/;
+
+const MARKER = '@perf-' + 'critical';
+/** The marker only counts inside a comment: after `//`, `/*`, or a leading JSDoc `*`. */
+function isMarkerComment(line: string): boolean {
+  const at = line.indexOf(MARKER);
+  if (at < 0) return false;
+  const before = line.slice(0, at);
+  return before.includes('//') || before.includes('/*') || before.trim().startsWith('*');
+}
+
+const GRAPH_NOT_SUPPLIED =
+  'graph inference did not run: no function-level fan-in data was supplied to the resolver';
 
 const FUNCTION_DECL_RE = /(?:export\s+)?(?:async\s+)?function\s+(\w+)/;
 const CONST_DECL_RE = /(?:export\s+)?(?:const|let)\s+(\w+)\s*=/;
@@ -34,6 +61,14 @@ function mergeGraphInferred(
     }
   }
   return added;
+}
+
+function noSignalReason(graphInference: CriticalPathGraphInference): string {
+  const inference =
+    graphInference.status === 'ran'
+      ? 'graph inference ran and found no high-fan-in functions'
+      : graphInference.reason;
+  return `no annotated production functions and ${inference}; an empty set is not a measurement that nothing is hot`;
 }
 
 function isCommentOrBlank(line: string): boolean {
@@ -69,6 +104,9 @@ export class CriticalPathResolver {
 
     // Add graph-inferred entries, skipping duplicates
     const graphInferred = graphData ? mergeGraphInferred(graphData.highFanInFunctions, seen) : 0;
+    const graphInference: CriticalPathGraphInference = graphData
+      ? { status: 'ran' }
+      : { status: 'not-run', reason: GRAPH_NOT_SUPPLIED };
 
     const entries = Array.from(seen.values());
 
@@ -79,6 +117,8 @@ export class CriticalPathResolver {
         graphInferred,
         total: entries.length,
       },
+      graphInference,
+      ...(entries.length === 0 ? { noSignal: { reason: noSignalReason(graphInference) } } : {}),
     };
   }
 
@@ -98,9 +138,13 @@ export class CriticalPathResolver {
 
     for (const item of items) {
       if (item.isDirectory()) {
-        if (DEFAULT_SKIP_DIRS.has(item.name)) continue;
+        if (DEFAULT_SKIP_DIRS.has(item.name) || NON_PRODUCTION_DIRS.has(item.name)) continue;
         this.walkDir(path.join(dir, item.name), entries);
-      } else if (item.isFile() && SOURCE_EXTENSIONS.has(path.extname(item.name))) {
+      } else if (
+        item.isFile() &&
+        SOURCE_EXTENSIONS.has(path.extname(item.name)) &&
+        !NON_PRODUCTION_FILE_RE.test(item.name)
+      ) {
         this.scanFile(path.join(dir, item.name), entries);
       }
     }
@@ -127,7 +171,7 @@ export class CriticalPathResolver {
     const relativePath = path.relative(this.projectRoot, filePath).replace(/\\/g, '/');
 
     for (let i = 0; i < lines.length; i++) {
-      if (!lines[i]!.includes('@perf-critical')) continue;
+      if (!isMarkerComment(lines[i]!)) continue;
 
       const fnName = this.resolveFunctionName(lines, i + 1);
       if (fnName) {

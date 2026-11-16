@@ -28,6 +28,19 @@ export interface SecurityRule {
   message: string;
   remediation: string;
   references?: string[];
+  /**
+   * Whether the rule also matches text inside source comments. Defaults to
+   * `true` for the `secrets` category (a credential pasted into a comment is
+   * still leaked) and `false` for every other rule, which judges code — so a
+   * comment that merely NAMES a dangerous construct is not a finding.
+   */
+  scanComments?: boolean;
+  /**
+   * Optional context check run on a match. Returning `true` drops the match at
+   * `lines[index]` because surrounding code mitigates it (e.g. the parsed value
+   * is schema-validated on a following line). `lines` are comment-masked.
+   */
+  isMitigated?: (lines: readonly string[], index: number) => boolean;
 }
 
 export interface SecurityFinding {
