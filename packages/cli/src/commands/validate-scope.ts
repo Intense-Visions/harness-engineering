@@ -25,8 +25,11 @@
 import { execFileSync } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { minimatch } from 'minimatch';
-import { loadAnalysisExclude, loadDesignExclude } from '../config/analysis-schema.js';
+import {
+  isDesignScanPath,
+  isExcluded,
+  resolveDesignExcludePatterns,
+} from '../shared/design-scan-targets.js';
 
 /**
  * The design walkers that are scoped to the changed surface in affected mode.
@@ -37,16 +40,6 @@ import { loadAnalysisExclude, loadDesignExclude } from '../config/analysis-schem
  * a full run does not — the opposite of parity. It is deliberately left unscoped.
  */
 export const SCOPED_WALKERS = ['driftDetection', 'brandCompliance'] as const;
-
-/**
- * File extensions the design walkers actually scan (detect-drift and audit-brand
- * share this set). A changed file outside this set is never scanned by a full sweep
- * either, so it is dropped from the scoped surface to keep scoped ⊆ full.
- */
-const DESIGN_EXTENSIONS = ['.ts', '.tsx', '.js', '.jsx', '.css', '.scss'];
-
-/** Directories the walkers skip during a full walk; mirrored so scoped ⊆ full. */
-const SKIP_DIR_SEGMENTS = new Set(['node_modules', 'dist', 'build', 'coverage']);
 
 export interface ChangedSurface {
   /** True when a changed surface was successfully derived from git. */
@@ -162,20 +155,16 @@ export function deriveChangedSurface(
  * path, which by design bypasses the exclude filter, so an affected run could
  * report findings on files a full sweep skips.
  *
- * A file survives only when it (1) has a design-relevant extension, (2) lives
- * outside the walkers' hard-skipped directories, and (3) is not matched by the
- * project's `analysis.exclude` ∪ `design.exclude` globs (the same union detect-drift
- * applies to its walk).
+ * A file survives only when the full walk would collect it (design extension,
+ * outside the hard-skipped and test-fixture directories) and it is not matched by
+ * the project's `design.exclude` ∪ `analysis.exclude` globs — the same predicate
+ * and the same union the walkers apply.
  */
 export function filterToDesignSurface(cwd: string, files: readonly string[]): string[] {
-  const excludePatterns = [...loadDesignExclude(cwd), ...loadAnalysisExclude(cwd)];
-  return files.filter((rel) => {
-    if (!DESIGN_EXTENSIONS.some((ext) => rel.endsWith(ext))) return false;
-    const segments = rel.split('/');
-    if (segments.some((seg) => seg.startsWith('.') || SKIP_DIR_SEGMENTS.has(seg))) return false;
-    if (excludePatterns.some((pattern) => minimatch(rel, pattern, { matchBase: true }))) {
-      return false;
-    }
-    return true;
-  });
+  // One definition with the walk (`shared/design-scan-targets.ts`) — this used
+  // to be a hand-copied mirror that had already drifted (#2349).
+  const excludePatterns = resolveDesignExcludePatterns(cwd);
+  return files.filter(
+    (rel) => isDesignScanPath(rel) && !isExcluded(cwd, path.join(cwd, rel), excludePatterns)
+  );
 }

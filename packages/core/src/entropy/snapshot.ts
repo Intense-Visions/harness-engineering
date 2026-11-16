@@ -22,6 +22,7 @@ import { readFileContent, findFiles, relativePosix } from '../shared/fs-utils';
 import { buildDependencyGraphFromParsed } from '../constraints/dependencies';
 import { resolve } from 'path';
 import { resolveEntryPoints } from './entry-points';
+import { findUnanalysedEntryPoints, reportUnanalysedEntries } from './unanalysed-entry-points';
 import { loadPathAliases } from './path-aliases';
 import {
   entryDirWaivers,
@@ -420,7 +421,7 @@ export async function buildSnapshot(
     return Err(entryPointsResult.error);
   }
   const entryPoints = entryPointsResult.ok ? entryPointsResult.value : [];
-  const entryPointsError = entryPointsResult.ok ? undefined : entryPointsResult.error;
+  let entryPointsError = entryPointsResult.ok ? undefined : entryPointsResult.error;
 
   // Source-file dispatch: if caller passed a single parser, use it for every
   // file (preserves legacy behavior); otherwise dispatch per-file via the
@@ -474,6 +475,20 @@ export async function buildSnapshot(
   const filesResult = await parseSourceFiles(sourceFilePaths, parserForFile);
   if (!filesResult.ok) return Err(filesResult.error);
   const files = filesResult.value;
+
+  // An entry point that exists but is not in the analysed set is as dead a
+  // root as one that matches no file (#2296); same gating as #2275 above.
+  const unanalysed = findUnanalysedEntryPoints(
+    rootDir,
+    entryPoints,
+    config.entryPoints,
+    files.map((f) => f.path)
+  );
+  if (unanalysed.length > 0) {
+    const error = reportUnanalysedEntries(unanalysed, entryPoints.length, configuredEntries);
+    if (config.analyze.deadCode) return Err(error);
+    entryPointsError = error;
+  }
 
   // Parse test files for their import edges only (no exports/symbols — test
   // files are never classified, they only keep their import targets alive).

@@ -14,6 +14,9 @@ export function createValidateCommand(): Command {
 
         if (options.json) {
           console.log(JSON.stringify(result, null, 2));
+          // An invalid config is a failure in either output mode (#2504 made
+          // this branch reachable; it used to exit 0 with success:false).
+          if (!result.success) process.exit(ExitCode.VALIDATION_FAILED);
         } else if (result.success) {
           logger.success(`Config valid: ${result.ruleCount} rules defined`);
         } else {
