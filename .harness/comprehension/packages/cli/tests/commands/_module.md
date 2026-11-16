@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/tests/commands'
-sourceHash: 'df110bb775e6d775d2a8852ef67ef147c394beeec79bbb198a7e82788b032658'
+sourceHash: 'c95da2bb22b4a34cb69635181d0f7b4e7c7f50c0f44b2f718ed2dee273f3e030'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -113,6 +113,7 @@ members:
     'init-extra.test.ts',
     'init-first-run.test.ts',
     'init-minimal.test.ts',
+    'init-tier-upgrade.test.ts',
     'init.test.ts',
     'insights.test.ts',
     'install-constraints-cov544.test.ts',

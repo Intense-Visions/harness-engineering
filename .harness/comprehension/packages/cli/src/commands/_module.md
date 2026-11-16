@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/commands'
-sourceHash: '11315e9b65ca3938bbf07a274a6091ad3d7300227347a5ff2b4344e33a06bde5'
+sourceHash: 'b633a0fbe47f61c0807e7abd5e6de8be86852bce727459c85b1162ab281aa8af'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -55,6 +55,7 @@ members:
     'holiday-confidence.ts',
     'impact-preview.ts',
     'init-minimal.ts',
+    'init-tier.ts',
     'init.ts',
     'insights.ts',
     'install-constraints.ts',
@@ -147,6 +148,7 @@ export ScanConfigFileResult
 export ScanConfigFinding
 export ScanConfigResult
 export StepResult
+export TIER_LEVELS
 export abstainedMeasurements
 export abstentionReason
 export actStatusCommand
@@ -271,6 +273,7 @@ export createUsageCommand
 export createValidateCommand
 export createVerifyCommand
 export createWaypointCommand
+export decideReinit
 export deepEqual
 export defaultPostBrief
 export defaultRunGit
@@ -317,6 +320,7 @@ export loadOutcomeStore
 export loadRunHistory
 export makeResolveBackend
 export measuredNothing
+export mergeExistingWins
 export mergeResolvedTasks
 export normalizeRel
 export offerGenerateSlashCommands
@@ -328,6 +332,7 @@ export printCleanupAllResult
 export printCleanupResult
 export printCleanupSessionsResult
 export printMinimalInitSuccess
+export readRecordedTier
 export readReview
 export referencesTargetPr
 export refreshExitCode
@@ -415,6 +420,7 @@ export summarizeSweepReport
 export unparsedFileChecks
 export upsertComment
 export writeTelemetryConfig
+export writeUpgradedConfig
 ```
 
 ## Dependency Slice
@@ -589,6 +595,7 @@ import { initHooks } from './hooks/init'
 import { createImpactPreviewCommand } from './impact-preview'
 import { createInitCommand } from './init'
 import { printMinimalInitSuccess, runMinimalInit } from './init-minimal'
+import { TIER_LEVELS, decideReinit, writeUpgradedConfig } from './init-tier'
 import { createInsightsCommand } from './insights'
 import { createInstallCommand, resolveCommunityBase } from './install'
 import { createInstallConstraintsCommand } from './install-constraints'
