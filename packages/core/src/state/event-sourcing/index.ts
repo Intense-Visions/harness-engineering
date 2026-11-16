@@ -46,6 +46,7 @@ export {
   recordTriageOutcome,
   projectTriageRecords,
   loadTriageRecords,
+  isGradedOutcome,
 } from './triage';
 export type { StoredTriageRecord, StoredPrediction, StoredOutcome, StoredVerdict } from './triage';
 export type { TriagePredictedInput, TriageOutcomeInput } from './events';

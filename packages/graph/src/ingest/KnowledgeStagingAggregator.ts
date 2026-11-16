@@ -110,13 +110,16 @@ export class KnowledgeStagingAggregator {
     return { staged: deduplicated.length };
   }
 
-  private async extractDocName(filePath: string): Promise<string> {
+  /** Read a knowledge doc's frontmatter `domain` (if any) and its documented title. */
+  private async readDocEntry(filePath: string): Promise<{ domain?: string; name: string }> {
     const raw = await fs.readFile(filePath, 'utf-8');
-    // Skip frontmatter if present
-    const fmMatch = raw.match(/^---\n[\s\S]*?\n---\n([\s\S]*)$/);
-    const body = fmMatch ? fmMatch[1]! : raw;
+    // Same frontmatter shape BusinessKnowledgeIngestor accepts.
+    const fmMatch = raw.match(/^---\n([\s\S]*?)\n---\n([\s\S]*)$/);
+    const body = fmMatch ? fmMatch[2]! : raw;
+    const domainMatch = fmMatch?.[1]!.match(/^domain:[ \t]*(\S.*?)[ \t]*\r?$/m);
     const titleMatch = body.match(/^#\s+(.+)$/m);
-    return titleMatch ? titleMatch[1]!.trim() : path.basename(filePath, '.md');
+    const name = titleMatch ? titleMatch[1]!.trim() : path.basename(filePath, '.md');
+    return domainMatch ? { domain: domainMatch[1]!, name } : { name };
   }
 
   async generateGapReport(knowledgeDir: string, store?: GraphStore): Promise<GapReport> {
@@ -163,19 +166,36 @@ export class KnowledgeStagingAggregator {
     const domainEntryCounts = new Map<string, number>();
     let totalEntries = 0;
 
+    // Domains are assigned the way BusinessKnowledgeIngestor assigns them:
+    // frontmatter `domain` first, falling back to the first path segment
+    // (the domain subdirectory). Flat files directly under the knowledge root
+    // count too (#2236) — but only by frontmatter, since a root file has no
+    // directory to fall back to and the ingestor cannot place it either.
+    const record = async (filePath: string, fallbackDomain: string | undefined) => {
+      const { domain: fmDomain, name } = await this.readDocEntry(filePath);
+      const domain = fmDomain ?? fallbackDomain;
+      if (!domain) return;
+      totalEntries++;
+      domainEntryCounts.set(domain, (domainEntryCounts.get(domain) ?? 0) + 1);
+      if (store) {
+        const names = domainDocNames.get(domain) ?? [];
+        names.push(name.toLowerCase().trim());
+        domainDocNames.set(domain, names);
+      }
+    };
+
     try {
       const entries = await fs.readdir(knowledgeDir, { withFileTypes: true });
-      const domainDirs = entries.filter((e) => e.isDirectory());
 
-      for (const dir of domainDirs) {
-        const domainPath = path.join(knowledgeDir, dir.name);
-        const files = await fs.readdir(domainPath);
-        const mdFiles = files.filter((f) => f.endsWith('.md'));
-        totalEntries += mdFiles.length;
-        domainEntryCounts.set(dir.name, mdFiles.length);
-
-        if (store) {
-          domainDocNames.set(dir.name, await this.extractDocNames(domainPath, mdFiles));
+      for (const entry of entries) {
+        const entryPath = path.join(knowledgeDir, entry.name);
+        if (entry.isFile() && entry.name.endsWith('.md')) {
+          await record(entryPath, undefined);
+        } else if (entry.isDirectory()) {
+          const files = await fs.readdir(entryPath);
+          for (const file of files.filter((f) => f.endsWith('.md'))) {
+            await record(path.join(entryPath, file), entry.name);
+          }
         }
       }
     } catch {
@@ -183,16 +203,6 @@ export class KnowledgeStagingAggregator {
     }
 
     return { domainDocNames, domainEntryCounts, totalEntries };
-  }
-
-  /** Extract and normalize the documented title from each markdown file in a domain. */
-  private async extractDocNames(domainPath: string, mdFiles: readonly string[]): Promise<string[]> {
-    const names: string[] = [];
-    for (const file of mdFiles) {
-      const name = await this.extractDocName(path.join(domainPath, file));
-      names.push(name.toLowerCase().trim());
-    }
-    return names;
   }
 
   /** Step 3: backward-compatible report when no store is available. */

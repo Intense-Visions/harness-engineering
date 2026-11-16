@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/src/constraints'
-sourceHash: '2753dec401fb86f91f1b6c0361aa6b79fa9603b02b05241e4d7c0480f26e8cd6'
+sourceHash: 'ba672f9c6658e953cb9d2e72a5b09cacad956153a132732072096253eeabe421'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -39,6 +39,7 @@ export Layer
 export LayerConfig
 export ParserLookup
 export ResolvedConstraintPacks
+export UnparsedFile
 export buildDependencyGraph
 export createBoundaryValidator
 export defineLayer
@@ -61,7 +62,7 @@ import { Import, LanguageParser } from '../shared/parsers'
 import { Err, Ok, Result } from '../shared/result'
 import { buildDependencyGraph } from './dependencies'
 import { resolveFileToLayer } from './layers'
-import { BoundaryDefinition, BoundaryValidation, BoundaryValidator, BoundaryViolation, CircularDependency, CircularDepsResult, DependencyEdge, DependencyGraph, DependencyValidation, DependencyViolation, GraphDependencyData, Layer, LayerConfig } from './types'
+import { BoundaryDefinition, BoundaryValidation, BoundaryValidator, BoundaryViolation, CircularDependency, CircularDepsResult, DependencyEdge, DependencyGraph, DependencyValidation, DependencyViolation, GraphDependencyData, Layer, LayerConfig, UnparsedFile } from './types'
 import { ConstraintStage } from '@harness-engineering/types'
 import { minimatch } from 'minimatch'
 import { dirname, extname, resolve } from 'path'

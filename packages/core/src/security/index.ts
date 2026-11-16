@@ -116,6 +116,10 @@ export {
   mapInjectionFindings,
   isDuplicateFinding,
   mapSecurityFindings,
+  isMarkdownPath,
+  findFencedCodeLines,
+  normalizeMarkdownTableRow,
+  suppressMarkdownStructureFindings,
 } from './scan-config-shared';
 export type {
   ScanConfigFinding,
