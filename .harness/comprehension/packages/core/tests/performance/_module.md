@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/tests/performance'
-sourceHash: '0be1c5ce93293f65cd87122f79109b78c6b139e38729275ac3389a0dd8998174'
+sourceHash: '03079d77365baf6f35a76a55a0feca23d7743213fca8900050575a0a876683e0'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent

@@ -27,13 +27,26 @@ export function persistToolingConfig(
       config.template.framework = framework;
     }
 
+    // Tooling lives at `template.tooling` — the only place HarnessConfigSchema
+    // reads it (#2475). A root-level `tooling` block is stripped by loadConfig
+    // with an "ignored unknown key" warning, so fold any legacy root block in.
+    let tooling = config.template?.tooling;
+    if (config.tooling) {
+      tooling = { ...config.tooling, ...tooling };
+      delete config.tooling;
+    }
+
     // Add tooling from overlay metadata (framework takes precedence over base)
     if (overlayMeta?.tooling) {
-      config.tooling = { ...config.tooling, ...overlayMeta.tooling };
-      delete config.tooling.lockFile;
-    } else if (resolveResult.metadata.tooling && !config.tooling) {
-      config.tooling = { ...resolveResult.metadata.tooling };
-      delete config.tooling.lockFile;
+      tooling = { ...tooling, ...overlayMeta.tooling };
+    } else if (resolveResult.metadata.tooling && !tooling) {
+      tooling = { ...resolveResult.metadata.tooling };
+    }
+
+    if (tooling) {
+      delete tooling.lockFile;
+      config.template = config.template || {};
+      config.template.tooling = tooling;
     }
 
     // Remove level:null for non-JS languages
@@ -81,7 +94,9 @@ health-snapshot.json
 release-readiness.json
 skills-index.json
 stack-profile.json
-metrics/
+# metrics/*, not a bare metrics/: a directory-suffix rule stops git descending into
+# the directory, so no later !metrics/<file> rule could re-include a tracked file.
+metrics/*
 .install-id
 telemetry.json
 .telemetry-notice-shown
@@ -114,15 +129,41 @@ security/*
   }
 
   // Preserve user customizations: only append template entries not already present.
+  // Presence is judged by the directory a rule covers, not its exact text (#2474):
+  // `metrics/` and `metrics/*` ignore the same files, but appending the bare form to
+  // a file that holds `metrics/*` + `!metrics/<ledger>` would silently defeat the
+  // negation. A rule is likewise never appended over a user's `!dir/...` un-ignore.
   const existing = fs.readFileSync(gitignorePath, 'utf8');
-  const existingLines = new Set(existing.split('\n').map((l) => l.trim()));
+  const existingRules = existing
+    .split('\n')
+    .map((l) => l.trim())
+    .filter((l) => l && !l.startsWith('#'));
+  const coveredKeys = new Set(existingRules.map(ignoreRuleKey));
+  const negatedDirs = existingRules
+    .filter((l) => l.startsWith('!'))
+    .map((l) => l.slice(1).split('/')[0]);
   const missing = content
     .split('\n')
-    .filter((l) => l.trim() && !l.startsWith('#') && !existingLines.has(l.trim()));
+    .map((l) => l.trim())
+    .filter(
+      (l) =>
+        l &&
+        !l.startsWith('#') &&
+        !coveredKeys.has(ignoreRuleKey(l)) &&
+        (l.startsWith('!') || !negatedDirs.includes(ignoreRuleKey(l)))
+    );
   if (missing.length > 0) {
     const prefix = existing.endsWith('\n') ? '' : '\n';
     fs.appendFileSync(gitignorePath, prefix + missing.join('\n') + '\n');
   }
+}
+
+/**
+ * Normalize an ignore rule to the path it covers, so `dir/` and `dir/*` compare equal.
+ * Negations keep their `!` so an un-ignore never counts as covering an ignore.
+ */
+function ignoreRuleKey(rule: string): string {
+  return rule.replace(/\/\*?$/, '');
 }
 
 /** Marker line prefixed to the harness-managed block in the repo-root `.ignore`. */

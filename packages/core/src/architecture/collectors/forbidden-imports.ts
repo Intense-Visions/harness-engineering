@@ -13,6 +13,9 @@ import { findFiles, relativePosix } from '../../shared/fs-utils';
 import { getDefaultRegistry } from '../../shared/parsers/registry';
 import type { Import } from '../../shared/parsers';
 import { resolveExcludePatterns } from '../exclude';
+import type { ParserLookup } from '../../constraints/dependencies';
+import { createCollectorRunContext } from './run-context';
+import type { CollectorRunContext } from './run-context';
 
 /** Languages whose import specifiers this collector can resolve and match. */
 const JS_TS_LANGUAGES = new Set(['typescript', 'javascript']);
@@ -38,8 +41,8 @@ function isDisallowed(specifier: string, target: string, disallow: readonly stri
 /** Thrown out of the scan when the parser cannot run at all (#2267). */
 class ParserUnavailable extends Error {}
 
-async function readImports(file: string): Promise<Import[] | null> {
-  const parser = getDefaultRegistry().getForFile(file);
+async function readImports(file: string, parsers: ParserLookup): Promise<Import[] | null> {
+  const parser = parsers.getForFile(file);
   if (!parser || !JS_TS_LANGUAGES.has(parser.name)) return null;
   const ast = await parser.parseFile(file);
   if (!ast.ok) {
@@ -57,6 +60,8 @@ interface ScanState {
   violations: Violation[];
   seen: Set<string>;
   analyzed: Set<string>;
+  /** The registry, read through the run's shared parse memo (#2270). */
+  parsers: ParserLookup;
 }
 
 async function scanRule(
@@ -67,7 +72,7 @@ async function scanRule(
   state: ScanState
 ): Promise<void> {
   for (const file of await findFiles(rule.from, rootDir, exclude)) {
-    const imports = await readImports(file);
+    const imports = await readImports(file, state.parsers);
     if (!imports) continue;
     state.analyzed.add(file);
     const relFile = relativePosix(rootDir, file);
@@ -112,10 +117,19 @@ export class ForbiddenImportCollector implements Collector {
    * never emits, over `layers: []` — so it could not fire. It now applies the
    * configured rules itself, package and builtin specifiers included.
    */
-  async collect(config: ArchConfig, rootDir: string): Promise<MetricResult[]> {
+  async collect(
+    config: ArchConfig,
+    rootDir: string,
+    context: CollectorRunContext = createCollectorRunContext()
+  ): Promise<MetricResult[]> {
     const rules = config.forbiddenImports ?? [];
     const exclude = resolveExcludePatterns(config);
-    const state: ScanState = { violations: [], seen: new Set(), analyzed: new Set() };
+    const state: ScanState = {
+      violations: [],
+      seen: new Set(),
+      analyzed: new Set(),
+      parsers: context.imports.forLookup(getDefaultRegistry()),
+    };
     try {
       for (const rule of rules) {
         await scanRule(rule, rootDir, exclude, this.category, state);

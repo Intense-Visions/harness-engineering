@@ -197,6 +197,8 @@ const PARAM_OPENING_BRACKETS = new Set(['(', '[', '{', '<']);
 const PARAM_CLOSING_BRACKETS = new Set([')', ']', '}', '>']);
 // A parameter list longer than this is treated as unterminated.
 const MAX_PARAM_LIST_LINES = 50;
+// The implicit receiver a Python method declares first (`self` / `cls`).
+const PYTHON_RECEIVER = /^\s*(?:self|cls)\b/;
 
 /** Quote characters that open a string literal in `lang`. Rust `'` is a lifetime. */
 function quotesFor(lang: string): string {
@@ -271,6 +273,32 @@ function countParameterList(paramsStr: string, lang: string): number {
     if (!/\s/.test(ch)) segmentHasContent = true;
   }
   return segmentHasContent ? count + 1 : count;
+}
+
+/** One module specifier a file depends on, as found by the import scanners. */
+interface ImportPathRef {
+  importPath: string;
+  isTypeOnly: boolean;
+  /** `export … from` — the file re-exports the target rather than importing it. */
+  isReexport?: boolean;
+}
+
+/**
+ * `export { A } from './x'`, `export type { T } from './x'`, `export * from './x'`
+ * and `export * as ns from './x'`. A re-export loads the target module exactly as
+ * an import does, so it is a dependency edge. Without it a pure barrel — an
+ * `index.ts` or ANY plain-named module that only re-exports — is a dead end in
+ * the graph, and every file reached only through it looks untested (#2079).
+ */
+function extractReexportPaths(content: string): ImportPathRef[] {
+  const reexportRegex =
+    /export\s+(type\s+)?(?:\{[^}]*\}|\*(?:\s+as\s+[\w$]+)?)\s+from\s+['"]([^'"]+)['"]/g;
+  const results: ImportPathRef[] = [];
+  let match: RegExpExecArray | null;
+  while ((match = reexportRegex.exec(content)) !== null) {
+    results.push({ importPath: match[2]!, isTypeOnly: match[1] !== undefined, isReexport: true });
+  }
+  return results;
 }
 
 /**
@@ -763,7 +791,7 @@ export class CodeIngestor {
           cyclomaticComplexity: this.computeCyclomaticComplexity(lines.slice(i, endLine)),
           nestingDepth: this.computeMaxNesting(lines.slice(i, endLine)),
           lineCount: endLine - i,
-          parameterCount: this.countParameters(lines, i, methodName, lang),
+          parameterCount: this.countParameters(lines, i, methodName, lang, true),
         },
       },
       edge: { from: classId, to: id, type: 'contains', provenance: 'EXTRACTED' },
@@ -919,34 +947,45 @@ export class CodeIngestor {
     const lang = this.detectLanguage(relativePath);
     const edges: GraphEdge[] = [];
 
+    // One edge per resolved target. A file can reach the same target through
+    // several statements (`import type` + `import`, or `import` + `export … from`);
+    // GraphStore dedupes by (from, to, type) and merges metadata last-wins, so
+    // fold here: any value import makes the edge static, any re-export marks it.
+    const byTarget = new Map<string, { isTypeOnly: boolean; isReexport: boolean }>();
     const importPaths = this.extractImportPaths(content, lang);
-    for (const { importPath, isTypeOnly } of importPaths) {
+    for (const { importPath, isTypeOnly, isReexport } of importPaths) {
       // Only resolve relative imports for TS/JS; all imports for other languages
       if ((lang === 'typescript' || lang === 'javascript') && !importPath.startsWith('.')) continue;
 
       const resolvedPath = await this.resolveImportPath(relativePath, importPath, rootDir);
-      if (resolvedPath) {
-        const targetId = `file:${resolvedPath}`;
-        edges.push({
-          from: fileId,
-          to: targetId,
-          type: 'imports',
-          // Import statement is AST-explicit, but the target file id comes
-          // from resolveImportPath — a resolver-derived link.
-          provenance: 'INFERRED',
-          metadata: { importType: isTypeOnly ? 'type-only' : 'static' },
-        });
-      }
+      if (!resolvedPath) continue;
+      const prior = byTarget.get(resolvedPath);
+      byTarget.set(resolvedPath, {
+        isTypeOnly: (prior?.isTypeOnly ?? true) && isTypeOnly,
+        isReexport: (prior?.isReexport ?? false) || isReexport === true,
+      });
+    }
+
+    for (const [resolvedPath, { isTypeOnly, isReexport }] of byTarget) {
+      edges.push({
+        from: fileId,
+        to: `file:${resolvedPath}`,
+        type: 'imports',
+        // Import statement is AST-explicit, but the target file id comes
+        // from resolveImportPath — a resolver-derived link.
+        provenance: 'INFERRED',
+        metadata: {
+          importType: isTypeOnly ? 'type-only' : 'static',
+          ...(isReexport ? { reexport: true } : {}),
+        },
+      });
     }
 
     return edges;
   }
 
-  private extractImportPaths(
-    content: string,
-    lang: string
-  ): Array<{ importPath: string; isTypeOnly: boolean }> {
-    const results: Array<{ importPath: string; isTypeOnly: boolean }> = [];
+  private extractImportPaths(content: string, lang: string): ImportPathRef[] {
+    const results: ImportPathRef[] = [];
 
     if (lang === 'typescript' || lang === 'javascript') {
       const importRegex = /import\s+(?:type\s+)?(?:\{[^}]*\}|[\w*]+)\s+from\s+['"]([^'"]+)['"]/g;
@@ -957,6 +996,7 @@ export class CodeIngestor {
           isTypeOnly: match[0]!.includes('import type'),
         });
       }
+      results.push(...extractReexportPaths(content));
     } else if (lang === 'python') {
       // from X import Y  or  import X
       const fromImport = /(?:from\s+([\w.]+)\s+import|import\s+([\w.]+))/g;
@@ -1085,15 +1125,24 @@ export class CodeIngestor {
   /**
    * Count the parameters of the declaration of `name` that starts on
    * `lines[lineIdx]`. The list opens at the first `(` after the name (so a Go
-   * receiver is not mistaken for it) and may span several lines.
+   * receiver is not mistaken for it) and may span several lines. For a Python
+   * method, a leading `self`/`cls` is the implicit receiver, not a parameter.
    */
-  private countParameters(lines: string[], lineIdx: number, name: string, lang: string): number {
+  private countParameters(
+    lines: string[],
+    lineIdx: number,
+    name: string,
+    lang: string,
+    isMethod = false
+  ): number {
     const line = lines[lineIdx]!;
     const nameAt = line.search(new RegExp(`\\b${name}\\b\\s*(?:<[^(]*>)?\\s*[(\\[]`));
     const openCol = line.indexOf('(', nameAt < 0 ? 0 : nameAt + name.length);
     if (openCol < 0) return 0;
     const params = captureParameterList(lines, lineIdx, openCol, lang);
-    return params === null ? 0 : countParameterList(params, lang);
+    if (params === null) return 0;
+    const count = countParameterList(params, lang);
+    return isMethod && lang === 'python' && PYTHON_RECEIVER.test(params) ? count - 1 : count;
   }
 
   private detectLanguage(filePath: string): string {

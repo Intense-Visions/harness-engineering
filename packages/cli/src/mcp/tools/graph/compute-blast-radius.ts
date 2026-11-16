@@ -1,6 +1,6 @@
 import { boundItems } from '@harness-engineering/core';
 import { loadGraphStore } from '../../utils/graph-loader.js';
-import { sanitizePath } from '../../utils/sanitize-path.js';
+import { resolveProjectRootArg } from '../../utils/sanitize-path.js';
 import { graphNotFoundError, resolveDetailCeiling } from './shared.js';
 
 export const computeBlastRadiusDefinition = {
@@ -10,7 +10,11 @@ export const computeBlastRadiusDefinition = {
   inputSchema: {
     type: 'object' as const,
     properties: {
-      path: { type: 'string', description: 'Path to project root' },
+      path: {
+        type: 'string',
+        description: 'Path to project root (defaults to the server working directory)',
+      },
+      projectPath: { type: 'string', description: 'Alias for path' },
       file: {
         type: 'string',
         description: 'File path (relative to project root) to simulate failure for',
@@ -31,12 +35,13 @@ export const computeBlastRadiusDefinition = {
           'Response density: compact returns summary + top 10 highest-risk nodes, detailed returns full layered cascade chain. Default: compact',
       },
     },
-    required: ['path'],
+    required: [],
   },
 };
 
 export async function handleComputeBlastRadius(input: {
-  path: string;
+  path?: string;
+  projectPath?: string;
   file?: string;
   nodeId?: string;
   probabilityFloor?: number;
@@ -56,7 +61,7 @@ export async function handleComputeBlastRadius(input: {
       };
     }
 
-    const projectPath = sanitizePath(input.path);
+    const projectPath = resolveProjectRootArg(input);
     const store = await loadGraphStore(projectPath);
     if (!store) return graphNotFoundError();
 

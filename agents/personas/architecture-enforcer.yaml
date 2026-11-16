@@ -12,7 +12,7 @@ commands:
 triggers:
   - event: on_pr
     conditions:
-      paths: ["src/**"]
+      paths: ["**/src/**"]
   - event: on_commit
     conditions:
       branches: ["main", "develop"]

@@ -24,6 +24,21 @@ export const networkRules: SecurityRule[] = [
     references: ['CWE-295'],
   },
   {
+    id: 'SEC-NET-004',
+    name: 'Disabled TLS Verification (Rust)',
+    category: 'network',
+    severity: 'warning',
+    confidence: 'high',
+    // reqwest / native-tls builder switches (#2375). The method names are the
+    // crates' own "danger" API, so a `(true)` argument is unambiguous.
+    patterns: [/\.danger_accept_invalid_(?:certs|hostnames)\s*\(\s*true\s*\)/],
+    fileGlob: '**/*.rs',
+    message: 'TLS certificate or hostname verification is disabled, enabling MITM attacks',
+    remediation:
+      'Remove danger_accept_invalid_certs(true) / danger_accept_invalid_hostnames(true); trust a custom CA with add_root_certificate instead',
+    references: ['CWE-295'],
+  },
+  {
     id: 'SEC-NET-003',
     name: 'Hardcoded HTTP URL',
     category: 'network',

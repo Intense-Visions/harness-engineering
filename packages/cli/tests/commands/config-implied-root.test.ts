@@ -180,7 +180,7 @@ describe('-c selects the project root, not just the config file (#911 class)', (
 
   /**
    * `check-deps` walks the project's module graph. Discriminator:
-   * `modulesAnalyzed` of exactly 4 — the deterministic module count for this
+   * `modulesAnalyzed` of exactly 2 — the deterministic module count for this
    * two-file / two-layer fixture. `packages/cli` analyses hundreds, so a
    * single-digit count can only come from the fixture.
    */
@@ -207,7 +207,9 @@ describe('-c selects the project root, not just the config file (#911 class)', (
         const result = await runCheckDeps({ configPath });
         expect(result.ok).toBe(true);
         if (!result.ok) return;
-        expect(result.value.modulesAnalyzed).toBe(4);
+        // Two source files. This used to read 4: the layer globs also match the
+        // `app/` and `lib/` directories, which were counted as modules (#2073).
+        expect(result.value.modulesAnalyzed).toBe(2);
         expect(result.value.layersConfigured).toBe(2);
       }
     );

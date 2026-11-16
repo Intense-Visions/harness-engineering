@@ -52,6 +52,7 @@
     "changeset": "changeset",
     "check:changesets": "BASE_REF=origin/main node scripts/check-changesets.mjs",
     "check:audit-exceptions": "node scripts/audit-exceptions.mjs",
+    "check:override-floors": "node scripts/override-floors.mjs",
     "version": "changeset version && node scripts/sync-plugin-pin.mjs",
     "release": "pnpm build && node scripts/release-publish.mjs",
     "prepare": "husky"
@@ -90,10 +91,10 @@
       "cpu-features"
     ],
     "overrides": {
-      "hono": ">=4.13.11",
+      "hono": ">=4.13.16",
       "zod": ">=4.6.6 <5",
       "@grpc/grpc-js": "^1.14.5",
-      "@hono/node-server": ">=2.1.3",
+      "@hono/node-server": ">=2.1.6",
       "postcss": ">=8.5.23",
       "basic-ftp": ">=5.3.1",
       "body-parser": ">=2.4.0",

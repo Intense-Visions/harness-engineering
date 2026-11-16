@@ -131,6 +131,13 @@ export class GraphComplexityAdapter {
     return undefined;
   }
 
+  /**
+   * Count the distinct commits that touched a file. GitIngestor records each
+   * touch as a `triggered_by` edge FROM the file TO the commit node (#2022).
+   * `triggered_by` is also used for build -> commit (CIConnector), so only
+   * edges whose target is a `commit` node count. Inbound `references` edges
+   * (diagrams, Slack, Figma) are documentation links, not churn.
+   */
   private getChangeFrequency(fileId: string, cache: Map<string, number>): number {
     let freq = cache.get(fileId);
     if (freq === undefined) {

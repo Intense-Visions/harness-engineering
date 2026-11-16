@@ -72,6 +72,7 @@ export type {
   FeatureStatus,
   Priority,
   RoadmapFeature,
+  RoadmapOptionalFieldKey,
   RoadmapMilestone,
   RoadmapGroup,
   AssignmentRecord,

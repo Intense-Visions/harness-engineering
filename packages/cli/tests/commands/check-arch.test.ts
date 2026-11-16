@@ -939,6 +939,70 @@ describe('check-arch: base-aware gating + allowances (PR context)', () => {
       fs.rmSync(tmpDir, { recursive: true, force: true });
     }
   });
+
+  // Issue #2474: a second `--update-baseline --reason` REPLACED the recorded reason, so the
+  // justification for violationIds the second run did not change was silently lost.
+  it('a second --reason preserves the first reason for the violationIds it did not change (#2474)', async () => {
+    const longFn = (name: string): string =>
+      `export function ${name}() {\n` +
+      Array.from({ length: 60 }, (_, i) => `  const _${i} = ${i};`).join('\n') +
+      `\n  return 0;\n}\n`;
+
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'check-arch-reasons-'));
+    execFileSync('git', ['init', '-b', 'main'], { cwd: tmpDir, stdio: 'ignore' });
+    execFileSync('git', ['config', 'user.email', 't@e.com'], { cwd: tmpDir, stdio: 'ignore' });
+    execFileSync('git', ['config', 'user.name', 'T'], { cwd: tmpDir, stdio: 'ignore' });
+    const configPath = path.join(tmpDir, 'harness.config.json');
+    fs.writeFileSync(configPath, JSON.stringify({ version: 1, architecture: { enabled: true } }));
+    fs.writeFileSync(path.join(tmpDir, 'code.ts'), 'export const x = 1;\n');
+    await runCheckArch({ cwd: tmpDir, configPath, updateBaseline: true });
+    execFileSync('git', ['add', '-A'], { cwd: tmpDir, stdio: 'ignore' });
+    execFileSync('git', ['commit', '-m', 'seed'], { cwd: tmpDir, stdio: 'ignore' });
+    execFileSync('git', ['checkout', '-b', 'feature'], { cwd: tmpDir, stdio: 'ignore' });
+
+    const prev = process.env.HARNESS_ARCH_BASE_REF;
+    process.env.HARNESS_ARCH_BASE_REF = 'main';
+    const allowanceFile = path.join(tmpDir, '.harness', 'arch', 'allowances', 'feature.json');
+    try {
+      fs.writeFileSync(path.join(tmpDir, 'foo.ts'), longFn('foo'));
+      const r1 = await runCheckArch({
+        cwd: tmpDir,
+        configPath,
+        updateBaseline: true,
+        reason: 'foo is a generated table',
+      });
+      expect(r1.ok).toBe(true);
+      const ids1: string[] = JSON.parse(fs.readFileSync(allowanceFile, 'utf-8')).violationIds;
+      expect(ids1.length).toBeGreaterThanOrEqual(1);
+
+      fs.writeFileSync(path.join(tmpDir, 'bar.ts'), longFn('bar'));
+      const r2 = await runCheckArch({
+        cwd: tmpDir,
+        configPath,
+        updateBaseline: true,
+        reason: 'bar mirrors an external protocol',
+      });
+      expect(r2.ok).toBe(true);
+      const allowance2 = JSON.parse(fs.readFileSync(allowanceFile, 'utf-8'));
+
+      // Neither justification is lost: the first survives alongside the second.
+      expect(allowance2.reason).toContain('foo is a generated table');
+      expect(allowance2.reason).toContain('bar mirrors an external protocol');
+      // Per-id: ids from run 1 keep run 1's reason; only the newly-added ids get run 2's.
+      for (const id of ids1) {
+        expect(allowance2.violationReasons[id]).toBe('foo is a generated table');
+      }
+      const added = (allowance2.violationIds as string[]).filter((id) => !ids1.includes(id));
+      expect(added.length).toBeGreaterThanOrEqual(1);
+      for (const id of added) {
+        expect(allowance2.violationReasons[id]).toBe('bar mirrors an external protocol');
+      }
+    } finally {
+      if (prev === undefined) delete process.env.HARNESS_ARCH_BASE_REF;
+      else process.env.HARNESS_ARCH_BASE_REF = prev;
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
 });
 
 // ---------------------------------------------------------------------------
