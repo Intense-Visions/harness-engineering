@@ -76,7 +76,7 @@ describe('POST /actions/refresh-checks', () => {
   it('broadcasts checks event via SSE manager', async () => {
     await app.request('/api/actions/refresh-checks', { method: 'POST' });
     expect(ctx.sseManager.broadcast).toHaveBeenCalledTimes(1);
-    const broadcastCall = (ctx.sseManager.broadcast as ReturnType<typeof vi.fn>).mock.calls[0][0];
+    const broadcastCall = (ctx.sseManager.broadcast as ReturnType<typeof vi.fn>).mock.calls[0]![0];
     expect(broadcastCall.type).toBe('checks');
   });
 

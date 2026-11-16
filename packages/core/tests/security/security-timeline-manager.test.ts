@@ -2,7 +2,12 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { SecurityTimelineManager } from '../../src/security/security-timeline-manager';
-import { securityFindingId, EMPTY_SUPPLY_CHAIN } from '../../src/security/security-timeline-types';
+import {
+  securityFindingId,
+  EMPTY_SUPPLY_CHAIN,
+  isSupplyChainMeasured,
+  UNMEASURED_SUPPLY_CHAIN_SCORE_CEILING,
+} from '../../src/security/security-timeline-types';
 import type { ScanResult, SecurityFinding } from '../../src/security/types';
 import type { SecurityTimelineFile } from '../../src/security/security-timeline-types';
 
@@ -150,8 +155,10 @@ describe('SecurityTimelineManager', () => {
   // --- computeSecurityScore() ---
 
   describe('computeSecurityScore()', () => {
-    it('returns 100 for zero findings', () => {
-      const snapshot = manager.capture(makeScanResult([]), 'clean');
+    const MEASURED_CLEAN = { ...EMPTY_SUPPLY_CHAIN, measured: true };
+
+    it('returns 100 for zero findings with a measured, clean supply chain', () => {
+      const snapshot = manager.capture(makeScanResult([]), 'clean', MEASURED_CLEAN);
       expect(snapshot.securityScore).toBe(100);
     });
 
@@ -166,7 +173,7 @@ describe('SecurityTimelineManager', () => {
         makeFinding({ severity: 'info', ruleId: 'r6', match: 'm6' }),
         makeFinding({ severity: 'info', ruleId: 'r7', match: 'm7' }),
       ];
-      const snapshot = manager.capture(makeScanResult(findings), 'scored');
+      const snapshot = manager.capture(makeScanResult(findings), 'scored', MEASURED_CLEAN);
       expect(snapshot.securityScore).toBe(92);
     });
 
@@ -190,7 +197,7 @@ describe('SecurityTimelineManager', () => {
   // --- captureSupplyChain() ---
 
   describe('captureSupplyChain()', () => {
-    it('returns zeroed snapshot when npm audit fails', () => {
+    it('returns an unmeasured zeroed snapshot when the audit cannot run', () => {
       // Use a non-existent directory to trigger failure
       const badManager = new SecurityTimelineManager('/tmp/nonexistent-dir-sec-timeline');
       const result = badManager.captureSupplyChain('/tmp/nonexistent-dir-sec-timeline');
@@ -648,7 +655,7 @@ describe('SecurityTimelineManager', () => {
     it('capture() with supply chain data', () => {
       const supply = { critical: 2, high: 1, moderate: 3, low: 0, info: 0, total: 6 };
       const snapshot = manager.capture(makeScanResult([]), 'sc', supply);
-      expect(snapshot.supplyChain).toEqual(supply);
+      expect(snapshot.supplyChain).toEqual({ ...supply, measured: true });
       // penalty: 2*5 + 1*3 + 3*1 = 16 → score 84
       expect(snapshot.securityScore).toBe(84);
     });
@@ -711,6 +718,135 @@ describe('SecurityTimelineManager', () => {
       const result = manager.computeTimeToFix();
       expect(result.overall.count).toBe(3);
       expect(result.overall.median).toBe(3); // sorted: [1, 3, 5], median = 3
+    });
+  });
+
+  // --- #2082: an unmeasured supply-chain dimension must not read as clean ---
+
+  describe('supply-chain measurement (#2082)', () => {
+    const PNPM_AUDIT_JSON = JSON.stringify({
+      actions: [],
+      advisories: {},
+      muted: [],
+      metadata: {
+        vulnerabilities: { info: 0, low: 2, moderate: 29, high: 28, critical: 0 },
+        dependencies: 1018,
+        devDependencies: 0,
+        optionalDependencies: 0,
+        totalDependencies: 1018,
+      },
+    });
+    const NPM_AUDIT_JSON = JSON.stringify({
+      auditReportVersion: 2,
+      vulnerabilities: {},
+      metadata: {
+        vulnerabilities: { info: 0, low: 0, moderate: 1, high: 1, critical: 0, total: 2 },
+      },
+    });
+    const NPM_ENOLOCK_JSON = JSON.stringify({
+      error: { code: 'ENOLOCK', summary: 'This command requires an existing lockfile.' },
+    });
+
+    it('records a snapshot built without supply-chain data as not measured', () => {
+      const snapshot = manager.capture(makeScanResult([]), 'no-sc');
+      expect(snapshot.supplyChain.measured).toBe(false);
+      expect(isSupplyChainMeasured(snapshot.supplyChain)).toBe(false);
+      // persisted with the flag
+      expect(manager.load().snapshots[0]!.supplyChain.measured).toBe(false);
+    });
+
+    it('does not credit an unmeasured supply chain as clean (no perfect score)', () => {
+      const snapshot = manager.capture(makeScanResult([]), 'no-sc');
+      expect(snapshot.securityScore).toBe(UNMEASURED_SUPPLY_CHAIN_SCORE_CEILING);
+      expect(snapshot.securityScore).toBeLessThan(100);
+    });
+
+    it('a measured, clean supply chain still scores 100', () => {
+      const snapshot = manager.capture(makeScanResult([]), 'sc-clean', {
+        ...EMPTY_SUPPLY_CHAIN,
+        measured: true,
+      });
+      expect(snapshot.supplyChain.measured).toBe(true);
+      expect(snapshot.securityScore).toBe(100);
+    });
+
+    it('records counts from a pnpm audit result the caller already computed', () => {
+      const supply = SecurityTimelineManager.supplyChainFromAuditJson(PNPM_AUDIT_JSON);
+      expect(supply).toEqual({
+        critical: 0,
+        high: 28,
+        moderate: 29,
+        low: 2,
+        info: 0,
+        total: 59, // pnpm writes no `total` key — derived from the buckets
+        measured: true,
+      });
+      const snapshot = manager.capture(makeScanResult([]), 'pnpm', supply);
+      expect(snapshot.supplyChain.total).toBe(59);
+      expect(snapshot.supplyChain.measured).toBe(true);
+      // 28*3 + 29*1 = 113 penalty → 0
+      expect(snapshot.securityScore).toBe(0);
+    });
+
+    it('records counts from an npm audit result', () => {
+      const supply = SecurityTimelineManager.supplyChainFromAuditJson(NPM_AUDIT_JSON);
+      expect(supply).toMatchObject({ high: 1, moderate: 1, total: 2, measured: true });
+    });
+
+    it('an audit error (npm ENOLOCK in a pnpm repo) is unmeasured, not zero findings', () => {
+      expect(SecurityTimelineManager.supplyChainFromAuditJson(NPM_ENOLOCK_JSON).measured).toBe(
+        false
+      );
+      expect(SecurityTimelineManager.supplyChainFromAuditJson('not json').measured).toBe(false);
+    });
+
+    it('captureSupplyChain() runs the audit matching the lockfile', () => {
+      fs.writeFileSync(path.join(root, 'pnpm-lock.yaml'), 'lockfileVersion: 9.0\n');
+      const commands: string[] = [];
+      const supply = manager.captureSupplyChain(root, (cmd) => {
+        commands.push(cmd);
+        return PNPM_AUDIT_JSON;
+      });
+      expect(commands).toEqual(['pnpm audit --json']);
+      expect(supply).toMatchObject({ high: 28, total: 59, measured: true });
+    });
+
+    it('captureSupplyChain() is unmeasured when no supported lockfile exists', () => {
+      let ran = false;
+      const supply = manager.captureSupplyChain(root, () => {
+        ran = true;
+        return NPM_AUDIT_JSON;
+      });
+      expect(ran).toBe(false);
+      expect(supply.measured).toBe(false);
+    });
+
+    it('legacy snapshots (no measured field) still load and read as unmeasured', () => {
+      const p = timelinePath(root);
+      fs.mkdirSync(path.dirname(p), { recursive: true });
+      fs.writeFileSync(
+        p,
+        JSON.stringify({
+          version: 1,
+          snapshots: [
+            {
+              capturedAt: new Date().toISOString(),
+              commitHash: 'legacy',
+              securityScore: 95,
+              totalFindings: 0,
+              bySeverity: { error: 0, warning: 0, info: 0 },
+              byCategory: {},
+              supplyChain: { critical: 0, high: 0, moderate: 0, low: 0, info: 0, total: 0 },
+              suppressionCount: 0,
+              findingIds: [],
+            },
+          ],
+          findingLifecycles: [],
+        })
+      );
+      const timeline = manager.load();
+      expect(timeline.snapshots).toHaveLength(1);
+      expect(isSupplyChainMeasured(timeline.snapshots[0]!.supplyChain)).toBe(false);
     });
   });
 });

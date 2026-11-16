@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/tests/security-craft'
-sourceHash: '4739e57ad952382538b7de51c6ab89c6750938607cc0da07096211719be8fb41'
+sourceHash: '2221854cb4b452e3f285df2c6f4772daa8ed3bc3de290dfecb2ad5feb371e9c8'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -12,6 +12,7 @@ members:
     'discover.test.ts',
     'in-session.test.ts',
     'integration.test.ts',
+    'issue-2234.test.ts',
     'signals-cov544.test.ts',
     'signals.test.ts',
   ]
