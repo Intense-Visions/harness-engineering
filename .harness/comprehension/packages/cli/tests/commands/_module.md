@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/tests/commands'
-sourceHash: '0715487b5f24acb6aba9a46960bd9769ee892a40a8a4fc2ae84281bde02d16e1'
+sourceHash: '1e2c616031a9c5cff12afcefc40bb978ae137557c801fec8e49e39bc5459e4c6'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -405,6 +405,7 @@ import { runComprehend, runComprehendCheck, runComprehendStats } from '../../src
 import { readComprehensionConfig, resolveComprehensionCiMode } from '../../src/comprehension/config'
 import { shouldRunComprehendHook } from '../../src/comprehension/hook'
 import { committedSemanticAllowed } from '../../src/comprehension/policy'
+import { pruneOrphanUnits } from '../../src/comprehension/prune'
 import { explainInactiveRefreshGate, resolveRefreshJobGate } from '../../src/comprehension/refresh-gate'
 import { detectCommittedSemanticOnBranch, detectSemanticRegressions, readSemanticMapAtRef } from '../../src/comprehension/regression'
 import { withDependencyRules } from '../../src/config/arch-dependency-rules'

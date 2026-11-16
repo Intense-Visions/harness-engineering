@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/commands'
-sourceHash: '788890da69269718aa77e5461138a22a268da1eb412350b4244cb019719bb94d'
+sourceHash: 'c88b2deebbc3f9517d5fb9615f656e77466e23195fccf26830a926731941aa40'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -435,6 +435,7 @@ import { maybeCreateGenerateSemantic } from '../comprehension/generate-semantic'
 import { shouldRunComprehendHook } from '../comprehension/hook'
 import { enumerateModules, filesToModules } from '../comprehension/invalidation'
 import { committedSemanticAllowed } from '../comprehension/policy'
+import { pruneOrphanUnits } from '../comprehension/prune'
 import { RefreshJobGateReason, explainInactiveRefreshGate, resolveRefreshJobGate } from '../comprehension/refresh-gate'
 import { RefReadDeps, RegressionContext, SemanticState, defaultRefReadDeps, detectCommittedSemanticOnBranch, detectSemanticRegressions, readSemanticMapAtRef } from '../comprehension/regression'
 import { assessSemanticCoverage, formatSemanticCoverage } from '../comprehension/semantic-coverage'
