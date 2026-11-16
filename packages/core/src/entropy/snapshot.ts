@@ -21,9 +21,15 @@ import { createEntropyError } from '../shared/errors';
 import { readFileContent, findFiles, relativePosix } from '../shared/fs-utils';
 import { buildDependencyGraphFromParsed } from '../constraints/dependencies';
 import { resolve } from 'path';
-import { minimatch } from 'minimatch';
 import { resolveEntryPoints } from './entry-points';
 import { loadPathAliases } from './path-aliases';
+import {
+  entryDirWaivers,
+  discoverWaivedFiles,
+  discoverWaivedTestFiles,
+  isExcludedPath,
+  isExcludedTestImportSource,
+} from './entry-dir-waiver';
 
 export { resolveEntryPoints };
 
@@ -428,17 +434,21 @@ export async function buildSnapshot(
   const includePatterns = config.include || DEFAULT_INCLUDE_PATTERNS;
   const excludePatterns = config.exclude || [...skipDirGlobs(), '**/*.test.ts', '**/*.spec.ts'];
 
+  // A directory holding a configured entry point is first-party source even
+  // when its name is a skip-dir (`src/bin/`) — see `entry-dir-waiver.ts` (#2075).
+  const waivers = entryDirWaivers(rootDir, configuredEntries ? entryPoints : [], excludePatterns);
+
   const allMatchedPaths: string[] = [];
   for (const pattern of includePatterns) {
     const files = await findFiles(pattern, rootDir);
     allMatchedPaths.push(...files);
   }
+  allMatchedPaths.push(...(await discoverWaivedFiles(rootDir, waivers, includePatterns)));
 
   // Filter out excluded
-  const sourceFilePaths = allMatchedPaths.filter((f) => {
-    const rel = relativePosix(rootDir, f);
-    return !excludePatterns.some((p) => minimatch(rel, p));
-  });
+  const sourceFilePaths = allMatchedPaths.filter(
+    (f) => !isExcludedPath(relativePosix(rootDir, f), excludePatterns, waivers)
+  );
 
   // Harvest import edges from test files. Test files are intentionally left out
   // of `sourceFilePaths` (so no detector classifies test code), but an export
@@ -451,10 +461,13 @@ export async function buildSnapshot(
   const nonTestExcludes = excludePatterns.filter(
     (p) => !p.includes('.test.') && !p.includes('.spec.')
   );
-  const testFilePaths = [...new Set(allMatchedPaths)].filter((f) => {
+  const waivedTestPaths = await discoverWaivedTestFiles(rootDir, waivers, includePatterns, (rel) =>
+    TEST_FILE_RE.test(rel)
+  );
+  const testFilePaths = [...new Set([...allMatchedPaths, ...waivedTestPaths])].filter((f) => {
     if (sourceFileSet.has(f)) return false;
     const rel = relativePosix(rootDir, f);
-    return TEST_FILE_RE.test(rel) && !nonTestExcludes.some((p) => minimatch(rel, p));
+    return TEST_FILE_RE.test(rel) && !isExcludedTestImportSource(rel, nonTestExcludes, waivers);
   });
 
   // Parse source files. Fails closed when the parser cannot run at all (#2267).

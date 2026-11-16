@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import http from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { mkdtempSync, rmSync, mkdirSync } from 'node:fs';
@@ -128,13 +128,16 @@ describe('webhooks end-to-end: subscribe → event → signed POST → HMAC veri
     // 2. Emit the event on the orchestrator's bus (using the `:` legacy form;
     //    wireWebhookFanout normalizes to `maintenance.completed` for matching).
     orchestrator.emit('maintenance:completed', { id: 'task_a', status: 'ok' });
-    // 3. Wait for delivery to land on the receiver. Poll up to ~2s so a
-    //    coverage-instrumented run (heavier than the dev path) does not flake
-    //    on a fixed 150ms wait.
-    for (let i = 0; i < 40; i++) {
-      if (received.length >= 1) break;
-      await new Promise((r) => setTimeout(r, 50));
-    }
+    // 3. Wait for delivery to land on the receiver. Poll rather than sleep: a
+    //    fixed 150ms wait flaked under coverage, and the later ~2s poll cap was
+    //    still a budget a loaded pre-push runner could exceed (#2227). The
+    //    timeout only bounds a genuine hang.
+    await vi.waitFor(
+      () => {
+        if (received.length < 1) throw new Error('no delivery received yet');
+      },
+      { timeout: 10_000, interval: 20 }
+    );
     expect(received).toHaveLength(1);
     const r = received[0]!;
     expect(r.headers['x-harness-event-type']).toBe('maintenance.completed');

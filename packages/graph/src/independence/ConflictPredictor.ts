@@ -113,7 +113,11 @@ export class ConflictPredictor {
       couplingMap.set(fileData.file, fileData.fanIn + fileData.fanOut);
     }
 
-    const churnThreshold = this.computePercentile(Array.from(churnMap.values()), 80);
+    // No git history ingested => churn was not measured; never call a file
+    // "high-churn" on all-zero data (#2022).
+    const churnThreshold = complexityResult.changeFrequencyMeasured
+      ? this.computePercentile(Array.from(churnMap.values()), 80)
+      : Infinity;
     const couplingThreshold = this.computePercentile(Array.from(couplingMap.values()), 80);
     return { churnMap, couplingMap, churnThreshold, couplingThreshold };
   }
@@ -178,7 +182,12 @@ export class ConflictPredictor {
     const coupling = couplingMap.get(overlap.file);
     const via = overlap.via ?? 'unknown';
 
-    if (churn !== undefined && churn >= churnThreshold && churnThreshold !== Infinity) {
+    if (
+      churn !== undefined &&
+      churn > 0 &&
+      churn >= churnThreshold &&
+      churnThreshold !== Infinity
+    ) {
       return {
         severity: 'medium',
         reason: `Transitive overlap on high-churn file ${overlap.file} (via ${via})`,

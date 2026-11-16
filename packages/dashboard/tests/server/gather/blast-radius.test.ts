@@ -69,8 +69,8 @@ describe('gatherBlastRadius', () => {
     expect(result.sourceNodeId).toBe('n1');
     expect(result.sourceName).toBe('core-utils.ts');
     expect(result.layers).toHaveLength(1);
-    expect(result.layers[0].depth).toBe(1);
-    expect(result.layers[0].nodes[0]).toEqual({
+    expect(result.layers[0]!.depth).toBe(1);
+    expect(result.layers[0]!.nodes[0]).toEqual({
       nodeId: 'n2',
       name: 'service.ts',
       type: 'file',
