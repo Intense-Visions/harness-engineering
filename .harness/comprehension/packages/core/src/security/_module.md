@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/src/security'
-sourceHash: 'b9b0b5829beac01ebe6eda9433d7572dce4a92c0995ebee1f60ce9bf89e645e7'
+sourceHash: '3631e60790ef7472cb3d7e96762fc42e0fd8481806c48ff4fc1c7d4b716b76c0'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -93,12 +93,14 @@ export cryptoRules
 export deserializationRules
 export detectStack
 export expressRules
+export findFencedCodeLines
 export getInjectionPatterns
 export getTaintFilePath
 export goRules
 export injectionRules
 export insecureDefaultsRules
 export isDuplicateFinding
+export isMarkdownPath
 export listTaintedSessions
 export mapInjectionFindings
 export mapSecurityFindings
@@ -106,6 +108,7 @@ export mapSecuritySeverity
 export mcpRules
 export networkRules
 export nodeRules
+export normalizeMarkdownTableRow
 export parseHarnessIgnore
 export parseSecurityConfig
 export pathTraversalRules
@@ -116,6 +119,7 @@ export scanForInjection
 export secretRules
 export securityFindingId
 export sharpEdgesRules
+export suppressMarkdownStructureFindings
 export writeTaint
 export xssRules
 ```
@@ -125,7 +129,7 @@ export xssRules
 ```
 import { resolveRuleSeverity } from './config'
 import { parseHarnessIgnore } from './harness-ignore'
-import { InjectionFinding } from './injection-patterns'
+import { InjectionFinding, getInjectionPatterns } from './injection-patterns'
 import { agentConfigRules } from './rules/agent-config'
 import { cryptoRules } from './rules/crypto'
 import { deserializationRules } from './rules/deserialization'
