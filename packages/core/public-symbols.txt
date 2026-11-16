@@ -503,6 +503,8 @@ DeploymentGateConfig
 DeploymentGateResult
 DeploymentSeverity
 DeploymentSurface
+DepsFallbackBehavior
+DepsSettings
 DepthCalibration
 DescriptionCost
 DetectStaleResult
@@ -2143,6 +2145,7 @@ resolveConsent
 resolveConstraintPacks
 resolveContextBudget
 resolveContextBudgetThresholds
+resolveDepsSettings
 resolveDuplicationConfig
 resolveExcludePatterns
 resolveFileToLayer
@@ -2255,6 +2258,7 @@ syncToExternal
 tagUncitedFindings
 toClumpView
 toClumpableFinding
+toLayerConfig
 topSkills
 touchStream
 trackAction
