@@ -332,7 +332,58 @@ function isJsxCapable(relPath: string): boolean {
 }
 
 /**
- * Default exclusions: tests, fixtures, generated files, and build output.
+ * Dependency pre-bundles and build caches that front-end tooling writes INTO
+ * the project tree: generated output nobody refactors, so every clone class
+ * composed of it is a false positive for every adopter.
+ *
+ * Measured, not hypothesised: `docs/.vitepress/cache/deps_temp_*` in this
+ * repository is a Vite dependency pre-bundle (`@vueuse/core`, 1,509 units over
+ * 61,904 tokens in one file) that composed 2 of 98 reported classes (spec open
+ * question 2, roadmap `duplication-vendored-build-cache-glob`). The real files
+ * carry no generated-file marker, so a path glob is the only available signal.
+ *
+ * Generalized beyond vitepress, but deliberately narrow — each entry is a
+ * directory a tool documents as its own cache or build output, never a name a
+ * person would pick for source:
+ *
+ * - `.vitepress/cache` — VitePress pre-bundles (`deps/`, `deps_temp_*`). Only
+ *   the `cache` subtree: `.vitepress/config.*` and `.vitepress/theme/` are
+ *   first-party and stay scanned.
+ * - `.vite` — Vite's `cacheDir` when configured into the project root (the
+ *   default, `node_modules/.vite`, is already under `node_modules`).
+ * - `.next` — Next.js build output and cache.
+ * - `.nuxt`, `.output` — Nuxt's build dir and Nitro's server output.
+ * - `.svelte-kit` — SvelteKit's generated dir.
+ * - `.turbo` — Turborepo's local cache.
+ * - `.parcel-cache` — Parcel's cache.
+ * - `.cache` — webpack / Babel / Gatsby persistent caches when configured
+ *   outside `node_modules` (webpack's default, `node_modules/.cache`, is
+ *   already covered).
+ * - `.angular/cache` — the Angular CLI cache (which itself holds Vite deps).
+ *
+ * The first-party scanners already skip most of these names while walking
+ * (graph's `DEFAULT_SKIP_DIRS`), but that list keys on whole segment names, so
+ * it misses `deps_temp_*`, and it does not reach a caller that hands
+ * {@link buildCloneIndex} its own file list. These globs make the detector's
+ * own defaults carry the protection. Every entry is a leading-dot directory,
+ * which is why matching uses `dot: true` (see {@link isEligibleFile}).
+ */
+const VENDORED_BUILD_CACHE_PATTERNS = [
+  '**/.vitepress/cache/**',
+  '**/.vite/**',
+  '**/.next/**',
+  '**/.nuxt/**',
+  '**/.output/**',
+  '**/.svelte-kit/**',
+  '**/.turbo/**',
+  '**/.parcel-cache/**',
+  '**/.cache/**',
+  '**/.angular/cache/**',
+] as const;
+
+/**
+ * Default exclusions: tests, fixtures, generated files, build output, and
+ * vendored build caches ({@link VENDORED_BUILD_CACHE_PATTERNS}).
  *
  * `index.*` is deliberately NOT excluded. An earlier revision ignored it as a
  * "barrel", which was wrong twice over: a true barrel is pure re-exports, so it
@@ -375,6 +426,7 @@ const DEFAULT_IGNORE_PATTERNS = Object.freeze([
   '**/dist/**',
   '**/build/**',
   '**/coverage/**',
+  ...VENDORED_BUILD_CACHE_PATTERNS,
 ]) as readonly string[];
 
 /**
