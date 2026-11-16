@@ -21,6 +21,29 @@ export interface GraphComplexityResult {
   readonly changeFrequencyMeasured: boolean;
 }
 
+/**
+ * Whether the graph holds any ingested git history (`commit` nodes). When it
+ * does not, every per-file change frequency is "not measured", not "no churn".
+ */
+export function hasIngestedCommits(store: GraphStore): boolean {
+  return store.findNodes({ type: 'commit' }).length > 0;
+}
+
+/**
+ * Count the distinct commits that touched a file. GitIngestor records each
+ * touch as a `triggered_by` edge FROM the file TO the commit node (#2022).
+ * `triggered_by` is also used for build -> commit (CIConnector), so only
+ * edges whose target is a `commit` node count. Inbound `references` edges
+ * (diagrams, Slack, Figma) are documentation links, not churn.
+ */
+export function countFileCommits(store: GraphStore, fileId: string): number {
+  const commits = new Set<string>();
+  for (const edge of store.getEdges({ from: fileId, type: 'triggered_by' })) {
+    if (store.getNode(edge.to)?.type === 'commit') commits.add(edge.to);
+  }
+  return commits.size;
+}
+
 export class GraphComplexityAdapter {
   constructor(private readonly store: GraphStore) {}
 
@@ -40,7 +63,7 @@ export class GraphComplexityAdapter {
       ...this.store.findNodes({ type: 'method' }),
     ];
 
-    const changeFrequencyMeasured = this.store.findNodes({ type: 'commit' }).length > 0;
+    const changeFrequencyMeasured = hasIngestedCommits(this.store);
 
     if (functionNodes.length === 0) {
       return { hotspots: [], percentile95Score: 0, changeFrequencyMeasured };
@@ -118,11 +141,7 @@ export class GraphComplexityAdapter {
   private getChangeFrequency(fileId: string, cache: Map<string, number>): number {
     let freq = cache.get(fileId);
     if (freq === undefined) {
-      const commits = new Set<string>();
-      for (const edge of this.store.getEdges({ from: fileId, type: 'triggered_by' })) {
-        if (this.store.getNode(edge.to)?.type === 'commit') commits.add(edge.to);
-      }
-      freq = commits.size;
+      freq = countFileCommits(this.store, fileId);
       cache.set(fileId, freq);
     }
     return freq;
