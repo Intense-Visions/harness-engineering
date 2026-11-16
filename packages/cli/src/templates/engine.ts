@@ -5,6 +5,7 @@ import type { Result } from '@harness-engineering/core';
 import { Ok, Err } from '@harness-engineering/core';
 import { TemplateMetadataSchema, type TemplateMetadata } from './schema';
 import { deepMergeJson, mergePackageJson } from './merger';
+import { CLI_VERSION } from '../version';
 
 export interface TemplateContext {
   projectName: string;
@@ -21,6 +22,13 @@ export interface TemplateContext {
   runner?: string;
   blockOn?: string;
   baseBranch?: string;
+  /**
+   * The `@harness-engineering/cli` version scaffolded package.json files pin
+   * (`^{{harnessCliVersion}}`). Defaults to the running CLI's own version so a
+   * fresh scaffold installs the CLI that created it (#2630); tests pass a fixed
+   * value to keep snapshots release-independent.
+   */
+  harnessCliVersion?: string;
 }
 
 interface TemplateFile {
@@ -136,6 +144,7 @@ function scoreDetectPatterns(
 function applyLanguageDefaults(context: TemplateContext): TemplateContext {
   return {
     ...context,
+    ...(context.harnessCliVersion === undefined && { harnessCliVersion: CLI_VERSION }),
     ...(context.language === 'python' &&
       context.pythonMinVersion === undefined && { pythonMinVersion: '3.10' }),
     ...(context.language === 'go' &&
