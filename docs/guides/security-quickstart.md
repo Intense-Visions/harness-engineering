@@ -110,13 +110,14 @@ This builds a structural graph from your code, git history, and documentation. I
 
 ### Mechanical Scanning
 
-| Tool                                         | What It Does                                      | When to Use                                 |
-| -------------------------------------------- | ------------------------------------------------- | ------------------------------------------- |
-| `harness check-security`                     | Pattern-based detection across 11 rule categories | CI gates, local scans, scheduled sweeps     |
-| `harness check-security --changed-only`      | Scans only changed files                          | Pre-push hook, fast CI feedback             |
-| `harness check-security --severity critical` | Filters by severity threshold                     | Triaging -- show only what matters now      |
-| `harness check-security --json`              | Machine-readable output                           | CI integration, dashboards, reporting       |
-| `run_security_scan` (MCP tool)               | Programmatic scanning from AI agents              | Agent-driven workflows, automated pipelines |
+| Tool                                         | What It Does                                               | When to Use                                                                         |
+| -------------------------------------------- | ---------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| `harness check-security`                     | Pattern-based detection across 11 rule categories          | CI gates, local scans, scheduled sweeps                                             |
+| `harness check-security --changed-only`      | Scans only changed files                                   | Pre-push hook, fast CI feedback                                                     |
+| `harness check-security --severity critical` | Filters by severity threshold                              | Triaging -- show only what matters now                                              |
+| `harness check-security --json`              | Machine-readable output                                    | CI integration, dashboards, reporting                                               |
+| `harness check-security --record`            | Also appends the scan to `.harness/security/timeline.json` | Deliberate ledger updates (off by default; a plain scan never writes tracked state) |
+| `run_security_scan` (MCP tool)               | Programmatic scanning from AI agents                       | Agent-driven workflows, automated pipelines                                         |
 
 ### AI-Powered Review
 

@@ -22,8 +22,10 @@ const TURBO_LINT: LintCommand = { command: 'npx', args: ['turbo', 'run', 'lint',
  * without a standalone runner fall back to `turbo run lint`.
  *
  * The raw config JSON is read directly because `HarnessConfigSchema` declares
- * `tooling` only under `template`, so `loadConfig` strips the top-level
- * `tooling` block that `harness init` actually writes.
+ * `tooling` only under `template`, so `loadConfig` strips a top-level
+ * `tooling` block — which `harness init` wrote for every project scaffolded
+ * before #2475 (it now writes `template.tooling`). Both locations are honored
+ * so those existing projects keep their linter.
  */
 export function resolveLintCommand(projectPath: string): LintCommand {
   let linter: string | undefined;

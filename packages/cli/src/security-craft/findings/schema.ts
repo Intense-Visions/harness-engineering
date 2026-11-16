@@ -59,11 +59,27 @@ export interface SecurityCraftSummary {
   llmCalls: { provider: string; model: string; count: number; costUsd: number };
   catalog: { rubricsApplied: string[] };
   counts: {
+    /**
+     * Files the run had to examine (discovered, or passed as `files`) before
+     * the maxFiles cap. The denominator: 0 here means nothing was looked at,
+     * which is an abstention, not a clean pass (#2234).
+     */
+    candidateFiles: number;
     filesScanned: number;
     filesSkippedNoSignal: number;
     signalsDetected: number;
   };
+  /**
+   * Present only when the run abstained: it examined no file, so its empty
+   * `findings` says nothing about the code. Absent on every run that looked.
+   */
+  abstention?: SecurityCraftAbstention;
   runId: string;
+}
+
+export interface SecurityCraftAbstention {
+  reason: 'no-candidate-files';
+  message: string;
 }
 
 export interface SecurityCraftOutput {

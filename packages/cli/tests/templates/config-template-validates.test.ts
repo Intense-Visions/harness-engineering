@@ -40,36 +40,6 @@ function render(source: string): string {
   );
 }
 
-/**
- * Keys these templates ship today that the schema drops, recorded rather than
- * fixed here.
- *
- * THIS IS A PRE-EXISTING DEFECT THIS GATE FOUND, not an exemption it grants.
- * All four language-base templates declare a ROOT-LEVEL `tooling` block
- * (`packageManager` / `linter` / `formatter` / `buildTool` / `testRunner`).
- * The schema's key for exactly that shape is `template.tooling`
- * (`config/schema.ts:1340`, documented in `docs/reference/configuration.md`
- * §ToolingConfig Object), so this is a MIS-NESTING — the precise defect class
- * the stripped-key warner was built for in issue #862 — and the templates
- * themselves ship it. Every project scaffolded from one prints
- * `ignored unknown key 'tooling'` on its first `harness` command, and the
- * toolchain it declares is read by nothing.
- *
- * Moving it under `template` is a one-line fix per template, and it is a
- * decision about the language-base templates rather than about clumping, so it
- * is NAMED here and left to be made deliberately instead of being quietly
- * folded into an unrelated phase.
- *
- * Listed per template and per key so the baseline cannot grow silently: a new
- * dropped key, or the same key in a new template, still fails.
- */
-const KNOWN_DROPPED: Record<string, readonly string[]> = {
-  'go-base': ['tooling'],
-  'java-base': ['tooling'],
-  'python-base': ['tooling'],
-  'rust-base': ['tooling'],
-};
-
 const configTemplates = fs
   .readdirSync(TEMPLATES_DIR)
   .filter((d) => fs.statSync(path.join(TEMPLATES_DIR, d)).isDirectory())
@@ -106,7 +76,12 @@ describe('adopter config templates validate', () => {
       // setting the adopter never typed.
       const parsed = JSON.parse(render(fs.readFileSync(file, 'utf-8')));
       const dropped = collectStrippedKeys(HarnessConfigSchema, parsed).map((d) => d.path);
-      expect(dropped.filter((k) => !KNOWN_DROPPED[name]?.includes(k))).toEqual([]);
+      //
+      // Issue #2475 was this exact defect: all four language-base templates
+      // shipped a root-level `tooling` block (schema key: `template.tooling`).
+      // It was recorded in a per-template baseline here until fixed; the
+      // baseline is gone, so any dropped key in any template now fails.
+      expect(dropped).toEqual([]);
     });
   }
 
@@ -124,19 +99,6 @@ describe('adopter config templates validate', () => {
     expect(
       collectStrippedKeys(HarnessConfigSchema, { version: 1, clumping: { maxPerClamp: 9 } })
     ).not.toEqual([]);
-  });
-
-  it('the recorded baseline is REAL — each named template really does drop that key today', () => {
-    // A baseline nobody checks rots into an exemption. If `tooling` is given a
-    // schema key or deleted from a template, this fails and the entry must go.
-    for (const [name, keys] of Object.entries(KNOWN_DROPPED)) {
-      const file = path.join(TEMPLATES_DIR, name, 'harness.config.json.hbs');
-      const parsed = JSON.parse(render(fs.readFileSync(file, 'utf-8')));
-      const dropped = collectStrippedKeys(HarnessConfigSchema, parsed).map((d) => d.path);
-      expect(dropped.sort(), `${name} no longer drops ${keys.join(', ')}`).toEqual(
-        [...keys].sort()
-      );
-    }
   });
 });
 

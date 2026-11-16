@@ -147,14 +147,14 @@ function printJsonResult(result: KnowledgePipelineResult): void {
 }
 
 /**
- * True when this looks like a first run: an empty baseline, or purely-new
- * findings with nothing stale/drifted/contradicting. Drives the drift-score
- * label so a ~1.0 score is not misread as "everything drifted" (#1110, #1335).
+ * True only when the run actually had no prior graph state (an empty
+ * pre-extraction baseline). Drives the drift-score label so a ~1.0 score is not
+ * misread as "everything drifted" (#1110, #1335). "Every finding is new" is NOT
+ * the same claim — a populated baseline can still yield all-new findings, and
+ * labelling that a first run misreports whether a baseline exists (#2237).
  */
 function isFirstRun(result: KnowledgePipelineResult): boolean {
-  const f = result.findings;
-  if (result.baselineEmpty) return true;
-  return f.new > 0 && f.stale === 0 && f.drifted === 0 && f.contradicting === 0;
+  return result.baselineEmpty;
 }
 
 /** Colorized verdict badge for the summary header. */

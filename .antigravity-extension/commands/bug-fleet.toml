@@ -128,7 +128,7 @@ Phase 1: SELECT --> Phase 2: CONFIRM --> Phase 3: DISPATCH
 
 **The lane unit is a CLUMP, not a lone defect.** An area still bounds the HUNT, but what leaves DISPATCH as a work unit is a CLUMP: like reproduced defects of one kind over one coherent scope become one fix PR rather than N. Run `harness fleet clump-dispatch --input <run.json>` over the confirmed clump set: it emits one PR plan per clump and refuses an input that carries no `clumps` block (exit 14) rather than quietly planning nothing. Each lane then honors the **one-PR-per-clump contract** — one branch, one PR, **one commit per member**, the title naming the clump and the body listing every member with its citation. Commit-per-member is not bookkeeping: it is what makes VERIFY's drop a one-commit revert instead of a re-run of the whole lane, which is the only thing that keeps bundling N defects from making one bad defect N times as expensive as it is today. A clump of one is just a defect, and runs exactly as it always did. See `docs/reference/fleet-family.md` §The clumping floor and ADR 0135.
 
-One worktree-isolated subagent per confirmed area, each running the **real** per-area hunt pipeline for its one area. It does not hand-reason its way to a conclusion and it does not short-cut the pipeline — the session artifacts the pipeline necessarily leaves behind are what VERIFY checks for.
+One worktree-isolated subagent per confirmed area, each running the **real** per-area hunt pipeline for its one area. It does not hand-reason its way to a conclusion and it does not short-cut the pipeline — the artifacts the pipeline necessarily leaves behind — `harness-tdd`'s committed reproducing test and, for fix items, `harness-debugging`'s session file — are what VERIFY checks for.
 
 1. **HUNT — run the real review machinery over the area's standing code.** The adversarial reviewer constructing failure scenarios, plus the security, typescript-strict, and frontend-races reviewers, honoring **their own activation set** — a non-UI area runs three reviewers, not four. Because that machinery is diff-shaped, four adaptations are explicit rather than assumed:
    - **Whole-area scope.** The area's standing code is presented as a whole-area scope — mechanically, the area diffed against the empty tree — so every line is in scope rather than only recently-changed lines. Deep tier is therefore **expected, not exceptional**.
@@ -138,7 +138,7 @@ One worktree-isolated subagent per confirmed area, each running the **real** per
 
 2. **REFUTE — actively try to prove the candidate cannot occur.** For each candidate the hunt surfaced, run an adversarial pass whose goal is **disproof**: the input is guarded upstream, the branch is unreachable, the type system prevents it, an existing test already covers it. This removes the plausible-but-impossible class **before** the expensive reproduction attempt, which is the whole reason it earns its place in the pipeline. Every refuted candidate is **recorded with its refutation reason** so a human can spot-check what was dropped — a silent refutation step is indistinguishable from a lazy one.
 
-3. **REPRODUCE — the real `harness-tdd` authors a test that must fail observably and deterministically against unmodified code.** Run it **three times** at the pinned base SHA and require a **consistent red result**. A repro that is red only sometimes is **nondeterministic and discarded**: a test that fails by chance satisfies red-on-base by chance, and proves nothing about the defect. A candidate that survives refutation but cannot be reproduced within the confirmed attempt budget (default 2) is **discarded here — it never reaches VERIFY and is never filed**. It is reported as discarded, with its attempts, in the batch summary.
+3. **REPRODUCE — the real `harness-tdd` authors a test that must fail observably and deterministically against unmodified code.** Run it **three times** at the pinned base SHA and require a **consistent red result**. A repro that is red only sometimes is **nondeterministic and discarded**: a test that fails by chance satisfies red-on-base by chance, and proves nothing about the defect. A candidate that survives refutation but cannot be reproduced within the confirmed attempt budget (default 2) is **discarded here — it never reaches VERIFY and is never filed**. It is reported as discarded, with its attempts, in the batch summary. `harness-tdd` persists no session state (`state.persistent: false`); what it leaves behind is its committed RED cycle — so the reproducing test lands as its **own commit** (the **reproducing-test commit**), before any fix commit, and the worker records that commit, the test path, and the observed RED output in its handoff `evidence[]`.
 
 4. **CROSS-CHECK — is this already tracked or already fixed?** Check the reproduced defect against open issues and recently-merged fix PRs. An already-tracked or already-fixed defect is annotated **already-known** and dropped **citing the resolving issue or PR** — never re-filed. The fleet's whole value proposition is signal quality, and a duplicate-heavy filer is a spammer by another route.
 
@@ -149,7 +149,7 @@ One worktree-isolated subagent per confirmed area, each running the **real** per
 
    Severity does not enter the classification. A catastrophic bug with a one-line, area-local fix is `bounded-safe`; a cosmetic bug whose fix rewrites a shared contract is `risky-large`. Tiering on fix risk keeps the boundary mechanical instead of a judgment call about how bad a defect feels.
 
-6. **FIX — bounded-safe only, via the real `harness-debugging`.** The subagent drives the actual debugging pipeline; it does not hand-patch. One PR per verified bug, so each is independently reviewable and independently revertible. `risky-large` and `security-routed` items are **never fixed here** — their reproducing test is pushed and the item is handed on for FILE-AND-REPORT to route.
+6. **FIX — bounded-safe only, via the real `harness-debugging`.** The subagent drives the actual debugging pipeline; it does not hand-patch. One PR per verified bug, so each is independently reviewable and independently revertible. `risky-large` and `security-routed` items are **never fixed here** — their reproducing test is pushed and the item is handed on for FILE-AND-REPORT to route. `harness-debugging` keeps its session at `.harness/debug/active/<session-id>.md` and moves it to `.harness/debug/resolved/<session-id>.md` on resolution, with a `Regression test:` line naming the test it fixed against. That directory is gitignored and never reaches the PR, so the worker cites the session path in `evidence[]` and its worktree is **kept until VERIFY has read it**.
 
 7. **Cap concurrency at the governor (default 2, max ~3)** and at the confirmed candidates-per-area cap. This is the machine-storm limit: beyond roughly three concurrent hunt agents the compound load produces flaky failures indistinguishable from real ones — and in a fleet whose entire bar is determinism, manufactured flakiness is uniquely corrosive. Never raise the cap to "go faster."
 
@@ -170,7 +170,7 @@ Candidate {
   reproduction,         // "reproduced" + test path | "unreproduced" + attempts | "nondeterministic"
   crossCheck,           // "novel" | "already-known" + resolving issue/PR
   fixClass,             // "bounded-safe" | "risky-large" | "security-routed"
-  provenance,           // session paths for the tdd / debugging runs
+  provenance,           // reproducing-test commit (tdd) + .harness/debug/ session path (debugging, fix items)
 }
 ```
 
@@ -182,7 +182,10 @@ Candidate {
 
 1. **Why two artifacts and not one.** The family invariant requires proof the **real per-item pipeline ran**. The Iron Law additionally requires proof the **bug is real**. Neither artifact does both jobs: a hand-written test plus a hand-applied patch would sail through a repro check while proving no pipeline ran, and a genuine pipeline run proves nothing about whether the defect it chased exists. VERIFY therefore checks both, independently, for every item. **Never accept a subagent's self-report** — "reproduced it, fixed it, CI green" is a claim to be checked, not a result.
 
-2. **Provenance — the pipeline actually ran.** Confirm the `harness-tdd` session state (and, for fix items, the `harness-debugging` session state) the per-area pipeline necessarily leaves behind under `.harness/sessions/<slug>/`. **Absent provenance = the pipeline did not run = rejected**, regardless of how good the test looks.
+2. **Provenance — the pipeline actually ran.** Check the artifacts the composed skills actually leave behind, never a location neither of them writes:
+   - **`harness-tdd` (every item).** `harness-tdd` persists no session state; its durable artifact is its committed RED cycle. Confirm the item's branch (the fix branch, or the `repro/<slug>` branch for a file-only item) carries the **reproducing-test commit** (the test file(s) committed on their own) and, on a fix branch, that it **precedes** every fix commit. Confirm the worker's `FleetHandoffRecord` `evidence[]` has a `reproducing-test` entry naming that test path and commit, with the RED run at the pinned base (and, for fix items, the GREEN run on the branch) in its `note`. Step 3 re-runs the test independently; this step proves the pipeline authored it test-first.
+   - **`harness-debugging` (fix items).** Confirm the debug session file it writes, `.harness/debug/active/<session-id>.md` or, once resolved, `.harness/debug/resolved/<session-id>.md`, exists in the item's worktree, is cited as a `provenance` entry in `evidence[]`, and names the item's reproducing test on its `Regression test:` line. `.harness/debug/` is gitignored, so VERIFY reads it from the worker's worktree **before that worktree is removed**.
+   - **Absent provenance = the pipeline did not run = rejected**, regardless of how good the test looks. A cited path that does not resolve counts as absent.
 
 3. **Repro evidence — transplanted and re-run.** Check out the **pinned batch base SHA** into a scratch worktree, apply **only the test file(s)** from the item's branch, and run them. Then:
    - The result must be an **assertion failure**. A compile, import, or module-resolution error means the test depends on the fix rather than reproducing the defect — the item is **rejected, not verified**. This distinction is the single most-cheated step in the whole pipeline: a test that cannot even load at the base SHA is red for the wrong reason and proves nothing about the defect.
@@ -226,8 +229,8 @@ Candidate {
 - **`harness-roadmap-pilot`** — Its impact-scoring approach is reused in SELECT to order areas by composite latent-defect risk.
 - **`harness-code-review`** — The review machinery each DISPATCH subagent runs over its area's standing code in HUNT, with the four standing-code adaptations (whole-area scope, MECHANICAL informational, bounded area size, full-mode security review).
 - **`harness-security-review`** — Run in **full** mode inside HUNT so its threat-model phase actually runs; a genuine vulnerability terminates as `security-routed`.
-- **`harness-tdd`** — The real skill that authors each reproducing test in REPRODUCE; its session artifacts are half the evidence VERIFY requires.
-- **`harness-debugging`** — The real per-item fix pipeline DISPATCH runs for `bounded-safe` items only; its session artifacts complete the provenance for fix items.
+- **`harness-tdd`** — The real skill that authors each reproducing test in REPRODUCE; it persists no session state, so its committed reproducing-test commit (cited in `evidence[]`) is half the evidence VERIFY requires.
+- **`harness-debugging`** — The real per-item fix pipeline DISPATCH runs for `bounded-safe` items only; its `.harness/debug/` session file completes the provenance for fix items.
 - **`harness-verify`** — Independent confirmation support in VERIFY when re-running the transplanted test and the branch suite.
 - **`gh`** — Tracker cross-check (DISPATCH), CI reads across all target operating systems (VERIFY), and fix-PR / issue creation (FILE-AND-REPORT).
 - **`harness skill validate bug-fleet`** — The authoring-time gate for this skill's own structure and schema.
@@ -236,7 +239,7 @@ Candidate {
 ## Success Criteria
 
 - Given a confirmed batch of N risk-ranked areas, the fleet produces a tiered batch of **verified** items — fix PRs and filed issues — where **every** item carries a deterministic reproducing failing test.
-- **Every verified item carries pipeline-provenance artifacts** under `.harness/sessions/<slug>/` (`harness-tdd`, plus `harness-debugging` for fix items); an item with no provenance is rejected as not having run the real pipeline.
+- **Every verified item carries pipeline-provenance artifacts** the composed skills actually write: the `harness-tdd` reproducing-test commit on its branch, plus, for fix items, the `harness-debugging` session file under `.harness/debug/`, each cited in the worker's `evidence[]`. An item with no provenance is rejected as not having run the real pipeline.
 - **No item is filed or PR'd without repro evidence.** A candidate that cannot be reproduced deterministically within the confirmed attempt budget is discarded and reported as discarded, never filed.
 - Every fix PR's reproducing test is independently confirmed to fail with an **assertion failure at the pinned base SHA** — a compile or resolution failure is a rejection, not a pass — and to pass on the branch, with the rest of the suite green and CI green across all target operating systems plus the project's required checks.
 - Every filed issue **links and quotes a test-only `repro/<slug>` branch** whose test is independently confirmed red, by assertion, at the pinned base SHA.
@@ -256,7 +259,7 @@ Candidate {
 - **No filing without a deterministic reproducing failing test.** A high-confidence reviewer finding is a candidate, not a bug. No repro ⇒ discarded and reported as discarded — never filed, never PR'd.
 - **A repro that fails at the pinned base with a compile, import, or module-resolution error is a rejection, not a pass.** Erroring is not asserting; a test that cannot load against unmodified code depends on the fix and proves nothing.
 - **A repro that is red only sometimes across the three base runs is nondeterministic ⇒ discarded.** A test that fails by chance satisfies red-on-base by chance.
-- **No verified item without pipeline provenance.** Absent `harness-tdd` (and, for fix items, `harness-debugging`) session artifacts means the real pipeline did not run; the item is rejected however good the test looks.
+- **No verified item without pipeline provenance.** An absent `harness-tdd` reproducing-test commit (or, for fix items, an absent `harness-debugging` session file) means the real pipeline did not run; the item is rejected however good the test looks.
 - **Never auto-apply a risky/large fix.** It is filed as an issue with its reproducing test on a pushed `repro/<slug>` branch. The repro proves the defect, not the fix.
 - **Never patch a security-routed finding inline, and never publish its exploit on a public issue.** Report it to the human with the repro held on the branch; disclosure is the human's call.
 - **Never auto-merge a fix PR.** The fleet stops at reviewable. Merging from inside the fleet is a gate violation.

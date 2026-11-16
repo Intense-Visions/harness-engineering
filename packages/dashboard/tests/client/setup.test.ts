@@ -10,7 +10,7 @@ function vitestTestTimeout(): number {
   const src = readFileSync(path.resolve(import.meta.dirname, '../../vitest.config.mts'), 'utf8');
   const match = /testTimeout:\s*([\d_]+)/.exec(src);
   if (!match) throw new Error('testTimeout not found in vitest.config.mts');
-  return Number(match[1].replaceAll('_', ''));
+  return Number(match[1]!.replaceAll('_', ''));
 }
 
 describe('client test setup (#2339)', () => {
