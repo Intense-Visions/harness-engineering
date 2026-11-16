@@ -22,6 +22,7 @@ import {
   type FinalizeApiCraftInput,
 } from '../../api-craft/index.js';
 import { resolveCraftLlmMode } from '../../shared/craft/llm/provider.js';
+import { craftPathError } from '../../shared/craft/scope.js';
 
 interface ToolResponse {
   content: Array<{ type: 'text'; text: string }>;
@@ -131,9 +132,8 @@ function effectiveMode(input: ApiCraftInput): ApiCraftMode {
 export async function handleApiCraft(
   input: ApiCraftInput & { promptBudget?: number }
 ): Promise<ToolResponse> {
-  if (typeof input?.path !== 'string' || input.path.length === 0) {
-    return fail(JSON.stringify({ error: 'api_craft: `path` is required' }));
-  }
+  const pathError = craftPathError('api_craft', input?.path);
+  if (pathError !== null) return fail(JSON.stringify({ error: pathError }));
   try {
     if (effectiveMode(input) === 'in-session') {
       const result: CollectPromptsOutput = await collectApiCraftPrompts(input);

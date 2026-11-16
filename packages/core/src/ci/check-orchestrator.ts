@@ -396,7 +396,7 @@ async function runSecurityCheck(
   // `security.enabled: false` is an operator decision, not an abstention: the
   // gate was switched off on purpose, which is the same acknowledgement
   // `--skip security` gives.
-  if (!securityConfig.enabled) return { issues, measurements: [] };
+  if (!securityConfig.enabled) return notApplicable();
 
   const scanner = new SecurityScanner(securityConfig);
   scanner.configureForProject(projectRoot);
@@ -519,13 +519,12 @@ async function runPhaseGateCheck(
   _projectRoot: string,
   config: Record<string, unknown>
 ): Promise<CheckContribution> {
-  const issues: CICheckIssue[] = [];
   const phaseGates = config.phaseGates as Record<string, unknown> | undefined;
   if (!phaseGates?.enabled) {
     // Phase gates are switched off (or were never configured). That is an
     // operator decision, like `--skip phase-gate`, so it is a plain skip and
     // not an abstention.
-    return { issues, measurements: [] };
+    return notApplicable();
   }
   // Phase gate validation requires CLI-level context (config resolution,
   // spec/impl pattern matching), which the core orchestrator does not have — so
@@ -545,11 +544,11 @@ async function runPhaseGateCheck(
 async function runArchCheck(
   projectRoot: string,
   config: Record<string, unknown>
-): Promise<CICheckIssue[]> {
+): Promise<CheckContribution> {
   const issues: CICheckIssue[] = [];
   const rawArchConfig = config.architecture as Record<string, unknown> | undefined;
   const parsedArchConfig = ArchConfigSchema.parse(rawArchConfig ?? {});
-  if (!parsedArchConfig.enabled) return issues;
+  if (!parsedArchConfig.enabled) return notApplicable();
 
   // `ArchConfigSchema` deliberately does not carry `layers` / `forbiddenImports`
   // — they live in the top-level config blocks `check-deps` and the ESLint plugin
@@ -619,7 +618,7 @@ async function runArchCheck(
       }
     }
   }
-  return issues;
+  return { issues, measurements: [] };
 }
 
 async function runTraceabilityCheck(
@@ -629,7 +628,7 @@ async function runTraceabilityCheck(
   const issues: CICheckIssue[] = [];
   const measurements: GateMeasurement[] = [];
   const traceConfig = (config.traceability as Record<string, unknown>) || {};
-  if (traceConfig.enabled === false) return { issues, measurements };
+  if (traceConfig.enabled === false) return notApplicable();
 
   const minCoverage = (traceConfig.minCoverage as number) ?? 0;
   const severity = (traceConfig.severity as 'error' | 'warning') ?? 'warning';
@@ -761,7 +760,7 @@ async function runSingleCheck(
         absorb(await runPhaseGateCheck(projectRoot, config));
         break;
       case 'arch':
-        issues.push(...(await runArchCheck(projectRoot, config)));
+        absorb(await runArchCheck(projectRoot, config));
         break;
       case 'traceability':
         absorb(await runTraceabilityCheck(projectRoot, config));

@@ -20,6 +20,9 @@ import { encodeListField } from './list-field';
 // re-exported here so `serializeAssignmentHistory` keeps its historical import
 // path for the shard `_meta` writer (#1811).
 import { serializeAssignmentHistory } from './assignment-history';
+// Refuses a field value carrying a line break, which the line-oriented grammar
+// would otherwise write as a forged bullet or heading (#2623).
+import { assertSerializableFeature } from './field-guard';
 
 export { serializeAssignmentHistory };
 
@@ -93,6 +96,7 @@ function serializeMilestoneSection(milestone: RoadmapMilestone): string[] {
 }
 
 function serializeMilestoneHeading(milestone: RoadmapMilestone): string {
+  if (!milestone.isBacklog) assertSerializableFeature({ milestone: milestone.name });
   return milestone.isBacklog ? '## Backlog' : `## ${milestone.name}`;
 }
 
@@ -138,6 +142,7 @@ function serializeExtendedLines(feature: RoadmapFeature): string[] {
  * reimplement).
  */
 export function serializeFeature(feature: RoadmapFeature): string[] {
+  assertSerializableFeature(feature);
   const lines = [
     serializeFeatureHeading(feature.name),
     '',

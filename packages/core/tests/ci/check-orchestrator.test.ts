@@ -155,10 +155,18 @@ describe('runCIChecks', () => {
     if (!result.ok) return;
 
     const report = result.value;
+    // `minimalConfig` disables traceability and configures no phase gates; a
+    // config-disabled gate did not run, so it is a plain skip too (#2633).
     const skipped = report.checks.filter((c) => c.status === 'skip');
-    expect(skipped).toHaveLength(2);
-    expect(skipped.map((c) => c.name).sort()).toEqual(['docs', 'entropy']);
-    expect(report.summary.skipped).toBe(2);
+    expect(skipped).toHaveLength(4);
+    expect(skipped.map((c) => c.name).sort()).toEqual([
+      'docs',
+      'entropy',
+      'phase-gate',
+      'traceability',
+    ]);
+    expect(report.summary.skipped).toBe(4);
+    expect(report.summary.abstained).toBe(0);
   });
 
   it('sets exitCode 0 when all checks pass', async () => {

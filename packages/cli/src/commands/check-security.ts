@@ -102,8 +102,10 @@ export async function runCheckSecurity(
 
   const result = await scanner.scanFiles(filesToScan);
 
-  // Opt-in (#2330), best-effort timeline capture — never break the scan flow
-  if (options.record) {
+  // Opt-in (#2330), best-effort timeline capture — never break the scan flow.
+  // A zero-file scan verified nothing, so it is never recorded as a posture
+  // point (#2622).
+  if (options.record && result.scannedFiles > 0) {
     try {
       const commitHash = execSync('git rev-parse HEAD', { cwd: projectRoot, encoding: 'utf-8' });
       const timelineManager = new SecurityTimelineManager(projectRoot);

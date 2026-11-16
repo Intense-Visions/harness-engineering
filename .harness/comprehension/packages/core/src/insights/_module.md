@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/src/insights'
-sourceHash: '3df3cc6792c3ae26546c5c8cb49208302fe59de2ba4e0d256789b9bc77d4910d'
+sourceHash: '5055aa4f1004fb9c80d7ec3fe56a1c856129bc10c50c9c831d76c636cb84e2b9'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -13,6 +13,7 @@ members:
 
 ```ts
 export ComposeInsightsOptions
+export InsightsEntropyGatherer
 export composeInsights
 ```
 

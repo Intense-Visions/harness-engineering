@@ -54,6 +54,7 @@ import type {
   SiblingIndexOutcome,
 } from './findings/schema.js';
 import { craftClumpView } from '../shared/craft/findings/clumpable.js';
+import { withCraftAbstention, type CraftAbstention } from '../shared/craft/scope.js';
 import { resolveScopedFiles } from '../shared/craft/extract/scoped-files.js';
 
 export type CodeCraftMode = 'inline' | 'in-session';
@@ -157,6 +158,8 @@ export interface CollectPromptsOutput {
   hint?: string;
   /** Persisted to disk under .harness/craft/runs/<runId>.json. */
   runFile?: string;
+  /** Present only when the collect step examined zero candidates: `promptCount: 0` is then NOT a clean result (#2625). */
+  abstention?: CraftAbstention;
   /**
    * The clone-index build outcome for this collection. On `budget-exceeded`
    * the `built` incidence covers only the units queued before the budget hit.
@@ -175,6 +178,8 @@ interface CodeRunMeta {
   projectRoot: string;
   startedAt: number;
   rubricsApplied: string[];
+  /** Files the collect step had to examine (the abstention denominator, #2625). Optional for older run-state files. */
+  candidateFiles?: number;
   filesScanned: number;
   filesSkippedNoUnit: number;
   unitsDetected: number;
@@ -251,6 +256,7 @@ export async function runCodeCraft(input: CodeCraftInput): Promise<CodeCraftOutp
         filesSkippedNoUnit: acc.filesSkippedNoUnit,
         unitsDetected: acc.unitsDetected,
       },
+      ...withCraftAbstention('code-craft', candidateFiles.length),
       runId: randomUUID(),
       siblingIndex: siblingIndexSummary(siblingRun),
     },
@@ -331,6 +337,7 @@ export async function collectCodeCraftPrompts(
     projectRoot,
     startedAt: Date.now(),
     rubricsApplied: [...rubricsApplied].sort(),
+    candidateFiles: candidateFiles.length,
     filesScanned,
     filesSkippedNoUnit,
     unitsDetected,
@@ -353,6 +360,7 @@ export async function collectCodeCraftPrompts(
     projection: { promptCount: pending.length, budget },
     runFile,
     siblingIndex,
+    ...withCraftAbstention('code-craft', candidateFiles.length),
   };
 }
 
@@ -418,6 +426,10 @@ export async function finalizeCodeCraft(input: FinalizeCodeCraftInput): Promise<
         filesSkippedNoUnit: state.meta.filesSkippedNoUnit,
         unitsDetected: state.meta.unitsDetected,
       },
+      ...withCraftAbstention(
+        'code-craft',
+        state.meta.candidateFiles ?? state.meta.filesScanned + state.meta.filesSkippedNoUnit
+      ),
       runId: input.runId,
       ...(state.meta.siblingIndex !== undefined ? { siblingIndex: state.meta.siblingIndex } : {}),
     },

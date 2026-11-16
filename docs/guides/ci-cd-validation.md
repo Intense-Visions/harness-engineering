@@ -115,14 +115,14 @@ the same way, keying on `phaseGates.enabled` and `security.enabled`. A project
 scaffolded by `harness init` configures none of these, so the pipeline that
 `harness ci init` generates is green on its first run, with nothing abstaining.
 
-Be precise about what that green means. On a TypeScript template every gate
-genuinely ran. On the `go-base` / `python-base` / `rust-base` / `java-base`
-templates three or four of the nine gates are declared not-applicable (below)
-and therefore did not run at all — and `summary.skipped` will still read `0`,
-because a config-level `enabled: false` reports `pass`. So `abstained: 0` means
-"no gate failed to run that wanted to"; it does not mean "every gate ran". Read
-the per-check rows, not the summary line, when you need to know which gates
-actually executed.
+Be precise about what that green means. A gate the config switched off
+(below), and `phase-gate` when no `phaseGates` block is configured, did not run
+at all, so it reports `skip` — never `pass` (#2633) — with no `skipReason`, and
+is counted in `summary.skipped` but not in `summary.abstained`. On the `go-base`
+/ `python-base` / `rust-base` / `java-base` templates three or four of the nine
+gates are declared not-applicable and show up that way. So `abstained: 0` means
+"no gate failed to run that wanted to"; `summary.passed` counts only gates that
+actually ran and passed.
 
 Switching a check off in `harness.config.json` — `deps.enabled: false`,
 `entropy.enabled: false`, `performance.enabled: false`, `security.enabled: false`,

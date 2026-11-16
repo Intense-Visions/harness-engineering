@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/src/roadmap'
-sourceHash: '6132ca00d2ef2a9980497781c393d6f52bca70d97d5f5d25236b6e17f155b30e'
+sourceHash: '57bb7f0ef4e1f345e296d21fa513d051103eff05d0e2cd1408831d20dfdcd633'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -12,6 +12,7 @@ members:
     'blocker-resolution.ts',
     'derive-repo.ts',
     'external-id.ts',
+    'field-guard.ts',
     'heading.ts',
     'health.ts',
     'index.ts',
@@ -67,6 +68,7 @@ export PnyonTrackerClientConfig
 export PnyonTrackerOptions
 export ReconcileResult
 export RegisteredTrackerClientConfig
+export RoadmapFieldValues
 export RoadmapGroomChange
 export RoadmapGroomChangeKind
 export RoadmapGroomOptions
@@ -107,6 +109,7 @@ export WaypointItem
 export WaypointItemPatch
 export WaypointNewItem
 export applySyncChanges
+export assertSerializableFeature
 export assignFeature
 export assigneeInvariantHolds
 export buildExternalId
@@ -157,6 +160,7 @@ export syncFromExternal
 export syncRoadmap
 export syncRowToExternal
 export syncToExternal
+export validateRoadmapFeatureFields
 export waypointItemUrl
 ```
 
@@ -169,6 +173,7 @@ import { assigneeInvariantHolds, isMachineAssignee, setStatus } from './assignee
 import { ASSIGNMENT_HISTORY_HEADING, parseAssignmentHistory, serializeAssignmentHistory } from './assignment-history'
 import { BlockerReferenceResolver, BlockerResolutionOptions, createBlockerReferenceResolver, createBlockerResolver, isPilotStatus } from './blocker-resolution'
 import { deriveRepoFromGitRemote } from './derive-repo'
+import { assertSerializableFeature } from './field-guard'
 import { GROUP_PREFIX, matchFeatureHeadings, serializeFeatureHeading } from './heading'
 import { decodeListField, encodeListField } from './list-field'
 import { detectRoadmapStorageMode } from './load-mode'

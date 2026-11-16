@@ -37,6 +37,7 @@ import type {
   IdentifierKind,
 } from './findings/schema.js';
 import { craftClumpView } from '../shared/craft/findings/clumpable.js';
+import { withCraftAbstention, type CraftAbstention } from '../shared/craft/scope.js';
 
 export type NamingCraftMode = 'inline' | 'in-session';
 
@@ -68,6 +69,8 @@ export interface CollectPromptsOutput {
   hint?: string;
   /** Persisted to disk under .harness/craft/runs/<runId>.json. */
   runFile?: string;
+  /** Present only when the collect step examined zero candidates: `promptCount: 0` is then NOT a clean result (#2625). */
+  abstention?: CraftAbstention;
   /**
    * Requested files in a language naming-craft cannot parse (non-TS/JS).
    * They were skipped — never extracted, never critiqued (issue #1967).
@@ -212,6 +215,7 @@ export async function runNamingCraft(input: NamingCraftInput): Promise<NamingCra
       filesScanned: files.length,
       ...unsupportedField(unsupportedFiles),
       runId: randomUUID(),
+      ...withCraftAbstention('naming-craft', files.length),
     },
   };
 }
@@ -286,6 +290,7 @@ export async function collectNamingCraftPrompts(
     projection: { promptCount: pending.length, budget },
     runFile,
     ...unsupportedField(unsupportedFiles),
+    ...withCraftAbstention('naming-craft', files.length),
   };
 }
 
@@ -380,6 +385,7 @@ export async function finalizeNamingCraft(
       filesScanned,
       ...unsupportedField(state.meta.unsupportedFiles),
       coverage: { promptsAnswered, promptsTotal },
+      ...withCraftAbstention('naming-craft', state.meta.filesScanned),
       runId: input.runId,
     },
   };

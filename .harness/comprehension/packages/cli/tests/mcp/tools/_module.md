@@ -1,17 +1,18 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/tests/mcp/tools'
-sourceHash: 'c1a328f4033fe4271c3f9ae0296fee89704d52fa424381630116ebc60ee99fca'
+sourceHash: '54a85cdf8eb91be48671d88aa1e6a9dc192d782113b8f148c08556ea13d93d68'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
 members:
   [
     'acceptance-eval.test.ts',
-    'adr-worktree.test.ts',
+    'adr-path.test.ts',
     'adr.test.ts',
     'agent.test.ts',
     'api-craft.test.ts',
+    'architecture-check-deps-parity.test.ts',
     'architecture-cov544.test.ts',
     'architecture-skipped-abstention.test.ts',
     'architecture.test.ts',
@@ -31,6 +32,7 @@ members:
     'conflict-prediction.test.ts',
     'constraint-emergence.test.ts',
     'copy-craft.test.ts',
+    'craft-scope.test.ts',
     'cross-check.test.ts',
     'decay-trends.test.ts',
     'design-craft-cov544.test.ts',
@@ -83,9 +85,11 @@ members:
     'roadmap-add-external-id.test.ts',
     'roadmap-auto-sync.test.ts',
     'roadmap-cov544.test.ts',
+    'roadmap-field-injection.test.ts',
     'roadmap-file-less-cov544.test.ts',
     'roadmap-groom-sharded.test.ts',
     'roadmap-groom.test.ts',
+    'roadmap-invalid-status.test.ts',
     'roadmap-missing-path.test.ts',
     'roadmap-scoped-sync.test.ts',
     'roadmap.file-backed-regression.test.ts',
@@ -97,6 +101,7 @@ members:
     'search-skills.test.ts',
     'security-craft.test.ts',
     'security-record.test.ts',
+    'security-scan-denominator.test.ts',
     'skill-progressive-loading.test.ts',
     'skill-proposal.test.ts',
     'skill-telemetry.test.ts',
@@ -134,6 +139,7 @@ export writeShardedProject
 import { computeLoadPlan } from '../../../../core/src/context/progressive-loader'
 import { extractLevel } from '../../../../core/src/context/section-parser'
 import { runAutonomyShow } from '../../../src/commands/autonomy/show'
+import { runCheckDeps } from '../../../src/commands/check-deps'
 import { runCleanup } from '../../../src/commands/cleanup'
 import { findConfigFile, loadConfig } from '../../../src/config/loader'
 import { MockLlmProvider } from '../../../src/design-craft/llm/provider.js'
@@ -141,7 +147,7 @@ import { resolveDocsPublishConnector } from '../../../src/docs-publish/index'
 import { wrapWithCompaction } from '../../../src/mcp/middleware/compaction'
 import { acceptanceEvalDefinition, handleAcceptanceEval, resolveTestContent } from '../../../src/mcp/tools/acceptance-eval.js'
 import { handleManageAdr, manageAdrDefinition } from '../../../src/mcp/tools/adr'
-import { allocateNextNumber, listAdrs, resolveWorktreeRoot } from '../../../src/mcp/tools/adr-store'
+import { allocateNextNumber, listAdrs } from '../../../src/mcp/tools/adr-store'
 import { addComponentDefinition, handleAddComponent, handleRunAgentTask, runAgentTaskDefinition } from '../../../src/mcp/tools/agent'
 import { apiCraftDefinition, apiCraftFinalizeDefinition, handleApiCraft, handleApiCraftFinalize } from '../../../src/mcp/tools/api-craft'
 import { checkDependenciesDefinition, handleCheckDependencies } from '../../../src/mcp/tools/architecture'
@@ -244,4 +250,5 @@ import * as os from 'os'
 import { join, resolve } from 'path'
 import * as path from 'path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { parseYaml } from 'yaml'
 ```

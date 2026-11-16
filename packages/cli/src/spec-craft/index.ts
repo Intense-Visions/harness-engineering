@@ -30,6 +30,7 @@ import {
 } from './phases/critique.js';
 import type { SpecCraftOutput, SpecFinding } from './findings/schema.js';
 import { craftClumpView } from '../shared/craft/findings/clumpable.js';
+import { withCraftAbstention, type CraftAbstention } from '../shared/craft/scope.js';
 import { resolveScopedFiles } from '../shared/craft/extract/scoped-files.js';
 
 export type SpecCraftMode = 'inline' | 'in-session';
@@ -65,6 +66,8 @@ export interface CollectPromptsOutput {
   hint?: string;
   /** Persisted to disk under .harness/craft/runs/<runId>.json. */
   runFile?: string;
+  /** Present only when the collect step examined zero candidates: `promptCount: 0` is then NOT a clean result (#2625). */
+  abstention?: CraftAbstention;
 }
 
 export interface FinalizeSpecCraftInput {
@@ -168,6 +171,7 @@ export async function runSpecCraft(input: SpecCraftInput): Promise<SpecCraftOutp
       docsScanned: specs.length,
       sectionsScanned,
       runId: randomUUID(),
+      ...withCraftAbstention('spec-craft', specs.length, 'spec docs'),
     },
   };
 }
@@ -258,6 +262,7 @@ export async function collectSpecCraftPrompts(
     pendingPrompts: pending,
     projection: { promptCount: pending.length, budget },
     runFile,
+    ...withCraftAbstention('spec-craft', specs.length, 'spec docs'),
   };
 }
 
@@ -307,6 +312,7 @@ export async function finalizeSpecCraft(input: FinalizeSpecCraftInput): Promise<
       docsScanned: state.meta.docsScanned,
       sectionsScanned: state.meta.sectionsScanned,
       runId: input.runId,
+      ...withCraftAbstention('spec-craft', state.meta.docsScanned, 'spec docs'),
     },
   };
 }

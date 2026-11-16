@@ -52,4 +52,14 @@ describe('check-security timeline ledger (#2330)', () => {
     const parsed = JSON.parse(fs.readFileSync(timeline, 'utf-8')) as { snapshots: unknown[] };
     expect(parsed.snapshots).toHaveLength(1);
   });
+
+  it('never records a zero-file scan, even when recording is requested (#2622)', async () => {
+    fs.rmSync(path.join(repo, 'src'), { recursive: true, force: true });
+    fs.rmSync(path.join(repo, 'package.json'));
+    const before = fs.readFileSync(timeline);
+    const result = await runCheckSecurity(repo, { record: true });
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.value.scannedNothing).toBe(true);
+    expect(fs.readFileSync(timeline).equals(before)).toBe(true);
+  });
 });

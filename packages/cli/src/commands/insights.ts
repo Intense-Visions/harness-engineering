@@ -6,6 +6,8 @@ import { Command } from 'commander';
 import type { InsightsReport } from '@harness-engineering/types';
 import { INSIGHTS_KEYS, type InsightsKey } from '@harness-engineering/types';
 import { logger } from '../output/logger';
+import { resolveCommandRoot } from '../config/loader';
+import { resolveInsightsEntropyGatherer } from '../shared/insights-entropy';
 
 interface InsightsOptions {
   json?: boolean;
@@ -66,13 +68,25 @@ export function createInsightsCommand(): Command {
     .description('Composite project report — health, entropy, decay, attention, impact.')
     .option('--json', 'Emit JSON to stdout instead of pretty text')
     .option('--skip <list>', `Comma-separated keys to skip (${INSIGHTS_KEYS.join(',')})`)
-    .action(async (opts: InsightsOptions) => {
-      const cwd = process.cwd();
+    .action(async (opts: InsightsOptions, cmd: Command) => {
+      // The root program declares `--json` and `-c` too, and commander hands a
+      // flag the root declares to the ROOT — so `opts.json` alone was always
+      // undefined under the real CLI and `--json` printed pretty text (#2192).
+      const globalOpts = cmd.optsWithGlobals<InsightsOptions & { config?: string }>();
+      // `-c` names the project too: report on the project that owns the config,
+      // not the current directory (#911's class).
+      const root = resolveCommandRoot(globalOpts.config, undefined);
+      if (!root.ok) {
+        logger.error(root.error.message);
+        process.exit(root.error.exitCode);
+      }
+      const cwd = root.value;
       const skip = parseSkip(opts.skip);
 
       const { composeInsights } = await import('@harness-engineering/core');
-      const report = await composeInsights(cwd, { skip });
-      if (opts.json) {
+      const gatherEntropy = resolveInsightsEntropyGatherer(cwd, globalOpts.config);
+      const report = await composeInsights(cwd, { skip, ...(gatherEntropy && { gatherEntropy }) });
+      if (opts.json || globalOpts.json) {
         console.log(JSON.stringify(report, null, 2));
         return;
       }

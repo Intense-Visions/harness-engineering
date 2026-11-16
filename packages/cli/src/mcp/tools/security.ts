@@ -1,3 +1,4 @@
+import * as fs from 'node:fs';
 import * as path from 'path';
 import { execSync } from 'child_process';
 import { sanitizePath } from '../utils/sanitize-path.js';
@@ -43,10 +44,15 @@ export async function handleRunSecurityScan(input: {
 
     const projectRoot = sanitizePath(input.path);
 
+    // A path that is not a directory cannot be scanned. Without this guard the
+    // glob matched nothing and the tool returned `scannedFiles: 0, findings: []`
+    // — byte-identical to a clean scan — for a typo'd path (#2622).
+    const rootError = projectRootError(projectRoot);
+    if (rootError) throw new Error(rootError);
+
     // Load config from project
     let configData: Record<string, unknown> = {};
     try {
-      const fs = await import('node:fs');
       const configPath = path.join(projectRoot, 'harness.config.json');
       if (fs.existsSync(configPath)) {
         const raw = fs.readFileSync(configPath, 'utf-8');
@@ -82,8 +88,12 @@ export async function handleRunSecurityScan(input: {
 
     const result = await scanner.scanFiles(filesToScan);
 
+    // A scan that read zero files abstained: nothing was verified, so it must
+    // neither read as a clean pass nor be recorded as a posture point (#2622).
+    const abstained = result.scannedFiles === 0;
+
     // Best-effort timeline capture — never break the scan response
-    if (input.record !== false) {
+    if (input.record !== false && !abstained) {
       try {
         const commitHash = execSync('git rev-parse HEAD', {
           cwd: projectRoot,
@@ -103,6 +113,12 @@ export async function handleRunSecurityScan(input: {
           type: 'text' as const,
           text: JSON.stringify({
             ...result,
+            ...(abstained && {
+              abstained: true,
+              abstentionReason:
+                'ABSTAINED: 0 files scanned — nothing was verified. This is not a clean result; ' +
+                'check the path and `security.exclude` in harness.config.json.',
+            }),
             summary: {
               errors: result.findings.filter((f: { severity: string }) => f.severity === 'error')
                 .length,
@@ -127,6 +143,20 @@ export async function handleRunSecurityScan(input: {
       isError: true,
     };
   }
+}
+
+/** Why `root` cannot be scanned, or null when it is an existing directory. */
+function projectRootError(root: string): string | null {
+  let stat: fs.Stats;
+  try {
+    stat = fs.statSync(root);
+  } catch {
+    return `Invalid path: ${root} does not exist — nothing was scanned`;
+  }
+  if (!stat.isDirectory()) {
+    return `Invalid path: ${root} is not a directory — run_security_scan expects a project root (use \`files\` to scan specific files)`;
+  }
+  return null;
 }
 
 // ============ get_security_trends ============

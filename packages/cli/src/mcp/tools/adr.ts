@@ -4,10 +4,10 @@ import { Ok } from '@harness-engineering/types';
 import { type McpResponse } from '../utils.js';
 import {
   AdrStoreError,
+  assertProjectRoot,
   createAdr,
   listAdrs,
   readAdr,
-  resolveWorktreeRoot,
   updateAdr,
   type CreateAdrInput,
   type UpdateAdrInput,
@@ -31,7 +31,11 @@ export const manageAdrDefinition = {
   inputSchema: {
     type: 'object' as const,
     properties: {
-      path: { type: 'string', description: 'Path to project root' },
+      path: {
+        type: 'string',
+        description:
+          "Path to project root. Every action reads and writes ADRs under <path>/docs/knowledge/decisions/ — pass your worktree here; the server's own checkout is never used. Must exist.",
+      },
       action: {
         type: 'string',
         enum: ['create', 'read', 'update', 'list'],
@@ -182,15 +186,14 @@ function handleUpdate(projectPath: string, input: ManageAdrInput): McpResponse {
   return resultToMcpResponse(Ok(updateAdr(projectPath, input.ref, patch)));
 }
 
-export async function handleManageAdr(
-  input: ManageAdrInput,
-  cwd: string = process.cwd()
-): Promise<McpResponse> {
-  // Prefer the active git worktree resolved from the caller's cwd over the
-  // server-threaded `path` (the launch root), so ADRs authored inside a
-  // `git worktree` land in that worktree rather than the wrong checkout (#1507).
-  const projectPath = resolveWorktreeRoot(cwd, sanitizePath(input.path));
+export async function handleManageAdr(input: ManageAdrInput): Promise<McpResponse> {
   try {
+    // The ADR root is the caller's `path` — never `process.cwd()`, which is the
+    // MCP server's launch checkout. Resolving from the cwd sent worktree-isolated
+    // -fleet lanes' ADRs into the shared checkout while the response looked
+    // correct (#2145). A missing `path` fails loudly rather than as "not found".
+    const projectPath = sanitizePath(input.path);
+    assertProjectRoot(projectPath);
     switch (input.action) {
       case 'create':
         return handleCreate(projectPath, input);

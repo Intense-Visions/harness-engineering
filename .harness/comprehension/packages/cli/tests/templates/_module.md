@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/tests/templates'
-sourceHash: '5c6f412d4141cd2f2f3ae6833e886ba008bc3c1e115b026111c1df68f2e48c0a'
+sourceHash: 'f6c995002eead6042493c3109e4bfd3f657390225a12d6baa38e7d0f83faf324'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -13,6 +13,7 @@ members:
     'config-template-validates.test.ts',
     'engine-cov544.test.ts',
     'engine.test.ts',
+    'framework-entry-points.test.ts',
     'merger.test.ts',
     'performance-entry-points.test.ts',
     'post-write.test.ts',
@@ -33,6 +34,7 @@ members:
 ## Dependency Slice
 
 ```
+import { runCleanup } from '../../src/commands/cleanup'
 import { runInit } from '../../src/commands/init'
 import { HarnessConfigSchema } from '../../src/config/schema'
 import { collectStrippedKeys } from '../../src/config/stripped-keys'

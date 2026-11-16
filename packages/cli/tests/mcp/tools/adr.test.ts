@@ -7,7 +7,6 @@ import { allocateNextNumber, listAdrs } from '../../../src/mcp/tools/adr-store';
 
 let tmpDir: string;
 let decisionsDir: string;
-let originalCwd: string;
 
 function writeAdr(number: string, slug: string, extra: string = ''): void {
   const content = `---
@@ -44,16 +43,9 @@ beforeEach(() => {
   tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'adr-test-'));
   decisionsDir = path.join(tmpDir, 'docs', 'knowledge', 'decisions');
   fs.mkdirSync(decisionsDir, { recursive: true });
-  // `handleManageAdr` is git-worktree-aware (#1507): it resolves the ADR root
-  // from the caller's cwd. Run these store-behavior tests from inside tmpDir so
-  // the fallback (tmpDir is not a git repo) targets the intended project root
-  // rather than the real repo the test runner is launched in.
-  originalCwd = process.cwd();
-  process.chdir(tmpDir);
 });
 
 afterEach(() => {
-  process.chdir(originalCwd);
   fs.rmSync(tmpDir, { recursive: true, force: true });
 });
 
@@ -105,9 +97,9 @@ describe('manage_adr create', () => {
     expect(record.number).toBe('0092');
     expect(record.slug).toBe('adr-crud-as-an-mcp-tool');
     expect(record.status).toBe('proposed'); // default
-    expect(record.file).toBe('0092-adr-crud-as-an-mcp-tool.md');
+    expect(record.file).toBe(path.join(decisionsDir, '0092-adr-crud-as-an-mcp-tool.md'));
 
-    const onDisk = fs.readFileSync(path.join(decisionsDir, record.file), 'utf-8');
+    const onDisk = fs.readFileSync(record.file, 'utf-8');
     expect(onDisk).toContain('number: 0092');
     expect(onDisk).toContain('## Context');
     expect(onDisk).toContain('## Decision');
