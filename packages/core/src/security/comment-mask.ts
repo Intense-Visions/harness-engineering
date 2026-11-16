@@ -59,15 +59,45 @@ const REGEX_PRECEDING_PUNCTUATION = new Set([
   '~',
   '^',
 ]);
+// A keyword only when it is not part of a longer identifier (`$in`) or a
+// property access (`obj.in`) — both of those are operands, so `/` divides.
 const REGEX_PRECEDING_KEYWORDS =
-  /\b(?:return|typeof|instanceof|in|of|new|delete|void|case|do|else|yield|await)$/;
+  /(?<![\w$.])(?:return|typeof|instanceof|in|of|new|delete|void|case|do|else|yield|await)$/;
+const CONTROL_HEADER_KEYWORD = /(?<![\w$.])(?:if|while|for|with)\s*$/;
+
+/**
+ * True when `before` ends with the `)` that closes an `if (…)` / `while (…)` /
+ * `for (…)` / `with (…)` header: a statement follows, so `/` opens a regex.
+ * Any other `)` closes an operand and `/` divides.
+ */
+function closesControlHeader(before: string): boolean {
+  let depth = 0;
+  for (let k = before.length - 1; k >= 0; k--) {
+    const ch = before[k];
+    if (ch === ')') depth++;
+    else if (ch === '(' && --depth === 0) {
+      return CONTROL_HEADER_KEYWORD.test(before.slice(0, k));
+    }
+  }
+  return false;
+}
 
 function startsRegexLiteral(line: string, index: number): boolean {
   const before = line.slice(0, index).trimEnd();
   if (before === '') return true;
+  // Postfix `i++ / 2` / `i-- / 2`: the operand is complete, so `/` divides.
+  if (before.endsWith('++') || before.endsWith('--')) return false;
   const last = before[before.length - 1] as string;
+  if (last === ')') return closesControlHeader(before);
   if (REGEX_PRECEDING_PUNCTUATION.has(last)) return true;
   return REGEX_PRECEDING_KEYWORDS.test(before);
+}
+
+/** True when `line` ends with an odd run of backslashes (a line continuation). */
+function endsWithLineContinuation(line: string): boolean {
+  let run = 0;
+  for (let k = line.length - 1; k >= 0 && line[k] === '\\'; k--) run++;
+  return run % 2 === 1;
 }
 
 const QUOTE_CONTEXT: Record<string, Context | undefined> = {
@@ -173,8 +203,12 @@ function maskLine(line: string, state: LexState): string {
     c = consumed;
   }
   // Quoted strings and regex literals cannot span lines; reset so one
-  // mis-lexed character can never leak its context into the next line.
-  if (state.context === 'single' || state.context === 'double' || state.context === 'regex') {
+  // mis-lexed character can never leak its context into the next line. The one
+  // exception is a quoted string whose line ends in a `\` continuation: it
+  // genuinely continues, and resetting would lex its tail (`'…\` / `//…'`) as
+  // code and blank the real code after it.
+  const quoted = state.context === 'single' || state.context === 'double';
+  if ((quoted && !endsWithLineContinuation(line)) || state.context === 'regex') {
     state.context = 'code';
   }
   return chars.join('');
