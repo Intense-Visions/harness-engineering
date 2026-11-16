@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/code-craft/extract'
-sourceHash: '7c1b5740a14e78e68e411756ab46735a924562300961d45911a03c5b7f3ed5e2'
+sourceHash: '562950b13f50fc9fc1f415d857f81b00562f874d9135b97f6efaa4a2f02e568a'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -25,6 +25,7 @@ export usesTsCompilerExtraction
 
 ```
 import { extractOutlineUnits, usesOutlineExtraction } from '../../shared/craft/extract/outline-units.js'
+import { resolveSourceRoots } from '../../shared/craft/extract/source-roots.js'
 import { CodeUnit, UnitKind } from '../findings/schema.js'
 import { discoverSourceFiles } from './discover.js'
 import { CloneClass, CloneIndex, CloneMember, EXTENSION_MAP, buildCloneIndex, detectLanguage } from '@harness-engineering/core'
