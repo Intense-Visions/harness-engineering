@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/commands'
-sourceHash: '0062e87e866c20f4de7644cbc48be1807d95c60a0c70d915f79636d4b651ea39'
+sourceHash: '04ded4bcba1fc596c7b16a6216e7f3e75b12d509409a3c42fc5be30061e12126'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -497,6 +497,7 @@ import { CraftLlmResolution, resolveCraftLlmConfig } from '../shared/craft/llm/p
 import { isDesignScanPath, isExcluded, resolveDesignExcludePatterns } from '../shared/design-scan-targets.js'
 import { DuplicationBaselineDelta, UPDATE_BASELINE_WITHOUT_SCAN, formatDuplicationBaselineLine, recordOrCompareBaseline } from '../shared/duplication-baseline'
 import { ENTROPY_ISSUE_TYPES, EntropyIssueType, describeDuplicationNotRun, describeUnknownIssueType, isEntropyIssueType, resolveDuplicationRequest } from '../shared/duplication-request'
+import { resolveEntropyGate } from '../shared/entropy-gate'
 import { matchContent } from '../skill/content-matcher'
 import { ContentMatchResult, SkillMatch } from '../skill/content-matcher-types'
 import { HealthSnapshot, captureHealthSnapshot, isSnapshotFresh, loadCachedSnapshot } from '../skill/health-snapshot'

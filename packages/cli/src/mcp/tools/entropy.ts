@@ -20,6 +20,22 @@ import {
   ENTROPY_ISSUE_TYPES,
 } from '../../shared/duplication-request.js';
 import { baselineDeltaForReport } from '../../shared/duplication-baseline.js';
+import { resolveEntropyGate } from '../../shared/entropy-gate.js';
+
+/**
+ * The response for a type-`all` request on a project whose `entropy.enabled`
+ * is false and which has nothing else to run (#2633).
+ *
+ * `totalIssues: 0` is kept so consumers that read it (`assess_project`, the
+ * skill health snapshot) treat a not-applicable gate as the operator decision
+ * it is — the same way `harness ci check` exits 0 on it — while
+ * `disabledByConfig` says the zero was not measured. A scalar string survives
+ * structural compaction; the empty `categories` does not.
+ */
+function disabledByConfigResponse(mode: string, message: string) {
+  const payload = { mode, totalIssues: 0, categories: {}, disabledByConfig: message };
+  return { content: [{ type: 'text' as const, text: JSON.stringify(payload) }] };
+}
 
 /**
  * The outcome of loading the `entropy` section of the project's harness config.
@@ -271,7 +287,7 @@ function topClassLine(cls: {
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function buildSummaryResponse(report: any, projectPath: string) {
+function buildSummaryResponse(report: any, projectPath: string, disabledByConfig?: string) {
   const summary: Record<string, { issueCount: number; topIssues: string[] }> = {};
 
   if (report.drift) summary['drift'] = summarizeDrift(report.drift);
@@ -297,6 +313,7 @@ function buildSummaryResponse(report: any, projectPath: string) {
     totalIssues,
     categories: summary,
     ...(duplication && { advisory: { duplication } }),
+    ...(disabledByConfig !== undefined && { disabledByConfig }),
   };
   return {
     content: [{ type: 'text' as const, text: JSON.stringify(payload) }],
@@ -426,8 +443,18 @@ export async function handleDetectEntropy(input: {
       };
     }
     const entropy = configLoad.kind === 'loaded' ? configLoad.entropy : undefined;
+
+    // `entropy.enabled: false` declares the drift / dead-code gate not
+    // applicable — the same rule and wording as `harness cleanup` (#2633).
+    const gate = resolveEntropyGate(typeFilter, entropy?.enabled);
+    if (gate.kind === 'refuse') {
+      return { content: [{ type: 'text' as const, text: gate.message }], isError: true };
+    }
+    const gatingAllowed = gate.kind === 'run';
+    const disabledByConfig = gate.kind === 'disabled' ? gate.message : undefined;
+
     const driftConfig = entropy?.drift as Partial<DriftConfig> | undefined;
-    const driftEnabled = typeFilter === 'all' || typeFilter === 'drift';
+    const driftEnabled = gatingAllowed && (typeFilter === 'all' || typeFilter === 'drift');
 
     // Pattern rules come from `entropy.patterns` in harness.config.json. The
     // previous implementation passed `patterns` as a bare boolean, which the
@@ -437,7 +464,7 @@ export async function handleDetectEntropy(input: {
     // This is the same empty-ruleset false-pass fixed on the CLI path in #1760
     // (PR #1791). Read the configured rules instead, and refuse to green-tick a
     // patterns check that has nothing to evaluate (#1792).
-    const patternsRequested = typeFilter === 'all' || typeFilter === 'patterns';
+    const patternsRequested = gatingAllowed && (typeFilter === 'all' || typeFilter === 'patterns');
     const patternConfig = entropy?.patterns as PatternConfig | undefined;
     const configuredRuleCount =
       (patternConfig?.patterns?.length ?? 0) + (patternConfig?.customPatterns?.length ?? 0);
@@ -473,6 +500,9 @@ export async function handleDetectEntropy(input: {
         isError: true,
       };
     }
+    if (disabledByConfig !== undefined && duplicationRequest.kind !== 'run') {
+      return disabledByConfigResponse(input.mode ?? 'detailed', disabledByConfig);
+    }
 
     // Project-wide analysis.exclude globs apply on top of the entropy-specific
     // excludes (or the built-in defaults when no entropy block is configured).
@@ -493,7 +523,7 @@ export async function handleDetectEntropy(input: {
       ...(scope && { docPaths: scope.docPaths }),
       analyze: {
         drift: driftEnabled ? (driftConfig ?? true) : false,
-        deadCode: typeFilter === 'all' || typeFilter === 'dead-code',
+        deadCode: gatingAllowed && (typeFilter === 'all' || typeFilter === 'dead-code'),
         // Only run the pattern analyzer when real rules exist; a bare boolean
         // becomes an empty rule set that misrepresents "checked" as "passed"
         // (#1792). For `all`, patterns are simply skipped when unconfigured.
@@ -535,7 +565,7 @@ export async function handleDetectEntropy(input: {
 
     // Response density control
     if (input.mode === 'summary' && result.ok && !input.autoFix) {
-      return buildSummaryResponse(result.value, projectPath);
+      return buildSummaryResponse(result.value, projectPath, disabledByConfig);
     }
 
     if (!input.autoFix) {
@@ -545,6 +575,7 @@ export async function handleDetectEntropy(input: {
       const dup = result.value.duplication;
       return resultToMcpResponse(
         Ok({
+          ...(disabledByConfig !== undefined && { disabledByConfig }),
           ...(dup && { duplicationBaseline: baselineDeltaForReport(projectPath, dup) }),
           ...(toJsonSafeReport(result.value) as Record<string, unknown>),
         })

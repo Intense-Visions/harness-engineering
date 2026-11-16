@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/mcp/tools'
-sourceHash: 'e5b35bf45140e7cd5ca3d7fa9941d7fa340a0bf50b1112f728269f9cd81c5c32'
+sourceHash: '1d518c2f8acd225609322f98214ef8fd22b55021bacd9b21d28a42472cd55c97'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -510,6 +510,7 @@ import { resolveCraftLlmMode } from '../../shared/craft/llm/provider.js'
 import { collectDesignScanFiles, designScanAbstention, noFilesScannedError, resolveDesignExcludePatterns } from '../../shared/design-scan-targets.js'
 import { baselineDeltaForReport } from '../../shared/duplication-baseline.js'
 import { ENTROPY_ISSUE_TYPES, describeDuplicationNotRun, describeUnknownIssueType, isEntropyIssueType, resolveDuplicationRequest } from '../../shared/duplication-request.js'
+import { resolveEntropyGate } from '../../shared/entropy-gate.js'
 import { EntropyScope, resolveEntropyScope } from '../../shared/entropy-scope.js'
 import '../../shared/state-events.js'
 import { Verifier } from '../../shared/verifier.js'

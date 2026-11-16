@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/shared'
-sourceHash: 'd934869b5bbda04e24c0507bf1008f35cc223d994451aa8781958fb45d4fa9c4'
+sourceHash: '65f495c617d24c040fb047150cf3a38a88f182abef223f572f0841c1624938d2'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -10,6 +10,7 @@ members:
     'design-scan-targets.ts',
     'duplication-baseline.ts',
     'duplication-request.ts',
+    'entropy-gate.ts',
     'entropy-scope.ts',
     'state-events.ts',
     'verifier.ts',
@@ -21,6 +22,7 @@ members:
 ```ts
 export DESIGN_SCAN_EXTENSIONS
 export DUPLICATION_BASELINE_PATH
+export ENTROPY_DISABLED_NOTICE
 export ENTROPY_ISSUE_TYPES
 export UPDATE_BASELINE_WITHOUT_SCAN
 export baselineDeltaForReport
@@ -49,6 +51,7 @@ export readHarnessState
 export recordOrCompareBaseline
 export resolveDesignExcludePatterns
 export resolveDuplicationRequest
+export resolveEntropyGate
 export resolveEntropyScope
 export writeDuplicationBaseline
 ```
@@ -58,6 +61,7 @@ export writeDuplicationBaseline
 ```
 import { loadAnalysisExclude, loadDesignExclude } from '../config/analysis-schema.js'
 import { HarnessConfig } from '../config/schema.js'
+import { EntropyIssueType } from './duplication-request.js'
 import { DuplicationConfig, HarnessState, Ok, Result, eventSourcing } from '@harness-engineering/core'
 import * as fs from 'fs'
 import { minimatch } from 'minimatch'

@@ -161,11 +161,24 @@ interface CheckContribution {
    * because a gate that did not run must not be readable as green (#2071).
    */
   skipReason?: string;
+  /**
+   * Set when the project's config declared the gate not applicable
+   * (`<section>.enabled: false`). That is an operator decision like `--skip`,
+   * so it reports `status: 'skip'` WITHOUT a `skipReason` — acknowledged, not
+   * abstained, exit 0. Before this it carried no issues and so read `pass`: a
+   * gate that never ran, reporting green (#2633).
+   */
+  disabledByConfig?: true;
 }
 
 /** An abstention: the check wanted to run and could not. */
 function abstain(reason: string): CheckContribution {
   return { issues: [], measurements: [], skipReason: reason };
+}
+
+/** A gate the project's config declared not applicable — a plain skip. */
+function notApplicable(): CheckContribution {
+  return { issues: [], measurements: [], disabledByConfig: true };
 }
 
 async function runValidateCheck(
@@ -208,7 +221,7 @@ async function runDepsCheck(
   // a Go or Rust project had no honest way to be green, because `layers` is
   // meaningless there and an absent `layers` abstains (#2071).
   const depsConfig = (config.deps as Record<string, unknown>) || {};
-  if (depsConfig.enabled === false) return { issues, measurements: [] };
+  if (depsConfig.enabled === false) return notApplicable();
 
   // One config-to-LayerConfig mapping, shared with `harness check-deps`, so the
   // two entry points honour the same `deps.exclude`, `deps.fallbackBehavior`,
@@ -317,7 +330,7 @@ async function runEntropyCheck(
   // Not-applicable beats could-not-run: the drift/dead-code analyzer is
   // TypeScript-based, so a non-TS stack says so here and takes a plain skip
   // rather than abstaining on an entry point it was never going to resolve.
-  if (entropyConfig.enabled === false) return { issues, measurements: [] };
+  if (entropyConfig.enabled === false) return notApplicable();
   // Fallback: use performance entry points if entropy section has none configured
   const entryPoints =
     (entropyConfig.entryPoints as string[]) ?? (perfConfig.entryPoints as string[]);
@@ -435,7 +448,7 @@ async function runPerfCheck(
   const measurements: GateMeasurement[] = [];
   const perfConfig = (config.performance as Record<string, unknown>) || {};
   // Same not-applicable opt-out as `entropy.enabled` — see there.
-  if (perfConfig.enabled === false) return { issues, measurements };
+  if (perfConfig.enabled === false) return notApplicable();
   const entryPoints = perfConfig.entryPoints as string[] | undefined;
   const perfAnalyzer = new EntropyAnalyzer({
     rootDir: projectRoot,
@@ -715,11 +728,13 @@ async function runSingleCheck(
   const issues: CICheckIssue[] = [];
   const measurements: GateMeasurement[] = [];
   let skipReason: string | undefined;
+  let disabledByConfig = false;
 
   const absorb = (contribution: CheckContribution): void => {
     issues.push(...contribution.issues);
     measurements.push(...contribution.measurements);
     if (contribution.skipReason !== undefined) skipReason = contribution.skipReason;
+    if (contribution.disabledByConfig) disabledByConfig = true;
   };
 
   try {
@@ -766,7 +781,7 @@ async function runSingleCheck(
   // something concrete went wrong and `fail` is the louder, truer signal.
   const status = hasErrors
     ? 'fail'
-    : skipReason !== undefined
+    : skipReason !== undefined || disabledByConfig
       ? 'skip'
       : hasWarnings
         ? 'warn'

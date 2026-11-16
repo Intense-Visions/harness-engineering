@@ -604,6 +604,32 @@ describe('#2071 — a check that could not run must not read as green', () => {
       expect(result.value.exitCode).toBe(0);
     });
 
+    // #2633: the comments above promised "a plain skip", but the gate returned
+    // no issues and so reported `pass` — a gate that never ran, reading green.
+    it('a config-disabled deps / entropy / perf gate reports `skip`, not `pass` (#2633)', async () => {
+      const config = baseConfig({
+        deps: { enabled: false },
+        entropy: { enabled: false },
+        performance: { enabled: false },
+      });
+
+      const result = await runCIChecks({
+        projectRoot: '/fake',
+        config,
+        skip: ['traceability'],
+      });
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+
+      for (const name of ['deps', 'entropy', 'perf'] as const) {
+        expect(checkNamed(result.value, name).status).toBe('skip');
+        // Operator-acknowledged, so not an abstention.
+        expect(checkNamed(result.value, name).skipReason).toBeUndefined();
+      }
+      expect(result.value.summary.abstained).toBe(0);
+      expect(result.value.exitCode).toBe(0);
+    });
+
     it('security: `security.enabled: false` does not abstain on a zero-file scan', async () => {
       // The scanner is never constructed, so the 0-file abstention cannot fire.
       const { parseSecurityConfig } = await import('../../src/security/config');
