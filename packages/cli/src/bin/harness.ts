@@ -7,8 +7,13 @@ import { installCommandTelemetry } from './command-telemetry';
 import { printFirstRunWelcome } from '../utils/first-run';
 import { sessionStartDispatch, formatDispatchBanner } from '../skill/dispatch-session';
 import type { SessionDispatchResult } from '../skill/dispatch-session';
+import { makeStdioPipesBlocking } from './blocking-stdio';
 
 async function main(): Promise<void> {
+  // #2254: piped stdout must not lose queued bytes to a command's explicit
+  // process.exit(). Must run before anything writes.
+  makeStdioPipesBlocking();
+
   // Show welcome message on first run (before any other output)
   printFirstRunWelcome();
 

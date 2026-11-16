@@ -1,7 +1,7 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach, type Mock } from 'vitest';
 import { renderHook, waitFor } from '@testing-library/react';
 import { useChatSessionsSync } from '../../../src/client/hooks/useChatSessionsSync';
-import { useThreadStore } from '../../../src/client/stores/threadStore';
+import { useThreadStore, type ThreadStore } from '../../../src/client/stores/threadStore';
 import type { ChatSession } from '../../../src/client/types/chat-session';
 import type { ChatMessage } from '../../../src/client/types/chat';
 
@@ -44,11 +44,11 @@ function stubSessionsFetch(handler: () => Response | Promise<Response>): ReturnT
 // The thread store is a module-level singleton; reset the mutable slices we
 // touch and swap markSourceHydrated for a fresh spy before every test so call
 // counts and thread state never leak between cases.
-let markSourceHydrated: ReturnType<typeof vi.fn>;
+let markSourceHydrated: Mock<ThreadStore['markSourceHydrated']>;
 
 beforeEach(() => {
   vi.restoreAllMocks();
-  markSourceHydrated = vi.fn();
+  markSourceHydrated = vi.fn<ThreadStore['markSourceHydrated']>();
   useThreadStore.setState({
     threads: new Map(),
     messages: new Map(),

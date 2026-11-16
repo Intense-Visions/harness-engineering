@@ -655,3 +655,89 @@ describe('buildCloneIndex', () => {
     }
   });
 });
+
+/**
+ * `duplication-vendored-build-cache-glob`: the shipped defaults must ignore the
+ * dependency pre-bundles and build caches that front-end tooling writes into
+ * the project tree. They are generated output nobody refactors, so any clone
+ * class composed of them is a false positive for every adopter — measured in
+ * this repository as `docs/.vitepress/cache/deps_temp_*` (spec open question
+ * 2). The positive controls pin the other half of the contract: a glob broad
+ * enough to swallow hand-written source with a similar NAME would be worse
+ * than the false positive it removes.
+ */
+describe('default ignorePatterns — vendored build caches', () => {
+  it.each([
+    // VitePress dependency pre-bundles, both the settled and the in-flight dir.
+    'docs/.vitepress/cache/deps/vitepress___@vueuse_core.js',
+    'docs/.vitepress/cache/deps_temp_1a2b3c4d/vitepress___@vueuse_core.js',
+    // Vite's cacheDir when configured into the project root.
+    '.vite/deps/react.js',
+    'apps/web/.vite/deps/chunk-ABC.js',
+    // Next.js build output and cache.
+    '.next/server/app/page.js',
+    'apps/site/.next/cache/webpack/client.js',
+    // Nuxt build dir and Nitro output.
+    '.nuxt/components.d.mjs',
+    'apps/shop/.output/server/index.mjs',
+    // SvelteKit generated dir.
+    '.svelte-kit/output/client/app.js',
+    // Turborepo cache.
+    '.turbo/cache/abc/index.js',
+    // Parcel cache.
+    '.parcel-cache/data/a.js',
+    // webpack / Babel / Gatsby persistent cache outside node_modules.
+    '.cache/webpack/a.js',
+    // Angular CLI cache.
+    '.angular/cache/17.0.0/vite/deps/a.mjs',
+  ])('ignores the vendored build cache path %s', (file) => {
+    expect(isEligibleFile(file, DEFAULT_DUPLICATION_CONFIG.ignorePatterns)).toBe(false);
+  });
+
+  it.each([
+    // The config and theme a VitePress site OWNS live beside the cache.
+    'docs/.vitepress/theme/composables/useNav.ts',
+    'docs/.vitepress/theme/index.ts',
+    // Directory names that merely resemble a cache segment.
+    'src/next/page.ts',
+    'src/cache/lru.ts',
+    'src/output/format.ts',
+    'packages/turbo/src/index.ts',
+    'src/vite.config.ts',
+    'src/angular/component.ts',
+  ])('still scans first-party source at %s', (file) => {
+    expect(isEligibleFile(file, DEFAULT_DUPLICATION_CONFIG.ignorePatterns)).toBe(true);
+  });
+
+  it('keeps a vendored pre-bundle out of a clone class that first-party copies form', async () => {
+    const root = await scratch({
+      'src/a.ts': body('sumAlpha', 'items', 'total', 'item'),
+      'src/b.ts': body('addBeta', 'rows', 'acc', 'row'),
+      'src/c.ts': body('tallyGamma', 'entries', 'sum', 'entry'),
+      'docs/.vitepress/cache/deps_temp_9f8e/a.js': body('v1', 'xs', 'n', 'x'),
+      'docs/.vitepress/cache/deps_temp_9f8e/b.js': body('v2', 'ys', 'm', 'y'),
+      '.next/cache/c.js': body('v3', 'zs', 'k', 'z'),
+    });
+    try {
+      const files = [
+        'src/a.ts',
+        'src/b.ts',
+        'src/c.ts',
+        'docs/.vitepress/cache/deps_temp_9f8e/a.js',
+        'docs/.vitepress/cache/deps_temp_9f8e/b.js',
+        '.next/cache/c.js',
+      ];
+      const result = await buildCloneIndex(
+        files.map((f) => join(root, f)),
+        { rootDir: root }
+      );
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      expect(result.value.classes.map((c) => c.members.map((m) => m.file).sort())).toEqual([
+        ['src/a.ts', 'src/b.ts', 'src/c.ts'],
+      ]);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+});

@@ -39,11 +39,13 @@ import type {
 } from '@harness-engineering/intelligence';
 import type { ComplexityVerdict } from '@harness-engineering/types';
 import type { IntroducedHunk } from './quality-verdict.js';
+import { retrospectiveFailSafeReason } from './quality-verdict-kind.js';
 
 /** The minimal stored-record shape the precedent aggregation reads (structural mirror). */
 export interface StoredOutcomeRecord {
   shapeKey: string;
-  outcome?: { matched: boolean };
+  /** `graded: false` ⇒ a fail-safe outcome that is not evidence (#2264); absent ⇒ graded. */
+  outcome?: { matched: boolean; graded?: boolean };
 }
 
 /**
@@ -145,6 +147,13 @@ export interface TriageOutcomeInputLike {
   actual: ComplexityVerdict;
   exceededBy: number;
   matched: boolean;
+  /**
+   * Present (and `false`) only for a FAIL-SAFE comparison (#2264): the comparator blocked
+   * because nothing could be judged. The event is still recorded for forensics, but the
+   * precedent base rate and the ratchet sample skip it. Omitted for a judged outcome so
+   * its payload is byte-identical to before.
+   */
+  graded?: false;
 }
 
 /**
@@ -163,6 +172,11 @@ export function buildTriageOutcomeInput(
     actual: result.actual,
     exceededBy: result.comparison.exceededBy,
     matched: result.comparison.matched,
+    // An unjudgeable comparison still block-escalates (the caller acts on `action`), but
+    // its `matched:false` is an artifact of the fail-safe, not a measured mispredict.
+    ...(retrospectiveFailSafeReason(result.comparison.reason) !== undefined
+      ? { graded: false as const }
+      : {}),
   };
 }
 
@@ -177,14 +191,22 @@ export function buildTriageOutcomeInput(
 export function precedentLookupFromStored(
   records: readonly StoredOutcomeRecord[]
 ): PrecedentLookup {
-  // aggregatePrecedent reads only `shapeKey` + `outcome.matched`; map to that minimal
+  // aggregatePrecedent reads only `shapeKey` + `outcome.matched` (+ the `graded` fail-safe
+  // flag, #2264); map to that minimal
   // shape so a core StoredTriageRecord never needs the full intelligence TriageRecord.
   const bridged = records.map((r) => ({
     externalId: '',
     shapeKey: r.shapeKey,
     ts: '',
     ...(r.outcome
-      ? { outcome: { actual: undefined as never, exceededBy: 0, matched: r.outcome.matched } }
+      ? {
+          outcome: {
+            actual: undefined as never,
+            exceededBy: 0,
+            matched: r.outcome.matched,
+            ...(r.outcome.graded !== undefined ? { graded: r.outcome.graded } : {}),
+          },
+        }
       : {}),
   }));
   return {

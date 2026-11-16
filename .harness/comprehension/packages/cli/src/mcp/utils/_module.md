@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/mcp/utils'
-sourceHash: 'c6a93793aeaaf86e9400e5599fcf827c272aa980b5b293e8bf19d32d27c50027'
+sourceHash: 'da05de1a38352921aee22222c82727102a6ea9957cc5208fd0612fa5e24cef1e'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -35,6 +35,7 @@ export isCliAvailable
 export loadGraphStore
 export resolveAnalysisProvider
 export resolveProjectConfig
+export resolveProjectRootArg
 export resolveProviderKind
 export resultToMcpResponse
 export sanitizePath

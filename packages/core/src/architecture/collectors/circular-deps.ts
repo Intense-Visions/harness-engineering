@@ -5,6 +5,8 @@ import { detectCircularDeps } from '../../constraints/circular-deps';
 import { findFiles, relativePosix } from '../../shared/fs-utils';
 import { resolveExcludePatterns } from '../exclude';
 import { getDefaultRegistry } from '../../shared/parsers/registry';
+import { createCollectorRunContext } from './run-context';
+import type { CollectorRunContext } from './run-context';
 
 /**
  * Every JS/TS extension the default parser registry parses. Globbing only
@@ -48,11 +50,20 @@ export class CircularDepsCollector implements Collector {
     ];
   }
 
-  async collect(config: ArchConfig, rootDir: string): Promise<MetricResult[]> {
+  async collect(
+    config: ArchConfig,
+    rootDir: string,
+    context: CollectorRunContext = createCollectorRunContext()
+  ): Promise<MetricResult[]> {
     const files = await findFiles(JS_TS_GLOB, rootDir, resolveExcludePatterns(config));
     // The real registry, not a stub: a parser that never parses yields a graph
-    // with nodes and zero edges, where no cycle can exist (issue #2235).
-    const graphResult = await buildDependencyGraph(files, getDefaultRegistry());
+    // with nodes and zero edges, where no cycle can exist (issue #2235). Read
+    // through the run's shared memo so the other dependency collectors reuse
+    // these parses (#2270).
+    const graphResult = await buildDependencyGraph(
+      files,
+      context.imports.forLookup(getDefaultRegistry())
+    );
 
     if (!graphResult.ok) {
       return [

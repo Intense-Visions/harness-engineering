@@ -2,7 +2,6 @@ import { describe, it, expect } from 'vitest';
 import type {
   OrchestratorSnapshot,
   RunningAgent,
-  TokenTotals,
   PendingInteraction,
   WebSocketMessage,
   ChatSSEEvent,
@@ -96,12 +95,12 @@ describe('orchestrator dashboard types', () => {
     expect(msg.type).toBe('state_change');
   });
 
-  it('ChatSSEEvent covers text, usage, error, and done', () => {
+  it('ChatSSEEvent covers text, status, and error', () => {
     const text: ChatSSEEvent = { type: 'text', text: 'Hello' };
-    const usage: ChatSSEEvent = { type: 'usage', inputTokens: 10, outputTokens: 20 };
+    const status: ChatSSEEvent = { type: 'status', text: 'thinking' };
     const error: ChatSSEEvent = { type: 'error', error: 'fail' };
     expect(text.type).toBe('text');
-    expect(usage.type).toBe('usage');
+    expect(status.type).toBe('status');
     expect(error.type).toBe('error');
   });
 });
