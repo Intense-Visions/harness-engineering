@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/shared'
-sourceHash: 'd934869b5bbda04e24c0507bf1008f35cc223d994451aa8781958fb45d4fa9c4'
+sourceHash: '920b0afb1e9ad86561d2933f2ea13f3301dd62be0376dcf4dded8ca42f59af76'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -11,6 +11,7 @@ members:
     'duplication-baseline.ts',
     'duplication-request.ts',
     'entropy-scope.ts',
+    'insights-entropy.ts',
     'state-events.ts',
     'verifier.ts',
   ]
@@ -50,15 +51,18 @@ export recordOrCompareBaseline
 export resolveDesignExcludePatterns
 export resolveDuplicationRequest
 export resolveEntropyScope
+export resolveInsightsEntropyGatherer
 export writeDuplicationBaseline
 ```
 
 ## Dependency Slice
 
 ```
+import { runCleanup } from '../commands/cleanup'
 import { loadAnalysisExclude, loadDesignExclude } from '../config/analysis-schema.js'
+import { findConfigFile } from '../config/loader'
 import { HarnessConfig } from '../config/schema.js'
-import { DuplicationConfig, HarnessState, Ok, Result, eventSourcing } from '@harness-engineering/core'
+import { DuplicationConfig, HarnessState, InsightsEntropyGatherer, Ok, Result, eventSourcing } from '@harness-engineering/core'
 import * as fs from 'fs'
 import { minimatch } from 'minimatch'
 import * as fs from 'node:fs'

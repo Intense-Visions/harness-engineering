@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/tests/entropy/detectors'
-sourceHash: '4c8c2beaf84ac305a9e82748e7b1629463eca3ef122f011f962307b1659e4f29'
+sourceHash: 'c3a44f90b9c531add54b64cc1ad55d20790844a5da2981b9645c68adb378950c'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -9,9 +9,12 @@ members:
   [
     'complexity.test.ts',
     'coupling.test.ts',
+    'dead-code-false-positive-engines.test.ts',
     'dead-code-path-alias.test.ts',
     'dead-code-public-api.test.ts',
+    'dead-code-workspace-specifier.test.ts',
     'dead-code.test.ts',
+    'drift-declared-symbols.test.ts',
     'drift.test.ts',
     'duplication-registration.test.ts',
     'duplication.perf.test.ts',
@@ -45,7 +48,7 @@ import { checkConfigPattern, detectPatternViolations } from '../../../src/entrop
 import { detectSizeBudgetViolations, parseSize } from '../../../src/entropy/detectors/size-budget'
 import '../../../src/entropy/index'
 import { buildSnapshot } from '../../../src/entropy/snapshot'
-import { CodebaseSnapshot, ComplexityConfig, ConfigPattern, CouplingConfig, DeadCodeConfig, SizeBudgetConfig, SourceFile } from '../../../src/entropy/types'
+import { CodebaseSnapshot, ComplexityConfig, ConfigPattern, CouplingConfig, DeadCodeConfig, DocumentationDrift, SizeBudgetConfig, SourceFile } from '../../../src/entropy/types'
 import { findFiles, relativePosix } from '../../../src/shared/fs-utils'
 import { TypeScriptParser } from '../../../src/shared/parsers'
 import { isOk } from '../../../src/shared/result'
@@ -55,10 +58,13 @@ import { skipDirGlobs } from '@harness-engineering/graph'
 import { parse } from '@typescript-eslint/typescript-estree'
 import { mkdtemp, rm, writeFile } from 'fs/promises'
 import { minimatch } from 'minimatch'
-import { mkdirSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import * as fs from 'node:fs'
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
+import * as os from 'node:os'
 import { join } from 'node:path'
+import * as path from 'node:path'
 import { tmpdir } from 'os'
 import { join } from 'path'
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest'

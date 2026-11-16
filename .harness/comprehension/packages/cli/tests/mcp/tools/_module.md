@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/tests/mcp/tools'
-sourceHash: '59d54cb547a06716bcef7fee6bd567c39ce356afbf7f4a0a8164caf80a5c5f7f'
+sourceHash: '54a85cdf8eb91be48671d88aa1e6a9dc192d782113b8f148c08556ea13d93d68'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -12,10 +12,12 @@ members:
     'adr.test.ts',
     'agent.test.ts',
     'api-craft.test.ts',
+    'architecture-check-deps-parity.test.ts',
     'architecture-cov544.test.ts',
     'architecture-skipped-abstention.test.ts',
     'architecture.test.ts',
     'assess-project-cov544.test.ts',
+    'assess-project-entropy.test.ts',
     'assess-project-error-handling.test.ts',
     'assess-project.test.ts',
     'auto-decision.test.ts',
@@ -30,13 +32,16 @@ members:
     'conflict-prediction.test.ts',
     'constraint-emergence.test.ts',
     'copy-craft.test.ts',
+    'craft-scope.test.ts',
     'cross-check.test.ts',
     'decay-trends.test.ts',
     'design-craft-cov544.test.ts',
     'docs-craft.test.ts',
     'docs-publish-cov544.test.ts',
     'docs.test.ts',
+    'entropy-cleanup-parity.test.ts',
     'entropy-config-threading.test.ts',
+    'entropy-duplication-baseline.test.ts',
     'entropy-duplication.test.ts',
     'entropy-patterns-empty-ruleset.test.ts',
     'entropy.test.ts',
@@ -77,11 +82,14 @@ members:
     'review-changes.test.ts',
     'review-pipeline-config.test.ts',
     'review-pipeline.test.ts',
+    'roadmap-add-external-id.test.ts',
     'roadmap-auto-sync.test.ts',
     'roadmap-cov544.test.ts',
+    'roadmap-field-injection.test.ts',
     'roadmap-file-less-cov544.test.ts',
     'roadmap-groom-sharded.test.ts',
     'roadmap-groom.test.ts',
+    'roadmap-invalid-status.test.ts',
     'roadmap-missing-path.test.ts',
     'roadmap-scoped-sync.test.ts',
     'roadmap.file-backed-regression.test.ts',
@@ -92,6 +100,8 @@ members:
     'roadmap.test.ts',
     'search-skills.test.ts',
     'security-craft.test.ts',
+    'security-record.test.ts',
+    'security-scan-denominator.test.ts',
     'skill-progressive-loading.test.ts',
     'skill-proposal.test.ts',
     'skill-telemetry.test.ts',
@@ -129,6 +139,8 @@ export writeShardedProject
 import { computeLoadPlan } from '../../../../core/src/context/progressive-loader'
 import { extractLevel } from '../../../../core/src/context/section-parser'
 import { runAutonomyShow } from '../../../src/commands/autonomy/show'
+import { runCheckDeps } from '../../../src/commands/check-deps'
+import { runCleanup } from '../../../src/commands/cleanup'
 import { findConfigFile, loadConfig } from '../../../src/config/loader'
 import { MockLlmProvider } from '../../../src/design-craft/llm/provider.js'
 import { resolveDocsPublishConnector } from '../../../src/docs-publish/index'

@@ -6,6 +6,7 @@ import { Ok, Err } from '@harness-engineering/core';
 import { INSIGHTS_KEYS, type InsightsKey } from '@harness-engineering/types';
 import { resultToMcpResponse, type McpToolResponse } from '../utils/result-adapter.js';
 import { sanitizePath } from '../utils/sanitize-path.js';
+import { resolveInsightsEntropyGatherer } from '../../shared/insights-entropy.js';
 
 export const insightsSummaryDefinition = {
   name: 'insights_summary',
@@ -37,8 +38,11 @@ export async function handleInsightsSummary(
         ) as InsightsKey[])
       : undefined;
     const { composeInsights } = await import('@harness-engineering/core');
+    // Same harness.config.json-aware analysis `harness cleanup` runs (#2192).
+    const gatherEntropy = resolveInsightsEntropyGatherer(projectPath);
     const report = await composeInsights(projectPath, {
       ...(skip && skip.length > 0 && { skip }),
+      ...(gatherEntropy && { gatherEntropy }),
     });
     return resultToMcpResponse(Ok(report));
   } catch (e) {

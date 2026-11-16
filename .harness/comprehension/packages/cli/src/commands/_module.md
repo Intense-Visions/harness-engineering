@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/commands'
-sourceHash: 'd7aa8a069053f0f40d519213ccb6e54f64af1cac37c23bc69d73997726165c36'
+sourceHash: 'b216a53d9bc894abb3e83415b9ded47c33f2e6e7f46c8f993fe0739037bb890d'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -412,6 +412,7 @@ export runVerify
 export setupMcp
 export stageCompiledUnits
 export summarizeSweepReport
+export unparsedFileChecks
 export upsertComment
 export writeTelemetryConfig
 ```
@@ -436,6 +437,7 @@ import { maybeCreateGenerateSemantic } from '../comprehension/generate-semantic'
 import { shouldRunComprehendHook } from '../comprehension/hook'
 import { enumerateModules, filesToModules } from '../comprehension/invalidation'
 import { committedSemanticAllowed } from '../comprehension/policy'
+import { pruneOrphanUnits } from '../comprehension/prune'
 import { RefreshJobGateReason, explainInactiveRefreshGate, resolveRefreshJobGate } from '../comprehension/refresh-gate'
 import { RefReadDeps, RegressionContext, SemanticState, defaultRefReadDeps, detectCommittedSemanticOnBranch, detectSemanticRegressions, readSemanticMapAtRef } from '../comprehension/regression'
 import { assessSemanticCoverage, formatSemanticCoverage } from '../comprehension/semantic-coverage'
@@ -496,6 +498,7 @@ import { CraftLlmResolution, resolveCraftLlmConfig } from '../shared/craft/llm/p
 import { isDesignScanPath, isExcluded, resolveDesignExcludePatterns } from '../shared/design-scan-targets.js'
 import { DuplicationBaselineDelta, UPDATE_BASELINE_WITHOUT_SCAN, formatDuplicationBaselineLine, recordOrCompareBaseline } from '../shared/duplication-baseline'
 import { ENTROPY_ISSUE_TYPES, EntropyIssueType, describeDuplicationNotRun, describeUnknownIssueType, isEntropyIssueType, resolveDuplicationRequest } from '../shared/duplication-request'
+import { resolveInsightsEntropyGatherer } from '../shared/insights-entropy'
 import { matchContent } from '../skill/content-matcher'
 import { ContentMatchResult, SkillMatch } from '../skill/content-matcher-types'
 import { HealthSnapshot, captureHealthSnapshot, isSnapshotFresh, loadCachedSnapshot } from '../skill/health-snapshot'

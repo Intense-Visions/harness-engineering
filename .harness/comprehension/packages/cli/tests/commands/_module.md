@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/tests/commands'
-sourceHash: '39603323d3061e3115e442008afc18a587f221f7a86e9a292ed7cb02d2a9948e'
+sourceHash: 'd9fe03419c7383d0fdd59e67eb1885d763745b04d8da581ca38231e382cdd191'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -110,6 +110,7 @@ members:
     'ingest-options.test.ts',
     'init-cov544.test.ts',
     'init-extra.test.ts',
+    'init-first-run.test.ts',
     'init-minimal.test.ts',
     'init.test.ts',
     'insights.test.ts',
@@ -409,6 +410,7 @@ import { runComprehend, runComprehendCheck, runComprehendStats } from '../../src
 import { readComprehensionConfig, resolveComprehensionCiMode } from '../../src/comprehension/config'
 import { shouldRunComprehendHook } from '../../src/comprehension/hook'
 import { committedSemanticAllowed } from '../../src/comprehension/policy'
+import { pruneOrphanUnits } from '../../src/comprehension/prune'
 import { explainInactiveRefreshGate, resolveRefreshJobGate } from '../../src/comprehension/refresh-gate'
 import { detectCommittedSemanticOnBranch, detectSemanticRegressions, readSemanticMapAtRef } from '../../src/comprehension/regression'
 import { withDependencyRules } from '../../src/config/arch-dependency-rules'
@@ -503,6 +505,7 @@ import { fileURLToPath } from 'node:url'
 import * as os from 'os'
 import { join } from 'path'
 import * as path from 'path'
+import semver from 'semver'
 import { Mock, MockInstance, MockedFunction, afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import YAML, { parseYaml, yamlParse } from 'yaml'
 ```
