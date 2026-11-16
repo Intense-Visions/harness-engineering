@@ -10,14 +10,34 @@ import type { SignalName } from '@harness-engineering/core';
 import { reconcilePassed } from '@harness-engineering/core';
 import { logger } from '../output/logger';
 
+/**
+ * Set to `false` when a check could not be measured — its tool errored, threw,
+ * or returned output that does not parse (#2589). An unmeasured check is
+ * `passed: false` with zeroed counts, so it raises no signal and never reads as
+ * clean. Absent means measured (snapshots cached before #2589 carry no marker).
+ */
+interface Measurable {
+  measured?: false;
+}
+
 /** Granular check results from assess_project and related tools. */
 export interface HealthChecks {
-  deps: { passed: boolean; issueCount: number; circularDeps: number; layerViolations: number };
-  entropy: { passed: boolean; deadExports: number; deadFiles: number; driftCount: number };
-  security: { passed: boolean; findingCount: number; criticalCount: number };
-  perf: { passed: boolean; violationCount: number };
-  docs: { passed: boolean; undocumentedCount: number };
-  lint: { passed: boolean; issueCount: number };
+  deps: Measurable & {
+    passed: boolean;
+    issueCount: number;
+    circularDeps: number;
+    layerViolations: number;
+  };
+  entropy: Measurable & {
+    passed: boolean;
+    deadExports: number;
+    deadFiles: number;
+    driftCount: number;
+  };
+  security: Measurable & { passed: boolean; findingCount: number; criticalCount: number };
+  perf: Measurable & { passed: boolean; violationCount: number };
+  docs: Measurable & { passed: boolean; undocumentedCount: number };
+  lint: Measurable & { passed: boolean; issueCount: number };
 }
 
 /** Aggregated graph and coverage metrics. */
@@ -159,49 +179,74 @@ interface ToolResult {
   isError?: boolean;
 }
 
-const DEFAULT_CHECK = { passed: true, issueCount: 0 };
+type ParsedTool = Record<string, unknown> | null;
 
 /**
- * Extract the first text content from a tool result and parse as JSON.
- * On `isError` or invalid JSON, warn and return `{}` so callers fall back to defaults
- * instead of crashing the surrounding pipeline.
+ * Extract the first text content from a tool result and parse it as a JSON
+ * object. Returns `null` — "not measured" — on `isError`, invalid JSON, or a
+ * non-object payload, so a failed tool can never be read as an empty, clean
+ * result (#2589). Warns instead of throwing so the surrounding pipeline keeps
+ * going.
  */
-function parseToolResult(result: ToolResult, toolName: string): Record<string, unknown> {
-  const text = result.content[0]?.text ?? '{}';
+function parseToolResult(result: ToolResult | null, toolName: string): ParsedTool {
+  if (result === null) return null;
+  const text = result.content?.[0]?.text ?? '';
   if (result.isError) {
-    logger.warn(`${toolName} reported an error: ${text}`);
-    return {};
+    logger.warn(`${toolName} reported an error: ${text.slice(0, 200)}`);
+    return null;
   }
   try {
-    return JSON.parse(text);
+    const parsed: unknown = JSON.parse(text);
+    if (parsed !== null && typeof parsed === 'object' && !Array.isArray(parsed)) {
+      return parsed as Record<string, unknown>;
+    }
   } catch {
-    logger.warn(`${toolName} returned non-JSON output: ${text.slice(0, 120)}`);
-    return {};
+    // fall through
+  }
+  logger.warn(`${toolName} returned non-JSON output: ${text.slice(0, 120)}`);
+  return null;
+}
+
+/** Await a tool handler, turning a rejection into a `null` (not-measured) result. */
+async function settle(
+  toolName: string,
+  call: () => Promise<ToolResult>
+): Promise<ToolResult | null> {
+  try {
+    return await call();
+  } catch (error) {
+    logger.warn(`${toolName} threw: ${error instanceof Error ? error.message : String(error)}`);
+    return null;
   }
 }
 
-/** Build a map of check name to pass/issue from assess_project output. */
-function buildCheckMap(
-  assessData: Record<string, unknown>
-): Map<string, { passed: boolean; issueCount: number }> {
-  const map = new Map<string, { passed: boolean; issueCount: number }>();
-  const checks = (assessData.checks ?? []) as Array<{
-    name: string;
-    passed: boolean;
-    issueCount: number;
-  }>;
-  for (const c of checks) {
-    map.set(c.name, { passed: c.passed, issueCount: c.issueCount });
+type CheckEntry = { passed: boolean; issueCount: number };
+
+/**
+ * Build a map of check name to pass/issue from assess_project output. A failed
+ * assess run yields an empty map, so every check reads as not measured.
+ */
+function buildCheckMap(assessData: ParsedTool): Map<string, CheckEntry> {
+  const map = new Map<string, CheckEntry>();
+  const checks = assessData?.checks;
+  if (!Array.isArray(checks)) return map;
+  for (const c of checks as Array<Partial<CheckEntry> & { name?: unknown }>) {
+    if (typeof c?.name === 'string' && typeof c.passed === 'boolean') {
+      map.set(c.name, {
+        passed: c.passed,
+        issueCount: typeof c.issueCount === 'number' ? c.issueCount : 0,
+      });
+    }
   }
   return map;
 }
 
-/** Count violations by reason from check_dependencies output. */
-function countViolations(depsData: Record<string, unknown>): {
-  circularDeps: number;
-  layerViolations: number;
-} {
-  const violations = (depsData.violations ?? []) as Array<{ reason: string }>;
+/** Count violations by reason from check_dependencies output; `null` when not measured. */
+function countViolations(
+  depsData: ParsedTool
+): { circularDeps: number; layerViolations: number } | null {
+  if (!depsData || !Array.isArray(depsData.violations)) return null;
+  const violations = depsData.violations as Array<{ reason: string }>;
   return {
     circularDeps: violations.filter((v) => v.reason === 'CIRCULAR_DEP').length,
     layerViolations: violations.filter(
@@ -210,30 +255,49 @@ function countViolations(depsData: Record<string, unknown>): {
   };
 }
 
-/**
- * Extract granular entropy counts from detect_entropy's detailed output — the
- * JSON-safe `EntropyReport`, whose drift findings live in `drift.drifts` and
- * dead exports in `deadCode.deadExports`. (This once read `unusedExports` /
- * `staleReferences` / `missingTargets`, which no report carries, so dead
- * exports and drift were always 0 — #2550.)
- */
-function parseEntropyGranular(entropyData: Record<string, unknown>): {
+interface EntropySummaryCounts {
+  totalIssues: number;
   deadExports: number;
   deadFiles: number;
   driftCount: number;
-} {
-  const dc = (entropyData.deadCode ?? {}) as Record<string, unknown[] | undefined>;
-  const dr = (entropyData.drift ?? {}) as Record<string, unknown[] | undefined>;
+}
+
+/**
+ * Read entropy counts from detect_entropy's SUMMARY payload
+ * (`{ totalIssues, categories: { drift, deadCode, patterns } }`). The detailed
+ * report overflows (`Invalid string length`) on large repos (#2589), the same
+ * reason assess_project moved to summary mode (#2551, `entropyCheckFromSummary`).
+ *
+ * Fails closed with the same predicate as `entropyCheckFromSummary`: no numeric
+ * `totalIssues`, or no numeric `deadCode` counts (dead-code analysis always
+ * runs under `type: 'all'`), means the analyzer did not run — `null`, never 0.
+ */
+function parseEntropySummary(entropyData: ParsedTool): EntropySummaryCounts | null {
+  if (!entropyData) return null;
+  const categories = entropyData.categories as Record<string, Record<string, unknown>> | undefined;
+  const dead = categories?.['deadCode'];
+  const totalIssues = entropyData.totalIssues;
+  if (
+    typeof totalIssues !== 'number' ||
+    typeof dead?.issueCount !== 'number' ||
+    typeof dead.deadExports !== 'number' ||
+    typeof dead.deadFiles !== 'number'
+  ) {
+    return null;
+  }
+  const drift = categories?.['drift']?.issueCount;
   return {
-    deadExports: dc.deadExports?.length ?? 0,
-    deadFiles: dc.deadFiles?.length ?? 0,
-    driftCount: dr.drifts?.length ?? 0,
+    totalIssues,
+    deadExports: dead.deadExports,
+    deadFiles: dead.deadFiles,
+    driftCount: typeof drift === 'number' ? drift : 0,
   };
 }
 
-/** Count critical findings from security scan output. */
-function countCriticalFindings(securityData: Record<string, unknown>): number {
-  const findings = (securityData.findings ?? []) as Array<{ severity: string }>;
+/** Count critical findings from security scan output; `null` when not measured. */
+function countCriticalFindings(securityData: ParsedTool): number | null {
+  if (!securityData || !Array.isArray(securityData.findings)) return null;
+  const findings = securityData.findings as Array<{ severity: string }>;
   return findings.filter((f) => f.severity === 'error').length;
 }
 
@@ -244,6 +308,9 @@ function countCriticalFindings(securityData: Record<string, unknown>): number {
 /**
  * Run health checks by calling assess_project, check_dependencies, and
  * entropy/security handlers for granular counts. Returns HealthChecks.
+ *
+ * Entropy comes only from this module's own summary-mode detect_entropy call,
+ * so assess_project is not asked to run it a second time.
  */
 export async function runHealthChecks(projectPath: string): Promise<HealthChecks> {
   const { handleAssessProject } = await import('../mcp/tools/assess-project.js');
@@ -252,55 +319,79 @@ export async function runHealthChecks(projectPath: string): Promise<HealthChecks
   const { handleRunSecurityScan } = await import('../mcp/tools/security.js');
 
   const [assessResult, depsResult, entropyResult, securityResult] = await Promise.all([
-    handleAssessProject({
-      path: projectPath,
-      checks: ['deps', 'entropy', 'security', 'perf', 'docs', 'lint'],
-    }),
-    handleCheckDependencies({ path: projectPath }),
-    handleDetectEntropy({ path: projectPath, type: 'all' }),
+    settle('assess_project', () =>
+      handleAssessProject({
+        path: projectPath,
+        checks: ['deps', 'security', 'perf', 'docs', 'lint'],
+      })
+    ),
+    settle('check_dependencies', () => handleCheckDependencies({ path: projectPath })),
+    settle('detect_entropy', () =>
+      handleDetectEntropy({ path: projectPath, type: 'all', mode: 'summary' })
+    ),
     // Read-only probe: never append to the tracked security timeline (#2474).
-    handleRunSecurityScan({ path: projectPath, record: false }),
+    settle('run_security_scan', () => handleRunSecurityScan({ path: projectPath, record: false })),
   ]);
 
-  const assessData = parseToolResult(assessResult, 'assess_project');
-  const checkMap = buildCheckMap(assessData);
-  const { circularDeps, layerViolations } = countViolations(
-    parseToolResult(depsResult, 'check_dependencies')
-  );
-  const entropyGranular = parseEntropyGranular(parseToolResult(entropyResult, 'detect_entropy'));
-  const criticalCount = countCriticalFindings(parseToolResult(securityResult, 'run_security_scan'));
-
-  return assembleHealthChecks(
-    checkMap,
-    circularDeps,
-    layerViolations,
-    entropyGranular,
-    criticalCount
-  );
+  return assembleHealthChecks({
+    checkMap: buildCheckMap(parseToolResult(assessResult, 'assess_project')),
+    violations: countViolations(parseToolResult(depsResult, 'check_dependencies')),
+    entropy: parseEntropySummary(parseToolResult(entropyResult, 'detect_entropy')),
+    criticalCount: countCriticalFindings(parseToolResult(securityResult, 'run_security_scan')),
+  });
 }
 
-/** Assemble HealthChecks from a check map and granular sub-counts. */
-function assembleHealthChecks(
-  checkMap: Map<string, { passed: boolean; issueCount: number }>,
-  circularDeps: number,
-  layerViolations: number,
-  entropyGranular: { deadExports: number; deadFiles: number; driftCount: number },
-  criticalCount: number
-): HealthChecks {
-  const deps = checkMap.get('deps') ?? DEFAULT_CHECK;
-  const entropy = checkMap.get('entropy') ?? DEFAULT_CHECK;
-  const security = checkMap.get('security') ?? DEFAULT_CHECK;
-  const perf = checkMap.get('perf') ?? DEFAULT_CHECK;
-  const docs = checkMap.get('docs') ?? DEFAULT_CHECK;
-  const lint = checkMap.get('lint') ?? DEFAULT_CHECK;
+interface CheckInputs {
+  checkMap: Map<string, CheckEntry>;
+  violations: { circularDeps: number; layerViolations: number } | null;
+  entropy: EntropySummaryCounts | null;
+  criticalCount: number | null;
+}
+
+const UNMEASURED = { passed: false, measured: false } as const;
+
+/**
+ * Assemble HealthChecks. A check whose inputs did not all arrive is
+ * `{ passed: false, measured: false }` with zeroed counts (#2589).
+ */
+function assembleHealthChecks({
+  checkMap,
+  violations,
+  entropy,
+  criticalCount,
+}: CheckInputs): HealthChecks {
+  const deps = checkMap.get('deps');
+  const security = checkMap.get('security');
+  const perf = checkMap.get('perf');
+  const docs = checkMap.get('docs');
+  const lint = checkMap.get('lint');
 
   return {
-    deps: { passed: deps.passed, issueCount: deps.issueCount, circularDeps, layerViolations },
-    entropy: { passed: entropy.passed, ...entropyGranular },
-    security: { passed: security.passed, findingCount: security.issueCount, criticalCount },
-    perf: { passed: perf.passed, violationCount: perf.issueCount },
-    docs: { passed: docs.passed, undocumentedCount: docs.issueCount },
-    lint: { passed: lint.passed, issueCount: lint.issueCount },
+    deps:
+      deps && violations
+        ? { passed: deps.passed, issueCount: deps.issueCount, ...violations }
+        : { ...UNMEASURED, issueCount: 0, circularDeps: 0, layerViolations: 0 },
+    entropy: entropy
+      ? {
+          passed: entropy.totalIssues === 0,
+          deadExports: entropy.deadExports,
+          deadFiles: entropy.deadFiles,
+          driftCount: entropy.driftCount,
+        }
+      : { ...UNMEASURED, deadExports: 0, deadFiles: 0, driftCount: 0 },
+    security:
+      security && criticalCount !== null
+        ? { passed: security.passed, findingCount: security.issueCount, criticalCount }
+        : { ...UNMEASURED, findingCount: 0, criticalCount: 0 },
+    perf: perf
+      ? { passed: perf.passed, violationCount: perf.issueCount }
+      : { ...UNMEASURED, violationCount: 0 },
+    docs: docs
+      ? { passed: docs.passed, undocumentedCount: docs.issueCount }
+      : { ...UNMEASURED, undocumentedCount: 0 },
+    lint: lint
+      ? { passed: lint.passed, issueCount: lint.issueCount }
+      : { ...UNMEASURED, issueCount: 0 },
   };
 }
 
