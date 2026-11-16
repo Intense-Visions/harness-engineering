@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/tests/commands'
-sourceHash: '80bf86fd8d77790999fadadb62b96e7d3bd9530ca8fe6d28b2625812b054ef49'
+sourceHash: '5f88cfe85c9a551b0f077f47c823c23b29075259142db8a634a481b2cef154bc'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -38,6 +38,7 @@ members:
     'check-deps-err-swallow.test.ts',
     'check-deps-no-layers-cycle.test.ts',
     'check-deps-skipped-abstention.test.ts',
+    'check-deps-unparseable-files.test.ts',
     'check-deps.test.ts',
     'check-design-cov544.test.ts',
     'check-design-json-abstention.test.ts',
@@ -47,9 +48,11 @@ members:
     'check-harness-strength.test.ts',
     'check-operational-drift-cov544.test.ts',
     'check-perf-cov544.test.ts',
+    'check-perf-exclusions.test.ts',
     'check-perf.test.ts',
     'check-phase-gate.test.ts',
     'check-security-cov544.test.ts',
+    'check-security-readonly.test.ts',
     'check-security.test.ts',
     'check-vocabulary-cov544b.test.ts',
     'check-vocabulary.test.ts',

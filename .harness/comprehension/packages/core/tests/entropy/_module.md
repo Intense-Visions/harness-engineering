@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/tests/entropy'
-sourceHash: '69903a876486b31ea5f68fb7f299e0fd5d3c5f3a74661e3de97b43e1c6e950eb'
+sourceHash: '70ad1bae7dc68362bbdd937eb8cf44b4c75cbe8767b1d956a19c0889590c996d'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -11,6 +11,7 @@ members:
     'analyzer.duplication.test.ts',
     'analyzer.test.ts',
     'entry-points-no-analysis.test.ts',
+    'entry-points-unanalysed.test.ts',
     'graph-integration.test.ts',
     'path-aliases.test.ts',
     'snapshot-parser-unavailable.test.ts',
