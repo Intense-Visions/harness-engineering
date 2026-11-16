@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/commands'
-sourceHash: 'eb98fbc5d24b05305143f721bc4e4f4f8db268ef809a60f02f9af573e4b388b4'
+sourceHash: 'ccdda4f39f1651e7973e90098510d34bfa9de47ed609d58955053503678b7442'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -412,6 +412,7 @@ export runVerify
 export setupMcp
 export stageCompiledUnits
 export summarizeSweepReport
+export unparsedFileChecks
 export upsertComment
 export writeTelemetryConfig
 ```
