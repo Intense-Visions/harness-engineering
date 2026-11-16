@@ -294,9 +294,13 @@ function parseEntropySummary(entropyData: ParsedTool): EntropySummaryCounts | nu
   };
 }
 
-/** Count critical findings from security scan output; `null` when not measured. */
+/**
+ * Count critical findings from security scan output; `null` when not measured.
+ * A scan that read zero files abstained, so it is unmeasured, not 0 (#2622).
+ */
 function countCriticalFindings(securityData: ParsedTool): number | null {
   if (!securityData || !Array.isArray(securityData.findings)) return null;
+  if (securityData.abstained === true) return null;
   const findings = securityData.findings as Array<{ severity: string }>;
   return findings.filter((f) => f.severity === 'error').length;
 }

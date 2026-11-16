@@ -65,6 +65,7 @@ export {
   runComprehendStats,
   mapWithConcurrency,
   summarizeSemanticCoverage,
+  findOrphanModules,
 } from './run';
 export type {
   ComprehendModuleReader,

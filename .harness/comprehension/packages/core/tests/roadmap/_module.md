@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/tests/roadmap'
-sourceHash: '445f8fd52bfdd0423f2fee1448a6d2881eed6db6c03eac666114b13007fb2fa4'
+sourceHash: 'adbd60368ae52effacbb43b4fab2b8357cd872d461eaf906e80731b44898ae45'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -16,6 +16,7 @@ members:
     'bugfleet-preservation-history-keys-leak.test.ts',
     'derive-repo.test.ts',
     'external-id-path-traversal.test.ts',
+    'field-injection-2623.test.ts',
     'fixtures.ts',
     'github-issues-state-guard.test.ts',
     'github-issues.test.ts',
@@ -83,6 +84,7 @@ import { UnreadableAssignmentHistoryError, parseAssignmentHistory, serializeAssi
 import { findBlockedRoadmapCandidates, shardSlugAliases } from '../../src/roadmap/blocker-resolution'
 import { deriveRepoFromGitRemote, parseOwnerRepoFromRemoteUrl } from '../../src/roadmap/derive-repo'
 import { githubRepoPath, parseExternalId } from '../../src/roadmap/external-id'
+import { validateRoadmapFeatureFields } from '../../src/roadmap/field-guard'
 import { FEATURE_PREFIX, GROUP_PREFIX, matchFeatureHeadings, parseFeatureHeading, serializeFeatureHeading } from '../../src/roadmap/heading'
 import { checkRoadmapHealth, defaultIsArchive, groomRoadmap, isUnactionablePlanned } from '../../src/roadmap/health'
 import { decodeListField, encodeListField, encodeListItem } from '../../src/roadmap/list-field'

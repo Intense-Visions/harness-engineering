@@ -261,9 +261,16 @@ export function summarizeSemanticCoverage(
 export interface ComprehendCheckResult {
   /** Modules whose committed unit is source-stale (recompile needed). */
   stale: string[];
+  /**
+   * #2578 — modules whose committed unit has no enumerable module any more (the
+   * directory was deleted, or it is one `--all` never walks, e.g. a git-ignored
+   * dot-directory cache). Recompiling cannot clear these; `--prune` deletes them.
+   * Disjoint from `stale`. Always `[]` when `listModules` is not supplied.
+   */
+  orphans: string[];
   /** Units store.list() could not read/parse (surfaced, not silently dropped). */
   skipped: SkippedUnit[];
-  /** True iff no unit is source-stale. */
+  /** True iff no unit is source-stale and no unit is an orphan. */
   ok: boolean;
   /** #2063 — semantic present/absent coverage of the committed substrate (advisory). */
   semantic: SemanticCoverage;
@@ -280,27 +287,58 @@ export interface ComprehendCheckResult {
 export async function runComprehendCheck(opts: {
   store: ComprehendListStore;
   reader: ComprehendModuleReader;
+  /**
+   * #2578 — the canonical module enumerator (the one `--all` uses). When given, a
+   * unit whose module it does not return is reported as an ORPHAN instead of being
+   * hash-checked. Token-free: enumeration only.
+   */
+  listModules?: () => Promise<string[]>;
 }): Promise<ComprehendCheckResult> {
   const listing = await opts.store.list();
   if (!listing.ok) {
     return {
       stale: [],
+      orphans: [],
       skipped: [{ path: '<listing>', reason: listing.error.message }],
       ok: false,
       semantic: summarizeSemanticCoverage([]),
     };
   }
+  const orphanSet = opts.listModules
+    ? new Set(findOrphanModules(listing.value.units, await opts.listModules()))
+    : new Set<string>();
   const stale: string[] = [];
   for (const unit of listing.value.units) {
+    if (orphanSet.has(unit.provenance.module)) continue;
     const verdict = await serveGate(unit, opts.reader);
     if (!verdict.serve) stale.push(verdict.module);
   }
+  const orphans = [...orphanSet];
   return {
     stale,
+    orphans,
     skipped: listing.value.skipped,
-    ok: stale.length === 0,
+    ok: stale.length === 0 && orphans.length === 0,
     semantic: summarizeSemanticCoverage(listing.value.units),
   };
+}
+
+/**
+ * #2578 — the modules of committed `units` that are absent from `enumerable` (the
+ * canonical `--all` module set): orphans no recompile can refresh. Sorted,
+ * de-duplicated, posix. Pure.
+ */
+export function findOrphanModules(
+  units: readonly ComprehensionUnit[],
+  enumerable: readonly string[]
+): string[] {
+  const live = new Set(enumerable.map((m) => m.replaceAll('\\', '/')));
+  const orphans = new Set<string>();
+  for (const unit of units) {
+    const module = unit.provenance.module.replaceAll('\\', '/');
+    if (!live.has(module)) orphans.add(module);
+  }
+  return [...orphans].sort();
 }
 
 export interface ComprehendStatsResult {

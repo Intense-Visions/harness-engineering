@@ -1166,6 +1166,7 @@ RoadmapAggregateDriftResult
 RoadmapAutoTriageConfig
 RoadmapConfig
 RoadmapFeature
+RoadmapFieldValues
 RoadmapFrontmatter
 RoadmapGroomChange
 RoadmapGroomChangeKind
@@ -1663,6 +1664,7 @@ assertPortUsable
 assertRegeneratedRoundTrip
 assertSanitized
 assertSemanticRoundTrip
+assertSerializableFeature
 assignFeature
 assignNumber
 assignTiers
@@ -1884,6 +1886,7 @@ findBlockedRoadmapCandidates
 findFencedCodeLines
 findFixture
 findMergeCandidates
+findOrphanModules
 findParallelGroups
 findRoadmapReadSourceViolations
 fingerprintFile
@@ -2294,6 +2297,7 @@ validatePatternConfig
 validatePlanTasks
 validateProvenanceTrailer
 validatePulseConfig
+validateRoadmapFeatureFields
 validateRoadmapMode
 validateSdlcEvent
 validateSolutionsDir
