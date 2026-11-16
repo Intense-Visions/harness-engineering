@@ -1,5 +1,10 @@
 import { Command } from 'commander';
-import { ArchConfigSchema, runAll, TimelineManager } from '@harness-engineering/core';
+import {
+  ArchConfigSchema,
+  runAll,
+  sortMetricResults,
+  TimelineManager,
+} from '@harness-engineering/core';
 import type {
   ArchConfig,
   ArchMetricCategory,
@@ -107,7 +112,7 @@ export async function runSnapshotCapture(options: {
       ? timelineBefore.snapshots[timelineBefore.snapshots.length - 1]
       : undefined;
 
-  const results = await runAll(resolved.archConfig, cwd);
+  const results = sortMetricResults(await runAll(resolved.archConfig, cwd));
   const commitHash = getCommitHash(cwd);
   const snapshot = manager.capture(results, commitHash);
 

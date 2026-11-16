@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/security-craft'
-sourceHash: 'e680bcfd84c8fb93d27b5eed5979a636d75e7f4fe9e91873b17bda4e119d41e4'
+sourceHash: '24b84f7f4880deabc5db138f7d5671a0dfd28e008a2abbcc063a35aeca482c7c'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -27,6 +27,7 @@ export runSecurityCraft
 
 ```
 import { sanitizePath } from '../mcp/utils/sanitize-path.js'
+import { resolveScopedFiles } from '../shared/craft/extract/scoped-files.js'
 import { craftClumpView } from '../shared/craft/findings/clumpable.js'
 import { InSessionLlmProvider, LlmProvider, getProvider } from '../shared/craft/llm/provider.js'
 import { deleteRunState, loadRunStateOrThrow, pruneOldRuns, saveRunState } from '../shared/craft/runs/store.js'

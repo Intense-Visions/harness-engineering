@@ -164,6 +164,7 @@ BackendModelDelta
 BackendModelIdentity
 BandValidation
 BanditConfig
+BareSpecifierResolver
 BaseError
 BaseFreshnessInput
 BaseFreshnessTrust
@@ -1726,6 +1727,7 @@ collectEvents
 collectFileImports
 collectProvenanceTrailerEntries
 collectSolutionEnforcements
+compareViolations
 compileModule
 composeInsights
 composeSynthesis
@@ -2234,6 +2236,7 @@ shouldCacheResult
 shouldRunCheck
 slugifyFeatureName
 snapshotModelIdentities
+sortMetricResults
 spawnBackgroundCheck
 spearmanRankCorrelation
 spillIfNeeded

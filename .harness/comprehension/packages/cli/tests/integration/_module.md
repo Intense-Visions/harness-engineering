@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/tests/integration'
-sourceHash: '88d00abfa3b81887ef15cd61b1b37d46af8c7b7d3ec4a90cb85f520fe1f38e70'
+sourceHash: 'cc8d4522c955d2c83db932278f4598270aa9a5860075bf3fdd3caf61d083496f'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent

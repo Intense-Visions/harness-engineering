@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/code-craft'
-sourceHash: '88a469f551196f940df24daa1c6cc73acb618377c83715fde8c7424c5d3eb945'
+sourceHash: '93bf3e3f7e78016952d491a546cbb7e978892bea40b0ec21515d2c1503608cba'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -18,6 +18,7 @@ export CodeRubric
 export CodeUnit
 export SEED_EXEMPLARS
 export SEED_RUBRICS
+export SiblingIndexOutcome
 export UnitKind
 export collectCodeCraftPrompts
 export critiqueCodeInFile
@@ -30,15 +31,16 @@ export runCodeCraft
 
 ```
 import { sanitizePath } from '../mcp/utils/sanitize-path.js'
+import { resolveScopedFiles } from '../shared/craft/extract/scoped-files.js'
 import { craftClumpView } from '../shared/craft/findings/clumpable.js'
 import { InSessionLlmProvider, LlmProvider, getProvider } from '../shared/craft/llm/provider.js'
 import { deleteRunState, loadRunState, pruneOldRuns, saveRunState } from '../shared/craft/runs/store.js'
 import { SEED_EXEMPLARS } from './catalog/exemplars/index.js'
 import { CodeRubric, SEED_RUBRICS, rubricApplies } from './catalog/rubrics/index.js'
 import { discoverSourceFiles } from './extract/discover.js'
-import { buildCodeCraftCloneIndex, resolveSiblingEvidence } from './extract/siblings.js'
+import { CloneIndexBuildOutcome, buildCodeCraftCloneIndexOutcome, resolveSiblingEvidence } from './extract/siblings.js'
 import { extractCodeUnits } from './extract/units.js'
-import { CodeCraftOutput, CodeFinding, CodeUnit } from './findings/schema.js'
+import { CodeCraftOutput, CodeFinding, CodeUnit, SiblingIndexOutcome } from './findings/schema.js'
 import { CRITIQUE_SYSTEM_PROMPT, buildPrompt, critiqueOne, parseFindingFromRaw } from './phases/critique.js'
 import { CloneClass, CloneIndex, CloneMember } from '@harness-engineering/core'
 import { randomUUID } from 'node:crypto'
