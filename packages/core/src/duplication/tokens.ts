@@ -174,5 +174,6 @@ export function normalizeTokens(
  * alias to the same digest.
  */
 export function fingerprintStream(stream: readonly string[]): string {
+  // harness-ignore SEC-CRY-001: non-security clone-grouping fingerprint, not integrity or auth; the digest is the exported CloneClass.fingerprint contract consumers recompute
   return createHash('sha1').update(stream.join(' ')).digest('hex').slice(0, 16);
 }
