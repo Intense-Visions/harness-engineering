@@ -285,13 +285,105 @@ function setArgsRaise(args) {
   return extraPositional || !levelOk || !auditOk;
 }
 
+// Commands that append stdin-supplied words to the command they run, so a literal lowering
+// (`xargs harness autonomy set --session s`) can still receive `trusted` at runtime.
+const ARG_APPENDERS = new Set(['xargs', 'parallel']);
+// Program-level options that consume the next word (`-c <path>`), so it is not a subcommand.
+const VALUE_OPTIONS = new Set(['-c', '--config']);
+// A redirection glued to a word (`set</dev/tty`, `autonomy>&2`) is not part of the word.
+const GLUED_REDIRECT = /\d*(?:&>|[<>]).*$/;
+
+/** Strip a glued redirection; a bare redirection operator token becomes empty (dropped). */
+function wordTokens(segment) {
+  return tokens(segment)
+    .map((t) => t.replace(GLUED_REDIRECT, ''))
+    .filter(Boolean);
+}
+
+/** Index of the first non-option word at or after `i`, skipping a value-taking option's value. */
+function firstSubcommandAt(toks, i) {
+  let j = i;
+  while (j < toks.length && toks[j].startsWith('-')) j += VALUE_OPTIONS.has(toks[j]) ? 2 : 1;
+  return j;
+}
+
+/**
+ * True when the words after an `autonomy` token at `i` could run `autonomy set` with a raise.
+ * Options may sit between `autonomy` and `set` (`autonomy --verbose set`), a non-literal word
+ * (`{set,}`, a glob) could expand to `set`, and under xargs / parallel the arguments are
+ * appended at runtime, so only a literal lowering run directly is allowed.
+ */
+function autonomyWordRaises(toks, i, appended) {
+  const j = firstSubcommandAt(toks, i + 1);
+  const word = toks[j];
+  if (word === undefined || AUTONOMY_READ_ONLY.has(word)) return false;
+  if (word === 'set') return appended || setArgsRaise(toks.slice(j + 1));
+  return !LITERAL_WORD.test(word);
+}
+
+// Words that may precede `harness` in command position (launchers, wrappers, their options).
+const LAUNCHERS = new Set([
+  'npx',
+  'pnpx',
+  'bunx',
+  'pnpm',
+  'yarn',
+  'npm',
+  'exec',
+  'node',
+  'env',
+  'sudo',
+  'time',
+  'nice',
+  'nohup',
+  'command',
+  'builtin',
+  'xargs',
+  'parallel',
+  'script',
+  'run',
+  'dlx',
+  '{',
+  '!',
+]);
+
+/**
+ * True when every word before `i` is an env assignment, an option, a numeric argument
+ * (`timeout 5`), a launcher, or the typescript file of `script` (`script -q /dev/null harness`).
+ */
+function inCommandPosition(toks, i) {
+  let scriptFile = false;
+  for (const t of toks.slice(0, i)) {
+    const base = t.split('/').pop();
+    if (/^[A-Za-z_]\w*=/.test(t) || t.startsWith('-') || /^\d+[smhd]?$/.test(t)) continue;
+    if (LAUNCHERS.has(base) || base === 'timeout') {
+      scriptFile = base === 'script';
+      continue;
+    }
+    if (scriptFile) {
+      scriptFile = false;
+      continue;
+    }
+    return false;
+  }
+  return true;
+}
+
+/** True when a harness invocation's subcommand word is not a plain literal (`{autonomy,}`). */
+function harnessSubcommandUnsafe(toks, i, appended) {
+  if (!inCommandPosition(toks, i)) return false;
+  const word = toks[firstSubcommandAt(toks, i + 1)];
+  if (word === undefined) return appended;
+  return !LITERAL_WORD.test(word);
+}
+
 function codeRaises(code) {
   for (const segment of code.split(SEGMENT_SEPARATOR)) {
-    const toks = tokens(segment);
-    for (let i = 0; i + 1 < toks.length; i++) {
-      if (toks[i] === 'autonomy' && toks[i + 1] === 'set' && setArgsRaise(toks.slice(i + 2))) {
-        return true;
-      }
+    const toks = wordTokens(segment);
+    for (let i = 0; i < toks.length; i++) {
+      const appended = toks.slice(0, i).some((t) => ARG_APPENDERS.has(t.split('/').pop()));
+      if (toks[i] === 'autonomy' && autonomyWordRaises(toks, i, appended)) return true;
+      if (HARNESS_BIN.test(toks[i]) && harnessSubcommandUnsafe(toks, i, appended)) return true;
     }
   }
   return false;
@@ -320,7 +412,8 @@ function raisesAutonomy(cmd, depth = 0) {
 const COMMAND_SEPARATOR = /&&|\|\||\|&?|;|(?<![<>])&(?!>)|\n/;
 // A token that invokes harness, possibly opening a substitution: harness, npx harness, $(harness,
 // node …/harness.js, ./node_modules/.bin/harness.
-const HARNESS_BIN = /^[$(`]*(?:[^\s(`]*\/)?harness(?:\.js)?$/;
+const HARNESS_BIN =
+  /^[$(`]*(?:[^\s(`]*\/)?(?:harness(?:\.js)?|@harness-engineering\/cli(?:@[\w.-]+)?)$/;
 const RUNTIME_BUILT = /[$`]/;
 // A subcommand word the shell passes through unchanged (no expansion, no quoted placeholder).
 const LITERAL_WORD = /^[A-Za-z][\w:-]*$/;
