@@ -77,6 +77,18 @@ export interface WriteResult {
   skippedConfigs: string[];
 }
 
+/**
+ * Turn a Handlebars strict-mode miss (`"x" not defined in [object Object] - 18:18`)
+ * into a message that names the missing variable and line, so callers such as the
+ * init_project MCP tool surface something actionable instead of an opaque dump.
+ */
+function describeRenderError(error: unknown): string {
+  const msg = error instanceof Error ? error.message : String(error);
+  const missing = /^"([^"]+)" not defined in .*? - (\d+):\d+$/s.exec(msg);
+  if (missing) return `missing template variable "${missing[1]}" (line ${missing[2]})`;
+  return msg;
+}
+
 const NON_JSON_PACKAGE_CONFIGS = new Set([
   'pyproject.toml',
   'go.mod',
@@ -345,7 +357,7 @@ export class TemplateEngine {
       const content = fs.readFileSync(file.absolutePath, 'utf-8');
       return Ok({ relativePath: file.relativePath, content });
     } catch (error) {
-      const msg = error instanceof Error ? error.message : String(error);
+      const msg = describeRenderError(error);
       return Err(
         new Error(`Template render failed in ${file.sourceTemplate}/${file.relativePath}: ${msg}`)
       );

@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/tests/mcp/tools'
-sourceHash: '54a85cdf8eb91be48671d88aa1e6a9dc192d782113b8f148c08556ea13d93d68'
+sourceHash: '44cf918b7cb5dd583ab1923cf3178b23493342da733c1a0ab821d49f6eed533a'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -59,6 +59,7 @@ members:
     'graph-ask.test.ts',
     'graph-blast-radius.test.ts',
     'graph.test.ts',
+    'init-ci-templates.test.ts',
     'init-cov544b.test.ts',
     'init.test.ts',
     'insights-summary.test.ts',
@@ -141,6 +142,7 @@ import { extractLevel } from '../../../../core/src/context/section-parser'
 import { runAutonomyShow } from '../../../src/commands/autonomy/show'
 import { runCheckDeps } from '../../../src/commands/check-deps'
 import { runCleanup } from '../../../src/commands/cleanup'
+import { runInit } from '../../../src/commands/init'
 import { findConfigFile, loadConfig } from '../../../src/config/loader'
 import { MockLlmProvider } from '../../../src/design-craft/llm/provider.js'
 import { resolveDocsPublishConnector } from '../../../src/docs-publish/index'
@@ -227,6 +229,9 @@ import { HealthSnapshot, captureHealthSnapshot, isSnapshotFresh, loadCachedSnaps
 import { loadOrRebuildIndex } from '../../../src/skill/index-builder'
 import { recommend } from '../../../src/skill/recommendation-engine'
 import { loadOrGenerateProfile } from '../../../src/skill/stack-profile'
+import { TemplateEngine } from '../../../src/templates/engine'
+import { NAMED_TEMPLATE_DEFAULTS } from '../../../src/templates/named-template-vars'
+import { resolveTemplatesDir } from '../../../src/utils/paths'
 import { COMPILER_VERSION, ComprehensionSourceFile, ComprehensionStore, ComprehensionUnit, ConflictError, Err, ExtractStatic, FeaturePatch, HistoryEvent, NewFeatureInput, Ok, PnyonTrackerAdapter, Result, RoadmapTrackerClient, SCHEMA_VERSION, TrackedFeature, compileModule, computeSourceHash, createNodeComprehensionIO, createNodeModuleSourceReader, detectStaleConstraints, loadTrackerConfig, parseDiff, parseRoadmap, resolveAutonomyForSession, roadmapToShards, serializeMeta, serializeShard, sessionOverridePath, writeSessionOverride } from '@harness-engineering/core'
 import { queryTraceability } from '@harness-engineering/graph'
 import { deriveAcceptanceAuthority } from '@harness-engineering/intelligence'

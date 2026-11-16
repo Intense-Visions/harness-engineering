@@ -6,6 +6,7 @@ import type { Result, RoadmapMeta } from '@harness-engineering/core';
 import { Ok, Err, serializeMeta, roadmapSourceExists } from '@harness-engineering/core';
 import { TemplateEngine, type DetectedFramework } from '../templates/engine';
 import type { TemplateMetadata } from '../templates/schema';
+import { resolveNamedTemplateVars } from '../templates/named-template-vars';
 import {
   persistToolingConfig,
   appendFrameworkAgents,
@@ -167,13 +168,12 @@ async function scaffoldProject(
   const renderResult = engine.render(resolveResult.value, {
     projectName: name,
     level: level ?? '',
-    // Defaults for named-template variables (the ci-pre-merge-brief workflow).
-    // Handlebars compiles in strict mode, so these must be present for any
-    // template that references them; templates that don't simply ignore them.
+    // Defaults for named-template variables (the ci-* workflows). Handlebars
+    // compiles in strict mode, so these must be present for any template that
+    // references them; templates that don't simply ignore them. Shared with the
+    // init_project MCP tool so the two entry points can't drift (#2630).
     // Adopters edit the rendered workflow to change runner/block-on/base branch.
-    runner: 'claude',
-    blockOn: 'request-changes',
-    baseBranch: 'main',
+    ...resolveNamedTemplateVars(),
     ...(options.framework !== undefined && { framework: options.framework }),
     ...(language !== undefined && { language }),
   });

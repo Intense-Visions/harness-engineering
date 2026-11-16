@@ -3015,6 +3015,20 @@ Scaffold a new harness engineering project from a template
 ```json
 {
   "properties": {
+    "baseBranch": {
+      "description": "ci-* templates only: the branch the rendered workflow triggers on. Defaults to main.",
+      "type": "string"
+    },
+    "blockOn": {
+      "description": "ci-* templates only: the `harness review-ci --block-on` level the rendered workflow uses. Defaults to request-changes.",
+      "enum": [
+        "approve",
+        "comment",
+        "request-changes",
+        "none"
+      ],
+      "type": "string"
+    },
     "framework": {
       "description": "Framework overlay (e.g., nextjs, fastapi, gin)",
       "type": "string"
@@ -3046,6 +3060,22 @@ Scaffold a new harness engineering project from a template
     },
     "path": {
       "description": "Target directory",
+      "type": "string"
+    },
+    "runner": {
+      "description": "ci-* templates only: the `harness review-ci --runner` the rendered workflow invokes. Defaults to claude.",
+      "enum": [
+        "claude",
+        "gemini",
+        "antigravity",
+        "codex",
+        "cursor",
+        "local"
+      ],
+      "type": "string"
+    },
+    "template": {
+      "description": "Specific named template (e.g. orchestrator, ci-required-review, ci-pre-merge-brief). Takes precedence over level, like `harness init --template`.",
       "type": "string"
     }
   },
