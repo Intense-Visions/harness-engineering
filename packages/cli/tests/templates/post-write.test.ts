@@ -187,6 +187,94 @@ describe('ensureHarnessGitignore', () => {
     expect(check('.harness/metrics/adoption.jsonl')).toBe(0); // still ignored
   });
 
+  // Issue #2135: #270 was closed COMPLETED, yet adopters still had `hooks/` and a bare
+  // `security/` in their .harness/.gitignore. A directory-suffix rule stops git
+  // descending, so the later `!security/timeline.json` re-included nothing; and the
+  // merge treated `security/` as already covering `security/*`, so it never healed.
+  // These assertions ask git itself (check-ignore), not the file text, because the
+  // text looked correct while the behavior was not.
+  describe('tracked-by-default set, resolved by git (#2135)', () => {
+    const LEGACY = [
+      '# Runtime artifacts (generated, ephemeral, session-scoped)',
+      'analyses/',
+      'graph/',
+      'debug/',
+      'hooks/',
+      'interactions/',
+      'security/',
+      'sessions/',
+      'my-notes.md',
+      '',
+    ].join('\n');
+
+    /** Whether git ignores `rel` (check-ignore exits 0 = ignored, 1 = not ignored). */
+    const ignored = (rel: string): boolean => {
+      const r = spawnSync('git', ['check-ignore', '-q', '--no-index', rel], { cwd: tmpDir });
+      if (r.status !== 0 && r.status !== 1) throw new Error(`check-ignore failed: ${r.stderr}`);
+      return r.status === 0;
+    };
+
+    beforeEach(() => {
+      spawnSync('git', ['init', '-q'], { cwd: tmpDir });
+    });
+
+    it('a freshly initialised project tracks the ledger and hooks, ignores other security files', () => {
+      ensureHarnessGitignore(tmpDir);
+
+      expect(ignored('.harness/security/timeline.json')).toBe(false);
+      expect(ignored('.harness/hooks/block-no-verify.js')).toBe(false);
+      expect(ignored('.harness/hooks/profile.json')).toBe(false);
+      // positive controls: the rest of security/ and other runtime dirs stay ignored
+      expect(ignored('.harness/security/scan-cache.json')).toBe(true);
+      expect(ignored('.harness/graph/graph.json')).toBe(true);
+    });
+
+    it('migrates a legacy bare security/ and hooks/ so the ledger and hooks become trackable', () => {
+      fs.mkdirSync(path.join(tmpDir, '.harness'), { recursive: true });
+      const gitignorePath = path.join(tmpDir, '.harness', '.gitignore');
+      fs.writeFileSync(gitignorePath, LEGACY);
+      // precondition: the legacy file really does hide both
+      expect(ignored('.harness/security/timeline.json')).toBe(true);
+      expect(ignored('.harness/hooks/block-no-verify.js')).toBe(true);
+
+      ensureHarnessGitignore(tmpDir);
+
+      expect(ignored('.harness/security/timeline.json')).toBe(false);
+      expect(ignored('.harness/hooks/block-no-verify.js')).toBe(false);
+      expect(ignored('.harness/security/scan-cache.json')).toBe(true);
+      const lines = fs.readFileSync(gitignorePath, 'utf8').split('\n');
+      // user rule preserved, legacy bare rules gone
+      expect(lines).toContain('my-notes.md');
+      expect(lines).not.toContain('security/');
+      expect(lines).not.toContain('hooks/');
+    });
+
+    it('heals the half-fixed shape where security/* + negation sit below a bare security/', () => {
+      fs.mkdirSync(path.join(tmpDir, '.harness'), { recursive: true });
+      const gitignorePath = path.join(tmpDir, '.harness', '.gitignore');
+      fs.writeFileSync(gitignorePath, LEGACY + 'security/*\n!security/timeline.json\n');
+      expect(ignored('.harness/security/timeline.json')).toBe(true);
+
+      ensureHarnessGitignore(tmpDir);
+
+      expect(ignored('.harness/security/timeline.json')).toBe(false);
+      expect(ignored('.harness/security/scan-cache.json')).toBe(true);
+      const text = fs.readFileSync(gitignorePath, 'utf8');
+      expect(text.split('\n').filter((l) => l === 'security/*')).toHaveLength(1);
+      expect(text.split('\n').filter((l) => l === '!security/timeline.json')).toHaveLength(1);
+    });
+
+    it('is idempotent once migrated', () => {
+      fs.mkdirSync(path.join(tmpDir, '.harness'), { recursive: true });
+      const gitignorePath = path.join(tmpDir, '.harness', '.gitignore');
+      fs.writeFileSync(gitignorePath, LEGACY);
+      ensureHarnessGitignore(tmpDir);
+      const once = fs.readFileSync(gitignorePath, 'utf8');
+      ensureHarnessGitignore(tmpDir);
+      expect(fs.readFileSync(gitignorePath, 'utf8')).toBe(once);
+    });
+  });
+
   it('ignores every file under metrics/ for a fresh project without a bare dir rule', () => {
     ensureHarnessGitignore(tmpDir);
     const lines = fs

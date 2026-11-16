@@ -3360,6 +3360,10 @@ Manage the project roadmap: show, add, update, remove, promote, sync, groom feat
       },
       "type": "array"
     },
+    "external_id": {
+      "description": "For add action: link the new row to an EXISTING tracker ticket (e.g. \"github:<owner>/<repo>#<n>\"). The row records this External-ID and no tracker ticket is created. Idempotent: if any row already carries this External-ID nothing is written. Returns a compact envelope { added, feature, milestone, externalId } instead of the whole roadmap. Not supported in file-less mode.",
+      "type": "string"
+    },
     "feature": {
       "description": "Feature name (required for add, update, remove, promote)",
       "type": "string"

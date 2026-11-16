@@ -103,6 +103,14 @@ export interface CheckArchResult {
    * reason; `runCheckArch` always populates it.
    */
   configuredCategories?: ConfiguredCategories;
+  /**
+   * Categories whose collector threw or abstained this run (#2268). They are
+   * excluded from the baseline diff — their `0` is "unknown", not an
+   * improvement — and `--update-baseline` leaves their baseline entries
+   * untouched. Optional for additivity; `runCheckArch` populates it whenever
+   * the collectors ran.
+   */
+  abstainedCategories?: ArchMetricCategory[];
   baselineUpdated?: boolean;
   warning?: string;
   /**
@@ -327,6 +335,65 @@ export function abstainedMeasurements(
   return measurements.filter((m) => classifyMeasurement(m, declared) === 'abstained');
 }
 
+/**
+ * The collector output split into what may be scored and what may not (#2268).
+ *
+ * `MetricResult.value` is a number, so a collector that threw (and `runAll`
+ * substituted a 0) or abstained reaches `diff()` and the baseline writer as a
+ * plain 0. Against a baseline of N > 0 that reads as an improvement: the
+ * category's known violations are reported resolved, a real regression in it
+ * is masked, and `--update-baseline` writes the 0 down — permanently
+ * discarding that category's tracked allowlist. So a category with ANY
+ * abstained measurement is withheld from scoring as a whole: its aggregate is
+ * not trustworthy if part of it is unknown.
+ */
+interface ScoredRun {
+  /** Every collector result — the source of `measurements` and threshold checks. */
+  all: MetricResult[];
+  /** Results of measured categories only — the only input `diff` / the baseline writer see. */
+  scored: MetricResult[];
+  abstained: ArchMetricCategory[];
+}
+
+function scoreRun(results: MetricResult[], declared: ConfiguredCategories): ScoredRun {
+  const abstained = [
+    ...new Set(
+      abstainedMeasurements(summarizeMeasurements(results), declared).map((m) => m.category)
+    ),
+  ].sort();
+  const withheld = new Set<string>(abstained);
+  return { all: results, scored: results.filter((r) => !withheld.has(r.category)), abstained };
+}
+
+/** The baseline minus abstained categories, so `diff` neither scores nor "resolves" them. */
+function withoutAbstained(baseline: ArchBaseline, run: ScoredRun): ArchBaseline {
+  if (run.abstained.length === 0) return baseline;
+  const metrics = { ...baseline.metrics };
+  for (const category of run.abstained) delete metrics[category];
+  return { ...baseline, metrics };
+}
+
+/**
+ * True when the run measured nothing at all: at least one category abstained
+ * and none was measured. Such a run validated nothing, so it must not exit as
+ * a pass — it exits `ZERO_DENOMINATOR`, the repo's abstention code.
+ */
+export function measuredNothing(value: CheckArchResult): boolean {
+  const statuses = (value.measurements ?? []).map((m) =>
+    classifyMeasurement(m, value.configuredCategories)
+  );
+  return statuses.includes('abstained') && !statuses.includes('measured');
+}
+
+function abstainedUpdateWarning(abstained: ArchMetricCategory[]): string | undefined {
+  if (abstained.length === 0) return undefined;
+  return (
+    `Not updating the baseline for ${abstained.length} abstained categor${abstained.length === 1 ? 'y' : 'ies'} ` +
+    `(${abstained.join(', ')}): the collector crashed or measured nothing, so its 0 is unknown, ` +
+    `not an improvement. Those baseline entries were left unchanged.`
+  );
+}
+
 /** Render an unknown metadata value for a log line without risking `[object Object]`. */
 function describe(value: unknown): string {
   if (typeof value === 'string') return value;
@@ -530,11 +597,12 @@ function readOwnAllowance(ownFile: string): ArchAllowance | undefined {
 function writeAllowanceUpdate(
   cwd: string,
   archConfig: ArchConfig,
-  results: MetricResult[],
+  run: ScoredRun,
   baseBaseline: ArchBaseline,
   reason: string | undefined
 ): Result<CheckArchResult, CLIError> {
-  const rawDiff = diff(results, baseBaseline, {
+  const results = run.all;
+  const rawDiff = diff(run.scored, withoutAbstained(baseBaseline, run), {
     regressionTolerance: archConfig.regressionTolerance,
   });
   const errorNew = rawDiff.newViolations.filter((v) => v.severity === 'error');
@@ -590,13 +658,13 @@ function writeAllowanceUpdate(
 function wholeSnapshotUpdate(
   cwd: string,
   archConfig: ArchConfig,
-  results: MetricResult[],
+  run: ScoredRun,
   manager: ArchBaselineManager,
   options: CheckArchOptions
 ): Result<CheckArchResult, CLIError> {
   const existingBaseline = manager.load();
   if (existingBaseline) {
-    const regressions = diff(results, existingBaseline, {
+    const regressions = diff(run.scored, withoutAbstained(existingBaseline, run), {
       regressionTolerance: archConfig.regressionTolerance,
     }).regressions;
     if (regressions.length > 0) {
@@ -617,9 +685,11 @@ function wholeSnapshotUpdate(
       appendArchRegressionAudit(cwd, options.reason, regressions);
     }
   }
-  manager.update(results, getCommitHash(cwd));
+  // `update` merges into the existing file, so a category withheld from `scored`
+  // keeps its committed entry exactly as it was (#268's merge, reused for #2268).
+  manager.update(run.scored, getCommitHash(cwd));
   return Ok(
-    cleanBaselineResult({ measurements: summarizeMeasurements(results), baselineUpdated: true })
+    cleanBaselineResult({ measurements: summarizeMeasurements(run.all), baselineUpdated: true })
   );
 }
 
@@ -711,6 +781,18 @@ export async function runCheckArch(
   }
 
   const manager = new ArchBaselineManager(cwd, archConfig.baselinePath);
+  const run = scoreRun(results, configuredCategories);
+  /** Stamp the declared categories and the abstention record onto an update result. */
+  const withRun = (r: Result<CheckArchResult, CLIError>): Result<CheckArchResult, CLIError> => {
+    if (!r.ok) return r;
+    const warning = [r.value.warning, abstainedUpdateWarning(run.abstained)].filter(Boolean);
+    return Ok({
+      ...r.value,
+      configuredCategories,
+      abstainedCategories: run.abstained,
+      ...(warning.length > 0 ? { warning: warning.join(' ') } : {}),
+    });
+  };
 
   // --update-baseline mode
   if (options.updateBaseline) {
@@ -720,8 +802,8 @@ export async function runCheckArch(
     // preserved (the refresh-baselines job is the single writer of the committed snapshot).
     const resolution = resolveArchBaseline(cwd, archConfig.baselinePath, manager);
     if (resolution.source === 'base-ref' && resolution.baseline) {
-      return withCategories(
-        writeAllowanceUpdate(cwd, archConfig, results, resolution.baseline, options.reason)
+      return withRun(
+        writeAllowanceUpdate(cwd, archConfig, run, resolution.baseline, options.reason)
       );
     }
     // Feature-branch SAFETY NET: the base ref was EXPECTED but unreadable (unfetched worktree,
@@ -737,12 +819,12 @@ export async function runCheckArch(
       resolution.source === 'working-tree' &&
       resolution.baseline
     ) {
-      return withCategories(
-        writeAllowanceUpdate(cwd, archConfig, results, resolution.baseline, options.reason)
+      return withRun(
+        writeAllowanceUpdate(cwd, archConfig, run, resolution.baseline, options.reason)
       );
     }
     // Base branch / non-git / forced / genuine bootstrap: whole-snapshot (single-writer trunk).
-    return withCategories(wholeSnapshotUpdate(cwd, archConfig, results, manager, options));
+    return withRun(wholeSnapshotUpdate(cwd, archConfig, run, manager, options));
   }
 
   // Collect threshold violations from metric results. These are ALWAYS enforced and are
@@ -768,6 +850,7 @@ export async function runCheckArch(
       thresholdViolations,
       measurements: summarizeMeasurements(results),
       configuredCategories,
+      abstainedCategories: run.abstained,
       warning:
         'No baseline found. Running in threshold-only mode. Run with --update-baseline to capture current state.',
     });
@@ -776,7 +859,9 @@ export async function runCheckArch(
   // Baseline mode: run diff. Honor the configured regression tolerance so a
   // branch does not report false regressions (and force a baseline rewrite)
   // for the sub-tolerance drift it inherits when it merges `main`.
-  const rawDiff: ArchDiffResult = diff(results, baseline, {
+  // Abstained categories are withheld from BOTH sides (#2268): an unknown 0 must
+  // neither mask a regression nor celebrate the baseline's violations as resolved.
+  const rawDiff: ArchDiffResult = diff(run.scored, withoutAbstained(baseline, run), {
     regressionTolerance: archConfig.regressionTolerance,
   });
 
@@ -800,6 +885,7 @@ export async function runCheckArch(
     thresholdViolations,
     measurements: summarizeMeasurements(results),
     configuredCategories,
+    abstainedCategories: run.abstained,
     skippedAllowances: coverage.skipped.map((s) => ({
       file: path.relative(cwd, s.file).replaceAll('\\', '/'),
       reason: s.reason,
@@ -878,6 +964,15 @@ function maybeEmitArchFindings(findingsJson: boolean | undefined, value: CheckAr
   }
 }
 
+/**
+ * A failure is a failure; otherwise a run in which every category abstained
+ * validated nothing and exits `ZERO_DENOMINATOR` rather than a pass (#2268).
+ */
+function archExitCode(value: CheckArchResult): number {
+  if (!value.passed) return ExitCode.VALIDATION_FAILED;
+  return measuredNothing(value) ? ExitCode.ZERO_DENOMINATOR : ExitCode.SUCCESS;
+}
+
 export function createCheckArchCommand(): Command {
   const command = new Command('check-arch')
     .description('Check architecture assertions against baseline and thresholds')
@@ -921,7 +1016,7 @@ export function createCheckArchCommand(): Command {
 
       printArchResult(value, mode, formatter);
       maybeEmitArchFindings(opts.findingsJson, value);
-      process.exit(value.passed ? ExitCode.SUCCESS : ExitCode.VALIDATION_FAILED);
+      process.exit(archExitCode(value));
     });
 
   return command;

@@ -79,16 +79,20 @@ vi.mock('../../src/mcp/tools/entropy', () => ({
       {
         type: 'text',
         text: JSON.stringify({
-          // Real EntropyReport field names (#2550).
-          deadCode: {
-            deadExports: [
-              { file: 'a.ts', name: 'fn1' },
-              { file: 'a.ts', name: 'fn2' },
-            ],
-            unusedImports: [],
-            deadFiles: [{ path: 'old.ts' }],
+          // detect_entropy summary mode (#2589).
+          mode: 'summary',
+          totalIssues: 4,
+          categories: {
+            drift: { issueCount: 1, topIssues: [] },
+            deadCode: {
+              issueCount: 3,
+              topIssues: [],
+              deadExports: 2,
+              deadFiles: 1,
+              unusedImports: 0,
+            },
+            patterns: { issueCount: 0, topIssues: [] },
           },
-          drift: { drifts: [{ type: 'api-signature', docFile: 'README.md' }] },
         }),
       },
     ],
@@ -236,8 +240,20 @@ describe('Recommendation Pipeline Integration', { timeout: 10000 }, () => {
         {
           type: 'text',
           text: JSON.stringify({
-            deadCode: { deadExports: [], unusedImports: [], deadFiles: [] },
-            drift: { drifts: [] },
+            // detect_entropy summary mode (#2589).
+            mode: 'summary',
+            totalIssues: 0,
+            categories: {
+              drift: { issueCount: 0, topIssues: [] },
+              deadCode: {
+                issueCount: 0,
+                topIssues: [],
+                deadExports: 0,
+                deadFiles: 0,
+                unusedImports: 0,
+              },
+              patterns: { issueCount: 0, topIssues: [] },
+            },
           }),
         },
       ],
