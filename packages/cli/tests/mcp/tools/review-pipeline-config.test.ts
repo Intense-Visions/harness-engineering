@@ -106,3 +106,39 @@ describe('run_code_review forwards the project config to the pipeline', () => {
     }
   });
 });
+
+// #2476 §2: the grouping report reaches the MCP caller next to the count it
+// explains. `githubCommentCount` alone silently drops from N to 1.
+describe('run_code_review emits the comment-grouping report', () => {
+  const REPORT = {
+    findings: 5,
+    comments: 2,
+    individual: 1,
+    clumps: 1,
+    grouped: 4,
+    act: 4,
+    file: 0,
+    committable: 0,
+    overCapFindings: 0,
+  };
+
+  beforeEach(() => runReviewPipeline.mockReset());
+
+  it('includes githubCommentReport in both the paged and unpaged payloads', async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'review-mcp-report-'));
+    runReviewPipeline.mockResolvedValue({ ...pipelineResult(), githubCommentReport: REPORT });
+    for (const extra of [{}, { _skipPagination: true }]) {
+      const out = await handleRunCodeReview({ path: dir, diff: DIFF, ...extra } as never);
+      const body = JSON.parse((out.content[0] as { text: string }).text);
+      expect(body.githubCommentReport).toEqual(REPORT);
+    }
+  });
+
+  it('POSITIVE CONTROL: no report when the pipeline formed none', async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'review-mcp-report-'));
+    runReviewPipeline.mockResolvedValue(pipelineResult());
+    const out = await handleRunCodeReview({ path: dir, diff: DIFF });
+    const body = JSON.parse((out.content[0] as { text: string }).text);
+    expect(body.githubCommentReport).toBeUndefined();
+  });
+});

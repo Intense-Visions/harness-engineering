@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/code-craft'
-sourceHash: '88a469f551196f940df24daa1c6cc73acb618377c83715fde8c7424c5d3eb945'
+sourceHash: 'c18660468b361608ade2e2e4671a6ce46c737ec6e7ff5736b9c48d2d8f4e40ce'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -30,6 +30,7 @@ export runCodeCraft
 
 ```
 import { sanitizePath } from '../mcp/utils/sanitize-path.js'
+import { resolveScopedFiles } from '../shared/craft/extract/scoped-files.js'
 import { craftClumpView } from '../shared/craft/findings/clumpable.js'
 import { InSessionLlmProvider, LlmProvider, getProvider } from '../shared/craft/llm/provider.js'
 import { deleteRunState, loadRunState, pruneOldRuns, saveRunState } from '../shared/craft/runs/store.js'

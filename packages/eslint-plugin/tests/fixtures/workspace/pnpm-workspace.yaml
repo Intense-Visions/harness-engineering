@@ -1,0 +1,3 @@
+# Fixture workspace for no-layer-violation `resolveWorkspacePackages`.
+packages:
+  - 'packages/*'

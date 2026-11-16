@@ -271,8 +271,8 @@ Order of operations, and why each step sits where it does:
    sort is stable, so two runs agree with or without it. Its real guarantee is **which** tied
    unit survives the cap — the lexicographically smallest unit id among a tied set — and that
    is the property a test must pin. An earlier draft of this spec called the unit tiebreak
-   load-bearing for criterion 7; verification refuted that (a mutant removing it left all 77
-   tests green), and the over-claim is recorded here rather than quietly deleted because it is
+   load-bearing for criterion 7; verification refuted that (a mutant removing it left the
+   whole suite green), and the over-claim is recorded here rather than quietly deleted because it is
    exactly the shape that produces a vacuous test.
 7. **Count every bucket.**
 

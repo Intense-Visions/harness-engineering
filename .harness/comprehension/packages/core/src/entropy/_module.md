@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/src/entropy'
-sourceHash: '63682592cdd32eb3496d7520d8e18aa7e67601efff23c2c7cac5fe22e6abbb85'
+sourceHash: '142fc4da5e4c674feaa4ef7761d10eb575de9be8f49cbdfaa92ba2f9714fdec1'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -15,6 +15,7 @@ members:
     'path-aliases.ts',
     'snapshot.ts',
     'types.ts',
+    'unanalysed-entry-points.ts',
   ]
 ---
 
@@ -131,6 +132,7 @@ import { generateSuggestions } from './fixers/suggestions'
 import { loadPathAliases } from './path-aliases'
 import { buildSnapshot } from './snapshot'
 import { AnalysisError, CodeBlock, CodeReference, CodebaseSnapshot, ComplexityReport, CouplingReport, DeadCodeReport, DocumentationFile, DriftConfig, DriftReport, DuplicationReport, EntropyConfig, EntropyError, EntropyReport, ExportMap, InlineReference, InternalSymbol, JSDocComment, PatternConfig, PatternReport, SizeBudgetReport, SourceFile, SuggestionReport, TestImportSource } from './types'
+import { findUnanalysedEntryPoints, reportUnanalysedEntries } from './unanalysed-entry-points'
 import { DEFAULT_SKIP_DIRS, skipDirGlobs } from '@harness-engineering/graph'
 import * as fs from 'fs'
 import { stat } from 'fs/promises'

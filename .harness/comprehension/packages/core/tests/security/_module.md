@@ -1,13 +1,12 @@
 ---
 schemaVersion: 1
 module: 'packages/core/tests/security'
-sourceHash: '158cb4bbd438ec44583eda173b81a46994a6cf7c71cc8588c285c4237bbc2f28'
+sourceHash: '3f9b419c9bb9538f07730f87daa86aba2d9522def67ee5485e048d5f1d606e57'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
 members:
   [
-    'comment-mask.test.ts',
     'config.test.ts',
     'injection-patterns.test.ts',
     'integration.test.ts',
@@ -15,7 +14,6 @@ members:
     'scan-config-markdown.test.ts',
     'scan-targets-default-ignore.test.ts',
     'scan-targets-rust.test.ts',
-    'scanner-comment-context.test.ts',
     'scanner-fileglob.test.ts',
     'scanner.test.ts',
     'secret-reference.test.ts',
@@ -35,7 +33,6 @@ members:
 ## Dependency Slice
 
 ```
-import { maskComments, supportsCommentMasking } from '../../src/security/comment-mask'
 import { SecurityConfigSchema, parseSecurityConfig, resolveRuleSeverity } from '../../src/security/config'
 import { InjectionFinding, getInjectionPatterns, scanForInjection } from '../../src/security/injection-patterns'
 import { createOsvClient } from '../../src/security/osv-client'
@@ -44,7 +41,7 @@ import { SECURITY_SCAN_DEFAULT_IGNORE, SECURITY_SCAN_EXTENSIONS, SECURITY_SCAN_G
 import { SecurityScanner, parseHarnessIgnore } from '../../src/security/scanner'
 import { extractQuotedSecretValue, isReferenceOnlySecretValue } from '../../src/security/secret-reference'
 import { SecurityTimelineManager } from '../../src/security/security-timeline-manager'
-import { EMPTY_SUPPLY_CHAIN, SecurityTimelineFile, UNMEASURED_SUPPLY_CHAIN_SCORE_CEILING, isSupplyChainMeasured, securityFindingId } from '../../src/security/security-timeline-types'
+import { EMPTY_SUPPLY_CHAIN, SecurityTimelineFile, securityFindingId } from '../../src/security/security-timeline-types'
 import { detectStack } from '../../src/security/stack-detector'
 import { checkTaint, clearTaint, getTaintFilePath, listTaintedSessions, readTaint, writeTaint } from '../../src/security/taint'
 import { DEFAULT_SECURITY_CONFIG, ScanResult, SecurityCategory, SecurityConfidence, SecurityConfig, SecurityFinding, SecurityRule, SecuritySeverity } from '../../src/security/types'

@@ -35,6 +35,7 @@ import {
 } from './phases/critique.js';
 import type { KnowledgeCraftOutput, KnowledgeFinding } from './findings/schema.js';
 import { craftClumpView } from '../shared/craft/findings/clumpable.js';
+import { resolveScopedFiles } from '../shared/craft/extract/scoped-files.js';
 
 export type KnowledgeCraftMode = 'inline' | 'in-session';
 
@@ -351,7 +352,7 @@ export async function critiqueKnowledgeFile(
 function collectEntries(projectRoot: string, input: KnowledgeCraftInput): DiscoveredEntry[] {
   if (input.files !== undefined && input.files.length > 0) {
     const root = path.join(projectRoot, KNOWLEDGE_ROOT);
-    return input.files.map((f) => ({
+    return resolveScopedFiles(projectRoot, input.files).map((f) => ({
       file: f,
       relative: path.relative(root, f).replaceAll('\\', '/'),
     }));

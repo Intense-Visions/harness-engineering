@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/cli-ergonomics-craft'
-sourceHash: 'f41e85321357e26e475573968dc9e05da5b31826b4312e0394b793e190901707'
+sourceHash: 'd4f6fe526bbd401b5086884307747224877bc540ab2b0c88719d4b208eab391d'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -29,6 +29,7 @@ export runCliErgonomicsCraft
 
 ```
 import { sanitizePath } from '../mcp/utils/sanitize-path.js'
+import { resolveScopedFiles } from '../shared/craft/extract/scoped-files.js'
 import { craftClumpView } from '../shared/craft/findings/clumpable.js'
 import { InSessionLlmProvider, LlmProvider, getProvider } from '../shared/craft/llm/provider.js'
 import { deleteRunState, loadRunState, pruneOldRuns, saveRunState } from '../shared/craft/runs/store.js'

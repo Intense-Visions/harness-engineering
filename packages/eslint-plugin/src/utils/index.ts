@@ -3,3 +3,4 @@ export * from './schema';
 export * from './config-loader';
 export * from './path-utils';
 export * from './ast-helpers';
+export * from './workspace-packages';
