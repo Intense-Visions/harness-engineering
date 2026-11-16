@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/tests/commands'
-sourceHash: 'd41638d9c9ff110c9f8ea5f5b7566ded3de6eaff3ab4cbd9fa5237f07d9947a0'
+sourceHash: '2e9dda468e3ea6f463b86220ad725a8432a50d8e135902d6b859aa12e45626f2'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -59,6 +59,7 @@ members:
     'check-vocabulary-cov544b.test.ts',
     'check-vocabulary.test.ts',
     'cleanup-cov544b.test.ts',
+    'cleanup-duplication-baseline.test.ts',
     'cleanup-duplication.test.ts',
     'cleanup-findings-items.test.ts',
     'cleanup-sessions-cov544.test.ts',
@@ -454,6 +455,7 @@ import { ROLLBACK_EVENTS_FILE } from '../../src/rollback/breadcrumb'
 import { SweepSignalRule } from '../../src/rollback/sweep'
 import { SecurityCraftInput, SecurityCraftOutput } from '../../src/security-craft/index.js'
 import { collectDesignScanFiles, resolveDesignExcludePatterns } from '../../src/shared/design-scan-targets'
+import { DUPLICATION_BASELINE_PATH } from '../../src/shared/duplication-baseline'
 import { HealthSnapshot, captureHealthSnapshot, isSnapshotFresh, loadCachedSnapshot } from '../../src/skill/health-snapshot'
 import { loadOrRebuildIndex } from '../../src/skill/index-builder'
 import { derivePackageJson } from '../../src/skill/package-json'

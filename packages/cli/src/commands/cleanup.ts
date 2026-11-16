@@ -24,6 +24,12 @@ import {
   ENTROPY_ISSUE_TYPES,
   type EntropyIssueType,
 } from '../shared/duplication-request';
+import {
+  recordOrCompareBaseline,
+  formatDuplicationBaselineLine,
+  UPDATE_BASELINE_WITHOUT_SCAN,
+  type DuplicationBaselineDelta,
+} from '../shared/duplication-baseline';
 
 type CleanupType = EntropyIssueType;
 
@@ -34,6 +40,8 @@ interface CleanupOptions {
   json?: boolean;
   verbose?: boolean;
   quiet?: boolean;
+  /** Record the duplication baseline (`.harness/duplication/baseline.json`) from this scan. */
+  updateBaseline?: boolean;
 }
 
 interface CleanupResult {
@@ -124,6 +132,13 @@ interface CleanupResult {
     classesSuppressed: number;
     classesTruncated: number;
   };
+  /**
+   * The ADVISORY delta of `duplication` against the recorded baseline
+   * (roadmap `duplication-baseline-ratchet`). Present whenever `duplication`
+   * is; `status: 'no-baseline'` is not a zero delta. NEVER gates — see
+   * `shared/duplication-baseline.ts`.
+   */
+  duplicationBaseline?: DuplicationBaselineDelta;
 }
 
 /**
@@ -342,6 +357,11 @@ export async function runCleanup(
 
   if (report.duplication) {
     result.duplication = projectDuplication(report.duplication);
+    result.duplicationBaseline = recordOrCompareBaseline(
+      cwd,
+      result.duplication,
+      options.updateBaseline
+    );
   } else if (duplicationRequest.kind === 'run') {
     // "Did not run" must not render as "found nothing" (spec Phase 3 forward
     // note 3). The analyzer leaves the report undefined and records WHY —
@@ -354,6 +374,10 @@ export async function runCleanup(
       return Err(new CLIError(explanation, ExitCode.ERROR));
     }
     logger.warn(explanation);
+  }
+
+  if (options.updateBaseline && !result.duplication) {
+    return Err(new CLIError(UPDATE_BASELINE_WITHOUT_SCAN, ExitCode.VALIDATION_FAILED));
   }
 
   result.ran = {
@@ -599,6 +623,9 @@ export function printCleanupResult(value: CleanupResult, formatter: OutputFormat
   if (value.duplication) {
     printDuplicationSection(value.duplication);
   }
+  if (value.duplicationBaseline) {
+    console.log(formatDuplicationBaselineLine(value.duplicationBaseline));
+  }
 }
 
 /**
@@ -641,6 +668,10 @@ export function createCleanupCommand(): Command {
     .description(CLEANUP_DESCRIPTION)
     .addOption(typeOption())
     .option(
+      '--update-baseline',
+      'Record the advisory duplication baseline (.harness/duplication/baseline.json) from this scan; later runs report the class delta against it. Never affects the exit code.'
+    )
+    .option(
       '--findings-json',
       'Emit the machine-readable maintenance findings contract ({ findings: N, items: [...] }) as a trailing stdout line; items lists every gating finding with kind, file, line and (dead code) reason (#691, #2133)'
     )
@@ -655,6 +686,7 @@ export function createCleanupCommand(): Command {
         json: globalOpts.json,
         verbose: globalOpts.verbose,
         quiet: globalOpts.quiet,
+        updateBaseline: opts.updateBaseline,
       });
 
       if (!result.ok) {
