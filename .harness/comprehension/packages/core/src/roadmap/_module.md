@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/src/roadmap'
-sourceHash: 'e7ffe4b7f321c10c5bdddb47a10b1116add5738e9cf4a70ae8256d2a12c9b88d'
+sourceHash: '3b932875862e509c6906fea380f5727a1649e6cb5f54febd940480d5e0c25ca9'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -184,7 +184,7 @@ import { TrackedFeature } from './tracker'
 import { ExternalSyncOptions, TicketWriteOptions, TrackerSyncAdapter, resolveReverseStatus } from './tracker-sync'
 import { TrackerClientConfig } from './tracker/factory'
 import { getTrackerKindRegistration, listRegisteredTrackerKinds } from './tracker/registry'
-import { AssignmentRecord, Err, ExternalTicket, ExternalTicketState, FeatureStatus, Ok, Priority, Result, Roadmap, RoadmapFeature, RoadmapFrontmatter, RoadmapGroup, RoadmapMilestone, RowSyncResult, SyncResult, TrackerComment, TrackerSyncConfig } from '@harness-engineering/types'
+import { AssignmentRecord, Err, ExternalTicket, ExternalTicketState, FeatureStatus, Ok, Priority, Result, Roadmap, RoadmapFeature, RoadmapFrontmatter, RoadmapGroup, RoadmapMilestone, RoadmapOptionalFieldKey, RowSyncResult, SyncResult, TrackerComment, TrackerSyncConfig } from '@harness-engineering/types'
 import * as fs from 'fs'
 import { execFileSync } from 'node:child_process'
 import * as fs from 'node:fs'
