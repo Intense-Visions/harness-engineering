@@ -375,7 +375,7 @@ These fields are escape hatches for projects with non-standard cache or output d
 - **Type:** `EntropyConfig`
 - **Required:** No
 
-Configures entropy detection, which identifies high-entropy strings (potential secrets or credentials) in source files.
+Configures codebase entropy analysis — the decay that accumulates as code and docs evolve apart: documentation drift (`drift`), dead code (unreachable exports and files, traced from `entryPoints`), pattern violations (`patterns`), and duplicated code units (`duplication`). It backs `harness cleanup`, the `detect_entropy` MCP tool, and the `entropy` check of `harness ci check`. The drift, dead-code and pattern analyzers are TypeScript-based; set `enabled: false` to declare them not applicable on other stacks. This block does not scan for secrets or high-entropy strings — that is the [`security`](#security) scanner's job.
 
 ### EntropyConfig Object
 

@@ -372,8 +372,10 @@ describe('#2071 — a check that could not run must not read as green', () => {
     if (!result.ok) return;
 
     // Opting out of the check entirely is a deliberate config choice, not an
-    // abstention — it must not turn the build red.
-    expect(checkNamed(result.value, 'traceability').status).toBe('pass');
+    // abstention — it must not turn the build red. But it did not run, so it
+    // must not read as `pass` either (#2633): a plain skip, no `skipReason`.
+    expect(checkNamed(result.value, 'traceability').status).toBe('skip');
+    expect(checkNamed(result.value, 'traceability').skipReason).toBeUndefined();
     expect(result.value.exitCode).toBe(0);
   });
 
@@ -415,8 +417,9 @@ describe('#2071 — a check that could not run must not read as green', () => {
     if (!result.ok) return;
     const { summary } = result.value;
 
-    // docs = operator skip; deps + traceability = abstentions.
-    expect(summary.skipped).toBe(3);
+    // docs = operator skip; phase-gate = not configured (a plain skip, #2633);
+    // deps + traceability = abstentions.
+    expect(summary.skipped).toBe(4);
     expect(summary.abstained).toBe(2);
   });
 
@@ -654,7 +657,102 @@ describe('#2071 — a check that could not run must not read as green', () => {
     expect(result.ok).toBe(true);
     if (!result.ok) return;
 
-    expect(checkNamed(result.value, 'phase-gate').status).toBe('pass');
+    // Did not run, so not `pass` (#2633) — but acknowledged, so no abstention.
+    expect(checkNamed(result.value, 'phase-gate').status).toBe('skip');
+    expect(checkNamed(result.value, 'phase-gate').skipReason).toBeUndefined();
     expect(result.value.exitCode).toBe(0);
+  });
+
+  // #2633: every `<section>.enabled: false` the orchestrator reads promised "a
+  // plain skip" in its comment, but returned no issues and so reported `pass` —
+  // a gate that never ran, reading green.
+  describe('#2633 — a config-disabled gate reports `skip`, never `pass`', () => {
+    async function disableSecurity() {
+      const { parseSecurityConfig } = await import('../../src/security/config');
+      vi.mocked(parseSecurityConfig).mockReturnValueOnce({
+        enabled: false,
+        strict: false,
+        exclude: [],
+      } as unknown as ReturnType<typeof parseSecurityConfig>);
+    }
+
+    async function disableArch() {
+      const { ArchConfigSchema } = await import('../../src/architecture');
+      vi.mocked(ArchConfigSchema.parse).mockReturnValueOnce({
+        enabled: false,
+        baselinePath: '.harness/arch/baselines.json',
+        thresholds: {},
+        modules: {},
+        excludePatterns: [],
+      } as unknown as ReturnType<typeof ArchConfigSchema.parse>);
+    }
+
+    const cases: Array<{
+      check: CICheckName;
+      overrides: Record<string, unknown>;
+      setup?: () => Promise<void>;
+    }> = [
+      { check: 'deps', overrides: { deps: { enabled: false } } },
+      { check: 'entropy', overrides: { entropy: { enabled: false } } },
+      { check: 'perf', overrides: { performance: { enabled: false } } },
+      { check: 'security', overrides: {}, setup: disableSecurity },
+      { check: 'traceability', overrides: { traceability: { enabled: false } } },
+      { check: 'phase-gate', overrides: { phaseGates: { enabled: false } } },
+      { check: 'arch', overrides: {}, setup: disableArch },
+    ];
+
+    for (const { check, overrides, setup } of cases) {
+      it(`${check}: disabled by config reports \`skip\` with no skipReason, exit 0`, async () => {
+        await setup?.();
+        const result = await runCIChecks({ projectRoot: '/fake', config: baseConfig(overrides) });
+        expect(result.ok).toBe(true);
+        if (!result.ok) return;
+
+        const c = checkNamed(result.value, check);
+        expect(c.status).toBe('skip');
+        // Operator-acknowledged, so not an abstention.
+        expect(c.skipReason).toBeUndefined();
+        expect(result.value.summary.abstained).toBe(0);
+        expect(result.value.exitCode).toBe(0);
+      });
+    }
+
+    it('phase-gate: never configured is also a plain skip — it did not run', async () => {
+      const result = await runCIChecks({ projectRoot: '/fake', config: baseConfig() });
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+
+      expect(checkNamed(result.value, 'phase-gate').status).toBe('skip');
+      expect(checkNamed(result.value, 'phase-gate').skipReason).toBeUndefined();
+      expect(result.value.exitCode).toBe(0);
+    });
+
+    // Positive control: left enabled, each gate actually runs and passes.
+    it('enabled gates still run and report `pass`', async () => {
+      mockGraphLoad.mockResolvedValue(true);
+      mockQueryTraceability.mockReturnValue([
+        {
+          featureName: 'login',
+          summary: { coveragePercent: 100 },
+          requirements: [{ requirementName: 'r1', status: 'full' }],
+        },
+      ]);
+      const result = await runCIChecks({
+        projectRoot: '/fake',
+        config: baseConfig({ traceability: { enabled: true, minCoverage: 100 } }),
+        skip: ['phase-gate'],
+      });
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+
+      for (const name of ['deps', 'entropy', 'perf', 'security', 'traceability', 'arch'] as const) {
+        expect(checkNamed(result.value, name).status).toBe('pass');
+      }
+      expect(mockScanFiles).toHaveBeenCalled();
+      expect(mockAnalyze).toHaveBeenCalled();
+      const { runAll } = await import('../../src/architecture');
+      expect(runAll).toHaveBeenCalled();
+      expect(result.value.exitCode).toBe(0);
+    });
   });
 });

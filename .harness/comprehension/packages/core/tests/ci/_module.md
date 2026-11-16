@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/tests/ci'
-sourceHash: 'ac9942af4c5ecc96a9a2c0313f45ad71a6daab66f1e59a8d6e57e59e107d5ddb'
+sourceHash: '49cfe04df4441589d3c0580e0a27171f77469405cd0bc2788eefa61a8d0dc958'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -29,6 +29,7 @@ members:
 ## Dependency Slice
 
 ```
+import '../../src/architecture'
 import { classifyBaseFreshness } from '../../src/ci/base-freshness'
 import { runCIChecks } from '../../src/ci/check-orchestrator'
 import { CINotifier } from '../../src/ci/notifier'
