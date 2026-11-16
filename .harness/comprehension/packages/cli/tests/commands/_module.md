@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/tests/commands'
-sourceHash: '5e51d2a6e8b3469f103ae6dea254456ae1a0efa0f2335c1980932d8a623a11ea'
+sourceHash: '2e9dda468e3ea6f463b86220ad725a8432a50d8e135902d6b859aa12e45626f2'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -110,7 +110,6 @@ members:
     'ingest-options.test.ts',
     'init-cov544.test.ts',
     'init-extra.test.ts',
-    'init-first-run.test.ts',
     'init-minimal.test.ts',
     'init.test.ts',
     'insights.test.ts',
@@ -504,7 +503,6 @@ import { fileURLToPath } from 'node:url'
 import * as os from 'os'
 import { join } from 'path'
 import * as path from 'path'
-import semver from 'semver'
 import { Mock, MockInstance, MockedFunction, afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import YAML, { parseYaml, yamlParse } from 'yaml'
 ```

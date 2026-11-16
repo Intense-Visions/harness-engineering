@@ -24,6 +24,7 @@ import { resolve } from 'path';
 import { resolveEntryPoints } from './entry-points';
 import { findUnanalysedEntryPoints, reportUnanalysedEntries } from './unanalysed-entry-points';
 import { loadPathAliases } from './path-aliases';
+import { loadWorkspaceSpecifiers } from './workspace-specifiers';
 import {
   entryDirWaivers,
   discoverWaivedFiles,
@@ -547,6 +548,8 @@ export async function buildSnapshot(
   // Load tsconfig `paths` aliases so imports like `@lib/*` resolve to on-disk
   // files during reachability/usage analysis (issue #1759). Empty when absent.
   const pathAliases = await loadPathAliases(rootDir);
+  // Workspace package specifiers (`@scope/pkg[/sub]`) → source files (#2189).
+  const workspaceSpecifiers = await loadWorkspaceSpecifiers(rootDir, files, testImports);
 
   const buildTime = Date.now() - startTime;
 
@@ -562,6 +565,7 @@ export async function buildSnapshot(
     rootDir,
     config,
     pathAliases,
+    workspaceSpecifiers,
     buildTime,
   });
 }
