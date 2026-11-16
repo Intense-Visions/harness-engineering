@@ -35,6 +35,7 @@ import {
 } from './phases/critique.js';
 import type { KnowledgeCraftOutput, KnowledgeFinding } from './findings/schema.js';
 import { craftClumpView } from '../shared/craft/findings/clumpable.js';
+import { withCraftAbstention, type CraftAbstention } from '../shared/craft/scope.js';
 import { resolveScopedFiles } from '../shared/craft/extract/scoped-files.js';
 
 export type KnowledgeCraftMode = 'inline' | 'in-session';
@@ -67,6 +68,8 @@ export interface CollectPromptsOutput {
   hint?: string;
   /** Persisted to disk under .harness/craft/runs/<runId>.json. */
   runFile?: string;
+  /** Present only when the collect step examined zero candidates: `promptCount: 0` is then NOT a clean result (#2625). */
+  abstention?: CraftAbstention;
 }
 
 export interface FinalizeKnowledgeCraftInput {
@@ -176,6 +179,7 @@ export async function runKnowledgeCraft(input: KnowledgeCraftInput): Promise<Kno
       },
       catalog: { rubricsApplied: rubrics.map((r) => r.id) },
       counts: { filesScanned, filesSkipped },
+      ...withCraftAbstention('knowledge-craft', filesScanned + filesSkipped),
       runId: randomUUID(),
     },
   };
@@ -265,6 +269,7 @@ export async function collectKnowledgeCraftPrompts(
     pendingPrompts: pending,
     projection: { promptCount: pending.length, budget },
     runFile,
+    ...withCraftAbstention('knowledge-craft', filesScanned + filesSkipped),
   };
 }
 
@@ -314,6 +319,7 @@ export async function finalizeKnowledgeCraft(
       },
       catalog: { rubricsApplied: state.meta.rubricsApplied },
       counts: { filesScanned: state.meta.filesScanned, filesSkipped: state.meta.filesSkipped },
+      ...withCraftAbstention('knowledge-craft', state.meta.filesScanned + state.meta.filesSkipped),
       runId: input.runId,
     },
   };

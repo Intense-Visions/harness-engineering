@@ -36,6 +36,7 @@ import {
 } from './phases/critique.js';
 import type { CliErgonomicsCraftOutput, CliErgonomicsFinding } from './findings/schema.js';
 import { craftClumpView } from '../shared/craft/findings/clumpable.js';
+import { withCraftAbstention, type CraftAbstention } from '../shared/craft/scope.js';
 import { resolveScopedFiles } from '../shared/craft/extract/scoped-files.js';
 
 export type CliErgonomicsCraftMode = 'inline' | 'in-session';
@@ -69,6 +70,8 @@ export interface CollectPromptsOutput {
   hint?: string;
   /** Persisted to disk under .harness/craft/runs/<runId>.json. */
   runFile?: string;
+  /** Present only when the collect step examined zero candidates: `promptCount: 0` is then NOT a clean result (#2625). */
+  abstention?: CraftAbstention;
 }
 
 export interface FinalizeCliErgonomicsCraftInput {
@@ -223,6 +226,7 @@ export async function collectCliErgonomicsCraftPrompts(
     pendingPrompts: pending,
     projection: { promptCount: pending.length, budget },
     runFile,
+    ...withCraftAbstention('cli-ergonomics-craft', filesScanned + filesSkipped),
   };
 }
 
@@ -287,6 +291,10 @@ export async function finalizeCliErgonomicsCraft(
         exemplarsAvailable: SEED_EXEMPLARS.length,
       },
       counts: { filesScanned: state.meta.filesScanned, filesSkipped: state.meta.filesSkipped },
+      ...withCraftAbstention(
+        'cli-ergonomics-craft',
+        state.meta.filesScanned + state.meta.filesSkipped
+      ),
       runId: input.runId,
     },
   };
@@ -345,6 +353,7 @@ function buildSummary(
       exemplarsAvailable: SEED_EXEMPLARS.length,
     },
     counts: { filesScanned: acc.filesScanned, filesSkipped: acc.filesSkipped },
+    ...withCraftAbstention('cli-ergonomics-craft', acc.filesScanned + acc.filesSkipped),
     runId: randomUUID(),
   };
 }

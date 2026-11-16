@@ -25,6 +25,7 @@ import {
   type FinalizeSpecCraftInput,
 } from '../../spec-craft/index.js';
 import { resolveCraftLlmMode } from '../../shared/craft/llm/provider.js';
+import { craftPathError } from '../../shared/craft/scope.js';
 
 interface ToolResponse {
   content: Array<{ type: 'text'; text: string }>;
@@ -127,9 +128,8 @@ function effectiveMode(input: SpecCraftInput): SpecCraftMode {
 export async function handleSpecCraft(
   input: SpecCraftInput & { promptBudget?: number }
 ): Promise<ToolResponse> {
-  if (typeof input?.path !== 'string' || input.path.length === 0) {
-    return fail(JSON.stringify({ error: 'spec_craft: `path` is required' }));
-  }
+  const pathError = craftPathError('spec_craft', input?.path);
+  if (pathError !== null) return fail(JSON.stringify({ error: pathError }));
   try {
     if (effectiveMode(input) === 'in-session') {
       const result: CollectPromptsOutput = await collectSpecCraftPrompts(input);

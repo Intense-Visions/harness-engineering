@@ -26,6 +26,7 @@ import {
   type NamingCraftMode,
 } from '../../naming-craft/index.js';
 import { resolveCraftLlmMode } from '../../shared/craft/llm/provider.js';
+import { craftPathError } from '../../shared/craft/scope.js';
 
 interface ToolResponse {
   content: Array<{ type: 'text'; text: string }>;
@@ -127,11 +128,10 @@ function effectiveMode(input: NamingCraftInput): NamingCraftMode {
 export async function handleNamingCraft(
   input: NamingCraftInput & { promptBudget?: number }
 ): Promise<ToolResponse> {
-  if (typeof input?.path !== 'string' || input.path.length === 0) {
+  const pathError = craftPathError('naming_craft', input?.path);
+  if (pathError !== null) {
     return {
-      content: [
-        { type: 'text', text: JSON.stringify({ error: 'naming_craft: `path` is required' }) },
-      ],
+      content: [{ type: 'text', text: JSON.stringify({ error: pathError }) }],
       isError: true,
     };
   }
