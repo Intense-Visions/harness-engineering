@@ -1378,6 +1378,7 @@ Manage the project roadmap: show, add, update, remove, promote, sync, groom feat
 - `filter` (string, optional) — Query filter: "blocked", "in-progress", "done", "planned", "backlog", or "milestone:&lt;name>" (required for query)
 - `apply` (boolean, optional) — For sync action: apply proposed changes (default: false, preview only)
 - `force_sync` (boolean, optional) — For sync action: override human-always-wins rule
+- `external_id` (string, optional) — For add action: link the new row to an EXISTING tracker ticket (e.g. "github:&lt;owner>/&lt;repo>#&lt;n>"). The row records this External-ID and no tracker ticket is created. Idempotent: if any row already carries this External-ID nothing is written. Returns a compact envelope { added, feature, milestone, externalId } instead of the whole roadmap. Not supported in file-less mode.
 
 ### `manage_state`
 
