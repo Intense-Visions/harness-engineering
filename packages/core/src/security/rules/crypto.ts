@@ -21,6 +21,8 @@ export const cryptoRules: SecurityRule[] = [
     patterns: [
       /(?:encryption[_-]?key|cipher[_-]?key|aes[_-]?key|secret[_-]?key)\s*[:=]\s*['"][^'"]{4,}['"]/i,
     ],
+    // A key pasted into a comment is still a leaked key.
+    scanComments: true,
     message: 'Hardcoded encryption key detected',
     remediation: 'Load encryption keys from environment variables or a key management service',
     references: ['CWE-321'],

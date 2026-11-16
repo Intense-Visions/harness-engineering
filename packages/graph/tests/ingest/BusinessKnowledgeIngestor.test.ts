@@ -285,7 +285,10 @@ No YAML frontmatter here.
       const result = await ingestor.ingest(tmpDir);
 
       expect(result.nodesAdded).toBe(0);
-      expect(result.errors).toHaveLength(0);
+      // #2236: a skipped knowledge file must be reported, never dropped silently.
+      expect(result.errors).toHaveLength(1);
+      expect(result.errors[0]).toContain('no-frontmatter.md');
+      expect(result.errors[0]).toContain('no frontmatter found');
     });
 
     it('should skip files with frontmatter missing required type field', async () => {
@@ -305,6 +308,82 @@ This file has no type field.
       const result = await ingestor.ingest(tmpDir);
 
       expect(result.nodesAdded).toBe(0);
+      expect(result.errors).toHaveLength(1);
+      expect(result.errors[0]).toContain('no-type.md');
+      expect(result.errors[0]).toContain('missing `type`');
+    });
+
+    describe('reports skipped knowledge files (#2236)', () => {
+      it('reports a flat plain-markdown file at the knowledge root as not indexed', async () => {
+        await fs.writeFile(
+          path.join(tmpDir, 'rules.md'),
+          '# Some rules\n\n- **A rule**: always do the thing.\n',
+          'utf-8'
+        );
+
+        const result = await ingestor.ingest(tmpDir);
+
+        expect(result.nodesAdded).toBe(0);
+        expect(result.errors).toHaveLength(1);
+        expect(result.errors[0]).toContain('rules.md');
+        expect(result.errors[0]).toContain('no frontmatter found');
+        expect(result.errors[0]).toContain('not indexed');
+      });
+
+      it('reports a file whose type is not a business-knowledge type', async () => {
+        await writeKnowledgeFile(
+          'misc',
+          'odd-type.md',
+          '---\ntype: decision\ndomain: misc\n---\n\n# Odd\n'
+        );
+
+        const result = await ingestor.ingest(tmpDir);
+
+        expect(result.nodesAdded).toBe(0);
+        expect(result.errors).toHaveLength(1);
+        expect(result.errors[0]).toContain('odd-type.md');
+        expect(result.errors[0]).toContain('unsupported type "decision"');
+      });
+
+      it('reports a file that has a type but no domain', async () => {
+        await writeKnowledgeFile('misc', 'no-domain.md', '---\ntype: business_rule\n---\n\n# R\n');
+
+        const result = await ingestor.ingest(tmpDir);
+
+        expect(result.nodesAdded).toBe(0);
+        expect(result.errors).toHaveLength(1);
+        expect(result.errors[0]).toContain('no-domain.md');
+        expect(result.errors[0]).toContain('missing `domain`');
+      });
+
+      it('stays silent for frontmatter that declares neither type nor domain (owned by another ingestor, e.g. ADRs)', async () => {
+        await writeKnowledgeFile(
+          'decisions',
+          '0001-some-decision.md',
+          '---\nnumber: 0001\ntitle: Some decision\nstatus: accepted\n---\n\n# Some decision\n'
+        );
+
+        const result = await ingestor.ingest(tmpDir);
+
+        expect(result.nodesAdded).toBe(0);
+        expect(result.errors).toHaveLength(0);
+      });
+
+      it('indexes valid files and reports only the skipped ones', async () => {
+        await fs.writeFile(
+          path.join(tmpDir, 'flat-valid.md'),
+          '---\ntype: business_rule\ndomain: rules\n---\n\n# Flat rule\n',
+          'utf-8'
+        );
+        await fs.writeFile(path.join(tmpDir, 'flat-plain.md'), '# Plain\n', 'utf-8');
+
+        const result = await ingestor.ingest(tmpDir);
+
+        expect(result.nodesAdded).toBe(1);
+        expect(store.getNode('bk:rules:flat-valid')).not.toBeNull();
+        expect(result.errors).toHaveLength(1);
+        expect(result.errors[0]).toContain('flat-plain.md');
+      });
     });
 
     it('should extract title from first heading', async () => {

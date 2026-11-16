@@ -1,6 +1,7 @@
 /**
  * Source-file discovery — walks packages/STAR/src/ recursively (where
- * STAR is each package directory), returns TS/JS source files only.
+ * STAR is each package directory), falling back to src/ then app/ when there
+ * is no packages/ dir, and returns TS/JS source files only.
  * Excludes test files (v1 scope; v1.x adds dedicated test-security
  * rubrics) and generated / build / coverage dirs.
  *
@@ -10,6 +11,7 @@
 
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import { resolveSourceRoots } from '../../shared/craft/extract/source-roots.js';
 
 const SOURCE_EXTENSIONS = new Set(['.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs']);
 
@@ -35,23 +37,11 @@ export function discoverSourceFiles(
   projectRoot: string,
   packagesFilter?: ReadonlyArray<string>
 ): string[] {
-  const packagesDir = path.join(projectRoot, 'packages');
-  if (!fs.existsSync(packagesDir)) return [];
+  // Roots are shared with code-craft (see resolveSourceRoots). Before #2234
+  // this returned [] outright without a `packages/` dir, so every
+  // single-package repo scanned zero files and read as clean.
   const out: string[] = [];
-  let entries: fs.Dirent[];
-  try {
-    entries = fs.readdirSync(packagesDir, { withFileTypes: true });
-  } catch {
-    return [];
-  }
-  for (const entry of entries) {
-    if (!entry.isDirectory()) continue;
-    if (entry.name.startsWith('.')) continue;
-    if (packagesFilter !== undefined && !packagesFilter.includes(entry.name)) continue;
-    const srcDir = path.join(packagesDir, entry.name, 'src');
-    if (!fs.existsSync(srcDir)) continue;
-    walk(srcDir, out);
-  }
+  for (const root of resolveSourceRoots(projectRoot, packagesFilter)) walk(root, out);
   return out;
 }
 

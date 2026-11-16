@@ -39,6 +39,42 @@ export interface QueueRow {
   deliveredAt: number | null;
 }
 
+/**
+ * Per-subscription lease budget for {@link WebhookQueue.claim}. `available`
+ * returns how many more rows the caller can execute right now for that
+ * subscription; `maxPerSub` bounds it (and the SQL ranking window).
+ */
+export interface ClaimCapacity {
+  maxPerSub: number;
+  available: (subscriptionId: string) => number;
+}
+
+interface ClaimCandidate {
+  id: string;
+  subscriptionId: string;
+}
+
+/** Pick candidate ids up to `limit`, honouring each subscription's budget. */
+function selectWithinCapacity(
+  candidates: ClaimCandidate[],
+  limit: number,
+  capacity?: ClaimCapacity
+): string[] {
+  const leasedPerSub = new Map<string, number>();
+  const ids: string[] = [];
+  for (const { id, subscriptionId } of candidates) {
+    if (ids.length >= limit) break;
+    if (capacity) {
+      const leased = leasedPerSub.get(subscriptionId) ?? 0;
+      const room = Math.min(capacity.maxPerSub, capacity.available(subscriptionId));
+      if (leased >= room) continue;
+      leasedPerSub.set(subscriptionId, leased + 1);
+    }
+    ids.push(id);
+  }
+  return ids;
+}
+
 export interface QueueStats {
   pending: number;
   inFlight: number;
@@ -79,24 +115,30 @@ export class WebhookQueue {
    *
    * Without this, two overlapping ticks (tick interval 500ms, HTTP timeout
    * 5s) would both select the same row and double-fire the webhook.
+   *
+   * When `capacity` is given, at most `capacity.available(subscriptionId)`
+   * rows are leased per subscription (clamped to `capacity.maxPerSub`). Rows
+   * over a subscription's capacity are left untouched in pending|failed so a
+   * later claim picks them up once a slot frees. Every leased row must be
+   * executed by the caller: a leased row that nobody executes stays
+   * in_flight until the next process start's recoverInFlight() (#2553).
+   * Ranking is per subscription in SQL, so one saturated subscription's
+   * backlog cannot crowd another subscription's due rows out of the batch.
    */
-  claim(now: number, limit = 20): QueueRow[] {
-    const selectIds = this.db.prepare(
-      `SELECT id FROM webhook_deliveries
-       WHERE (status = 'pending' OR status = 'failed')
-         AND nextAttemptAt <= ?
-       ORDER BY nextAttemptAt
-       LIMIT ?`
-    );
+  claim(now: number, limit = 20, capacity?: ClaimCapacity): QueueRow[] {
     const markInFlight = this.db.prepare(
       `UPDATE webhook_deliveries SET status = 'in_flight' WHERE id = ?`
     );
     const fetchById = this.db.prepare(`SELECT * FROM webhook_deliveries WHERE id = ?`);
 
     const txn = this.db.transaction((tNow: number, tLimit: number): QueueRow[] => {
-      const ids = selectIds.all(tNow, tLimit) as { id: string }[];
+      const ids = selectWithinCapacity(
+        this.selectCandidates(tNow, tLimit, capacity),
+        tLimit,
+        capacity
+      );
       const claimed: QueueRow[] = [];
-      for (const { id } of ids) {
+      for (const id of ids) {
         markInFlight.run(id);
         const row = fetchById.get(id) as QueueRow | undefined;
         if (row) claimed.push(row);
@@ -105,6 +147,41 @@ export class WebhookQueue {
     });
 
     return txn(now, limit);
+  }
+
+  /**
+   * Due pending|failed rows in nextAttemptAt order. With a capacity, rows are
+   * ranked per subscription and only each subscription's first `maxPerSub`
+   * are returned (no global LIMIT, so a saturated subscription's backlog
+   * cannot push another subscription's rows out of the window).
+   */
+  private selectCandidates(now: number, limit: number, capacity?: ClaimCapacity): ClaimCandidate[] {
+    if (!capacity) {
+      return this.db
+        .prepare(
+          `SELECT id, subscriptionId FROM webhook_deliveries
+           WHERE (status = 'pending' OR status = 'failed')
+             AND nextAttemptAt <= ?
+           ORDER BY nextAttemptAt
+           LIMIT ?`
+        )
+        .all(now, limit) as ClaimCandidate[];
+    }
+    return this.db
+      .prepare(
+        `SELECT id, subscriptionId FROM (
+           SELECT id, subscriptionId, nextAttemptAt,
+                  ROW_NUMBER() OVER (
+                    PARTITION BY subscriptionId ORDER BY nextAttemptAt, rowid
+                  ) AS rn
+           FROM webhook_deliveries
+           WHERE (status = 'pending' OR status = 'failed')
+             AND nextAttemptAt <= ?
+         )
+         WHERE rn <= ?
+         ORDER BY nextAttemptAt`
+      )
+      .all(now, capacity.maxPerSub) as ClaimCandidate[];
   }
 
   /**

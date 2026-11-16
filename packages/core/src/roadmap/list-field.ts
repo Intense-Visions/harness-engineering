@@ -16,11 +16,11 @@
  * monolith roadmap document all keep byte-stable round-trips through the shared
  * `serializeFeature` / `parseFeatureBlock` seam.
  *
- * Encoding order matters: the backslash is escaped FIRST so every backslash in the
- * output is the start of exactly one `\\` / `\,` pair, which makes
- * {@link decodeListField} an exact left-to-right inverse. A legacy item that happens
- * to contain a bare backslash (never an escape the old serializer emitted) decodes
- * unchanged because an unrecognized `\x` sequence is preserved verbatim.
+ * Encoding order matters: backslashes are escaped FIRST, so every `\\` / `\,` pair
+ * in the output is one the encoder wrote, which makes {@link decodeListField} an
+ * exact left-to-right inverse. A backslash followed by anything else is not an
+ * escape the decoder recognizes, so it is preserved verbatim in both directions —
+ * which is why the encoder leaves it alone (#2166, see {@link encodeListItem}).
  *
  * ## Both directions are identities, and the second one had to be earned (#2162)
  *
@@ -51,9 +51,15 @@
  * space — `1,166`, `Q4,FY26` — is ordinary content that {@link decodeListField}
  * will not split on, so escaping it would write a backslash into prose that never
  * needed one. See #2162.
+ *
+ * ONLY A BACKSLASH THE DECODER WOULD MISREAD IS ESCAPED (#2166): one followed by
+ * another backslash, by a comma, or by the end of the item (where the joining
+ * `", "` would otherwise turn it into a `\,` escape). Any other backslash — the
+ * `\d` or `\b` of a regex documented in prose — is already decoded verbatim, so
+ * doubling it bought nothing and rewrote human-authored prose on every write.
  */
 export function encodeListItem(item: string): string {
-  return item.replace(/\\/g, '\\\\').replace(/,(?=\s)/g, '\\,');
+  return item.replace(/\\(?=[\\,]|$)/g, '\\\\').replace(/,(?=\s)/g, '\\,');
 }
 
 /**

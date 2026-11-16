@@ -27,9 +27,36 @@ export interface DependencyEdge {
   line: number;
 }
 
+/**
+ * A source file the dependency analysis was handed but could not read imports
+ * from — a syntax error, an unreadable file, or failed import extraction
+ * (#2073). Its edges are absent from the graph, so any violation or cycle it
+ * takes part in is invisible; consumers must report it rather than treat the
+ * graph as complete.
+ */
+export interface UnparsedFile {
+  /** Absolute path of the file, as discovered. */
+  file: string;
+  /** The parser's own reason, `CODE: message`. */
+  reason: string;
+}
+
 export interface DependencyGraph {
   nodes: string[];
   edges: DependencyEdge[];
+  /**
+   * Source files that were dropped because they could not be parsed (#2073).
+   * Absent (not an empty array) when every source file parsed, and when the
+   * graph came from precomputed graph data rather than a parse.
+   */
+  unparsedFiles?: UnparsedFile[];
+  /**
+   * Number of source files whose imports were actually extracted — the real
+   * denominator of the analysis, excluding directories and non-source files a
+   * glob happened to match, and excluding {@link unparsedFiles} (#2073). Absent
+   * when the graph came from precomputed graph data.
+   */
+  analyzedFiles?: number;
 }
 
 export interface DependencyViolation {
@@ -48,6 +75,12 @@ export interface DependencyValidation {
   graph: DependencyGraph;
   skipped?: boolean;
   reason?: string;
+  /** Mirrors {@link DependencyGraph.unparsedFiles} (#2073). `valid` still
+   *  speaks only to violations; a consumer deciding on a clean verdict must
+   *  also check this list. */
+  unparsedFiles?: UnparsedFile[];
+  /** Mirrors {@link DependencyGraph.analyzedFiles} (#2073). */
+  analyzedFiles?: number;
 }
 
 // Forbidden Import Config Types
@@ -69,6 +102,12 @@ export interface CircularDepsResult {
   hasCycles: boolean;
   cycles: CircularDependency[];
   largestCycle: number;
+  /** Source files dropped from the cycle graph because they could not be
+   *  parsed (#2073). Set only by `detectCircularDepsInFiles`. */
+  unparsedFiles?: UnparsedFile[];
+  /** Source files whose imports were actually extracted (#2073). Set only by
+   *  `detectCircularDepsInFiles`. */
+  analyzedFiles?: number;
 }
 
 // Boundary Types
