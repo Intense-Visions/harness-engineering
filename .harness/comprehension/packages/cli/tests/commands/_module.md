@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/tests/commands'
-sourceHash: 'c999a4830a1ff81446b47f17d8754344e8b6e9cd66df673262f2ad228ac8a14c'
+sourceHash: 'cadc5bf3812f06df45511b199e14055f91b6045ea438f4ded5c5741465bdef54'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -38,6 +38,7 @@ members:
     'check-deps-err-swallow.test.ts',
     'check-deps-no-layers-cycle.test.ts',
     'check-deps-skipped-abstention.test.ts',
+    'check-deps-unparseable-files.test.ts',
     'check-deps.test.ts',
     'check-design-cov544.test.ts',
     'check-design-json-abstention.test.ts',
@@ -47,14 +48,17 @@ members:
     'check-harness-strength.test.ts',
     'check-operational-drift-cov544.test.ts',
     'check-perf-cov544.test.ts',
+    'check-perf-exclusions.test.ts',
     'check-perf.test.ts',
     'check-phase-gate.test.ts',
     'check-security-cov544.test.ts',
+    'check-security-readonly.test.ts',
     'check-security.test.ts',
     'check-vocabulary-cov544b.test.ts',
     'check-vocabulary.test.ts',
     'cleanup-cov544b.test.ts',
     'cleanup-duplication.test.ts',
+    'cleanup-findings-items.test.ts',
     'cleanup-sessions-cov544.test.ts',
     'cleanup-sessions.test.ts',
     'cleanup.test.ts',
@@ -86,6 +90,7 @@ members:
     'fix-drift-cov544.test.ts',
     'fix-drift.test.ts',
     'generate-agent-definitions-cov544b.test.ts',
+    'generate-agent-definitions-links.test.ts',
     'generate-agent-definitions.test.ts',
     'generate-slash-commands-cov544.test.ts',
     'generate-slash-commands.test.ts',
@@ -277,7 +282,7 @@ import { createCheckPhaseGateCommand, runCheckPhaseGate } from '../../src/comman
 import { createCheckSecurityCommand, runCheckSecurity } from '../../src/commands/check-security'
 import { createCheckVocabularyCommand, runCheckVocabulary } from '../../src/commands/check-vocabulary'
 import '../../src/commands/ci/check'
-import { createCleanupCommand, printCleanupResult, runCleanup } from '../../src/commands/cleanup'
+import { buildCleanupFindingItems, createCleanupCommand, printCleanupResult, runCleanup } from '../../src/commands/cleanup'
 import { createCleanupSessionsCommand, printCleanupAllResult, printCleanupSessionsResult, runCleanupAll, runCleanupSessions } from '../../src/commands/cleanup-sessions'
 import { createCliErgonomicsCraftCommand } from '../../src/commands/cli-ergonomics-craft'
 import { createCodeCraftCommand } from '../../src/commands/code-craft'
@@ -397,7 +402,7 @@ import { runCrossCheck } from '../../src/commands/validate-cross-check'
 import { SCOPED_WALKERS, deriveChangedSurface, filterToDesignSurface } from '../../src/commands/validate-scope'
 import { createWaypointCommand } from '../../src/commands/waypoint'
 import { runComprehend, runComprehendCheck, runComprehendStats } from '../../src/comprehension/compile-run'
-import { resolveComprehensionCiMode } from '../../src/comprehension/config'
+import { readComprehensionConfig, resolveComprehensionCiMode } from '../../src/comprehension/config'
 import { shouldRunComprehendHook } from '../../src/comprehension/hook'
 import { committedSemanticAllowed } from '../../src/comprehension/policy'
 import { explainInactiveRefreshGate, resolveRefreshJobGate } from '../../src/comprehension/refresh-gate'
@@ -456,6 +461,7 @@ import { CLIError, ExitCode } from '../../src/utils/errors'
 import { markSetupComplete } from '../../src/utils/first-run'
 import { CLI_VERSION } from '../../src/version'
 import { VocabularyRule, formatViolations, scanFiles, scanText } from '../../src/vocabulary/scanner'
+import { runHarness } from '../e2e/support/harness-cli'
 import { resolveProjectFrom } from '../helpers/resolve-project-mock'
 import { ConsoleCapture, captureConsole, runToExit, stubProcessExit } from './cli-command-harness'
 import { CraftCommandRun, DEFAULT_CWD, runCraftCommand } from './craft-command-harness-cohort-b'
@@ -467,7 +473,7 @@ import '@harness-engineering/graph'
 import { GUARDIAN_ANALYSIS_SCHEMA, GUARDIAN_ANALYSIS_VERSION, GuardianAnalysis, OutcomeVerdict, SkillRegressionFixture, SkillRegressionVerdict } from '@harness-engineering/intelligence'
 import { AnalysisRecord, MockBackend, RunMode, RunResult, SyncMainResult, TaskDefinition, renderAnalysisComment } from '@harness-engineering/orchestrator'
 import { SignalResult, SignalsResult } from '@harness-engineering/signals'
-import { SdlcEvent, TrackerComment } from '@harness-engineering/types'
+import { SdlcEvent, TrackerComment, parseFindingsContract } from '@harness-engineering/types'
 import { execFileSync, execSync } from 'child_process'
 import { Command } from 'commander'
 import * as fs from 'fs'

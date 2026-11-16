@@ -112,6 +112,7 @@ AssignmentRecord
 AttributedContributor
 AttributedSpendEvent
 AttributionReport
+AuditCommandRunner
 AuditOptions
 AuditResult
 AuditResultSchema
@@ -173,7 +174,11 @@ BaselinesFile
 BenchmarkResult
 BenchmarkRunOptions
 BenchmarkRunner
+BlockedCandidate
+BlockerHoldReason
 BlockerRef
+BlockerResolutionOptions
+BlockerResolver
 BlueprintData
 BlueprintGenerator
 BlueprintModule
@@ -313,6 +318,7 @@ CodebookHistoryRecord
 CodebookReport
 CognitiveMode
 Collector
+CollectorRunContext
 CommentedCodeBlock
 CommitFormat
 CommitHistoryEntry
@@ -418,6 +424,7 @@ CraftReviewSkip
 CraftSkipReason
 CraftTier
 CriticalPathEntry
+CriticalPathGraphInference
 CriticalPathResolver
 CriticalPathSet
 CustomRule
@@ -687,6 +694,7 @@ HarnessStateSchema
 HarnessStrengthAuditor
 HeadlessInvocation
 HealthCheckResult
+HeldBlocker
 HistoryEvent
 HistoryEventType
 HookContext
@@ -1170,6 +1178,7 @@ RoadmapMilestone
 RoadmapMode
 RoadmapModeConfig
 RoadmapModeValidationConfig
+RoadmapOptionalFieldKey
 RoadmapPromoteArgs
 RoadmapPromoteCoreResult
 RoadmapPromoteResult
@@ -1294,6 +1303,7 @@ SecurityTrendResultSchema
 SeedOptions
 SelectOptions
 SelfReviewConfig
+SemanticCoverage
 SemanticGeneration
 SemanticInput
 Sensitivity
@@ -1372,6 +1382,7 @@ SkippedRule
 SkippedRuleSchema
 SkippedStateChange
 SkippedUnit
+SlugAliases
 SolutionCategory
 SolutionDocFrontmatter
 SolutionDocFrontmatterSchema
@@ -1527,9 +1538,11 @@ TurnResult
 TypeScriptParser
 ULID_LENGTH
 UNIT_FILE
+UNMEASURED_SUPPLY_CHAIN_SCORE_CEILING
 UlidFactoryOptions
 UnexplainedConstraint
 UnfoldResult
+UnparsedFile
 UnreleasedCommit
 UnusedImport
 UpdateCheckState
@@ -1751,6 +1764,7 @@ countLearningEntries
 countRejected
 countUnshipped
 createAnthropicTokenCounter
+createBlockerResolver
 createBoundaryValidator
 createCommentedCodeFixes
 createError
@@ -1862,6 +1876,8 @@ fanOutConditionalSubagents
 fanOutReview
 fetchPublicOutposts
 filterDiffByAllowances
+findBlockedRoadmapCandidates
+findFencedCodeLines
 findFixture
 findMergeCandidates
 findParallelGroups
@@ -1945,12 +1961,14 @@ isFleetAllocationExhausted
 isGlobalEnvelopeExhausted
 isLeaseLive
 isMachineAssignee
+isMarkdownPath
 isOk
 isRaisingChange
 isRegression
 isSanitizedResult
 isSmallSuggestion
 isStaticSupported
+isSupplyChainMeasured
 isSupportedRunner
 isTerminal
 isUlid
@@ -2004,6 +2022,7 @@ networkRules
 nextNumber
 nodeRules
 normalizeLearningContent
+normalizeMarkdownTableRow
 normalizeRemoteFileConfig
 normalizeSince
 normalizeSpanText
@@ -2206,6 +2225,7 @@ sessionOverridePath
 setActiveStream
 setStatus
 settleClumpVerdict
+shardSlugAliases
 sharedImportKey
 sharedRateBudget
 sharpEdgesRules
@@ -2222,6 +2242,8 @@ stageDomains
 suggestCategory
 summarizeAutoDecisions
 summarizeLeafSpend
+summarizeSemanticCoverage
+suppressMarkdownStructureFindings
 syncConstraintNodes
 syncFromExternal
 syncRoadmap
