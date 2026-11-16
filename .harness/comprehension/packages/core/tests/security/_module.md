@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/tests/security'
-sourceHash: 'f297ad02c9cc2688eda451a680abefcd111a431a6c2bc7e7a521b810989807a8'
+sourceHash: 'ffcabd71e333042aa27f9bcea8a5a3c5c2e9f01d4658f068a32dc15c68d97e8e'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -11,6 +11,7 @@ members:
     'injection-patterns.test.ts',
     'integration.test.ts',
     'osv-client.test.ts',
+    'scan-config-markdown.test.ts',
     'scan-targets-default-ignore.test.ts',
     'scan-targets-rust.test.ts',
     'scanner-fileglob.test.ts',
@@ -35,6 +36,7 @@ members:
 import { SecurityConfigSchema, parseSecurityConfig, resolveRuleSeverity } from '../../src/security/config'
 import { InjectionFinding, getInjectionPatterns, scanForInjection } from '../../src/security/injection-patterns'
 import { createOsvClient } from '../../src/security/osv-client'
+import { ScanConfigFinding, findFencedCodeLines, isMarkdownPath, normalizeMarkdownTableRow, suppressMarkdownStructureFindings } from '../../src/security/scan-config-shared'
 import { SECURITY_SCAN_DEFAULT_IGNORE, SECURITY_SCAN_EXTENSIONS, SECURITY_SCAN_GLOB } from '../../src/security/scan-targets'
 import { SecurityScanner, parseHarnessIgnore } from '../../src/security/scanner'
 import { extractQuotedSecretValue, isReferenceOnlySecretValue } from '../../src/security/secret-reference'

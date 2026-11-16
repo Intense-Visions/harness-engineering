@@ -39,8 +39,8 @@ describe('init_project tool', () => {
     expect(result.isError).toBeFalsy();
 
     const config = JSON.parse(fs.readFileSync(join(tmpDir, 'harness.config.json'), 'utf-8'));
-    expect(config.tooling).toBeDefined();
-    expect(config.tooling.buildTool).toBe('vite');
+    expect(config.template.tooling).toBeDefined();
+    expect(config.template.tooling.buildTool).toBe('vite');
     expect(config.template.framework).toBe('react-vite');
 
     fs.rmSync(tmpDir, { recursive: true });

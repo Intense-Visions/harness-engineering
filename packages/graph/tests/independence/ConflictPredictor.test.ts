@@ -116,7 +116,7 @@ describe('ConflictPredictor', () => {
     /**
      * Build a graph where:
      * - a.ts imports shared.ts, b.ts imports shared.ts (transitive overlap)
-     * - shared.ts has a function node with high changeFrequency (via commit references)
+     * - shared.ts has a function node with high changeFrequency (via GitIngestor-shaped file -> commit triggered_by edges)
      * - Additional "filler" files with low changeFrequency to establish the percentile threshold
      *
      * To make shared.ts appear in the top 20th percentile of churn, we need
@@ -163,7 +163,7 @@ describe('ConflictPredictor', () => {
       });
       store.addEdge({ from: 'file:src/shared.ts', to: 'fn:shared:doStuff', type: 'contains' });
 
-      // 10 commit references to shared.ts (high churn)
+      // 10 commits touching shared.ts (high churn)
       for (let i = 0; i < 10; i++) {
         store.addNode({
           id: `commit:shared-${i}`,
@@ -171,7 +171,11 @@ describe('ConflictPredictor', () => {
           name: `commit-shared-${i}`,
           metadata: {},
         });
-        store.addEdge({ from: `commit:shared-${i}`, to: 'file:src/shared.ts', type: 'references' });
+        store.addEdge({
+          from: 'file:src/shared.ts',
+          to: `commit:shared-${i}`,
+          type: 'triggered_by',
+        });
       }
 
       // 4 filler files with 1 function node and 1 commit each (low churn)
@@ -198,7 +202,7 @@ describe('ConflictPredictor', () => {
           name: `commit-filler-${i}`,
           metadata: {},
         });
-        store.addEdge({ from: `commit:filler-${i}`, to: `file:${filePath}`, type: 'references' });
+        store.addEdge({ from: `file:${filePath}`, to: `commit:filler-${i}`, type: 'triggered_by' });
       }
 
       return store;
@@ -224,9 +228,27 @@ describe('ConflictPredictor', () => {
       expect(conflict.mitigation).toContain('coordinate');
     });
 
+    it('does not label a file high-churn when no commit touched it (#2022)', () => {
+      const store = buildHighChurnGraph();
+      // Drop every commit: the graph now carries no git history at all.
+      for (const n of store.findNodes({ type: 'commit' })) store.removeNode(n.id);
+      expect(store.findNodes({ type: 'commit' })).toHaveLength(0);
+
+      const result = new ConflictPredictor(store).predict({
+        tasks: [
+          { id: 'a', files: ['src/a.ts'] },
+          { id: 'b', files: ['src/b.ts'] },
+        ],
+        depth: 1,
+      });
+
+      expect(result.conflicts).toHaveLength(1);
+      expect(result.conflicts[0]!.reason).not.toContain('high-churn');
+    });
+
     /**
      * Build a graph where shared.ts has high coupling (many imports in/out)
-     * but low churn (no commit references to keep changeFrequency at 0).
+     * but low churn (no commits touching it, keeping changeFrequency at 0).
      */
     function buildHighCouplingGraph(): GraphStore {
       const store = new GraphStore();
@@ -597,7 +619,7 @@ describe('ConflictPredictor', () => {
       store.addEdge({ from: 'file:src/shared.ts', to: 'fn:shared:fn', type: 'contains' });
       for (let i = 0; i < 10; i++) {
         store.addNode({ id: `commit:s-${i}`, type: 'commit', name: `c-${i}`, metadata: {} });
-        store.addEdge({ from: `commit:s-${i}`, to: 'file:src/shared.ts', type: 'references' });
+        store.addEdge({ from: 'file:src/shared.ts', to: `commit:s-${i}`, type: 'triggered_by' });
       }
       // Filler files for percentile
       for (let i = 0; i < 4; i++) {
@@ -618,7 +640,7 @@ describe('ConflictPredictor', () => {
         });
         store.addEdge({ from: `file:${fp}`, to: `fn:fill${i}:fn`, type: 'contains' });
         store.addNode({ id: `commit:f-${i}`, type: 'commit', name: `cf-${i}`, metadata: {} });
-        store.addEdge({ from: `commit:f-${i}`, to: `file:${fp}`, type: 'references' });
+        store.addEdge({ from: `file:${fp}`, to: `commit:f-${i}`, type: 'triggered_by' });
       }
 
       const predictor = new ConflictPredictor(store);
