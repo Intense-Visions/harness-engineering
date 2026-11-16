@@ -21,6 +21,7 @@ import { describe, expect, it } from 'vitest';
 
 import { HarnessConfigSchema } from '../../src/config/schema';
 import { collectStrippedKeys } from '../../src/config/stripped-keys';
+import { deepMergeJson } from '../../src/templates/merger';
 
 const TEMPLATES_DIR = path.resolve(__dirname, '..', '..', '..', '..', 'templates');
 
@@ -40,41 +41,31 @@ function render(source: string): string {
   );
 }
 
-/**
- * Keys these templates ship today that the schema drops, recorded rather than
- * fixed here.
- *
- * THIS IS A PRE-EXISTING DEFECT THIS GATE FOUND, not an exemption it grants.
- * All four language-base templates declare a ROOT-LEVEL `tooling` block
- * (`packageManager` / `linter` / `formatter` / `buildTool` / `testRunner`).
- * The schema's key for exactly that shape is `template.tooling`
- * (`config/schema.ts:1340`, documented in `docs/reference/configuration.md`
- * §ToolingConfig Object), so this is a MIS-NESTING — the precise defect class
- * the stripped-key warner was built for in issue #862 — and the templates
- * themselves ship it. Every project scaffolded from one prints
- * `ignored unknown key 'tooling'` on its first `harness` command, and the
- * toolchain it declares is read by nothing.
- *
- * Moving it under `template` is a one-line fix per template, and it is a
- * decision about the language-base templates rather than about clumping, so it
- * is NAMED here and left to be made deliberately instead of being quietly
- * folded into an unrelated phase.
- *
- * Listed per template and per key so the baseline cannot grow silently: a new
- * dropped key, or the same key in a new template, still fails.
- */
-const KNOWN_DROPPED: Record<string, readonly string[]> = {
-  'go-base': ['tooling'],
-  'java-base': ['tooling'],
-  'python-base': ['tooling'],
-  'rust-base': ['tooling'],
-};
-
 const configTemplates = fs
   .readdirSync(TEMPLATES_DIR)
   .filter((d) => fs.statSync(path.join(TEMPLATES_DIR, d)).isDirectory())
   .map((d) => [d, path.join(TEMPLATES_DIR, d, 'harness.config.json.hbs')] as const)
   .filter(([, file]) => fs.existsSync(file));
+
+/**
+ * The config an adopter actually gets from a template.
+ *
+ * A framework overlay's `harness.config.json.hbs` is a FRAGMENT — it declares
+ * only the entry files the overlay renders (#2630) — and the engine deep-merges
+ * it over the config of the template it lands on. Validate that merged result;
+ * the fragment alone is not a config anyone scaffolds. A TypeScript overlay can
+ * land on any level, so it is checked over `basic`, the smallest.
+ */
+function scaffoldedConfig(name: string, file: string): unknown {
+  const own = JSON.parse(render(fs.readFileSync(file, 'utf-8'))) as Record<string, unknown>;
+  const meta = JSON.parse(
+    fs.readFileSync(path.join(TEMPLATES_DIR, name, 'template.json'), 'utf-8')
+  ) as { framework?: string; language?: string; extends?: string };
+  if (!meta.framework) return own;
+  const host = meta.extends ?? (meta.language === 'typescript' ? 'basic' : `${meta.language}-base`);
+  const hostFile = path.join(TEMPLATES_DIR, host, 'harness.config.json.hbs');
+  return deepMergeJson(JSON.parse(render(fs.readFileSync(hostFile, 'utf-8'))), own);
+}
 
 describe('adopter config templates validate', () => {
   it('there are templates to check — a zero-length loop would pass vacuously', () => {
@@ -83,11 +74,9 @@ describe('adopter config templates validate', () => {
 
   for (const [name, file] of configTemplates) {
     it(`${name}/harness.config.json.hbs renders to a valid harness config`, () => {
-      const rendered = render(fs.readFileSync(file, 'utf-8'));
-
       let parsed: unknown;
       expect(() => {
-        parsed = JSON.parse(rendered);
+        parsed = scaffoldedConfig(name, file);
       }, `${name} does not render to valid JSON`).not.toThrow();
 
       const result = HarnessConfigSchema.safeParse(parsed);
@@ -104,9 +93,14 @@ describe('adopter config templates validate', () => {
       // unknown or mis-nested key with no signal. A template that ships such a
       // key scaffolds a project whose first command prints a warning about a
       // setting the adopter never typed.
-      const parsed = JSON.parse(render(fs.readFileSync(file, 'utf-8')));
+      const parsed = scaffoldedConfig(name, file);
       const dropped = collectStrippedKeys(HarnessConfigSchema, parsed).map((d) => d.path);
-      expect(dropped.filter((k) => !KNOWN_DROPPED[name]?.includes(k))).toEqual([]);
+      //
+      // Issue #2475 was this exact defect: all four language-base templates
+      // shipped a root-level `tooling` block (schema key: `template.tooling`).
+      // It was recorded in a per-template baseline here until fixed; the
+      // baseline is gone, so any dropped key in any template now fails.
+      expect(dropped).toEqual([]);
     });
   }
 
@@ -124,19 +118,6 @@ describe('adopter config templates validate', () => {
     expect(
       collectStrippedKeys(HarnessConfigSchema, { version: 1, clumping: { maxPerClamp: 9 } })
     ).not.toEqual([]);
-  });
-
-  it('the recorded baseline is REAL — each named template really does drop that key today', () => {
-    // A baseline nobody checks rots into an exemption. If `tooling` is given a
-    // schema key or deleted from a template, this fails and the entry must go.
-    for (const [name, keys] of Object.entries(KNOWN_DROPPED)) {
-      const file = path.join(TEMPLATES_DIR, name, 'harness.config.json.hbs');
-      const parsed = JSON.parse(render(fs.readFileSync(file, 'utf-8')));
-      const dropped = collectStrippedKeys(HarnessConfigSchema, parsed).map((d) => d.path);
-      expect(dropped.sort(), `${name} no longer drops ${keys.join(', ')}`).toEqual(
-        [...keys].sort()
-      );
-    }
   });
 });
 

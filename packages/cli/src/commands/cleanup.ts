@@ -24,6 +24,12 @@ import {
   ENTROPY_ISSUE_TYPES,
   type EntropyIssueType,
 } from '../shared/duplication-request';
+import {
+  recordOrCompareBaseline,
+  formatDuplicationBaselineLine,
+  UPDATE_BASELINE_WITHOUT_SCAN,
+  type DuplicationBaselineDelta,
+} from '../shared/duplication-baseline';
 
 type CleanupType = EntropyIssueType;
 
@@ -34,6 +40,8 @@ interface CleanupOptions {
   json?: boolean;
   verbose?: boolean;
   quiet?: boolean;
+  /** Record the duplication baseline (`.harness/duplication/baseline.json`) from this scan. */
+  updateBaseline?: boolean;
 }
 
 interface CleanupResult {
@@ -41,8 +49,15 @@ interface CleanupResult {
   // `harness ci check` emits for the same underlying drift finding, so a single
   // consumer/oracle can filter drift by category across both commands (#838).
   driftIssues: Array<{ file: string; line: number; type: string; issue: string }>;
-  deadCode: Array<{ file: string; symbol?: string }>;
-  patternViolations: Array<{ file: string; pattern: string; message: string }>;
+  /**
+   * `reason` is the detector's classification, carried through so a
+   * non-deletable finding (`PUBLIC_API_UNUSED`: wire or deprecate;
+   * `UNREFERENCED_ENTRY_POINT`: declare in `entropy.entryPoints`) never renders
+   * like a deletable `NO_IMPORTERS` one (#2076). `line` is present for a dead
+   * export (a dead file has no single line).
+   */
+  deadCode: Array<{ file: string; symbol?: string; line?: number; reason: string }>;
+  patternViolations: Array<{ file: string; line: number; pattern: string; message: string }>;
   /**
    * The GATING count: drift + dead code + pattern violations.
    *
@@ -117,6 +132,13 @@ interface CleanupResult {
     classesSuppressed: number;
     classesTruncated: number;
   };
+  /**
+   * The ADVISORY delta of `duplication` against the recorded baseline
+   * (roadmap `duplication-baseline-ratchet`). Present whenever `duplication`
+   * is; `status: 'no-baseline'` is not a zero delta. NEVER gates — see
+   * `shared/duplication-baseline.ts`.
+   */
+  duplicationBaseline?: DuplicationBaselineDelta;
 }
 
 /**
@@ -313,8 +335,13 @@ export async function runCleanup(
   // Extract dead code
   if (report.deadCode) {
     result.deadCode = [
-      ...report.deadCode.deadFiles.map((f) => ({ file: f.path })),
-      ...report.deadCode.deadExports.map((e) => ({ file: e.file, symbol: e.name })),
+      ...report.deadCode.deadFiles.map((f) => ({ file: f.path, reason: f.reason })),
+      ...report.deadCode.deadExports.map((e) => ({
+        file: e.file,
+        symbol: e.name,
+        line: e.line,
+        reason: e.reason,
+      })),
     ];
   }
 
@@ -322,6 +349,7 @@ export async function runCleanup(
   if (report.patterns) {
     result.patternViolations = report.patterns.violations.map((v) => ({
       file: v.file,
+      line: v.line,
       pattern: v.pattern,
       message: v.message,
     }));
@@ -329,6 +357,11 @@ export async function runCleanup(
 
   if (report.duplication) {
     result.duplication = projectDuplication(report.duplication);
+    result.duplicationBaseline = recordOrCompareBaseline(
+      cwd,
+      result.duplication,
+      options.updateBaseline
+    );
   } else if (duplicationRequest.kind === 'run') {
     // "Did not run" must not render as "found nothing" (spec Phase 3 forward
     // note 3). The analyzer leaves the report undefined and records WHY —
@@ -341,6 +374,10 @@ export async function runCleanup(
       return Err(new CLIError(explanation, ExitCode.ERROR));
     }
     logger.warn(explanation);
+  }
+
+  if (options.updateBaseline && !result.duplication) {
+    return Err(new CLIError(UPDATE_BASELINE_WITHOUT_SCAN, ExitCode.VALIDATION_FAILED));
   }
 
   result.ran = {
@@ -384,28 +421,90 @@ function printDriftSection(driftIssues: CleanupResult['driftIssues']): void {
   }
 }
 
-/** The dead-code section, capped at 10 entries. */
+/** How many dead-code / pattern rows the text report prints before eliding the rest. */
+const PRINTED_FINDINGS = 10;
+
+/**
+ * The elision line for a capped section.
+ *
+ * It names where the elided rows are (#2133). A bare `... and N more` left no
+ * way to enumerate them, so `harness cleanup | grep X | wc -l` printing 0 was
+ * indistinguishable from "X was among the elided rows".
+ */
+function elisionLine(total: number): string {
+  return `  ... and ${total - PRINTED_FINDINGS} more (full list: --findings-json or --json)`;
+}
+
+/** The dead-code section, capped at {@link PRINTED_FINDINGS} entries. */
 function printDeadCodeSection(deadCode: CleanupResult['deadCode']): void {
   if (deadCode.length === 0) return;
   console.log('\nDead code:');
-  for (const item of deadCode.slice(0, 10)) {
-    console.log(`  - ${item.file}${item.symbol ? `: ${item.symbol}` : ''}`);
+  for (const item of deadCode.slice(0, PRINTED_FINDINGS)) {
+    // The reason is printed because it decides the remedy: PUBLIC_API_UNUSED
+    // and UNREFERENCED_ENTRY_POINT are NOT deletions (#2076).
+    console.log(`  - ${item.file}${item.symbol ? `: ${item.symbol}` : ''} [${item.reason}]`);
   }
-  if (deadCode.length > 10) {
-    console.log(`  ... and ${deadCode.length - 10} more`);
+  if (deadCode.length > PRINTED_FINDINGS) {
+    console.log(elisionLine(deadCode.length));
   }
 }
 
-/** The pattern-violation section, capped at 10 entries. */
+/** The pattern-violation section, capped at {@link PRINTED_FINDINGS} entries. */
 function printPatternSection(patternViolations: CleanupResult['patternViolations']): void {
   if (patternViolations.length === 0) return;
   console.log('\nPattern violations:');
-  for (const violation of patternViolations.slice(0, 10)) {
+  for (const violation of patternViolations.slice(0, PRINTED_FINDINGS)) {
     console.log(`  - ${violation.file} [${violation.pattern}]: ${violation.message}`);
   }
-  if (patternViolations.length > 10) {
-    console.log(`  ... and ${patternViolations.length - 10} more`);
+  if (patternViolations.length > PRINTED_FINDINGS) {
+    console.log(elisionLine(patternViolations.length));
   }
+}
+
+/** One gating finding as published in the `--findings-json` `items` array. */
+type CleanupFindingItem =
+  | { kind: 'drift'; file: string; line: number; type: string; message: string }
+  | { kind: 'dead-code'; file: string; symbol?: string; line?: number; reason: string }
+  | { kind: 'pattern'; file: string; line: number; pattern: string; message: string };
+
+/**
+ * Every GATING finding, flattened for the `--findings-json` contract (#2133).
+ *
+ * Exactly the findings `totalIssues` counts — drift, dead code, pattern
+ * violations — so `items.length === findings` always holds. Clone classes are
+ * excluded for the same reason they are excluded from the count (D4 / ADR
+ * 0134); they remain available under `--json`'s `duplication` block.
+ */
+export function buildCleanupFindingItems(value: CleanupResult): CleanupFindingItem[] {
+  return [
+    ...value.driftIssues.map(
+      (d): CleanupFindingItem => ({
+        kind: 'drift',
+        file: d.file,
+        line: d.line,
+        type: d.type,
+        message: d.issue,
+      })
+    ),
+    ...value.deadCode.map(
+      (d): CleanupFindingItem => ({
+        kind: 'dead-code',
+        file: d.file,
+        ...(d.symbol !== undefined && { symbol: d.symbol }),
+        ...(d.line !== undefined && { line: d.line }),
+        reason: d.reason,
+      })
+    ),
+    ...value.patternViolations.map(
+      (p): CleanupFindingItem => ({
+        kind: 'pattern',
+        file: p.file,
+        line: p.line,
+        pattern: p.pattern,
+        message: p.message,
+      })
+    ),
+  ];
 }
 
 /** How many clone rows the text report prints before summarizing the rest. */
@@ -524,6 +623,9 @@ export function printCleanupResult(value: CleanupResult, formatter: OutputFormat
   if (value.duplication) {
     printDuplicationSection(value.duplication);
   }
+  if (value.duplicationBaseline) {
+    console.log(formatDuplicationBaselineLine(value.duplicationBaseline));
+  }
 }
 
 /**
@@ -566,8 +668,12 @@ export function createCleanupCommand(): Command {
     .description(CLEANUP_DESCRIPTION)
     .addOption(typeOption())
     .option(
+      '--update-baseline',
+      'Record the advisory duplication baseline (.harness/duplication/baseline.json) from this scan; later runs report the class delta against it. Never affects the exit code.'
+    )
+    .option(
       '--findings-json',
-      'Emit the machine-readable maintenance findings contract ({ findings: N }) as a trailing stdout line (#691)'
+      'Emit the machine-readable maintenance findings contract ({ findings: N, items: [...] }) as a trailing stdout line; items lists every gating finding with kind, file, line and (dead code) reason (#691, #2133)'
     )
     .action(async (opts, cmd) => {
       const globalOpts = cmd.optsWithGlobals();
@@ -580,6 +686,7 @@ export function createCleanupCommand(): Command {
         json: globalOpts.json,
         verbose: globalOpts.verbose,
         quiet: globalOpts.quiet,
+        updateBaseline: opts.updateBaseline,
       });
 
       if (!result.ok) {
@@ -601,8 +708,17 @@ export function createCleanupCommand(): Command {
       // patterns). Clone classes are advisory (D4 / ADR 0134) and excluded:
       // a consumer gating on `findings > 0` would otherwise fail a build on
       // duplication, which is the exit-code hazard by another route.
+      //
+      // #2133: `items` carries the findings themselves (additive), so the
+      // contract is enumerable rather than a bare count.
       if (opts.findingsJson) {
-        console.log(formatFindingsContract(result.value.totalIssues, 'cleanup'));
+        console.log(
+          formatFindingsContract(
+            result.value.totalIssues,
+            'cleanup',
+            buildCleanupFindingItems(result.value)
+          )
+        );
       }
 
       process.exit(result.value.totalIssues === 0 ? ExitCode.SUCCESS : ExitCode.VALIDATION_FAILED);

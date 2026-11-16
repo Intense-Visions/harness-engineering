@@ -171,6 +171,17 @@ export const DepsConfigSchema = z.object({
    *   it as an analysis error and exits `ERROR` (2) (issue #1996).
    */
   fallbackBehavior: z.enum(['skip', 'warn', 'error']).optional(),
+  /**
+   * Resolve imports of workspace packages by name (`@scope/pkg`,
+   * `@scope/pkg/sub`) to the package's source so layer `allowedDependencies`
+   * are enforced BETWEEN packages, not only within one (issue #2216). Maps onto
+   * core's `LayerConfig.resolveWorkspacePackages`.
+   *
+   * Defaults to `false`: before #2216 every package-to-package import was
+   * silently dropped, so turning this on in an existing monorepo can surface
+   * violations that were never reported. Opt in once those are triaged.
+   */
+  resolveWorkspacePackages: z.boolean().optional(),
 });
 
 export type DepsConfig = z.infer<typeof DepsConfigSchema>;
@@ -181,37 +192,6 @@ export type DepsConfig = z.infer<typeof DepsConfigSchema>;
  * fails validation) so check-deps keeps working on un-configured projects.
  * Mirrors `loadDesignExclude`.
  */
-/**
- * Best-effort load of `deps.fallbackBehavior` from
- * `<projectPath>/harness.config.json`, returning `undefined` on any miss so the
- * caller applies its own default. Mirrors `loadDepsExclude`.
- *
- * Exists because the `check_dependencies` MCP handler called
- * `validateDependencies` with no `fallbackBehavior` at all, so core's default
- * `'error'` applied and a parser-unavailable run returned `Err` — the handler's
- * own `skipped` branch could never execute, and the documented
- * `deps.fallbackBehavior` config was ignored on the MCP surface (#2098).
- */
-export function loadDepsFallbackBehavior(
-  projectPath: string
-): 'skip' | 'warn' | 'error' | undefined {
-  const configPath = path.join(projectPath, 'harness.config.json');
-  if (!fs.existsSync(configPath)) return undefined;
-
-  let raw: unknown;
-  try {
-    raw = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
-  } catch {
-    return undefined;
-  }
-
-  const depsRaw = (raw as { deps?: unknown } | null | undefined)?.deps;
-  if (depsRaw === undefined || depsRaw === null || typeof depsRaw !== 'object') return undefined;
-  const parsed = DepsConfigSchema.safeParse(depsRaw);
-  if (!parsed.success) return undefined;
-  return parsed.data.fallbackBehavior;
-}
-
 export function loadDepsExclude(projectPath: string): string[] {
   const configPath = path.join(projectPath, 'harness.config.json');
   if (!fs.existsSync(configPath)) return [];

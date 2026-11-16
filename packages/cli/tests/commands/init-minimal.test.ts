@@ -139,4 +139,84 @@ describe('runMinimalInit (ADR 0101)', () => {
     expect(lines).toContain('harness init --tier intermediate');
     expect(lines).toContain('harness init --tier advanced');
   });
+  // #2630: the hook ran `npx harness check-arch`, but the minimal tier writes no
+  // package.json, so npx resolved the UNRELATED npm package `harness` (no bin) —
+  // "could not determine executable to run" — and blocked every commit, even with
+  // the CLI installed globally on PATH (npx does not consult PATH).
+  describe.skipIf(process.platform === 'win32')('pre-commit hook CLI resolution (#2630)', () => {
+    /** Run the installed hook with PATH = stub bin dir + the system dirs. */
+    function runHook(dir: string, stubs: Record<string, string>): { code: number; log: string } {
+      const bin = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-hook-bin-'));
+      const log = path.join(bin, 'calls.log');
+      for (const [name, body] of Object.entries(stubs)) {
+        const file = path.join(bin, name);
+        fs.writeFileSync(file, `#!/bin/sh\necho "${name} $*" >> "${log}"\n${body}\n`);
+        fs.chmodSync(file, 0o755);
+      }
+      let code = 0;
+      try {
+        execFileSync('sh', [path.join(dir, '.git', 'hooks', 'pre-commit')], {
+          cwd: dir,
+          env: { PATH: `${bin}:/usr/bin:/bin` },
+          stdio: 'ignore',
+        });
+      } catch (err) {
+        code = (err as { status?: number }).status ?? 1;
+      }
+      const calls = fs.existsSync(log) ? fs.readFileSync(log, 'utf-8') : '';
+      fs.rmSync(bin, { recursive: true, force: true });
+      return { code, log: calls };
+    }
+
+    it('uses a harness CLI on PATH instead of npx-resolving the npm package "harness"', async () => {
+      const dir = makeRepo();
+      try {
+        await runMinimalInit({ cwd: dir, name: 'demo' });
+        const res = runHook(dir, { harness: 'exit 0', npx: 'exit 1' });
+        expect(res.log).toMatch(/^harness check-arch$/m);
+        expect(res.code).toBe(0);
+      } finally {
+        fs.rmSync(dir, { recursive: true, force: true });
+      }
+    });
+
+    it('falls back to npx with the real package name, never a bare `npx harness`', async () => {
+      const dir = makeRepo();
+      try {
+        await runMinimalInit({ cwd: dir, name: 'demo' });
+        const res = runHook(dir, { npx: 'exit 0' });
+        expect(res.log).toMatch(/^npx .*@harness-engineering\/cli.* check-arch$/m);
+        expect(res.code).toBe(0);
+      } finally {
+        fs.rmSync(dir, { recursive: true, force: true });
+      }
+    });
+
+    it('still blocks the commit when the arch check fails', async () => {
+      const dir = makeRepo();
+      try {
+        await runMinimalInit({ cwd: dir, name: 'demo' });
+        const res = runHook(dir, { harness: 'exit 1' });
+        expect(res.code).toBe(1);
+      } finally {
+        fs.rmSync(dir, { recursive: true, force: true });
+      }
+    });
+  });
+
+  it('git-ignores the .harness runtime artifacts the CLI writes (#2630)', async () => {
+    const dir = makeRepo();
+    try {
+      await runMinimalInit({ cwd: dir, name: 'demo' });
+      expect(fs.existsSync(path.join(dir, '.harness', '.gitignore'))).toBe(true);
+      // Exit 0 = ignored. Without the file every `git add -A` staged telemetry.
+      execFileSync('git', ['check-ignore', '-q', '.harness/metrics/adoption.jsonl'], { cwd: dir });
+      // ...while the seeded arch baseline (artifact 3) stays tracked.
+      expect(() =>
+        execFileSync('git', ['check-ignore', '-q', '.harness/arch/baselines.json'], { cwd: dir })
+      ).toThrow();
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
 });

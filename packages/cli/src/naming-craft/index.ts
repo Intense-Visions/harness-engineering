@@ -11,7 +11,11 @@ import * as path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { sanitizePath } from '../mcp/utils/sanitize-path.js';
 import { getProvider, type LlmProvider, InSessionLlmProvider } from './llm/provider.js';
-import { extractIdentifiers, type ExtractedIdentifier } from './extract/identifiers.js';
+import {
+  extractIdentifiers,
+  isSupportedSourceFile,
+  type ExtractedIdentifier,
+} from './extract/identifiers.js';
 import { sampleConventions } from './extract/convention.js';
 import { SEED_RUBRICS, type NamingRubric } from './catalog/rubrics/index.js';
 import {
@@ -33,6 +37,7 @@ import type {
   IdentifierKind,
 } from './findings/schema.js';
 import { craftClumpView } from '../shared/craft/findings/clumpable.js';
+import { withCraftAbstention, type CraftAbstention } from '../shared/craft/scope.js';
 
 export type NamingCraftMode = 'inline' | 'in-session';
 
@@ -64,6 +69,14 @@ export interface CollectPromptsOutput {
   hint?: string;
   /** Persisted to disk under .harness/craft/runs/<runId>.json. */
   runFile?: string;
+  /** Present only when the collect step examined zero candidates: `promptCount: 0` is then NOT a clean result (#2625). */
+  abstention?: CraftAbstention;
+  /**
+   * Requested files in a language naming-craft cannot parse (non-TS/JS).
+   * They were skipped — never extracted, never critiqued (issue #1967).
+   * Absent when every file was supported.
+   */
+  unsupportedFiles?: string[];
 }
 
 export interface FinalizeNamingCraftInput {
@@ -83,6 +96,7 @@ export interface FinalizeNamingCraftInput {
 
 const DEFAULT_MAX_FILES = 100;
 const DEFAULT_MAX_IDENTIFIERS_PER_FILE = 15;
+/** Extensions the project walk collects. Explicit `files` are gated by `isSupportedSourceFile`. */
 const EXTENSIONS = ['.ts', '.tsx', '.js', '.jsx'];
 
 /** Skill-specific run-state metadata persisted between collect and finalize. */
@@ -93,6 +107,8 @@ interface NamingRunMeta {
   rubricsApplied: string[];
   /** Count of source files walked at collect time (see NamingCraftSummary). */
   filesScanned: number;
+  /** Requested files skipped as unsupported-language at collect time. */
+  unsupportedFiles?: string[];
   /** Pairs every queued prompt to the data needed to build a finding. */
   prompts: Array<{
     promptId: string;
@@ -103,7 +119,10 @@ interface NamingRunMeta {
 
 interface ProjectContext {
   projectRoot: string;
+  /** Supported-language files actually read and extracted. */
   files: string[];
+  /** Requested files skipped because the extractor cannot parse their language. */
+  unsupportedFiles: string[];
   perFile: Map<string, ExtractedIdentifier[]>;
   convention: ProjectConvention;
 }
@@ -111,7 +130,13 @@ interface ProjectContext {
 function gatherProjectContext(input: NamingCraftInput): ProjectContext {
   const projectRoot = sanitizePath(input.path);
   const maxFiles = input.maxFiles ?? DEFAULT_MAX_FILES;
-  const files = collectFiles(projectRoot, input.files).slice(0, maxFiles);
+  const requested = collectFiles(projectRoot, input.files).slice(0, maxFiles);
+  // Explicit `files` bypass the walker's extension filter. Partition here so a
+  // file the extractor cannot parse is reported as skipped rather than
+  // best-effort parsed into phantom identifiers, and so it never contributes
+  // to — or is judged against — the convention sampled from TS/JS (#1967).
+  const files = requested.filter((f) => isSupportedSourceFile(f));
+  const unsupportedFiles = requested.filter((f) => !isSupportedSourceFile(f));
   const allIdentifiers: ExtractedIdentifier[] = [];
   const perFile: Map<string, ExtractedIdentifier[]> = new Map();
   for (const file of files) {
@@ -126,7 +151,16 @@ function gatherProjectContext(input: NamingCraftInput): ProjectContext {
     allIdentifiers.push(...ids);
   }
   const convention = sampleConventions(allIdentifiers, files);
-  return { projectRoot, files, perFile, convention };
+  return { projectRoot, files, unsupportedFiles, perFile, convention };
+}
+
+/** Spread into an output/summary: present only when something was skipped. */
+function unsupportedField(unsupportedFiles: readonly string[] | undefined): {
+  unsupportedFiles?: string[];
+} {
+  return unsupportedFiles !== undefined && unsupportedFiles.length > 0
+    ? { unsupportedFiles: [...unsupportedFiles] }
+    : {};
 }
 
 export async function runNamingCraft(input: NamingCraftInput): Promise<NamingCraftOutput> {
@@ -142,7 +176,7 @@ export async function runNamingCraft(input: NamingCraftInput): Promise<NamingCra
     );
   }
 
-  const { projectRoot, files, perFile, convention } = gatherProjectContext(input);
+  const { projectRoot, files, unsupportedFiles, perFile, convention } = gatherProjectContext(input);
   const rubrics = SEED_RUBRICS;
   const findings: NamingFinding[] = [];
 
@@ -179,7 +213,9 @@ export async function runNamingCraft(input: NamingCraftInput): Promise<NamingCra
       catalog: { rubricsApplied: rubrics.map((r) => r.id) },
       convention,
       filesScanned: files.length,
+      ...unsupportedField(unsupportedFiles),
       runId: randomUUID(),
+      ...withCraftAbstention('naming-craft', files.length),
     },
   };
 }
@@ -194,7 +230,7 @@ export async function collectNamingCraftPrompts(
 ): Promise<CollectPromptsOutput> {
   const maxIdentifiersPerFile = input.maxIdentifiersPerFile ?? DEFAULT_MAX_IDENTIFIERS_PER_FILE;
   const budget = input.promptBudget ?? DEFAULT_PROMPT_BUDGET;
-  const { projectRoot, files, perFile, convention } = gatherProjectContext(input);
+  const { projectRoot, files, unsupportedFiles, perFile, convention } = gatherProjectContext(input);
   const rubrics = SEED_RUBRICS;
   const runId = randomUUID();
 
@@ -222,6 +258,7 @@ export async function collectNamingCraftPrompts(
       runId,
       pendingPrompts: [],
       projection: { promptCount: pending.length, budget },
+      ...unsupportedField(unsupportedFiles),
       hint:
         `Projected at least ${pending.length} LLM prompts (budget: ${budget}). ` +
         'Re-invoke with smaller maxFiles / maxIdentifiersPerFile, or pass promptBudget to raise the ceiling.',
@@ -234,6 +271,7 @@ export async function collectNamingCraftPrompts(
     convention,
     rubricsApplied: rubrics.map((r) => r.id),
     filesScanned: files.length,
+    ...unsupportedField(unsupportedFiles),
     prompts: promptRecords,
   };
   pruneOldRuns(projectRoot);
@@ -251,6 +289,8 @@ export async function collectNamingCraftPrompts(
     pendingPrompts: pending,
     projection: { promptCount: pending.length, budget },
     runFile,
+    ...unsupportedField(unsupportedFiles),
+    ...withCraftAbstention('naming-craft', files.length),
   };
 }
 
@@ -343,7 +383,9 @@ export async function finalizeNamingCraft(
       catalog: { rubricsApplied: state.meta.rubricsApplied },
       convention: state.meta.convention,
       filesScanned,
+      ...unsupportedField(state.meta.unsupportedFiles),
       coverage: { promptsAnswered, promptsTotal },
+      ...withCraftAbstention('naming-craft', state.meta.filesScanned),
       runId: input.runId,
     },
   };

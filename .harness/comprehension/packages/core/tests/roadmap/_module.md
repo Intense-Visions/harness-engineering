@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/tests/roadmap'
-sourceHash: '167d879c200ead11072227aadb242c8dcb9caa47b62b514e86e8c133a21af1d2'
+sourceHash: 'adbd60368ae52effacbb43b4fab2b8357cd872d461eaf906e80731b44898ae45'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -16,6 +16,7 @@ members:
     'bugfleet-preservation-history-keys-leak.test.ts',
     'derive-repo.test.ts',
     'external-id-path-traversal.test.ts',
+    'field-injection-2623.test.ts',
     'fixtures.ts',
     'github-issues-state-guard.test.ts',
     'github-issues.test.ts',
@@ -30,7 +31,9 @@ members:
     'parse-extended.test.ts',
     'parse-groups.test.ts',
     'parse.test.ts',
+    'pilot-scoring-blockers.test.ts',
     'pilot-scoring-file-less.test.ts',
+    'pilot-scoring-inputs.test.ts',
     'pilot-scoring-mode-stub.test.ts',
     'pilot-scoring.test.ts',
     'preservation.test.ts',
@@ -38,7 +41,9 @@ members:
     'reconcile.test.ts',
     'referenced-issues.test.ts',
     'repro-1862-history-silent-deletion.test.ts',
+    'repro-1961-history-parser-edges.test.ts',
     'repro-assignment-history-pipe.test.ts',
+    'roundtrip-inverse-2166.test.ts',
     'serialize-extended.test.ts',
     'serialize-groups.test.ts',
     'serialize-list-field-comma.test.ts',
@@ -75,9 +80,11 @@ export VALID_ROADMAP_MD
 ```
 import { GitHubIssuesSyncAdapter, parseExternalId } from '../../src/roadmap/adapters/github-issues'
 import { assigneeInvariantHolds, claim, isClaimableBy, isMachineAssignee, pushAssigneeToExternal, release, setStatus } from '../../src/roadmap/assignee-lifecycle'
-import { parseAssignmentHistory, serializeAssignmentHistory } from '../../src/roadmap/assignment-history'
+import { UnreadableAssignmentHistoryError, parseAssignmentHistory, serializeAssignmentHistory } from '../../src/roadmap/assignment-history'
+import { findBlockedRoadmapCandidates, shardSlugAliases } from '../../src/roadmap/blocker-resolution'
 import { deriveRepoFromGitRemote, parseOwnerRepoFromRemoteUrl } from '../../src/roadmap/derive-repo'
 import { githubRepoPath, parseExternalId } from '../../src/roadmap/external-id'
+import { validateRoadmapFeatureFields } from '../../src/roadmap/field-guard'
 import { FEATURE_PREFIX, GROUP_PREFIX, matchFeatureHeadings, parseFeatureHeading, serializeFeatureHeading } from '../../src/roadmap/heading'
 import { checkRoadmapHealth, defaultIsArchive, groomRoadmap, isUnactionablePlanned } from '../../src/roadmap/health'
 import { decodeListField, encodeListField, encodeListItem } from '../../src/roadmap/list-field'

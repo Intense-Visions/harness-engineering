@@ -9,6 +9,7 @@ export {
   runComprehendCheck,
   runComprehendStats,
   mapWithConcurrency,
+  findOrphanModules,
 } from '@harness-engineering/core';
 export type {
   ComprehendModuleReader,

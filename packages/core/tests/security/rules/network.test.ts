@@ -1,9 +1,10 @@
 import { describe, it, expect } from 'vitest';
 import { networkRules } from '../../../src/security/rules/network';
+import { SecurityScanner } from '../../../src/security/scanner';
 
 describe('Network rules', () => {
-  it('exports 3 rules in the network category', () => {
-    expect(networkRules).toHaveLength(3);
+  it('exports 4 rules in the network category', () => {
+    expect(networkRules).toHaveLength(4);
     for (const rule of networkRules) {
       expect(rule.category).toBe('network');
       expect(rule.id).toMatch(/^SEC-NET-/);
@@ -59,6 +60,42 @@ describe('Network rules', () => {
 
     it('does not flag rejectUnauthorized: true', () => {
       expect(rule.patterns.some((p) => p.test('rejectUnauthorized: true'))).toBe(false);
+    });
+  });
+
+  describe('SEC-NET-004 — Disabled TLS Verification (Rust, #2375)', () => {
+    const rule = networkRules.find((r) => r.id === 'SEC-NET-004')!;
+    const hit = (line: string) => rule.patterns.some((p) => p.test(line));
+
+    it('has correct metadata and is scoped to Rust sources', () => {
+      expect(rule.severity).toBe('warning');
+      expect(rule.confidence).toBe('high');
+      expect(rule.references).toContain('CWE-295');
+      expect(rule.fileGlob).toBe('**/*.rs');
+    });
+
+    it('detects danger_accept_invalid_certs(true)', () => {
+      expect(hit('Client::builder().danger_accept_invalid_certs(true).build()')).toBe(true);
+    });
+
+    it('detects danger_accept_invalid_hostnames( true )', () => {
+      expect(hit('    .danger_accept_invalid_hostnames( true )')).toBe(true);
+    });
+
+    it('does not flag the verified (false) or config-driven forms', () => {
+      expect(hit('.danger_accept_invalid_certs(false)')).toBe(false);
+      expect(hit('.danger_accept_invalid_certs(cfg.insecure)')).toBe(false);
+    });
+
+    it('does not fire on a non-Rust file that mentions the API', () => {
+      const scanner = new SecurityScanner({ enabled: true, strict: false });
+      const line = '// never call .danger_accept_invalid_certs(true) in production';
+      expect(scanner.scanFileContent(line, 'docs/notes.ts').map((f) => f.ruleId)).not.toContain(
+        'SEC-NET-004'
+      );
+      expect(scanner.scanFileContent(line, 'src/client.rs').map((f) => f.ruleId)).toContain(
+        'SEC-NET-004'
+      );
     });
   });
 

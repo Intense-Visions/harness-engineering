@@ -63,7 +63,9 @@ export interface EntropyConfig {
      * `DuplicationConfig.ignorePatterns` is a second, duplication-specific
      * filter applied to whatever arrives. The duplication defaults already
      * ignore test, spec, bench, fixture, generated, node_modules, dist, build
-     * and coverage paths — see `DEFAULT_DUPLICATION_CONFIG`. (The glob
+     * and coverage paths, plus vendored build caches (VitePress / Vite / Next /
+     * Nuxt / SvelteKit / Turbo / Parcel / webpack / Angular) — see
+     * `DEFAULT_DUPLICATION_CONFIG`. (The glob
      * literals are deliberately NOT spelled out here: each one contains the
      * sequence that would close this comment block.)
      */

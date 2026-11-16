@@ -11,6 +11,7 @@ import { sanitizePath } from '../utils/sanitize-path.js';
 import { findConfigFile, loadConfig } from '../../config/loader.js';
 import type { HarnessConfig } from '../../config/schema.js';
 import { loadAnalysisExclude } from '../../config/analysis-schema.js';
+import { resolveEntropyScope, type EntropyScope } from '../../shared/entropy-scope.js';
 import {
   resolveDuplicationRequest,
   describeDuplicationNotRun,
@@ -18,6 +19,7 @@ import {
   describeUnknownIssueType,
   ENTROPY_ISSUE_TYPES,
 } from '../../shared/duplication-request.js';
+import { baselineDeltaForReport } from '../../shared/duplication-baseline.js';
 
 /**
  * The outcome of loading the `entropy` section of the project's harness config.
@@ -31,7 +33,7 @@ import {
  */
 type EntropyConfigLoad =
   | { kind: 'none' }
-  | { kind: 'loaded'; entropy: HarnessConfig['entropy'] }
+  | { kind: 'loaded'; entropy: HarnessConfig['entropy']; scope: EntropyScope }
   | { kind: 'invalid'; message: string };
 
 /**
@@ -46,7 +48,11 @@ function loadEntropyConfig(projectPath: string): EntropyConfigLoad {
   if (!configFile.ok) return { kind: 'none' };
   const loaded = loadConfig(configFile.value);
   if (!loaded.ok) return { kind: 'invalid', message: loaded.error.message };
-  return { kind: 'loaded', entropy: loaded.value.entropy };
+  return {
+    kind: 'loaded',
+    entropy: loaded.value.entropy,
+    scope: resolveEntropyScope(loaded.value, projectPath),
+  };
 }
 
 /**
@@ -77,36 +83,6 @@ function describeInvalidConfig(message: string): string {
     'scope than the configured one. Fix harness.config.json and re-run — `harness cleanup` exits 2',
     'on this same input.',
   ].join('\n');
-}
-
-async function loadEntropyGraphOptions(projectPath: string) {
-  const { loadGraphStore } = await import('../utils/graph-loader.js');
-  const store = await loadGraphStore(projectPath);
-  if (!store) return undefined;
-
-  const { GraphEntropyAdapter } = await import('@harness-engineering/graph');
-  const adapter = new GraphEntropyAdapter(store);
-  const driftData = adapter.computeDriftData();
-  const deadCodeData = adapter.computeDeadCodeData();
-  return {
-    graphDriftData: {
-      staleEdges: driftData.staleEdges.map((e) => ({
-        docNodeId: e.docNodeId,
-        codeNodeId: e.codeNodeId,
-        edgeType: e.edgeType,
-      })),
-      missingTargets: [...driftData.missingTargets],
-    },
-    graphDeadCodeData: {
-      reachableNodeIds: new Set(deadCodeData.reachableNodeIds),
-      unreachableNodes: deadCodeData.unreachableNodes.map((n) => ({
-        id: n.id,
-        type: n.type,
-        name: n.name,
-        ...(n.path !== undefined && { path: n.path }),
-      })),
-    },
-  };
 }
 
 export const detectEntropyDefinition = {
@@ -171,8 +147,20 @@ function summarizeDrift(drift: any): { issueCount: number; topIssues: string[] }
   return { issueCount: driftIssues.length, topIssues: driftIssues.slice(0, 3) };
 }
 
+/**
+ * The dead-code summary carries its per-kind counts beside the total: the
+ * health snapshot's `dead-code` signal keys on dead exports and dead files
+ * specifically, and summary mode is the only mode that does not overflow on a
+ * large repo (#2589). Additive — `issueCount` / `topIssues` are unchanged.
+ */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function summarizeDeadCode(deadCode: any): { issueCount: number; topIssues: string[] } {
+function summarizeDeadCode(deadCode: any): {
+  issueCount: number;
+  topIssues: string[];
+  deadExports: number;
+  deadFiles: number;
+  unusedImports: number;
+} {
   const deadIssues = [
     ...(deadCode.unusedImports ?? []).map(
       (i: { specifiers: string[]; source: string }) =>
@@ -183,7 +171,13 @@ function summarizeDeadCode(deadCode: any): { issueCount: number; topIssues: stri
     ),
     ...(deadCode.deadFiles ?? []).map((f: { path: string }) => `Dead file: ${f.path}`),
   ];
-  return { issueCount: deadIssues.length, topIssues: deadIssues.slice(0, 3) };
+  return {
+    issueCount: deadIssues.length,
+    topIssues: deadIssues.slice(0, 3),
+    deadExports: (deadCode.deadExports ?? []).length,
+    deadFiles: (deadCode.deadFiles ?? []).length,
+    unusedImports: (deadCode.unusedImports ?? []).length,
+  };
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -277,7 +271,7 @@ function topClassLine(cls: {
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function buildSummaryResponse(report: any) {
+function buildSummaryResponse(report: any, projectPath: string) {
   const summary: Record<string, { issueCount: number; topIssues: string[] }> = {};
 
   if (report.drift) summary['drift'] = summarizeDrift(report.drift);
@@ -286,7 +280,14 @@ function buildSummaryResponse(report: any) {
 
   const totalIssues = Object.values(summary).reduce((s, c) => s + c.issueCount, 0);
 
-  const duplication = report.duplication ? summarizeDuplication(report.duplication) : undefined;
+  // `baseline` is the advisory delta vs `.harness/duplication/baseline.json`
+  // (roadmap `duplication-baseline-ratchet`) — reported, never summed.
+  const duplication = report.duplication
+    ? {
+        ...summarizeDuplication(report.duplication),
+        baseline: baselineDeltaForReport(projectPath, report.duplication),
+      }
+    : undefined;
 
   // The payload is hoisted rather than inlined into the content wrapper: the
   // nested `advisory` literal took `buildSummaryResponse` to nestingDepth 5,
@@ -481,11 +482,15 @@ export async function handleDetectEntropy(input: {
       ...analysisExclude,
     ];
 
+    // Scoped exactly as `harness cleanup` scopes it (#2168): `config.rootDir`
+    // and a `docsDir`-derived drift denominator when a config is present; the
+    // analyzer's built-in defaults only when there is no config at all.
+    const scope = configLoad.kind === 'loaded' ? configLoad.scope : undefined;
     const analyzer = new EntropyAnalyzer({
-      rootDir: projectPath,
+      rootDir: scope?.rootDir ?? projectPath,
       ...(entropy?.entryPoints && { entryPoints: entropy.entryPoints }),
       exclude,
-      ...(driftConfig?.docPaths && { docPaths: driftConfig.docPaths }),
+      ...(scope && { docPaths: scope.docPaths }),
       analyze: {
         drift: driftEnabled ? (driftConfig ?? true) : false,
         deadCode: typeFilter === 'all' || typeFilter === 'dead-code',
@@ -497,16 +502,22 @@ export async function handleDetectEntropy(input: {
       },
     });
 
-    const graphOptions = await loadEntropyGraphOptions(projectPath);
-    const result = await analyzer.analyze(graphOptions);
+    // Snapshot-based analysis only — the same path `harness cleanup` takes.
+    // This tool used to pass graph-derived drift and dead-code data whenever
+    // `.harness/graph` existed. Graph drift is every `documents` edge whose
+    // target is missing or older than its doc, and graph dead code is a BFS
+    // from `index.ts` files: neither reads forwardLookingPaths, docPaths,
+    // ignorePatterns, excludePatterns or entryPoints, so on this repository
+    // the tool reported 1,686,602 issues where `harness cleanup` reported
+    // 1,887 for the same config (#2168). It also bypassed the snapshot, so
+    // duplication could never run on a graph-bearing project.
+    const result = await analyzer.analyze();
 
-    // `loadEntropyGraphOptions` returns BOTH graph keys whenever a graph
-    // exists, which makes `analyze()` bypass the snapshot — and duplication,
-    // which discovers through `snapshot.files`, then refuses with
-    // `details.reason: 'snapshot-bypassed'` and leaves the report undefined.
-    // For an explicit request that silence would render as "no duplication
-    // found", so name it (spec Phase 3 forward note 3). Under `all` the reason
-    // is already in the payload's `analysisErrors`, and the other categories
+    // Duplication can still decline to run (e.g. `zero-files-discovered`,
+    // `invalid-ignore-pattern`) and leave the report undefined. For an
+    // explicit request that silence would render as "no duplication found",
+    // so name it (spec Phase 3 forward note 3). Under `all` the reason is
+    // already in the payload's `analysisErrors`, and the other categories
     // still have results worth returning.
     if (
       result.ok &&
@@ -524,13 +535,20 @@ export async function handleDetectEntropy(input: {
 
     // Response density control
     if (input.mode === 'summary' && result.ok && !input.autoFix) {
-      return buildSummaryResponse(result.value);
+      return buildSummaryResponse(result.value, projectPath);
     }
 
     if (!input.autoFix) {
-      return result.ok
-        ? resultToMcpResponse(Ok(toJsonSafeReport(result.value)))
-        : resultToMcpResponse(result);
+      if (!result.ok) return resultToMcpResponse(result);
+      // The advisory baseline delta leads (it is small and actionable, and
+      // compaction truncates from the end); absent when duplication did not run.
+      const dup = result.value.duplication;
+      return resultToMcpResponse(
+        Ok({
+          ...(dup && { duplicationBaseline: baselineDeltaForReport(projectPath, dup) }),
+          ...(toJsonSafeReport(result.value) as Record<string, unknown>),
+        })
+      );
     }
 
     // autoFix mode: run fixes after analysis

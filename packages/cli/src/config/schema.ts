@@ -155,7 +155,10 @@ export const EntropyConfigSchema = z.object({
    * it, so a value here does not configure perf.
    */
   entryPoints: z.array(z.string()).optional(),
-  /** Patterns to exclude from entropy analysis */
+  /**
+   * Patterns to exclude from entropy analysis. `check-perf` honours the same
+   * key (#2077), and additionally skips every path git ignores (#2331).
+   */
   excludePatterns: z.array(z.string()).default([...skipDirGlobs(), '**/*.test.ts']),
   /** Whether to automatically attempt to fix simple entropy issues */
   autoFix: z.boolean().default(false),
@@ -1228,6 +1231,14 @@ export const ComprehensionConfigSchema = z.object({
   maxTokensPerRun: z.number().int().positive().default(200_000),
   concurrency: z.number().int().positive().default(4),
   ci: z.enum(['verify', 'refresh', 'off']).default('verify'),
+  /**
+   * #2063 — optional ceiling on the committed substrate's `semantic: absent`
+   * share, as a fraction in [0, 1]. Default unset ⇒ OFF: `comprehend --check`
+   * only WARNS with the ratio on `main`. When set, `--check` on the `main`
+   * context fails when the absent ratio strictly exceeds it. Never applies on
+   * `--context pr`, where static-only units are the designed outcome (ADR 0116 §4).
+   */
+  maxSemanticAbsentRatio: z.number().min(0).max(1).optional(),
   /**
    * Opt-in git pre-commit hook (default OFF). When true, a config-gated,
    * static-only, NON-BLOCKING pre-commit step runs `harness comprehend --changed

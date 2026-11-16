@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/naming-craft'
-sourceHash: 'aebfd04274755648bae8b08e9cf6532b0b72137162b5d19a03fbc6ee80d3799a'
+sourceHash: '0ae7283ce096e526608a777b81bf7526f636301274f5872c6bebb5aa1fb67709'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -27,9 +27,10 @@ export runNamingCraft
 import { sanitizePath } from '../mcp/utils/sanitize-path.js'
 import { craftClumpView } from '../shared/craft/findings/clumpable.js'
 import { deleteRunState, loadRunState, pruneOldRuns, saveRunState } from '../shared/craft/runs/store.js'
+import { CraftAbstention, withCraftAbstention } from '../shared/craft/scope.js'
 import { NamingRubric, SEED_RUBRICS } from './catalog/rubrics/index.js'
 import { sampleConventions } from './extract/convention.js'
-import { ExtractedIdentifier, extractIdentifiers } from './extract/identifiers.js'
+import { ExtractedIdentifier, extractIdentifiers, isSupportedSourceFile } from './extract/identifiers.js'
 import { IdentifierKind, NamingCraftOutput, NamingFinding, ProjectConvention } from './findings/schema.js'
 import { InSessionLlmProvider, LlmProvider, getProvider } from './llm/provider.js'
 import { CRITIQUE_SYSTEM_PROMPT, buildPrompt, critiqueOne, parseFindingFromRaw } from './phases/critique.js'

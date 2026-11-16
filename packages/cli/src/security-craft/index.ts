@@ -30,8 +30,14 @@ import {
   parseFindingFromRaw,
   CRITIQUE_SYSTEM_PROMPT,
 } from './phases/critique.js';
-import type { SecurityCraftOutput, SecurityFinding, SecuritySignal } from './findings/schema.js';
+import type {
+  SecurityCraftAbstention,
+  SecurityCraftOutput,
+  SecurityFinding,
+  SecuritySignal,
+} from './findings/schema.js';
 import { craftClumpView } from '../shared/craft/findings/clumpable.js';
+import { resolveScopedFiles } from '../shared/craft/extract/scoped-files.js';
 
 export type SecurityCraftMode = 'inline' | 'in-session';
 
@@ -65,6 +71,10 @@ export interface CollectPromptsOutput {
   hint?: string;
   /** Persisted to disk under .harness/craft/runs/<runId>.json. */
   runFile?: string;
+  /** Files the collect step had to examine (the denominator, see SecurityCraftSummary). */
+  candidateFiles: number;
+  /** Present only when no file was examined — `promptCount: 0` is then NOT a clean result. */
+  abstention?: SecurityCraftAbstention;
 }
 
 export interface FinalizeSecurityCraftInput {
@@ -78,6 +88,8 @@ interface SecurityRunMeta {
   projectRoot: string;
   startedAt: number;
   rubricsApplied: string[];
+  /** Absent in run files persisted before #2234; read as unknown, never as 0. */
+  candidateFiles?: number;
   filesScanned: number;
   filesSkippedNoSignal: number;
   signalsDetected: number;
@@ -105,6 +117,30 @@ function assertProviderCanAnswer(provider: LlmProvider, entryPoint: string): voi
       'the two-step flow. Call collectSecurityCraftPrompts(...) and then ' +
       'finalizeSecurityCraft(...), or set HARNESS_CRAFT_LLM=mock for tests.'
   );
+}
+
+/**
+ * A run that examined no file abstains (#2234): with zero candidates every
+ * count is 0 and `findings` is empty, which otherwise reads exactly like a
+ * clean scan. Scope the run (`files`, or a path whose `packages/<pkg>/src`,
+ * `src/` or `app/` holds the source) to get an answer.
+ */
+function withAbstention(candidateFiles: number | undefined): {
+  abstention?: SecurityCraftAbstention;
+} {
+  const abstention = abstentionFor(candidateFiles);
+  return abstention === undefined ? {} : { abstention };
+}
+
+function abstentionFor(candidateFiles: number | undefined): SecurityCraftAbstention | undefined {
+  if (candidateFiles !== 0) return undefined;
+  return {
+    reason: 'no-candidate-files',
+    message:
+      'security-craft examined 0 files: discovery found no source under packages/<pkg>/src, ' +
+      'src/ or app/, and no files were passed. This is an abstention, not a clean result — ' +
+      'pass files explicitly or point path at the directory that holds src/.',
+  };
 }
 
 export async function runSecurityCraft(input: SecurityCraftInput): Promise<SecurityCraftOutput> {
@@ -165,7 +201,13 @@ export async function runSecurityCraft(input: SecurityCraftInput): Promise<Secur
         costUsd: totalCost.costUsd,
       },
       catalog: { rubricsApplied: rubrics.map((r) => r.id) },
-      counts: { filesScanned, filesSkippedNoSignal, signalsDetected },
+      counts: {
+        candidateFiles: candidateFiles.length,
+        filesScanned,
+        filesSkippedNoSignal,
+        signalsDetected,
+      },
+      ...withAbstention(candidateFiles.length),
       runId: randomUUID(),
     },
   };
@@ -227,6 +269,7 @@ export async function collectSecurityCraftPrompts(
       runId,
       pendingPrompts: [],
       projection: { promptCount: pending.length, budget },
+      candidateFiles: candidateFiles.length,
       hint:
         `Projected at least ${pending.length} LLM prompts (budget: ${budget}). ` +
         'Re-invoke with smaller maxFiles / maxSignalsPerFile, or pass promptBudget to raise the ceiling.',
@@ -237,6 +280,7 @@ export async function collectSecurityCraftPrompts(
     projectRoot,
     startedAt: Date.now(),
     rubricsApplied: [...rubricsApplied].sort(),
+    candidateFiles: candidateFiles.length,
     filesScanned,
     filesSkippedNoSignal,
     signalsDetected,
@@ -257,6 +301,8 @@ export async function collectSecurityCraftPrompts(
     pendingPrompts: pending,
     projection: { promptCount: pending.length, budget },
     runFile,
+    candidateFiles: candidateFiles.length,
+    ...withAbstention(candidateFiles.length),
   };
 }
 
@@ -306,10 +352,13 @@ export async function finalizeSecurityCraft(
       },
       catalog: { rubricsApplied: state.meta.rubricsApplied },
       counts: {
+        candidateFiles:
+          state.meta.candidateFiles ?? state.meta.filesScanned + state.meta.filesSkippedNoSignal,
         filesScanned: state.meta.filesScanned,
         filesSkippedNoSignal: state.meta.filesSkippedNoSignal,
         signalsDetected: state.meta.signalsDetected,
       },
+      ...withAbstention(state.meta.candidateFiles),
       runId: input.runId,
     },
   };
@@ -354,7 +403,7 @@ export async function critiqueSecurityInFile(
 
 function collectFiles(projectRoot: string, input: SecurityCraftInput): string[] {
   if (input.files !== undefined && input.files.length > 0) {
-    return [...input.files];
+    return resolveScopedFiles(projectRoot, input.files);
   }
   return discoverSourceFiles(projectRoot, input.packages);
 }
@@ -377,6 +426,7 @@ function sumCosts(provider: LlmProvider): CostSummary {
 
 export type {
   SecurityFinding,
+  SecurityCraftAbstention,
   SecurityCraftOutput,
   SecuritySignal,
   SignalKind,

@@ -85,7 +85,7 @@ describe('streamChat', () => {
   });
 
   it('parses session, chunk, and [DONE] events in order', async () => {
-    const fetchMock = vi.fn(async () =>
+    const fetchMock = vi.fn<typeof fetch>(async () =>
       makeStreamResponse([
         sse({ type: 'session', sessionId: 'sess-1' }),
         sse({ type: 'text', text: 'hello' }),
@@ -104,7 +104,7 @@ describe('streamChat', () => {
   });
 
   it('sends prompt, system, and sessionId in the request body', async () => {
-    const fetchMock = vi.fn(async () => makeStreamResponse([DONE_LINE]));
+    const fetchMock = vi.fn<typeof fetch>(async () => makeStreamResponse([DONE_LINE]));
     vi.stubGlobal('fetch', fetchMock);
     const c = makeCallbacks();
 
@@ -118,6 +118,7 @@ describe('streamChat', () => {
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
     const [url, init] = fetchMock.mock.calls[0]!;
+    if (!init) throw new Error('fetch was called without a RequestInit');
     expect(url).toBe('/api/chat');
     expect(init.method).toBe('POST');
     expect(JSON.parse(init.body as string)).toEqual({
@@ -130,7 +131,7 @@ describe('streamChat', () => {
   it('reassembles a data line split across two reads', async () => {
     const line = sse({ type: 'text', text: 'streamed' });
     const mid = Math.floor(line.length / 2);
-    const fetchMock = vi.fn(async () =>
+    const fetchMock = vi.fn<typeof fetch>(async () =>
       makeStreamResponse([line.slice(0, mid), line.slice(mid), DONE_LINE])
     );
     vi.stubGlobal('fetch', fetchMock);
@@ -143,7 +144,7 @@ describe('streamChat', () => {
   });
 
   it('routes an error event to onError and stops processing further lines', async () => {
-    const fetchMock = vi.fn(async () =>
+    const fetchMock = vi.fn<typeof fetch>(async () =>
       makeStreamResponse([
         sse({ type: 'error', error: 'boom' }),
         sse({ type: 'text', text: 'should-not-arrive' }),
@@ -161,7 +162,7 @@ describe('streamChat', () => {
   });
 
   it('skips malformed JSON lines and lines without a data: prefix', async () => {
-    const fetchMock = vi.fn(async () =>
+    const fetchMock = vi.fn<typeof fetch>(async () =>
       makeStreamResponse([
         ': this is a comment line\n',
         'data: {not valid json}\n',
@@ -180,7 +181,7 @@ describe('streamChat', () => {
   });
 
   it('skips JSON payloads that are not objects with a type field', async () => {
-    const fetchMock = vi.fn(async () =>
+    const fetchMock = vi.fn<typeof fetch>(async () =>
       makeStreamResponse([
         'data: null\n',
         'data: 42\n',
@@ -199,7 +200,7 @@ describe('streamChat', () => {
   });
 
   it('calls onDone when the stream ends without an explicit [DONE]', async () => {
-    const fetchMock = vi.fn(async () =>
+    const fetchMock = vi.fn<typeof fetch>(async () =>
       makeStreamResponse([sse({ type: 'text', text: 'trailing' })])
     );
     vi.stubGlobal('fetch', fetchMock);
@@ -212,7 +213,9 @@ describe('streamChat', () => {
   });
 
   it('reports an HTTP error when the response is not ok', async () => {
-    const fetchMock = vi.fn(async () => makeStreamResponse([], { ok: false, status: 503 }));
+    const fetchMock = vi.fn<typeof fetch>(async () =>
+      makeStreamResponse([], { ok: false, status: 503 })
+    );
     vi.stubGlobal('fetch', fetchMock);
     const c = makeCallbacks();
 
@@ -223,7 +226,7 @@ describe('streamChat', () => {
   });
 
   it('reports an HTTP error when the response has no body', async () => {
-    const fetchMock = vi.fn(async () =>
+    const fetchMock = vi.fn<typeof fetch>(async () =>
       makeStreamResponse([], { ok: true, status: 200, hasBody: false })
     );
     vi.stubGlobal('fetch', fetchMock);
@@ -237,7 +240,7 @@ describe('streamChat', () => {
   it('swallows AbortError without calling onError', async () => {
     const abortErr = new Error('aborted');
     abortErr.name = 'AbortError';
-    const fetchMock = vi.fn(async () => {
+    const fetchMock = vi.fn<typeof fetch>(async () => {
       throw abortErr;
     });
     vi.stubGlobal('fetch', fetchMock);
@@ -250,7 +253,7 @@ describe('streamChat', () => {
   });
 
   it('reports the message of a non-abort network failure', async () => {
-    const fetchMock = vi.fn(async () => {
+    const fetchMock = vi.fn<typeof fetch>(async () => {
       throw new Error('connection reset');
     });
     vi.stubGlobal('fetch', fetchMock);

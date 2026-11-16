@@ -11,8 +11,10 @@ import type {
   DependencyViolation,
   DependencyValidation,
   GraphDependencyData,
+  UnparsedFile,
 } from './types';
 import { resolveFileToLayer } from './layers';
+import { loadWorkspacePackages, resolveWorkspaceSpecifier } from './workspace-packages';
 import { findFiles, fileExists, relativePosix } from '../shared/fs-utils';
 import { dirname, resolve, extname } from 'path';
 
@@ -183,6 +185,13 @@ export interface ParsedFileImports {
 }
 
 /**
+ * Resolves a bare (non-relative) import specifier to an absolute file path, or
+ * `null` to drop the import. Used to follow workspace-package imports (#2216);
+ * absent, bare specifiers are dropped exactly as before.
+ */
+export type BareSpecifierResolver = (specifier: string) => Promise<string | null>;
+
+/**
  * Build a dependency graph from files whose imports are ALREADY extracted.
  *
  * {@link buildDependencyGraph} re-parses every file it is given. A caller that
@@ -198,13 +207,16 @@ export interface ParsedFileImports {
  */
 export async function buildDependencyGraphFromParsed(
   nodes: string[],
-  parsed: ParsedFileImports[]
+  parsed: ParsedFileImports[],
+  resolveBareSpecifier?: BareSpecifierResolver
 ): Promise<DependencyGraph> {
   const edges: DependencyEdge[] = [];
   for (const file of parsed) {
     const normalizedFile = file.path.replace(/\\/g, '/');
     for (const imp of file.imports) {
-      const resolvedPath = await resolveImportPath(imp.source, file.path, '');
+      const resolvedPath =
+        (await resolveImportPath(imp.source, file.path, '')) ??
+        (resolveBareSpecifier ? await resolveBareSpecifier(imp.source) : null);
       if (resolvedPath) {
         edges.push({
           from: normalizedFile,
@@ -219,6 +231,25 @@ export async function buildDependencyGraphFromParsed(
 }
 
 /**
+ * Whether `file` is a source file `parser` is expected to read (#2073).
+ *
+ * Layer patterns are globs like `src/domain/**`, which also match directories,
+ * Markdown, JSON and templates. Those were always "skipped" silently and must
+ * stay out of scope — they are not source the analysis promised to read. A
+ * source file that fails to parse is different: its imports, and any violation
+ * among them, would vanish. The TypeScript parser also reads the JavaScript
+ * family, so a parser claiming a TypeScript extension claims those too.
+ */
+function isSourceFileFor(parser: LanguageParser, file: string): boolean {
+  const ext = extname(file).toLowerCase();
+  // Defensive: hand-rolled parsers (and test doubles) may omit `extensions`.
+  const claimed: readonly string[] = parser.extensions ?? [];
+  if (claimed.includes(ext)) return true;
+  const readsTypeScript = claimed.some((e) => EXTENSION_BY_LANG.typescript!.includes(e));
+  return readsTypeScript && EXTENSION_BY_LANG.javascript!.includes(ext);
+}
+
+/**
  * Build a dependency graph from a list of files.
  * Accepts either a single parser or a ParserLookup for multi-language support.
  * Note: buildDependencyGraph is exported as an addition beyond spec for advanced use cases
@@ -226,7 +257,8 @@ export async function buildDependencyGraphFromParsed(
 export async function buildDependencyGraph(
   files: string[],
   parser: LanguageParser | ParserLookup,
-  graphDependencyData?: GraphDependencyData
+  graphDependencyData?: GraphDependencyData,
+  resolveBareSpecifier?: BareSpecifierResolver
 ): Promise<Result<DependencyGraph, ConstraintError>> {
   // When graph data is provided, use it directly
   if (graphDependencyData) {
@@ -238,6 +270,8 @@ export async function buildDependencyGraph(
 
   const isLookup = 'getForFile' in parser;
   const parsed: ParsedFileImports[] = [];
+  const unparsedFiles: UnparsedFile[] = [];
+  let analyzedFiles = 0;
 
   for (const file of files) {
     // Select the appropriate parser for this file
@@ -260,21 +294,42 @@ export async function buildDependencyGraph(
       if (parseResult.error.code === 'PARSER_UNAVAILABLE') {
         return Err(graphParserUnavailable(fileParser.name, file, parseResult.error));
       }
-      // Skip files that can't be parsed
+      // A non-source file (directory, Markdown, JSON) is out of scope and
+      // skipped quietly. A SOURCE file that fails to parse is recorded: its
+      // imports are missing from the graph, and dropping it silently is how a
+      // syntax error hid a layer violation behind a clean pass (#2073).
+      if (isSourceFileFor(fileParser, file)) {
+        unparsedFiles.push({
+          file,
+          reason: `${parseResult.error.code}: ${parseResult.error.message}`,
+        });
+      }
       continue;
     }
 
     const importsResult = fileParser.extractImports(parseResult.value);
     if (!importsResult.ok) {
+      if (isSourceFileFor(fileParser, file)) {
+        unparsedFiles.push({
+          file,
+          reason: `${importsResult.error.code}: ${importsResult.error.message}`,
+        });
+      }
       continue;
     }
 
+    if (isSourceFileFor(fileParser, file)) analyzedFiles++;
     parsed.push({ path: file, imports: importsResult.value });
   }
 
   // Nodes are every file handed in, parsed or not — unchanged from when this
   // loop built them inline.
-  return Ok(await buildDependencyGraphFromParsed(files, parsed));
+  const graph = await buildDependencyGraphFromParsed(files, parsed, resolveBareSpecifier);
+  return Ok({
+    ...graph,
+    analyzedFiles,
+    ...(unparsedFiles.length > 0 ? { unparsedFiles } : {}),
+  });
 }
 
 /**
@@ -337,6 +392,24 @@ function parserUnavailableReason(
 }
 
 /**
+ * A {@link BareSpecifierResolver} over the workspace packages under `rootDir`,
+ * memoised per specifier — a monorepo imports the same few packages thousands
+ * of times.
+ */
+async function workspaceSpecifierResolver(rootDir: string): Promise<BareSpecifierResolver> {
+  const packages = await loadWorkspacePackages(rootDir);
+  const cache = new Map<string, Promise<string | null>>();
+  return (specifier) => {
+    let hit = cache.get(specifier);
+    if (!hit) {
+      hit = resolveWorkspaceSpecifier(specifier, packages);
+      cache.set(specifier, hit);
+    }
+    return hit;
+  };
+}
+
+/**
  * Validate dependencies against layer rules
  */
 export async function validateDependencies(
@@ -349,6 +422,7 @@ export async function validateDependencies(
     fallbackBehavior = 'error',
     graphDependencyData,
     extraIgnore,
+    resolveWorkspacePackages = false,
   } = config;
 
   // When graph data is provided, skip parser health check and file collection
@@ -419,18 +493,30 @@ export async function validateDependencies(
   // Deduplicate
   const uniqueFiles = [...new Set(allFiles)];
 
-  // Build dependency graph
-  const graphResult = await buildDependencyGraph(uniqueFiles, parser);
+  // Build dependency graph. Workspace-package imports become edges only when
+  // the project opts in (#2216); otherwise bare specifiers are dropped as before.
+  const graphResult = await buildDependencyGraph(
+    uniqueFiles,
+    parser,
+    undefined,
+    resolveWorkspacePackages ? await workspaceSpecifierResolver(rootDir) : undefined
+  );
   if (!graphResult.ok) {
     return Err(graphResult.error);
   }
 
   // Check for violations
   const violations = checkLayerViolations(graphResult.value, layers, rootDir);
+  const { unparsedFiles, analyzedFiles } = graphResult.value;
 
   return Ok({
     valid: violations.length === 0,
     violations,
     graph: graphResult.value,
+    ...(analyzedFiles !== undefined ? { analyzedFiles } : {}),
+    // Files the analysis could not read (#2073). `valid` is left to speak only
+    // to violations — its long-standing contract — so a consumer deciding on a
+    // clean verdict must check this too.
+    ...(unparsedFiles ? { unparsedFiles } : {}),
   });
 }

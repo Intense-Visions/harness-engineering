@@ -52,9 +52,14 @@ function allowUnreadableHistoryFromEnv(env: NodeJS.ProcessEnv = process.env): bo
  *
  * Core deliberately names no CLI surface (it is a grammar helper shared with the
  * MCP tool and the dashboard), so the flag and env var are spelled here, from the
- * constant that defines them.
+ * constant that defines them. Empty for any error the hatch cannot recover.
  */
-function recoveryHint(): string {
+function recoveryHint(error: Error): string {
+  // Only the unreadable-section refusal is something the hatch can carry. Any other
+  // failure — a near-miss heading the hatch cannot even locate, malformed
+  // frontmatter — would be told to use a flag that is a no-op for it (#1961).
+  // Matched by name: core does not export the class from its barrel.
+  if (error.name !== 'UnreadableAssignmentHistoryError') return '';
   return (
     ` To regenerate meanwhile without losing the section, re-run with ` +
     `--allow-unreadable-history (or set ${ALLOW_UNREADABLE_HISTORY_ENV}=1, which the ` +
@@ -120,13 +125,14 @@ export async function runRoadmapRegen(
     },
   };
   const regen = await regenerate(shardDir, io, regenOptions);
-  if (!regen.ok) return Err(new CLIError(regen.error.message + recoveryHint(), ExitCode.ERROR));
+  if (!regen.ok)
+    return Err(new CLIError(regen.error.message + recoveryHint(regen.error), ExitCode.ERROR));
   const report: RegenReport = { bytes: regen.value.length, carriedUnreadableHistory: false };
 
   if (!dryRun) {
     const written = await writeRegeneratedRoadmap(shardDir, roadmapPath, io, regenOptions);
     if (!written.ok) {
-      return Err(new CLIError(written.error.message + recoveryHint(), ExitCode.ERROR));
+      return Err(new CLIError(written.error.message + recoveryHint(written.error), ExitCode.ERROR));
     }
   }
 

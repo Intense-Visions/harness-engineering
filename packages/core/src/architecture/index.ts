@@ -51,6 +51,7 @@ export {
   violationId,
   constraintRuleId,
 } from './collectors/index';
+export type { CollectorRunContext } from './collectors/index';
 
 export { syncConstraintNodes } from './sync-constraints';
 export type { ConstraintNodeStore } from './sync-constraints';
@@ -79,6 +80,7 @@ export type {
   LoadAllowancesOptions,
 } from './baseline-resolver';
 export { diff } from './diff';
+export { sortMetricResults, compareViolations } from './sort-results';
 export { resolveThresholds } from './config';
 export { isExcluded, resolveExcludePatterns } from './exclude';
 

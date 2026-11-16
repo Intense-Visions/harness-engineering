@@ -91,7 +91,8 @@ describe('design-craft deep mode auto-capture', () => {
   it('autoCapture:skip never runs the capture command (still errors without captures)', async () => {
     let called = false;
     const result = await handleDesignCraft({
-      path: '/tmp/fake',
+      // An existing directory: the craft path guard (#2625) rejects a missing one first.
+      path: os.tmpdir(),
       mode: 'deep',
       phases: ['critique'],
       autoCapture: 'skip',
@@ -107,7 +108,8 @@ describe('design-craft deep mode auto-capture', () => {
 
   it('surfaces a capture-command failure as a tool error', async () => {
     const result = await handleDesignCraft({
-      path: '/tmp/fake',
+      // An existing directory: the craft path guard (#2625) rejects a missing one first.
+      path: os.tmpdir(),
       mode: 'deep',
       phases: ['critique'],
       autoCapture: 'auto',

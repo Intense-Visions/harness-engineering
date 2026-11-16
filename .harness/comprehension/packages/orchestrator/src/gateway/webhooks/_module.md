@@ -1,12 +1,13 @@
 ---
 schemaVersion: 1
 module: 'packages/orchestrator/src/gateway/webhooks'
-sourceHash: '9237d4931c236454e9efb9dffd6b7b7331c70dbce7d708c0505090b9ba328600'
+sourceHash: '0a5973fbe6f1b0cc06823d65a49e6e813f20da38871f4d9b902af886671f930a'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
 members:
   [
+    'delivery-cap-release.test.ts',
     'delivery.test.ts',
     'delivery.ts',
     'events.test.ts',

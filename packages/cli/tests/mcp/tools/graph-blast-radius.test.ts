@@ -56,8 +56,10 @@ describe('compute_blast_radius definition', () => {
     expect(computeBlastRadiusDefinition.name).toBe('compute_blast_radius');
   });
 
-  it('requires path parameter', () => {
-    expect(computeBlastRadiusDefinition.inputSchema.required).toEqual(['path']);
+  it('makes the project root optional: path, its projectPath alias, or the server cwd (#2253)', () => {
+    expect(computeBlastRadiusDefinition.inputSchema.required).toEqual([]);
+    expect(computeBlastRadiusDefinition.inputSchema.properties).toHaveProperty('path');
+    expect(computeBlastRadiusDefinition.inputSchema.properties).toHaveProperty('projectPath');
   });
 
   it('has file, nodeId, probabilityFloor, maxDepth, mode as optional parameters', () => {

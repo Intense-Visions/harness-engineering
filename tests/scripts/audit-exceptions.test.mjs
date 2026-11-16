@@ -14,7 +14,9 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
+  classifyLockfiles,
   extractAdvisories,
+  extractNpmAdvisories,
   lapseReason,
   reconcile,
 } from '../../scripts/audit-exceptions.mjs';
@@ -134,10 +136,10 @@ test('extractAdvisories: pulls github_advisory_id from the advisories map', () =
     },
   };
   const advisories = extractAdvisories(auditJson);
-  assert.deepEqual(
-    advisories.map((a) => a.id).sort(),
-    ['GHSA-67mh-4wv8-2f99', 'GHSA-fx2h-pf6j-xcff']
-  );
+  assert.deepEqual(advisories.map((a) => a.id).sort(), [
+    'GHSA-67mh-4wv8-2f99',
+    'GHSA-fx2h-pf6j-xcff',
+  ]);
 });
 
 test('extractAdvisories: entry without a GHSA falls back to a numeric sentinel', () => {
@@ -151,4 +153,153 @@ test('extractAdvisories: empty / malformed audit output yields no advisories', (
   assert.deepEqual(extractAdvisories({}), []);
   assert.deepEqual(extractAdvisories(null), []);
   assert.deepEqual(extractAdvisories({ advisories: null }), []);
+});
+
+// ---------------------------------------------------------------------------
+// Issue #2262 — lockfiles outside the pnpm workspace.
+//
+// `pnpm audit` reads only the root pnpm-lock.yaml, so a committed npm lockfile
+// (examples/slack-echo-bridge/package-lock.json) carried 12 real advisories
+// that Dependabot saw and the blocking gate never could. The gate now audits
+// every committed npm lockfile with `npm audit`, and fails on a lockfile kind
+// it has no auditor for rather than silently skipping it.
+// ---------------------------------------------------------------------------
+
+test('classifyLockfiles: committed npm lockfiles are audited, the root pnpm lockfile is not double-counted', () => {
+  const { npm, unaudited } = classifyLockfiles([
+    'pnpm-lock.yaml',
+    'package.json',
+    'examples/slack-echo-bridge/package-lock.json',
+    'examples/other/npm-shrinkwrap.json',
+    'packages/core/src/index.ts',
+  ]);
+  assert.deepEqual(npm, [
+    'examples/other/npm-shrinkwrap.json',
+    'examples/slack-echo-bridge/package-lock.json',
+  ]);
+  assert.deepEqual(unaudited, []);
+});
+
+test('classifyLockfiles: a lockfile kind with no auditor is reported, never silently skipped', () => {
+  const { npm, unaudited } = classifyLockfiles([
+    'pnpm-lock.yaml',
+    'examples/a/yarn.lock',
+    'examples/b/bun.lockb',
+    'examples/c/bun.lock',
+    'examples/d/pnpm-lock.yaml',
+  ]);
+  assert.deepEqual(npm, []);
+  assert.deepEqual(unaudited, [
+    'examples/a/yarn.lock',
+    'examples/b/bun.lockb',
+    'examples/c/bun.lock',
+    'examples/d/pnpm-lock.yaml',
+  ]);
+});
+
+test('classifyLockfiles: Windows separators are normalized', () => {
+  const { npm } = classifyLockfiles(['examples\\slack-echo-bridge\\package-lock.json']);
+  assert.deepEqual(npm, ['examples/slack-echo-bridge/package-lock.json']);
+});
+
+// Shape captured from `npm audit --json --package-lock-only` against the
+// pre-#2378 examples/slack-echo-bridge/package-lock.json (auditReportVersion 2).
+const NPM_AUDIT_VULNERABLE = {
+  auditReportVersion: 2,
+  vulnerabilities: {
+    'follow-redirects': {
+      name: 'follow-redirects',
+      severity: 'high',
+      via: [
+        {
+          source: 1242604,
+          name: 'follow-redirects',
+          url: 'https://github.com/advisories/GHSA-q3jh-wrc6-jgq8',
+          severity: 'high',
+          range: '>=1.16.0 <1.16.1',
+        },
+        {
+          source: 1242605,
+          name: 'follow-redirects',
+          url: 'https://github.com/advisories/GHSA-8r9p-f939-6h3c',
+          severity: 'high',
+          range: '>=1.16.0 <1.16.2',
+        },
+      ],
+    },
+    vitest: {
+      name: 'vitest',
+      severity: 'moderate',
+      via: [
+        '@vitest/mocker',
+        {
+          source: 1193683,
+          name: 'vitest',
+          url: 'https://github.com/advisories/GHSA-82fw-gwwq-j7x9',
+          severity: 'moderate',
+          range: '>=2.1.0 <4.1.11',
+        },
+      ],
+    },
+    '@vitest/mocker': {
+      name: '@vitest/mocker',
+      severity: 'moderate',
+      via: [
+        {
+          source: 1193684,
+          name: '@vitest/mocker',
+          url: 'https://github.com/advisories/GHSA-82fw-gwwq-j7x9',
+          severity: 'moderate',
+          range: '<=4.1.11',
+        },
+      ],
+    },
+  },
+  metadata: { vulnerabilities: { total: 3 }, dependencies: { total: 146 } },
+};
+
+test('extractNpmAdvisories: maps npm audit v2 output to GHSA ids, deduped, transitive string vias ignored', () => {
+  const advisories = extractNpmAdvisories(NPM_AUDIT_VULNERABLE);
+  assert.deepEqual(advisories.map((a) => a.id).sort(), [
+    'GHSA-82fw-gwwq-j7x9',
+    'GHSA-8r9p-f939-6h3c',
+    'GHSA-q3jh-wrc6-jgq8',
+  ]);
+  const fr = advisories.find((a) => a.id === 'GHSA-q3jh-wrc6-jgq8');
+  assert.equal(fr.module, 'follow-redirects');
+  assert.equal(fr.severity, 'high');
+});
+
+test('extractNpmAdvisories: npm advisories reconcile against the same register (uncovered → fail)', () => {
+  const ids = extractNpmAdvisories(NPM_AUDIT_VULNERABLE).map((a) => a.id);
+  const { ok, failures } = reconcile({ activeAdvisoryIds: ids, register: {}, now: NOW });
+  assert.equal(ok, false);
+  assert.equal(failures.length, 3);
+  assert.ok(failures.every((f) => f.type === 'uncovered'));
+});
+
+test('extractNpmAdvisories: advisory without a GHSA url falls back to an npm sentinel', () => {
+  const advisories = extractNpmAdvisories({
+    auditReportVersion: 2,
+    vulnerabilities: {
+      foo: { name: 'foo', severity: 'low', via: [{ source: 42, name: 'foo', severity: 'low' }] },
+    },
+  });
+  assert.deepEqual(advisories, [{ id: 'npm:42', severity: 'low', module: 'foo' }]);
+});
+
+test('extractNpmAdvisories: a clean report yields no advisories', () => {
+  assert.deepEqual(
+    extractNpmAdvisories({ auditReportVersion: 2, vulnerabilities: {}, metadata: {} }),
+    []
+  );
+});
+
+test('extractNpmAdvisories: unrecognized output fails closed (throws) instead of reading as clean', () => {
+  assert.throws(() => extractNpmAdvisories({}), /npm audit/);
+  assert.throws(() => extractNpmAdvisories(null), /npm audit/);
+  assert.throws(
+    () => extractNpmAdvisories({ error: { code: 'ENOLOCK', summary: 'no lockfile' } }),
+    /ENOLOCK/
+  );
 });

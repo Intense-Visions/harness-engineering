@@ -47,6 +47,16 @@ snapshot-test — A project using Harness Engineering practices (advanced adopti
 See \`docs/architecture.md\` for architectural decisions.
 ",
   "agents/personas/.gitkeep": "",
+  "docs/architecture.md": "# snapshot-test Architecture
+
+Record the architectural decisions for snapshot-test here: the layers, what
+each one may depend on, and why. Keep it in step with the \`layers\` section of
+\`harness.config.json\`, which \`harness check-deps\` enforces.
+
+## Decisions
+
+_None recorded yet._
+",
   "docs/changes/.gitkeep": "",
   "docs/index.md": "# snapshot-test Documentation
 
@@ -132,6 +142,9 @@ See [architecture.md](./architecture.md) for architectural decisions.
     "timeout": 300000
   },
   "entropy": {
+    "entryPoints": [
+      "src/index.ts"
+    ],
     "excludePatterns": [
       "**/node_modules/**",
       "**/*.test.ts"
@@ -182,7 +195,7 @@ See [architecture.md](./architecture.md) for architectural decisions.
   },
   "dependencies": {},
   "devDependencies": {
-    "@harness-engineering/cli": "^0.1.0",
+    "@harness-engineering/cli": "^1.2.3",
     "@harness-engineering/eslint-plugin": "^0.1.0",
     "eslint": "^9.0.0",
     "typescript": "^5.0.0"
@@ -268,14 +281,14 @@ too-many-arguments-threshold = 7
   },
   "template": {
     "language": "rust",
-    "version": 1
-  },
-  "tooling": {
-    "packageManager": "cargo",
-    "linter": "clippy",
-    "formatter": "rustfmt",
-    "buildTool": "cargo",
-    "testRunner": "cargo test"
+    "version": 1,
+    "tooling": {
+      "packageManager": "cargo",
+      "linter": "clippy",
+      "formatter": "rustfmt",
+      "buildTool": "cargo",
+      "testRunner": "cargo test"
+    }
   }
 }",
   "src/main.rs": "use axum::{routing::get, Router};
@@ -339,6 +352,16 @@ snapshot-test — A project using Harness Engineering practices (basic adoption 
 ## Architecture
 
 See \`docs/architecture.md\` for architectural decisions.
+",
+  "docs/architecture.md": "# snapshot-test Architecture
+
+Record the architectural decisions for snapshot-test here: the layers, what
+each one may depend on, and why. Keep it in step with the \`layers\` section of
+\`harness.config.json\`, which \`harness check-deps\` enforces.
+
+## Decisions
+
+_None recorded yet._
 ",
   "docs/index.md": "# snapshot-test Documentation
 
@@ -422,6 +445,9 @@ See [architecture.md](./architecture.md) for architectural decisions.
     ]
   },
   "entropy": {
+    "entryPoints": [
+      "src/index.ts"
+    ],
     "excludePatterns": [
       "**/node_modules/**",
       "**/dist/**",
@@ -464,7 +490,7 @@ See [architecture.md](./architecture.md) for architectural decisions.
   },
   "dependencies": {},
   "devDependencies": {
-    "@harness-engineering/cli": "^0.1.0",
+    "@harness-engineering/cli": "^1.2.3",
     "typescript": "^5.0.0"
   }
 }",
@@ -549,20 +575,27 @@ snapshot-test -- A Python project managed with Harness Engineering practices.
     "enabled": false
   },
   "entropy": {
-    "enabled": false
+    "enabled": false,
+    "entryPoints": [
+      "src/__init__.py",
+      "manage.py",
+      "src/settings.py",
+      "src/urls.py",
+      "src/wsgi.py"
+    ]
   },
   "performance": {
     "enabled": false
   },
   "template": {
     "language": "python",
-    "version": 1
-  },
-  "tooling": {
-    "packageManager": "pip",
-    "linter": "ruff",
-    "formatter": "ruff",
-    "testRunner": "pytest"
+    "version": 1,
+    "tooling": {
+      "packageManager": "pip",
+      "linter": "ruff",
+      "formatter": "ruff",
+      "testRunner": "pytest"
+    }
   }
 }",
   "manage.py": "#!/usr/bin/env python
@@ -724,6 +757,16 @@ snapshot-test — A project using Harness Engineering practices (basic adoption 
 
 See \`docs/architecture.md\` for architectural decisions.
 ",
+  "docs/architecture.md": "# snapshot-test Architecture
+
+Record the architectural decisions for snapshot-test here: the layers, what
+each one may depend on, and why. Keep it in step with the \`layers\` section of
+\`harness.config.json\`, which \`harness check-deps\` enforces.
+
+## Decisions
+
+_None recorded yet._
+",
   "docs/index.md": "# snapshot-test Documentation
 
 Welcome to the snapshot-test documentation.
@@ -806,6 +849,10 @@ See [architecture.md](./architecture.md) for architectural decisions.
     ]
   },
   "entropy": {
+    "entryPoints": [
+      "src/index.ts",
+      "src/app.ts"
+    ],
     "excludePatterns": [
       "**/node_modules/**",
       "**/dist/**",
@@ -852,7 +899,7 @@ See [architecture.md](./architecture.md) for architectural decisions.
     "express": "^4.0.0"
   },
   "devDependencies": {
-    "@harness-engineering/cli": "^0.1.0",
+    "@harness-engineering/cli": "^1.2.3",
     "typescript": "^5.0.0",
     "@types/express": "^4.0.0",
     "tsx": "^4.0.0"
@@ -953,20 +1000,24 @@ snapshot-test -- A Python project managed with Harness Engineering practices.
     "enabled": false
   },
   "entropy": {
-    "enabled": false
+    "enabled": false,
+    "entryPoints": [
+      "src/__init__.py",
+      "src/main.py"
+    ]
   },
   "performance": {
     "enabled": false
   },
   "template": {
     "language": "python",
-    "version": 1
-  },
-  "tooling": {
-    "packageManager": "pip",
-    "linter": "ruff",
-    "formatter": "ruff",
-    "testRunner": "pytest"
+    "version": 1,
+    "tooling": {
+      "packageManager": "pip",
+      "linter": "ruff",
+      "formatter": "ruff",
+      "testRunner": "pytest"
+    }
   }
 }",
   "pyproject.toml": "[project]
@@ -1113,14 +1164,14 @@ require github.com/gin-gonic/gin v1.9.1
   },
   "template": {
     "language": "go",
-    "version": 1
-  },
-  "tooling": {
-    "packageManager": "go",
-    "linter": "golangci-lint",
-    "formatter": "gofmt",
-    "buildTool": "go",
-    "testRunner": "go test"
+    "version": 1,
+    "tooling": {
+      "packageManager": "go",
+      "linter": "golangci-lint",
+      "formatter": "gofmt",
+      "buildTool": "go",
+      "testRunner": "go test"
+    }
   }
 }",
   "main.go": "package main
@@ -1243,14 +1294,14 @@ go 1.21
   },
   "template": {
     "language": "go",
-    "version": 1
-  },
-  "tooling": {
-    "packageManager": "go",
-    "linter": "golangci-lint",
-    "formatter": "gofmt",
-    "buildTool": "go",
-    "testRunner": "go test"
+    "version": 1,
+    "tooling": {
+      "packageManager": "go",
+      "linter": "golangci-lint",
+      "formatter": "gofmt",
+      "buildTool": "go",
+      "testRunner": "go test"
+    }
   }
 }",
   "main.go": "package main
@@ -1309,6 +1360,16 @@ snapshot-test — A project using Harness Engineering practices (intermediate ad
 ## Architecture
 
 See \`docs/architecture.md\` for architectural decisions.
+",
+  "docs/architecture.md": "# snapshot-test Architecture
+
+Record the architectural decisions for snapshot-test here: the layers, what
+each one may depend on, and why. Keep it in step with the \`layers\` section of
+\`harness.config.json\`, which \`harness check-deps\` enforces.
+
+## Decisions
+
+_None recorded yet._
 ",
   "docs/changes/.gitkeep": "",
   "docs/index.md": "# snapshot-test Documentation
@@ -1442,6 +1503,10 @@ export default [
     ]
   },
   "entropy": {
+    "entryPoints": [
+      "src/index.ts",
+      "eslint.config.mjs"
+    ],
     "excludePatterns": [
       "**/node_modules/**",
       "**/dist/**",
@@ -1486,7 +1551,7 @@ export default [
   },
   "dependencies": {},
   "devDependencies": {
-    "@harness-engineering/cli": "^0.1.0",
+    "@harness-engineering/cli": "^1.2.3",
     "@harness-engineering/eslint-plugin": "^0.1.0",
     "eslint": "^9.0.0",
     "typescript": "^5.0.0"
@@ -1591,13 +1656,13 @@ snapshot-test -- A Java project managed with Harness Engineering practices.
   },
   "template": {
     "language": "java",
-    "version": 1
-  },
-  "tooling": {
-    "packageManager": "maven",
-    "linter": "checkstyle",
-    "buildTool": "maven",
-    "testRunner": "junit"
+    "version": 1,
+    "tooling": {
+      "packageManager": "maven",
+      "linter": "checkstyle",
+      "buildTool": "maven",
+      "testRunner": "junit"
+    }
   }
 }",
   "pom.xml": "<?xml version="1.0" encoding="UTF-8"?>
@@ -1640,7 +1705,7 @@ snapshot-test -- A Java project managed with Harness Engineering practices.
   </build>
 </project>
 ",
-  "src/main/java/App.java": "public class App {
+  "src/main/java/Main.java": "public class Main {
     public static void main(String[] args) {
         System.out.println("Hello, world!");
     }
@@ -1761,6 +1826,16 @@ snapshot-test — A project using Harness Engineering practices (load-bearing-mi
 
 See \`docs/architecture.md\` for architectural decisions.
 ",
+  "docs/architecture.md": "# snapshot-test Architecture
+
+Record the architectural decisions for snapshot-test here: the layers, what
+each one may depend on, and why. Keep it in step with the \`layers\` section of
+\`harness.config.json\`, which \`harness check-deps\` enforces.
+
+## Decisions
+
+_None recorded yet._
+",
   "docs/changes/.gitkeep": "",
   "docs/index.md": "# snapshot-test Documentation
 
@@ -1893,6 +1968,10 @@ export default [
     ]
   },
   "entropy": {
+    "entryPoints": [
+      "src/index.ts",
+      "eslint.config.mjs"
+    ],
     "excludePatterns": [
       "**/node_modules/**",
       "**/dist/**",
@@ -1944,7 +2023,7 @@ export default [
   },
   "dependencies": {},
   "devDependencies": {
-    "@harness-engineering/cli": "^0.1.0",
+    "@harness-engineering/cli": "^1.2.3",
     "@harness-engineering/eslint-plugin": "^0.1.0",
     "eslint": "^9.0.0",
     "typescript": "^5.0.0"
@@ -2003,6 +2082,16 @@ snapshot-test — A project using Harness Engineering practices (basic adoption 
 ## Architecture
 
 See \`docs/architecture.md\` for architectural decisions.
+",
+  "docs/architecture.md": "# snapshot-test Architecture
+
+Record the architectural decisions for snapshot-test here: the layers, what
+each one may depend on, and why. Keep it in step with the \`layers\` section of
+\`harness.config.json\`, which \`harness check-deps\` enforces.
+
+## Decisions
+
+_None recorded yet._
 ",
   "docs/index.md": "# snapshot-test Documentation
 
@@ -2086,6 +2175,10 @@ See [architecture.md](./architecture.md) for architectural decisions.
     ]
   },
   "entropy": {
+    "entryPoints": [
+      "src/index.ts",
+      "src/main.ts"
+    ],
     "excludePatterns": [
       "**/node_modules/**",
       "**/dist/**",
@@ -2142,7 +2235,7 @@ See [architecture.md](./architecture.md) for architectural decisions.
     "rxjs": "^7.0.0"
   },
   "devDependencies": {
-    "@harness-engineering/cli": "^0.1.0",
+    "@harness-engineering/cli": "^1.2.3",
     "typescript": "^5.0.0",
     "@nestjs/cli": "^10.0.0"
   }
@@ -2250,20 +2343,23 @@ snapshot-test -- A Python project managed with Harness Engineering practices.
     "enabled": false
   },
   "entropy": {
-    "enabled": false
+    "enabled": false,
+    "entryPoints": [
+      "src/__init__.py"
+    ]
   },
   "performance": {
     "enabled": false
   },
   "template": {
     "language": "python",
-    "version": 1
-  },
-  "tooling": {
-    "packageManager": "pip",
-    "linter": "ruff",
-    "formatter": "ruff",
-    "testRunner": "pytest"
+    "version": 1,
+    "tooling": {
+      "packageManager": "pip",
+      "linter": "ruff",
+      "formatter": "ruff",
+      "testRunner": "pytest"
+    }
   }
 }",
   "pyproject.toml": "[project]
@@ -2340,6 +2436,16 @@ snapshot-test — A project using Harness Engineering practices (basic adoption 
 ## Architecture
 
 See \`docs/architecture.md\` for architectural decisions.
+",
+  "docs/architecture.md": "# snapshot-test Architecture
+
+Record the architectural decisions for snapshot-test here: the layers, what
+each one may depend on, and why. Keep it in step with the \`layers\` section of
+\`harness.config.json\`, which \`harness check-deps\` enforces.
+
+## Decisions
+
+_None recorded yet._
 ",
   "docs/index.md": "# snapshot-test Documentation
 
@@ -2423,6 +2529,11 @@ See [architecture.md](./architecture.md) for architectural decisions.
     ]
   },
   "entropy": {
+    "entryPoints": [
+      "src/index.ts",
+      "vite.config.ts",
+      "src/main.tsx"
+    ],
     "excludePatterns": [
       "**/node_modules/**",
       "**/dist/**",
@@ -2483,7 +2594,7 @@ See [architecture.md](./architecture.md) for architectural decisions.
     "react-dom": "^18.0.0"
   },
   "devDependencies": {
-    "@harness-engineering/cli": "^0.1.0",
+    "@harness-engineering/cli": "^1.2.3",
     "typescript": "^5.0.0",
     "@types/react": "^18.0.0",
     "@types/react-dom": "^18.0.0",
@@ -2609,14 +2720,14 @@ too-many-arguments-threshold = 7
   },
   "template": {
     "language": "rust",
-    "version": 1
-  },
-  "tooling": {
-    "packageManager": "cargo",
-    "linter": "clippy",
-    "formatter": "rustfmt",
-    "buildTool": "cargo",
-    "testRunner": "cargo test"
+    "version": 1,
+    "tooling": {
+      "packageManager": "cargo",
+      "linter": "clippy",
+      "formatter": "rustfmt",
+      "buildTool": "cargo",
+      "testRunner": "cargo test"
+    }
   }
 }",
   "src/main.rs": "fn main() {
@@ -2717,13 +2828,13 @@ snapshot-test -- A Java project managed with Harness Engineering practices.
   },
   "template": {
     "language": "java",
-    "version": 1
-  },
-  "tooling": {
-    "packageManager": "maven",
-    "linter": "checkstyle",
-    "buildTool": "maven",
-    "testRunner": "junit"
+    "version": 1,
+    "tooling": {
+      "packageManager": "maven",
+      "linter": "checkstyle",
+      "buildTool": "maven",
+      "testRunner": "junit"
+    }
   }
 }",
   "pom.xml": "<?xml version="1.0" encoding="UTF-8"?>
@@ -2777,12 +2888,6 @@ snapshot-test -- A Java project managed with Harness Engineering practices.
   </build>
 </project>
 ",
-  "src/main/java/App.java": "public class App {
-    public static void main(String[] args) {
-        System.out.println("Hello, world!");
-    }
-}
-",
   "src/main/java/Application.java": "package com.example.snapshottest;
 
 import org.springframework.boot.SpringApplication;
@@ -2800,6 +2905,12 @@ public class Application {
     @GetMapping("/")
     public String root() {
         return "Hello, world!";
+    }
+}
+",
+  "src/main/java/Main.java": "public class Main {
+    public static void main(String[] args) {
+        System.out.println("Hello, world!");
     }
 }
 ",
@@ -2851,6 +2962,16 @@ snapshot-test — A project using Harness Engineering practices (basic adoption 
 ## Architecture
 
 See \`docs/architecture.md\` for architectural decisions.
+",
+  "docs/architecture.md": "# snapshot-test Architecture
+
+Record the architectural decisions for snapshot-test here: the layers, what
+each one may depend on, and why. Keep it in step with the \`layers\` section of
+\`harness.config.json\`, which \`harness check-deps\` enforces.
+
+## Decisions
+
+_None recorded yet._
 ",
   "docs/index.md": "# snapshot-test Documentation
 
@@ -2934,6 +3055,11 @@ See [architecture.md](./architecture.md) for architectural decisions.
     ]
   },
   "entropy": {
+    "entryPoints": [
+      "src/index.ts",
+      "vite.config.ts",
+      "src/main.ts"
+    ],
     "excludePatterns": [
       "**/node_modules/**",
       "**/dist/**",
@@ -2993,7 +3119,7 @@ See [architecture.md](./architecture.md) for architectural decisions.
     "vue": "^3.0.0"
   },
   "devDependencies": {
-    "@harness-engineering/cli": "^0.1.0",
+    "@harness-engineering/cli": "^1.2.3",
     "typescript": "^5.0.0",
     "@vitejs/plugin-vue": "^5.0.0",
     "vue-tsc": "^2.0.0",

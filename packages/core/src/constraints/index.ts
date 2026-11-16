@@ -3,7 +3,14 @@
  * Note: buildDependencyGraph is exported as an addition beyond spec for advanced use cases.
  */
 export { defineLayer, validateDependencies, buildDependencyGraph } from './dependencies';
-export type { ParserLookup } from './dependencies';
+export type { ParserLookup, BareSpecifierResolver } from './dependencies';
+
+/**
+ * The one mapping from `harness.config.json` to a `LayerConfig`, shared by
+ * `harness check-deps` and the `harness ci check` deps step (#2606).
+ */
+export { resolveDepsSettings, toLayerConfig } from './layer-config';
+export type { DepsSettings, DepsFallbackBehavior } from './layer-config';
 
 /**
  * Layer resolution utilities.
@@ -37,6 +44,7 @@ export type {
   BoundaryViolation,
   BoundaryValidation,
   GraphDependencyData,
+  UnparsedFile,
 } from './types';
 
 /**

@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/cli-ergonomics-craft'
-sourceHash: 'f41e85321357e26e475573968dc9e05da5b31826b4312e0394b793e190901707'
+sourceHash: 'd199442efbcb90e19578c7d794b850e535d3b3e610c6b3943ef3ed60014a4441'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -29,9 +29,11 @@ export runCliErgonomicsCraft
 
 ```
 import { sanitizePath } from '../mcp/utils/sanitize-path.js'
+import { resolveScopedFiles } from '../shared/craft/extract/scoped-files.js'
 import { craftClumpView } from '../shared/craft/findings/clumpable.js'
 import { InSessionLlmProvider, LlmProvider, getProvider } from '../shared/craft/llm/provider.js'
 import { deleteRunState, loadRunState, pruneOldRuns, saveRunState } from '../shared/craft/runs/store.js'
+import { CraftAbstention, withCraftAbstention } from '../shared/craft/scope.js'
 import { SEED_EXEMPLARS } from './catalog/exemplars/index.js'
 import { CommandKind, SEED_RUBRICS, rubricsForKind } from './catalog/rubrics/index.js'
 import { DiscoveredCommand, classifyCommand, discoverCommands } from './extract/discover.js'

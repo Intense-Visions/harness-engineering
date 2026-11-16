@@ -28,7 +28,7 @@
 
 ### Phase 1: DISCOVER — Find source files
 
-1. Walk `packages/*/src/` recursively.
+1. Walk `packages/*/src/` recursively; with no `packages/` directory, walk `src/` and `app/` (the roots shared with code-craft).
 2. Include `*.{ts,tsx,js,jsx,mjs,cjs}`; exclude test files (`*.test.*`, `*.spec.*`, `tests/`, `__tests__/`).
 3. Exclude generated / build / coverage dirs (`node_modules`, `dist`, `build`, `coverage`, `.next`, `.turbo`, `__snapshots__`).
 4. Honor `--packages` for explicit package scoping; `--files` overrides discovery.
@@ -86,13 +86,16 @@ Emit `SecurityCraftOutput`:
     durationMs: number;
     llmCalls: { provider, model, count, costUsd };
     catalog: { rubricsApplied: string[] };
-    counts: { filesScanned, filesSkippedNoSignal, signalsDetected };
+    counts: { candidateFiles, filesScanned, filesSkippedNoSignal, signalsDetected };
+    abstention?: { reason: 'no-candidate-files'; message: string };
     runId: string;
   }
 }
 ```
 
 `filesSkippedNoSignal` is tracked separately so report consumers can see how aggressively the AST pre-filter trimmed the corpus.
+
+`candidateFiles` is the denominator. When it is `0` the run examined nothing and `summary.abstention` is set: report it as **abstained**, never as a clean pass. The in-session collect step carries the same `candidateFiles` / `abstention` fields.
 
 ## Harness Integration
 
@@ -111,9 +114,12 @@ forwards the subset of the diff this domain owns:
 
 - **`files`** — this domain's owned subset of the changed files, as **ABSOLUTE** paths. The host
   reads it from `plan.files["security-craft"]`, which holds repo-relative POSIX paths, and resolves each
-  entry against the project root before calling `mcp__harness__security_craft`. Forwarded unresolved, the
-  collectors read nothing and the run reports `status: "collected"` with zero prompts — a clean
-  report from a run that read no code.
+  entry against the project root before calling `mcp__harness__security_craft`. Absolute is the
+  recommended form, not a correctness requirement for this domain: its collector resolves a
+  relative entry against the tool's `path` (never the process CWD), so a repo-relative entry
+  forwarded unresolved still reads the in-diff file (pinned by
+  `packages/cli/tests/shared/craft/relative-files-scope.test.ts`). Only
+  `mcp__harness__design_craft` still requires absolute paths.
 - **`promptBudget`** — accepted; raises the prompt ceiling for the forwarded scope when the diff subset is large.
 
 Findings from a hook-triggered run are advisory: reported, never blocking, never counted toward

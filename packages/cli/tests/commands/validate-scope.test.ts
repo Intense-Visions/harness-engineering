@@ -8,6 +8,10 @@ import {
   filterToDesignSurface,
   SCOPED_WALKERS,
 } from '../../src/commands/validate-scope';
+import {
+  collectDesignScanFiles,
+  resolveDesignExcludePatterns,
+} from '../../src/shared/design-scan-targets';
 
 function git(args: string[], cwd: string): string {
   return execFileSync('git', args, { cwd, encoding: 'utf-8' }).trim();
@@ -184,5 +188,45 @@ describe('filterToDesignSurface (scoped ⊆ full parity)', () => {
     );
     const kept = filterToDesignSurface(dir, ['src/a.gen.ts', 'src/b.ts']);
     expect(kept).toEqual(['src/b.ts']);
+  });
+
+  // #2349: this surface was a hand-copied mirror of the walker's extension list
+  // and skip set, and had already drifted (it dropped .vue/.svelte/.mts/.less
+  // and friends the full sweep scans). Parity is pinned against the walker
+  // itself, so a change to the shared definition cannot desync the two again.
+  it('keeps exactly the files a full design walk scans', () => {
+    const tree = [
+      'src/Button.tsx',
+      'src/App.vue',
+      'src/Widget.svelte',
+      'src/page.astro',
+      'src/util.mts',
+      'src/util.cjs',
+      'styles/theme.less',
+      'styles/base.pcss',
+      'styles/old.sass',
+      'styles/x.styl',
+      'docs/readme.md',
+      'dist/bundle.js',
+      '.harness/cache/thing.ts',
+      'packages/core/tests/fixtures/jsx-imports/src/components/Button.jsx',
+      'src/__fixtures__/Card.tsx',
+      'src/fixtures/MatchCard.tsx',
+      'vendor/lib.ts',
+    ];
+    fs.writeFileSync(
+      path.join(dir, 'harness.config.json'),
+      JSON.stringify({ design: { exclude: ['vendor/**'] } })
+    );
+    for (const rel of tree) writeFile(dir, rel, 'export const x = 1;\n');
+
+    const full = collectDesignScanFiles(dir, undefined, resolveDesignExcludePatterns(dir))
+      .files.map((f) => path.relative(dir, f).replaceAll('\\', '/'))
+      .sort();
+    const scoped = filterToDesignSurface(dir, tree).sort();
+
+    expect(scoped).toEqual(full);
+    expect(scoped).toContain('src/App.vue');
+    expect(scoped).not.toContain('src/__fixtures__/Card.tsx');
   });
 });

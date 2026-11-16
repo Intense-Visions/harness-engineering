@@ -100,11 +100,17 @@ export class WebhookDelivery {
 
   private async tick(): Promise<void> {
     if (this.draining) return;
-    const pending = this.queue.claim(Date.now());
-    for (const row of pending) {
-      const inFlight = this.inFlight.get(row.subscriptionId) ?? 0;
-      if (inFlight >= this.maxConcurrentPerSub) continue;
-      this.inFlight.set(row.subscriptionId, inFlight + 1);
+    // Claim only what can run now. claim() marks every returned row
+    // in_flight, so a row claimed here and then skipped would be owned by no
+    // executeDelivery and stranded until the next process start (#2553).
+    // The per-subscription budget is enforced inside the claim transaction;
+    // over-cap rows stay pending|failed for a later tick.
+    const claimed = this.queue.claim(Date.now(), 20, {
+      maxPerSub: this.maxConcurrentPerSub,
+      available: (subId) => this.maxConcurrentPerSub - (this.inFlight.get(subId) ?? 0),
+    });
+    for (const row of claimed) {
+      this.inFlight.set(row.subscriptionId, (this.inFlight.get(row.subscriptionId) ?? 0) + 1);
       void this.executeDelivery(row);
     }
   }

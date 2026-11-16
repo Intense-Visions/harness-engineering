@@ -26,7 +26,8 @@ import { Ok, Err } from '../shared/result';
 import { resolveConstraintPacks } from '../constraints/packs';
 import type { ResolvedConstraintPacks } from '../constraints/packs';
 import { validateAgentsMap } from '../context/agents-map';
-import { validateDependencies, defineLayer } from '../constraints/dependencies';
+import { validateDependencies } from '../constraints/dependencies';
+import { resolveDepsSettings, toLayerConfig } from '../constraints/layer-config';
 import { checkDocCoverage } from '../context/doc-coverage';
 import { EntropyAnalyzer } from '../entropy/analyzer';
 import type { DriftConfig } from '../entropy/types';
@@ -160,11 +161,24 @@ interface CheckContribution {
    * because a gate that did not run must not be readable as green (#2071).
    */
   skipReason?: string;
+  /**
+   * Set when the project's config declared the gate not applicable
+   * (`<section>.enabled: false`). That is an operator decision like `--skip`,
+   * so it reports `status: 'skip'` WITHOUT a `skipReason` — acknowledged, not
+   * abstained, exit 0. Before this it carried no issues and so read `pass`: a
+   * gate that never ran, reporting green (#2633).
+   */
+  disabledByConfig?: true;
 }
 
 /** An abstention: the check wanted to run and could not. */
 function abstain(reason: string): CheckContribution {
   return { issues: [], measurements: [], skipReason: reason };
+}
+
+/** A gate the project's config declared not applicable — a plain skip. */
+function notApplicable(): CheckContribution {
+  return { issues: [], measurements: [], disabledByConfig: true };
 }
 
 async function runValidateCheck(
@@ -207,47 +221,67 @@ async function runDepsCheck(
   // a Go or Rust project had no honest way to be green, because `layers` is
   // meaningless there and an absent `layers` abstains (#2071).
   const depsConfig = (config.deps as Record<string, unknown>) || {};
-  if (depsConfig.enabled === false) return { issues, measurements: [] };
+  if (depsConfig.enabled === false) return notApplicable();
 
-  const rawLayers = config.layers as Array<Record<string, unknown>> | undefined;
+  // One config-to-LayerConfig mapping, shared with `harness check-deps`, so the
+  // two entry points honour the same `deps.exclude`, `deps.fallbackBehavior`,
+  // `deps.resolveWorkspacePackages` and `rootDir` (#2606).
+  const settings = resolveDepsSettings(config, projectRoot);
   // No layers configured means there is nothing to validate, and an empty rule
   // set cannot honestly report a pass — the same refusal `harness cleanup -t
   // patterns` makes over zero rules (#1760). Abstain instead (#2071).
-  if (!rawLayers || rawLayers.length === 0) {
+  if (settings.layers.length === 0) {
     return abstain(
       'No dependency layers are configured, so the deps check had nothing to validate. ' +
         'Add `layers` to harness.config.json, or run with `--skip deps` to acknowledge ' +
         'that this gate is not enforced.'
     );
   }
-  {
-    const parser = new TypeScriptParser();
-    const layers = rawLayers.map((l) =>
-      defineLayer(
-        l.name as string,
-        Array.isArray(l.patterns) ? (l.patterns as string[]) : [l.pattern as string],
-        l.allowedDependencies as string[]
-      )
-    );
-    const result = await validateDependencies({
-      layers,
-      rootDir: projectRoot,
-      parser,
-    });
-    if (!result.ok) {
-      issues.push({ severity: 'error', message: result.error.message });
-    } else if (result.value.violations.length > 0) {
-      for (const v of result.value.violations) {
-        issues.push({
-          severity: 'error',
-          message: `${v.reason}: ${v.file} imports ${v.imports} (${v.fromLayer} → ${v.toLayer})`,
-          file: v.file,
-          line: v.line,
-        });
-      }
-    }
+  const result = await validateDependencies(toLayerConfig(settings, new TypeScriptParser()));
+  if (!result.ok) {
+    issues.push({ severity: 'error', message: result.error.message });
+    return { issues, measurements: [] };
   }
-  return { issues, measurements: [] };
+  for (const v of result.value.violations) {
+    issues.push({
+      severity: 'error',
+      message: `${v.reason}: ${v.file} imports ${v.imports} (${v.fromLayer} → ${v.toLayer})`,
+      file: v.file,
+      line: v.line,
+    });
+  }
+  // What the engine did not validate — the parser was unavailable, or a file
+  // did not parse (#2073). `deps.fallbackBehavior: 'warn'` reports it as a
+  // warning, exactly as `check-deps` downgrades it to exit 0; otherwise the
+  // step abstains, as `check-deps` exits ZERO_DENOMINATOR (#2098).
+  const unvalidated: Array<{ file?: string; message: string }> = [];
+  if (result.value.skipped) {
+    unvalidated.push({
+      message: `Layer validation did not run: ${result.value.reason ?? 'the analysis engine abstained'}`,
+    });
+  }
+  for (const { file, reason } of result.value.unparsedFiles ?? []) {
+    const relative = path.relative(settings.rootDir, file).replaceAll('\\', '/');
+    unvalidated.push({
+      file: relative,
+      message: `${relative} could not be parsed, so its imports were not checked: ${reason}`,
+    });
+  }
+  if (unvalidated.length === 0) return { issues, measurements: [] };
+  if (settings.fallbackBehavior === 'warn') {
+    for (const u of unvalidated) {
+      issues.push({ severity: 'warning', message: u.message, ...(u.file ? { file: u.file } : {}) });
+    }
+    return { issues, measurements: [] };
+  }
+  return {
+    issues,
+    measurements: [],
+    skipReason:
+      unvalidated.map((u) => u.message).join('; ') +
+      '. Fix or exclude the file via `deps.exclude`, or set `deps.fallbackBehavior: "warn"` ' +
+      'to report this as a warning.',
+  };
 }
 
 async function runDocsCheck(
@@ -296,7 +330,7 @@ async function runEntropyCheck(
   // Not-applicable beats could-not-run: the drift/dead-code analyzer is
   // TypeScript-based, so a non-TS stack says so here and takes a plain skip
   // rather than abstaining on an entry point it was never going to resolve.
-  if (entropyConfig.enabled === false) return { issues, measurements: [] };
+  if (entropyConfig.enabled === false) return notApplicable();
   // Fallback: use performance entry points if entropy section has none configured
   const entryPoints =
     (entropyConfig.entryPoints as string[]) ?? (perfConfig.entryPoints as string[]);
@@ -362,7 +396,7 @@ async function runSecurityCheck(
   // `security.enabled: false` is an operator decision, not an abstention: the
   // gate was switched off on purpose, which is the same acknowledgement
   // `--skip security` gives.
-  if (!securityConfig.enabled) return { issues, measurements: [] };
+  if (!securityConfig.enabled) return notApplicable();
 
   const scanner = new SecurityScanner(securityConfig);
   scanner.configureForProject(projectRoot);
@@ -414,7 +448,7 @@ async function runPerfCheck(
   const measurements: GateMeasurement[] = [];
   const perfConfig = (config.performance as Record<string, unknown>) || {};
   // Same not-applicable opt-out as `entropy.enabled` — see there.
-  if (perfConfig.enabled === false) return { issues, measurements };
+  if (perfConfig.enabled === false) return notApplicable();
   const entryPoints = perfConfig.entryPoints as string[] | undefined;
   const perfAnalyzer = new EntropyAnalyzer({
     rootDir: projectRoot,
@@ -485,13 +519,12 @@ async function runPhaseGateCheck(
   _projectRoot: string,
   config: Record<string, unknown>
 ): Promise<CheckContribution> {
-  const issues: CICheckIssue[] = [];
   const phaseGates = config.phaseGates as Record<string, unknown> | undefined;
   if (!phaseGates?.enabled) {
     // Phase gates are switched off (or were never configured). That is an
     // operator decision, like `--skip phase-gate`, so it is a plain skip and
     // not an abstention.
-    return { issues, measurements: [] };
+    return notApplicable();
   }
   // Phase gate validation requires CLI-level context (config resolution,
   // spec/impl pattern matching), which the core orchestrator does not have — so
@@ -511,11 +544,11 @@ async function runPhaseGateCheck(
 async function runArchCheck(
   projectRoot: string,
   config: Record<string, unknown>
-): Promise<CICheckIssue[]> {
+): Promise<CheckContribution> {
   const issues: CICheckIssue[] = [];
   const rawArchConfig = config.architecture as Record<string, unknown> | undefined;
   const parsedArchConfig = ArchConfigSchema.parse(rawArchConfig ?? {});
-  if (!parsedArchConfig.enabled) return issues;
+  if (!parsedArchConfig.enabled) return notApplicable();
 
   // `ArchConfigSchema` deliberately does not carry `layers` / `forbiddenImports`
   // — they live in the top-level config blocks `check-deps` and the ESLint plugin
@@ -585,7 +618,7 @@ async function runArchCheck(
       }
     }
   }
-  return issues;
+  return { issues, measurements: [] };
 }
 
 async function runTraceabilityCheck(
@@ -595,7 +628,7 @@ async function runTraceabilityCheck(
   const issues: CICheckIssue[] = [];
   const measurements: GateMeasurement[] = [];
   const traceConfig = (config.traceability as Record<string, unknown>) || {};
-  if (traceConfig.enabled === false) return { issues, measurements };
+  if (traceConfig.enabled === false) return notApplicable();
 
   const minCoverage = (traceConfig.minCoverage as number) ?? 0;
   const severity = (traceConfig.severity as 'error' | 'warning') ?? 'warning';
@@ -694,11 +727,13 @@ async function runSingleCheck(
   const issues: CICheckIssue[] = [];
   const measurements: GateMeasurement[] = [];
   let skipReason: string | undefined;
+  let disabledByConfig = false;
 
   const absorb = (contribution: CheckContribution): void => {
     issues.push(...contribution.issues);
     measurements.push(...contribution.measurements);
     if (contribution.skipReason !== undefined) skipReason = contribution.skipReason;
+    if (contribution.disabledByConfig) disabledByConfig = true;
   };
 
   try {
@@ -725,7 +760,7 @@ async function runSingleCheck(
         absorb(await runPhaseGateCheck(projectRoot, config));
         break;
       case 'arch':
-        issues.push(...(await runArchCheck(projectRoot, config)));
+        absorb(await runArchCheck(projectRoot, config));
         break;
       case 'traceability':
         absorb(await runTraceabilityCheck(projectRoot, config));
@@ -745,7 +780,7 @@ async function runSingleCheck(
   // something concrete went wrong and `fail` is the louder, truer signal.
   const status = hasErrors
     ? 'fail'
-    : skipReason !== undefined
+    : skipReason !== undefined || disabledByConfig
       ? 'skip'
       : hasWarnings
         ? 'warn'

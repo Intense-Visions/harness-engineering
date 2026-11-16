@@ -1,21 +1,26 @@
 ---
 schemaVersion: 1
 module: 'tests/scripts'
-sourceHash: '80c467b791549466971572ad30554b931f32f0a7a73f60c31cf87f65a2323696'
+sourceHash: 'bc274e7ea10af8b124b1963ff7d7fa5907ad1498c64931e04f3e0cd9175606fc'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
 members:
   [
+    'arch-snapshot-fold.test.mjs',
     'assert-vitest-ran.test.mjs',
     'audit-exceptions.test.mjs',
     'baseline-gating.test.mjs',
     'check-changesets.test.mjs',
+    'core-public-symbols.test.mjs',
+    'coverage-ratchet-floor.test.mjs',
     'design-capture.test.mjs',
     'ensure-node-pin.test.mjs',
     'generate-barrel-exports.test.ts',
     'generate-docs-determinism.test.ts',
     'main-health-check.test.mjs',
+    'override-floors.test.mjs',
+    'persona-workflow-paths.test.mjs',
     'plugin-antigravity-target.test.mjs',
     'plugin-pin-sync.test.mjs',
     'precommit-plugin-stage.test.mjs',
@@ -37,22 +42,25 @@ members:
 
 ```
 import { EXIT, assessVitestLog, stripAnsi } from '../../scripts/assert-vitest-ran.mjs'
-import { extractAdvisories, lapseReason, reconcile } from '../../scripts/audit-exceptions.mjs'
+import { classifyLockfiles, extractAdvisories, extractNpmAdvisories, lapseReason, reconcile } from '../../scripts/audit-exceptions.mjs'
 import { mergeBenchmarkBaselines } from '../../scripts/benchmark-check.mjs'
 import { parseChangesetFrontmatter } from '../../scripts/check-changesets.mjs'
-import { evaluateCoverage, mergeCoverageBaselines, pruneCoverageSummaries, toleranceFor } from '../../scripts/coverage-ratchet.mjs'
+import { EXIT, evaluateCoverage, inScopeFromTurboDryRun, mergeCoverageBaselines, pruneCoverageSummaries, ratchetVerdict, toleranceFor } from '../../scripts/coverage-ratchet.mjs'
 import { baseUrl, pageFiles, parseTargetFiles, slugForFile } from '../../scripts/design-capture.mjs'
+import { computePublicSymbols, diffSymbols, parseManifest, renderManifest } from '../../scripts/lib/core-public-symbols.mjs'
 import { PLUGIN_CONFIGS, getConfig } from '../../scripts/lib/plugin-config.mjs'
 import { ALARM_LABEL, ALARM_MARKER, EXIT, decideAction, deliverAlarm, evaluateHealth, fetchRuns, findOpenAlarmIssue, renderIssueBody, renderSummary, selectDecisiveRuns } from '../../scripts/main-health-check.mjs'
+import { mergeTimelines } from '../../scripts/merge-arch-timeline.mjs'
+import { checkFloors, findAdvancements, parseLockfile, parseOverrideKey, satisfies } from '../../scripts/override-floors.mjs'
 import { classifyPublish, parsePublishOutput, registryUrl, runRelease, waitForVisibility } from '../../scripts/release-publish.mjs'
 import { MANIFEST_PATHS, findPinnedVersion, readCliVersion, syncManifestContent } from '../../scripts/sync-plugin-pin.mjs'
 import assert from 'node:assert/strict'
 import { execFileSync, spawnSync } from 'node:child_process'
-import { chmodSync, copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
+import { appendFileSync, chmodSync, copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path, { dirname, join, resolve } from 'node:path'
 import { test } from 'node:test'
 import { fileURLToPath } from 'node:url'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { parseYaml } from 'yaml'
+import { parse, parseYaml } from 'yaml'
 ```

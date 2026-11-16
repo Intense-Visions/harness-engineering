@@ -8,17 +8,29 @@
  * declared inline below — they are few enough to maintain here and are
  * verified by TypeScript compilation.
  *
+ * It also maintains packages/core/public-symbols.txt — the barrel's resolved
+ * export NAMES — because a barrel built from `export *` lines can stay
+ * byte-identical while the public surface behind it changes (#2473 §3). `--check`
+ * fails on either a stale barrel or a symbol set that differs from the manifest.
+ *
  * Usage:
- *   node scripts/generate-core-barrel.mjs           # generate
- *   node scripts/generate-core-barrel.mjs --check   # verify freshness (CI)
+ *   node scripts/generate-core-barrel.mjs           # generate barrel + manifest
+ *   node scripts/generate-core-barrel.mjs --check   # verify both are fresh (CI, pre-push)
  */
 
 import { readFileSync, writeFileSync, readdirSync, statSync, existsSync } from 'node:fs';
 import { resolve, join } from 'node:path';
+import {
+  computePublicSymbols,
+  diffSymbols,
+  parseManifest,
+  renderManifest,
+} from './lib/core-public-symbols.mjs';
 
 const ROOT = resolve(import.meta.dirname, '..');
 const CORE_SRC = join(ROOT, 'packages', 'core', 'src');
 const OUTPUT = join(CORE_SRC, 'index.ts');
+const SYMBOL_MANIFEST = join(ROOT, 'packages', 'core', 'public-symbols.txt');
 const HEADER = '// AUTO-GENERATED — do not edit. Run `pnpm run generate:barrels` to regenerate.\n';
 
 // ---------------------------------------------------------------------------
@@ -296,9 +308,19 @@ function generate() {
 
 // --- Main ---
 
+function currentSymbols() {
+  return computePublicSymbols({
+    entry: OUTPUT,
+    baseUrl: ROOT,
+    // Resolve the re-exported types package from SOURCE, never a stale dist.
+    paths: { '@harness-engineering/types': ['packages/types/src/index.ts'] },
+  });
+}
+
 const content = generate();
 
 if (process.argv.includes('--check')) {
+  let failed = false;
   if (!existsSync(OUTPUT)) {
     console.error('Core barrel not found. Run: pnpm run generate:barrels');
     process.exit(1);
@@ -306,10 +328,45 @@ if (process.argv.includes('--check')) {
   const existing = readFileSync(OUTPUT, 'utf-8');
   if (existing !== content) {
     console.error('Core barrel is stale. Run: pnpm run generate:barrels');
+    failed = true;
+  } else {
+    console.log('Core barrel is up to date.');
+  }
+
+  const symbols = currentSymbols();
+  // An empty surface means resolution failed (no entry, unresolvable re-exports) —
+  // never compare against it as if it were a real, clean answer.
+  if (symbols.length === 0) {
+    console.error('Core public symbols resolved to an EMPTY set — refusing to compare.');
     process.exit(1);
   }
-  console.log('Core barrel is up to date.');
+  if (!existsSync(SYMBOL_MANIFEST)) {
+    console.error(
+      'Core public-symbol manifest (packages/core/public-symbols.txt) not found. Run: pnpm run generate:barrels'
+    );
+    process.exit(1);
+  }
+  const { added, removed } = diffSymbols(
+    parseManifest(readFileSync(SYMBOL_MANIFEST, 'utf-8')),
+    symbols
+  );
+  if (added.length > 0 || removed.length > 0) {
+    console.error(
+      `Core public symbols drifted from packages/core/public-symbols.txt ` +
+        `(+${added.length} added, -${removed.length} removed). ` +
+        'Run: pnpm run generate:barrels and commit the manifest.'
+    );
+    for (const n of added) console.error(`  + ${n}`);
+    for (const n of removed) console.error(`  - ${n}`);
+    failed = true;
+  } else {
+    console.log(`Core public symbols are up to date (${symbols.length} names).`);
+  }
+  if (failed) process.exit(1);
 } else {
   writeFileSync(OUTPUT, content);
   console.log(`Generated ${OUTPUT}`);
+  const symbols = currentSymbols();
+  writeFileSync(SYMBOL_MANIFEST, renderManifest(symbols));
+  console.log(`Generated ${SYMBOL_MANIFEST} (${symbols.length} names)`);
 }

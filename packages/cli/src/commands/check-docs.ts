@@ -24,8 +24,8 @@ interface CheckDocsOptions {
 interface CheckDocsResult {
   valid: boolean;
   coveragePercent: number;
-  documented: string[];
   undocumented: string[];
+  documented: string[];
   brokenLinks: string[];
   // Denominator: source files actually scanned. `scannedNothing` (scanned === 0)
   // is an abstention, not a pass — the scan verified nothing (#1146).
@@ -103,8 +103,8 @@ export async function runCheckDocs(
     // coverage number (#1146).
     valid: !scannedNothing && coveragePercent >= minCoverage && brokenLinks.length === 0,
     coveragePercent,
-    documented: coverageResult.value.documented,
     undocumented: coverageResult.value.undocumented,
+    documented: coverageResult.value.documented,
     brokenLinks,
     scanned,
     scannedNothing,

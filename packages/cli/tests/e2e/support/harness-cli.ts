@@ -34,8 +34,20 @@ export interface RunOptions {
   env?: NodeJS.ProcessEnv;
   /** Override the binary path (for callers outside the cli package). */
   bin?: string;
-  /** Per-call timeout in ms. Default 60s (E2E spawns are slow under CI load). */
+  /**
+   * Per-call timeout in ms. Default {@link DEFAULT_HARNESS_TIMEOUT_MS} (E2E spawns are
+   * slow under CI load). Exceeding it throws — see {@link runHarness}.
+   */
   timeoutMs?: number;
+}
+
+/** Default per-call bound. Generous: cold starts take tens of seconds under the pre-push gate's load. */
+export const DEFAULT_HARNESS_TIMEOUT_MS = 60_000;
+
+/** Last `max` characters of captured output, for a diagnosable failure message. */
+function tail(text: string | null | undefined, max = 2_000): string {
+  const s = text ?? '';
+  return s.length > max ? `...${s.slice(-max)}` : s;
 }
 
 /**
@@ -43,14 +55,41 @@ export interface RunOptions {
  *
  * Uses `process.execPath` + the built `.js` entry — NEVER the `node_modules/.bin`
  * shim, which ENOENTs when spawned directly on win32 (see the CLI's own notes).
+ *
+ * The timeout is the ONLY thing that bounds this call: `spawnSync` blocks the
+ * vitest worker's event loop, so the package `testTimeout` cannot fire while a
+ * child hangs (#2555 — one hung `validate --json` stalled the pre-push gate for
+ * 15 minutes). On timeout, a kill signal, or a spawn failure this THROWS with
+ * the command, cwd, and output captured so far, rather than returning a status:
+ * a child that exited 0 while a grandchild kept its output pipes open comes back
+ * from `spawnSync` as `status: 0` + `error: ETIMEDOUT`, so a status-only check
+ * would pass a run that never finished.
  */
 export function runHarness(args: string[], opts: RunOptions): RunResult {
   const bin = opts.bin ?? HARNESS_BIN;
+  const timeoutMs = opts.timeoutMs ?? DEFAULT_HARNESS_TIMEOUT_MS;
   const res = spawnSync(process.execPath, [bin, ...args], {
     cwd: opts.cwd,
     encoding: 'utf8',
-    timeout: opts.timeoutMs ?? 60_000,
+    timeout: timeoutMs,
+    killSignal: 'SIGKILL',
     ...(opts.env ? { env: opts.env } : {}),
   });
+  if (res.error || res.signal) {
+    const command = `harness ${args.join(' ')}`;
+    const timedOut = (res.error as NodeJS.ErrnoException | undefined)?.code === 'ETIMEDOUT';
+    const reason = timedOut
+      ? `did not finish within ${timeoutMs}ms`
+      : res.error
+        ? `failed to run: ${res.error.message}`
+        : `was killed by ${res.signal}`;
+    throw new Error(
+      [
+        `${command} ${reason} (cwd: ${opts.cwd}, bin: ${bin}, exit status: ${res.status ?? 'none'}, signal: ${res.signal ?? 'none'}).`,
+        `--- stdout (tail) ---\n${tail(res.stdout)}`,
+        `--- stderr (tail) ---\n${tail(res.stderr)}`,
+      ].join('\n')
+    );
+  }
   return { status: res.status ?? -1, stdout: res.stdout ?? '', stderr: res.stderr ?? '' };
 }

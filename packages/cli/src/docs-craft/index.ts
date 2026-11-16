@@ -34,6 +34,8 @@ import {
 } from './phases/critique.js';
 import type { DocsCraftOutput, DocsFinding } from './findings/schema.js';
 import { craftClumpView } from '../shared/craft/findings/clumpable.js';
+import { withCraftAbstention, type CraftAbstention } from '../shared/craft/scope.js';
+import { resolveScopedFiles } from '../shared/craft/extract/scoped-files.js';
 
 export type DocsCraftMode = 'inline' | 'in-session';
 
@@ -65,6 +67,8 @@ export interface CollectPromptsOutput {
   hint?: string;
   /** Persisted to disk under .harness/craft/runs/<runId>.json. */
   runFile?: string;
+  /** Present only when the collect step examined zero candidates: `promptCount: 0` is then NOT a clean result (#2625). */
+  abstention?: CraftAbstention;
 }
 
 export interface FinalizeDocsCraftInput {
@@ -226,6 +230,7 @@ export async function collectDocsCraftPrompts(
     pendingPrompts: pending,
     projection: { promptCount: pending.length, budget },
     runFile,
+    ...withCraftAbstention('docs-craft', filesScanned + filesSkipped),
   };
 }
 
@@ -277,6 +282,7 @@ export async function finalizeDocsCraft(input: FinalizeDocsCraftInput): Promise<
         exemplarsAvailable: SEED_EXEMPLARS.length,
       },
       counts: { filesScanned: state.meta.filesScanned, filesSkipped: state.meta.filesSkipped },
+      ...withCraftAbstention('docs-craft', state.meta.filesScanned + state.meta.filesSkipped),
       runId: input.runId,
     },
   };
@@ -335,6 +341,7 @@ function buildSummary(
       exemplarsAvailable: SEED_EXEMPLARS.length,
     },
     counts: { filesScanned: acc.filesScanned, filesSkipped: acc.filesSkipped },
+    ...withCraftAbstention('docs-craft', acc.filesScanned + acc.filesSkipped),
     runId: randomUUID(),
   };
 }
@@ -370,7 +377,7 @@ export async function critiqueDocFile(
 
 function collectDocs(projectRoot: string, input: DocsCraftInput): DiscoveredDoc[] {
   if (input.files !== undefined && input.files.length > 0) {
-    return input.files.map((f) => {
+    return resolveScopedFiles(projectRoot, input.files).map((f) => {
       const relative = path.relative(projectRoot, f).replaceAll('\\', '/');
       return { file: f, relative, kind: classifyDoc(relative) };
     });

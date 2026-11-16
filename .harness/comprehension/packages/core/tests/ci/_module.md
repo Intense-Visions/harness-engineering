@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/tests/ci'
-sourceHash: 'abe6551b85ba50ceec6b440e52f5e63514228079004fbca5d064ae66c4df49ef'
+sourceHash: '49cfe04df4441589d3c0580e0a27171f77469405cd0bc2788eefa61a8d0dc958'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -13,6 +13,7 @@ members:
     'check-skip-status.test.ts',
     'constraint-packs-orchestrator.test.ts',
     'constraint-packs-real-scanner.test.ts',
+    'deps-config-parity.behavior.test.ts',
     'notifier.test.ts',
     'report-formatter.test.ts',
     'verdict-cache.test.ts',
@@ -28,6 +29,7 @@ members:
 ## Dependency Slice
 
 ```
+import '../../src/architecture'
 import { classifyBaseFreshness } from '../../src/ci/base-freshness'
 import { runCIChecks } from '../../src/ci/check-orchestrator'
 import { CINotifier } from '../../src/ci/notifier'

@@ -1,0 +1,8 @@
+{
+  "version": 1,
+  "layers": [
+    { "name": "types", "pattern": "packages/types/src/**", "allowedDependencies": [] },
+    { "name": "core", "pattern": "packages/core/src/**", "allowedDependencies": ["types"] },
+    { "name": "cli", "pattern": "packages/cli/src/**", "allowedDependencies": ["types", "core"] }
+  ]
+}

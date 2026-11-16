@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/tests/hooks'
-sourceHash: '1ffa4f257f912776d0fdeab3a95c828427a93ffc26dcfcd323274b2dd2d97d27'
+sourceHash: 'f3599dc705890ab533351d7a6e2c8dc23efaa228b07201ac5d19841f6a0c235e'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -51,7 +51,7 @@ import { removeHooks } from '../../src/commands/hooks/remove'
 import { DEFAULT_REGEN_COMMAND, HOOK_BLOCK_BEGIN, HOOK_BLOCK_END, buildRegenBlock } from '../../src/commands/roadmap/install-hook'
 import { RETROSPECT_HOOK_ENTRY_NAME, installAgentRetrospectHooks, writeCodexNotifyHook, writeCursorRetrospectHooks, writeGeminiSessionEndHook } from '../../src/hooks/agent-retrospect'
 import { detectFormatter, runFormatCheck } from '../../src/hooks/format-check.js'
-import { HOOK_SCRIPTS, HookProfile, PROFILES } from '../../src/hooks/profiles'
+import { HOOK_SCRIPTS, PROFILES } from '../../src/hooks/profiles'
 import { HOOK_SCRIPTS, PROFILES } from '../../src/hooks/profiles.js'
 import { parseCodexNotifyPayload } from '../../src/hooks/session-retrospect-core.js'
 import { RoadmapMeta, Shard, parseRoadmap, serializeMeta, serializeShard } from '@harness-engineering/core'

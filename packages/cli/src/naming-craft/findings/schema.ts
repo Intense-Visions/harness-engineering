@@ -10,6 +10,7 @@
 
 import type { ClumpView } from '@harness-engineering/core';
 import type { Tier, Impact, Confidence } from '../../shared/craft/findings/axes.js';
+import type { CraftAbstention } from '../../shared/craft/scope.js';
 
 export type { Tier, Impact, Confidence };
 
@@ -52,6 +53,13 @@ export interface NamingCraftSummary {
    */
   filesScanned: number;
   /**
+   * Requested files skipped because naming-craft cannot parse their language
+   * (it extracts TS/JS only). Never extracted, never critiqued, never counted
+   * in `filesScanned` or the convention sample (issue #1967). Absent when
+   * nothing was skipped.
+   */
+  unsupportedFiles?: string[];
+  /**
    * Prompt-level reach of a two-step in-session finalize:
    * `promptsAnswered` of `promptsTotal` collected prompts were judged.
    * Absent on the inline path (which judges everything in one pass); when
@@ -59,6 +67,11 @@ export interface NamingCraftSummary {
    * partial and the summary must not be read as full coverage.
    */
   coverage?: { promptsAnswered: number; promptsTotal: number };
+  /**
+   * Present only when the run examined zero candidates: its empty `findings`
+   * says nothing about the code (#2625). Absent on every run that looked.
+   */
+  abstention?: CraftAbstention;
   runId: string;
 }
 

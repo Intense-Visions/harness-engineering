@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/tests/constraints'
-sourceHash: '48fb25b26468a96b3bf9e9e877ec57e83b0cf4521f2f7733efa58b584e3b7fe4'
+sourceHash: '7787e6f14757394b6990410eb31c14ee00828ca21c26e13759c783816a97da8c'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -12,10 +12,13 @@ members:
     'circular-deps.test.ts',
     'dependencies.test.ts',
     'graph-integration.test.ts',
+    'layer-config.test.ts',
     'layers.test.ts',
     'multi-lang-deps.test.ts',
     'packs.test.ts',
     'parser-unavailable-abstention.test.ts',
+    'unparseable-files.test.ts',
+    'workspace-packages.test.ts',
   ]
 ---
 
@@ -31,15 +34,21 @@ members:
 import { createBoundaryValidator, validateBoundaries } from '../../src/constraints/boundary'
 import { detectCircularDeps, detectCircularDepsInFiles } from '../../src/constraints/circular-deps'
 import { ParserLookup, buildDependencyGraph, defineLayer, validateDependencies } from '../../src/constraints/dependencies'
+import { resolveDepsSettings, toLayerConfig } from '../../src/constraints/layer-config'
 import { defineLayer, resolveFileToLayer } from '../../src/constraints/layers'
 import { BUILT_IN_CONSTRAINT_PACKS, getConstraintPack, resolveConstraintPacks } from '../../src/constraints/packs'
 import { DependencyGraph, GraphDependencyData, Layer } from '../../src/constraints/types'
+import '../../src/constraints/workspace-packages'
 import { createError } from '../../src/shared/errors'
 import { LanguageParser, TypeScriptParser } from '../../src/shared/parsers'
 import { AST, Export, Import, LanguageParser } from '../../src/shared/parsers/base'
 import { TypeScriptParser } from '../../src/shared/parsers/typescript'
 import { Err, Ok } from '../../src/shared/result'
+import * as fs from 'fs'
+import * as path from 'node:path'
+import * as os from 'os'
 import { join } from 'path'
-import { describe, expect, it, vi } from 'vitest'
+import * as path from 'path'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { z } from 'zod'
 ```
