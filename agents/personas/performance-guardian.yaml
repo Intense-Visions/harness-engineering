@@ -13,7 +13,7 @@ triggers:
   - event: on_pr
     conditions:
       paths:
-        - "src/**"
+        - "**/src/**"
         - "packages/**"
   - event: scheduled
     cron: "0 6 * * 1"
