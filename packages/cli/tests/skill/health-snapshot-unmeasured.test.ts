@@ -194,6 +194,15 @@ describe('a check that did not run is not measured, never clean (#2589)', () => 
     expect(checks.security.measured).toBe(false);
     expect(checks.deps.passed).toBe(true);
   });
+
+  it('run_security_scan that abstained (0 files) leaves security unmeasured, not passed (#2622)', async () => {
+    stubTools({
+      security: async () => json({ findings: [], scannedFiles: 0, abstained: true }),
+    });
+    const { checks } = await runChecks();
+    expect(checks.security.passed).toBe(false);
+    expect(checks.security.measured).toBe(false);
+  });
 });
 
 describe('health snapshot over the REAL detect_entropy summary (#2589)', () => {

@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/tests/mcp/tools'
-sourceHash: 'c1a328f4033fe4271c3f9ae0296fee89704d52fa424381630116ebc60ee99fca'
+sourceHash: '25cf4a00eaedf23c3ba4df3cc867e22ffcff2c11739924e7a66318f8977d4d5f'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -97,6 +97,7 @@ members:
     'search-skills.test.ts',
     'security-craft.test.ts',
     'security-record.test.ts',
+    'security-scan-denominator.test.ts',
     'skill-progressive-loading.test.ts',
     'skill-proposal.test.ts',
     'skill-telemetry.test.ts',
