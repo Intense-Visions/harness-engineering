@@ -1,12 +1,13 @@
 ---
 schemaVersion: 1
 module: 'packages/core/src/security'
-sourceHash: '3631e60790ef7472cb3d7e96762fc42e0fd8481806c48ff4fc1c7d4b716b76c0'
+sourceHash: '04cff14547e05c03b12ecb4d099e2151640d1894965ae373eb19b0808f3ddd27'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
 members:
   [
+    'comment-mask.ts',
     'config.ts',
     'harness-ignore.ts',
     'index.ts',
@@ -28,6 +29,7 @@ members:
 ## Interface Contract
 
 ```ts
+export AuditCommandRunner
 export DEFAULT_SECURITY_CONFIG
 export DESTRUCTIVE_BASH
 export EMPTY_SUPPLY_CHAIN
@@ -83,6 +85,7 @@ export TimeToFixStats
 export TimeToFixStatsSchema
 export TrendAttribution
 export TrendAttributionSchema
+export UNMEASURED_SUPPLY_CHAIN_SCORE_CEILING
 export agentConfigRules
 export checkTaint
 export clearTaint
@@ -101,6 +104,7 @@ export injectionRules
 export insecureDefaultsRules
 export isDuplicateFinding
 export isMarkdownPath
+export isSupplyChainMeasured
 export listTaintedSessions
 export mapInjectionFindings
 export mapSecurityFindings
@@ -127,6 +131,7 @@ export xssRules
 ## Dependency Slice
 
 ```
+import { maskComments, supportsCommentMasking } from './comment-mask'
 import { resolveRuleSeverity } from './config'
 import { parseHarnessIgnore } from './harness-ignore'
 import { InjectionFinding, getInjectionPatterns } from './injection-patterns'
@@ -149,7 +154,7 @@ import { xssRules } from './rules/xss'
 import { ScanConfigFileResult, ScanConfigFinding, computeOverallSeverity, computeScanExitCode, isDuplicateFinding, mapInjectionFindings, mapSecurityFindings, mapSecuritySeverity } from './scan-config-shared'
 import { SECURITY_SCAN_DEFAULT_IGNORE } from './scan-targets'
 import { extractQuotedSecretValue, isReferenceOnlySecretValue } from './secret-reference'
-import { Direction, EMPTY_SUPPLY_CHAIN, FindingLifecycle, SecurityCategorySnapshot, SecurityTimelineFile, SecurityTimelineFileSchema, SecurityTimelineSnapshot, SecurityTrendLine, SecurityTrendResult, SupplyChainSnapshot, TimeToFixResult, TimeToFixStats, TrendAttribution, securityFindingId } from './security-timeline-types'
+import { Direction, EMPTY_SUPPLY_CHAIN, FindingLifecycle, SecurityCategorySnapshot, SecurityTimelineFile, SecurityTimelineFileSchema, SecurityTimelineSnapshot, SecurityTrendLine, SecurityTrendResult, SupplyChainSnapshot, TimeToFixResult, TimeToFixStats, TrendAttribution, UNMEASURED_SUPPLY_CHAIN_SCORE_CEILING, isSupplyChainMeasured, securityFindingId } from './security-timeline-types'
 import { detectStack } from './stack-detector'
 import { DEFAULT_SECURITY_CONFIG, RuleOverride, ScanResult, SecurityConfig, SecurityFinding, SecurityRule, SecuritySeverity } from './types'
 import { skipDirGlobs } from '@harness-engineering/graph'

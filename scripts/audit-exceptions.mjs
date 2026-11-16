@@ -18,15 +18,25 @@
  * longer match any active advisory are reported as warnings (stale hygiene),
  * not failures.
  *
- * The reconcile logic (`extractAdvisories`, `lapseReason`, `reconcile`) is
- * exported as pure functions for unit testing; only `main()` touches the
- * network. Importing this module has no side effects.
+ * Lockfiles outside the pnpm workspace (issue #2262): `pnpm audit` reads only
+ * the root pnpm-lock.yaml, so a committed npm lockfile (e.g. an example app's
+ * package-lock.json) was an unaudited surface — Dependabot alerted on it while
+ * this gate reported 0. The gate now enumerates every git-tracked lockfile,
+ * runs `npm audit --json --package-lock-only` for each npm lockfile (networked,
+ * the same class as `pnpm audit`), and reconciles those advisories against the
+ * same register. A tracked lockfile kind it has no auditor for (yarn, bun, a
+ * nested pnpm lockfile) FAILS rather than being silently skipped.
+ *
+ * The reconcile logic (`extractAdvisories`, `extractNpmAdvisories`,
+ * `classifyLockfiles`, `lapseReason`, `reconcile`) is exported as pure
+ * functions for unit testing; only `main()` touches git and the network.
+ * Importing this module has no side effects.
  *
  * Usage: node scripts/audit-exceptions.mjs
  */
-import { execSync } from 'node:child_process';
+import { execFileSync, execSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
-import { dirname, resolve } from 'node:path';
+import { dirname, posix, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
@@ -44,8 +54,7 @@ const MS_PER_DAY = 24 * 60 * 60 * 1000;
  * @returns {Array<{ id: string, severity: string, module: string }>}
  */
 export function extractAdvisories(auditJson) {
-  const advisories =
-    auditJson && typeof auditJson === 'object' ? auditJson.advisories : undefined;
+  const advisories = auditJson && typeof auditJson === 'object' ? auditJson.advisories : undefined;
   if (!advisories || typeof advisories !== 'object') return [];
   const out = [];
   for (const [numericKey, a] of Object.entries(advisories)) {
@@ -58,6 +67,92 @@ export function extractAdvisories(auditJson) {
     });
   }
   return out;
+}
+
+/**
+ * Extract the active advisories from `npm audit --json` output (npm 7+,
+ * `auditReportVersion: 2`).
+ *
+ * Each entry in `vulnerabilities` lists its causes in `via`: an object is a
+ * direct advisory (carrying a `url` of the form
+ * https://github.com/advisories/GHSA-...), a string is a transitive pointer to
+ * another vulnerable package that is reported on its own entry — so only the
+ * objects are collected. Results are deduped by id. An advisory without a GHSA
+ * url falls back to a `npm:<source>` sentinel so it still surfaces as
+ * uncovered.
+ *
+ * Unlike `extractAdvisories`, an unrecognized shape THROWS: `npm audit` reports
+ * failures (no lockfile, registry error) as `{ error: ... }` JSON, and reading
+ * that as "no advisories" would turn a broken audit into a pass.
+ *
+ * @param {unknown} auditJson Parsed `npm audit --json` object.
+ * @returns {Array<{ id: string, severity: string, module: string }>}
+ */
+export function extractNpmAdvisories(auditJson) {
+  if (!auditJson || typeof auditJson !== 'object') {
+    throw new Error('`npm audit --json` output is not an object — cannot reconcile.');
+  }
+  if (auditJson.error) {
+    const e = auditJson.error;
+    const code = e && typeof e === 'object' ? e.code : undefined;
+    const summary = e && typeof e === 'object' ? e.summary : String(e);
+    throw new Error(`\`npm audit\` reported an error${code ? ` (${code})` : ''}: ${summary}`);
+  }
+  const vulns = auditJson.vulnerabilities;
+  if (!vulns || typeof vulns !== 'object') {
+    throw new Error(
+      '`npm audit --json` output has no `vulnerabilities` map (expected auditReportVersion 2) — cannot reconcile.'
+    );
+  }
+  const byId = new Map();
+  for (const [name, v] of Object.entries(vulns)) {
+    const via = v && typeof v === 'object' && Array.isArray(v.via) ? v.via : [];
+    for (const cause of via) {
+      if (!cause || typeof cause !== 'object') continue; // transitive string pointer
+      const ghsa =
+        typeof cause.url === 'string'
+          ? cause.url.match(/GHSA-[0-9a-z]{4}-[0-9a-z]{4}-[0-9a-z]{4}/i)
+          : null;
+      const id = ghsa ? ghsa[0] : `npm:${cause.source ?? name}`;
+      if (byId.has(id)) continue;
+      byId.set(id, {
+        id,
+        severity: cause.severity || v.severity || 'unknown',
+        module: cause.name || name,
+      });
+    }
+  }
+  return [...byId.values()];
+}
+
+const NPM_LOCKFILES = new Set(['package-lock.json', 'npm-shrinkwrap.json']);
+const UNAUDITED_LOCKFILES = new Set(['yarn.lock', 'bun.lock', 'bun.lockb', 'pnpm-lock.yaml']);
+
+/**
+ * Sort git-tracked paths into the lockfiles this gate must audit.
+ *
+ * The root `pnpm-lock.yaml` is covered by `pnpm audit` and is excluded. npm
+ * lockfiles (`package-lock.json`, `npm-shrinkwrap.json`) anywhere in the tree
+ * are audited with `npm audit`. Any other lockfile kind — yarn, bun, or a
+ * nested pnpm lockfile, none of which `pnpm audit` at the root reads — is
+ * returned as `unaudited` so the caller can fail on it instead of skipping it.
+ *
+ * @param {string[]} trackedPaths Repo-relative paths (either separator).
+ * @returns {{ npm: string[], unaudited: string[] }} Sorted, '/'-separated.
+ */
+export function classifyLockfiles(trackedPaths) {
+  const npm = [];
+  const unaudited = [];
+  for (const raw of trackedPaths || []) {
+    const p = String(raw).replace(/\\/g, '/');
+    const base = posix.basename(p);
+    if (NPM_LOCKFILES.has(base)) {
+      npm.push(p);
+    } else if (UNAUDITED_LOCKFILES.has(base) && p !== 'pnpm-lock.yaml') {
+      unaudited.push(p);
+    }
+  }
+  return { npm: npm.sort(), unaudited: unaudited.sort() };
 }
 
 /**
@@ -185,6 +280,50 @@ function runAudit() {
   }
 }
 
+/**
+ * Run `npm audit --json --package-lock-only` in the lockfile's directory and
+ * return its parsed output. Like `runAudit`, a non-zero exit still delivers
+ * JSON on stdout; unparseable or empty output throws (fail closed).
+ *
+ * @param {string} lockfileAbsPath
+ * @returns {unknown}
+ */
+function runNpmAudit(lockfileAbsPath) {
+  let stdout;
+  try {
+    stdout = execFileSync('npm', ['audit', '--json', '--package-lock-only'], {
+      cwd: dirname(lockfileAbsPath),
+      encoding: 'utf-8',
+      maxBuffer: 64 * 1024 * 1024,
+      shell: process.platform === 'win32',
+    });
+  } catch (err) {
+    stdout = err && typeof err.stdout === 'string' ? err.stdout : '';
+  }
+  const trimmed = (stdout || '').trim();
+  if (!trimmed) {
+    throw new Error(`\`npm audit --json\` produced no output for ${lockfileAbsPath}.`);
+  }
+  try {
+    return JSON.parse(trimmed);
+  } catch (err) {
+    throw new Error(
+      `Could not parse \`npm audit --json\` output for ${lockfileAbsPath}: ${err.message}\n` +
+        `First 300 chars:\n${trimmed.slice(0, 300)}`,
+      { cause: err }
+    );
+  }
+}
+
+function listTrackedFiles(repoRoot) {
+  const out = execFileSync('git', ['ls-files', '-z'], {
+    cwd: repoRoot,
+    encoding: 'utf-8',
+    maxBuffer: 64 * 1024 * 1024,
+  });
+  return out.split('\0').filter(Boolean);
+}
+
 function loadRegister(repoRoot) {
   const pkgPath = resolve(repoRoot, 'package.json');
   const pkg = JSON.parse(readFileSync(pkgPath, 'utf-8'));
@@ -195,31 +334,48 @@ function main() {
   const here = dirname(fileURLToPath(import.meta.url));
   const repoRoot = resolve(here, '..');
 
-  let auditJson;
+  let advisories;
+  let lockfiles;
   try {
-    auditJson = runAudit();
+    advisories = extractAdvisories(runAudit()).map((a) => ({ ...a, lockfile: 'pnpm-lock.yaml' }));
+    lockfiles = classifyLockfiles(listTrackedFiles(repoRoot));
+    for (const lf of lockfiles.npm) {
+      const found = extractNpmAdvisories(runNpmAudit(resolve(repoRoot, lf)));
+      advisories.push(...found.map((a) => ({ ...a, lockfile: lf })));
+    }
   } catch (err) {
     console.error(`\naudit-exceptions: ${err.message}\n`);
     process.exit(1);
   }
 
   const register = loadRegister(repoRoot);
-  const advisories = extractAdvisories(auditJson);
   const activeAdvisoryIds = advisories.map((a) => a.id);
-  const { ok, failures, warnings, covered } = reconcile({
+  const result = reconcile({
     activeAdvisoryIds,
     register,
     now: new Date(),
   });
+  const { warnings, covered } = result;
+  const failures = [
+    ...lockfiles.unaudited.map((lf) => ({
+      type: 'unaudited-lockfile',
+      id: lf,
+      detail: `Committed lockfile ${lf} has no auditor in this gate (only the root pnpm-lock.yaml and npm lockfiles are audited). Remove it, convert it to an npm lockfile, or extend scripts/audit-exceptions.mjs to audit it.`,
+    })),
+    ...result.failures,
+  ];
+  const ok = failures.length === 0;
 
+  const auditedLockfiles = ['pnpm-lock.yaml', ...lockfiles.npm];
   console.log(
-    `audit-exceptions: ${advisories.length} active ${advisories.length === 1 ? 'advisory' : 'advisories'}, ` +
+    `audit-exceptions: audited ${auditedLockfiles.length} ${auditedLockfiles.length === 1 ? 'lockfile' : 'lockfiles'} (${auditedLockfiles.join(', ')}); ` +
+      `${new Set(activeAdvisoryIds).size} active ${new Set(activeAdvisoryIds).size === 1 ? 'advisory' : 'advisories'}, ` +
       `${Object.keys(register).length} register ${Object.keys(register).length === 1 ? 'entry' : 'entries'}.`
   );
   if (advisories.length > 0) {
     console.log('Active advisories:');
     for (const a of advisories) {
-      console.log(`  - ${a.id} (${a.severity}, ${a.module})`);
+      console.log(`  - ${a.id} (${a.severity}, ${a.module}) in ${a.lockfile}`);
     }
   }
 

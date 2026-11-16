@@ -97,6 +97,43 @@ describe('autonomy-guard: quoting / backslash-escaping the subcommand does not e
   });
 });
 
+// Tokenization evasions: each of these raised autonomy end to end through script(1) on the
+// unfixed hook (the CLI accepts options between `autonomy` and `set`, the shell expands braces
+// and strips glued redirections, and xargs appends stdin words as arguments).
+const TOKEN_EVASIONS = [
+  'harness autonomy --verbose set trusted --session s1',
+  'harness autonomy --json set --audit off --session s1',
+  'harness autonomy -c x set trusted --session s1',
+  'harness autonomy {set,} trusted --session s1',
+  'harness {autonomy,} set trusted --session s1',
+  'npx @harness-engineering/cli {autonomy,} set trusted --session s1',
+  'harness autonomy set</dev/tty trusted --session s1',
+  'harness autonomy>&2 set trusted --session s1',
+  'echo trusted | xargs -o harness autonomy set --session s1',
+  'echo autonomy set trusted | xargs harness',
+];
+
+describe('autonomy-guard: options, braces, glued redirects and xargs do not evade', () => {
+  it.each([...TOKEN_EVASIONS, ...TOKEN_EVASIONS.map(PTY_WRAP)])('blocks %j', (command) => {
+    const { exitCode, stderr } = bash(command);
+    expect(exitCode).toBe(2);
+    expect(stderr).toMatch(/autonomy set/);
+  });
+
+  it.each([
+    'harness autonomy --verbose set supervised --session s1',
+    'harness autonomy set supervised --session s1 2>/dev/null',
+    'harness autonomy log --session s1 --json',
+    'harness check-deps > out.txt',
+    'rm -rf packages/harness .tmp',
+    'git commit -m "harness autonomy {set,} trusted"',
+  ])('allows %j (lowering / unrelated control)', (command) => {
+    const { exitCode, stderr } = bash(command);
+    expect(stderr).toBe('');
+    expect(exitCode).toBe(0);
+  });
+});
+
 // N1: cheap rules for indirection the literal matcher cannot follow — a harness invocation
 // whose arguments are built at runtime, and a cd / variable aimed at ~/.harness.
 describe('autonomy-guard: dynamic harness arguments are blocked (N1)', () => {

@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/src/performance'
-sourceHash: 'a112a33c14350592b5bc6376d15d1cc13ddddb28491734394504b79414381ef2'
+sourceHash: 'ae8de862de038ab2147c1836673e9d90b3d908695f986ea720a5837d344194ca'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -26,6 +26,7 @@ export BenchmarkResult
 export BenchmarkRunOptions
 export BenchmarkRunner
 export CriticalPathEntry
+export CriticalPathGraphInference
 export CriticalPathResolver
 export CriticalPathSet
 export GraphCriticalPathData
@@ -37,7 +38,7 @@ export RegressionResult
 ## Dependency Slice
 
 ```
-import { Baseline, BaselinesFile, BenchmarkResult, CriticalPathEntry, CriticalPathSet, RegressionReport, RegressionResult } from './types'
+import { Baseline, BaselinesFile, BenchmarkResult, CriticalPathEntry, CriticalPathGraphInference, CriticalPathSet, RegressionReport, RegressionResult } from './types'
 import { DEFAULT_SKIP_DIRS } from '@harness-engineering/graph'
 import { globSync } from 'glob'
 import { execFileSync } from 'node:child_process'

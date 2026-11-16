@@ -1,3 +1,4 @@
+import type { CollectorRunContext } from './collectors/run-context';
 import { z } from 'zod';
 
 // --- Metric Categories ---
@@ -224,6 +225,15 @@ export type EmergenceResult = z.infer<typeof EmergenceResultSchema>;
  */
 export interface Collector {
   category: ArchMetricCategory;
-  collect(config: ArchConfig, rootDir: string): Promise<MetricResult[]>;
+  /**
+   * `context` is the run-scoped state `runAll` shares across every collector in
+   * one invocation (#2270). Optional: a collector called on its own builds its
+   * own, and a collector that shares nothing may ignore it.
+   */
+  collect(
+    config: ArchConfig,
+    rootDir: string,
+    context?: CollectorRunContext
+  ): Promise<MetricResult[]>;
   getRules(config: ArchConfig, rootDir: string): ConstraintRule[];
 }

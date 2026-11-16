@@ -82,9 +82,11 @@ function namingScanTally(summary: NamingCraftOutput['summary']): CraftScanTally 
   const tally: CraftScanTally = {
     unit: 'files',
     analyzed: summary.filesScanned,
-    skipped: 0,
+    skipped: summary.unsupportedFiles?.length ?? 0,
   };
-  if (summary.filesScanned === 0) {
+  if (tally.skipped > 0) {
+    tally.skipReason = 'unsupported language; naming-craft analyzes .ts, .tsx, .js, .jsx only';
+  } else if (summary.filesScanned === 0) {
     tally.skipReason = 'no source files for supported languages (.ts, .tsx, .js, .jsx)';
   }
   return tally;

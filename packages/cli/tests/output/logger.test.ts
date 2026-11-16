@@ -1,11 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { logger } from '../../src/output/logger';
+import { logger, setMachineOutput } from '../../src/output/logger';
 
 describe('logger', () => {
   const mockConsoleLog = vi.spyOn(console, 'log').mockImplementation(() => {});
   const mockConsoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
 
   beforeEach(() => {
+    setMachineOutput(false);
     mockConsoleLog.mockClear();
     mockConsoleError.mockClear();
   });
@@ -29,11 +30,28 @@ describe('logger', () => {
   });
 
   describe('warn', () => {
-    it('logs to console.log', () => {
+    // A warning is a diagnostic: it must never land on stdout, where it would
+    // corrupt a `--json` document (#2519).
+    it('logs to console.error, never console.log', () => {
       logger.warn('something suspicious');
-      expect(mockConsoleLog).toHaveBeenCalledTimes(1);
-      const output = mockConsoleLog.mock.calls[0]!.join(' ');
+      expect(mockConsoleError).toHaveBeenCalledTimes(1);
+      expect(mockConsoleLog).not.toHaveBeenCalled();
+      const output = mockConsoleError.mock.calls[0]!.join(' ');
       expect(output).toContain('something suspicious');
+    });
+  });
+
+  describe('machine output mode (--json)', () => {
+    it('routes info/success/dim to console.error and keeps raw on console.log', () => {
+      setMachineOutput(true);
+      logger.info('i');
+      logger.success('s');
+      logger.dim('d');
+      logger.warn('w');
+      expect(mockConsoleError).toHaveBeenCalledTimes(4);
+      logger.raw({ ok: true });
+      expect(mockConsoleLog).toHaveBeenCalledTimes(1);
+      expect(JSON.parse(mockConsoleLog.mock.calls[0]![0])).toEqual({ ok: true });
     });
   });
 
