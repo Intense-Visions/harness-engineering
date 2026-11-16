@@ -41,6 +41,7 @@ import type {
   ExtractedTest,
 } from './findings/schema.js';
 import { craftClumpView } from '../shared/craft/findings/clumpable.js';
+import { withCraftAbstention, type CraftAbstention } from '../shared/craft/scope.js';
 
 export interface TestCraftInput {
   path: string;
@@ -77,6 +78,8 @@ export interface CollectPromptsOutput {
   hint?: string;
   /** Persisted to disk under .harness/craft/runs/<runId>.json. */
   runFile?: string;
+  /** Present only when the collect step examined zero candidates: `promptCount: 0` is then NOT a clean result (#2625). */
+  abstention?: CraftAbstention;
 }
 
 export interface FinalizeTestCraftInput {
@@ -265,6 +268,7 @@ export async function collectTestCraftPrompts(
     pendingPrompts: pending,
     projection: { promptCount: pending.length, budget },
     runFile,
+    ...withCraftAbstention('test-craft', files.length, 'test files'),
   };
 }
 
@@ -342,6 +346,7 @@ function buildFinalizeSummary(
     },
     frameworksDetected: meta.frameworksDetected,
     runId,
+    ...withCraftAbstention('test-craft', meta.filesScanned, 'test files'),
   };
 }
 
@@ -377,6 +382,7 @@ function buildSummary(args: {
     },
     frameworksDetected: extraction.frameworksDetected,
     runId: randomUUID(),
+    ...withCraftAbstention('test-craft', files.length, 'test files'),
   };
 }
 

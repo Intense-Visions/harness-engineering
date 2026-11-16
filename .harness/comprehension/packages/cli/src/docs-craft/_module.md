@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/docs-craft'
-sourceHash: 'cdb8817c2b2971df552329c63d9a0f3c2a62d64bc01cc7cb1cdc78c4ea752fc2'
+sourceHash: '069ff0c24b5d782e4cbde48fc76525b92178878044fcd665d5a406e717582db3'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -33,6 +33,7 @@ import { resolveScopedFiles } from '../shared/craft/extract/scoped-files.js'
 import { craftClumpView } from '../shared/craft/findings/clumpable.js'
 import { InSessionLlmProvider, LlmProvider, getProvider } from '../shared/craft/llm/provider.js'
 import { deleteRunState, loadRunStateOrThrow, pruneOldRuns, saveRunState } from '../shared/craft/runs/store.js'
+import { CraftAbstention, withCraftAbstention } from '../shared/craft/scope.js'
 import { SEED_EXEMPLARS } from './catalog/exemplars/index.js'
 import { DocKind, SEED_RUBRICS, rubricsForKind } from './catalog/rubrics/index.js'
 import { DiscoveredDoc, classifyDoc, discoverDocs } from './extract/discover.js'

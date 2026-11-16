@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/tests/mcp/tools'
-sourceHash: '0f564ad3f992e3baa973a460753217c62d47c1b70a2dce8b633123d3c488a4e9'
+sourceHash: '782a6ff7da73b6597e733f64e5f8598de62afdbde71ad4aa4316d91fcb5f1a38'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -31,6 +31,7 @@ members:
     'conflict-prediction.test.ts',
     'constraint-emergence.test.ts',
     'copy-craft.test.ts',
+    'craft-scope.test.ts',
     'cross-check.test.ts',
     'decay-trends.test.ts',
     'design-craft-cov544.test.ts',
@@ -83,7 +84,6 @@ members:
     'roadmap-add-external-id.test.ts',
     'roadmap-auto-sync.test.ts',
     'roadmap-cov544.test.ts',
-    'roadmap-field-injection.test.ts',
     'roadmap-file-less-cov544.test.ts',
     'roadmap-groom-sharded.test.ts',
     'roadmap-groom.test.ts',

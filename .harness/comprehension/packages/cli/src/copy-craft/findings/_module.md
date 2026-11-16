@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/copy-craft/findings'
-sourceHash: '65f347373071918f43dde71c4344737a94d17f0ada6117251840bb824a67a4a0'
+sourceHash: 'eada4e52bdb06f5e7f9f7fc4ad46e8a00b618938cf0546877b84863597ca0da3'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -20,5 +20,6 @@ export Tier
 
 ```
 import { Confidence, Impact, Tier } from '../../shared/craft/findings/axes.js'
+import { CraftAbstention } from '../../shared/craft/scope.js'
 import { ClumpView } from '@harness-engineering/core'
 ```

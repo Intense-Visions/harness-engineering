@@ -25,6 +25,7 @@
 // reference these types directly, so we both import and re-export.
 import type { ClumpView } from '@harness-engineering/core';
 import type { Tier, Impact, Confidence } from '../../shared/craft/findings/axes.js';
+import type { CraftAbstention } from '../../shared/craft/scope.js';
 export type { Tier, Impact, Confidence };
 import type { ResponsiveGateResult } from '../../responsive/index.js';
 
@@ -280,6 +281,12 @@ export interface DesignCraftOutput {
     };
     deferralsToHarnessDesign: number;
     runId: string;
+    /**
+     * Present only when the run was given nothing to critique, polish or
+     * benchmark (no `files`, `benchmarkTargets` or `captures`): its empty
+     * `findings` says nothing about the design (#2625).
+     */
+    abstention?: CraftAbstention;
   };
   /**
    * Present only when preconditions for a richer run are missing AND

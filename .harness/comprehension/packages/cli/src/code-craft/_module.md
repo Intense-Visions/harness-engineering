@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/code-craft'
-sourceHash: '93bf3e3f7e78016952d491a546cbb7e978892bea40b0ec21515d2c1503608cba'
+sourceHash: '69a08452aeabe21d75856c25c6326b725c13a67f7c20f76e93ca9d8de88ffb22'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -35,6 +35,7 @@ import { resolveScopedFiles } from '../shared/craft/extract/scoped-files.js'
 import { craftClumpView } from '../shared/craft/findings/clumpable.js'
 import { InSessionLlmProvider, LlmProvider, getProvider } from '../shared/craft/llm/provider.js'
 import { deleteRunState, loadRunState, pruneOldRuns, saveRunState } from '../shared/craft/runs/store.js'
+import { CraftAbstention, withCraftAbstention } from '../shared/craft/scope.js'
 import { SEED_EXEMPLARS } from './catalog/exemplars/index.js'
 import { CodeRubric, SEED_RUBRICS, rubricApplies } from './catalog/rubrics/index.js'
 import { discoverSourceFiles } from './extract/discover.js'
