@@ -126,10 +126,10 @@ describe('runInit', () => {
 
     const config = JSON.parse(fs.readFileSync(path.join(tmpDir, 'harness.config.json'), 'utf-8'));
     expect(config.template.framework).toBe('react-vite');
-    expect(config.tooling).toBeDefined();
-    expect(config.tooling.linter).toBe('eslint');
-    expect(config.tooling.buildTool).toBe('vite');
-    expect(config.tooling.testRunner).toBe('vitest');
+    expect(config.template.tooling).toBeDefined();
+    expect(config.template.tooling.linter).toBe('eslint');
+    expect(config.template.tooling.buildTool).toBe('vite');
+    expect(config.template.tooling.testRunner).toBe('vitest');
 
     fs.rmSync(tmpDir, { recursive: true });
   });
@@ -148,7 +148,7 @@ describe('runInit', () => {
     const config = JSON.parse(fs.readFileSync(path.join(tmpDir, 'harness.config.json'), 'utf-8'));
     expect(config.template.framework).toBe('fastapi');
     expect(config.template.language).toBe('python');
-    expect(config.tooling.linter).toBe('ruff');
+    expect(config.template.tooling.linter).toBe('ruff');
 
     fs.rmSync(tmpDir, { recursive: true });
   });

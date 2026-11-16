@@ -5,30 +5,8 @@ import { Ok, EntropyAnalyzer } from '@harness-engineering/core';
 import { OutputFormatter, OutputMode, type OutputModeType } from '../output/formatter';
 import { logger } from '../output/logger';
 import { ExitCode } from '../utils/errors';
-import { resolveConfig, resolveProject } from '../config/loader';
-
-/**
- * Resolve configured entry points for the perf analysis. On a monorepo the
- * repo root has no `main`/`exports`/`src/index.ts`, so the analyzer's
- * conventional resolution fails ("Could not resolve entry points"). The
- * harness config declares the per-package entry points explicitly — prefer
- * the dedicated `performance` block, fall back to the shared `entropy`
- * block, and return undefined when no config is present so non-harness
- * directories keep relying on conventional resolution.
- */
-function resolveConfiguredEntryPoints(configPath?: string): string[] | undefined {
-  const configResult = resolveConfig(configPath);
-  if (!configResult.ok) return undefined;
-  const config = configResult.value;
-  const fromPerformance = (config.performance as { entryPoints?: unknown } | undefined)
-    ?.entryPoints;
-  if (Array.isArray(fromPerformance) && fromPerformance.length > 0) {
-    return fromPerformance.filter((e): e is string => typeof e === 'string');
-  }
-  const fromEntropy = config.entropy?.entryPoints;
-  if (Array.isArray(fromEntropy) && fromEntropy.length > 0) return fromEntropy;
-  return undefined;
-}
+import { resolveProject } from '../config/loader';
+import { resolveConfiguredEntryPoints, resolveExcludePatterns } from '../config/perf-scope';
 
 type PerfSeverity = 'error' | 'warning' | 'info';
 
@@ -84,10 +62,12 @@ export async function runCheckPerf(
   const runAll = !options.structural && !options.size && !options.coupling;
 
   const entryPoints = resolveConfiguredEntryPoints(options.configPath);
+  const rootDir = path.resolve(cwd);
 
   const analyzer = new EntropyAnalyzer({
-    rootDir: path.resolve(cwd),
+    rootDir,
     ...(entryPoints && { entryPoints }),
+    exclude: resolveExcludePatterns(rootDir, options.configPath),
     analyze: {
       complexity: runAll || !!options.structural,
       coupling: runAll || !!options.coupling,

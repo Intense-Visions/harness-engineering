@@ -5,6 +5,8 @@ import { isAbsolute, join, relative, dirname } from 'node:path';
 import {
   SecurityTimelineFileSchema,
   EMPTY_SUPPLY_CHAIN,
+  UNMEASURED_SUPPLY_CHAIN_SCORE_CEILING,
+  isSupplyChainMeasured,
   securityFindingId,
 } from './security-timeline-types';
 import type {
@@ -21,6 +23,33 @@ import type {
   Direction,
 } from './security-timeline-types';
 import type { ScanResult, SecurityFinding } from './types';
+
+/** Runs an audit command in `cwd` and returns its stdout (JSON). */
+export type AuditCommandRunner = (command: string, cwd: string) => string;
+
+/** Lockfile → audit command. Only managers whose `--json` shape we parse. */
+const AUDIT_COMMANDS: ReadonlyArray<{ lockfile: string; command: string }> = [
+  { lockfile: 'pnpm-lock.yaml', command: 'pnpm audit --json' },
+  { lockfile: 'package-lock.json', command: 'npm audit --json' },
+  { lockfile: 'npm-shrinkwrap.json', command: 'npm audit --json' },
+];
+
+const defaultAuditRunner: AuditCommandRunner = (command, cwd) => {
+  try {
+    return execSync(command, {
+      cwd,
+      encoding: 'utf-8',
+      timeout: 30_000,
+      stdio: ['pipe', 'pipe', 'pipe'],
+    });
+  } catch (err: unknown) {
+    // Audits exit non-zero when vulnerabilities exist but still print valid
+    // JSON on stdout; hand that back so the parser can decide.
+    const stdout = (err as { stdout?: unknown } | null)?.stdout;
+    if (typeof stdout === 'string' && stdout.length > 0) return stdout;
+    throw err;
+  }
+};
 
 export class SecurityTimelineManager {
   private readonly rootDir: string;
@@ -97,7 +126,11 @@ export class SecurityTimelineManager {
     const byCategory = this.aggregateByCategory(normalized);
     const bySeverity = this.aggregateBySeverity(normalized);
     const findingIds = normalized.map((f) => securityFindingId(f));
-    const supply = supplyChain ?? EMPTY_SUPPLY_CHAIN;
+    // Caller-supplied counts are a measurement unless explicitly marked otherwise;
+    // no argument means no audit ran on this path (#2082).
+    const supply: SupplyChainSnapshot = supplyChain
+      ? { ...supplyChain, measured: supplyChain.measured ?? true }
+      : { ...EMPTY_SUPPLY_CHAIN };
 
     const snapshot: SecurityTimelineSnapshot = {
       capturedAt: new Date().toISOString(),
@@ -128,49 +161,51 @@ export class SecurityTimelineManager {
   }
 
   /**
-   * Capture supply chain data by running npm audit.
-   * Returns zeroed snapshot on failure.
+   * Capture supply chain data by running the audit that matches the project's
+   * lockfile (pnpm or npm). Network-bound — never call it from a read-only check.
+   * Returns `measured: false` when no supported lockfile exists or the audit
+   * fails / prints something unparseable; a failed audit is never recorded as zero.
    */
-  captureSupplyChain(projectRoot?: string): SupplyChainSnapshot {
+  captureSupplyChain(
+    projectRoot?: string,
+    run: AuditCommandRunner = defaultAuditRunner
+  ): SupplyChainSnapshot {
+    const cwd = projectRoot ?? this.rootDir;
+    const match = AUDIT_COMMANDS.find((a) => existsSync(join(cwd, a.lockfile)));
+    if (!match) return { ...EMPTY_SUPPLY_CHAIN };
     try {
-      const cwd = projectRoot ?? this.rootDir;
-      const output = execSync('npm audit --json 2>/dev/null', {
-        cwd,
-        encoding: 'utf-8',
-        timeout: 30_000,
-        stdio: ['pipe', 'pipe', 'pipe'],
-      });
-      return this.parseAuditOutput(output);
-    } catch (err: unknown) {
-      // npm audit exits non-zero when vulnerabilities exist but still
-      // produces valid JSON on stdout. Try to parse it before giving up.
-      const stderr =
-        err instanceof Error
-          ? (err as NodeJS.ErrnoException & { stdout?: string }).stdout
-          : undefined;
-      if (typeof stderr === 'string' && stderr.length > 0) {
-        try {
-          return this.parseAuditOutput(stderr);
-        } catch {
-          // JSON parse failed — fall through to empty
-        }
-      }
+      return SecurityTimelineManager.supplyChainFromAuditJson(run(match.command, cwd));
+    } catch {
       return { ...EMPTY_SUPPLY_CHAIN };
     }
   }
 
-  private parseAuditOutput(output: string): SupplyChainSnapshot {
-    const parsed = JSON.parse(output);
-    const vulns = parsed?.metadata?.vulnerabilities;
-    if (!vulns) return { ...EMPTY_SUPPLY_CHAIN };
-    return {
-      critical: vulns.critical ?? 0,
-      high: vulns.high ?? 0,
-      moderate: vulns.moderate ?? 0,
-      low: vulns.low ?? 0,
-      info: vulns.info ?? 0,
-      total: vulns.total ?? 0,
-    };
+  /**
+   * Convert `pnpm audit --json` / `npm audit --json` output into a supply-chain
+   * snapshot. Callers that already ran an audit pass its output here and hand the
+   * result to {@link capture}. pnpm writes no `metadata.vulnerabilities.total`,
+   * so the total is derived from the severity buckets when absent. Error payloads
+   * (e.g. npm `ENOLOCK`) and unparseable output yield `measured: false`.
+   */
+  static supplyChainFromAuditJson(output: string): SupplyChainSnapshot {
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(output);
+    } catch {
+      return { ...EMPTY_SUPPLY_CHAIN };
+    }
+    const vulns = (parsed as { metadata?: { vulnerabilities?: Record<string, unknown> } } | null)
+      ?.metadata?.vulnerabilities;
+    if (!vulns || typeof vulns !== 'object') return { ...EMPTY_SUPPLY_CHAIN };
+    const n = (v: unknown): number => (typeof v === 'number' && Number.isFinite(v) ? v : 0);
+    const critical = n(vulns.critical);
+    const high = n(vulns.high);
+    const moderate = n(vulns.moderate);
+    const low = n(vulns.low);
+    const info = n(vulns.info);
+    const total =
+      typeof vulns.total === 'number' ? n(vulns.total) : critical + high + moderate + low + info;
+    return { critical, high, moderate, low, info, total, measured: true };
   }
 
   /**
@@ -324,6 +359,9 @@ export class SecurityTimelineManager {
    * score = max(0, 100 - weightedPenalty)
    * weightedPenalty = (errors × 3) + (warnings × 1) + (infos × 0.25)
    *                 + (supplyChain.critical × 5) + (supplyChain.high × 3) + (supplyChain.moderate × 1)
+   * When the supply chain was not measured, the score is capped at
+   * UNMEASURED_SUPPLY_CHAIN_SCORE_CEILING so the missing dimension is not
+   * credited as clean (#2082).
    */
   computeSecurityScore(snapshot: SecurityTimelineSnapshot): number {
     const penalty =
@@ -334,7 +372,10 @@ export class SecurityTimelineManager {
       snapshot.supplyChain.high * 3 +
       snapshot.supplyChain.moderate * 1;
 
-    return Math.round(Math.max(0, Math.min(100, 100 - penalty)));
+    const ceiling = isSupplyChainMeasured(snapshot.supplyChain)
+      ? 100
+      : UNMEASURED_SUPPLY_CHAIN_SCORE_CEILING;
+    return Math.round(Math.max(0, Math.min(ceiling, 100 - penalty)));
   }
 
   // --- Private helpers ---

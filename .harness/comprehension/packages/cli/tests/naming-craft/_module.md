@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/tests/naming-craft'
-sourceHash: '899eb86e53ecc28fda0fcb528566ab9656cbdff9dfe6d8c82d9aa01b7297a1be'
+sourceHash: '1dbef43de8ca58a2fa65c0863cf666c8472aef07a44dc0856966d180ea0c1b19'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -12,6 +12,7 @@ members:
     'in-session.test.ts',
     'index-cov544.test.ts',
     'integration.test.ts',
+    'php-unsupported.test.ts',
   ]
 ---
 

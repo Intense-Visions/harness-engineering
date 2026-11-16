@@ -47,6 +47,19 @@ export interface StoredOutcome {
   actual: StoredVerdict;
   exceededBy: number;
   matched: boolean;
+  /**
+   * `false` ⇒ a fail-safe (unjudgeable) outcome that is NOT evidence (#2264); consumers
+   * computing a base rate or ratchet sample must skip it. Absent ⇒ graded (legacy-safe).
+   */
+  graded?: boolean;
+}
+
+/**
+ * True when a stored outcome is real evidence: present and not flagged `graded: false`.
+ * A pre-#2264 outcome carries no flag and counts exactly as before.
+ */
+export function isGradedOutcome(outcome: StoredOutcome | undefined): outcome is StoredOutcome {
+  return outcome !== undefined && outcome.graded !== false;
 }
 
 /**
@@ -120,6 +133,7 @@ export function projectTriageRecords(events: readonly Event[]): StoredTriageReco
         actual: e.payload.actual,
         exceededBy: e.payload.exceededBy,
         matched: e.payload.matched,
+        ...(e.payload.graded !== undefined ? { graded: e.payload.graded } : {}),
       };
     }
   }

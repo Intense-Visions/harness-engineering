@@ -42,7 +42,16 @@ export const secretRules: SecurityRule[] = [
     category: 'secrets',
     severity: 'error',
     confidence: 'high',
-    patterns: [/(?:password|passwd|pwd)\s*[:=]\s*['"][^'"]{4,}['"]/i],
+    patterns: [
+      /(?:password|passwd|pwd)\s*[:=]\s*['"][^'"]{4,}['"]/i,
+      // Typed declaration (#2375): a type annotation between the name and the
+      // literal — `const password: string = "..."` (TS), `PASSWORD: str = "..."`
+      // (Python), `const DB_PASSWORD: &'static str = "..."` (Rust). The type is a
+      // single (optionally referenced/generic) type name and must be followed by
+      // `=` and a quoted literal, so a type-only member (`password: string;`) or
+      // a computed value (`= process.env.X`) never matches.
+      /(?:password|passwd|pwd)\s*:\s*&?(?:'\w+\s+)?(?:mut\s+)?[A-Za-z_][\w:]*(?:<[\w\s:&',]*>)?(?:\[\])?\s*=\s*['"][^'"]{4,}['"]/i,
+    ],
     message: 'Hardcoded password detected',
     remediation: 'Use environment variables or a secrets manager',
     references: ['CWE-259'],

@@ -26,6 +26,8 @@ interface CheckSecurityOptions {
   severity?: SecuritySeverity;
   changedOnly?: boolean;
   failOnEmpty?: boolean;
+  /** Append the scan to the tracked security timeline; off by default so a check is read-only (#2330). */
+  record?: boolean;
 }
 
 interface CheckSecurityResult {
@@ -100,17 +102,16 @@ export async function runCheckSecurity(
 
   const result = await scanner.scanFiles(filesToScan);
 
-  // Best-effort timeline capture — never break the scan flow
-  try {
-    const commitHash = execSync('git rev-parse HEAD', {
-      cwd: projectRoot,
-      encoding: 'utf-8',
-    }).trim();
-    const timelineManager = new SecurityTimelineManager(projectRoot);
-    timelineManager.capture(result, commitHash);
-    timelineManager.updateLifecycles(result.findings, commitHash);
-  } catch {
-    // Timeline capture is best-effort
+  // Opt-in (#2330), best-effort timeline capture — never break the scan flow
+  if (options.record) {
+    try {
+      const commitHash = execSync('git rev-parse HEAD', { cwd: projectRoot, encoding: 'utf-8' });
+      const timelineManager = new SecurityTimelineManager(projectRoot);
+      timelineManager.capture(result, commitHash.trim());
+      timelineManager.updateLifecycles(result.findings, commitHash.trim());
+    } catch {
+      // Timeline capture is best-effort
+    }
   }
 
   const threshold = options.severity ?? 'warning';
@@ -152,6 +153,7 @@ async function runCheckSecurityAction(
     changedOnly?: boolean;
     findingsJson?: boolean;
     failOnEmpty?: boolean;
+    record?: boolean;
   },
   globalOpts: { json?: boolean; quiet?: boolean; verbose?: boolean }
 ): Promise<void> {
@@ -169,6 +171,7 @@ async function runCheckSecurityAction(
     severity: opts.severity,
     ...(opts.changedOnly !== undefined && { changedOnly: opts.changedOnly }),
     ...(opts.failOnEmpty !== undefined && { failOnEmpty: opts.failOnEmpty }),
+    ...(opts.record !== undefined && { record: opts.record }),
   });
 
   if (!result.ok) {
@@ -258,6 +261,7 @@ export function createCheckSecurityCommand(): Command {
       '--fail-on-empty',
       'Fail when the scan matched 0 files. A scan that read nothing abstained rather than passed; recommended for CI gates'
     )
+    .option('--record', 'Append the scan to the tracked .harness/security/timeline.json ledger')
     .option(
       '--findings-json',
       'Emit the machine-readable maintenance findings contract ({ findings: N }) as a trailing stdout line (#691)'
