@@ -279,4 +279,98 @@ describe('block-no-verify', () => {
       expect(runHook(input).exitCode).toBe(expected);
     });
   });
+
+  // Issue #2147 (comment): the shell strips quotes before git sees an
+  // argument, so a quoted flag is still a flag; and git also reads config —
+  // including core.hooksPath — from environment variables.
+  describe('quoted flags and env-var hooksPath (issue #2147 follow-up)', () => {
+    const cases: Array<{ command: string; expected: 0 | 2 }> = [
+      // Quoted flags are real argv tokens once the shell unquotes them.
+      { command: 'git commit "-n" -m x', expected: 2 },
+      { command: "git commit '-n' -m x", expected: 2 },
+      { command: "git commit '--no-verify' -m x", expected: 2 },
+      { command: 'git commit "--no-verify" -m x', expected: 2 },
+      { command: 'git push "--no-verif"', expected: 2 },
+      { command: "git commit -m x '-an'", expected: 2 },
+      { command: 'git commit -m x "-nm" y', expected: 2 },
+      { command: 'git commit -m x -"n"', expected: 2 },
+      { command: 'git -c "core.hooksPath=/dev/null" commit -m x', expected: 2 },
+      { command: "git -c 'core.hooksPath'=/dev/null commit -m x", expected: 2 },
+      // A quoted string that is a VALUE (commit message) is not a flag.
+      { command: 'git commit -m "use -n here"', expected: 0 },
+      { command: 'git commit -m "--no-verify mentioned"', expected: 0 },
+      { command: 'git commit -m "-n"', expected: 0 },
+      { command: "git commit -m '-n flag removed' -a", expected: 0 },
+      { command: 'git commit -am "-n is gone"', expected: 0 },
+      { command: 'git commit -F "-n"', expected: 0 },
+      // Heredoc commit messages stay inert.
+      {
+        command: [
+          `git commit -m "$(cat <<'EOF2'`,
+          `fix: stop using -n and --no-verify`,
+          ``,
+          `git commit -n was bad`,
+          `EOF2`,
+          `)"`,
+        ].join('\n'),
+        expected: 0,
+      },
+      // Separators inside quotes do not split a command.
+      { command: 'git commit -m "a; b && c" -n', expected: 2 },
+      { command: 'git commit -m "x; echo -n y"', expected: 0 },
+      // Non-regressions from the original issue.
+      { command: 'git commit -m x && grep -n foo file', expected: 0 },
+      { command: 'git log -n 5', expected: 0 },
+      { command: 'echo "-n"', expected: 0 },
+      { command: 'grep -rn "git commit -n" docs', expected: 0 },
+      // core.hooksPath through GIT_CONFIG_COUNT / KEY / VALUE.
+      {
+        command:
+          'GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=core.hooksPath GIT_CONFIG_VALUE_0=/dev/null git commit -m x',
+        expected: 2,
+      },
+      {
+        command:
+          'GIT_CONFIG_COUNT=2 GIT_CONFIG_KEY_0=user.name GIT_CONFIG_VALUE_0=bot GIT_CONFIG_KEY_1=CORE.HOOKSPATH GIT_CONFIG_VALUE_1= git push',
+        expected: 2,
+      },
+      {
+        command:
+          'export GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=core.hooksPath GIT_CONFIG_VALUE_0=/tmp/x; git commit -m x',
+        expected: 2,
+      },
+      {
+        command:
+          'env GIT_CONFIG_COUNT=1 "GIT_CONFIG_KEY_0=core.hooksPath" GIT_CONFIG_VALUE_0=/dev/null git commit -m x',
+        expected: 2,
+      },
+      // core.hooksPath through GIT_CONFIG_PARAMETERS.
+      {
+        command: `GIT_CONFIG_PARAMETERS="'core.hooksPath'='/dev/null'" git commit -m x`,
+        expected: 2,
+      },
+      {
+        command: `export GIT_CONFIG_PARAMETERS="'core.hookspath=/dev/null'" && git merge main`,
+        expected: 2,
+      },
+      // Env config that does not touch hooksPath, or no hook-running git.
+      {
+        command:
+          'GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=user.name GIT_CONFIG_VALUE_0=bot git commit -m x',
+        expected: 0,
+      },
+      { command: `GIT_CONFIG_PARAMETERS="'user.name'='bot'" git commit -m x`, expected: 0 },
+      {
+        command:
+          'GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=core.hooksPath GIT_CONFIG_VALUE_0=/dev/null git log',
+        expected: 0,
+      },
+      { command: 'echo "GIT_CONFIG_KEY_0=core.hooksPath" > notes.txt', expected: 0 },
+    ];
+
+    it.each(cases)('$command -> exit $expected', ({ command, expected }) => {
+      const input = JSON.stringify({ tool_name: 'Bash', tool_input: { command } });
+      expect(runHook(input).exitCode).toBe(expected);
+    });
+  });
 });

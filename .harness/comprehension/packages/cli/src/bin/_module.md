@@ -1,12 +1,13 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/bin'
-sourceHash: '3524ed4b68f4ac61836cd153533d898c74b1a9c21832218df6bb91e2b8fde2fe'
+sourceHash: '88c33e230348d51f33ffb8bbf9b752a7fad52764d00854026c914bd0da223715'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
 members:
   [
+    'blocking-stdio.ts',
     'command-telemetry.ts',
     'freshness-check-hooks.ts',
     'harness-mcp.ts',
@@ -27,6 +28,7 @@ export _resetForTest
 export _resolveCommandName
 export _writeCommandRecordSync
 export installCommandTelemetry
+export makeStdioPipesBlocking
 export printFreshnessNotification
 export printUpdateNotification
 export readConfigInterval
@@ -46,6 +48,7 @@ import { SessionDispatchResult, formatDispatchBanner, sessionStartDispatch } fro
 import { printFirstRunWelcome } from '../utils/first-run'
 import { resolveGlobalCommunityBaseDir, resolveGlobalSkillsDir } from '../utils/paths'
 import { CLI_VERSION } from '../version'
+import { makeStdioPipesBlocking } from './blocking-stdio'
 import { installCommandTelemetry } from './command-telemetry'
 import { printFreshnessNotification, runFreshnessCheckAtStartup } from './freshness-check-hooks'
 import { DEFAULT_INTERVAL_MS, printUpdateNotification, readConfigInterval, runUpdateCheckAtStartup } from './update-check-hooks'

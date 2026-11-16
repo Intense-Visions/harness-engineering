@@ -101,6 +101,53 @@ describe('runDesignPipeline (integration)', () => {
     expect(out.verifiersRun).not.toContain('design-craft-critique');
   });
 
+  // #1960: the `warn` for a design-system-less project used to come only from
+  // FILL having bootstrapped the inputs, so skipping FILL turned the same empty
+  // project green. The verdict reads input presence, not bootstrap occurrence.
+  it('--no-fill on a project with no design system does not report pass (#1960)', async () => {
+    const out = await runDesignPipeline({ path: tmpDir, noFill: true });
+    expect(out.verdict).not.toBe('pass');
+    expect(out.verdict).toBe('warn');
+    // Positive control: nothing was bootstrapped, so the warn is not FILL's.
+    expect(Object.values(out.bootstrapped).some(Boolean)).toBe(false);
+    expect(fs.existsSync(path.join(tmpDir, 'design-system', 'DESIGN.md'))).toBe(false);
+    expect(out.warnings.some((w) => /DESIGN\.md/.test(w) && /tokens\.json/.test(w))).toBe(true);
+  });
+
+  it('--no-freshen --no-fill: an empty project and a full one no longer report the same verdict (#1960)', async () => {
+    const empty = await runDesignPipeline({ path: tmpDir, noFreshen: true, noFill: true });
+    expect(empty.verdict).toBe('warn');
+
+    writeFile(
+      'design-system/DESIGN.md',
+      `# Design\n\n## Component Registry\n\n| Type | File |\n|---|---|\n\n## Brand Rules\n\n### Voice\n\nforbidden_phrases: []\n`
+    );
+    writeFile('design-system/tokens.json', JSON.stringify({ color: {} }));
+    const full = await runDesignPipeline({ path: tmpDir, noFreshen: true, noFill: true });
+    expect(full.verdict).toBe('pass');
+  });
+
+  it('--no-fill with a complete design system is unchanged: verdict=pass, no warnings (#1960)', async () => {
+    writeFile(
+      'design-system/DESIGN.md',
+      `# Design\n\n## Component Registry\n\n| Type | File |\n|---|---|\n\n## Brand Rules\n\n### Voice\n\nforbidden_phrases: []\n`
+    );
+    writeFile('design-system/tokens.json', JSON.stringify({ color: {} }));
+    const out = await runDesignPipeline({ path: tmpDir, noFill: true });
+    expect(out.verdict).toBe('pass');
+    expect(out.warnings).toEqual([]);
+  });
+
+  it('--no-fill with DESIGN.md missing its Brand Rules section reports warn, not pass (#1960)', async () => {
+    writeFile(
+      'design-system/DESIGN.md',
+      `# Design\n\n## Component Registry\n\n| Type | File |\n|---|---|\n`
+    );
+    writeFile('design-system/tokens.json', JSON.stringify({ color: {} }));
+    const out = await runDesignPipeline({ path: tmpDir, noFill: true });
+    expect(out.verdict).toBe('warn');
+  });
+
   it('verifiersRun includes detect-drift, audit-anatomy, audit-brand, design-craft-critique on default run', async () => {
     // One source file, so this is a default run over a real design surface
     // rather than the degenerate no-surface case (#2070).
@@ -133,11 +180,12 @@ describe('runDesignPipeline (integration)', () => {
   it('ci: true is a deprecated no-op that is reported on warnings, not silently accepted', async () => {
     writeFile('src/Card.tsx', `export const Card = () => <div>ok</div>;\n`);
     const withCi = await runDesignPipeline({ path: tmpDir, noFill: true, ci: true });
-    expect(withCi.warnings).toHaveLength(1);
-    expect(withCi.warnings[0]).toMatch(/deprecated and has no effect/);
-
     const without = await runDesignPipeline({ path: tmpDir, noFill: true });
-    expect(without.warnings).toEqual([]);
+    // The option adds exactly one notice (the project has no design system,
+    // so both runs also carry the #1960 missing-inputs notice).
+    expect(withCi.warnings).toHaveLength(without.warnings.length + 1);
+    expect(withCi.warnings.filter((w) => /deprecated and has no effect/.test(w))).toHaveLength(1);
+    expect(without.warnings.some((w) => /deprecated and has no effect/.test(w))).toBe(false);
     // Same verdict either way: the option changes nothing but the notice.
     expect(withCi.verdict).toBe(without.verdict);
   });

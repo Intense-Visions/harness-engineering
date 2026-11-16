@@ -1,26 +1,11 @@
 ---
 schemaVersion: 1
-module: 'packages/core/tests/security'
-sourceHash: 'f297ad02c9cc2688eda451a680abefcd111a431a6c2bc7e7a521b810989807a8'
-compiler: { static: '1.0.0', semantic: '1.0.0' }
+module: "packages/core/tests/security"
+sourceHash: "8f72bfcff91ab93ddaaecd036227f8bcb91b68a31893a60794687f905c0f9cd3"
+compiler: { static: "1.0.0", semantic: "1.0.0" }
 model: null
 semantic: absent
-members:
-  [
-    'config.test.ts',
-    'injection-patterns.test.ts',
-    'integration.test.ts',
-    'osv-client.test.ts',
-    'scan-targets-default-ignore.test.ts',
-    'scan-targets-rust.test.ts',
-    'scanner-fileglob.test.ts',
-    'scanner.test.ts',
-    'secret-reference.test.ts',
-    'security-timeline-manager.test.ts',
-    'stack-detector.test.ts',
-    'taint.test.ts',
-    'types.test.ts',
-  ]
+members: ["config.test.ts", "injection-patterns.test.ts", "integration.test.ts", "osv-client.test.ts", "scan-targets-default-ignore.test.ts", "scan-targets-rust.test.ts", "scanner-fileglob.test.ts", "scanner.test.ts", "secret-reference.test.ts", "security-timeline-manager.test.ts", "stack-detector.test.ts", "taint.test.ts", "types.test.ts"]
 ---
 
 ## Interface Contract
@@ -39,7 +24,7 @@ import { SECURITY_SCAN_DEFAULT_IGNORE, SECURITY_SCAN_EXTENSIONS, SECURITY_SCAN_G
 import { SecurityScanner, parseHarnessIgnore } from '../../src/security/scanner'
 import { extractQuotedSecretValue, isReferenceOnlySecretValue } from '../../src/security/secret-reference'
 import { SecurityTimelineManager } from '../../src/security/security-timeline-manager'
-import { EMPTY_SUPPLY_CHAIN, SecurityTimelineFile, securityFindingId } from '../../src/security/security-timeline-types'
+import { EMPTY_SUPPLY_CHAIN, SecurityTimelineFile, UNMEASURED_SUPPLY_CHAIN_SCORE_CEILING, isSupplyChainMeasured, securityFindingId } from '../../src/security/security-timeline-types'
 import { detectStack } from '../../src/security/stack-detector'
 import { checkTaint, clearTaint, getTaintFilePath, listTaintedSessions, readTaint, writeTaint } from '../../src/security/taint'
 import { DEFAULT_SECURITY_CONFIG, ScanResult, SecurityCategory, SecurityConfidence, SecurityConfig, SecurityFinding, SecurityRule, SecuritySeverity } from '../../src/security/types'

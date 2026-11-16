@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/security-craft/findings'
-sourceHash: '68cbe1414438077dcbf9779109cecf5c987617f73631686345a8ab6c040a1c47'
+sourceHash: '750aad0bd9a2aa551441b3a005c571f34dd41fb96c968ec52b295c186828b67e'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent

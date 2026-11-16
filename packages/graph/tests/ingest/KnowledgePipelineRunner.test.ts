@@ -415,7 +415,8 @@ Route auth through AuthService.
       );
 
       const runner = new KnowledgePipelineRunner(store);
-      await runner.run(makeOptions());
+      // Staging is a REMEDIATE step, so it only happens behind --fix (#2237).
+      await runner.run(makeOptions({ fix: true }));
 
       const stagedPath = path.join(
         tmpDir,
@@ -433,6 +434,37 @@ Route auth through AuthService.
       const extractorEntry = entries.find((e) => e.source === 'extractor' && e.path);
       expect(extractorEntry).toBeDefined();
       expect(extractorEntry!.path).toBe('src/orders.ts');
+    });
+  });
+
+  describe('detect-only staging (#2237)', () => {
+    async function writeZodSource(): Promise<void> {
+      const srcDir = path.join(tmpDir, 'src');
+      await fs.mkdir(srcDir, { recursive: true });
+      await fs.writeFile(
+        path.join(srcDir, 'orders.ts'),
+        'import { z } from "zod";\nexport const OrderSchema = z.object({\n  id: z.string().min(1),\n});\n'
+      );
+    }
+    const stagedPath = (): string =>
+      path.join(tmpDir, '.harness', 'knowledge', 'staged', 'pipeline-staged.jsonl');
+
+    it('does not write pipeline-staged.jsonl without --fix, even with new findings', async () => {
+      await writeZodSource();
+      const runner = new KnowledgePipelineRunner(store);
+      const result = await runner.run(makeOptions());
+
+      expect(result.findings.new).toBeGreaterThan(0);
+      await expect(fs.access(stagedPath())).rejects.toThrow();
+    });
+
+    it('still stages new findings with --fix', async () => {
+      await writeZodSource();
+      const runner = new KnowledgePipelineRunner(store);
+      await runner.run(makeOptions({ fix: true }));
+
+      const content = await fs.readFile(stagedPath(), 'utf-8');
+      expect(content.trim().length).toBeGreaterThan(0);
     });
   });
 

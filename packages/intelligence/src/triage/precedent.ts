@@ -27,6 +27,8 @@ export function aggregatePrecedent(
   for (const rec of records) {
     if (rec.shapeKey !== shapeKey) continue;
     if (!rec.outcome) continue; // only graded records count toward precedent
+    // A fail-safe block (#2264) is recorded for forensics but is not evidence.
+    if (rec.outcome.graded === false) continue;
     total += 1;
     if (rec.outcome.matched) matched += 1;
   }

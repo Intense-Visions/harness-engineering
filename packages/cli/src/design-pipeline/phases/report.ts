@@ -2,8 +2,10 @@
  * Phase 6: REPORT — compute verdict + aggregate summary.
  *
  * Verdict:
- *   pass — zero findings/suggestions/bootstrapped AND every verifier ran
- *   warn — warn-severity OR craft suggestions OR bootstrapped any input
+ *   pass — zero findings/suggestions/bootstrapped AND every verifier ran AND
+ *          every design-system input present
+ *   warn — warn-severity OR craft suggestions OR bootstrapped any input OR
+ *          any input missing (`missingInputs`), whether or not FILL ran
  *   fail — any error-severity finding remains after FIX, OR any verifier
  *          abstained (see `degradedBy`)
  *
@@ -24,6 +26,14 @@ import type { DesignPipelineContext, Verdict } from '../context.js';
 
 export interface ReportInput {
   context: DesignPipelineContext;
+  /**
+   * Design-system inputs found missing before FILL ran. Read by the verdict so
+   * an absent DESIGN.md / tokens.json is `warn` whether or not FILL got to
+   * scaffold it; before #1960 the verdict used "FILL bootstrapped something" as
+   * its proxy for "something was missing", so `--no-fill` turned a project with
+   * no design system green. Omitted means "not probed" (unit callers).
+   */
+  missingInputs?: string[];
 }
 
 export function runReport(input: ReportInput): void {
@@ -60,7 +70,7 @@ export function runReport(input: ReportInput): void {
   // the two cannot drift apart (#2273).
   context.craftSuggestions = context.craftFindings.length;
 
-  const resolution = resolveVerdict(context);
+  const resolution = resolveVerdict(context, input.missingInputs ?? []);
   context.verdict = resolution.verdict;
   context.degradedBy = resolution.degradedBy;
 }
@@ -76,7 +86,10 @@ export function runReport(input: ReportInput): void {
  * `bySeverity.error === 0 && verifiersFailed.length === 0` — an abstention is
  * not a pass there either.
  */
-function resolveVerdict(context: DesignPipelineContext): {
+function resolveVerdict(
+  context: DesignPipelineContext,
+  missingInputs: string[]
+): {
   verdict: Verdict;
   degradedBy: string[];
 } {
@@ -98,7 +111,12 @@ function resolveVerdict(context: DesignPipelineContext): {
   // non-zero only on `fail`.
   if (degradedBy.length > 0) return { verdict: 'fail', degradedBy };
 
-  if (bySeverity.warn > 0 || context.craftSuggestions > 0 || anyBootstrap) {
+  if (
+    bySeverity.warn > 0 ||
+    context.craftSuggestions > 0 ||
+    anyBootstrap ||
+    missingInputs.length > 0
+  ) {
     return { verdict: 'warn', degradedBy };
   }
   return { verdict: 'pass', degradedBy };
