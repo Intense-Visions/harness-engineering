@@ -19,6 +19,7 @@ function runHook(
   const baseEnv = { ...process.env };
   delete baseEnv.DO_NOT_TRACK;
   delete baseEnv.HARNESS_TELEMETRY_OPTOUT;
+  delete baseEnv.HARNESS_TELEMETRY_PROJECT_ROOT;
   // Pass stdin directly via spawnSync's `input` option (issue 619): the previous
   // `cat <file> | node` pipe intermittently delivered empty/partial stdin under
   // v8 coverage, tripping the hooks' fail-open path. macOS CI is the gate.
@@ -242,5 +243,69 @@ describe('telemetry-reporter', { timeout: 60000 }, () => {
     );
     const result = runHook(STDIN_INPUT, tmpDir);
     expect(result.exitCode).toBe(0);
+  });
+  // --- Explicit project root (#2652 follow-up) ---
+  // The CLI spawns the reporter detached from os.tmpdir() (a child whose cwd is
+  // the project pins it on Windows) and names the project via
+  // HARNESS_TELEMETRY_PROJECT_ROOT. Every read and write must target that root.
+
+  describe('HARNESS_TELEMETRY_PROJECT_ROOT', () => {
+    let otherCwd: string;
+
+    beforeEach(() => {
+      otherCwd = mkdtempSync(join(tmpdir(), 'telemetry-reporter-cwd-'));
+    });
+
+    afterEach(() => {
+      rmSync(otherCwd, { recursive: true, force: true });
+    });
+
+    it('reads the project adoption.jsonl and writes state under the project root, not cwd', () => {
+      writeAdoptionJsonl(tmpDir, [SAMPLE_RECORD]);
+      mkdirSync(join(tmpDir, '.harness'), { recursive: true });
+      writeFileSync(
+        join(tmpDir, '.harness', 'telemetry.json'),
+        JSON.stringify({ identity: { project: 'p', alias: 'a' } })
+      );
+      const result = runHook(STDIN_INPUT, otherCwd, { HARNESS_TELEMETRY_PROJECT_ROOT: tmpDir });
+      expect(result.exitCode).toBe(0);
+      expect(result.stderr).not.toContain('No new adoption records');
+      expect(existsSync(join(tmpDir, '.harness', 'metrics', '.telemetry-cursor'))).toBe(true);
+      expect(existsSync(join(tmpDir, '.harness', '.install-id'))).toBe(true);
+      expect(existsSync(join(tmpDir, '.harness', '.telemetry-notice-shown'))).toBe(true);
+      expect(existsSync(join(otherCwd, '.harness'))).toBe(false);
+    });
+
+    it('positive control: the project config opt-out suppresses reporting from another cwd', () => {
+      writeAdoptionJsonl(tmpDir, [SAMPLE_RECORD]);
+      writeFileSync(
+        join(tmpDir, 'harness.config.json'),
+        JSON.stringify({ telemetry: { enabled: false } })
+      );
+      const result = runHook(STDIN_INPUT, otherCwd, { HARNESS_TELEMETRY_PROJECT_ROOT: tmpDir });
+      expect(result.exitCode).toBe(0);
+      expect(result.stdout).not.toContain('usage analytics');
+      expect(existsSync(join(tmpDir, '.harness', 'metrics', '.telemetry-cursor'))).toBe(false);
+      expect(existsSync(join(tmpDir, '.harness', '.install-id'))).toBe(false);
+      expect(existsSync(join(otherCwd, '.harness'))).toBe(false);
+    });
+
+    it('positive control: DO_NOT_TRACK still suppresses reporting with an explicit root', () => {
+      writeAdoptionJsonl(tmpDir, [SAMPLE_RECORD]);
+      const result = runHook(STDIN_INPUT, otherCwd, {
+        HARNESS_TELEMETRY_PROJECT_ROOT: tmpDir,
+        DO_NOT_TRACK: '1',
+      });
+      expect(result.exitCode).toBe(0);
+      expect(existsSync(join(tmpDir, '.harness', 'metrics', '.telemetry-cursor'))).toBe(false);
+      expect(existsSync(join(tmpDir, '.harness', '.install-id'))).toBe(false);
+    });
+
+    it('falls back to process.cwd() when the variable is absent (Stop-hook path)', () => {
+      writeAdoptionJsonl(tmpDir, [SAMPLE_RECORD]);
+      const result = runHook(STDIN_INPUT, tmpDir, {});
+      expect(result.exitCode).toBe(0);
+      expect(existsSync(join(tmpDir, '.harness', 'metrics', '.telemetry-cursor'))).toBe(true);
+    });
   });
 });
