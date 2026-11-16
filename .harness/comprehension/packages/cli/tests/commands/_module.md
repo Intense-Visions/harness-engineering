@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/tests/commands'
-sourceHash: '33feb8aa87d255a4651e84c745c5b4bbb929e4198999dbc4e6f87144ccf2de9d'
+sourceHash: '8bdc74391da48aa4db3cebcf6bac911b20992805a8fa301ff883aac578d637af'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -47,10 +47,10 @@ members:
     'check-harness-strength.test.ts',
     'check-operational-drift-cov544.test.ts',
     'check-perf-cov544.test.ts',
-    'check-perf-exclusions.test.ts',
     'check-perf.test.ts',
     'check-phase-gate.test.ts',
     'check-security-cov544.test.ts',
+    'check-security-readonly.test.ts',
     'check-security.test.ts',
     'check-vocabulary-cov544b.test.ts',
     'check-vocabulary.test.ts',
