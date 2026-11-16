@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/tests/entropy/detectors'
-sourceHash: 'aa3896ec43b2d44daeb5caec35ea2de3d253de99cb1755b562d964e43e5538a6'
+sourceHash: '9fa4e1c4fd08830f2bc059f3eca953980da50613b9e07b67bda2740524194e5f'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -9,10 +9,10 @@ members:
   [
     'complexity.test.ts',
     'coupling.test.ts',
-    'dead-code-false-positive-engines.test.ts',
     'dead-code-path-alias.test.ts',
     'dead-code-public-api.test.ts',
     'dead-code.test.ts',
+    'drift-declared-symbols.test.ts',
     'drift.test.ts',
     'duplication-registration.test.ts',
     'duplication.perf.test.ts',
@@ -46,7 +46,7 @@ import { checkConfigPattern, detectPatternViolations } from '../../../src/entrop
 import { detectSizeBudgetViolations, parseSize } from '../../../src/entropy/detectors/size-budget'
 import '../../../src/entropy/index'
 import { buildSnapshot } from '../../../src/entropy/snapshot'
-import { CodebaseSnapshot, ComplexityConfig, ConfigPattern, CouplingConfig, DeadCodeConfig, SizeBudgetConfig, SourceFile } from '../../../src/entropy/types'
+import { CodebaseSnapshot, ComplexityConfig, ConfigPattern, CouplingConfig, DeadCodeConfig, DocumentationDrift, SizeBudgetConfig, SourceFile } from '../../../src/entropy/types'
 import { findFiles, relativePosix } from '../../../src/shared/fs-utils'
 import { TypeScriptParser } from '../../../src/shared/parsers'
 import { isOk } from '../../../src/shared/result'
@@ -57,12 +57,9 @@ import { parse } from '@typescript-eslint/typescript-estree'
 import { mkdtemp, rm, writeFile } from 'fs/promises'
 import { minimatch } from 'minimatch'
 import { mkdirSync, rmSync, writeFileSync } from 'node:fs'
-import * as fs from 'node:fs'
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import * as os from 'node:os'
 import { join } from 'node:path'
-import * as path from 'node:path'
 import { tmpdir } from 'os'
 import { join } from 'path'
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest'
