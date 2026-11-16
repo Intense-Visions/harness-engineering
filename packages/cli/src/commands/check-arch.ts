@@ -8,6 +8,7 @@ import {
   ArchConfigSchema,
   ArchBaselineManager,
   runAll,
+  sortMetricResults,
   diff,
   resolveArchBaseline,
   isWholeSnapshotContext,
@@ -665,8 +666,8 @@ export async function runCheckArch(
     );
   }
 
-  // Run all collectors
-  let results = await runAll(archConfig, cwd);
+  // Run all collectors; canonical order so --json/baseline output is stable run to run (#2564)
+  let results = sortMetricResults(await runAll(archConfig, cwd));
 
   // Filter by module if --module specified
   if (options.module) {

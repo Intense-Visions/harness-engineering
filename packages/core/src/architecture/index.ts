@@ -79,6 +79,7 @@ export type {
   LoadAllowancesOptions,
 } from './baseline-resolver';
 export { diff } from './diff';
+export { sortMetricResults, compareViolations } from './sort-results';
 export { resolveThresholds } from './config';
 export { isExcluded, resolveExcludePatterns } from './exclude';
 
