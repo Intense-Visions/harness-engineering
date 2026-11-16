@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/mcp/tools'
-sourceHash: 'e5b35bf45140e7cd5ca3d7fa9941d7fa340a0bf50b1112f728269f9cd81c5c32'
+sourceHash: '9a7e67ab4a00de860099dbddcd30a78b0ec57ab7232e55d1591c0395ebadbc15'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -507,6 +507,7 @@ import { DEFAULT_RESPONSIVE_GATE_CONFIG, ResponsiveGateConfig, ResponsiveMetrics
 import { CollectPromptsOutput, FinalizeSecurityCraftInput, SecurityCraftInput, SecurityCraftMode, SecurityCraftOutput, collectSecurityCraftPrompts, finalizeSecurityCraft, runSecurityCraft } from '../../security-craft/index.js'
 import { craftClumpView } from '../../shared/craft/findings/clumpable.js'
 import { resolveCraftLlmMode } from '../../shared/craft/llm/provider.js'
+import { craftPathError, withCraftAbstention } from '../../shared/craft/scope.js'
 import { collectDesignScanFiles, designScanAbstention, noFilesScannedError, resolveDesignExcludePatterns } from '../../shared/design-scan-targets.js'
 import { baselineDeltaForReport } from '../../shared/duplication-baseline.js'
 import { ENTROPY_ISSUE_TYPES, describeDuplicationNotRun, describeUnknownIssueType, isEntropyIssueType, resolveDuplicationRequest } from '../../shared/duplication-request.js'

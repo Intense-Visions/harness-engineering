@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/tests/entropy/detectors'
-sourceHash: 'd7ec5ae4c6ed65343e599e04687d8361b9ac48ecdbb08d347e79ff29fdab6c16'
+sourceHash: 'e41fe0c44142aaf7a3729c2c985d8da6dd74d75ee106d5938f80910e5631b9bf'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -12,6 +12,7 @@ members:
     'dead-code-false-positive-engines.test.ts',
     'dead-code-path-alias.test.ts',
     'dead-code-public-api.test.ts',
+    'dead-code-workspace-specifier.test.ts',
     'dead-code.test.ts',
     'drift-declared-symbols.test.ts',
     'drift.test.ts',

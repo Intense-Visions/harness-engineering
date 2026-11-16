@@ -25,6 +25,7 @@ import {
   type FinalizeTestCraftInput,
 } from '../../test-craft/index.js';
 import { resolveCraftLlmMode } from '../../shared/craft/llm/provider.js';
+import { craftPathError } from '../../shared/craft/scope.js';
 
 type TestCraftMode = 'inline' | 'in-session';
 
@@ -138,9 +139,8 @@ function effectiveMode(input: TestCraftInput & { mode?: TestCraftMode }): TestCr
 export async function handleTestCraft(
   input: TestCraftInput & { mode?: TestCraftMode; promptBudget?: number }
 ): Promise<ToolResponse> {
-  if (typeof input?.path !== 'string' || input.path.length === 0) {
-    return fail(JSON.stringify({ error: 'test_craft: `path` is required' }));
-  }
+  const pathError = craftPathError('test_craft', input?.path);
+  if (pathError !== null) return fail(JSON.stringify({ error: pathError }));
   try {
     if (effectiveMode(input) === 'in-session') {
       const result: CollectPromptsOutput = await collectTestCraftPrompts(input);

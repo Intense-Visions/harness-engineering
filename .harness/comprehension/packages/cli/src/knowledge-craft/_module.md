@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/knowledge-craft'
-sourceHash: '50b8cf52615e1b116e66cde17e3477571617d58b36fbd710c3733486faa150cd'
+sourceHash: '76e1f568b914ae1080bc6efe9f4b07f65ddb77499e94f7e13fa93a8bc83605d4'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -29,6 +29,7 @@ import { resolveScopedFiles } from '../shared/craft/extract/scoped-files.js'
 import { craftClumpView } from '../shared/craft/findings/clumpable.js'
 import { InSessionLlmProvider, LlmProvider, getProvider } from '../shared/craft/llm/provider.js'
 import { deleteRunState, loadRunStateOrThrow, pruneOldRuns, saveRunState } from '../shared/craft/runs/store.js'
+import { CraftAbstention, withCraftAbstention } from '../shared/craft/scope.js'
 import { KnowledgeRubric, SEED_RUBRICS } from './catalog/rubrics/index.js'
 import { DiscoveredEntry, KNOWLEDGE_ROOT, discoverKnowledgeEntries } from './extract/discover.js'
 import { KnowledgeCraftOutput, KnowledgeFinding } from './findings/schema.js'

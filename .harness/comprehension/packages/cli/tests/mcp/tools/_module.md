@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/tests/mcp/tools'
-sourceHash: 'c1a328f4033fe4271c3f9ae0296fee89704d52fa424381630116ebc60ee99fca'
+sourceHash: '782a6ff7da73b6597e733f64e5f8598de62afdbde71ad4aa4316d91fcb5f1a38'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -31,6 +31,7 @@ members:
     'conflict-prediction.test.ts',
     'constraint-emergence.test.ts',
     'copy-craft.test.ts',
+    'craft-scope.test.ts',
     'cross-check.test.ts',
     'decay-trends.test.ts',
     'design-craft-cov544.test.ts',

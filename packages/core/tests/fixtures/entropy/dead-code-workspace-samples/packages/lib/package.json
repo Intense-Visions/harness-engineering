@@ -1,0 +1,7 @@
+{
+  "name": "@probe/lib",
+  "exports": {
+    ".": "./dist/index.js",
+    "./util": "./dist/util.js"
+  }
+}

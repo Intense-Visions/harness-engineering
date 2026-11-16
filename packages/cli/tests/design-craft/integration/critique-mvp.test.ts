@@ -212,7 +212,8 @@ describe('design-craft MCP handler (MVP)', () => {
 
   it('deep mode without captures returns a clear error', async () => {
     const result = await handleDesignCraft({
-      path: '/tmp/fake-project',
+      // An existing directory: the craft path guard (#2625) rejects a missing one first.
+      path: os.tmpdir(),
       mode: 'deep',
     });
     expect(result.isError).toBe(true);
