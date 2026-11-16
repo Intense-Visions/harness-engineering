@@ -95,6 +95,8 @@ const WRITERS = new Map([
     { contents: 'write', 'pull-requests': 'write', 'id-token': 'write', packages: 'write' },
   ],
   ['release.yml:docker', { contents: 'read', packages: 'write' }],
+  // #2047: dispatches CI + Harness Checks at the release PR branch (dispatch API needs actions: write).
+  ['release.yml:release-pr-checks', { actions: 'write', contents: 'read' }],
   ['required-review.yml:required-review', { contents: 'read', 'pull-requests': 'write' }],
   [
     'roadmap-auto-done.yml:auto-done',

@@ -43,6 +43,10 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       published: ${{ steps.changesets.outputs.published }}
+      # 'true' when changesets/action took its VERSION branch — i.e. it opened or
+      # force-updated the `changeset-release/<branch>` PR instead of publishing.
+      # Consumed by `release-pr-checks` (#2047).
+      has-changesets: ${{ steps.changesets.outputs.hasChangesets }}
       version: ${{ steps.cli-version.outputs.version }}
     steps:
       - uses: actions/checkout@v6
@@ -283,3 +287,50 @@ jobs:
     permissions:
       contents: read
       packages: write
+
+  # Give the release PR a real CI signal (#2047).
+  #
+  # changesets/action pushes `changeset-release/<branch>` and opens/updates the PR
+  # with the default GITHUB_TOKEN. GitHub's rule for GITHUB_TOKEN-caused events:
+  # `pull_request` opened/synchronize/reopened runs are created APPROVAL-REQUIRED
+  # (they sit in `action_required` until someone clicks "Approve workflows to
+  # run"), while `workflow_dispatch` ALWAYS creates a run. Observed before this
+  # job: every run on the release PR's head SHAs was `action_required` and the
+  # PR's status rollup was empty — the PR that publishes the packages showed no
+  # signal, so "not run" was indistinguishable from "passing".
+  #
+  # So dispatch the two verification workflows at the release branch. A
+  # workflow_dispatch run's GITHUB_SHA is the dispatched branch's tip — the PR's
+  # head commit — so its check runs attach to that commit and show on the PR.
+  # No PAT, no GitHub App, no repo-settings change: `actions: write` on the
+  # default token is all the dispatch API needs. The stale `action_required`
+  # pull_request runs are left alone; they never report to the PR rollup.
+  #
+  # Both workflows declare `workflow_dispatch` and key dispatch runs per-REF with
+  # cancel-in-progress, so a later release-PR update supersedes an earlier one.
+  # A failed dispatch fails THIS job, so a missing signal is red here, not silent.
+  release-pr-checks:
+    needs: release
+    if: needs.release.outputs.has-changesets == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+      contents: read
+    steps:
+      - name: Dispatch CI and Harness Checks on the release PR head
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_BRANCH: changeset-release/${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          HEAD_SHA=$(gh api "repos/$GH_REPO/git/ref/heads/$RELEASE_BRANCH" --jq .object.sha)
+          echo "Release PR branch $RELEASE_BRANCH is at $HEAD_SHA"
+          gh workflow run ci.yml --ref "$RELEASE_BRANCH"
+          gh workflow run harness.yml --ref "$RELEASE_BRANCH"
+          {
+            echo "### Release PR checks dispatched (#2047)"
+            echo ""
+            echo "CI and Harness Checks were dispatched at \`$RELEASE_BRANCH\` (\`$HEAD_SHA\`)."
+            echo "Their check runs attach to that commit and appear on the release PR."
+          } >> "$GITHUB_STEP_SUMMARY"
