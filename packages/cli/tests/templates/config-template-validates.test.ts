@@ -21,6 +21,7 @@ import { describe, expect, it } from 'vitest';
 
 import { HarnessConfigSchema } from '../../src/config/schema';
 import { collectStrippedKeys } from '../../src/config/stripped-keys';
+import { deepMergeJson } from '../../src/templates/merger';
 
 const TEMPLATES_DIR = path.resolve(__dirname, '..', '..', '..', '..', 'templates');
 
@@ -46,6 +47,26 @@ const configTemplates = fs
   .map((d) => [d, path.join(TEMPLATES_DIR, d, 'harness.config.json.hbs')] as const)
   .filter(([, file]) => fs.existsSync(file));
 
+/**
+ * The config an adopter actually gets from a template.
+ *
+ * A framework overlay's `harness.config.json.hbs` is a FRAGMENT — it declares
+ * only the entry files the overlay renders (#2630) — and the engine deep-merges
+ * it over the config of the template it lands on. Validate that merged result;
+ * the fragment alone is not a config anyone scaffolds. A TypeScript overlay can
+ * land on any level, so it is checked over `basic`, the smallest.
+ */
+function scaffoldedConfig(name: string, file: string): unknown {
+  const own = JSON.parse(render(fs.readFileSync(file, 'utf-8'))) as Record<string, unknown>;
+  const meta = JSON.parse(
+    fs.readFileSync(path.join(TEMPLATES_DIR, name, 'template.json'), 'utf-8')
+  ) as { framework?: string; language?: string; extends?: string };
+  if (!meta.framework) return own;
+  const host = meta.extends ?? (meta.language === 'typescript' ? 'basic' : `${meta.language}-base`);
+  const hostFile = path.join(TEMPLATES_DIR, host, 'harness.config.json.hbs');
+  return deepMergeJson(JSON.parse(render(fs.readFileSync(hostFile, 'utf-8'))), own);
+}
+
 describe('adopter config templates validate', () => {
   it('there are templates to check — a zero-length loop would pass vacuously', () => {
     expect(configTemplates.length).toBeGreaterThan(4);
@@ -53,11 +74,9 @@ describe('adopter config templates validate', () => {
 
   for (const [name, file] of configTemplates) {
     it(`${name}/harness.config.json.hbs renders to a valid harness config`, () => {
-      const rendered = render(fs.readFileSync(file, 'utf-8'));
-
       let parsed: unknown;
       expect(() => {
-        parsed = JSON.parse(rendered);
+        parsed = scaffoldedConfig(name, file);
       }, `${name} does not render to valid JSON`).not.toThrow();
 
       const result = HarnessConfigSchema.safeParse(parsed);
@@ -74,7 +93,7 @@ describe('adopter config templates validate', () => {
       // unknown or mis-nested key with no signal. A template that ships such a
       // key scaffolds a project whose first command prints a warning about a
       // setting the adopter never typed.
-      const parsed = JSON.parse(render(fs.readFileSync(file, 'utf-8')));
+      const parsed = scaffoldedConfig(name, file);
       const dropped = collectStrippedKeys(HarnessConfigSchema, parsed).map((d) => d.path);
       //
       // Issue #2475 was this exact defect: all four language-base templates

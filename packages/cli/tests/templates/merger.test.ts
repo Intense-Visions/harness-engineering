@@ -19,6 +19,19 @@ describe('deepMergeJson', () => {
     const overlay = { items: [3, 4] };
     expect(deepMergeJson(base, overlay)).toEqual({ items: [3, 4] });
   });
+
+  it('unions entryPoints across layers so an overlay cannot drop a base entry (#2630)', () => {
+    const base = {
+      entropy: { entryPoints: ['src/index.ts', 'eslint.config.mjs'], autoFix: false },
+    };
+    const overlay = { entropy: { entryPoints: ['vite.config.ts', 'src/index.ts'] } };
+    expect(deepMergeJson(base, overlay)).toEqual({
+      entropy: {
+        entryPoints: ['src/index.ts', 'eslint.config.mjs', 'vite.config.ts'],
+        autoFix: false,
+      },
+    });
+  });
 });
 
 describe('mergePackageJson', () => {

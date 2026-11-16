@@ -124,12 +124,13 @@ prompt.
 
 ## Troubleshooting
 
-| Symptom                                   | Cause / fix                                                                                                                                                                                    |
-| ----------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `--all` reports `0 semantic`              | No provider/model resolved. Set `comprehension.model` to a model your provider serves; check the stderr for the exact error.                                                                   |
-| `--check` exits non-zero                  | Some units are source-stale (expected after editing source without recompiling). Run `harness comprehend --changed` (or `--all`) then commit.                                                  |
-| Committed units show up in `grep`/ripgrep | They are tracked files, so raw text search matches them. Prefer the harness graph-scoped tools for code search, or use `"storage": "cache"` (gitignored) if you don't want them in raw search. |
-| Backfill is slow / burns rate limit       | Semantic backfill is one model call per module. Do Phase A (static) first, run Phase B when idle, and lean on `--changed` for steady-state.                                                    |
+| Symptom                                   | Cause / fix                                                                                                                                                                                                                         |
+| ----------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--all` reports `0 semantic`              | No provider/model resolved. Set `comprehension.model` to a model your provider serves; check the stderr for the exact error.                                                                                                        |
+| `--check` exits non-zero                  | Some units are source-stale (expected after editing source without recompiling). Run `harness comprehend --changed` (or `--all`) then commit.                                                                                       |
+| `--check` reports `orphan unit(s)`        | A committed unit's module directory was deleted, or is one `--all` never walks (dot-directories, `node_modules`/`dist`/`build`/`coverage`). Recompiling cannot clear it: run `harness comprehend --prune` and commit the deletions. |
+| Committed units show up in `grep`/ripgrep | They are tracked files, so raw text search matches them. Prefer the harness graph-scoped tools for code search, or use `"storage": "cache"` (gitignored) if you don't want them in raw search.                                      |
+| Backfill is slow / burns rate limit       | Semantic backfill is one model call per module. Do Phase A (static) first, run Phase B when idle, and lean on `--changed` for steady-state.                                                                                         |
 
 ## See also
 

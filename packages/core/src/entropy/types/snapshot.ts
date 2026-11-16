@@ -104,5 +104,12 @@ export interface CodebaseSnapshot {
    * project has no tsconfig `paths` (issue #1759).
    */
   pathAliases?: PathAlias[];
+  /**
+   * Bare specifiers naming a workspace package (`@scope/pkg`, `@scope/pkg/sub`)
+   * mapped to the absolute source file they resolve to, so cross-package
+   * imports credit their target during reachability/usage analysis. External
+   * packages are absent and stay unresolved (issue #2189).
+   */
+  workspaceSpecifiers?: Record<string, string>;
   buildTime: number;
 }

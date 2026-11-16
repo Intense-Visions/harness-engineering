@@ -458,6 +458,47 @@ describe('runComprehendCheck — token-free freshness', () => {
   });
 });
 
+// --- #2578: orphan units (unit committed, module no longer enumerable) --------
+
+describe('runComprehendCheck — orphan units (#2578)', () => {
+  it('reports a unit whose module is not enumerable as an ORPHAN, not source-stale', async () => {
+    const live = unitFor('pkg/a', SRC);
+    const orphan = unitFor('docs/.vitepress/cache/deps', SRC);
+    const store = fakeListStore({ units: [live, orphan], skipped: [] });
+    // The orphan's directory is absent in a clean checkout: the reader sees nothing.
+    const reader = fakeReader({ 'pkg/a': SRC, 'docs/.vitepress/cache/deps': null });
+    const result = await runComprehendCheck({
+      store,
+      reader,
+      listModules: async () => ['pkg/a'],
+    });
+    expect(result.orphans).toEqual(['docs/.vitepress/cache/deps']);
+    expect(result.stale).toEqual([]);
+    expect(result.ok).toBe(false);
+  });
+
+  it('positive control: an enumerable fresh unit is neither orphan nor stale', async () => {
+    const store = fakeListStore({ units: [unitFor('pkg/a', SRC)], skipped: [] });
+    const reader = fakeReader({ 'pkg/a': SRC });
+    const result = await runComprehendCheck({
+      store,
+      reader,
+      listModules: async () => ['pkg/a'],
+    });
+    expect(result.orphans).toEqual([]);
+    expect(result.stale).toEqual([]);
+    expect(result.ok).toBe(true);
+  });
+
+  it('without listModules, orphan detection is off and behavior is unchanged', async () => {
+    const store = fakeListStore({ units: [unitFor('pkg/gone', SRC)], skipped: [] });
+    const reader = fakeReader({ 'pkg/gone': null });
+    const result = await runComprehendCheck({ store, reader });
+    expect(result.orphans).toEqual([]);
+    expect(result.stale).toEqual(['pkg/gone']);
+  });
+});
+
 describe('runComprehendStats — savings metric (SC6)', () => {
   it('reports raw vs served token estimates with a positive saved delta', async () => {
     const bigSource: ComprehensionSourceFile[] = [
