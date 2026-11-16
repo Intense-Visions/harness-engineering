@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/src/constraints'
-sourceHash: 'ba672f9c6658e953cb9d2e72a5b09cacad956153a132732072096253eeabe421'
+sourceHash: '4c6339386ddb8e7df734fd30e6da6cc40a015c06f3a11de5f1212a0d7deb1324'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -14,6 +14,7 @@ members:
     'layers.ts',
     'packs.ts',
     'types.ts',
+    'workspace-packages.ts',
   ]
 ---
 
@@ -22,6 +23,7 @@ members:
 ```ts
 export *
 export BUILT_IN_CONSTRAINT_PACKS
+export BareSpecifierResolver
 export BoundaryDefinition
 export BoundaryValidation
 export BoundaryValidator
@@ -57,14 +59,16 @@ export validateDependencies
 ```
 import { RuleOverride } from '../security/types'
 import { ConstraintError, createError } from '../shared/errors'
-import { fileExists, findFiles, relativePosix } from '../shared/fs-utils'
+import { fileExists, findFiles, readFileContent, relativePosix } from '../shared/fs-utils'
 import { Import, LanguageParser } from '../shared/parsers'
 import { Err, Ok, Result } from '../shared/result'
 import { buildDependencyGraph } from './dependencies'
 import { resolveFileToLayer } from './layers'
 import { BoundaryDefinition, BoundaryValidation, BoundaryValidator, BoundaryViolation, CircularDependency, CircularDepsResult, DependencyEdge, DependencyGraph, DependencyValidation, DependencyViolation, GraphDependencyData, Layer, LayerConfig, UnparsedFile } from './types'
+import { loadWorkspacePackages, resolveWorkspaceSpecifier } from './workspace-packages'
 import { ConstraintStage } from '@harness-engineering/types'
 import { minimatch } from 'minimatch'
-import { dirname, extname, resolve } from 'path'
+import { dirname, extname, join, resolve } from 'path'
+import { parseYaml } from 'yaml'
 import { z } from 'zod'
 ```

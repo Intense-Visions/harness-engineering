@@ -102,16 +102,21 @@ function addTo(index: Map<string, RoadmapFeature[]>, key: string, feature: Roadm
   }
 }
 
+/** Maps one Blockers item to the rows it references. */
+export type BlockerReferenceResolver = (text: string) => RoadmapFeature[];
+
 /**
- * Build a resolver over every feature in `roadmap`. Rows are indexed by
+ * Build a reference resolver over every feature in `roadmap`. Rows are indexed by
  * lowercased name, by slug (`slugifyFeatureName`, the shard-file identity), and
  * by the issue number at the end of their `External-ID`, plus any shard slug
- * supplied in `options.slugAliases`.
+ * supplied in `options.slugAliases`. The returned function maps ONE Blockers item
+ * to the rows it names — the single matching rule shared by the eligibility
+ * filter and the scorer's dependents count (#2222).
  */
-export function createBlockerResolver(
+export function createBlockerReferenceResolver(
   roadmap: Roadmap,
   options?: BlockerResolutionOptions
-): BlockerResolver {
+): BlockerReferenceResolver {
   const byKey = new Map<string, RoadmapFeature[]>();
   const byIssue = new Map<string, RoadmapFeature[]>();
   for (const feature of roadmap.milestones.flatMap((m) => m.features)) {
@@ -131,7 +136,7 @@ export function createBlockerResolver(
     return byKey.get(trimmed.toLowerCase()) ?? byKey.get(slugifyFeatureName(trimmed)) ?? [];
   };
 
-  const resolveItem = (text: string): RoadmapFeature[] => {
+  return (text) => {
     const whole = lookup(text);
     if (whole.length > 0) return whole;
     const refs = new Set<RoadmapFeature>();
@@ -143,6 +148,17 @@ export function createBlockerResolver(
     }
     return [...refs];
   };
+}
+
+/**
+ * Build a resolver that reports which of a feature's blockers still hold, using
+ * {@link createBlockerReferenceResolver} to match each item to rows.
+ */
+export function createBlockerResolver(
+  roadmap: Roadmap,
+  options?: BlockerResolutionOptions
+): BlockerResolver {
+  const resolveItem = createBlockerReferenceResolver(roadmap, options);
 
   return (feature) => {
     const held: HeldBlocker[] = [];

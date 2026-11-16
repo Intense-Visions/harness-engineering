@@ -30,6 +30,7 @@ import {
 } from './phases/critique.js';
 import type { SpecCraftOutput, SpecFinding } from './findings/schema.js';
 import { craftClumpView } from '../shared/craft/findings/clumpable.js';
+import { resolveScopedFiles } from '../shared/craft/extract/scoped-files.js';
 
 export type SpecCraftMode = 'inline' | 'in-session';
 
@@ -350,7 +351,7 @@ export async function critiqueSpecFile(
 
 function collectSpecs(projectRoot: string, input: SpecCraftInput): DiscoveredSpec[] {
   if (input.files !== undefined && input.files.length > 0) {
-    return input.files.map((f) => ({
+    return resolveScopedFiles(projectRoot, input.files).map((f) => ({
       file: f,
       kind: isUnderDecisionsDir(f) ? 'adr' : 'proposal',
     }));

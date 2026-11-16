@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/spec-craft'
-sourceHash: '85440e69f92fd7e633466d82882616ce5940e360a06d84f8a33c914b97a2bd4c'
+sourceHash: '231b686f919c9ef9be8d63c8d51807181ec21e524d2bbf38cb8f26622f44e061'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -25,6 +25,7 @@ export runSpecCraft
 
 ```
 import { sanitizePath } from '../mcp/utils/sanitize-path.js'
+import { resolveScopedFiles } from '../shared/craft/extract/scoped-files.js'
 import { craftClumpView } from '../shared/craft/findings/clumpable.js'
 import { InSessionLlmProvider, LlmProvider, getProvider } from '../shared/craft/llm/provider.js'
 import { deleteRunState, loadRunStateOrThrow, pruneOldRuns, saveRunState } from '../shared/craft/runs/store.js'
