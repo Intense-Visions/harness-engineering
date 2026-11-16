@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'scripts'
-sourceHash: '6ac854d894b6b579186638d61da651d48799ed37d05005436587fafd5f56a6a7'
+sourceHash: 'af2058af33dd1b1e41f6ec8aa9df4966113d9e609622cef73ef8189fb177cee9'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -25,6 +25,7 @@ members:
     'generate-tool-catalog.mjs',
     'main-health-check.mjs',
     'merge-arch-timeline.mjs',
+    'override-floors.mjs',
     'refresh-model-candidates.mjs',
     'release-publish.mjs',
     'summarize-test-failures.mjs',
@@ -46,18 +47,24 @@ export MANIFEST_PATHS
 export REGISTRY_BASE
 export assessVitestLog
 export baseUrl
+export checkFloors
+export classifyLockfiles
 export classifyPublish
+export compareVersions
 export decideAction
 export deliverAlarm
 export evaluateCoverage
 export evaluateHealth
 export extractAdvisories
 export extractFailures
+export extractNpmAdvisories
 export fetchRuns
+export findAdvancements
 export findOpenAlarmIssue
 export findPinnedVersion
 export findReportPaths
 export formatSummary
+export inScopeFromTurboDryRun
 export lapseReason
 export main
 export mergeBenchmarkBaselines
@@ -65,16 +72,22 @@ export mergeCoverageBaselines
 export mergeTimelines
 export pageFiles
 export parseChangesetFrontmatter
+export parseLockfile
+export parseOverrideKey
 export parsePublishOutput
+export parseRange
 export parseTargetFiles
+export parseVersion
 export prepushTestOptions
 export pruneCoverageSummaries
+export ratchetVerdict
 export readCliVersion
 export reconcile
 export registryUrl
 export renderIssueBody
 export renderSummary
 export runRelease
+export satisfies
 export selectDecisiveRuns
 export slugForFile
 export specKey
@@ -96,7 +109,7 @@ import { appendFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readd
 import { rm } from 'node:fs/promises'
 import { createRequire } from 'node:module'
 import { tmpdir } from 'node:os'
-import path, { basename, dirname, extname, join, relative, resolve, sep } from 'node:path'
+import path, { basename, dirname, extname, join, posix, relative, resolve, sep } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import 'playwright'
 import { parseYaml } from 'yaml'
