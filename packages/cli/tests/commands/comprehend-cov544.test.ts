@@ -95,6 +95,7 @@ vi.mock('../../src/comprehension/compile-run', () => ({
   runComprehendCheck: vi.fn(async () => ({
     ok: true,
     stale: [],
+    orphans: [],
     skipped: [],
     semantic: { total: 3, present: 3, absent: 0, absentRatio: 0 },
   })),
@@ -108,6 +109,9 @@ vi.mock('../../src/comprehension/compile-run', () => ({
   })),
 }));
 
+vi.mock('../../src/comprehension/prune', () => ({
+  pruneOrphanUnits: vi.fn(async () => ({ removed: [], failed: [] })),
+}));
 vi.mock('../../src/mcp/utils/analysis-provider', () => ({
   resolveAnalysisProvider: vi.fn(async () => null),
 }));
@@ -139,6 +143,7 @@ import {
   runComprehendCheck,
   runComprehendStats,
 } from '../../src/comprehension/compile-run';
+import { pruneOrphanUnits } from '../../src/comprehension/prune';
 import { resolveAnalysisProvider } from '../../src/mcp/utils/analysis-provider';
 import { deriveChangedSurface } from '../../src/commands/validate-scope';
 
@@ -183,6 +188,7 @@ describe('comprehend command action paths (cov544)', () => {
     vi.mocked(runComprehendCheck).mockResolvedValue({
       ok: true,
       stale: [],
+      orphans: [],
       skipped: [],
       semantic: { total: 3, present: 3, absent: 0, absentRatio: 0 },
     } as never);
@@ -292,6 +298,7 @@ describe('comprehend command action paths (cov544)', () => {
     vi.mocked(runComprehendCheck).mockResolvedValue({
       ok: true,
       stale: [],
+      orphans: [],
       skipped: [],
       semantic: MIXED,
     } as never);
@@ -304,6 +311,7 @@ describe('comprehend command action paths (cov544)', () => {
     vi.mocked(runComprehendCheck).mockResolvedValue({
       ok: true,
       stale: [],
+      orphans: [],
       skipped: [],
       semantic: MIXED,
     } as never);
@@ -317,6 +325,7 @@ describe('comprehend command action paths (cov544)', () => {
     vi.mocked(runComprehendCheck).mockResolvedValue({
       ok: true,
       stale: [],
+      orphans: [],
       skipped: [],
       semantic: MIXED,
     } as never);
@@ -336,6 +345,7 @@ describe('comprehend command action paths (cov544)', () => {
     vi.mocked(runComprehendCheck).mockResolvedValue({
       ok: true,
       stale: [],
+      orphans: [],
       skipped: [],
       semantic: MIXED,
     } as never);
@@ -355,6 +365,7 @@ describe('comprehend command action paths (cov544)', () => {
     vi.mocked(runComprehendCheck).mockResolvedValue({
       ok: true,
       stale: [],
+      orphans: [],
       skipped: [],
       semantic: MIXED,
     } as never);
@@ -408,12 +419,49 @@ describe('comprehend command action paths (cov544)', () => {
     vi.mocked(runComprehendCheck).mockResolvedValue({
       ok: false,
       stale: ['pkg/m'],
+      orphans: [],
       skipped: [{ path: 'pkg/x', reason: 'unreadable' }],
       semantic: { total: 1, present: 1, absent: 0, absentRatio: 0 },
     } as never);
     await run(['--check']);
     expect(logWarn).toHaveBeenCalledWith(expect.stringContaining('skipped pkg/x'));
     expect(logError).toHaveBeenCalledWith(expect.stringContaining('source-stale'));
+    expect(exitCodes).toEqual([1]);
+  });
+
+  it('--check names orphan units apart from source-stale, points at --prune, exits VALIDATION_FAILED (#2578)', async () => {
+    vi.mocked(runComprehendCheck).mockResolvedValue({
+      ok: false,
+      stale: [],
+      orphans: ['docs/.vitepress/cache/deps'],
+      skipped: [],
+      semantic: { total: 1, present: 0, absent: 1, absentRatio: 1 },
+    } as never);
+    await run(['--check']);
+    expect(logError).toHaveBeenCalledWith(expect.stringContaining('orphan unit(s)'));
+    expect(logError).toHaveBeenCalledWith(expect.stringContaining('--prune'));
+    expect(logError).not.toHaveBeenCalledWith(expect.stringContaining('source-stale'));
+    expect(logSuccess).not.toHaveBeenCalledWith(expect.stringContaining('source-fresh'));
+    expect(exitCodes).toEqual([1]);
+  });
+
+  it('--prune deletes orphans token-free and exits SUCCESS (#2578)', async () => {
+    vi.mocked(pruneOrphanUnits).mockResolvedValue({ removed: ['pkg/gone'], failed: [] });
+    await run(['--prune']);
+    expect(pruneOrphanUnits).toHaveBeenCalledTimes(1);
+    expect(resolveAnalysisProvider).not.toHaveBeenCalled();
+    expect(runComprehend).not.toHaveBeenCalled();
+    expect(logSuccess).toHaveBeenCalledWith(expect.stringContaining('pkg/gone'));
+    expect(exitCodes).toEqual([0]);
+  });
+
+  it('--prune exits VALIDATION_FAILED when an orphan could not be removed (#2578)', async () => {
+    vi.mocked(pruneOrphanUnits).mockResolvedValue({
+      removed: [],
+      failed: [{ module: 'pkg/gone', reason: 'EACCES' }],
+    });
+    await run(['--prune']);
+    expect(logError).toHaveBeenCalledWith(expect.stringContaining('could not prune pkg/gone'));
     expect(exitCodes).toEqual([1]);
   });
 

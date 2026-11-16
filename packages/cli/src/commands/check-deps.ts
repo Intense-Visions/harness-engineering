@@ -36,7 +36,7 @@ interface CheckDepsOptions {
  * `unavailableChecks` entry `OutputFormatter.formatValidation` renders, and the
  * identical structure `harness validate` already emits.
  */
-interface UnavailableCheck {
+export interface UnavailableCheck {
   /** The analysis that abstained. */
   check: string;
   /** Posix-relative path, when the abstention is about one file (#2073). */
@@ -185,22 +185,37 @@ function recordUnparsedFiles(
 ): void {
   if (unparsed.length === 0) return;
   result.unavailableChecks ??= [];
-  for (const { file, reason } of unparsed) {
+  result.unavailableChecks.push(...unparsedFileChecks(unparsed, rootDir));
+  if (downgraded) {
+    result.abstentionDowngraded = true;
+    return;
+  }
+  result.valid = false;
+}
+
+/**
+ * One `unavailableChecks` entry per source file the analysis could not parse
+ * (#2073), with a posix-relative path. Shared with the `check_dependencies` MCP
+ * tool so both surfaces name skipped files identically (#2606).
+ *
+ * @param unparsed - Files the engine could not read imports from.
+ * @param rootDir - Root that paths are rendered relative to.
+ */
+export function unparsedFileChecks(
+  unparsed: readonly UnparsedFile[],
+  rootDir: string
+): UnavailableCheck[] {
+  return unparsed.map(({ file, reason }) => {
     const relative = path.relative(rootDir, file).replaceAll('\\', '/');
-    result.unavailableChecks.push({
+    return {
       check: 'dependency analysis',
       file: relative,
       reason: `${relative} could not be parsed, so its imports were not checked: ${reason}`,
       suggestion:
         'Fix the file so it parses, or exclude it via `deps.exclude`. ' +
         'To keep exiting 0 meanwhile, set `deps.fallbackBehavior: "warn"` in harness.config.json.',
-    });
-  }
-  if (downgraded) {
-    result.abstentionDowngraded = true;
-    return;
-  }
-  result.valid = false;
+    };
+  });
 }
 
 /** Merge unparsed-file lists from both engines, keeping the first reason per path. */

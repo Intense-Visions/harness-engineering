@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/comprehension'
-sourceHash: '999aa02f1034687572d3888447b4709129c7369f30dd9b4197797eb6200fb911'
+sourceHash: '32eea2a04c56ef006f25bdf077bed87a0b86ffe4dd541f767785aa270e6474ec'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -13,6 +13,7 @@ members:
     'hook.ts',
     'invalidation.ts',
     'policy.ts',
+    'prune.ts',
     'refresh-gate.ts',
     'regression.ts',
     'semantic-coverage.ts',
@@ -53,13 +54,16 @@ export detectSemanticRegressions
 export enumerateModules
 export explainInactiveRefreshGate
 export filesToModules
+export findOrphanModules
 export formatSemanticCoverage
 export isComprehensionReentrant
+export isEnumerableModulePath
 export isMainPassContext
 export isStaticSupported
 export mapWithConcurrency
 export maybeCreateGenerateSemantic
 export parseModuleSemantic
+export pruneOrphanUnits
 export readComprehensionConfig
 export readSemanticMapAtRef
 export remoteFileConfig
@@ -84,10 +88,11 @@ export withComprehensionActive
 ```
 import { ComprehensionConfig, ComprehensionConfigSchema, HarnessConfig } from '../config/schema'
 import { AnalysisCliConfig, AnalysisEndpoint, ProviderKind, resolveProviderKind } from '../mcp/utils/analysis-provider'
+import { findOrphanModules } from './compile-run'
 import { readComprehensionConfig } from './config'
 import { defaultSemanticModel } from './generate-semantic'
 import { RegressionContext } from './regression'
-import { COMPREHENSION_ROOT, ComprehensionSourceFile, DEFAULT_SOURCE_EXTENSIONS, GenerateSemantic, RemoteComprehensionFileConfig, SemanticCoverage, SemanticGeneration, SemanticInput, normalizeRemoteFileConfig } from '@harness-engineering/core'
+import { COMPREHENSION_ROOT, ComprehensionSourceFile, ComprehensionStore, DEFAULT_SOURCE_EXTENSIONS, GenerateSemantic, RemoteComprehensionFileConfig, SemanticCoverage, SemanticGeneration, SemanticInput, normalizeRemoteFileConfig } from '@harness-engineering/core'
 import { AnalysisProvider } from '@harness-engineering/intelligence'
 import { execSync, spawnSync } from 'node:child_process'
 import * as fsp from 'node:fs/promises'

@@ -414,7 +414,7 @@ describe('TemplateEngine', () => {
       const paths = rendered.value.files.map((f) => f.relativePath);
       expect(paths).toContain('pom.xml');
       expect(paths).toContain('checkstyle.xml');
-      expect(paths).toContain('src/main/java/App.java');
+      expect(paths).toContain('src/main/java/Main.java');
       expect(paths).toContain('AGENTS.md');
       expect(paths).toContain('.gitignore');
       expect(paths).toContain('harness.config.json');

@@ -46,6 +46,60 @@ describe('filesToModules (SC3 — changed files → owning module directories)',
   });
 });
 
+describe('filesToModules ⊆ enumerateModules — one eligibility rule (#2578)', () => {
+  let root: string;
+
+  beforeEach(async () => {
+    root = await fsp.mkdtemp(path.join(os.tmpdir(), 'module-eligibility-'));
+  });
+  afterEach(async () => {
+    await fsp.rm(root, { recursive: true, force: true });
+  });
+
+  it('drops a changed file under a dot-directory (the VitePress cache orphan)', () => {
+    expect(
+      filesToModules([
+        'docs/.vitepress/cache/deps_temp_9a8fc6ed/chunk.js',
+        '.github/scripts/x.ts',
+        'pkg/.hidden/y.ts',
+      ])
+    ).toEqual([]);
+  });
+
+  it('drops a changed file under node_modules / dist / build / coverage at any depth', () => {
+    expect(
+      filesToModules([
+        'node_modules/foo/index.js',
+        'packages/cli/dist/index.js',
+        'pkg/build/out.ts',
+        'pkg/coverage/lcov.js',
+      ])
+    ).toEqual([]);
+  });
+
+  it('positive control: a normal module still maps alongside a dropped one', () => {
+    expect(filesToModules(['docs/.vitepress/cache/x.js', 'packages/cli/src/a.ts'])).toEqual([
+      'packages/cli/src',
+    ]);
+  });
+
+  it('law: every module --changed would compile is one --all would enumerate', async () => {
+    const files = [
+      'packages/cli/src/a.ts',
+      'docs/.vitepress/cache/deps_temp_9a8fc6ed/chunk.js',
+      '.harness/tools/t.ts',
+      'node_modules/foo/index.js',
+      'pkg/dist/out.js',
+      'pkg/lib/z.ts',
+    ];
+    for (const f of files) await writeFile(root, f);
+    const all = new Set(await enumerateModules(root));
+    const changed = filesToModules(files);
+    expect(changed.length).toBeGreaterThan(0);
+    for (const m of changed) expect(all.has(m)).toBe(true);
+  });
+});
+
 describe('enumerateModules (--all backfill)', () => {
   let root: string;
 
