@@ -22,10 +22,18 @@ import { goRules } from './rules/stack/go';
 import type { SecurityConfig, SecurityFinding, SecurityRule, ScanResult } from './types';
 import { DEFAULT_SECURITY_CONFIG } from './types';
 import { parseHarnessIgnore } from './harness-ignore';
+import { maskComments, supportsCommentMasking } from './comment-mask';
 
 // Re-exported so the existing `security/scanner` import path (and index barrel)
 // stays stable after the parser was extracted to its dependency-free module.
 export { parseHarnessIgnore } from './harness-ignore';
+
+/** The text a rule is matched against, plus the masked code for context checks. */
+interface LineView {
+  lines: readonly string[];
+  masked: readonly string[];
+  index: number;
+}
 
 export class SecurityScanner {
   private registry: RuleRegistry;
@@ -133,18 +141,26 @@ export class SecurityScanner {
     };
   }
 
-  /** Check one line against a rule's patterns; return a finding or null. */
+  /**
+   * Check one line against a rule's patterns; return a finding or null.
+   * `view` is the line text the rule judges — the comment-masked code for
+   * code-pattern rules, the raw line for rules that scan comments — while the
+   * reported `match`/`context` always carry the raw `line`.
+   */
   private matchRuleLine(
     rule: SecurityRule,
     resolved: string,
     filePath: string,
     lineNumber: number,
-    line: string
+    line: string,
+    view: LineView
   ): SecurityFinding | null {
+    const text = view.lines[view.index] ?? '';
     for (const pattern of rule.patterns) {
       pattern.lastIndex = 0; // Reset regex lastIndex for global/sticky patterns
-      const match = pattern.exec(line);
+      const match = pattern.exec(text);
       if (!match) continue;
+      if (rule.isMitigated?.(view.masked, view.index)) continue;
       // Secret rules match assignment shapes like `TOKEN="..."`. When the value
       // is a variable/expression reference (`$VAR`, `${{ secrets.X }}`) rather
       // than a literal, nothing is embedded in source — the secret is resolved
@@ -186,6 +202,7 @@ export class SecurityScanner {
     lineNumber: number,
     filePath: string,
     findings: SecurityFinding[],
+    view: LineView,
     priorLine?: string
   ): void {
     const sameLineMatch = parseHarnessIgnore(line, rule.id);
@@ -201,7 +218,7 @@ export class SecurityScanner {
       }
       return;
     }
-    const finding = this.matchRuleLine(rule, resolved, filePath, lineNumber, line);
+    const finding = this.matchRuleLine(rule, resolved, filePath, lineNumber, line, view);
     if (finding) findings.push(finding);
   }
 
@@ -217,6 +234,10 @@ export class SecurityScanner {
     startLine: number
   ): SecurityFinding[] {
     const findings: SecurityFinding[] = [];
+    // Code-pattern rules judge code, not prose: in C-style-comment languages
+    // they see comment text blanked out. Rules that opt in (secrets by default)
+    // keep scanning the raw lines.
+    const masked = supportsCommentMasking(filePath) ? maskComments(lines) : lines;
 
     for (const rule of rules) {
       const resolved = resolveRuleSeverity(
@@ -226,6 +247,8 @@ export class SecurityScanner {
         this.config.strict
       );
       if (resolved === 'off') continue;
+      const scanComments = rule.scanComments ?? rule.category === 'secrets';
+      const ruleLines = scanComments ? lines : masked;
 
       for (let i = 0; i < lines.length; i++) {
         this.scanLineForRule(
@@ -235,6 +258,7 @@ export class SecurityScanner {
           startLine + i,
           filePath,
           findings,
+          { lines: ruleLines, masked, index: i },
           i > 0 ? lines[i - 1] : undefined
         );
       }
