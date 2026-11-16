@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/commands'
-sourceHash: '11315e9b65ca3938bbf07a274a6091ad3d7300227347a5ff2b4344e33a06bde5'
+sourceHash: '0520033da6a4cccee1fc5a2563ae5870b8122134c979aac2f6ab96509694e414'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -519,7 +519,7 @@ import { applySyncPlan, computeSyncPlan } from '../slash-commands/sync'
 import { computeCodexSync, detectLegacyCodexOrphans } from '../slash-commands/sync-codex'
 import { GenerateOptions, Platform, SlashCommandSpec, VALID_PLATFORMS } from '../slash-commands/types'
 import { SpecCraftInput, SpecCraftOutput, SpecKind, runSpecCraft } from '../spec-craft/index.js'
-import { DetectedFramework, TemplateEngine } from '../templates/engine'
+import { DetectedFramework, TemplateEngine, isAddOnTemplate } from '../templates/engine'
 import { appendFrameworkAgents, applyEcosystemAfterCreate, ensureComprehensionSearchIgnore, ensureHarnessGitignore, persistToolingConfig } from '../templates/post-write'
 import { TemplateMetadata } from '../templates/schema'
 import { TestCraftInput, TestCraftOutput, TestFramework, runTestCraft } from '../test-craft/index.js'

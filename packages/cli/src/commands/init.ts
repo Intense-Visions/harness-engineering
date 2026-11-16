@@ -4,7 +4,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import type { Result, RoadmapMeta } from '@harness-engineering/core';
 import { Ok, Err, serializeMeta, roadmapSourceExists } from '@harness-engineering/core';
-import { TemplateEngine, type DetectedFramework } from '../templates/engine';
+import { TemplateEngine, isAddOnTemplate, type DetectedFramework } from '../templates/engine';
 import type { TemplateMetadata } from '../templates/schema';
 import {
   persistToolingConfig,
@@ -44,6 +44,8 @@ interface InitOptions {
 interface InitResult {
   filesCreated: string[];
   skippedConfigs: string[];
+  /** Files init left untouched because they already existed (no `--force`). */
+  skippedExisting?: string[];
   detectedFrameworks?: DetectedFramework[];
 }
 
@@ -179,6 +181,7 @@ async function scaffoldProject(
     overwrite: force,
     ...(language !== undefined && { language }),
     existingProject,
+    addOn: isAddOnTemplate(resolveResult.value.metadata),
   });
   if (!writeResult.ok) return Err(new CLIError(writeResult.error.message, ExitCode.ERROR));
 
@@ -238,6 +241,7 @@ async function scaffoldProject(
   return Ok({
     filesCreated: [...writeResult.value.written, ...roadmapFiles],
     skippedConfigs: writeResult.value.skippedConfigs,
+    skippedExisting: writeResult.value.skippedExisting,
   });
 }
 
@@ -269,13 +273,24 @@ function scaffoldShardedRoadmap(cwd: string, name: string): string[] {
   return [path.join('docs', 'roadmap.d', '_meta.md')];
 }
 
-function printInitSuccess(filesCreated: string[], mcpConfigured: string[]): void {
+function printInitSuccess(
+  filesCreated: string[],
+  mcpConfigured: string[],
+  skippedExisting: string[] = []
+): void {
   console.log('');
   logger.success('Project initialized!');
   console.log('');
   logger.info('Created files:');
   for (const file of filesCreated) {
     console.log(`  ${chalk.green('+')} ${file}`);
+  }
+  if (skippedExisting.length > 0) {
+    console.log('');
+    logger.info('Kept existing files (not overwritten; use --force to replace):');
+    for (const file of skippedExisting) {
+      console.log(`  ${chalk.yellow('=')} ${file}`);
+    }
   }
   if (mcpConfigured.length > 0) {
     console.log('');
@@ -330,7 +345,7 @@ async function runInitAction(opts: InitOptions & { quiet?: boolean }): Promise<v
   const mcpResult = setupMcp(cwd, 'all');
 
   if (!opts.quiet) {
-    printInitSuccess(result.value.filesCreated, mcpResult.configured);
+    printInitSuccess(result.value.filesCreated, mcpResult.configured, result.value.skippedExisting);
   }
 
   process.exit(ExitCode.SUCCESS);

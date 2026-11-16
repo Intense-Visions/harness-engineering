@@ -9,10 +9,14 @@ adopt either, both, or neither.
 
 ## What it renders
 
-| File                           | Purpose                                                                                                         |
-| ------------------------------ | --------------------------------------------------------------------------------------------------------------- |
-| `pre-merge-brief.yml`          | A `pull_request` workflow whose single job runs `harness review-ci` then `harness pre-merge-brief --comment`.   |
-| `pre-merge-brief.ruleset.json` | A GitHub repository ruleset that marks the workflow's check as a required status check (for the eventual gate). |
+| File                                            | Purpose                                                                                                         |
+| ----------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| `.github/workflows/harness-pre-merge-brief.yml` | A `pull_request` workflow whose single job runs `harness review-ci` then `harness pre-merge-brief --comment`.   |
+| `pre-merge-brief.ruleset.json`                  | A GitHub repository ruleset that marks the workflow's check as a required status check (for the eventual gate). |
+| `.github/harness/ci-pre-merge-brief.md`         | This document (kept off the project `README.md`, which the template never touches).                             |
+
+`harness init` never overwrites a file that already exists (it reports the skip
+instead), and it writes these files into an existing project too.
 
 ## What the brief contains
 
@@ -37,7 +41,7 @@ that never reports and every PR will be blocked indefinitely.
 
 ## Template variables
 
-`harness init` renders `pre-merge-brief.yml.hbs` with three Handlebars variables.
+`harness init` renders `harness-pre-merge-brief.yml.hbs` with three Handlebars variables.
 The engine compiles in strict mode, so all three must be supplied:
 
 | Variable     | Default           | Meaning                                                             |
