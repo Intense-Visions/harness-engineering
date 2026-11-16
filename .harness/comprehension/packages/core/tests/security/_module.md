@@ -1,27 +1,11 @@
 ---
 schemaVersion: 1
-module: 'packages/core/tests/security'
-sourceHash: 'ffcabd71e333042aa27f9bcea8a5a3c5c2e9f01d4658f068a32dc15c68d97e8e'
-compiler: { static: '1.0.0', semantic: '1.0.0' }
+module: "packages/core/tests/security"
+sourceHash: "8f72bfcff91ab93ddaaecd036227f8bcb91b68a31893a60794687f905c0f9cd3"
+compiler: { static: "1.0.0", semantic: "1.0.0" }
 model: null
 semantic: absent
-members:
-  [
-    'config.test.ts',
-    'injection-patterns.test.ts',
-    'integration.test.ts',
-    'osv-client.test.ts',
-    'scan-config-markdown.test.ts',
-    'scan-targets-default-ignore.test.ts',
-    'scan-targets-rust.test.ts',
-    'scanner-fileglob.test.ts',
-    'scanner.test.ts',
-    'secret-reference.test.ts',
-    'security-timeline-manager.test.ts',
-    'stack-detector.test.ts',
-    'taint.test.ts',
-    'types.test.ts',
-  ]
+members: ["config.test.ts", "injection-patterns.test.ts", "integration.test.ts", "osv-client.test.ts", "scan-targets-default-ignore.test.ts", "scan-targets-rust.test.ts", "scanner-fileglob.test.ts", "scanner.test.ts", "secret-reference.test.ts", "security-timeline-manager.test.ts", "stack-detector.test.ts", "taint.test.ts", "types.test.ts"]
 ---
 
 ## Interface Contract
@@ -36,12 +20,11 @@ members:
 import { SecurityConfigSchema, parseSecurityConfig, resolveRuleSeverity } from '../../src/security/config'
 import { InjectionFinding, getInjectionPatterns, scanForInjection } from '../../src/security/injection-patterns'
 import { createOsvClient } from '../../src/security/osv-client'
-import { ScanConfigFinding, findFencedCodeLines, isMarkdownPath, normalizeMarkdownTableRow, suppressMarkdownStructureFindings } from '../../src/security/scan-config-shared'
 import { SECURITY_SCAN_DEFAULT_IGNORE, SECURITY_SCAN_EXTENSIONS, SECURITY_SCAN_GLOB } from '../../src/security/scan-targets'
 import { SecurityScanner, parseHarnessIgnore } from '../../src/security/scanner'
 import { extractQuotedSecretValue, isReferenceOnlySecretValue } from '../../src/security/secret-reference'
 import { SecurityTimelineManager } from '../../src/security/security-timeline-manager'
-import { EMPTY_SUPPLY_CHAIN, SecurityTimelineFile, securityFindingId } from '../../src/security/security-timeline-types'
+import { EMPTY_SUPPLY_CHAIN, SecurityTimelineFile, UNMEASURED_SUPPLY_CHAIN_SCORE_CEILING, isSupplyChainMeasured, securityFindingId } from '../../src/security/security-timeline-types'
 import { detectStack } from '../../src/security/stack-detector'
 import { checkTaint, clearTaint, getTaintFilePath, listTaintedSessions, readTaint, writeTaint } from '../../src/security/taint'
 import { DEFAULT_SECURITY_CONFIG, ScanResult, SecurityCategory, SecurityConfidence, SecurityConfig, SecurityFinding, SecurityRule, SecuritySeverity } from '../../src/security/types'
