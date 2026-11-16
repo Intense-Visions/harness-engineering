@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/src/architecture'
-sourceHash: '238e2a1c6ee61be8a11a7215862b494433ce32d123d2966091ecc1b0311ce4ab'
+sourceHash: '5093ce7868e768b0a096544899b959c99b36eabc60e79cbb97bd565773c2ae1d'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -22,6 +22,7 @@ members:
     'prediction-engine.ts',
     'prediction-types.ts',
     'regression.ts',
+    'sort-results.ts',
     'spec-impact-estimator.ts',
     'sync-constraints.ts',
     'timeline-manager.ts',
@@ -141,6 +142,7 @@ export archModule
 export architecture
 export classifyConfidence
 export clusterViolations
+export compareViolations
 export constraintRuleId
 export defaultCollectors
 export detectEmergentConstraints
@@ -158,6 +160,7 @@ export resolveArchBaseline
 export resolveExcludePatterns
 export resolveThresholds
 export runAll
+export sortMetricResults
 export syncConstraintNodes
 export violationId
 export weeksUntilThreshold

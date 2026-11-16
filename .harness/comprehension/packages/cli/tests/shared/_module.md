@@ -1,12 +1,13 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/tests/shared'
-sourceHash: 'bdfa19e89fe99b6b0fd804d5b79637792eebebad1b572189ba6e423a8964ea4d'
+sourceHash: '306058010b3773336bba67f78ce438ad128b79dfdeab1f7f45955cb0e5198a39'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
 members:
   [
+    'design-scan-targets-order.test.ts',
     'design-scan-targets.test.ts',
     'duplication-baseline.test.ts',
     'duplication-request.test.ts',
@@ -39,5 +40,5 @@ import * as os from 'node:os'
 import * as path from 'node:path'
 import * as os from 'os'
 import * as path from 'path'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 ```

@@ -40,6 +40,7 @@ import {
   withDependencyRules,
   readDependencyRules,
 } from '../architecture';
+import { readResolveWorkspacePackages } from '../architecture/dependency-rules';
 import { GraphStore, queryTraceability, resolveGraphDir } from '@harness-engineering/graph';
 import {
   parseVerdictCacheConfig,
@@ -233,6 +234,9 @@ async function runDepsCheck(
       layers,
       rootDir: projectRoot,
       parser,
+      // `deps.resolveWorkspacePackages` (#2216): follow workspace-package
+      // imports exactly when `check-deps` does, so the two gates agree.
+      resolveWorkspacePackages: readResolveWorkspacePackages(config),
     });
     if (!result.ok) {
       issues.push({ severity: 'error', message: result.error.message });
