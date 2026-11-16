@@ -2,6 +2,9 @@ import { Command } from 'commander';
 import * as path from 'path';
 import { BaselineManager, CriticalPathResolver } from '@harness-engineering/core';
 import { logger } from '../output/logger';
+import { ExitCode } from '../utils/errors';
+import { resolveProject } from '../config/loader';
+import type { HarnessConfig } from '../config/schema';
 
 function registerBenchCommand(perf: Command): void {
   perf
@@ -89,6 +92,20 @@ async function runBaselinesShow(globalOpts: { json?: boolean }): Promise<void> {
   }
 }
 
+/**
+ * Report a `perf` failure in the active output mode and exit non-zero, so a
+ * command that could not do its job never reads as green (#2084). Under
+ * `--json` the error goes to stdout as `{ error }`, as `check-perf` does.
+ */
+function failPerfCommand(json: boolean | undefined, message: string): never {
+  if (json) {
+    console.log(JSON.stringify({ error: message }));
+  } else {
+    logger.error(message);
+  }
+  process.exit(ExitCode.ERROR);
+}
+
 async function runBaselinesUpdate(globalOpts: { json?: boolean }): Promise<void> {
   const cwd = process.cwd();
   const { BenchmarkRunner } = await import('@harness-engineering/core');
@@ -99,10 +116,10 @@ async function runBaselinesUpdate(globalOpts: { json?: boolean }): Promise<void>
   const benchResult = await runner.run({ cwd });
 
   if (!benchResult.success || benchResult.results.length === 0) {
-    logger.error(
+    failPerfCommand(
+      globalOpts.json,
       'No benchmark results to save. Run `harness perf bench` first to verify benchmarks work.'
     );
-    return;
   }
 
   const commitHash = await getCommitHash(cwd);
@@ -143,24 +160,53 @@ async function getCommitHash(cwd: string): Promise<string> {
   }
 }
 
+/**
+ * Entry points the perf analysis should start from, read the same way
+ * `check-perf` reads them: `performance.entryPoints` first, then
+ * `entropy.entryPoints`, else `undefined` so auto-detection still runs. On a
+ * monorepo root auto-detection fails ("Could not resolve entry points"), so
+ * ignoring the configured value made `perf report` unable to run here at all.
+ * PR #2501 moves check-perf's copy of this rule into `config/perf-scope.ts`;
+ * once it lands both commands should share that one resolver.
+ */
+function configuredPerfEntryPoints(config: HarnessConfig): string[] | undefined {
+  const fromPerformance = (config.performance as { entryPoints?: unknown } | undefined)
+    ?.entryPoints;
+  if (Array.isArray(fromPerformance) && fromPerformance.length > 0) {
+    return fromPerformance.filter((e): e is string => typeof e === 'string');
+  }
+  const fromEntropy = config.entropy?.entryPoints;
+  if (Array.isArray(fromEntropy) && fromEntropy.length > 0) return fromEntropy;
+  return undefined;
+}
+
 function registerReportCommand(perf: Command): void {
   perf
     .command('report')
     .description('Full performance report with metrics, trends, and hotspots')
     .action(async (_opts, cmd) => {
       const globalOpts = cmd.optsWithGlobals();
-      const cwd = process.cwd();
+
+      // Root the analysis on the project that owns the config and read its
+      // entry points from that same config, as `check-perf` does. A `-c` that
+      // cannot be loaded is an error, never a silent fall back to cwd.
+      const project = resolveProject(globalOpts.config);
+      if (!project.ok && globalOpts.config !== undefined) {
+        failPerfCommand(globalOpts.json, project.error.message);
+      }
+      const root = project.ok ? project.value.root : process.cwd();
+      const entryPoints = project.ok ? configuredPerfEntryPoints(project.value.config) : undefined;
 
       const { EntropyAnalyzer } = await import('@harness-engineering/core');
       const analyzer = new EntropyAnalyzer({
-        rootDir: path.resolve(cwd),
+        rootDir: path.resolve(root),
+        ...(entryPoints && { entryPoints }),
         analyze: { complexity: true, coupling: true },
       });
 
       const result = await analyzer.analyze();
       if (!result.ok) {
-        logger.error(result.error.message);
-        return;
+        failPerfCommand(globalOpts.json, result.error.message);
       }
 
       const report = result.value;
