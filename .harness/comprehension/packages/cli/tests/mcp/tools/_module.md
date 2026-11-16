@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/tests/mcp/tools'
-sourceHash: '092e2a0b5ee953eaa567089aa39e8c67273d2609aae408bcaa4e95219d07021e'
+sourceHash: '79e4b306b40d70713355d42e4606767c83378a9a696786d5efbfcea60075d599'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -16,6 +16,7 @@ members:
     'architecture-skipped-abstention.test.ts',
     'architecture.test.ts',
     'assess-project-cov544.test.ts',
+    'assess-project-entropy.test.ts',
     'assess-project-error-handling.test.ts',
     'assess-project.test.ts',
     'auto-decision.test.ts',
@@ -92,7 +93,6 @@ members:
     'roadmap.test.ts',
     'search-skills.test.ts',
     'security-craft.test.ts',
-    'security-record.test.ts',
     'skill-progressive-loading.test.ts',
     'skill-proposal.test.ts',
     'skill-telemetry.test.ts',

@@ -376,8 +376,20 @@ describe('runHealthChecks', () => {
           {
             type: 'text',
             text: JSON.stringify({
-              deadCode: { unusedExports: ['a', 'b'], unusedImports: [], deadFiles: ['x.ts'] },
-              drift: { staleReferences: ['ref1'], missingTargets: [] },
+              // The real EntropyReport shape (core entropy/types): drift lives
+              // in `drift.drifts`, dead exports in `deadCode.deadExports`. The
+              // old stub used phantom `unusedExports` / `staleReferences` /
+              // `missingTargets` and passed against the bug (#2550).
+              deadCode: {
+                deadExports: [
+                  { file: 'a.ts', name: 'a' },
+                  { file: 'b.ts', name: 'b' },
+                ],
+                deadFiles: [{ path: 'x.ts' }],
+                deadInternals: [],
+                unusedImports: [],
+              },
+              drift: { drifts: [{ type: 'api-signature', docFile: 'README.md' }] },
             }),
           },
         ],
@@ -696,8 +708,8 @@ describe('captureHealthSnapshot', () => {
           {
             type: 'text',
             text: JSON.stringify({
-              deadCode: { unusedExports: ['a'], deadFiles: [] },
-              drift: { staleReferences: ['r1'], missingTargets: [] },
+              deadCode: { deadExports: [{ file: 'a.ts', name: 'a' }], deadFiles: [] },
+              drift: { drifts: [{ type: 'api-signature', docFile: 'README.md' }] },
             }),
           },
         ],
