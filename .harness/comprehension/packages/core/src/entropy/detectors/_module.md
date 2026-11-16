@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/src/entropy/detectors'
-sourceHash: '02e566897f997fc73b8ac64940a63b41eddb08f1bd57e16a3f2c76144b34d6c1'
+sourceHash: 'e8034a34db1aec7cb609d6e0960b9075b79bc12d9c8ad950f5c92230b68d84cd'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -46,7 +46,7 @@ import { CodebaseSnapshot, ComplexityConfig, ComplexityReport, ComplexityViolati
 import { collectDeclaredNames, resolveReferenceName } from './drift-symbols'
 import { DEFAULT_SKIP_DIRS } from '@harness-engineering/graph'
 import { minimatch } from 'minimatch'
-import { readdirSync, statSync } from 'node:fs'
+import { readFileSync, readdirSync, statSync } from 'node:fs'
 import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { basename, dirname, extname, resolve } from 'path'
