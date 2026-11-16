@@ -51,10 +51,10 @@ For each changed file, use graph traversal to find test files:
    → tests: ["tests/services/auth.test.ts", "tests/integration/auth-flow.test.ts"]
    ```
 
-2. **Transitive test coverage**: Use `query_graph` with depth 2 to find tests that import files that import the changed file.
+2. **Transitive test coverage**: Use `query_graph` with depth 3 to find tests that import files that import the changed file. `imports` edges include re-exports (`export … from`), so a test reached only through a barrel or re-export hub — `mermaid.ts → parsers/index.ts → DiagramParser.ts ← DiagramParser.test.ts` is three hops — is found here; depth 2 misses it.
 
    ```
-   query_graph(rootNodeIds=["file:src/services/auth.ts"], maxDepth=2, includeEdges=["imports"], bidirectional=true)
+   query_graph(rootNodeIds=["file:src/services/auth.ts"], maxDepth=3, includeEdges=["imports"], bidirectional=true)
    ```
 
 3. **Co-change tests**: Check `co_changes_with` edges for test files that historically change alongside the modified files.
@@ -68,10 +68,11 @@ When no graph is available, use naming conventions, import parsing, and git hist
    - `__tests__/foo.ts`, `__tests__/foo.test.ts`
    - Test files in a parallel `tests/` directory mirroring the source path
 2. **Tier 2 — Import-linked tests**: Parse test files' import statements (grep for `import.*from` in `*.test.*` and `*.spec.*` files). If a test file imports the changed file, it belongs in Tier 2 (if not already in Tier 1).
+   - **Follow re-export chains, regardless of filename.** A test that imports a module which re-exports the changed file (`export { X } from`, `export * from`) covers it — and that module need not be called `index.*`. Find every file whose `export … from` resolves to the changed file, then every file that re-exports _those_, and so on; a test importing any file in that set is Tier 2. Keep a visited set (re-export cycles exist) and stop after 5 hops. Never key on the imported basename alone: `DiagramParser.test.ts` covers `parsers/mermaid.ts` via `DiagramParser.ts → parsers/index.ts → mermaid.ts` even though no `mermaid.test.ts` exists.
 3. **Tier 3 — Co-change correlated tests**: Use `git log --format="%H" --name-only` to find test files that frequently change in the same commit as the target file. Files that co-change in >2 commits are co-change correlated.
 4. **Rank**: Tier 1 = direct filename match, Tier 2 = import-linked tests, Tier 3 = co-change correlated tests. Output the same tiered format as the graph version.
 
-> Fallback completeness: ~80% — naming conventions and imports catch most mappings; misses dynamic imports and indirect coverage.
+> Fallback completeness: ~80% — naming conventions, imports, and re-export chains catch most mappings; misses dynamic imports and subprocess execution (a test that `spawnSync`s the built CLI exercises modules it never imports — report such a module as "covered by subprocess test, unattributed" rather than as a gap).
 
 ### Phase 3: PRIORITIZE — Rank and Generate Commands
 

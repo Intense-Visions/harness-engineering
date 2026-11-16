@@ -21,6 +21,13 @@ export const SupplyChainSnapshotSchema = z.object({
   low: z.number(),
   info: z.number(),
   total: z.number(),
+  /**
+   * Whether a dependency audit actually ran and produced these counts (#2082).
+   * Additive and optional so legacy snapshots still parse; an absent value means
+   * "not measured" — all-zero counts without `measured: true` are an abstention,
+   * never a clean bill. Read it through {@link isSupplyChainMeasured}.
+   */
+  measured: z.boolean().optional(),
 });
 
 export type SupplyChainSnapshot = z.infer<typeof SupplyChainSnapshotSchema>;
@@ -147,6 +154,7 @@ export function securityFindingId(finding: {
 
 // --- Empty/default constructors ---
 
+/** Zero counts with no measurement behind them — the "audit did not run" value. */
 export const EMPTY_SUPPLY_CHAIN: SupplyChainSnapshot = {
   critical: 0,
   high: 0,
@@ -154,4 +162,22 @@ export const EMPTY_SUPPLY_CHAIN: SupplyChainSnapshot = {
   low: 0,
   info: 0,
   total: 0,
+  measured: false,
 };
+
+/**
+ * True only when the supply-chain counts came from an audit that ran. Legacy
+ * snapshots (no `measured` field) read as unmeasured: before #2082 no caller
+ * ever passed audit data, so their all-zero counts were never a measurement.
+ */
+export function isSupplyChainMeasured(supplyChain: SupplyChainSnapshot): boolean {
+  return supplyChain.measured === true;
+}
+
+/**
+ * Highest securityScore a snapshot can reach while its supply-chain dimension
+ * is unmeasured. The score is penalty-only, so an unmeasured dimension would
+ * otherwise contribute zero penalty and be credited as clean; withholding
+ * these points keeps "never audited" from scoring as "audited and clean".
+ */
+export const UNMEASURED_SUPPLY_CHAIN_SCORE_CEILING = 90;
