@@ -1,13 +1,14 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/tests/integration'
-sourceHash: 'a0dbe3227c7bfa03e69d561a940b818434120be50edae778712d09b83b490c72'
+sourceHash: '4b9b9a60577885fead04df1a8dc1b35fc78f65edfb44fcefb6fdd6918c318897'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
 members:
   [
     'autopilot-skill-hooks.test.ts',
+    'check-deps-exit-code.e2e.test.ts',
     'cleanup-duplication-exit-code.e2e.test.ts',
     'cli.test.ts',
     'community-skill-discovery.test.ts',
