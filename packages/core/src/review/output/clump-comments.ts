@@ -16,6 +16,11 @@
 //     is already reading. Grouping a critical would trade that away.
 //   - `suggestion` — the floor's natural target — groups into ONE comment per
 //     (scope, kind), naming every member with its file and line.
+//   - EXCEPT a sub-floor finding carrying a COMMITTABLE suggestion
+//     (`isSmallSuggestion`, the same gate `formatGitHubComment` renders the
+//     ```suggestion``` block on). GitHub applies that block only at the line its
+//     comment is anchored to, so grouping it would strip the one-click fix
+//     unrecoverably — and precisely where it is cheapest to apply (#2476).
 //
 // NOT dedup. `deduplicate-findings.ts:153` merges findings whose line ranges
 // overlap within 3 lines — restatements of ONE finding. This groups DISTINCT
@@ -25,8 +30,8 @@
 import { formClumps, resolveFloor, scopeOfPath, withOrdinals } from '../../fleet/clumping';
 import type { Clump, ClumpPolicy, ClumpableItem } from '../../fleet/clumping';
 import { SEVERITY_RANK } from '../constants';
-import type { GitHubInlineComment, ReviewFinding } from '../types';
-import { formatGitHubComment, sanitizeMarkdown } from './format-github';
+import type { ClumpedCommentReport, GitHubInlineComment, ReviewFinding } from '../types';
+import { formatGitHubComment, isSmallSuggestion, sanitizeMarkdown } from './format-github';
 
 /**
  * Severity dominates; trust score breaks ties within a severity band.
@@ -91,6 +96,11 @@ function lineLabel(finding: ReviewFinding): string {
  * alone, because the author can no longer act on any of them. The anchor goes
  * on the heaviest member (members are weight-desc, id-asc), so the comment
  * still lands on a line in the diff.
+ *
+ * The body SAYS which file the anchor is on. Members of one clump never share a
+ * file (`conflictKeys: [file]` makes same-file members conflict), so every
+ * other member's line carries no marker in the diff, and a reader scanning the
+ * diff for markers would otherwise miss that those lines were reviewed.
  */
 export function formatClumpComment(
   clump: Clump,
@@ -105,6 +115,10 @@ export function formatClumpComment(
       `so they cost one read rather than ${members.length}. Each is listed with its own location:`,
     '',
   ];
+  const tail: string[] = [
+    '',
+    `_This comment is anchored on \`${head.file}\`; the other members' lines carry no marker in the diff._`,
+  ];
   for (const item of members) {
     // Keyed by the ITEM id, not the finding id: the item id carries the
     // occurrence ordinal that makes a repeated `finding.id` distinguishable, so
@@ -118,7 +132,7 @@ export function formatClumpComment(
       `- \`${member.file}:${lineLabel(member)}\` — ${sanitizeMarkdown(member.title)}${suffix}`
     );
   }
-  lines.push('', `<!-- harness-clump: ${clump.id} -->`);
+  lines.push(...tail, '', `<!-- harness-clump: ${clump.id} -->`);
   return {
     path: head.file,
     line: head.lineRange[1],
@@ -127,25 +141,10 @@ export function formatClumpComment(
   };
 }
 
-/** What the grouping did, so a caller can report it instead of guessing. */
-export interface ClumpedCommentReport {
-  /** Findings handed in. */
-  findings: number;
-  /** Comments emitted. */
-  comments: number;
-  /** Findings that kept their own anchored comment (above the floor, or solo). */
-  individual: number;
-  /** Clumps emitted. */
-  clumps: number;
-  /** Findings folded into a clump. */
-  grouped: number;
-  /** Sub-floor findings whose conflict keys were all inside the touched set (D4). */
-  act: number;
-  /** Sub-floor findings that fell outside it, or ran with no touched set. */
-  file: number;
-  /** Groups past `maxClumps`, degraded back to individual comments rather than dropped. */
-  overCapFindings: number;
-}
+// `ClumpedCommentReport` lives in `../types/output` so `ReviewPipelineResult`
+// can carry it (#2476) without the types module importing the formatter (and,
+// through it, the clumping control). Re-exported here for existing importers.
+export type { ClumpedCommentReport } from '../types';
 
 export interface ClumpedCommentResult {
   comments: GitHubInlineComment[];
@@ -190,10 +189,18 @@ export function formatClumpedComments(
   const resolutions = new Map<string, string>();
   let act = 0;
   let file = 0;
+  let committable = 0;
   for (const { item: finding, ordinal } of numbered) {
     const item = toClumpableFinding(finding, ordinal);
     const verdict = resolveFloor(item, ctx, policy);
     if (!verdict.below) continue;
+    // A committable suggestion keeps its anchor: GitHub applies the block only
+    // at the anchored line, so it is not a candidate. The complement loop below
+    // emits it individually because it is never a clump member.
+    if (isSmallSuggestion(finding.suggestion)) {
+      committable += 1;
+      continue;
+    }
     if (verdict.resolution === 'act') act += 1;
     else file += 1;
     resolutions.set(item.id, `${verdict.resolution}: ${verdict.reason}`);
@@ -239,6 +246,7 @@ export function formatClumpedComments(
       grouped: result.counts.clumped,
       act,
       file,
+      committable,
       overCapFindings: result.overCap.length,
     },
   };

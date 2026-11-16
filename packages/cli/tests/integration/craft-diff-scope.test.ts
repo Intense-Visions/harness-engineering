@@ -55,9 +55,9 @@ describe('a hook-triggered craft run critiques only files in the diff (criterion
     );
     expect(plan.files['code-craft']).toEqual(changed);
 
-    // THE HOST CONTRACT: resolve to absolute before forwarding. Measured: the
-    // relative form yields status "collected" with ZERO prompts — a clean
-    // report from a run that read nothing (pinned by M-RELATIVE below).
+    // THE HOST CONTRACT: resolve to absolute before forwarding. A relative
+    // entry is also resolved against `path` since #2571 (pinned by M-RELATIVE
+    // below); before that it read nothing and reported a clean pass.
     const files = plan.files['code-craft'].map((f) => path.join(root, f));
     const out = await collectCodeCraftPrompts({ path: root, siblings: false, files });
 
@@ -81,11 +81,10 @@ describe('a hook-triggered craft run critiques only files in the diff (criterion
     }
   });
 
-  // M-FILES and M-RELATIVE are written as ASSERTIONS ABOUT THE BROKEN
-  // BEHAVIOUR rather than as source mutations, because the mutation target is
-  // the HOST'S PROSE INSTRUCTION — there is no production code path to mutate.
-  // Each asserts the exact failure a wrong host instruction produces, so each
-  // goes red if the collector's behaviour changes under it.
+  // M-FILES is written as an ASSERTION ABOUT THE BROKEN BEHAVIOUR rather than
+  // as a source mutation, because the mutation target is the HOST'S PROSE
+  // INSTRUCTION — there is no production code path to mutate. It asserts the
+  // exact failure a wrong host instruction produces.
   it('M-FILES: dropping the files forwarding admits an out-of-diff file', async () => {
     const out = await collectCodeCraftPrompts({ path: root, siblings: false });
     expect(out.pendingPrompts.length).toBeGreaterThan(0);
@@ -93,15 +92,22 @@ describe('a hook-triggered craft run critiques only files in the diff (criterion
     expect(rel).toContain(path.join('src', 'out-of-diff.ts'));
   });
 
-  it('M-RELATIVE: forwarding repo-relative paths unresolved reads nothing', async () => {
+  it('M-RELATIVE: a repo-relative entry resolves against `path`, never the process cwd (#2571)', async () => {
+    // This used to pin the silent zero: the collector read a relative entry
+    // against process.cwd(), swallowed the ENOENT and reported status
+    // "collected" with ZERO prompts. It now reads the same file the absolute
+    // form does, so a host that forgets to resolve still gets a real run.
+    expect(fs.existsSync(path.resolve(process.cwd(), 'src', 'in-diff.ts'))).toBe(false);
     const out = await collectCodeCraftPrompts({
       path: root,
       siblings: false,
       files: ['src/in-diff.ts'],
     });
-    // The shape of the silent zero this phase's host contract exists to
-    // prevent: a confident clean pass from a run that opened no file.
     expect(out.status).toBe('collected');
-    expect(out.pendingPrompts.length).toBe(0);
+    expect(out.pendingPrompts.length).toBeGreaterThan(0);
+    const toPosix = (rel: string): string => rel.split(path.sep).join('/');
+    expect(promptFiles(out.runFile as string).map((f) => toPosix(path.relative(root, f)))).toEqual([
+      'src/in-diff.ts',
+    ]);
   });
 });

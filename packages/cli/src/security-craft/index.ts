@@ -37,6 +37,7 @@ import type {
   SecuritySignal,
 } from './findings/schema.js';
 import { craftClumpView } from '../shared/craft/findings/clumpable.js';
+import { resolveScopedFiles } from '../shared/craft/extract/scoped-files.js';
 
 export type SecurityCraftMode = 'inline' | 'in-session';
 
@@ -402,7 +403,7 @@ export async function critiqueSecurityInFile(
 
 function collectFiles(projectRoot: string, input: SecurityCraftInput): string[] {
   if (input.files !== undefined && input.files.length > 0) {
-    return [...input.files];
+    return resolveScopedFiles(projectRoot, input.files);
   }
   return discoverSourceFiles(projectRoot, input.packages);
 }

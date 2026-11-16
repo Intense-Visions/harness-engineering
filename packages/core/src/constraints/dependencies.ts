@@ -14,6 +14,7 @@ import type {
   UnparsedFile,
 } from './types';
 import { resolveFileToLayer } from './layers';
+import { loadWorkspacePackages, resolveWorkspaceSpecifier } from './workspace-packages';
 import { findFiles, fileExists, relativePosix } from '../shared/fs-utils';
 import { dirname, resolve, extname } from 'path';
 
@@ -184,6 +185,13 @@ export interface ParsedFileImports {
 }
 
 /**
+ * Resolves a bare (non-relative) import specifier to an absolute file path, or
+ * `null` to drop the import. Used to follow workspace-package imports (#2216);
+ * absent, bare specifiers are dropped exactly as before.
+ */
+export type BareSpecifierResolver = (specifier: string) => Promise<string | null>;
+
+/**
  * Build a dependency graph from files whose imports are ALREADY extracted.
  *
  * {@link buildDependencyGraph} re-parses every file it is given. A caller that
@@ -199,13 +207,16 @@ export interface ParsedFileImports {
  */
 export async function buildDependencyGraphFromParsed(
   nodes: string[],
-  parsed: ParsedFileImports[]
+  parsed: ParsedFileImports[],
+  resolveBareSpecifier?: BareSpecifierResolver
 ): Promise<DependencyGraph> {
   const edges: DependencyEdge[] = [];
   for (const file of parsed) {
     const normalizedFile = file.path.replace(/\\/g, '/');
     for (const imp of file.imports) {
-      const resolvedPath = await resolveImportPath(imp.source, file.path, '');
+      const resolvedPath =
+        (await resolveImportPath(imp.source, file.path, '')) ??
+        (resolveBareSpecifier ? await resolveBareSpecifier(imp.source) : null);
       if (resolvedPath) {
         edges.push({
           from: normalizedFile,
@@ -246,7 +257,8 @@ function isSourceFileFor(parser: LanguageParser, file: string): boolean {
 export async function buildDependencyGraph(
   files: string[],
   parser: LanguageParser | ParserLookup,
-  graphDependencyData?: GraphDependencyData
+  graphDependencyData?: GraphDependencyData,
+  resolveBareSpecifier?: BareSpecifierResolver
 ): Promise<Result<DependencyGraph, ConstraintError>> {
   // When graph data is provided, use it directly
   if (graphDependencyData) {
@@ -312,7 +324,7 @@ export async function buildDependencyGraph(
 
   // Nodes are every file handed in, parsed or not — unchanged from when this
   // loop built them inline.
-  const graph = await buildDependencyGraphFromParsed(files, parsed);
+  const graph = await buildDependencyGraphFromParsed(files, parsed, resolveBareSpecifier);
   return Ok({
     ...graph,
     analyzedFiles,
@@ -380,6 +392,24 @@ function parserUnavailableReason(
 }
 
 /**
+ * A {@link BareSpecifierResolver} over the workspace packages under `rootDir`,
+ * memoised per specifier — a monorepo imports the same few packages thousands
+ * of times.
+ */
+async function workspaceSpecifierResolver(rootDir: string): Promise<BareSpecifierResolver> {
+  const packages = await loadWorkspacePackages(rootDir);
+  const cache = new Map<string, Promise<string | null>>();
+  return (specifier) => {
+    let hit = cache.get(specifier);
+    if (!hit) {
+      hit = resolveWorkspaceSpecifier(specifier, packages);
+      cache.set(specifier, hit);
+    }
+    return hit;
+  };
+}
+
+/**
  * Validate dependencies against layer rules
  */
 export async function validateDependencies(
@@ -392,6 +422,7 @@ export async function validateDependencies(
     fallbackBehavior = 'error',
     graphDependencyData,
     extraIgnore,
+    resolveWorkspacePackages = false,
   } = config;
 
   // When graph data is provided, skip parser health check and file collection
@@ -462,8 +493,14 @@ export async function validateDependencies(
   // Deduplicate
   const uniqueFiles = [...new Set(allFiles)];
 
-  // Build dependency graph
-  const graphResult = await buildDependencyGraph(uniqueFiles, parser);
+  // Build dependency graph. Workspace-package imports become edges only when
+  // the project opts in (#2216); otherwise bare specifiers are dropped as before.
+  const graphResult = await buildDependencyGraph(
+    uniqueFiles,
+    parser,
+    undefined,
+    resolveWorkspacePackages ? await workspaceSpecifierResolver(rootDir) : undefined
+  );
   if (!graphResult.ok) {
     return Err(graphResult.error);
   }

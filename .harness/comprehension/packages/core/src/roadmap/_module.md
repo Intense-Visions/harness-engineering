@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/src/roadmap'
-sourceHash: '4831fb243296ceaad4b7c4f93d7a14045d2c3703c20e20820ef50c3978809990'
+sourceHash: '8ce5988cd200382a63b1ee93b9cf4bf8a68b568d8aed41c23239ebb5586e9a7a'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -167,7 +167,7 @@ import * as eventSourcing from '../state/event-sourcing'
 import { emitRoadmapClaim, emitRoadmapRelease, emitRoadmapStatusChange } from '../waypoint/events'
 import { assigneeInvariantHolds, isMachineAssignee, setStatus } from './assignee-lifecycle'
 import { ASSIGNMENT_HISTORY_HEADING, parseAssignmentHistory, serializeAssignmentHistory } from './assignment-history'
-import { BlockerResolutionOptions, createBlockerResolver, isPilotStatus } from './blocker-resolution'
+import { BlockerReferenceResolver, BlockerResolutionOptions, createBlockerReferenceResolver, createBlockerResolver, isPilotStatus } from './blocker-resolution'
 import { deriveRepoFromGitRemote } from './derive-repo'
 import { GROUP_PREFIX, matchFeatureHeadings, serializeFeatureHeading } from './heading'
 import { decodeListField, encodeListField } from './list-field'

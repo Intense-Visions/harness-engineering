@@ -3,7 +3,13 @@
 import type { EvidenceCoverageReport, MechanicalCheckResult } from './mechanical';
 import type { ContextBundle, DiffInfo, GraphAdapter } from './context';
 import type { ReviewFinding } from './fan-out';
-import type { GitHubInlineComment, PrMetadata, ReviewAssessment, ReviewStrength } from './output';
+import type {
+  ClumpedCommentReport,
+  GitHubInlineComment,
+  PrMetadata,
+  ReviewAssessment,
+  ReviewStrength,
+} from './output';
 
 /**
  * Configuration mapping abstract model tiers to concrete model identifiers.
@@ -164,6 +170,13 @@ export interface ReviewPipelineResult {
   terminalOutput: string;
   /** GitHub inline comments (empty if --comment not set) */
   githubComments: GitHubInlineComment[];
+  /**
+   * What Phase 7's comment grouping did — findings in, comments out, clumps,
+   * grouped, kept-for-a-committable-suggestion (#2476). Present exactly when
+   * `githubComments` was formed (`--comment`); absent otherwise. Without it a
+   * comment count that drops from 20 to 1 is unexplained.
+   */
+  githubCommentReport?: ClumpedCommentReport;
   /** Process exit code */
   exitCode: number;
   /** Mechanical check result (for reporting) */

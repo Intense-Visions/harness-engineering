@@ -38,6 +38,7 @@ import {
   determineAssessment,
   getExitCode,
 } from './output';
+import type { ClumpedCommentReport } from './output';
 import { checkEvidenceCoverage, tagUncitedFindings } from './evidence-gate';
 import { computeTrustScores } from './trust-score';
 import { readSessionSection } from '../state/session-sections';
@@ -408,12 +409,18 @@ export async function runReviewPipeline(
   // (`config` is the raw object `harness agent review` already passes in), so an
   // adopter tunes the cap without a code change. An absent block resolves to
   // `{}`, which is byte-identical to the pre-Phase-6 call.
+  //
+  // The report travels WITH the comments (#2476): it is what explains a comment
+  // count far below the finding count, and it used to be dropped right here.
   let githubComments: GitHubInlineComment[] = [];
+  let githubCommentReport: ClumpedCommentReport | undefined;
   if (flags.comment) {
-    githubComments = formatClumpedComments(dedupedFindings, {
+    const clumped = formatClumpedComments(dedupedFindings, {
       touched: diff.changedFiles,
       policy: resolveSeamClumpPolicy(clumpingFromConfig(config), 'review'),
-    }).comments;
+    });
+    githubComments = clumped.comments;
+    githubCommentReport = clumped.report;
   }
 
   return {
@@ -424,6 +431,7 @@ export async function runReviewPipeline(
     strengths,
     terminalOutput,
     githubComments,
+    ...(githubCommentReport != null ? { githubCommentReport } : {}),
     exitCode,
     depthCalibration,
     integrityReport,
