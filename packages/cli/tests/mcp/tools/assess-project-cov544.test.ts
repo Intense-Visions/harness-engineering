@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import * as path from 'path';
 
 // Mock every sub-tool the composite delegates to, so we can drive the
 // populated / error / detailed branches of each check deterministically.
@@ -181,8 +182,10 @@ describe('handleAssessProject check branches (cov544)', () => {
       )
     );
     await handleAssessProject({ path: PATH, checks: ['entropy'] });
+    // The product resolves the input to an absolute native path (sanitizePath),
+    // so on win32 '/tmp/x' becomes 'D:\\tmp\\x' — compare against the same resolution.
     expect(handleDetectEntropy).toHaveBeenCalledWith({
-      path: PATH,
+      path: path.resolve(PATH),
       type: 'all',
       mode: 'summary',
     });
