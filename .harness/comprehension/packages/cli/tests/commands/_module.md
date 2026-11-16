@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/tests/commands'
-sourceHash: '064375c83fdcc8557116cb4de2142f7ecee328d7f5f9a6b0f0402c5335b634bd'
+sourceHash: '1ee288dfafb811a579053f2da0aa81f8b2c777ad00bb9c869fe800ca5ffea85d'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -86,6 +86,7 @@ members:
     'fix-drift-cov544.test.ts',
     'fix-drift.test.ts',
     'generate-agent-definitions-cov544b.test.ts',
+    'generate-agent-definitions-links.test.ts',
     'generate-agent-definitions.test.ts',
     'generate-slash-commands-cov544.test.ts',
     'generate-slash-commands.test.ts',
