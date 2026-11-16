@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/code-craft/extract'
-sourceHash: 'cdb179b6fda01eb200da19676595507f1837670510c60d467d06c36889a73e76'
+sourceHash: '562950b13f50fc9fc1f415d857f81b00562f874d9135b97f6efaa4a2f02e568a'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -12,6 +12,7 @@ members: ['discover.ts', 'siblings.ts', 'units.ts']
 
 ```ts
 export buildCodeCraftCloneIndex
+export buildCodeCraftCloneIndexOutcome
 export discoverSourceFiles
 export extractCodeUnits
 export extractUnits

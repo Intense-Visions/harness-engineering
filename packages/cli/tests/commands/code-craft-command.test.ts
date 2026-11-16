@@ -10,7 +10,11 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { createCodeCraftCommand } from '../../src/commands/code-craft';
 import { runCodeCraft } from '../../src/code-craft/index.js';
 import type { CodeCraftInput } from '../../src/code-craft/index.js';
-import type { CodeCraftOutput, CodeFinding } from '../../src/code-craft/findings/schema.js';
+import type {
+  CodeCraftOutput,
+  CodeFinding,
+  SiblingIndexOutcome,
+} from '../../src/code-craft/findings/schema.js';
 import {
   runCraftCommand,
   DEFAULT_CWD,
@@ -180,6 +184,54 @@ describe('code-craft command', () => {
       // pass against an empty report, proving nothing about the verbose gate.
       expect(result.stdoutText).toContain('  CODE-R001 [polish/medium/high]');
       expect(result.stdoutText).not.toContain('source:');
+    });
+
+    describe('sibling-evidence line', () => {
+      function withSiblingIndex(siblingIndex: SiblingIndexOutcome): CodeCraftOutput {
+        const out = output([]);
+        return { ...out, summary: { ...out.summary, siblingIndex } };
+      }
+
+      it('reports the class count and incidence when the clone index built', async () => {
+        engineReturns(withSiblingIndex({ status: 'built', classes: 4, unitsWithSiblings: 2 }));
+        const result = await run([]);
+        expect(result.stdout.at(-1)).toBe(
+          'Sibling evidence: clone index built (4 clone classes); 2 critiqued units carried sibling evidence.'
+        );
+        expect(result.exitCode).toBe(0);
+      });
+
+      it('says a failed build is NOT a no-duplication result, with the reason, and still exits 0', async () => {
+        engineReturns(
+          withSiblingIndex({ status: 'failed', reason: 'zero-files-discovered: refusing' })
+        );
+        const result = await run([]);
+        expect(result.stdout.at(-1)).toBe(
+          'Sibling evidence: UNAVAILABLE — clone index failed (zero-files-discovered: refusing). ' +
+            'The critique ran without duplication evidence; this is not a "no duplication" result.'
+        );
+        // Advisory: a failed index never changes the exit code.
+        expect(result.exitCode).toBe(0);
+      });
+
+      it('reports an empty discovery with its reason', async () => {
+        engineReturns(withSiblingIndex({ status: 'empty', reason: 'no source files discovered' }));
+        expect((await run([])).stdout.at(-1)).toBe(
+          'Sibling evidence: UNAVAILABLE — clone index empty (no source files discovered).'
+        );
+      });
+
+      it('reports an opted-out run as disabled', async () => {
+        engineReturns(withSiblingIndex({ status: 'disabled', reason: 'siblings: false' }));
+        expect((await run([])).stdout.at(-1)).toBe('Sibling evidence: disabled (siblings: false).');
+      });
+
+      it('prints no sibling line for a summary that carries no outcome', async () => {
+        engineReturns(output([]));
+        const result = await run([]);
+        expect(result.stdout.at(-1)).toMatch(/^Summary: /);
+        expect(result.stdoutText).not.toContain('Sibling evidence');
+      });
     });
 
     it('adds the rubric citation under --verbose', async () => {

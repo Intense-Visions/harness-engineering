@@ -34,7 +34,11 @@ import {
 import type { CloneClass, CloneIndex, CloneMember } from '@harness-engineering/core';
 import { discoverSourceFiles } from './extract/discover.js';
 import { extractCodeUnits } from './extract/units.js';
-import { buildCodeCraftCloneIndex, resolveSiblingEvidence } from './extract/siblings.js';
+import {
+  buildCodeCraftCloneIndexOutcome,
+  resolveSiblingEvidence,
+  type CloneIndexBuildOutcome,
+} from './extract/siblings.js';
 import { SEED_RUBRICS, rubricApplies, type CodeRubric } from './catalog/rubrics/index.js';
 import { SEED_EXEMPLARS } from './catalog/exemplars/index.js';
 import {
@@ -43,8 +47,14 @@ import {
   parseFindingFromRaw,
   CRITIQUE_SYSTEM_PROMPT,
 } from './phases/critique.js';
-import type { CodeCraftOutput, CodeFinding, CodeUnit } from './findings/schema.js';
+import type {
+  CodeCraftOutput,
+  CodeFinding,
+  CodeUnit,
+  SiblingIndexOutcome,
+} from './findings/schema.js';
 import { craftClumpView } from '../shared/craft/findings/clumpable.js';
+import { resolveScopedFiles } from '../shared/craft/extract/scoped-files.js';
 
 export type CodeCraftMode = 'inline' | 'in-session';
 
@@ -76,20 +86,57 @@ export interface CodeCraftInput {
 interface SiblingContext {
   index: CloneIndex;
   projectRoot: string;
+  /**
+   * Critiqued units whose lookup resolved siblings, counted once per UNIT by
+   * {@link resolveUnitSiblings} (never per rubric) — the run's incidence.
+   */
+  unitsWithSiblings: number;
+}
+
+/** The run's sibling channel: the context to critique with, and its outcome. */
+interface SiblingRun {
+  ctx: SiblingContext | undefined;
+  outcome: CloneIndexBuildOutcome | { status: 'disabled'; reason: string };
 }
 
 /**
- * Build the run's sibling context, or `undefined` when siblings are off or the
- * index could not be built. Called ONCE per run, outside every loop — the NFR
- * target, asserted structurally rather than by wall clock.
+ * Build the run's sibling channel. `ctx` is `undefined` when siblings are off
+ * or the index could not be built, and `outcome` says which. Called ONCE per
+ * run, outside every loop — the NFR target, asserted structurally rather than
+ * by wall clock. Never rejects: the index is advisory evidence, so a build
+ * that fails degrades the run rather than failing it.
  */
-async function resolveSiblingContext(
-  projectRoot: string,
-  input: CodeCraftInput
-): Promise<SiblingContext | undefined> {
-  if (input.siblings === false) return undefined;
-  const index = input.__testCloneIndex ?? (await buildCodeCraftCloneIndex(projectRoot));
-  return index === undefined ? undefined : { index, projectRoot };
+async function resolveSiblingRun(projectRoot: string, input: CodeCraftInput): Promise<SiblingRun> {
+  if (input.siblings === false) {
+    return {
+      ctx: undefined,
+      outcome: { status: 'disabled', reason: 'siblings: false was passed for this run' },
+    };
+  }
+  const built =
+    input.__testCloneIndex !== undefined
+      ? {
+          index: input.__testCloneIndex,
+          outcome: { status: 'built', classes: input.__testCloneIndex.classes.length } as const,
+        }
+      : await buildCodeCraftCloneIndexOutcome(projectRoot);
+  return {
+    ctx:
+      built.index === undefined
+        ? undefined
+        : { index: built.index, projectRoot, unitsWithSiblings: 0 },
+    outcome: built.outcome,
+  };
+}
+
+/** The summary's `siblingIndex`, with the incidence the run counted. */
+function siblingIndexSummary(run: SiblingRun): SiblingIndexOutcome {
+  if (run.outcome.status !== 'built') return run.outcome;
+  return {
+    status: 'built',
+    classes: run.outcome.classes,
+    unitsWithSiblings: run.ctx?.unitsWithSiblings ?? 0,
+  };
 }
 
 const DEFAULT_MAX_FILES = 100;
@@ -110,6 +157,11 @@ export interface CollectPromptsOutput {
   hint?: string;
   /** Persisted to disk under .harness/craft/runs/<runId>.json. */
   runFile?: string;
+  /**
+   * The clone-index build outcome for this collection. On `budget-exceeded`
+   * the `built` incidence covers only the units queued before the budget hit.
+   */
+  siblingIndex: SiblingIndexOutcome;
 }
 
 export interface FinalizeCodeCraftInput {
@@ -126,6 +178,8 @@ interface CodeRunMeta {
   filesScanned: number;
   filesSkippedNoUnit: number;
   unitsDetected: number;
+  /** Optional so a run-state file written before this field existed still finalizes. */
+  siblingIndex?: SiblingIndexOutcome;
   /** Pairs every queued prompt to the data needed to build a finding. */
   prompts: Array<{
     promptId: string;
@@ -168,10 +222,10 @@ export async function runCodeCraft(input: CodeCraftInput): Promise<CodeCraftOutp
   };
 
   // One call per run, outside every loop (the NFR target).
-  const siblingCtx = await resolveSiblingContext(projectRoot, input);
+  const siblingRun = await resolveSiblingRun(projectRoot, input);
 
   for (const file of candidateFiles) {
-    await critiqueFile(file, maxUnitsPerFile, provider, acc, siblingCtx);
+    await critiqueFile(file, maxUnitsPerFile, provider, acc, siblingRun.ctx);
   }
 
   const totalCost = sumCosts(provider);
@@ -198,6 +252,7 @@ export async function runCodeCraft(input: CodeCraftInput): Promise<CodeCraftOutp
         unitsDetected: acc.unitsDetected,
       },
       runId: randomUUID(),
+      siblingIndex: siblingIndexSummary(siblingRun),
     },
   };
 }
@@ -225,7 +280,8 @@ export async function collectCodeCraftPrompts(
   let unitsDetected = 0;
 
   // Resolved once per run, same as the inline path.
-  const siblingCtx = await resolveSiblingContext(projectRoot, input);
+  const siblingRun = await resolveSiblingRun(projectRoot, input);
+  const siblingCtx = siblingRun.ctx;
 
   outer: for (const file of candidateFiles) {
     let source: string;
@@ -255,6 +311,9 @@ export async function collectCodeCraftPrompts(
     }
   }
 
+  // After the loop: the incidence is counted while prompts are queued.
+  const siblingIndex = siblingIndexSummary(siblingRun);
+
   if (pending.length > budget) {
     return {
       status: 'budget-exceeded',
@@ -264,6 +323,7 @@ export async function collectCodeCraftPrompts(
       hint:
         `Projected at least ${pending.length} LLM prompts (budget: ${budget}). ` +
         'Re-invoke with smaller maxFiles / maxUnitsPerFile, or pass promptBudget to raise the ceiling.',
+      siblingIndex,
     };
   }
 
@@ -274,6 +334,7 @@ export async function collectCodeCraftPrompts(
     filesScanned,
     filesSkippedNoUnit,
     unitsDetected,
+    siblingIndex,
     prompts: promptRecords,
   };
   pruneOldRuns(projectRoot);
@@ -291,6 +352,7 @@ export async function collectCodeCraftPrompts(
     pendingPrompts: pending,
     projection: { promptCount: pending.length, budget },
     runFile,
+    siblingIndex,
   };
 }
 
@@ -357,6 +419,7 @@ export async function finalizeCodeCraft(input: FinalizeCodeCraftInput): Promise<
         unitsDetected: state.meta.unitsDetected,
       },
       runId: input.runId,
+      ...(state.meta.siblingIndex !== undefined ? { siblingIndex: state.meta.siblingIndex } : {}),
     },
   };
 }
@@ -455,9 +518,9 @@ function resolveUnitSiblings(
 ): { siblings?: CloneMember[]; siblingClass?: CloneClass } {
   if (ctx === undefined) return {};
   const evidence = resolveSiblingEvidence(ctx.index, ctx.projectRoot, file, unit);
-  return evidence === undefined
-    ? {}
-    : { siblings: evidence.siblings, siblingClass: evidence.siblingClass };
+  if (evidence === undefined) return {};
+  ctx.unitsWithSiblings += 1;
+  return { siblings: evidence.siblings, siblingClass: evidence.siblingClass };
 }
 
 /** Everything the prompt-collection loop needs for one file. */
@@ -537,7 +600,7 @@ export async function critiqueCodeInFile(
   const provider = opts.provider ?? getProvider();
   const siblings: SiblingContext | undefined =
     opts.cloneIndex !== undefined && opts.projectRoot !== undefined
-      ? { index: opts.cloneIndex, projectRoot: opts.projectRoot }
+      ? { index: opts.cloneIndex, projectRoot: opts.projectRoot, unitsWithSiblings: 0 }
       : undefined;
   const findings: CodeFinding[] = [];
   for (const unit of units) {
@@ -557,7 +620,7 @@ export async function critiqueCodeInFile(
 
 function collectFiles(projectRoot: string, input: CodeCraftInput): string[] {
   if (input.files !== undefined && input.files.length > 0) {
-    return [...input.files];
+    return resolveScopedFiles(projectRoot, input.files);
   }
   return discoverSourceFiles(projectRoot, input.packages);
 }
@@ -578,7 +641,13 @@ function sumCosts(provider: LlmProvider): CostSummary {
   };
 }
 
-export type { CodeFinding, CodeCraftOutput, CodeUnit, UnitKind } from './findings/schema.js';
+export type {
+  CodeFinding,
+  CodeCraftOutput,
+  CodeUnit,
+  UnitKind,
+  SiblingIndexOutcome,
+} from './findings/schema.js';
 export type { CodeRubric } from './catalog/rubrics/index.js';
 export { SEED_RUBRICS } from './catalog/rubrics/index.js';
 export { SEED_EXEMPLARS } from './catalog/exemplars/index.js';

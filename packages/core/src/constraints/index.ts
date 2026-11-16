@@ -3,7 +3,7 @@
  * Note: buildDependencyGraph is exported as an addition beyond spec for advanced use cases.
  */
 export { defineLayer, validateDependencies, buildDependencyGraph } from './dependencies';
-export type { ParserLookup } from './dependencies';
+export type { ParserLookup, BareSpecifierResolver } from './dependencies';
 
 /**
  * Layer resolution utilities.

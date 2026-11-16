@@ -34,6 +34,7 @@ import {
 } from './phases/critique.js';
 import type { DocsCraftOutput, DocsFinding } from './findings/schema.js';
 import { craftClumpView } from '../shared/craft/findings/clumpable.js';
+import { resolveScopedFiles } from '../shared/craft/extract/scoped-files.js';
 
 export type DocsCraftMode = 'inline' | 'in-session';
 
@@ -370,7 +371,7 @@ export async function critiqueDocFile(
 
 function collectDocs(projectRoot: string, input: DocsCraftInput): DiscoveredDoc[] {
   if (input.files !== undefined && input.files.length > 0) {
-    return input.files.map((f) => {
+    return resolveScopedFiles(projectRoot, input.files).map((f) => {
       const relative = path.relative(projectRoot, f).replaceAll('\\', '/');
       return { file: f, relative, kind: classifyDoc(relative) };
     });

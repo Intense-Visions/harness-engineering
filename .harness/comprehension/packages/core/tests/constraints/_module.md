@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/tests/constraints'
-sourceHash: '750a070986383619b811955029bb9fc7fd7c070a7a969e3024a7ebca54c24a31'
+sourceHash: 'df09ce96e57811e95ca03c695fecd43d1e94686d118a00b653850d428da66097'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -17,6 +17,7 @@ members:
     'packs.test.ts',
     'parser-unavailable-abstention.test.ts',
     'unparseable-files.test.ts',
+    'workspace-packages.test.ts',
   ]
 ---
 
@@ -35,6 +36,7 @@ import { ParserLookup, buildDependencyGraph, defineLayer, validateDependencies }
 import { defineLayer, resolveFileToLayer } from '../../src/constraints/layers'
 import { BUILT_IN_CONSTRAINT_PACKS, getConstraintPack, resolveConstraintPacks } from '../../src/constraints/packs'
 import { DependencyGraph, GraphDependencyData, Layer } from '../../src/constraints/types'
+import '../../src/constraints/workspace-packages'
 import { createError } from '../../src/shared/errors'
 import { LanguageParser, TypeScriptParser } from '../../src/shared/parsers'
 import { AST, Export, Import, LanguageParser } from '../../src/shared/parsers/base'
