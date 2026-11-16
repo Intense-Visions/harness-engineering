@@ -88,6 +88,34 @@ function isHarnessConfigFile(relativePath: string): boolean {
 }
 
 /**
+ * Drop declared `entropy.entryPoints` that are not on disk after a write.
+ *
+ * Templates declare the entry files they render (#2630), but `write` does not
+ * always render them: into an existing project it writes only the harness
+ * config files, and it never overwrites a file already there. An entry point
+ * that names a missing file fails the whole dead-code analysis (entries are
+ * resolved literally, #2275), so a scaffolded config must only name files
+ * that exist. Called only for a `harness.config.json` this write produced —
+ * a config the adopter already had is never edited. An emptied list is
+ * removed so auto-detection takes over again.
+ */
+function pruneUnwrittenEntryPoints(targetDir: string): void {
+  const configPath = path.join(targetDir, 'harness.config.json');
+  const config = JSON.parse(fs.readFileSync(configPath, 'utf-8')) as {
+    entropy?: { entryPoints?: unknown };
+  };
+  const declared = config.entropy?.entryPoints;
+  if (!config.entropy || !Array.isArray(declared)) return;
+  const present = declared.filter(
+    (e): e is string => typeof e === 'string' && fs.existsSync(path.join(targetDir, e))
+  );
+  if (present.length === declared.length) return;
+  if (present.length > 0) config.entropy.entryPoints = present;
+  else delete config.entropy.entryPoints;
+  fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
+}
+
+/**
  * Known build/package configuration files that indicate a pre-existing project.
  * If any of these exist in the target directory, the project is considered existing
  * and only harness config files should be written (no scaffold files).
@@ -360,6 +388,7 @@ export class TemplateEngine {
         fs.writeFileSync(targetPath, file.content);
         written.push(file.relativePath);
       }
+      if (written.includes('harness.config.json')) pruneUnwrittenEntryPoints(targetDir);
       return Ok({ written, skippedConfigs });
     } catch (error) {
       return Err(

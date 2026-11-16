@@ -132,6 +132,9 @@ See [architecture.md](./architecture.md) for architectural decisions.
     "timeout": 300000
   },
   "entropy": {
+    "entryPoints": [
+      "src/index.ts"
+    ],
     "excludePatterns": [
       "**/node_modules/**",
       "**/*.test.ts"
@@ -422,6 +425,9 @@ See [architecture.md](./architecture.md) for architectural decisions.
     ]
   },
   "entropy": {
+    "entryPoints": [
+      "src/index.ts"
+    ],
     "excludePatterns": [
       "**/node_modules/**",
       "**/dist/**",
@@ -549,7 +555,14 @@ snapshot-test -- A Python project managed with Harness Engineering practices.
     "enabled": false
   },
   "entropy": {
-    "enabled": false
+    "enabled": false,
+    "entryPoints": [
+      "src/__init__.py",
+      "manage.py",
+      "src/settings.py",
+      "src/urls.py",
+      "src/wsgi.py"
+    ]
   },
   "performance": {
     "enabled": false
@@ -806,6 +819,10 @@ See [architecture.md](./architecture.md) for architectural decisions.
     ]
   },
   "entropy": {
+    "entryPoints": [
+      "src/index.ts",
+      "src/app.ts"
+    ],
     "excludePatterns": [
       "**/node_modules/**",
       "**/dist/**",
@@ -953,7 +970,11 @@ snapshot-test -- A Python project managed with Harness Engineering practices.
     "enabled": false
   },
   "entropy": {
-    "enabled": false
+    "enabled": false,
+    "entryPoints": [
+      "src/__init__.py",
+      "src/main.py"
+    ]
   },
   "performance": {
     "enabled": false
@@ -1442,6 +1463,10 @@ export default [
     ]
   },
   "entropy": {
+    "entryPoints": [
+      "src/index.ts",
+      "eslint.config.mjs"
+    ],
     "excludePatterns": [
       "**/node_modules/**",
       "**/dist/**",
@@ -1893,6 +1918,10 @@ export default [
     ]
   },
   "entropy": {
+    "entryPoints": [
+      "src/index.ts",
+      "eslint.config.mjs"
+    ],
     "excludePatterns": [
       "**/node_modules/**",
       "**/dist/**",
@@ -2086,6 +2115,10 @@ See [architecture.md](./architecture.md) for architectural decisions.
     ]
   },
   "entropy": {
+    "entryPoints": [
+      "src/index.ts",
+      "src/main.ts"
+    ],
     "excludePatterns": [
       "**/node_modules/**",
       "**/dist/**",
@@ -2250,7 +2283,10 @@ snapshot-test -- A Python project managed with Harness Engineering practices.
     "enabled": false
   },
   "entropy": {
-    "enabled": false
+    "enabled": false,
+    "entryPoints": [
+      "src/__init__.py"
+    ]
   },
   "performance": {
     "enabled": false
@@ -2423,6 +2459,11 @@ See [architecture.md](./architecture.md) for architectural decisions.
     ]
   },
   "entropy": {
+    "entryPoints": [
+      "src/index.ts",
+      "vite.config.ts",
+      "src/main.tsx"
+    ],
     "excludePatterns": [
       "**/node_modules/**",
       "**/dist/**",
@@ -2934,6 +2975,11 @@ See [architecture.md](./architecture.md) for architectural decisions.
     ]
   },
   "entropy": {
+    "entryPoints": [
+      "src/index.ts",
+      "vite.config.ts",
+      "src/main.ts"
+    ],
     "excludePatterns": [
       "**/node_modules/**",
       "**/dist/**",
