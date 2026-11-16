@@ -1,12 +1,13 @@
 ---
 schemaVersion: 1
 module: 'tests/scripts'
-sourceHash: '92436c706e6c36681a71dc77b09e95a173668dca861ca22c4d3bf8937d800283'
+sourceHash: 'ee9f60a795b7a8628466ea792252b1f7485928d3e3b60af28116da95eb79a557'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
 members:
   [
+    'arch-snapshot-fold.test.mjs',
     'assert-vitest-ran.test.mjs',
     'audit-exceptions.test.mjs',
     'baseline-gating.test.mjs',
@@ -45,6 +46,7 @@ import { evaluateCoverage, mergeCoverageBaselines, pruneCoverageSummaries, toler
 import { baseUrl, pageFiles, parseTargetFiles, slugForFile } from '../../scripts/design-capture.mjs'
 import { PLUGIN_CONFIGS, getConfig } from '../../scripts/lib/plugin-config.mjs'
 import { ALARM_LABEL, ALARM_MARKER, EXIT, decideAction, deliverAlarm, evaluateHealth, fetchRuns, findOpenAlarmIssue, renderIssueBody, renderSummary, selectDecisiveRuns } from '../../scripts/main-health-check.mjs'
+import { mergeTimelines } from '../../scripts/merge-arch-timeline.mjs'
 import { classifyPublish, parsePublishOutput, registryUrl, runRelease, waitForVisibility } from '../../scripts/release-publish.mjs'
 import { MANIFEST_PATHS, findPinnedVersion, readCliVersion, syncManifestContent } from '../../scripts/sync-plugin-pin.mjs'
 import assert from 'node:assert/strict'
