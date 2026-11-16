@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'scripts'
-sourceHash: '7e5138224dbe0096c62eb37fd44f60d96c397a481784615f4be9cd828638f764'
+sourceHash: '8d4b75768490aa90d4b56f28af4bb57913f83a3ec5a3fee3e3a02e81e73e7454'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -24,7 +24,6 @@ members:
     'generate-plugin.mjs',
     'generate-tool-catalog.mjs',
     'main-health-check.mjs',
-    'override-floors.mjs',
     'refresh-model-candidates.mjs',
     'release-publish.mjs',
     'summarize-test-failures.mjs',
@@ -46,17 +45,16 @@ export MANIFEST_PATHS
 export REGISTRY_BASE
 export assessVitestLog
 export baseUrl
-export checkFloors
+export classifyLockfiles
 export classifyPublish
-export compareVersions
 export decideAction
 export deliverAlarm
 export evaluateCoverage
 export evaluateHealth
 export extractAdvisories
 export extractFailures
+export extractNpmAdvisories
 export fetchRuns
-export findAdvancements
 export findOpenAlarmIssue
 export findPinnedVersion
 export findReportPaths
@@ -67,12 +65,8 @@ export mergeBenchmarkBaselines
 export mergeCoverageBaselines
 export pageFiles
 export parseChangesetFrontmatter
-export parseLockfile
-export parseOverrideKey
 export parsePublishOutput
-export parseRange
 export parseTargetFiles
-export parseVersion
 export prepushTestOptions
 export pruneCoverageSummaries
 export readCliVersion
@@ -81,7 +75,6 @@ export registryUrl
 export renderIssueBody
 export renderSummary
 export runRelease
-export satisfies
 export selectDecisiveRuns
 export slugForFile
 export specKey
@@ -103,7 +96,7 @@ import { appendFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readd
 import { rm } from 'node:fs/promises'
 import { createRequire } from 'node:module'
 import { tmpdir } from 'node:os'
-import path, { basename, dirname, extname, join, relative, resolve, sep } from 'node:path'
+import path, { basename, dirname, extname, join, posix, relative, resolve, sep } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import 'playwright'
 import { parseYaml } from 'yaml'
