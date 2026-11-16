@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/commands'
-sourceHash: 'f2abc1bd5bc1672b8aa31683cf485f0f03867f8491b3edafad931c4d0c894ec9'
+sourceHash: '7058a71d204e37e67c84865d1f52fbb024e1dc26b775b7a5a59e8c282cc08c98'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -440,6 +440,7 @@ import { createStaticExtractor } from '../comprehension/static-extractor'
 import { loadAnalysisExclude, loadDesignExclude } from '../config/analysis-schema.js'
 import { withDependencyRules } from '../config/arch-dependency-rules'
 import { findConfigFile, resolveCommandRoot, resolveConfig, resolveProject } from '../config/loader'
+import { resolveConfiguredEntryPoints, resolveExcludePatterns } from '../config/perf-scope'
 import { BranchingConfigSchema, ComprehensionConfig, HarnessConfig, VocabularyConfigSchema, loadDepsExclude } from '../config/schema'
 import { CopyCraftInput, CopyCraftOutput, CopySurface, runCopyCraft } from '../copy-craft/index.js'
 import { CraftFinding } from '../design-craft/findings/schema'
