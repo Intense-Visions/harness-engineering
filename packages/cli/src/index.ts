@@ -14,6 +14,7 @@ import { CLI_VERSION } from './version';
 import { commandCreators } from './commands/_registry';
 import { registerDeprecatedGraphAliases } from './commands/graph/deprecated-aliases';
 import { installVersionGuard } from './utils/version-guard';
+import { setMachineOutput } from './output/logger';
 import { installRootOptionPropagation } from './utils/global-option-propagation';
 
 /**
@@ -77,6 +78,14 @@ export function createProgram(): Command {
     .option('--json', 'Output as JSON')
     .option('--verbose', 'Verbose output')
     .option('--quiet', 'Minimal output');
+
+  // In `--json` mode stdout is a machine-readable document; keep the logger's
+  // human-facing lines (info/success/dim) off it so `harness --json <cmd> | jq`
+  // parses (#2519). `optsWithGlobals` covers both the root `--json` and a
+  // subcommand's own `--json` option.
+  program.hook('preAction', (_thisCommand, actionCommand) => {
+    setMachineOutput(Boolean(actionCommand.optsWithGlobals().json));
+  });
 
   // Register all discovered commands
   for (const creator of commandCreators) {

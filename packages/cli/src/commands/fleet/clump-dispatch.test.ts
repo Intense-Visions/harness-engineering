@@ -18,6 +18,8 @@ import {
   CLUMP_FAILED_EXIT_CODE,
   MALFORMED_CLUMP_INPUT_EXIT_CODE,
   NO_CLUMPS_INPUT_EXIT_CODE,
+  UNREADABLE_VERDICT_EXIT_CODE,
+  UNVERIFIED_CLUMP_EXIT_CODE,
   VERDICT_PARTITION_BREACH_EXIT_CODE,
   describeMember,
   extractClumps,
@@ -405,8 +407,34 @@ describe('runClumpDispatch — VERIFY: one verdict per clump, D10 drops (criteri
     const { code, err } = capture(() =>
       runClumpDispatch({ input: tmpJson(run), verdict: tmpJson({ clumps: {} }), json: true })
     );
-    expect(code).toBe(NO_CLUMPS_INPUT_EXIT_CODE);
+    // #2476 §3: its OWN code, not 14 — "nobody reported outcomes for this
+    // clump" is a different lane mistake from "the input carried no clump set".
+    expect(code).toBe(UNVERIFIED_CLUMP_EXIT_CODE);
+    expect(code).not.toBe(NO_CLUMPS_INPUT_EXIT_CODE);
     expect(err).toMatch(/no outcomes for clump/);
+  });
+
+  it('#2476: an unreadable VERDICT file exits its own code, distinct from a missing clump set', () => {
+    const { code, err, out } = capture(() =>
+      runClumpDispatch({ input: tmpJson(run), verdict: join(dir, 'no-verdict.json'), json: true })
+    );
+    expect(code).toBe(UNREADABLE_VERDICT_EXIT_CODE);
+    expect(code).not.toBe(NO_CLUMPS_INPUT_EXIT_CODE);
+    expect(err).toMatch(/cannot read/);
+    expect(out).toBe('');
+  });
+
+  it('#2476: every refusal code is distinct, so a lane branching on one can tell them apart', () => {
+    const codes = [
+      CLUMP_FAILED_EXIT_CODE,
+      NO_CLUMPS_INPUT_EXIT_CODE,
+      VERDICT_PARTITION_BREACH_EXIT_CODE,
+      MALFORMED_CLUMP_INPUT_EXIT_CODE,
+      UNREADABLE_VERDICT_EXIT_CODE,
+      UNVERIFIED_CLUMP_EXIT_CODE,
+    ];
+    for (const c of codes) expect(typeof c).toBe('number');
+    expect(new Set(codes).size).toBe(codes.length);
   });
 
   it('exits on a verdict that names a member the clump does not carry', () => {

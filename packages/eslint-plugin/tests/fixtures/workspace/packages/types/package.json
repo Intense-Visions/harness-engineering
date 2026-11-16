@@ -1,0 +1,5 @@
+{
+  "name": "@fixture-ws/types",
+  "private": true,
+  "main": "./dist/index.js"
+}

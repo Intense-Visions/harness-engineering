@@ -67,6 +67,25 @@ export const VERDICT_PARTITION_BREACH_EXIT_CODE = 15;
  */
 export const MALFORMED_CLUMP_INPUT_EXIT_CODE = 16;
 
+/**
+ * Exit code for a `--verdict` file that cannot be read or parsed.
+ *
+ * Split out of {@link NO_CLUMPS_INPUT_EXIT_CODE} (#2476) for the same reason 16
+ * was: the clump set was fine and planned, it is the OUTCOMES file that is
+ * missing or broken, and a lane branching on 14 would go looking at the wrong
+ * input.
+ */
+export const UNREADABLE_VERDICT_EXIT_CODE = 17;
+
+/**
+ * Exit code for a clump the verdict file reported no outcomes for.
+ *
+ * Split out of {@link NO_CLUMPS_INPUT_EXIT_CODE} (#2476). Both inputs were
+ * readable; one planned clump simply went unverified. That is a refusal (an
+ * unverified clump is not a verified one), but it is not a missing clump set.
+ */
+export const UNVERIFIED_CLUMP_EXIT_CODE = 18;
+
 export interface ClumpDispatchOptions {
   /** The emitted clump set: a craft run's JSON output, a `clump-issues --json` dump, or a bare ClumpResult. `-` = stdin. */
   input: string;
@@ -373,7 +392,7 @@ function settleOne(
   if (outcomes === undefined) {
     return {
       gap: `no outcomes for clump ${plan.clumpId}; an unverified clump is not a verified one`,
-      exit: NO_CLUMPS_INPUT_EXIT_CODE,
+      exit: UNVERIFIED_CLUMP_EXIT_CODE,
     };
   }
   let verdict: ClumpVerdict;
@@ -461,7 +480,7 @@ export function runClumpDispatch(options: ClumpDispatchOptions): number {
   const verdictInput = readJson(options.verdict);
   if ('gap' in verdictInput) {
     console.error(chalk.yellow(`clump-dispatch: ${verdictInput.gap}`));
-    return NO_CLUMPS_INPUT_EXIT_CODE;
+    return UNREADABLE_VERDICT_EXIT_CODE;
   }
   const verdictFile = verdictInput.value as VerdictFile;
   const settled = settleAll(plans, verdictFile, options.postDropBuild ?? verdictFile.postDropBuild);

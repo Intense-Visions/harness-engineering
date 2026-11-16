@@ -196,17 +196,22 @@ describe('perf command', () => {
       });
       const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
       const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      // logger.warn writes to stderr (#2519).
+      const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 
       const cmd = createPerfCommand();
       await cmd.parseAsync(['critical-paths'], { from: 'user' });
 
-      const out = [...logSpy.mock.calls, ...warnSpy.mock.calls].map((c) => c.join(' ')).join('\n');
+      const out = [...logSpy.mock.calls, ...warnSpy.mock.calls, ...errSpy.mock.calls]
+        .map((c) => c.join(' '))
+        .join('\n');
       expect(out).not.toMatch(/0 graph-inferred/);
       expect(out).toMatch(/graph inference not run/);
       expect(out).toMatch(/no critical-path signal/i);
       expect(out).toMatch(/graph inference did not run/);
       logSpy.mockRestore();
       warnSpy.mockRestore();
+      errSpy.mockRestore();
     });
 
     it('prints JSON when --json flag is set', async () => {
