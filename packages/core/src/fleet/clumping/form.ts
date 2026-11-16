@@ -226,10 +226,11 @@ export function formClumps(
     // already makes the pre-sort unit array a deterministic function of the input
     // SET, and V8's sort is stable, so two runs over the same input agree with this
     // tiebreak REMOVED. An earlier version of this comment claimed otherwise;
-    // verification refuted it (a mutant deleting only these three lines left all 77
-    // tests green, including a test named for the property — it compared two runs
-    // over identically-ordered input). The over-claim is recorded here rather than
-    // quietly deleted because it is exactly the shape that produces a vacuous test:
+    // verification refuted it (a mutant deleting only these three lines left the
+    // whole clumping suite green, including a test named for the property — it
+    // compared two runs over identically-ordered input). The over-claim is
+    // recorded here rather than quietly deleted because it is exactly the shape
+    // that produces a vacuous test:
     // a reader who believes it will write the two-run comparison again. The real
     // guarantee is pinned by form.test.ts, "a weight tie between units is broken by
     // unit id ascending", whose cases assert the surviving set differs from the

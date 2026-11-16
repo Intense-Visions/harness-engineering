@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/mcp/tools'
-sourceHash: '61c2f66dda46d07105af4ec36a027a096c93efdd7f434db2135efc532671304a'
+sourceHash: '09ec7911f546a7e779583a9d201cfa949b799bbe9b3e44d6f9963178492daf15'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -231,7 +231,6 @@ export editFileDefinition
 export emitInteractionDefinition
 export emitSkillEvent
 export emitSkillProposalDefinition
-export entropyCheckFromSummary
 export finalizeApiCraft
 export finalizeCliErgonomicsCraft
 export finalizeCodeCraft
@@ -509,7 +508,6 @@ import { craftClumpView } from '../../shared/craft/findings/clumpable.js'
 import { resolveCraftLlmMode } from '../../shared/craft/llm/provider.js'
 import { collectDesignScanFiles, designScanAbstention, noFilesScannedError, resolveDesignExcludePatterns } from '../../shared/design-scan-targets.js'
 import { ENTROPY_ISSUE_TYPES, describeDuplicationNotRun, describeUnknownIssueType, isEntropyIssueType, resolveDuplicationRequest } from '../../shared/duplication-request.js'
-import { EntropyScope, resolveEntropyScope } from '../../shared/entropy-scope.js'
 import '../../shared/state-events.js'
 import { Verifier } from '../../shared/verifier.js'
 import { dispatchSkills, dispatchSkillsFromGit, enrichSnapshotForDispatch } from '../../skill/dispatch-engine.js'
@@ -537,7 +535,7 @@ import { resolveProjectConfig } from '../utils/config-resolver.js'
 import '../utils/glob-helper.js'
 import { loadGraphStore } from '../utils/graph-loader.js'
 import { McpToolResponse, bigIntSafeReplacer, resultToMcpResponse } from '../utils/result-adapter.js'
-import { resolveProjectRootArg, sanitizePath } from '../utils/sanitize-path.js'
+import { sanitizePath } from '../utils/sanitize-path.js'
 import { sortFindingsBySeverity } from '../utils/severity.js'
 import { emitAcceptanceVerdictEvent, emitOutcomeVerdictEvent, emitUatSignoffEvent } from '../utils/waypoint-emission.js'
 import { AdrStoreError, CreateAdrInput, UpdateAdrInput, createAdr, listAdrs, readAdr, resolveWorktreeRoot, updateAdr } from './adr-store.js'

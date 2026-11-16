@@ -11,7 +11,12 @@ import type { OutputModeType } from '../output/formatter';
 import { resolveOutputMode } from '../utils/output';
 import { logger } from '../output/logger';
 import { ExitCode } from '../utils/errors';
-import { runCodeCraft, type CodeCraftInput, type CodeCraftOutput } from '../code-craft/index.js';
+import {
+  runCodeCraft,
+  type CodeCraftInput,
+  type CodeCraftOutput,
+  type SiblingIndexOutcome,
+} from '../code-craft/index.js';
 
 interface CodeCraftCliOptions {
   files?: string[];
@@ -114,4 +119,28 @@ function printResult(
       `${summary.catalog.rubricsApplied.length} rubrics, ${summary.catalog.exemplarsAvailable} exemplars, ` +
       `${summary.llmCalls.count} LLM calls, $${summary.llmCalls.costUsd.toFixed(4)}, ${summary.durationMs}ms)`
   );
+  if (summary.siblingIndex !== undefined) console.log(siblingIndexLine(summary.siblingIndex));
+}
+
+/**
+ * One line on the clone-index build, so a run whose index never built cannot
+ * be read as "no duplication". Informational only — never affects the exit code.
+ */
+function siblingIndexLine(outcome: SiblingIndexOutcome): string {
+  switch (outcome.status) {
+    case 'built': {
+      const classes = `${outcome.classes} clone class${outcome.classes === 1 ? '' : 'es'}`;
+      const units = `${outcome.unitsWithSiblings} critiqued unit${outcome.unitsWithSiblings === 1 ? '' : 's'}`;
+      return `Sibling evidence: clone index built (${classes}); ${units} carried sibling evidence.`;
+    }
+    case 'failed':
+      return (
+        `Sibling evidence: UNAVAILABLE — clone index failed (${outcome.reason}). ` +
+        'The critique ran without duplication evidence; this is not a "no duplication" result.'
+      );
+    case 'empty':
+      return `Sibling evidence: UNAVAILABLE — clone index empty (${outcome.reason}).`;
+    case 'disabled':
+      return `Sibling evidence: disabled (${outcome.reason}).`;
+  }
 }
