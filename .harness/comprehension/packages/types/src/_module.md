@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/types/src'
-sourceHash: '60147adddf0a7662f9dd02d86bd9cfda634a1544390ad10fd11e27843ac82fc6'
+sourceHash: 'f8ffafd6ca51074ee119f0210394150e576af5bf6507730df6193add6874a525'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -330,6 +330,7 @@ export RoadmapFeature
 export RoadmapFrontmatter
 export RoadmapGroup
 export RoadmapMilestone
+export RoadmapOptionalFieldKey
 export RoutingBudgetStatus
 export RoutingConfig
 export RoutingDecision

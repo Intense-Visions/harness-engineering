@@ -74,6 +74,12 @@ export interface TriageOutcome {
   exceededBy: number;
   /** True when the actual diff stayed within the predicted band. */
   matched: boolean;
+  /**
+   * `false` marks a FAIL-SAFE outcome (#2264): the comparator blocked because the inputs
+   * were unjudgeable, so `matched` is not a measurement and must not feed precedent or the
+   * ratchet. Absent ⇒ graded (every pre-#2264 outcome).
+   */
+  graded?: boolean;
 }
 
 /**

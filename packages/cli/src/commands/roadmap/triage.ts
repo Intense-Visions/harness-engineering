@@ -93,7 +93,14 @@ export async function buildPrecedentLookup(cwd: string): Promise<PrecedentLookup
   return precedentLookupFromStored(
     loaded.value.map((r) => ({
       shapeKey: r.shapeKey,
-      ...(r.outcome ? { outcome: { matched: r.outcome.matched } } : {}),
+      ...(r.outcome
+        ? {
+            outcome: {
+              matched: r.outcome.matched,
+              ...(r.outcome.graded !== undefined ? { graded: r.outcome.graded } : {}),
+            },
+          }
+        : {}),
     }))
   );
 }
@@ -126,7 +133,8 @@ export async function buildShapeHistory(
   const byShape = new Map<string, RatchetOutcome[]>();
   if (loaded.ok) {
     for (const rec of loaded.value) {
-      if (!rec.outcome) continue; // only graded records count toward advancement
+      // Only graded records count toward advancement; a fail-safe block (#2264) is not evidence.
+      if (!eventSourcing.isGradedOutcome(rec.outcome)) continue;
       const list = byShape.get(rec.shapeKey) ?? [];
       list.push({ matched: rec.outcome.matched, ts: rec.ts });
       byShape.set(rec.shapeKey, list);

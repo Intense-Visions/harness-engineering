@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/src/shared/parsers'
-sourceHash: '5e265058823851d9a1a77c04f7ddc65813693a95d30389d8d713d73430c5d3af'
+sourceHash: '4059ed886ddd109c1b3457f9c0fcda4dd8330b7cf5b9b30975cfb5de08776a29'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
