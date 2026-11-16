@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/src/architecture'
-sourceHash: 'b2d0e7f43e6435194933fad9d9d719618718ce43cf29f9d28e67241db8d5a921'
+sourceHash: '782b3cf6a9eb0425cb6f1fa0644ec184b9e02fb82538781d6063565a40013e9c'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -66,7 +66,6 @@ export CategoryRegressionSchema
 export CategorySnapshotSchema
 export CircularDepsCollector
 export Collector
-export CollectorRunContext
 export ComplexityCollector
 export ConfidenceTier
 export ConfidenceTierSchema
@@ -182,7 +181,6 @@ import { constraintRuleId } from './collectors/hash'
 import { runAll } from './collectors/index'
 import { LayerViolationCollector } from './collectors/layer-violations'
 import { ModuleSizeCollector } from './collectors/module-size'
-import { CollectorRunContext } from './collectors/run-context'
 import { diff } from './diff'
 import { extractDirectoryScope, normalizeViolationPattern } from './normalize-pattern'
 import { AdjustedForecast, CategoryForecast, ConfidenceTier, Direction, PredictionOptions, PredictionResult, PredictionWarning, SpecImpactEstimate, StabilityForecast } from './prediction-types'
