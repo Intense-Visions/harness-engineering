@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/tests/mcp/tools'
-sourceHash: 'c1a328f4033fe4271c3f9ae0296fee89704d52fa424381630116ebc60ee99fca'
+sourceHash: 'b07a3c0f0357f7dc6abd9abf61f0228c51231c9efe2c57aea5fb9155a9c20776'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -12,6 +12,7 @@ members:
     'adr.test.ts',
     'agent.test.ts',
     'api-craft.test.ts',
+    'architecture-check-deps-parity.test.ts',
     'architecture-cov544.test.ts',
     'architecture-skipped-abstention.test.ts',
     'architecture.test.ts',
@@ -134,6 +135,7 @@ export writeShardedProject
 import { computeLoadPlan } from '../../../../core/src/context/progressive-loader'
 import { extractLevel } from '../../../../core/src/context/section-parser'
 import { runAutonomyShow } from '../../../src/commands/autonomy/show'
+import { runCheckDeps } from '../../../src/commands/check-deps'
 import { runCleanup } from '../../../src/commands/cleanup'
 import { findConfigFile, loadConfig } from '../../../src/config/loader'
 import { MockLlmProvider } from '../../../src/design-craft/llm/provider.js'
