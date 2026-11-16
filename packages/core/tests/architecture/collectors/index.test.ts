@@ -58,8 +58,9 @@ describe('runAll', () => {
 
     const results = await runAll(baseConfig, '/project', [mockCollectorA, mockCollectorB]);
     expect(results).toHaveLength(3);
-    expect(mockCollectorA.collect).toHaveBeenCalledWith(baseConfig, '/project');
-    expect(mockCollectorB.collect).toHaveBeenCalledWith(baseConfig, '/project');
+    // The third argument is the run-scoped context both collectors share (#2270).
+    expect(mockCollectorA.collect).toHaveBeenCalledWith(baseConfig, '/project', expect.any(Object));
+    expect(mockCollectorB.collect).toHaveBeenCalledWith(baseConfig, '/project', expect.any(Object));
   });
 
   it('runs collectors in parallel (both resolve before either is awaited)', async () => {

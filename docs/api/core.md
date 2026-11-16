@@ -1282,7 +1282,7 @@ Architecture metric collection, baseline management, regression detection, trend
 | `ModuleSizeCollector`      | module-size       | Measures module file counts/sizes  |
 | `DepDepthCollector`        | dep-depth         | Measures dependency chain depth    |
 
-All collectors implement the `Collector` interface: `collect(config: ArchConfig, rootDir: string): Promise<MetricResult[]>`.
+All collectors implement the `Collector` interface: `collect(config: ArchConfig, rootDir: string, context?: CollectorRunContext): Promise<MetricResult[]>`. `context` is the run-scoped state `runAll` shares across the collectors of one call; a collector called on its own builds its own.
 
 ### `runAll(config, rootDir, collectors?)`
 
@@ -1294,7 +1294,7 @@ function runAll(
 ): Promise<MetricResult[]>;
 ```
 
-Runs all collectors in parallel and returns a flat array of metric results. Defaults to `defaultCollectors`. Failed collectors produce a zero-value result with error metadata.
+Runs all collectors in parallel and returns a flat array of metric results. Defaults to `defaultCollectors`. Failed collectors produce a zero-value result with error metadata. Every collector in one call shares a single `CollectorRunContext`, so a file read by several dependency collectors (circular-deps, layer-violations, forbidden-imports) is parsed once per call rather than once per collector; the context is dropped when the call returns.
 
 ### `defaultCollectors`
 
