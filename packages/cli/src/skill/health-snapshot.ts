@@ -210,18 +210,24 @@ function countViolations(depsData: Record<string, unknown>): {
   };
 }
 
-/** Extract granular entropy counts from detect_entropy output. */
+/**
+ * Extract granular entropy counts from detect_entropy's detailed output — the
+ * JSON-safe `EntropyReport`, whose drift findings live in `drift.drifts` and
+ * dead exports in `deadCode.deadExports`. (This once read `unusedExports` /
+ * `staleReferences` / `missingTargets`, which no report carries, so dead
+ * exports and drift were always 0 — #2550.)
+ */
 function parseEntropyGranular(entropyData: Record<string, unknown>): {
   deadExports: number;
   deadFiles: number;
   driftCount: number;
 } {
-  const dc = (entropyData.deadCode ?? {}) as Record<string, unknown[]>;
-  const dr = (entropyData.drift ?? {}) as Record<string, unknown[]>;
+  const dc = (entropyData.deadCode ?? {}) as Record<string, unknown[] | undefined>;
+  const dr = (entropyData.drift ?? {}) as Record<string, unknown[] | undefined>;
   return {
-    deadExports: dc.unusedExports?.length ?? 0,
+    deadExports: dc.deadExports?.length ?? 0,
     deadFiles: dc.deadFiles?.length ?? 0,
-    driftCount: (dr.staleReferences?.length ?? 0) + (dr.missingTargets?.length ?? 0),
+    driftCount: dr.drifts?.length ?? 0,
   };
 }
 

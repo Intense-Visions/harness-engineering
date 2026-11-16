@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/mcp/tools'
-sourceHash: 'e51f21ed68d7bbf298b5665a24e4507b266dd825d526197ab0a6a4351878b8f4'
+sourceHash: '01e72d2ea9a630fe015141da2c39305759dfa334c52bce9aebf2d2fe54360c8d'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -231,6 +231,7 @@ export editFileDefinition
 export emitInteractionDefinition
 export emitSkillEvent
 export emitSkillProposalDefinition
+export entropyCheckFromSummary
 export finalizeApiCraft
 export finalizeCliErgonomicsCraft
 export finalizeCodeCraft

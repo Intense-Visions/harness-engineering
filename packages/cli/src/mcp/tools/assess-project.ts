@@ -120,6 +120,59 @@ export function parseToolResponse(
   }
 }
 
+/**
+ * Build the entropy CheckResult from `detect_entropy`'s SUMMARY payload —
+ * `{ mode, totalIssues, categories: { drift, deadCode, patterns? } }`, whose
+ * counts `entropy.ts` derives from the real `EntropyReport` fields (drift
+ * `drifts`, dead `deadExports` / `deadFiles` / `unusedImports`, pattern
+ * `violations`). Advisory duplication is reported outside `totalIssues`.
+ *
+ * Summary mode is requested rather than the default detailed report for two
+ * reasons: the counts come from the one module that owns the report shape
+ * (this check once summed `drift.staleReferences` / `drift.missingTargets` /
+ * `deadCode.unusedExports`, none of which exist, so drift and dead
+ * exports/files counted 0 and the check passed — #2550), and the detailed
+ * report serialises the whole snapshot, which overflows `JSON.stringify` on a
+ * large repo.
+ *
+ * Fails closed: a payload without a numeric `totalIssues`, or without the
+ * `deadCode` category (dead-code analysis always runs under `type: 'all'`, so
+ * its absence means the analyzer failed), is reported as not measured — never
+ * as a clean 0. `passed` keeps the `issues === 0` gate this check always had,
+ * matching `harness cleanup`'s exit code over the same counts and the perf
+ * check's fix for the same defect (#2387).
+ */
+export function entropyCheckFromSummary(
+  parsed: Record<string, unknown>,
+  mode: 'summary' | 'detailed'
+): CheckResult {
+  const totalIssues = parsed.totalIssues;
+  const categories = parsed.categories as
+    | Record<string, { issueCount?: unknown; topIssues?: unknown }>
+    | undefined;
+  if (typeof totalIssues !== 'number' || typeof categories?.['deadCode']?.issueCount !== 'number') {
+    return {
+      name: 'entropy',
+      passed: false,
+      issueCount: 1,
+      topIssue:
+        'Entropy not measured: detect_entropy summary has no numeric totalIssues or deadCode count',
+    };
+  }
+  const topIssue = Object.values(categories)
+    .flatMap((c) => (Array.isArray(c.topIssues) ? c.topIssues : []))
+    .find((t): t is string => typeof t === 'string');
+  return {
+    name: 'entropy',
+    passed: totalIssues === 0,
+    issueCount: totalIssues,
+    ...(totalIssues > 0
+      ? { topIssue: topIssue ?? 'Entropy detected -- run detect_entropy for details' }
+      : {}),
+    ...(mode === 'detailed' ? { detailed: parsed } : {}),
+  };
+}
+
 export async function handleAssessProject(input: {
   path: string;
   checks?: CheckName[];
@@ -251,32 +304,14 @@ export async function handleAssessProject(input: {
       (async (): Promise<CheckResult> => {
         try {
           const { handleDetectEntropy } = await import('./entropy.js');
-          const result = await handleDetectEntropy({ path: projectPath, type: 'all' });
+          const result = await handleDetectEntropy({
+            path: projectPath,
+            type: 'all',
+            mode: 'summary',
+          });
           const out = parseToolResponse(result, 'entropy');
           if ('error' in out) return out.error;
-          const { parsed } = out;
-          const drift = parsed.drift as
-            | { staleReferences?: unknown[]; missingTargets?: unknown[] }
-            | undefined;
-          const deadCode = parsed.deadCode as
-            | { unusedImports?: unknown[]; unusedExports?: unknown[] }
-            | undefined;
-          const patterns = parsed.patterns as { violations?: unknown[] } | undefined;
-          const issues =
-            (drift?.staleReferences?.length ?? 0) +
-            (drift?.missingTargets?.length ?? 0) +
-            (deadCode?.unusedImports?.length ?? 0) +
-            (deadCode?.unusedExports?.length ?? 0) +
-            (patterns?.violations?.length ?? 0);
-          return {
-            name: 'entropy',
-            passed: issues === 0,
-            issueCount: issues,
-            ...(issues > 0
-              ? { topIssue: 'Entropy detected -- run detect_entropy for details' }
-              : {}),
-            ...(mode === 'detailed' ? { detailed: parsed } : {}),
-          };
+          return entropyCheckFromSummary(out.parsed, mode);
         } catch (error) {
           return {
             name: 'entropy',
