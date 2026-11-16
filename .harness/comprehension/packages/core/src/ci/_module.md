@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/src/ci'
-sourceHash: '21285a6883ff4ca18e8abe08a25174919bb77c28c37d3f4d1a7df4dc1f045e7c'
+sourceHash: '18ad070e0ea58b5016d58610d634abc33bf131c2f83b052e022d7d382212f2b8'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -48,7 +48,8 @@ import { ArchBaselineManager } from '../architecture/baseline-manager'
 import { filterDiffByAllowances, loadArchAllowances, resolveArchBaseline } from '../architecture/baseline-resolver'
 import { diff } from '../architecture/diff'
 import { computeSourceHash } from '../comprehension/source-hash'
-import { defineLayer, validateDependencies } from '../constraints/dependencies'
+import { validateDependencies } from '../constraints/dependencies'
+import { resolveDepsSettings, toLayerConfig } from '../constraints/layer-config'
 import { ResolvedConstraintPacks, resolveConstraintPacks } from '../constraints/packs'
 import { validateAgentsMap } from '../context/agents-map'
 import { checkDocCoverage } from '../context/doc-coverage'

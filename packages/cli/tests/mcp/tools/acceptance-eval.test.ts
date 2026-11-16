@@ -12,7 +12,7 @@ import {
 let tmpDir: string;
 
 function parseResult(result: { content: { text: string }[] }) {
-  return JSON.parse(result.content[0].text);
+  return JSON.parse(result.content[0]!.text);
 }
 
 beforeEach(async () => {

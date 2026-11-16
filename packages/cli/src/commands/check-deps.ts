@@ -5,10 +5,11 @@ import { Ok } from '@harness-engineering/core';
 import {
   validateDependencies,
   detectCircularDepsInFiles,
-  defineLayer,
+  resolveDepsSettings,
+  toLayerConfig,
   TypeScriptParser,
 } from '@harness-engineering/core';
-import type { LayerConfig, UnparsedFile } from '@harness-engineering/core';
+import type { UnparsedFile } from '@harness-engineering/core';
 import { formatFindingsContract } from '@harness-engineering/types';
 import { resolveProject } from '../config/loader';
 import { loadDepsExclude } from '../config/schema';
@@ -240,24 +241,24 @@ export async function runCheckDeps(
   // circular-dependency detection, a check that needs no layers at all. So
   // `harness check-deps && deploy` passed on a project with a real import
   // cycle, on the configuration most adopters are on (#2098).
-  const layers = config.layers ?? [];
+  // The same config-to-LayerConfig mapping the `harness ci check` deps step
+  // uses, so the two cannot drift apart again (#2606).
+  const settings = resolveDepsSettings(config, cwd);
+  const layers = settings.layers;
   result.layersConfigured = layers.length;
 
   // Additional discovery-scoping globs (stacked on core's node_modules/skip-dir
   // defaults) — prefer the resolved config's `deps.exclude` (honors whatever
   // config path resolveConfig found), falling back to the best-effort
   // `loadDepsExclude(cwd)` loader for callers without a resolved block (#1188).
-  const depsExclude =
-    config.deps?.exclude && config.deps.exclude.length > 0
-      ? config.deps.exclude
-      : loadDepsExclude(cwd);
+  const depsExclude = settings.exclude.length > 0 ? settings.exclude : loadDepsExclude(cwd);
 
   // Abstention policy (#2098). Default `skip`: the engine abstains rather than
   // warning-and-continuing, and check-deps reports that abstention instead of
   // discarding it. `warn` is the documented downgrade back to exit 0.
-  const fallbackBehavior = config.deps?.fallbackBehavior ?? 'skip';
+  const fallbackBehavior = settings.fallbackBehavior;
 
-  const rootDir = path.resolve(cwd, config.rootDir);
+  const rootDir = settings.rootDir;
   const parser = new TypeScriptParser();
   // Source files either engine could not parse (#2073); reported once, below.
   let layerUnparsed: readonly UnparsedFile[] | undefined;
@@ -265,18 +266,9 @@ export async function runCheckDeps(
   // Layer validation needs layers. With none configured it is genuinely not
   // applicable, and the circular-dependency half below still runs.
   if (layers.length > 0) {
-    const layerConfig: LayerConfig = {
-      // Define layers from config (convert pattern string to patterns array)
-      layers: layers.map((l) => defineLayer(l.name, [l.pattern], l.allowedDependencies)),
-      rootDir,
-      parser,
-      fallbackBehavior,
-      extraIgnore: depsExclude,
-      // Follow `@scope/pkg` imports between workspace packages (#2216). Opt-in.
-      resolveWorkspacePackages: config.deps?.resolveWorkspacePackages ?? false,
-    };
-
-    const depsResult = await validateDependencies(layerConfig);
+    const depsResult = await validateDependencies(
+      toLayerConfig({ ...settings, exclude: depsExclude }, parser)
+    );
     if (depsResult.ok) {
       // The engine abstained — it validated nothing and labelled the result as
       // such. Reporting this as a clean pass is the #2098 defect.
@@ -309,7 +301,7 @@ export async function runCheckDeps(
   // source files, because circular detection does not depend on layers and a
   // layerless project must not get a free pass (#2098).
   const discoveryPatterns =
-    layers.length > 0 ? layers.map((l) => l.pattern) : [UNLAYERED_DISCOVERY_PATTERN];
+    layers.length > 0 ? layers.flatMap((l) => l.patterns) : [UNLAYERED_DISCOVERY_PATTERN];
   const allFiles: string[] = [];
   for (const pattern of discoveryPatterns) {
     const files = await findFiles(pattern, rootDir, depsExclude);
