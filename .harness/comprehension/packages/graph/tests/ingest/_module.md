@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/graph/tests/ingest'
-sourceHash: 'c417b61198870c77c470cd1172d2b8f32efa7d4131a8b76a53c31e6d1d9f2acb'
+sourceHash: 'a5103ecfb6f306b3825f94ccbed86a3f6f7d62b3c5eb24f1edba81e98109ba78'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -15,6 +15,7 @@ members:
     'CodeIngestor-skip-dirs.test.ts',
     'CodeIngestor.multi-lang.test.ts',
     'CodeIngestor.parameter-count.test.ts',
+    'CodeIngestor.reexport-hubs.test.ts',
     'CodeIngestor.test.ts',
     'ContradictionDetector.test.ts',
     'CoverageScorer.test.ts',
@@ -64,6 +65,7 @@ import { KnowledgeSnapshot, KnowledgeSnapshotEntry, StructuralDriftDetector } fr
 import { TopologicalLinker } from '../../src/ingest/TopologicalLinker.js'
 import { inferDomain } from '../../src/ingest/domain-inference.js'
 import { DEFAULT_SKIP_DIRS } from '../../src/ingest/skip-dirs.js'
+import { ContextQL } from '../../src/query/ContextQL.js'
 import { GraphStore } from '../../src/store/GraphStore.js'
 import { GraphEdge, GraphNode } from '../../src/types.js'
 import * as fs from 'node:fs'
