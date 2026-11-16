@@ -98,6 +98,12 @@ describe('rule set on idiomatic Rust (#2274)', () => {
       'fn password() -> String {\n    std::env::var("DB_PASSWORD").expect("DB_PASSWORD must be set")\n}\n',
     'tests_mod.rs':
       '#[cfg(test)]\nmod tests {\n    #[test]\n    fn it_works() {\n        assert_eq!(2 + 2, 4);\n    }\n}\n',
+    // #2375 guards: the typed-credential and TLS rules must not fire on these.
+    'typed_env_password.rs':
+      'fn connect() {\n    let password: String = std::env::var("DB_PASSWORD").unwrap();\n    let prompt_label: &str = "Password: ";\n}\n',
+    'password_prompt.rs': 'const PASSWORD_PROMPT: &str = "Enter password: ";\n',
+    'tls_verified.rs':
+      'fn client() -> reqwest::Result<reqwest::Client> {\n    reqwest::Client::builder().danger_accept_invalid_certs(false).build()\n}\n',
   };
 
   for (const [name, content] of Object.entries(benign)) {
@@ -117,6 +123,23 @@ describe('rule set on idiomatic Rust (#2274)', () => {
       'password literal',
       'fn connect() {\n    let password = "hunter2-SuperSecret!";\n}\n',
       'SEC-SEC-004',
+    ],
+    // #2375: the `: &str` annotation between the name and the literal hid these.
+    ['typed password const', 'const DB_PASSWORD: &str = "hunter2";\n', 'SEC-SEC-004'],
+    [
+      "typed 'static password const",
+      'static ADMIN_PASSWORD: &\'static str = "hunter2-SuperSecret!";\n',
+      'SEC-SEC-004',
+    ],
+    [
+      'reqwest danger_accept_invalid_certs(true)',
+      'fn client() -> reqwest::Result<reqwest::Client> {\n    reqwest::Client::builder().danger_accept_invalid_certs(true).build()\n}\n',
+      'SEC-NET-004',
+    ],
+    [
+      'native-tls danger_accept_invalid_hostnames(true)',
+      'let c = native_tls::TlsConnector::builder()\n    .danger_accept_invalid_hostnames( true )\n    .build()?;\n',
+      'SEC-NET-004',
     ],
   ];
 

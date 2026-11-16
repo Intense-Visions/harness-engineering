@@ -16,6 +16,7 @@ import {
   validateAutoDecisionInput,
 } from './decision-schema';
 import { resolveAutonomyForSession, type ResolveForSessionInput } from './session';
+import { withAppendLock, type AppendLockOptions } from './append-lock';
 
 export const AUTO_DECISIONS_FILE = 'auto-decisions.jsonl';
 /** Hard cap on one serialized entry (newline included); one entry is always one write(2). */
@@ -52,6 +53,8 @@ export class AutoDecisionWriteFailedError extends Error {
 export interface DecisionLogOptions extends AutonomyPathOptions {
   /** @internal Test seam: append `data` to `file`, returning the bytes written. */
   appendBytes?: (file: string, data: Buffer) => number;
+  /** @internal Test seam: append-lock timing (wait, clock, timeout, staleness). */
+  appendLock?: AppendLockOptions;
 }
 
 export interface ReadAutoDecisionsOptions extends AutonomyPathOptions {
@@ -104,22 +107,33 @@ function endsMidLine(fd: number): boolean {
  * One write(2) on an O_APPEND descriptor ('a+' = append-only writes, plus reads for the tail
  * check). If the log ends mid-line (a cut-short write), a newline is prepended in the SAME write
  * so the fragment cannot swallow this entry (review S2). Returns the bytes of `data` written.
+ *
+ * The tail check and the write run under the log's append lock: without it, another writer's
+ * line still being copied (visible to fstat/pread on Linux, newline not yet there) reads as
+ * cut short, and the prepended newline lands after that line completes, as a blank line (#2535).
  */
-function defaultAppendBytes(file: string, data: Buffer): number {
-  const fd = fs.openSync(file, 'a+', 0o600);
-  try {
-    const prefix = endsMidLine(fd) ? 1 : 0;
-    const out = prefix ? Buffer.concat([Buffer.from([NEWLINE]), data]) : data;
-    return fs.writeSync(fd, out, 0, out.length) - prefix;
-  } finally {
-    fs.closeSync(fd);
-  }
+function lockedAppendBytes(file: string, data: Buffer, opts: DecisionLogOptions): number {
+  return withAppendLock(
+    file,
+    () => {
+      const fd = fs.openSync(file, 'a+', 0o600);
+      try {
+        const prefix = endsMidLine(fd) ? 1 : 0;
+        const out = prefix ? Buffer.concat([Buffer.from([NEWLINE]), data]) : data;
+        return fs.writeSync(fd, out, 0, out.length) - prefix;
+      } finally {
+        fs.closeSync(fd);
+      }
+    },
+    opts.appendLock
+  );
 }
 
 /**
  * Append one entry as one line. Append-only: the file is opened only in append mode and this
  * module never rewrites or deletes it. The whole line is a single write(2) on an O_APPEND
- * descriptor, so concurrent writers never interleave partial lines. The entry is NOT validated
+ * descriptor, made under the log's append lock, so concurrent writers never interleave partial
+ * lines or leave a blank one. The entry is NOT validated
  * here; recordAutoDecision (below) is the public path (validate, authorize, stamp, then append).
  * Exported for tests only: the autonomy barrel does not re-export it.
  */
@@ -143,7 +157,9 @@ export function appendAutoDecision(
     );
   }
   try {
-    const written = (opts.appendBytes ?? defaultAppendBytes)(file, data);
+    const written = opts.appendBytes
+      ? opts.appendBytes(file, data)
+      : lockedAppendBytes(file, data, opts);
     if (written !== data.length) {
       return Err(
         new AutoDecisionWriteFailedError(file, `partial write (${written} of ${data.length} bytes)`)

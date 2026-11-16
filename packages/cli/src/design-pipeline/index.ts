@@ -22,7 +22,12 @@ import { runAudit as runAnatomyAudit } from '../mcp/tools/audit-anatomy.js';
 import { runAuditBrand } from '../mcp/tools/audit-brand.js';
 import { newContext, type DesignPipelineContext } from './context.js';
 import { VerifierRegistry } from './registry.js';
-import { runFreshen, probeGraphAvailable } from './phases/freshen.js';
+import {
+  runFreshen,
+  probeGraphAvailable,
+  probeInputs,
+  listMissingInputs,
+} from './phases/freshen.js';
 import { runDetect } from './phases/detect.js';
 import { runFix } from './phases/fix.js';
 import { runAudit } from './phases/audit.js';
@@ -106,6 +111,18 @@ export async function runDesignPipeline(
     ...(input.designStrictness !== undefined && { designStrictness: input.designStrictness }),
   });
 
+  // Probed here, after every phase that only reads and before FILL can write
+  // the scaffolds, and regardless of --no-freshen: the verdict must see what
+  // was missing whether or not FILL ran (#1960). Under the default run this is
+  // exactly the set FILL bootstraps, so that verdict is unchanged.
+  const missingInputs = listMissingInputs(probeInputs(projectRoot));
+  if (input.noFill === true && missingInputs.length > 0) {
+    context.warnings.push(
+      `--no-fill: design-system inputs are missing and were not bootstrapped: ` +
+        `${missingInputs.join(', ')}. The verdict is at most \`warn\` until they exist.`
+    );
+  }
+
   // PHASE 5: FILL (skipped if --no-fill)
   if (input.noFill !== true) {
     await runFill({
@@ -117,7 +134,7 @@ export async function runDesignPipeline(
   }
 
   // PHASE 6: REPORT
-  runReport({ context });
+  runReport({ context, missingInputs });
 
   context.summary.durationMs = Date.now() - startedAt;
   return context;

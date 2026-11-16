@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/tests/commands'
-sourceHash: '966196a8c1f73721eb699364c9c54af951e595a3c92a8e1dfe7597043fe95571'
+sourceHash: '5ea124f51c8a4d919a54af7f8087f0cb5e66c057fb13cd9a40f3c55667724fa4'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -55,6 +55,7 @@ members:
     'check-vocabulary.test.ts',
     'cleanup-cov544b.test.ts',
     'cleanup-duplication.test.ts',
+    'cleanup-findings-items.test.ts',
     'cleanup-sessions-cov544.test.ts',
     'cleanup-sessions.test.ts',
     'cleanup.test.ts',
@@ -277,7 +278,7 @@ import { createCheckPhaseGateCommand, runCheckPhaseGate } from '../../src/comman
 import { createCheckSecurityCommand, runCheckSecurity } from '../../src/commands/check-security'
 import { createCheckVocabularyCommand, runCheckVocabulary } from '../../src/commands/check-vocabulary'
 import '../../src/commands/ci/check'
-import { createCleanupCommand, printCleanupResult, runCleanup } from '../../src/commands/cleanup'
+import { buildCleanupFindingItems, createCleanupCommand, printCleanupResult, runCleanup } from '../../src/commands/cleanup'
 import { createCleanupSessionsCommand, printCleanupAllResult, printCleanupSessionsResult, runCleanupAll, runCleanupSessions } from '../../src/commands/cleanup-sessions'
 import { createCliErgonomicsCraftCommand } from '../../src/commands/cli-ergonomics-craft'
 import { createCodeCraftCommand } from '../../src/commands/code-craft'
@@ -467,7 +468,7 @@ import '@harness-engineering/graph'
 import { GUARDIAN_ANALYSIS_SCHEMA, GUARDIAN_ANALYSIS_VERSION, GuardianAnalysis, OutcomeVerdict, SkillRegressionFixture, SkillRegressionVerdict } from '@harness-engineering/intelligence'
 import { AnalysisRecord, MockBackend, RunMode, RunResult, SyncMainResult, TaskDefinition, renderAnalysisComment } from '@harness-engineering/orchestrator'
 import { SignalResult, SignalsResult } from '@harness-engineering/signals'
-import { SdlcEvent, TrackerComment } from '@harness-engineering/types'
+import { SdlcEvent, TrackerComment, parseFindingsContract } from '@harness-engineering/types'
 import { execFileSync, execSync } from 'child_process'
 import { Command } from 'commander'
 import * as fs from 'fs'

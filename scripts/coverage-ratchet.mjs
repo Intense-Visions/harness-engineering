@@ -6,6 +6,8 @@
  * Usage:
  *   node scripts/coverage-ratchet.mjs                  # check mode (CI, full/authoritative)
  *   node scripts/coverage-ratchet.mjs --allow-missing  # check mode, skip packages with no fresh coverage (pre-push)
+ *   node scripts/coverage-ratchet.mjs --allow-missing --scope-from <turbo-dry.json>
+ *                                                      # ...and tell the floor what was in scope (pre-push)
  *   node scripts/coverage-ratchet.mjs --clean          # delete stale coverage-summary.json before an --affected run (pre-push)
  *   node scripts/coverage-ratchet.mjs --update          # update baselines
  */
@@ -17,6 +19,18 @@ import { fileURLToPath } from 'node:url';
 const ROOT = resolve(import.meta.dirname, '..');
 const BASELINES_PATH = join(ROOT, 'coverage-baselines.json');
 const METRICS = ['lines', 'branches', 'functions', 'statements'];
+
+/**
+ * Exit codes. ZERO_DENOMINATOR (3) is the repo's abstention code (see
+ * scripts/main-health-check.mjs INDETERMINATE and `harness roadmap sync`'s
+ * ExitCode.ZERO_DENOMINATOR): a check that graded nothing has abstained, and an
+ * abstention must never read as a pass (#2307).
+ */
+export const EXIT = {
+  PASS: 0,
+  REGRESSION: 1,
+  ZERO_DENOMINATOR: 3,
+};
 
 /**
  * V8 code coverage is non-deterministic — identical code can produce slightly
@@ -150,11 +164,12 @@ function loadBaselines() {
  * @param {Record<string, object>} baselines
  * @param {Record<string, object|null>} coverageByPkg  pkgKey -> coverage result or null
  * @param {{ allowMissing?: boolean }} opts
- * @returns {{ failures: number, skipped: string[] }}
+ * @returns {{ failures: number, skipped: string[], graded: string[] }}
  */
 export function evaluateCoverage(baselines, coverageByPkg, { allowMissing = false } = {}) {
   let failures = 0;
   const skipped = [];
+  const graded = [];
 
   for (const pkgKey of Object.keys(coverageByPkg)) {
     const baseline = baselines[pkgKey];
@@ -177,6 +192,7 @@ export function evaluateCoverage(baselines, coverageByPkg, { allowMissing = fals
       continue;
     }
 
+    graded.push(pkgKey);
     const tolerance = toleranceFor(pkgKey);
     for (const metric of METRICS) {
       const baselineVal = baseline[metric];
@@ -190,28 +206,133 @@ export function evaluateCoverage(baselines, coverageByPkg, { allowMissing = fals
     }
   }
 
-  return { failures, skipped };
+  return { failures, skipped, graded };
 }
 
-function check({ allowMissing = false } = {}) {
+/**
+ * Derive which ratcheted packages the coverage run had in scope, from the JSON
+ * of `turbo run test:coverage --affected --dry=json` (the same selection the
+ * pre-push coverage run executes). A package is in scope when turbo planned a
+ * real `test:coverage` task for its directory (`<NONEXISTENT>` = no such script,
+ * so nothing runs) AND the ratchet grades it (it is in `packages`).
+ *
+ * Returns null when the input is not a turbo dry-run shape: scope is then
+ * UNKNOWN and the zero-measured floor applies, erring toward abstaining rather
+ * than toward a pass.
+ *
+ * @param {unknown} dryRun  parsed turbo --dry=json output
+ * @param {Record<string, string>} packages  pkgKey -> coverage-summary.json path
+ * @returns {string[]|null}
+ */
+export function inScopeFromTurboDryRun(dryRun, packages = PACKAGES) {
+  if (!dryRun || typeof dryRun !== 'object' || !Array.isArray(dryRun.tasks)) return null;
+  const inScope = new Set();
+  for (const task of dryRun.tasks) {
+    if (!task || typeof task.taskId !== 'string' || typeof task.directory !== 'string') continue;
+    if (!task.taskId.endsWith('#test:coverage')) continue;
+    if (task.command === '<NONEXISTENT>') continue;
+    const dir = task.directory.replace(/\\/g, '/').replace(/\/+$/, '');
+    if (Object.hasOwn(packages, dir)) inScope.add(dir);
+  }
+  return Object.keys(packages).filter((k) => inScope.has(k));
+}
+
+/**
+ * Turn an evaluation into an exit code and a final message.
+ *
+ * The floor (#2307): under --allow-missing a run that graded ZERO packages has
+ * measured nothing, so it abstains (EXIT.ZERO_DENOMINATOR) instead of printing
+ * "all packages meet or exceed baselines". The one exception is a run whose
+ * scope is KNOWN to contain no ratcheted package (e.g. a docs-only push, where
+ * `turbo --affected` selects no package with a baseline): there was nothing to
+ * measure, which is an explicit, clean skip — such pushes must not be blocked.
+ *
+ * "Nothing was in scope" (inScope = []) and "things were in scope but none
+ * produced data" (inScope non-empty, graded = []) are therefore different
+ * verdicts. Unknown scope (inScope = null) is treated as the latter.
+ *
+ * @param {{ allowMissing?: boolean, failures: number, graded: string[], skipped: string[],
+ *           inScope?: string[]|null }} result
+ * @returns {{ exitCode: number, message: string }}
+ */
+export function ratchetVerdict({
+  allowMissing = false,
+  failures,
+  graded,
+  skipped,
+  inScope = null,
+}) {
+  const split = `graded ${graded.length}, skipped ${skipped.length}`;
+  if (failures > 0) {
+    return {
+      exitCode: EXIT.REGRESSION,
+      message:
+        `${failures} coverage regression(s) detected (${split}).\n` +
+        'If coverage intentionally decreased, run: node scripts/coverage-ratchet.mjs --update',
+    };
+  }
+  if (allowMissing && graded.length === 0) {
+    if (Array.isArray(inScope) && inScope.length === 0) {
+      return {
+        exitCode: EXIT.PASS,
+        message:
+          'Coverage ratchet: nothing in scope — no package with a coverage baseline was ' +
+          `affected by this change, so there was nothing to grade (${split}).`,
+      };
+    }
+    const scopeNote = Array.isArray(inScope)
+      ? `in scope: ${inScope.join(', ')}`
+      : 'scope unknown (no readable --scope-from)';
+    return {
+      exitCode: EXIT.ZERO_DENOMINATOR,
+      message:
+        'Coverage ratchet: ABSTAINED — no coverage data found; the coverage run did not ' +
+        `produce measurements (${split}; ${scopeNote}). Zero packages graded is not a pass.`,
+    };
+  }
+  return {
+    exitCode: EXIT.PASS,
+    message: `Coverage ratchet: all packages meet or exceed baselines (${split}).`,
+  };
+}
+
+/** Read a turbo --dry=json file into an in-scope list, or null if unreadable. */
+function readScope(scopePath) {
+  if (!scopePath) return null;
+  try {
+    return inScopeFromTurboDryRun(JSON.parse(readFileSync(scopePath, 'utf8')));
+  } catch {
+    console.warn(`  Warning: could not read --scope-from ${scopePath} -- scope unknown`);
+    return null;
+  }
+}
+
+function check({ allowMissing = false, scopePath = null } = {}) {
   const baselines = loadBaselines();
   const coverageByPkg = {};
   for (const pkgKey of Object.keys(PACKAGES)) {
     coverageByPkg[pkgKey] = readCoverage(pkgKey);
   }
 
-  const { failures, skipped } = evaluateCoverage(baselines, coverageByPkg, { allowMissing });
+  const { failures, skipped, graded } = evaluateCoverage(baselines, coverageByPkg, {
+    allowMissing,
+  });
+  const inScope = allowMissing ? readScope(scopePath) : null;
+  const { exitCode, message } = ratchetVerdict({
+    allowMissing,
+    failures,
+    graded,
+    skipped,
+    inScope,
+  });
 
-  if (failures > 0) {
-    console.error(`\n${failures} coverage regression(s) detected.`);
-    console.error(
-      'If coverage intentionally decreased, run: node scripts/coverage-ratchet.mjs --update'
-    );
-    process.exit(1);
+  if (exitCode === EXIT.PASS) {
+    console.log(message);
+  } else {
+    console.error(`\n${message}`);
   }
-
-  const note = skipped.length ? ` (${skipped.length} package(s) skipped: no fresh coverage)` : '';
-  console.log(`Coverage ratchet: all packages meet or exceed baselines.${note}`);
+  // exitCode (not process.exit) so buffered stdout/stderr flush when piped.
+  process.exitCode = exitCode;
 }
 
 /**
@@ -313,7 +434,9 @@ if (invokedDirectly) {
     update();
   } else {
     const allowMissing = args.includes('--allow-missing');
+    const scopeIdx = args.indexOf('--scope-from');
+    const scopePath = scopeIdx !== -1 ? args[scopeIdx + 1] || null : null;
     console.log(`Checking coverage against baselines${allowMissing ? ' (partial mode)' : ''}...\n`);
-    check({ allowMissing });
+    check({ allowMissing, scopePath });
   }
 }
