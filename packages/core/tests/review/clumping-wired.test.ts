@@ -199,3 +199,34 @@ describe('the clumping config block reaches the review seam', () => {
     expect(result.githubComments).toHaveLength(2);
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// #2476 §2 — the grouping report is RETURNED, not computed and discarded.
+//
+// `githubComments` dropping from N+1 to 2 is the only observable effect of the
+// review seam; the report that explains the drop has to travel with it.
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('#2476: runReviewPipeline returns the comment-grouping report', () => {
+  it('carries the ClumpedCommentReport that explains the comment count', async () => {
+    const result = await run();
+    expect(result.githubCommentReport).toMatchObject({
+      findings: SUGGESTIONS.length + 1,
+      comments: 2,
+      clumps: 1,
+      grouped: SUGGESTIONS.length,
+      individual: 1,
+    });
+    expect(result.githubCommentReport!.comments).toBe(result.githubComments.length);
+  });
+
+  it('POSITIVE CONTROL: no report when the comment flag is off (no comments were formed)', async () => {
+    const result = await runReviewPipeline({
+      projectRoot: '/tmp/clumping-wired',
+      diff: DIFF,
+      commitMessage: 'feat: wired',
+      flags: { ...FLAGS, comment: false },
+    });
+    expect(result.githubCommentReport).toBeUndefined();
+  });
+});
