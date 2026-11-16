@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/tests/mcp/tools'
-sourceHash: '633363b83dd6d2280f9f5b90c6463e8ef2c4163cdb152e256bac3767e6277141'
+sourceHash: '14a6c4da8868ea7a08906c38b862fbdfe79311f7dfff920a681bf1aaa014605e'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -79,6 +79,7 @@ members:
     'review-changes.test.ts',
     'review-pipeline-config.test.ts',
     'review-pipeline.test.ts',
+    'roadmap-add-external-id.test.ts',
     'roadmap-auto-sync.test.ts',
     'roadmap-cov544.test.ts',
     'roadmap-file-less-cov544.test.ts',

@@ -38,6 +38,7 @@ export interface ManageRoadmapFileLessInput {
   filter?: string;
   apply?: boolean;
   force_sync?: boolean;
+  external_id?: string;
 }
 
 interface McpTextContent {
@@ -119,6 +120,14 @@ async function handleAdd(
   client: RoadmapTrackerClient
 ): Promise<McpResponse> {
   if (!input.feature) return err('Error: add requires feature name');
+  // In file-less mode the tracker ticket IS the row. Linking a "new" row to an
+  // existing ticket has no meaning here, and client.create would mint a
+  // duplicate of that ticket — refuse rather than guess.
+  if (input.external_id !== undefined) {
+    return err(
+      `Error: external_id is not supported in file-less mode — the tracker ticket ${input.external_id} already is the roadmap row; nothing was created.`
+    );
+  }
   const newFeature: NewFeatureInput = {
     name: input.feature,
     summary: input.summary ?? input.feature,
