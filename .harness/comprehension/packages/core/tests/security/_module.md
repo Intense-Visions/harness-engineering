@@ -1,26 +1,11 @@
 ---
 schemaVersion: 1
-module: 'packages/core/tests/security'
-sourceHash: 'c3d992694e6f62926cd91dda70edf38b15558841376f9fb1407384eab9afab64'
-compiler: { static: '1.0.0', semantic: '1.0.0' }
+module: "packages/core/tests/security"
+sourceHash: "8f72bfcff91ab93ddaaecd036227f8bcb91b68a31893a60794687f905c0f9cd3"
+compiler: { static: "1.0.0", semantic: "1.0.0" }
 model: null
 semantic: absent
-members:
-  [
-    'config.test.ts',
-    'injection-patterns.test.ts',
-    'integration.test.ts',
-    'osv-client.test.ts',
-    'scan-targets-default-ignore.test.ts',
-    'scan-targets-rust.test.ts',
-    'scanner-fileglob.test.ts',
-    'scanner.test.ts',
-    'secret-reference.test.ts',
-    'security-timeline-manager.test.ts',
-    'stack-detector.test.ts',
-    'taint.test.ts',
-    'types.test.ts',
-  ]
+members: ["config.test.ts", "injection-patterns.test.ts", "integration.test.ts", "osv-client.test.ts", "scan-targets-default-ignore.test.ts", "scan-targets-rust.test.ts", "scanner-fileglob.test.ts", "scanner.test.ts", "secret-reference.test.ts", "security-timeline-manager.test.ts", "stack-detector.test.ts", "taint.test.ts", "types.test.ts"]
 ---
 
 ## Interface Contract
