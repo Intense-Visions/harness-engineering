@@ -11,7 +11,12 @@ describe('ci-pre-merge-brief template', () => {
   it('ruleset required-check context matches the workflow job name', () => {
     // Parse the RAW .hbs: the literal `name: pre-merge-brief` and the quoted
     // Handlebars tokens are valid YAML, so the job name is stable on the raw file.
-    const wf = yaml.parse(fs.readFileSync(path.join(CI_DIR, 'pre-merge-brief.yml.hbs'), 'utf-8'));
+    const wf = yaml.parse(
+      fs.readFileSync(
+        path.join(CI_DIR, '.github', 'workflows', 'harness-pre-merge-brief.yml.hbs'),
+        'utf-8'
+      )
+    );
     const jobName = wf.jobs['pre-merge-brief'].name;
 
     const ruleset = JSON.parse(
@@ -36,8 +41,13 @@ describe('ci-pre-merge-brief template', () => {
       },
       files: [
         {
-          relativePath: 'pre-merge-brief.yml.hbs',
-          absolutePath: path.join(CI_DIR, 'pre-merge-brief.yml.hbs'),
+          relativePath: '.github/workflows/harness-pre-merge-brief.yml.hbs',
+          absolutePath: path.join(
+            CI_DIR,
+            '.github',
+            'workflows',
+            'harness-pre-merge-brief.yml.hbs'
+          ),
           isHandlebars: true,
           sourceTemplate: 'ci-pre-merge-brief',
         },
@@ -54,8 +64,11 @@ describe('ci-pre-merge-brief template', () => {
     expect(result.ok).toBe(true);
     if (!result.ok) return;
 
-    // The engine strips `.hbs`, so the rendered file is `pre-merge-brief.yml`.
-    const wf = result.value.files.find((f) => f.relativePath === 'pre-merge-brief.yml');
+    // The engine strips `.hbs`, so the rendered file is the runnable workflow
+    // under `.github/workflows/` (#2630: never the repo root).
+    const wf = result.value.files.find(
+      (f) => f.relativePath === '.github/workflows/harness-pre-merge-brief.yml'
+    );
     expect(wf).toBeDefined();
 
     const parsed = yaml.parse(wf!.content); // throws if invalid YAML
@@ -138,11 +151,15 @@ describe('ci-pre-merge-brief template', () => {
     if (!resolved.ok) return;
 
     // Named standalone template: no `extends`, so ONLY its own files resolve —
-    // the pre-merge-brief workflow, ruleset, and README, and no basic/base
+    // the pre-merge-brief workflow, ruleset, and template doc, and no basic/base
     // level-scaffold files (e.g. harness.config.json / AGENTS.md) leak in.
     const paths = resolved.value.files.map((f) => f.relativePath).sort();
     expect(paths).toEqual(
-      ['README.md', 'pre-merge-brief.ruleset.json', 'pre-merge-brief.yml.hbs'].sort()
+      [
+        '.github/harness/ci-pre-merge-brief.md',
+        '.github/workflows/harness-pre-merge-brief.yml.hbs',
+        'pre-merge-brief.ruleset.json',
+      ].sort()
     );
 
     // Render with the same defaults commands/init.ts supplies. Strict-mode
@@ -158,8 +175,10 @@ describe('ci-pre-merge-brief template', () => {
     if (!rendered.ok) return;
 
     // The `.hbs` is stripped: `harness init --template ci-pre-merge-brief` emits
-    // the runnable `pre-merge-brief.yml` workflow.
-    const wf = rendered.value.files.find((f) => f.relativePath === 'pre-merge-brief.yml');
+    // the runnable workflow under `.github/workflows/` (#2630: never the root).
+    const wf = rendered.value.files.find(
+      (f) => f.relativePath === '.github/workflows/harness-pre-merge-brief.yml'
+    );
     expect(wf).toBeDefined();
     expect(wf!.content).toContain('name: pre-merge-brief');
     expect(wf!.content).toContain('--runner claude');

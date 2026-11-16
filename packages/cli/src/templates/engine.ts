@@ -70,11 +70,35 @@ interface WriteOptions {
   overwrite: boolean;
   language?: string;
   existingProject?: boolean;
+  /**
+   * The template is an opt-in add-on (`harness init -t ci-required-review`),
+   * not a project scaffold: every file it renders is harness infrastructure the
+   * adopter asked for, so it is written into an existing project too (#2630).
+   */
+  addOn?: boolean;
 }
 
 export interface WriteResult {
   written: string[];
   skippedConfigs: string[];
+  /** Files left untouched because they already existed (no `--force`). */
+  skippedExisting: string[];
+}
+
+/**
+ * An opt-in add-on template: a named template (`harness init -t <name>`) that is
+ * neither an adoption-level scaffold, a language base, a framework overlay, nor
+ * an extension of one. Everything it renders is infrastructure layered onto a
+ * project, never the project's own scaffold.
+ */
+export function isAddOnTemplate(metadata: TemplateMetadata): boolean {
+  return (
+    metadata.level === undefined &&
+    metadata.language === undefined &&
+    metadata.framework === undefined &&
+    metadata.extends === undefined &&
+    metadata.name !== 'base'
+  );
 }
 
 const NON_JSON_PACKAGE_CONFIGS = new Set([
@@ -360,6 +384,7 @@ export class TemplateEngine {
     try {
       const written: string[] = [];
       const skippedConfigs: string[] = [];
+      const skippedExisting: string[] = [];
       const isNonJsLanguage = options.language && options.language !== 'typescript';
 
       for (const file of files.files) {
@@ -370,6 +395,7 @@ export class TemplateEngine {
         if (
           !options.overwrite &&
           options.existingProject &&
+          !options.addOn &&
           !isHarnessConfigFile(file.relativePath)
         ) {
           continue;
@@ -386,13 +412,16 @@ export class TemplateEngine {
           continue;
         }
 
-        if (!options.overwrite && fs.existsSync(targetPath)) continue;
+        if (!options.overwrite && fs.existsSync(targetPath)) {
+          skippedExisting.push(file.relativePath);
+          continue;
+        }
         fs.mkdirSync(dir, { recursive: true });
         fs.writeFileSync(targetPath, file.content);
         written.push(file.relativePath);
       }
       if (written.includes('harness.config.json')) pruneUnwrittenEntryPoints(targetDir);
-      return Ok({ written, skippedConfigs });
+      return Ok({ written, skippedConfigs, skippedExisting });
     } catch (error) {
       return Err(
         new Error(

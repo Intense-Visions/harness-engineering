@@ -111,6 +111,27 @@ describe('init tier upgrade (#2630)', () => {
     expect(fs.existsSync(path.join(dir, '.harness', 'arch', 'baselines.json'))).toBe(true);
   });
 
+  it('reports adopter files it kept as skippedExisting, but not the merged config', async () => {
+    await customisedMinimalProject(dir);
+    const result = await runInit({
+      cwd: dir,
+      name: 'demo',
+      level: 'intermediate',
+      tier: 'intermediate',
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.value.upgradedFrom).toBe('minimal');
+    // AGENTS.md was kept verbatim, so it is reported as a kept file.
+    expect(result.value.skippedExisting).toContain('AGENTS.md');
+    // The config was merged (not left untouched), so it is not reported as kept.
+    expect(result.value.skippedExisting).not.toContain('harness.config.json');
+    for (const f of result.value.skippedExisting ?? []) {
+      expect(result.value.filesCreated).not.toContain(f);
+      expect(fs.existsSync(path.join(dir, f))).toBe(true);
+    }
+  });
+
   it('a template entry point the upgrade could not write is not declared in the merged config', async () => {
     await customisedMinimalProject(dir);
     // Pre-existing src/index.ts is kept; eslint.config.mjs is written by the tier.
