@@ -113,7 +113,7 @@ interface ReviewFinding {
 
 The two optional fields are additive — existing 4 agents leave them
 undefined. Numeric `confidence` values follow the anchored rubric at
-[references/confidence-rubric.md](references/confidence-rubric.md).
+`harness-code-review/references/confidence-rubric.md`.
 
 ### Flags
 
@@ -373,7 +373,7 @@ Use to determine: **Hotspot?** (3+ changes in last 5 commits) **Recently refacto
 **Steps:**
 
 1. **Count changed lines.** Sum `+`/`-` lines per file, excluding test files (`*.test.{ts,tsx,js,jsx}`, `__tests__/**`, `*.spec.{ts,tsx,js,jsx}`), generated files (`*.generated.{ts,tsx,js,jsx}`), lockfiles (`pnpm-lock.yaml`, `package-lock.json`, `yarn.lock`), and `dist/` / `build/` directories.
-2. **Detect risk keywords.** Match the canonical keyword list from [references/risk-keywords.md](references/risk-keywords.md) against the diff content, file paths, and commit message (case-insensitive, whole-word for single-word keywords, substring for multi-word keywords like `external API`).
+2. **Detect risk keywords.** Match the canonical keyword list from `harness-code-review/references/risk-keywords.md` against the diff content, file paths, and commit message (case-insensitive, whole-word for single-word keywords, substring for multi-word keywords like `external API`).
 3. **Compute tier.**
    - **Quick:** `< 50` lines AND `0` keywords
    - **Standard:** `50–199` lines OR exactly `1` keyword
@@ -516,7 +516,7 @@ Reviews architectural violations, dependency direction, and design pattern compl
 
 #### Conditional Subagents (depth-gated, activated by Phase 3.5)
 
-The dispatcher reads `PipelineContext.depthCalibration.activations` and runs only those listed. Each conditional subagent emits findings under existing domain values (`bug` or `architecture`) and populates `subagent` + `confidence` per the [confidence rubric](references/confidence-rubric.md).
+The dispatcher reads `PipelineContext.depthCalibration.activations` and runs only those listed. Each conditional subagent emits findings under existing domain values (`bug` or `architecture`) and populates `subagent` + `confidence` per the confidence rubric (`harness-code-review/references/confidence-rubric.md`).
 
 ##### Adversarial (strong tier) — activates at Standard or Deep
 

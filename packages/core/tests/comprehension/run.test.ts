@@ -473,3 +473,80 @@ describe('runComprehendStats — savings metric (SC6)', () => {
     expect(result.units).toBe(1);
   });
 });
+
+// --- #2063: report the semantic present/absent ratio ------------------------
+//
+// A fixture substrate with N `semantic: present` and M `semantic: absent` units.
+// Both `--stats` and `--check` must count EVERY committed (parseable) unit — a
+// stale unit is still committed debt — and report the absent ratio.
+
+import { summarizeSemanticCoverage } from '../../src/comprehension/run';
+
+function withSemantic(unit: ComprehensionUnit, semantic: 'present' | 'absent'): ComprehensionUnit {
+  return {
+    ...unit,
+    provenance: { ...unit.provenance, semantic, model: semantic === 'present' ? 'm' : null },
+    summary: semantic === 'present' ? 'A summary.' : '',
+  };
+}
+
+function mixedSubstrate(present: number, absent: number): ComprehensionUnit[] {
+  const units: ComprehensionUnit[] = [];
+  for (let i = 0; i < present; i++) units.push(withSemantic(unitFor(`pkg/p${i}`, SRC), 'present'));
+  for (let i = 0; i < absent; i++) units.push(withSemantic(unitFor(`pkg/a${i}`, SRC), 'absent'));
+  return units;
+}
+
+function readerFor(units: ComprehensionUnit[]) {
+  return fakeReader(Object.fromEntries(units.map((u) => [u.provenance.module, SRC])));
+}
+
+describe('summarizeSemanticCoverage (#2063)', () => {
+  it('counts present/absent and derives the absent ratio', () => {
+    expect(summarizeSemanticCoverage(mixedSubstrate(3, 1))).toEqual({
+      total: 4,
+      present: 3,
+      absent: 1,
+      absentRatio: 0.25,
+    });
+  });
+
+  it('reports a 0 ratio (not NaN) for an empty substrate', () => {
+    expect(summarizeSemanticCoverage([])).toEqual({
+      total: 0,
+      present: 0,
+      absent: 0,
+      absentRatio: 0,
+    });
+  });
+});
+
+describe('runComprehendStats / runComprehendCheck — semantic coverage (#2063)', () => {
+  it('--stats reports present/absent counts and the absent ratio over 6 present / 2 absent', async () => {
+    const units = mixedSubstrate(6, 2);
+    const store = fakeListStore({ units, skipped: [] });
+    const result = await runComprehendStats({ store, reader: readerFor(units) });
+    expect(result.semantic).toEqual({ total: 8, present: 6, absent: 2, absentRatio: 0.25 });
+  });
+
+  it('--stats counts a source-stale unit in the coverage (committed debt), not only fresh ones', async () => {
+    const units = mixedSubstrate(1, 1);
+    const store = fakeListStore({ units, skipped: [] });
+    // The absent unit's source changed ⇒ stale ⇒ excluded from savings, NOT from coverage.
+    const reader = fakeReader({
+      'pkg/p0': SRC,
+      'pkg/a0': [{ path: 'a.ts', content: 'export const changed = 1;\n' }],
+    });
+    const result = await runComprehendStats({ store, reader });
+    expect(result.units).toBe(1);
+    expect(result.semantic).toEqual({ total: 2, present: 1, absent: 1, absentRatio: 0.5 });
+  });
+
+  it('--check reports the same coverage alongside freshness', async () => {
+    const units = mixedSubstrate(3, 1);
+    const store = fakeListStore({ units, skipped: [] });
+    const result = await runComprehendCheck({ store, reader: readerFor(units) });
+    expect(result.ok).toBe(true);
+    expect(result.semantic).toEqual({ total: 4, present: 3, absent: 1, absentRatio: 0.25 });
+  });
+});

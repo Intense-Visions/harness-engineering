@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/tests/templates'
-sourceHash: '8fca1a738be407a0b02c0e260b1a703f44e425397e707b46937f6410355e688b'
+sourceHash: 'e502c21d5a7d06172a3721764ab732631b85d11d5e929343981c6ab121565d45'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -16,6 +16,7 @@ members:
     'merger.test.ts',
     'performance-entry-points.test.ts',
     'post-write.test.ts',
+    'scaffolded-tooling-nesting.test.ts',
     'schema.test.ts',
     'snapshot.test.ts',
     'template-content.test.ts',
@@ -32,12 +33,13 @@ members:
 ## Dependency Slice
 
 ```
+import { runInit } from '../../src/commands/init'
 import { HarnessConfigSchema } from '../../src/config/schema'
 import { collectStrippedKeys } from '../../src/config/stripped-keys'
 import { appendFrameworkSection, buildFrameworkSection } from '../../src/templates/agents-append'
-import { TemplateContext, TemplateEngine } from '../../src/templates/engine'
+import { ResolvedTemplate, TemplateContext, TemplateEngine } from '../../src/templates/engine'
 import { deepMergeJson, mergePackageJson } from '../../src/templates/merger'
-import { applyEcosystemAfterCreate, ensureComprehensionSearchIgnore, ensureHarnessGitignore } from '../../src/templates/post-write'
+import { applyEcosystemAfterCreate, ensureComprehensionSearchIgnore, ensureHarnessGitignore, persistToolingConfig } from '../../src/templates/post-write'
 import { TemplateMetadataSchema } from '../../src/templates/schema'
 import { COMPREHENSION_ROOT, SECURITY_SCAN_EXTENSIONS } from '@harness-engineering/core'
 import * as fs from 'fs'
@@ -45,6 +47,7 @@ import { spawnSync } from 'node:child_process'
 import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import * as fs from 'node:fs'
 import { tmpdir } from 'node:os'
+import * as os from 'node:os'
 import * as path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import * as os from 'os'

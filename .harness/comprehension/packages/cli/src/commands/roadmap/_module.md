@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/commands/roadmap'
-sourceHash: 'f835c9a5a8fb869b368b7ab0aa2b4c1e77e6aa64e9acba0133f3d42fe3775198'
+sourceHash: 'eaee65ee0be730e18fff2e852b5fb6db443a3580de8a8ba8ca9e1c47165840a6'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent

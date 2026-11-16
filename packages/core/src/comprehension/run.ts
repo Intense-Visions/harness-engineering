@@ -232,6 +232,32 @@ export interface ComprehendListStore {
   list(): Promise<Result<ComprehensionListing>>;
 }
 
+/**
+ * #2063 — the committed substrate's semantic coverage: how many units carry the
+ * LLM-generated semantic half (`semantic: present`) versus static-only
+ * (`semantic: absent`). Counted over EVERY parseable committed unit, fresh or
+ * stale — a stale unit is still committed debt. Reporting-only: nothing here
+ * decides a verdict (the CLI owns any warning/threshold).
+ */
+export interface SemanticCoverage {
+  total: number;
+  present: number;
+  absent: number;
+  /** `absent / total` as a fraction in [0, 1]; 0 (never NaN) for an empty substrate. */
+  absentRatio: number;
+}
+
+/** Pure tally of {@link SemanticCoverage} over a set of committed units (#2063). */
+export function summarizeSemanticCoverage(
+  units: readonly Pick<ComprehensionUnit, 'provenance'>[]
+): SemanticCoverage {
+  let present = 0;
+  for (const unit of units) if (unit.provenance.semantic === 'present') present++;
+  const total = units.length;
+  const absent = total - present;
+  return { total, present, absent, absentRatio: total > 0 ? absent / total : 0 };
+}
+
 export interface ComprehendCheckResult {
   /** Modules whose committed unit is source-stale (recompile needed). */
   stale: string[];
@@ -239,6 +265,8 @@ export interface ComprehendCheckResult {
   skipped: SkippedUnit[];
   /** True iff no unit is source-stale. */
   ok: boolean;
+  /** #2063 — semantic present/absent coverage of the committed substrate (advisory). */
+  semantic: SemanticCoverage;
 }
 
 /**
@@ -259,6 +287,7 @@ export async function runComprehendCheck(opts: {
       stale: [],
       skipped: [{ path: '<listing>', reason: listing.error.message }],
       ok: false,
+      semantic: summarizeSemanticCoverage([]),
     };
   }
   const stale: string[] = [];
@@ -266,7 +295,12 @@ export async function runComprehendCheck(opts: {
     const verdict = await serveGate(unit, opts.reader);
     if (!verdict.serve) stale.push(verdict.module);
   }
-  return { stale, skipped: listing.value.skipped, ok: stale.length === 0 };
+  return {
+    stale,
+    skipped: listing.value.skipped,
+    ok: stale.length === 0,
+    semantic: summarizeSemanticCoverage(listing.value.units),
+  };
 }
 
 export interface ComprehendStatsResult {
@@ -277,6 +311,11 @@ export interface ComprehendStatsResult {
   savedPct: number;
   /** Number of fresh (serveable) units counted. */
   units: number;
+  /**
+   * #2063 — semantic present/absent coverage over ALL committed units (fresh or
+   * stale), unlike the savings figures above which count fresh units only.
+   */
+  semantic: SemanticCoverage;
 }
 
 /**
@@ -307,5 +346,6 @@ export async function runComprehendStats(opts: {
   }
   const savedTokens = rawTokens - servedTokens;
   const savedPct = rawTokens > 0 ? (savedTokens / rawTokens) * 100 : 0;
-  return { rawTokens, servedTokens, savedTokens, savedPct, units };
+  const semantic = summarizeSemanticCoverage(listing.ok ? listing.value.units : []);
+  return { rawTokens, servedTokens, savedTokens, savedPct, units, semantic };
 }

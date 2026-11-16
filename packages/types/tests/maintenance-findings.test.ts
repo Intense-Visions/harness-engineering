@@ -76,3 +76,38 @@ describe('parseFindingsContract', () => {
     expect(parseFindingsContract(output)?.findings).toBe(9);
   });
 });
+
+// #2133: the contract carried only a COUNT, so a consumer could threshold on
+// findings but never enumerate, attribute or suppress one. `items` is the
+// additive channel for the findings themselves.
+describe('findings contract items (#2133)', () => {
+  const items = [
+    { kind: 'dead-code', file: 'src/a.ts', reason: 'NO_IMPORTERS' },
+    { kind: 'drift', file: 'docs/x.md', line: 4, type: 'api-signature', message: 'm' },
+  ];
+
+  it('publishes every item on the single trailing line, beside the unchanged count fields', () => {
+    const line = formatFindingsContract(2, 'cleanup', items);
+    expect(line).not.toContain('\n');
+    expect(JSON.parse(line)).toEqual({
+      findings: 2,
+      check: 'cleanup',
+      v: MAINTENANCE_FINDINGS_CONTRACT_VERSION,
+      items,
+    });
+  });
+
+  it('omits items entirely when the producer publishes only a count', () => {
+    expect(JSON.parse(formatFindingsContract(3, 'check-docs'))).not.toHaveProperty('items');
+  });
+
+  it('round-trips items through parseFindingsContract', () => {
+    const output = ['Entropy issues: 2', formatFindingsContract(2, 'cleanup', items)].join('\n');
+    expect(parseFindingsContract(output)?.items).toEqual(items);
+  });
+
+  it('drops non-object items rather than rejecting the envelope', () => {
+    const parsed = parseFindingsContract('{"findings":1,"items":[{"file":"a"},3,null,[1]]}');
+    expect(parsed).toEqual({ findings: 1, items: [{ file: 'a' }] });
+  });
+});

@@ -333,11 +333,9 @@ describe('useLocalModelsPanel', () => {
 
     // Defer resolution of each recommendations GET so we control ordering.
     const recResolvers: Array<(body: unknown) => void> = [];
-    let recCall = 0;
     const fetchMock = vi.fn((input: RequestInfo | URL) => {
       const url = String(input);
       if (url.includes('/local-models/recommendations')) {
-        recCall += 1;
         return new Promise<Response>((resolve) => {
           recResolvers.push((body) => resolve(jsonRes(body)));
         });
@@ -365,9 +363,9 @@ describe('useLocalModelsPanel', () => {
     await waitFor(() => expect(recResolvers.length).toBe(2));
 
     // Resolve NEWER first, then OLDER last (the out-of-order case).
-    act(() => recResolvers[1](FRESH));
+    act(() => recResolvers[1]!(FRESH));
     await waitFor(() => expect(result.current.recommendations.data).toEqual(FRESH));
-    act(() => recResolvers[0](OLD));
+    act(() => recResolvers[0]!(OLD));
 
     // The stale older response must NOT win.
     await waitFor(() => expect(result.current.recommendations.data).toEqual(FRESH));

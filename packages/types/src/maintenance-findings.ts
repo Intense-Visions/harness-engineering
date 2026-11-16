@@ -41,20 +41,36 @@ export interface MaintenanceFindingsContract {
   /** Contract version ({@link MAINTENANCE_FINDINGS_CONTRACT_VERSION}) for
    * forward-compatibility. */
   v?: number;
+  /**
+   * Optional, ADDITIVE per-finding detail (#2133): the findings themselves, so a
+   * consumer can enumerate, attribute and suppress individual findings instead
+   * of only thresholding on the count. When present it carries every finding the
+   * count covers (`items.length === findings`), never a truncated sample. The
+   * element shape is check-specific (`harness cleanup` documents its own); every
+   * element is a plain JSON object. Absent for checks that publish only a count.
+   */
+  items?: Array<Record<string, unknown>>;
 }
 
 /**
  * Format a {@link MaintenanceFindingsContract} as the single-line JSON string a
  * check subcommand prints to stdout. `findings` is coerced to a non-negative
  * integer so a producer can pass a raw `.length` without worrying about sign or
- * fractional inputs.
+ * fractional inputs. `items`, when given, is published verbatim as the
+ * envelope's `items` array (#2133) — still on the one line, so the last-line
+ * scan in {@link parseFindingsContract} recovers it.
  */
-export function formatFindingsContract(findings: number, check?: string): string {
+export function formatFindingsContract(
+  findings: number,
+  check?: string,
+  items?: ReadonlyArray<Record<string, unknown>>
+): string {
   const envelope: MaintenanceFindingsContract = {
     findings: normalizeFindings(findings),
     v: MAINTENANCE_FINDINGS_CONTRACT_VERSION,
   };
   if (check) envelope.check = check;
+  if (items) envelope.items = [...items];
   return JSON.stringify(envelope);
 }
 
@@ -103,6 +119,12 @@ function parseContractLine(line: string): MaintenanceFindingsContract | null {
   const contract: MaintenanceFindingsContract = { findings: normalizeFindings(rec.findings) };
   if (typeof rec.check === 'string') contract.check = rec.check;
   if (typeof rec.v === 'number') contract.v = rec.v;
+  if (Array.isArray(rec.items)) {
+    contract.items = rec.items.filter(
+      (item): item is Record<string, unknown> =>
+        typeof item === 'object' && item !== null && !Array.isArray(item)
+    );
+  }
   return contract;
 }
 

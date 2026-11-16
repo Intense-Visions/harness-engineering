@@ -30,6 +30,15 @@ const TS_SOURCE = [
   ') {',
   '  return 0;',
   '}',
+  'export function nestedCallDefault(a = fn(x, y), b: number) {',
+  '  return 0;',
+  '}',
+  'export function generic<K, V>(m: Map<K, V>, k: K) {',
+  '  return 0;',
+  '}',
+  'export function destructuredFirst({ a, b }: Opts, c: number) {',
+  '  return 0;',
+  '}',
   'export function noParams() {',
   '  return 0;',
   '}',
@@ -62,6 +71,32 @@ const RUST_SOURCE = [
   '',
 ].join('\n');
 
+// Python passes the instance/class implicitly: `self` and `cls` are receivers,
+// not caller-supplied parameters, and must not be counted (#2384 follow-up).
+const PY_SOURCE = [
+  'class Repo:',
+  '    def find(self, key, default=(1, 2)):',
+  '        return key',
+  '',
+  '    @classmethod',
+  '    def build(',
+  '        cls,',
+  '        path,',
+  '    ):',
+  '        return cls()',
+  '',
+  '    @staticmethod',
+  '    def helper(a, b):',
+  '        return a',
+  '',
+  '    def bare(self):',
+  '        return 1',
+  '',
+  'def free(selfish, b):',
+  '    return b',
+  '',
+].join('\n');
+
 describe('CodeIngestor — parameterCount (issue #2384)', () => {
   let dir: string;
   const store = new GraphStore();
@@ -71,6 +106,7 @@ describe('CodeIngestor — parameterCount (issue #2384)', () => {
     await fs.writeFile(path.join(dir, 'params.ts'), TS_SOURCE);
     await fs.writeFile(path.join(dir, 'svc.go'), GO_SOURCE);
     await fs.writeFile(path.join(dir, 'lib.rs'), RUST_SOURCE);
+    await fs.writeFile(path.join(dir, 'repo.py'), PY_SOURCE);
     await new CodeIngestor(store).ingest(dir);
   });
 
@@ -94,10 +130,18 @@ describe('CodeIngestor — parameterCount (issue #2384)', () => {
     ['arrowBeforeGeneric', 3],
     ['trailingComma', 2],
     ['multiLine', 3],
+    ['nestedCallDefault', 2],
+    ['generic', 2],
+    ['destructuredFirst', 2],
     ['noParams', 0],
     ['run', 2],
     ['Handle', 3],
     ['borrow', 2],
+    ['find', 2],
+    ['build', 1],
+    ['helper', 2],
+    ['bare', 0],
+    ['free', 2],
   ])('counts %s as %i parameters', (name, expected) => {
     expect(parameterCountOf(name)).toBe(expected);
   });

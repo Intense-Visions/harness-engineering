@@ -66,7 +66,9 @@ describe('performance tool definitions', () => {
     ]);
 
     expect(getCriticalPathsDefinition.name).toBe('get_critical_paths');
-    expect(getCriticalPathsDefinition.inputSchema.required).toEqual(['path']);
+    // Project root is optional: path, its projectPath alias, or the server cwd (#2253).
+    expect(getCriticalPathsDefinition.inputSchema.required).toEqual([]);
+    expect(getCriticalPathsDefinition.inputSchema.properties).toHaveProperty('projectPath');
   });
 });
 

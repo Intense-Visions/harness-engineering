@@ -95,8 +95,8 @@ describe('harness init integration', () => {
           fs.readFileSync(path.join(tmpDir, 'harness.config.json'), 'utf-8')
         );
         expect(config.template.framework).toBe(framework);
-        expect(config.tooling).toBeDefined();
-        expect(config.tooling.linter).toBeDefined();
+        expect(config.template.tooling).toBeDefined();
+        expect(config.template.tooling.linter).toBeDefined();
 
         fs.rmSync(tmpDir, { recursive: true });
       });
@@ -153,7 +153,7 @@ describe('harness init integration', () => {
         expect(config.template.framework).toBe(framework);
         expect(config.template.language).toBe(language);
         expect(config.template.level).toBeUndefined();
-        expect(config.tooling).toBeDefined();
+        expect(config.template.tooling).toBeDefined();
 
         fs.rmSync(tmpDir, { recursive: true });
       });
@@ -196,7 +196,7 @@ describe('harness init integration', () => {
         if (language !== 'typescript') {
           expect(config.template.language).toBe(language);
           expect(config.template.level).toBeUndefined();
-          expect(config.tooling).toBeDefined();
+          expect(config.template.tooling).toBeDefined();
         }
 
         fs.rmSync(tmpDir, { recursive: true });
