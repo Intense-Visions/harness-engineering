@@ -26,7 +26,8 @@ import { Ok, Err } from '../shared/result';
 import { resolveConstraintPacks } from '../constraints/packs';
 import type { ResolvedConstraintPacks } from '../constraints/packs';
 import { validateAgentsMap } from '../context/agents-map';
-import { validateDependencies, defineLayer } from '../constraints/dependencies';
+import { validateDependencies } from '../constraints/dependencies';
+import { resolveDepsSettings, toLayerConfig } from '../constraints/layer-config';
 import { checkDocCoverage } from '../context/doc-coverage';
 import { EntropyAnalyzer } from '../entropy/analyzer';
 import type { DriftConfig } from '../entropy/types';
@@ -40,7 +41,6 @@ import {
   withDependencyRules,
   readDependencyRules,
 } from '../architecture';
-import { readResolveWorkspacePackages } from '../architecture/dependency-rules';
 import { GraphStore, queryTraceability, resolveGraphDir } from '@harness-engineering/graph';
 import {
   parseVerdictCacheConfig,
@@ -210,48 +210,65 @@ async function runDepsCheck(
   const depsConfig = (config.deps as Record<string, unknown>) || {};
   if (depsConfig.enabled === false) return { issues, measurements: [] };
 
-  const rawLayers = config.layers as Array<Record<string, unknown>> | undefined;
+  // One config-to-LayerConfig mapping, shared with `harness check-deps`, so the
+  // two entry points honour the same `deps.exclude`, `deps.fallbackBehavior`,
+  // `deps.resolveWorkspacePackages` and `rootDir` (#2606).
+  const settings = resolveDepsSettings(config, projectRoot);
   // No layers configured means there is nothing to validate, and an empty rule
   // set cannot honestly report a pass — the same refusal `harness cleanup -t
   // patterns` makes over zero rules (#1760). Abstain instead (#2071).
-  if (!rawLayers || rawLayers.length === 0) {
+  if (settings.layers.length === 0) {
     return abstain(
       'No dependency layers are configured, so the deps check had nothing to validate. ' +
         'Add `layers` to harness.config.json, or run with `--skip deps` to acknowledge ' +
         'that this gate is not enforced.'
     );
   }
-  {
-    const parser = new TypeScriptParser();
-    const layers = rawLayers.map((l) =>
-      defineLayer(
-        l.name as string,
-        Array.isArray(l.patterns) ? (l.patterns as string[]) : [l.pattern as string],
-        l.allowedDependencies as string[]
-      )
-    );
-    const result = await validateDependencies({
-      layers,
-      rootDir: projectRoot,
-      parser,
-      // `deps.resolveWorkspacePackages` (#2216): follow workspace-package
-      // imports exactly when `check-deps` does, so the two gates agree.
-      resolveWorkspacePackages: readResolveWorkspacePackages(config),
-    });
-    if (!result.ok) {
-      issues.push({ severity: 'error', message: result.error.message });
-    } else if (result.value.violations.length > 0) {
-      for (const v of result.value.violations) {
-        issues.push({
-          severity: 'error',
-          message: `${v.reason}: ${v.file} imports ${v.imports} (${v.fromLayer} → ${v.toLayer})`,
-          file: v.file,
-          line: v.line,
-        });
-      }
-    }
+  const result = await validateDependencies(toLayerConfig(settings, new TypeScriptParser()));
+  if (!result.ok) {
+    issues.push({ severity: 'error', message: result.error.message });
+    return { issues, measurements: [] };
   }
-  return { issues, measurements: [] };
+  for (const v of result.value.violations) {
+    issues.push({
+      severity: 'error',
+      message: `${v.reason}: ${v.file} imports ${v.imports} (${v.fromLayer} → ${v.toLayer})`,
+      file: v.file,
+      line: v.line,
+    });
+  }
+  // What the engine did not validate — the parser was unavailable, or a file
+  // did not parse (#2073). `deps.fallbackBehavior: 'warn'` reports it as a
+  // warning, exactly as `check-deps` downgrades it to exit 0; otherwise the
+  // step abstains, as `check-deps` exits ZERO_DENOMINATOR (#2098).
+  const unvalidated: Array<{ file?: string; message: string }> = [];
+  if (result.value.skipped) {
+    unvalidated.push({
+      message: `Layer validation did not run: ${result.value.reason ?? 'the analysis engine abstained'}`,
+    });
+  }
+  for (const { file, reason } of result.value.unparsedFiles ?? []) {
+    const relative = path.relative(settings.rootDir, file).replaceAll('\\', '/');
+    unvalidated.push({
+      file: relative,
+      message: `${relative} could not be parsed, so its imports were not checked: ${reason}`,
+    });
+  }
+  if (unvalidated.length === 0) return { issues, measurements: [] };
+  if (settings.fallbackBehavior === 'warn') {
+    for (const u of unvalidated) {
+      issues.push({ severity: 'warning', message: u.message, ...(u.file ? { file: u.file } : {}) });
+    }
+    return { issues, measurements: [] };
+  }
+  return {
+    issues,
+    measurements: [],
+    skipReason:
+      unvalidated.map((u) => u.message).join('; ') +
+      '. Fix or exclude the file via `deps.exclude`, or set `deps.fallbackBehavior: "warn"` ' +
+      'to report this as a warning.',
+  };
 }
 
 async function runDocsCheck(

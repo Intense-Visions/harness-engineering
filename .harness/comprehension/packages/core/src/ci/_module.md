@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/src/ci'
-sourceHash: '3f95cf083a4bdeda873154ff1af4da8ff7b60ff81e12b7819c1c1fd1642b6f8a'
+sourceHash: '18ad070e0ea58b5016d58610d634abc33bf131c2f83b052e022d7d382212f2b8'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -46,10 +46,10 @@ export shouldCacheResult
 import { ArchConfigSchema, readDependencyRules, runArchCollectors, withDependencyRules } from '../architecture'
 import { ArchBaselineManager } from '../architecture/baseline-manager'
 import { filterDiffByAllowances, loadArchAllowances, resolveArchBaseline } from '../architecture/baseline-resolver'
-import { readResolveWorkspacePackages } from '../architecture/dependency-rules'
 import { diff } from '../architecture/diff'
 import { computeSourceHash } from '../comprehension/source-hash'
-import { defineLayer, validateDependencies } from '../constraints/dependencies'
+import { validateDependencies } from '../constraints/dependencies'
+import { resolveDepsSettings, toLayerConfig } from '../constraints/layer-config'
 import { ResolvedConstraintPacks, resolveConstraintPacks } from '../constraints/packs'
 import { validateAgentsMap } from '../context/agents-map'
 import { checkDocCoverage } from '../context/doc-coverage'

@@ -7,7 +7,7 @@ import { outcomeEvalDefinition, handleOutcomeEval } from '../../../src/mcp/tools
 let tmpDir: string;
 
 function parseResult(result: { content: { text: string }[] }) {
-  return JSON.parse(result.content[0].text);
+  return JSON.parse(result.content[0]!.text);
 }
 
 beforeEach(async () => {
@@ -34,8 +34,8 @@ describe('outcome_eval definition', () => {
 
 describe('handleOutcomeEval input contract', () => {
   it('errors when specPath is missing', async () => {
+    // @ts-expect-error intentionally omitting specPath
     const result = await handleOutcomeEval({
-      // @ts-expect-error intentionally omitting specPath
       diff: 'x',
       testOutput: 'y',
     });
@@ -44,9 +44,9 @@ describe('handleOutcomeEval input contract', () => {
   });
 
   it('errors when diff is missing', async () => {
+    // @ts-expect-error intentionally omitting diff
     const result = await handleOutcomeEval({
       specPath: path.join(tmpDir, 'spec.md'),
-      // @ts-expect-error intentionally omitting diff
       testOutput: 'y',
     });
     expect(result.isError).toBe(true);
@@ -54,9 +54,9 @@ describe('handleOutcomeEval input contract', () => {
   });
 
   it('errors when testOutput is missing', async () => {
+    // @ts-expect-error intentionally omitting testOutput
     const result = await handleOutcomeEval({
       specPath: path.join(tmpDir, 'spec.md'),
-      // @ts-expect-error intentionally omitting testOutput
       diff: 'x',
     });
     expect(result.isError).toBe(true);

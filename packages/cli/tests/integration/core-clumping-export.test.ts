@@ -90,13 +90,11 @@ describe('@harness-engineering/core resolves the clumping primitive', () => {
     // 'solid' | 'incomplete' | 'at-risk' | 'theatre'
     // (packages/core/src/harness-strength/types.ts:16), NOT the craft union.
     //
-    // This line is the INTENT, not the gate. It is NOT a compile-time assertion
-    // here, despite looking like one: packages/cli/tsconfig.json carries
-    // `"exclude": [..., "tests"]`, so `tsc --noEmit` never sees this file, and
-    // vitest strips types without checking them. Under a deliberate shadowing of
-    // the barrel's `Tier` with the craft union, this line was MEASURED to keep
-    // compiling and the cli typecheck to keep exiting 0. The executable gate is the
-    // next test, which reads the built declaration surface.
+    // @type-gate — this line IS a compile-time assertion: packages/cli/tsconfig.json
+    // excludes tests/, so this file is listed in tsconfig.type-tests.json, which the
+    // cli `typecheck` script runs (#2473). Under a deliberate shadowing of the
+    // barrel's `Tier` with the craft union it fails with TS2322. The next test is
+    // the runtime twin, which reads the built declaration surface.
     const strengthTier: core.Tier = 'solid';
     expect(strengthTier).toBe('solid');
   });
