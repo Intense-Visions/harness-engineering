@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/design-pipeline/phases'
-sourceHash: '0eb4f4fcaeae17a871af673ca3a652fc0c86922c264264c4a7eb46181b948295'
+sourceHash: '756d57a8eb0977fb9a92d64b98d6d4ae40583e6a78850c7a1302e1578c7f7d86'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -21,7 +21,9 @@ members:
 ## Interface Contract
 
 ```ts
+export listMissingInputs
 export probeGraphAvailable
+export probeInputs
 export runAudit
 export runDetect
 export runFill

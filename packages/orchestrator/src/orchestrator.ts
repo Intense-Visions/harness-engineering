@@ -3970,6 +3970,8 @@ export class Orchestrator extends EventEmitter {
 
       // Record the graded outcome to the Phase-0 store (closes the loop; SC5). Keyed by
       // the SAME shapeKey the prediction used so precedent aggregates like-for-like.
+      // A FAIL-SAFE (unjudgeable) comparison is still recorded for forensics but carries
+      // `graded: false`, so it never enters the precedent base rate or ratchet (#2264).
       const outcomeInput = buildTriageOutcomeInput(externalId, record.shapeKey, result);
       const recorded = await eventSourcing.recordTriageOutcome(this.projectRoot, outcomeInput);
       if (!recorded.ok) {

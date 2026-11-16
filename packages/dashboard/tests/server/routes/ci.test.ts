@@ -52,7 +52,7 @@ describe('GET /api/ci', () => {
     expect(res.status).toBe(200);
     const body = (await res.json()) as { data: { checks: { name: string }[]; lastRun: string } };
     expect(body.data.checks).toHaveLength(1);
-    expect(body.data.checks[0].name).toBe('check-security');
+    expect(body.data.checks[0]!.name).toBe('check-security');
     expect(body.data.lastRun).toBeTruthy();
   });
 });

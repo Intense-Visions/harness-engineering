@@ -193,7 +193,7 @@ describe('threadStore', () => {
 
       const sections = selectSidebarSections(useThreadStore.getState());
       expect(sections.attention).toHaveLength(1);
-      expect(sections.attention[0].type).toBe('attention');
+      expect(sections.attention[0]!.type).toBe('attention');
       expect(sections.active).toHaveLength(2);
       expect(sections.recent).toHaveLength(0);
     });
