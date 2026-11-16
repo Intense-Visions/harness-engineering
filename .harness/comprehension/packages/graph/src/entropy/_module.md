@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/graph/src/entropy'
-sourceHash: 'a1e6ebb3e0eabdac23bc6015c1e291ef417c6adc0a36162c3b02494300e2471c'
+sourceHash: 'cc9efc4d9513f50c14f1ccc3c196efc35d3d471549d5c66d12ba3a7263f9060b'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -21,6 +21,8 @@ export GraphAnomalyAdapter
 export GraphComplexityAdapter
 export GraphCouplingAdapter
 export GraphEntropyAdapter
+export countFileCommits
+export hasIngestedCommits
 ```
 
 ## Dependency Slice
