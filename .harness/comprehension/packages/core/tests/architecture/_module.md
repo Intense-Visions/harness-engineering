@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/tests/architecture'
-sourceHash: '0c15faec55f570cf56d0576dafa53ed163983abee49719c78886747d11c71db7'
+sourceHash: '065bd11d3cd086a5b5e20eb604d142303c64ba12b5282928ffca37e03e3a57f4'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -20,6 +20,7 @@ members:
     'prediction-engine.test.ts',
     'prediction-types.test.ts',
     'regression.test.ts',
+    'sort-results.test.ts',
     'spec-impact-estimator.test.ts',
     'sync-constraints.test.ts',
     'timeline-manager.test.ts',
@@ -40,6 +41,7 @@ members:
 import { ArchBaselineManager } from '../../src/architecture/baseline-manager'
 import { ArchAllowanceSchema, ArchBaselineResolution, archAllowanceSlug, archAllowancesDir, filterDiffByAllowances, isWholeSnapshotContext, loadArchAllowances, resolveArchBaseline, writeArchAllowance } from '../../src/architecture/baseline-resolver'
 import { clusterViolations } from '../../src/architecture/cluster-violations'
+import '../../src/architecture/collectors/index'
 import { resolveThresholds } from '../../src/architecture/config'
 import { detectEmergentConstraints } from '../../src/architecture/detect-emergence'
 import { detectStaleConstraints } from '../../src/architecture/detect-stale'
@@ -50,6 +52,7 @@ import { extractDirectoryScope, normalizeViolationPattern } from '../../src/arch
 import { PredictionEngine } from '../../src/architecture/prediction-engine'
 import { AdjustedForecastSchema, CategoryForecastSchema, ConfidenceTierSchema, PredictionOptionsSchema, PredictionResultSchema, PredictionWarningSchema, RegressionResultSchema, SpecImpactEstimateSchema, StabilityForecastSchema } from '../../src/architecture/prediction-types'
 import { DataPoint, RegressionFit, applyRecencyWeights, classifyConfidence, projectValue, weeksUntilThreshold, weightedLinearRegression } from '../../src/architecture/regression'
+import '../../src/architecture/sort-results'
 import { SpecImpactEstimator } from '../../src/architecture/spec-impact-estimator'
 import { ConstraintNodeStore, syncConstraintNodes } from '../../src/architecture/sync-constraints'
 import { TimelineManager } from '../../src/architecture/timeline-manager'
@@ -59,10 +62,11 @@ import { ViolationHistoryManager } from '../../src/architecture/violation-histor
 import { execFileSync } from 'node:child_process'
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import * as fs from 'node:fs'
+import { mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import * as os from 'node:os'
 import { join } from 'node:path'
 import * as path from 'node:path'
 import { join } from 'path'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 ```

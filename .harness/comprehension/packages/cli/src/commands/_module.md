@@ -1,131 +1,11 @@
 ---
 schemaVersion: 1
-module: 'packages/cli/src/commands'
-sourceHash: '4dd533ecf86d8195f3c9880b6e256d9a8d9b506f08f17b21669a9c9559c1eba4'
-compiler: { static: '1.0.0', semantic: '1.0.0' }
+module: "packages/cli/src/commands"
+sourceHash: "788890da69269718aa77e5461138a22a268da1eb412350b4244cb019719bb94d"
+compiler: { static: "1.0.0", semantic: "1.0.0" }
 model: null
 semantic: absent
-members:
-  [
-    '_registry.ts',
-    'add.ts',
-    'adoption.ts',
-    'advise-skills-write-guard.test.ts',
-    'advise-skills.test.ts',
-    'advise-skills.ts',
-    'align-design-system.ts',
-    'api-craft.ts',
-    'audit-protected.ts',
-    'backfill-skill-provenance.ts',
-    'blueprint.ts',
-    'check-arch.ts',
-    'check-deployment.ts',
-    'check-deps.ts',
-    'check-design.test.ts',
-    'check-design.ts',
-    'check-docs.ts',
-    'check-harness-strength.ts',
-    'check-operational-drift-action.test.ts',
-    'check-operational-drift.test.ts',
-    'check-operational-drift.ts',
-    'check-perf.ts',
-    'check-phase-gate.ts',
-    'check-security.ts',
-    'check-vocabulary.ts',
-    'cleanup-sessions.ts',
-    'cleanup.ts',
-    'cli-ergonomics-craft.ts',
-    'code-craft.ts',
-    'comprehend.test.ts',
-    'comprehend.ts',
-    'comprehension-merge-driver.ts',
-    'copy-craft.ts',
-    'create-skill.ts',
-    'cross-check.ts',
-    'dashboard.ts',
-    'design-pipeline.ts',
-    'distortion.ts',
-    'docs-craft.ts',
-    'doctor.ts',
-    'fix-drift.ts',
-    'generate-agent-definitions.ts',
-    'generate-slash-commands.ts',
-    'generate.ts',
-    'holiday-confidence.test.ts',
-    'holiday-confidence.ts',
-    'impact-preview.ts',
-    'init-minimal.ts',
-    'init.ts',
-    'insights.ts',
-    'install-constraints.ts',
-    'install.ts',
-    'knowledge-craft.ts',
-    'knowledge-pipeline.test.ts',
-    'knowledge-pipeline.ts',
-    'maintenance-config.test.ts',
-    'maintenance-config.ts',
-    'maintenance-run.ts',
-    'maintenance.test.ts',
-    'maintenance.ts',
-    'mcp-guard.ts',
-    'mcp.ts',
-    'migrate-backends.ts',
-    'migrate.ts',
-    'models-drift.test.ts',
-    'models.ts',
-    'naming-craft.ts',
-    'operational-drift.test.ts',
-    'operational-drift.ts',
-    'orchestrator-black-box.test.ts',
-    'orchestrator-black-box.ts',
-    'orchestrator.ts',
-    'outcome-eval-ci.ts',
-    'perf.ts',
-    'pre-merge-brief.ts',
-    'predict.ts',
-    'proposals.ts',
-    'provenance.ts',
-    'public-outposts.ts',
-    'publish-analyses.ts',
-    'recommend.ts',
-    'rehearse.test.ts',
-    'rehearse.ts',
-    'release-inventory.test.ts',
-    'release-inventory.ts',
-    'review-ci-local-adapter.ts',
-    'review-ci.ts',
-    'rework.test.ts',
-    'rework.ts',
-    'rollback.ts',
-    'scan-config.ts',
-    'search.ts',
-    'security-craft.ts',
-    'setup-mcp.ts',
-    'setup-types.ts',
-    'setup.ts',
-    'share.ts',
-    'skill-regression.test.ts',
-    'skill-regression.ts',
-    'snapshot.ts',
-    'spec-craft.ts',
-    'stale-constraints.ts',
-    'sync-analyses.ts',
-    'sync-main.ts',
-    'taint.ts',
-    'telemetry-wizard.ts',
-    'test-craft.ts',
-    'traceability.ts',
-    'uninstall-constraints.ts',
-    'uninstall.ts',
-    'update.ts',
-    'usage.ts',
-    'validate-cross-check.ts',
-    'validate-scope.ts',
-    'validate.ts',
-    'verify.test.ts',
-    'verify.ts',
-    'waypoint.ts',
-  ]
+members: ["_registry.ts", "add.ts", "adoption.ts", "advise-skills-write-guard.test.ts", "advise-skills.test.ts", "advise-skills.ts", "align-design-system.ts", "api-craft.ts", "audit-protected.ts", "backfill-skill-provenance.ts", "blueprint.ts", "check-arch.ts", "check-deployment.ts", "check-deps.ts", "check-design.test.ts", "check-design.ts", "check-docs.ts", "check-harness-strength.ts", "check-operational-drift-action.test.ts", "check-operational-drift.test.ts", "check-operational-drift.ts", "check-perf.ts", "check-phase-gate.ts", "check-security.ts", "check-vocabulary.ts", "cleanup-sessions.ts", "cleanup.ts", "cli-ergonomics-craft.ts", "code-craft.ts", "comprehend.test.ts", "comprehend.ts", "comprehension-merge-driver.ts", "copy-craft.ts", "create-skill.ts", "cross-check.ts", "dashboard.ts", "design-pipeline.ts", "distortion.ts", "docs-craft.ts", "doctor.ts", "fix-drift.ts", "generate-agent-definitions.ts", "generate-slash-commands.ts", "generate.ts", "holiday-confidence.test.ts", "holiday-confidence.ts", "impact-preview.ts", "init-minimal.ts", "init.ts", "insights.ts", "install-constraints.ts", "install.ts", "knowledge-craft.ts", "knowledge-pipeline.test.ts", "knowledge-pipeline.ts", "maintenance-config.test.ts", "maintenance-config.ts", "maintenance-run.ts", "maintenance.test.ts", "maintenance.ts", "mcp-guard.ts", "mcp.ts", "migrate-backends.ts", "migrate.ts", "models-drift.test.ts", "models.ts", "naming-craft.ts", "operational-drift.test.ts", "operational-drift.ts", "orchestrator-black-box.test.ts", "orchestrator-black-box.ts", "orchestrator.ts", "outcome-eval-ci.ts", "perf.ts", "pre-merge-brief.ts", "predict.ts", "proposals.ts", "provenance.ts", "public-outposts.ts", "publish-analyses.ts", "recommend.ts", "rehearse.test.ts", "rehearse.ts", "release-inventory.test.ts", "release-inventory.ts", "review-ci-local-adapter.ts", "review-ci.ts", "rework.test.ts", "rework.ts", "rollback.ts", "scan-config.ts", "search.ts", "security-craft.ts", "setup-mcp.ts", "setup-types.ts", "setup.ts", "share.ts", "skill-regression.test.ts", "skill-regression.ts", "snapshot.ts", "spec-craft.ts", "stale-constraints.ts", "sync-analyses.ts", "sync-main.ts", "taint.ts", "telemetry-wizard.ts", "test-craft.ts", "traceability.ts", "uninstall-constraints.ts", "uninstall.ts", "update.ts", "usage.ts", "validate-cross-check.ts", "validate-scope.ts", "validate.ts", "verify.test.ts", "verify.ts", "waypoint.ts"]
 ---
 
 ## Interface Contract
@@ -153,6 +33,7 @@ export actStatusCommand
 export aggregateReport
 export assertKnownRunner
 export buildBriefBody
+export buildCleanupFindingItems
 export buildDegradedResult
 export buildDiffInfo
 export buildOutcomeBody
@@ -428,7 +309,7 @@ import { AnatomyFinding } from '../audit/component-anatomy/findings/finding'
 import { BrandFinding } from '../brand/findings/finding'
 import { CliErgonomicsCraftInput, CliErgonomicsCraftOutput, runCliErgonomicsCraft } from '../cli-ergonomics-craft/index.js'
 import { CodeCraftInput, CodeCraftOutput, runCodeCraft } from '../code-craft/index.js'
-import { ComprehendRunResult, runComprehend, runComprehendCheck, runComprehendStats } from '../comprehension/compile-run'
+import { ComprehendCheckResult, ComprehendRunResult, runComprehend, runComprehendCheck, runComprehendStats } from '../comprehension/compile-run'
 import { comprehensionCli, comprehensionEndpoint, readComprehensionConfig, resolveComprehensionCiMode, selectSemanticModel } from '../comprehension/config'
 import { maybeCreateGenerateSemantic } from '../comprehension/generate-semantic'
 import { shouldRunComprehendHook } from '../comprehension/hook'
@@ -436,6 +317,7 @@ import { enumerateModules, filesToModules } from '../comprehension/invalidation'
 import { committedSemanticAllowed } from '../comprehension/policy'
 import { RefreshJobGateReason, explainInactiveRefreshGate, resolveRefreshJobGate } from '../comprehension/refresh-gate'
 import { RefReadDeps, RegressionContext, SemanticState, defaultRefReadDeps, detectCommittedSemanticOnBranch, detectSemanticRegressions, readSemanticMapAtRef } from '../comprehension/regression'
+import { assessSemanticCoverage, formatSemanticCoverage } from '../comprehension/semantic-coverage'
 import { createStaticExtractor } from '../comprehension/static-extractor'
 import { loadAnalysisExclude, loadDesignExclude } from '../config/analysis-schema.js'
 import { withDependencyRules } from '../config/arch-dependency-rules'

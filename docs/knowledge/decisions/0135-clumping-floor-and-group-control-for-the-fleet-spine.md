@@ -119,6 +119,13 @@ keyless item _is_ treated as vacuously disjoint and joins the first sub-clump, i
 is stated at both sites: joining a clump claims no hunk and harms no one, while resolving to
 `'act'` authorises a write.
 
+**As shipped, D4's `'act'`/`'file'` resolution is inert at all three seams** — future-proofing,
+not a live safety property. Craft has no touched set, so every sub-floor item degrades to
+`'file'`; intake never reaches the floor; and review, whose touched set is the diff's changed
+files, resolves `'act'` for essentially every finding (a finding cites a changed file). The
+resolution is recorded in the review comment's body and counted in its report, but no seam yet
+acts on it differently.
+
 ### D8 — An item with no gradable signal is never floored AND never clumped; it is terminal
 
 The spec's original wording was "never floored". The shipped rule is stronger, and the
@@ -225,13 +232,17 @@ asserts it appears as `<local> as CraftTier` and never as `<local> as Tier`.
 - **Determinism shipped stronger than the criterion asked for.** Success criterion 7 asks only
   that two runs over the same input agree. The shipped property is independence from **input
   order**: `[...groups.keys()].sort()` plus `byWeightDescIdAsc` makes the output a function of the
-  input _set_, and `laws.test.ts` pins it by reversing the input.
+  input _set_, and `laws.test.ts` pins it by reversing the input. This is a property of
+  `formClumps` **given stable item ids**, not of the seams that mint them: `withOrdinals` numbers
+  a repeated native id by its position in the input _array_, the ordinal feeds the item id, and
+  the item id feeds the clump hash — so at the review and craft seams, reordering two findings
+  that share a native id can change a clump id.
 - **The unit tiebreak is NOT load-bearing for run-to-run equality, and the over-claim is recorded
   rather than deleted.** An earlier draft asserted it was. Verification refuted that: a mutant
-  deleting the three tiebreak lines left all 77 tests green, including a test _named_ for the
-  property, which compared two runs over identically-ordered input. The real guarantee is **which**
-  tied unit survives the cap (lexicographically smallest unit id), and that is what the test now
-  pins. This is left on the record because it is exactly the shape that produces a vacuous test: a
+  deleting the three tiebreak lines left the whole clumping suite green, including a test _named_
+  for the property, which compared two runs over identically-ordered input. The real guarantee is
+  **which** tied unit survives the cap (lexicographically smallest unit id), and that is what
+  `form.test.ts` › "a weight tie between units is broken by unit id ascending" now pins. This is left on the record because it is exactly the shape that produces a vacuous test: a
   reader who believes the stronger claim will write the useless comparison again.
 - **The shared verdict and the default policy are frozen, and both freezes were measured, not
   assumed.** `resolveFloor` returns ONE shared object for every item it passes; before the freeze,
