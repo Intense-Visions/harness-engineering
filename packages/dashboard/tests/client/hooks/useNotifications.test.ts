@@ -16,7 +16,7 @@ beforeEach(() => {
     get: () => mockPermission,
     configurable: true,
   });
-  MockNotification.requestPermission = mockRequestPermission;
+  Object.assign(MockNotification, { requestPermission: mockRequestPermission });
 
   vi.stubGlobal('Notification', MockNotification);
 

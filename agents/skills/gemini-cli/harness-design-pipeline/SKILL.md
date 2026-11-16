@@ -179,12 +179,13 @@ design-craft suggestions are surfaced in REPORT but do NOT contribute to the `er
 
 Compute verdict:
 
-| Condition                                                               | Verdict |
-| ----------------------------------------------------------------------- | ------- |
-| Any error-severity finding remains after FIX                            | `fail`  |
-| Any verifier abstained (`verifiersFailed` non-empty → `degradedBy`)     | `fail`  |
-| Any warn-severity finding OR craft suggestion OR bootstrapped any input | `warn`  |
-| Zero findings, zero suggestions, zero bootstrapped, every verifier ran  | `pass`  |
+| Condition                                                                                   | Verdict |
+| ------------------------------------------------------------------------------------------- | ------- |
+| Any error-severity finding remains after FIX                                                | `fail`  |
+| Any verifier abstained (`verifiersFailed` non-empty → `degradedBy`)                         | `fail`  |
+| Any warn-severity finding OR craft suggestion OR bootstrapped any input                     | `warn`  |
+| Any design-system input missing, whether or not FILL ran (#1960)                            | `warn`  |
+| Zero findings, zero suggestions, zero bootstrapped, every verifier ran, every input present | `pass`  |
 
 **A verifier that could not run is not a pass.** The verdict is resolved from
 the context in one expression, and `context.degradedBy` is the projection of
