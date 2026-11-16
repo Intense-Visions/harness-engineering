@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/tests/roadmap'
-sourceHash: '89e31222dc17e610eae1f9e25dcead0aa2e5476b795bf6adab0f591eb84e5537'
+sourceHash: '1f1bd792289e0ae2ad9c7506586036946406816821924f6e7c76c76b6a1d4b3d'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -30,6 +30,7 @@ members:
     'parse-extended.test.ts',
     'parse-groups.test.ts',
     'parse.test.ts',
+    'pilot-scoring-blockers.test.ts',
     'pilot-scoring-file-less.test.ts',
     'pilot-scoring-mode-stub.test.ts',
     'pilot-scoring.test.ts',
@@ -39,7 +40,6 @@ members:
     'referenced-issues.test.ts',
     'repro-1862-history-silent-deletion.test.ts',
     'repro-assignment-history-pipe.test.ts',
-    'roundtrip-inverse-2166.test.ts',
     'serialize-extended.test.ts',
     'serialize-groups.test.ts',
     'serialize-list-field-comma.test.ts',
@@ -77,6 +77,7 @@ export VALID_ROADMAP_MD
 import { GitHubIssuesSyncAdapter, parseExternalId } from '../../src/roadmap/adapters/github-issues'
 import { assigneeInvariantHolds, claim, isClaimableBy, isMachineAssignee, pushAssigneeToExternal, release, setStatus } from '../../src/roadmap/assignee-lifecycle'
 import { parseAssignmentHistory, serializeAssignmentHistory } from '../../src/roadmap/assignment-history'
+import { findBlockedRoadmapCandidates, shardSlugAliases } from '../../src/roadmap/blocker-resolution'
 import { deriveRepoFromGitRemote, parseOwnerRepoFromRemoteUrl } from '../../src/roadmap/derive-repo'
 import { githubRepoPath, parseExternalId } from '../../src/roadmap/external-id'
 import { FEATURE_PREFIX, GROUP_PREFIX, matchFeatureHeadings, parseFeatureHeading, serializeFeatureHeading } from '../../src/roadmap/heading'
