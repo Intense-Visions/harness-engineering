@@ -272,6 +272,8 @@ export async function runCheckDeps(
       parser,
       fallbackBehavior,
       extraIgnore: depsExclude,
+      // Follow `@scope/pkg` imports between workspace packages (#2216). Opt-in.
+      resolveWorkspacePackages: config.deps?.resolveWorkspacePackages ?? false,
     };
 
     const depsResult = await validateDependencies(layerConfig);

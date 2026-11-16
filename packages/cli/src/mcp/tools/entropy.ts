@@ -19,6 +19,7 @@ import {
   describeUnknownIssueType,
   ENTROPY_ISSUE_TYPES,
 } from '../../shared/duplication-request.js';
+import { baselineDeltaForReport } from '../../shared/duplication-baseline.js';
 
 /**
  * The outcome of loading the `entropy` section of the project's harness config.
@@ -270,7 +271,7 @@ function topClassLine(cls: {
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function buildSummaryResponse(report: any) {
+function buildSummaryResponse(report: any, projectPath: string) {
   const summary: Record<string, { issueCount: number; topIssues: string[] }> = {};
 
   if (report.drift) summary['drift'] = summarizeDrift(report.drift);
@@ -279,7 +280,14 @@ function buildSummaryResponse(report: any) {
 
   const totalIssues = Object.values(summary).reduce((s, c) => s + c.issueCount, 0);
 
-  const duplication = report.duplication ? summarizeDuplication(report.duplication) : undefined;
+  // `baseline` is the advisory delta vs `.harness/duplication/baseline.json`
+  // (roadmap `duplication-baseline-ratchet`) — reported, never summed.
+  const duplication = report.duplication
+    ? {
+        ...summarizeDuplication(report.duplication),
+        baseline: baselineDeltaForReport(projectPath, report.duplication),
+      }
+    : undefined;
 
   // The payload is hoisted rather than inlined into the content wrapper: the
   // nested `advisory` literal took `buildSummaryResponse` to nestingDepth 5,
@@ -527,13 +535,20 @@ export async function handleDetectEntropy(input: {
 
     // Response density control
     if (input.mode === 'summary' && result.ok && !input.autoFix) {
-      return buildSummaryResponse(result.value);
+      return buildSummaryResponse(result.value, projectPath);
     }
 
     if (!input.autoFix) {
-      return result.ok
-        ? resultToMcpResponse(Ok(toJsonSafeReport(result.value)))
-        : resultToMcpResponse(result);
+      if (!result.ok) return resultToMcpResponse(result);
+      // The advisory baseline delta leads (it is small and actionable, and
+      // compaction truncates from the end); absent when duplication did not run.
+      const dup = result.value.duplication;
+      return resultToMcpResponse(
+        Ok({
+          ...(dup && { duplicationBaseline: baselineDeltaForReport(projectPath, dup) }),
+          ...(toJsonSafeReport(result.value) as Record<string, unknown>),
+        })
+      );
     }
 
     // autoFix mode: run fixes after analysis

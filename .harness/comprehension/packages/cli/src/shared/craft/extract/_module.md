@@ -1,11 +1,11 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/shared/craft/extract'
-sourceHash: '5616eac0b530c46ce0b7022d3670e6428c518b3d5422cafb8477679d3ab73c05'
+sourceHash: 'ebbe109a22b46a3fdace43b66823a24a999c613084d384d97b80b18538a8f239'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
-members: ['outline-units.ts', 'source-roots.ts']
+members: ['outline-units.ts', 'scoped-files.ts', 'source-roots.ts']
 ---
 
 ## Interface Contract
@@ -13,6 +13,8 @@ members: ['outline-units.ts', 'source-roots.ts']
 ```ts
 export FALLBACK_SOURCE_ROOTS
 export extractOutlineUnits
+export resolveScopedFile
+export resolveScopedFiles
 export resolveSourceRoots
 export usesOutlineExtraction
 ```

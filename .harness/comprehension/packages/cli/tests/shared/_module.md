@@ -1,13 +1,14 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/tests/shared'
-sourceHash: '1f0bf59571af9699460b8cbd1e172aac073f173f27507d6e92d76d5e3897fdf7'
+sourceHash: 'bdfa19e89fe99b6b0fd804d5b79637792eebebad1b572189ba6e423a8964ea4d'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
 members:
   [
     'design-scan-targets.test.ts',
+    'duplication-baseline.test.ts',
     'duplication-request.test.ts',
     'entropy-scope.test.ts',
     'state-events.test.ts',
@@ -27,6 +28,7 @@ import { runAuditBrand } from '../../src/brand'
 import { runDetectDrift } from '../../src/drift'
 import { runAudit } from '../../src/mcp/tools/audit-anatomy'
 import { DESIGN_SCAN_EXTENSIONS, collectDesignScanFiles, isExcluded, resolveDesignExcludePatterns } from '../../src/shared/design-scan-targets'
+import { buildDuplicationBaseline, compareDuplicationBaseline, formatDuplicationBaselineLine } from '../../src/shared/duplication-baseline'
 import { ENTROPY_ISSUE_TYPES, describeDuplicationNotRun, describeUnknownIssueType, isEntropyIssueType, resolveDuplicationRequest } from '../../src/shared/duplication-request'
 import { docsDirGlob } from '../../src/shared/entropy-scope'
 import { emitApprovalRequested, emitApprovalResolved, emitCoreEvent, emitUserInputCaptured, readAuditTimeline, readHarnessState } from '../../src/shared/state-events'

@@ -14,7 +14,7 @@ Phases:
 - confirm: Present the triaged queue in one round — duplicates flagged for closure with citations, routes, ranked order, the clump table with every shed count and the conservation line, forks as questions, proposed concurrency — for a single up-front human approval that carries the destructive-close authorization
 - dispatch: Partition the backlog into disjoint slices and fan out concurrency-governed triage subagents that finalize label/dedup/route/prioritize against the shared dedup snapshot, capped at the concurrency governor
 - verify: Independently re-derive every proposed mutation (each label, dedup close, and route) from the issue's own signals and confirm each authorized close is a genuine duplicate with a real citation — never by subagent self-report
-- report: Apply verified labels/routes, close only human-authorized and verified duplicates with canonical citations, emit the ranked/routed queue grouped by downstream fleet plus a one-row-per-issue batch summary, and never close an unauthorized or unverified issue
+- report: Apply verified labels/routes, add an idempotent External-ID-linked roadmap row for each issue routed to roadmap-fleet (never creating a tracker issue, never via sync) and re-read the roadmap to confirm it, close only human-authorized and verified duplicates with canonical citations, emit the ranked/routed queue grouped by downstream fleet plus a one-row-per-issue batch summary, and never close an unauthorized or unverified issue
 </objective>
 
 <execution_context>
@@ -61,13 +61,13 @@ Phase 1: SELECT --> Phase 2: CONFIRM --> Phase 3: DISPATCH
               Phase 5: HANDOFF + REPORT <-- Phase 4: VERIFY
 ```
 
-| Phase               | Purpose                                                                        | Exit Condition                                                              |
-| ------------------- | ------------------------------------------------------------------------------ | --------------------------------------------------------------------------- |
-| 1. SELECT           | Enumerate the backlog, triage each issue on five axes, snapshot for dedup      | Triaged `IssueCandidate[]` with label/dedup/route/rank/clump and forks      |
-| 2. CONFIRM          | One up-front human round that carries the **destructive-close authorization**  | Human-checked close set, agreed clump set, answered forks, concurrency      |
-| 3. DISPATCH         | Queue-slice-partitioned, concurrency-governed triage subagents finalize triage | Every slice returned finalized triage, parked an issue, or failed           |
-| 4. VERIFY           | Re-derive every mutation from the issue's signals, never self-report           | Each mutation marked apply-ready / rejected; each close confirmed-duplicate |
-| 5. HANDOFF + REPORT | Apply verified labels/routes, close authorized+verified duplicates, emit queue | Routed queue emitted; report delivered; duplicates closed with citations    |
+| Phase               | Purpose                                                                                                                     | Exit Condition                                                                                                            |
+| ------------------- | --------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| 1. SELECT           | Enumerate the backlog, triage each issue on five axes, snapshot for dedup                                                   | Triaged `IssueCandidate[]` with label/dedup/route/rank/clump and forks                                                    |
+| 2. CONFIRM          | One up-front human round that carries the **destructive-close authorization**                                               | Human-checked close set, agreed clump set, answered forks, concurrency                                                    |
+| 3. DISPATCH         | Queue-slice-partitioned, concurrency-governed triage subagents finalize triage                                              | Every slice returned finalized triage, parked an issue, or failed                                                         |
+| 4. VERIFY           | Re-derive every mutation from the issue's signals, never self-report                                                        | Each mutation marked apply-ready / rejected; each close confirmed-duplicate                                               |
+| 5. HANDOFF + REPORT | Apply verified labels/routes, add roadmap rows for `roadmap-fleet` routes, close authorized+verified duplicates, emit queue | Routed queue emitted; every `roadmap-fleet` route has one roadmap row; report delivered; duplicates closed with citations |
 
 The five-phase spine, the concurrency governor, the independent-verification discipline, the worktree fan-out with its push-path caveat, and the never-silent invariant are the family-shared scaffolding — stated once in `docs/reference/fleet-family.md`. This skill states only what is specific to the **intake** stage: the open-issue queue, the label/dedup/route/prioritize/clump triage taxonomy, and the human destructive-close gate.
 
@@ -155,24 +155,35 @@ The five-phase spine, the concurrency governor, the independent-verification dis
 
 4. **Require the human close-authorization.** Confirm the issue was checked to close in CONFIRM. An issue that verification confirms is a duplicate but that the human did **not** authorize closing is **not** closed — it is reported as verified-duplicate-but-unauthorized.
 
-5. **Classify each mutation** as `apply-ready` (grounded + authorized where destructive), `rejected` (no supporting signal / citation does not hold), or `retry` (transient enumeration failure, retried at most once). No close happens without passing every check.
+5. **Re-derive the roadmap-row action for every `roadmap-fleet` route.** Roadmap-driven selection (`harness-roadmap-pilot`, `roadmap-fleet` scoring) reads the roadmap, not labels, so a `route:roadmap-fleet` label with no roadmap row is invisible to the stage it routes to. For each issue whose verified route is `roadmap-fleet`, compute its External-ID `github:<owner>/<repo>#<number>` — `<owner>/<repo>` is derived from the repository the issues were enumerated from (`gh repo view --json nameWithOwner -q .nameWithOwner`), never hardcoded — and re-read the roadmap (`manage_roadmap` `show`) to record whether a row already carries it. An existing row means the HANDOFF add is a no-op, not a second row.
+
+6. **Classify each mutation** as `apply-ready` (grounded + authorized where destructive), `rejected` (no supporting signal / citation does not hold), or `retry` (transient enumeration failure, retried at most once). No close happens without passing every check.
 
 ### Phase 5: HANDOFF + REPORT — Apply Verified Triage, Emit the Routed Queue, Never Silent-Close
 
 1. **Apply the verified non-destructive mutations.** Apply the re-derived labels and record the routes via `gh`. These proceed autonomously — they are reversible and were grounded in VERIFY.
 
-2. **Close only the authorized + verified duplicates.** Close each issue that is both human-authorized (CONFIRM) and independently confirmed a genuine duplicate (VERIFY), with a comment **citing the canonical issue/PR**. Close nothing else — never a bare close, never a re-triage-from-scratch. As each issue reaches its terminal outcome here (mutations applied, or closed as a duplicate), **release its cross-run claim** — remove the `fleet:claimed` label, leaving the claim comment as an audit trail (see §Cross-run claim lease); a parked/failed issue releases the label too, so nothing is stranded.
+2. **Add a roadmap row for every issue routed to `roadmap-fleet`.** In a file-backed roadmap (sharded or single-file), call `manage_roadmap` with `action: "add"`, `external_id: "github:<owner>/<repo>#<number>"` (from VERIFY), `feature` = the issue title, `summary` = a one-line restatement of the issue, `status: "backlog"`, and `milestone: "Intake"` (the intake lane `harness-roadmap` grooms rows out of). The `external_id` is load-bearing:
+   - **It links the row to the issue that already exists, and no tracker ticket is created.** An `add` without it asks the tracker to create a ticket for the new row — for an issue that already exists, that mints a duplicate of it.
+   - **It makes the add idempotent.** If any row already carries that External-ID the call writes nothing and returns `added: false`, so a re-run, or an issue routed by an earlier run, never yields a second row.
+   - **It returns a compact `{ added, feature, milestone, externalId }` envelope**, not the whole roadmap.
 
-3. **Emit the terminal artifact: the clean, ranked, deduped, routed queue**, grouped by downstream fleet — the contract the next fleet in the conveyor reads. Alongside it, emit a one-row-per-issue batch summary for the human:
+   Never use `roadmap sync --apply` (or `manage_roadmap` `sync` with `apply: true`) to create these rows: a whole-roadmap reconcile rewrites unrelated rows with tracker state. A failed add — no `Intake` milestone, a feature-name collision with an existing row — is **reported** against that issue, never retried blindly. In **file-less** roadmap mode the tracker issue already is the roadmap row: `manage_roadmap` refuses `external_id` there, so skip this step and record it as not-applicable.
 
-   | Issue | Labels applied | Dedup verdict | Route | Rank | Parked forks |
-   | ----- | -------------- | ------------- | ----- | ---- | ------------ |
+   **Then re-read the roadmap to confirm every `roadmap-fleet`-routed issue has exactly one row carrying its External-ID.** The add's own return is a claim; the re-read is the verification. A routed issue with no row is reported as a failed mutation in the batch summary, never as routed.
+
+3. **Close only the authorized + verified duplicates.** Close each issue that is both human-authorized (CONFIRM) and independently confirmed a genuine duplicate (VERIFY), with a comment **citing the canonical issue/PR**. Close nothing else — never a bare close, never a re-triage-from-scratch. As each issue reaches its terminal outcome here (mutations applied, or closed as a duplicate), **release its cross-run claim** — remove the `fleet:claimed` label, leaving the claim comment as an audit trail (see §Cross-run claim lease); a parked/failed issue releases the label too, so nothing is stranded.
+
+4. **Emit the terminal artifact: the clean, ranked, deduped, routed queue**, grouped by downstream fleet — the contract the next fleet in the conveyor reads. Alongside it, emit a one-row-per-issue batch summary for the human:
+
+   | Issue | Labels applied | Dedup verdict | Route | Roadmap row | Rank | Parked forks |
+   | ----- | -------------- | ------------- | ----- | ----------- | ---- | ------------ |
 
    Every row carries the issue link, the triage-actions note from DISPATCH, and any parked fork. Rejected mutations are listed with the reason (no supporting signal, citation did not hold, unauthorized).
 
-4. **Never silently close.** Every close traces to an explicit human authorization plus independent verification. An issue the human did not check, or that verification did not confirm, is reported — not closed. Silent or speculative closing is out of scope by design.
+5. **Never silently close.** Every close traces to an explicit human authorization plus independent verification. An issue the human did not check, or that verification did not confirm, is reported — not closed. Silent or speculative closing is out of scope by design.
 
-5. **Degrade gracefully.** Missing `gh` auth, an un-scoreable issue, or a single slice's failed triage results in that issue (or slice) being **reported** while the rest of the batch proceeds. One bad issue never sinks the batch.
+6. **Degrade gracefully.** Missing `gh` auth, an un-scoreable issue, or a single slice's failed triage results in that issue (or slice) being **reported** while the rest of the batch proceeds. One bad issue never sinks the batch.
 
 ## Non-destinations
 
@@ -189,6 +200,7 @@ The route enum and this list must together account for **every** member of the f
 - **`harness skill run issue-fleet`** — Run the full five-phase intake pipeline.
 - **`harness-roadmap-pilot`** — Its impact scoring is reused in SELECT for the `prioritize` axis so the ranked queue is principled and reproducible.
 - **`harness fleet clump-issues`** — The `clump` axis, as a callable rather than a paragraph. Read-only: it enumerates the backlog (`gh issue list`, or `--input <dump.json>`), forms the clump set through the shared `formClumps` primitive in `@harness-engineering/core` (`fleet/clumping`), and prints the clump table, every shed count, and the conservation check. `--json` for the machine-readable form SELECT carries into CONFIRM. A missing `gh` auth reports the gap and simulates nothing.
+- **`manage_roadmap` (`add` with `external_id`)** — Adds the roadmap row for each issue routed to `roadmap-fleet` (HANDOFF), linked to the existing issue by `External-ID: github:<owner>/<repo>#<n>`. Supplying `external_id` records the link without creating a tracker ticket, is idempotent by External-ID, and returns a compact envelope; `show` is the re-read that confirms each row landed.
 - **`gh`** — Enumerate open issues and read their signals (SELECT), apply labels and record routes (HANDOFF), and close confirmed-duplicate issues with citations (HANDOFF/REPORT).
 - **The downstream fleets** — `adr-fleet`, `roadmap-fleet`, `pr-fleet`, `cicd-fleet`, `test-fleet`, `cleanup-fleet`, `docs-fleet`, `security-fleet`, `perf-fleet`, `craft-fleet` — consume the routed queue issue-fleet emits; issue-fleet routes to them and never does their work.
 - **`docs/reference/fleet-family.md`** — The shared `-fleet` spine this skill builds on (five-phase skeleton, governor, verification discipline, worktree fan-out, never-silent invariant); issue-fleet is listed there as the intake member.
@@ -201,6 +213,7 @@ The route enum and this list must together account for **every** member of the f
 - There is **exactly one** up-front human decision round, and it carries the destructive-close authorization; no per-issue interactive pauses except a genuinely-new fork parked to its own issue.
 - The fleet **never** closes an issue the human did not explicitly authorize, and **never** closes one verification did not confirm is a genuine duplicate with a real citation.
 - No mutation is applied on a subagent self-report — every label, route, and close is independently re-derived from the issue's own signals.
+- Every issue routed to `roadmap-fleet` has **exactly one** roadmap row carrying `External-ID: github:<owner>/<repo>#<n>` after HANDOFF, confirmed by re-reading the roadmap — and no tracker issue was created to get it there.
 - Duplicate issues are **closed with citations, not silently**; non-duplicate issues are never closed.
 - Triage applies the project's **existing** label vocabulary and never invents new labels.
 - The clump axis emits a set of work units in which every issue appears **exactly once** — as a clump member or as its own queue entry — with every shed count and the conservation arithmetic reported on the same single CONFIRM round. No `unscoped` issue shares a clump with anything — not a scoped issue, not another unscoped one.
@@ -217,6 +230,7 @@ The route enum and this list must together account for **every** member of the f
 - **Never add a second CONFIRM for the clump set.** The clump table and its shed counts go on the existing round. A second gate = gate violation; it costs the attention the axis exists to save.
 - **Never infer a scope an issue does not state.** An issue that names no repository path is `unscoped`, is not clumped with anything, and the count is reported. Reading a scope out of a vague title — or out of a `dist/` frame in a pasted stack trace — to make a clump bigger = gate violation.
 - **Never drop a clumped issue from the queue.** Every issue is either a clump member or its own queue entry; a clump shed by a cap degrades to individual entries, never to nothing. A conservation breach = gate violation.
+- **Never add a roadmap row without its `external_id`, and never via sync.** A `manage_roadmap add` for a routed issue without `external_id` asks the tracker to create a ticket — a duplicate of the issue being routed; `roadmap sync --apply` rewrites unrelated rows. Either = gate violation.
 - **Never exceed the concurrency governor.** More than ~3 concurrent subagents is the machine-storm zone; do not raise the cap to "go faster."
 - **Never `--no-verify`.** No subagent bypasses the pre-push gates; a `.claude/`-nested worktree pushes via the GitHub API or a non-nested worktree instead.
 
@@ -309,6 +323,8 @@ Phase 4: VERIFY (independent — no self-report)
 
 Phase 5: HANDOFF + REPORT
   Applied labels + routes for 8 surviving issues.
+  Added roadmap rows for #B and #H (External-ID github:<owner>/<repo>#<n>);
+  re-read the roadmap: one row each, no tracker issue created.
   Closed #C as duplicate, citing #B.
   Emitted routed queue:
     adr-fleet: [#D, #I]   roadmap-fleet: [#B, #H]
@@ -411,7 +427,7 @@ phases:
     description: Independently re-derive every proposed mutation (each label, dedup close, and route) from the issue's own signals and confirm each authorized close is a genuine duplicate with a real citation — never by subagent self-report
     required: true
   - name: report
-    description: Apply verified labels/routes, close only human-authorized and verified duplicates with canonical citations, emit the ranked/routed queue grouped by downstream fleet plus a one-row-per-issue batch summary, and never close an unauthorized or unverified issue
+    description: Apply verified labels/routes, add an idempotent External-ID-linked roadmap row for each issue routed to roadmap-fleet (never creating a tracker issue, never via sync) and re-read the roadmap to confirm it, close only human-authorized and verified duplicates with canonical citations, emit the ranked/routed queue grouped by downstream fleet plus a one-row-per-issue batch summary, and never close an unauthorized or unverified issue
     required: true
 state:
   persistent: false
