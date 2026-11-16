@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/templates'
-sourceHash: 'f62bf2c8e40df92b02b241f5ed16704140b08bdd62bb95d22a6e999693969d5a'
+sourceHash: '137deb3521397fa0cfb4b88e6a8d9b20580a021ae6a6ef56133749a01a75d515'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -31,6 +31,7 @@ export persistToolingConfig
 ## Dependency Slice
 
 ```
+import { CLI_VERSION } from '../version'
 import { appendFrameworkSection } from './agents-append.js'
 import { ResolvedTemplate } from './engine.js'
 import { deepMergeJson, mergePackageJson } from './merger'
