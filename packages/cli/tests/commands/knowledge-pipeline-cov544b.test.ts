@@ -135,6 +135,18 @@ describe('verdict badges & drift labelling', () => {
     expect(joinedLog()).not.toMatch(/first run — no prior graph state/);
   });
 
+  it('does not label an all-new run as first run when a prior baseline exists (#2237)', async () => {
+    hoisted.runMock.mockResolvedValue(
+      makeResult({
+        verdict: 'warn',
+        baselineEmpty: false,
+        findings: { new: 5, stale: 0, drifted: 0, contradicting: 0 },
+      })
+    );
+    await runCli([]);
+    expect(joinedLog()).not.toMatch(/first run/);
+  });
+
   it('prints convergence and remediation lines when present', async () => {
     hoisted.runMock.mockResolvedValue(
       makeResult({ iterations: 3, remediations: [{ id: 'r1' }, { id: 'r2' }] })

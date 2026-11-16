@@ -637,6 +637,7 @@ function skipSuggestions(
   const suggestions: string[] = [];
   if (reasons.has('internal-error')) {
     suggestions.push(
+      // harness-ignore SEC-CRY-001: user-facing message text naming the API, not a hash call
       "Duplication's own normalization or digest stage failed — suspect the runtime, not the sources (e.g. a FIPS-mode Node where createHash('sha1') throws)"
     );
   }

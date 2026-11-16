@@ -105,7 +105,9 @@ describe('PoolCard', () => {
   });
 
   it('Remove POSTs to /pool/remove and calls onMutated (SC7)', async () => {
-    const fetchMock = vi.fn(() => Promise.resolve(jsonRes(200, { disposition: 'removed' })));
+    const fetchMock = vi.fn<typeof fetch>(() =>
+      Promise.resolve(jsonRes(200, { disposition: 'removed' }))
+    );
     vi.stubGlobal('fetch', fetchMock);
     const { onMutated } = renderPool();
 
@@ -119,7 +121,9 @@ describe('PoolCard', () => {
   });
 
   it('a deferred (202) remove renders "removes after current run" (SC7)', async () => {
-    const fetchMock = vi.fn(() => Promise.resolve(jsonRes(202, { disposition: 'deferred' })));
+    const fetchMock = vi.fn<typeof fetch>(() =>
+      Promise.resolve(jsonRes(202, { disposition: 'deferred' }))
+    );
     vi.stubGlobal('fetch', fetchMock);
     const { onMutated } = renderPool();
 
@@ -138,7 +142,7 @@ describe('PoolCard', () => {
   });
 
   it('a failed remove surfaces an inline error and does not call onMutated', async () => {
-    const fetchMock = vi.fn(() =>
+    const fetchMock = vi.fn<typeof fetch>(() =>
       Promise.resolve({ ok: false, status: 409, text: async () => 'conflict' } as Response)
     );
     vi.stubGlobal('fetch', fetchMock);

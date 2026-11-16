@@ -9,6 +9,7 @@
  */
 
 import ts from 'typescript';
+import { detectLanguage } from '@harness-engineering/core';
 import type { IdentifierKind } from '../findings/schema.js';
 
 export interface ExtractedIdentifier {
@@ -23,7 +24,22 @@ export interface ExtractedIdentifier {
 
 const SHORT_SCOPE_BODY_LINE_THRESHOLD = 10;
 
+/**
+ * Whether this extractor can parse `file`. It is the TypeScript Compiler API,
+ * so the TS/JS family only (every extension core's EXTENSION_MAP assigns to
+ * typescript or javascript — the languages naming-craft declares). Anything
+ * else (PHP, Python, Go, …) is NOT best-effort parsed: fed through the TSX
+ * parser, PHP's `use function RPB\Foo\bar;` surfaced a phantom `function`
+ * named `RPB` (issue #1967) — a finding at a location that does not exist,
+ * carrying a real runId + rubricId. Callers report such files as unsupported.
+ */
+export function isSupportedSourceFile(file: string): boolean {
+  const language = detectLanguage(file);
+  return language === 'typescript' || language === 'javascript';
+}
+
 export function extractIdentifiers(file: string, source: string): ExtractedIdentifier[] {
+  if (!isSupportedSourceFile(file)) return [];
   let sourceFile: ts.SourceFile;
   try {
     sourceFile = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);

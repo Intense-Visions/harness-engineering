@@ -16,6 +16,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { EXTENSION_MAP } from '@harness-engineering/core';
+import { resolveSourceRoots } from '../../shared/craft/extract/source-roots.js';
 
 /**
  * Every extension harness can parse, not the TS/JS subset.
@@ -51,15 +52,6 @@ const EXCLUDED_DIRS = new Set([
 ]);
 
 /**
- * Fallback source roots (relative to the project root) tried, in order, when a
- * project has no `packages/` directory. Without this a single-package repo —
- * the common shape outside a monorepo — reports zero source files, which reads
- * as a silent clean pass. `src` is the near-universal convention; `app` covers
- * frameworks (Next.js App Router, some Node services) that root code there.
- */
-const FALLBACK_SOURCE_ROOTS: ReadonlyArray<string> = ['src', 'app'];
-
-/**
  * Test-file naming conventions per language. Ships alongside the widened
  * SOURCE_EXTENSIONS: widening one without the other sweeps `test_cart.py` in
  * as production source and bills code-craft for test-craft's territory.
@@ -81,47 +73,11 @@ export function discoverSourceFiles(
   projectRoot: string,
   packagesFilter?: ReadonlyArray<string>
 ): string[] {
-  const packagesDir = path.join(projectRoot, 'packages');
-  if (!fs.existsSync(packagesDir)) {
-    // Not a `packages/` monorepo — fall back to conventional single-package
-    // roots so these projects aren't silently reported as empty.
-    return discoverFallbackRoots(projectRoot);
-  }
+  // Roots are shared with security-craft (see resolveSourceRoots): a
+  // `packages/` monorepo walks each `packages/<pkg>/src`, anything else falls
+  // back to conventional single-package roots so it is not silently empty.
   const out: string[] = [];
-  let entries: fs.Dirent[];
-  try {
-    entries = fs.readdirSync(packagesDir, { withFileTypes: true });
-  } catch {
-    return [];
-  }
-  for (const entry of entries) {
-    if (!entry.isDirectory()) continue;
-    if (entry.name.startsWith('.')) continue;
-    if (packagesFilter !== undefined && !packagesFilter.includes(entry.name)) continue;
-    const srcDir = path.join(packagesDir, entry.name, 'src');
-    if (!fs.existsSync(srcDir)) continue;
-    walk(srcDir, out);
-  }
-  return out;
-}
-
-/**
- * Discover source under conventional single-package roots (`src`, then `app`)
- * when the project has no `packages/` directory. Walks the first root that
- * exists as a directory; falls back to the next only when the prior is absent.
- */
-function discoverFallbackRoots(projectRoot: string): string[] {
-  const out: string[] = [];
-  for (const root of FALLBACK_SOURCE_ROOTS) {
-    const dir = path.join(projectRoot, root);
-    if (!fs.existsSync(dir)) continue;
-    try {
-      if (!fs.statSync(dir).isDirectory()) continue;
-    } catch {
-      continue;
-    }
-    walk(dir, out);
-  }
+  for (const root of resolveSourceRoots(projectRoot, packagesFilter)) walk(root, out);
   return out;
 }
 

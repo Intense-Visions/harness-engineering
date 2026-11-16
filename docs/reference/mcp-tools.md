@@ -568,7 +568,8 @@ Simulate cascading failure propagation from a source node using probability-weig
 
 **Parameters:**
 
-- `path` (string, required) — Path to project root
+- `path` (string, optional) — Path to project root (defaults to the server working directory)
+- `projectPath` (string, optional) — Alias for path
 - `file` (string, optional) — File path (relative to project root) to simulate failure for
 - `nodeId` (string, optional) — Node ID to simulate failure for
 - `probabilityFloor` (number, optional) — Minimum cumulative probability to continue traversal (default 0.05)
@@ -1050,7 +1051,8 @@ List performance-critical functions from @perf-critical annotations and graph in
 
 **Parameters:**
 
-- `path` (string, required) — Path to project root
+- `path` (string, optional) — Path to project root (defaults to the server working directory)
+- `projectPath` (string, optional) — Alias for path
 
 **CLI equivalent:** [`harness perf critical-paths`](cli-commands.md#harness-perf-critical-paths)
 
@@ -1081,7 +1083,8 @@ Analyze the impact of changing a node or file. Returns affected tests, docs, cod
 
 **Parameters:**
 
-- `path` (string, required) — Path to project root
+- `path` (string, optional) — Path to project root (defaults to the server working directory)
+- `projectPath` (string, optional) — Alias for path
 - `nodeId` (string, optional) — ID of the node to analyze impact for
 - `filePath` (string, optional) — File path (relative to project root) to analyze impact for
 - `mode` (string, optional) — Response density: summary returns impacted file count by category + highest-risk items, detailed returns full impact tree. Default: detailed
