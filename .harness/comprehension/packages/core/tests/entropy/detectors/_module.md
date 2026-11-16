@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/tests/entropy/detectors'
-sourceHash: 'fbd0c76db77d055132625221931a5f3f699f9459d3d2609ebc4f4d4dab29fb98'
+sourceHash: '023f749ef0671401aa24d5a6064be9b558f9247d282d24442d520f13e186210e'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -55,7 +55,7 @@ import { skipDirGlobs } from '@harness-engineering/graph'
 import { parse } from '@typescript-eslint/typescript-estree'
 import { mkdtemp, rm, writeFile } from 'fs/promises'
 import { minimatch } from 'minimatch'
-import { mkdirSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'

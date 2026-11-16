@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/utils'
-sourceHash: '27c2ed157203fb4865c274d40ace4b6d7b72b4656d14f2783f1cf2e405e1c42b'
+sourceHash: 'afe4f1f3b3382cc056eff555fa72e1114404bdb973385c76a877d61222fc7f07'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -12,6 +12,7 @@ members:
     'errors.ts',
     'files.ts',
     'first-run.ts',
+    'git-ignored.ts',
     'guardian-context.ts',
     'node-version.ts',
     'output.ts',
@@ -36,6 +37,7 @@ export findFiles
 export findProjectRoot
 export findUpFrom
 export formatError
+export gitIgnoredExcludeGlobs
 export handleError
 export installVersionGuard
 export isFirstRun
@@ -74,6 +76,8 @@ import { ZERO_DENOMINATOR_EXIT_CODE } from '@harness-engineering/types'
 import { Command } from 'commander'
 import * as fs from 'fs'
 import { glob } from 'glob'
+import { escape } from 'minimatch'
+import { execFileSync } from 'node:child_process'
 import { existsSync, readFileSync } from 'node:fs'
 import { join, parsePath, resolve } from 'node:path'
 import * as path from 'node:path'

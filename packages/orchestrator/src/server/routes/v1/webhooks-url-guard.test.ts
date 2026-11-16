@@ -285,19 +285,62 @@ function makeReq(method: string, url: string, body?: unknown): IncomingMessage {
   return r;
 }
 
-function makeRes(): { res: ServerResponse; chunks: string[]; statusCode: () => number } {
+/**
+ * `handleV1WebhooksRoute` returns synchronously and finishes the response on
+ * its own async chain (body read -> DNS guard -> `store.create` persist ->
+ * `res.end`). `whenEnded()` settles the instant the stubbed `res.end()` runs.
+ *
+ * These cases used to sleep a fixed 20ms instead. On a loaded runner the chain
+ * outlived the sleep, so the assertions read the default 200 status, and the
+ * `afterEach` rmSync raced the still-running `store.create` persist into the
+ * temp dir and failed with `ENOTEMPTY` (#2227; observed on ubuntu CI). Waiting
+ * for the completion signal has no budget to lose. The bound below only turns
+ * a genuine hang into a specific failure; the happy path never waits for it.
+ */
+const RESPONSE_END_TIMEOUT_MS = 10_000;
+
+function makeRes(): {
+  res: ServerResponse;
+  chunks: string[];
+  statusCode: () => number;
+  whenEnded: () => Promise<void>;
+} {
   const sock = new Socket();
   const r = new ServerResponse(new IncomingMessage(sock));
   const chunks: string[] = [];
+  let markEnded: () => void = () => {};
+  const ended = new Promise<void>((resolve) => {
+    markEnded = resolve;
+  });
   r.write = ((c: string) => {
     chunks.push(String(c));
     return true;
   }) as ServerResponse['write'];
   r.end = ((c?: string) => {
     if (c) chunks.push(String(c));
+    markEnded();
     return r;
   }) as ServerResponse['end'];
-  return { res: r, chunks, statusCode: () => r.statusCode };
+  async function whenEnded(): Promise<void> {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    try {
+      await Promise.race([
+        ended,
+        new Promise<never>((_resolve, reject) => {
+          timer = setTimeout(
+            () =>
+              reject(
+                new Error(`handler did not end the response within ${RESPONSE_END_TIMEOUT_MS}ms`)
+              ),
+            RESPONSE_END_TIMEOUT_MS
+          );
+        }),
+      ]);
+    } finally {
+      if (timer) clearTimeout(timer);
+    }
+  }
+  return { res: r, chunks, statusCode: () => r.statusCode, whenEnded };
 }
 
 describe('handleV1WebhooksRoute — SSRF guard', () => {
@@ -325,9 +368,9 @@ describe('handleV1WebhooksRoute — SSRF guard', () => {
       url: 'https://127.0.0.1/hook',
       events: ['*'],
     });
-    const { res, chunks, statusCode } = makeRes();
+    const { res, chunks, statusCode, whenEnded } = makeRes();
     handleV1WebhooksRoute(req, res, { store, bus });
-    await new Promise((r) => setTimeout(r, 20));
+    await whenEnded();
     expect(statusCode()).toBe(422);
     expect(chunks.join('')).toContain('private or loopback');
   });
@@ -337,9 +380,9 @@ describe('handleV1WebhooksRoute — SSRF guard', () => {
       url: 'https://localhost/hook',
       events: ['*'],
     });
-    const { res, chunks, statusCode } = makeRes();
+    const { res, chunks, statusCode, whenEnded } = makeRes();
     handleV1WebhooksRoute(req, res, { store, bus });
-    await new Promise((r) => setTimeout(r, 20));
+    await whenEnded();
     expect(statusCode()).toBe(422);
     expect(chunks.join('')).toContain('private or loopback');
   });
@@ -349,9 +392,9 @@ describe('handleV1WebhooksRoute — SSRF guard', () => {
       url: 'https://example.com/hook',
       events: ['*.*'],
     });
-    const { res, statusCode } = makeRes();
+    const { res, statusCode, whenEnded } = makeRes();
     handleV1WebhooksRoute(req, res, { store, bus });
-    await new Promise((r) => setTimeout(r, 20));
+    await whenEnded();
     expect(statusCode()).toBe(200);
   });
 
@@ -362,9 +405,9 @@ describe('handleV1WebhooksRoute — SSRF guard', () => {
       url: 'https://hooks.attacker.example/hook',
       events: ['*.*'],
     });
-    const { res, chunks, statusCode } = makeRes();
+    const { res, chunks, statusCode, whenEnded } = makeRes();
     handleV1WebhooksRoute(req, res, { store, bus });
-    await new Promise((r) => setTimeout(r, 20));
+    await whenEnded();
     expect(statusCode()).toBe(422);
     expect(chunks.join('')).toContain('private or loopback');
     expect(await store.list()).toHaveLength(0);
@@ -375,9 +418,9 @@ describe('handleV1WebhooksRoute — SSRF guard', () => {
       url: 'https://localtest.example/hook',
       events: ['*.*'],
     });
-    const { res, statusCode } = makeRes();
+    const { res, statusCode, whenEnded } = makeRes();
     handleV1WebhooksRoute(req, res, { store, bus });
-    await new Promise((r) => setTimeout(r, 20));
+    await whenEnded();
     expect(statusCode()).toBe(422);
     expect(await store.list()).toHaveLength(0);
   });
@@ -387,9 +430,9 @@ describe('handleV1WebhooksRoute — SSRF guard', () => {
       url: 'https://nxdomain.example/hook',
       events: ['*.*'],
     });
-    const { res, statusCode } = makeRes();
+    const { res, statusCode, whenEnded } = makeRes();
     handleV1WebhooksRoute(req, res, { store, bus });
-    await new Promise((r) => setTimeout(r, 20));
+    await whenEnded();
     expect(statusCode()).toBe(422);
   });
 });
