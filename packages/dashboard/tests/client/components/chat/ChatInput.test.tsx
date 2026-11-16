@@ -41,7 +41,7 @@ function Harness({
       }}
       onSend={onSend}
       disabled={disabled}
-      placeholder={placeholder}
+      {...(placeholder !== undefined ? { placeholder } : {})}
     />
   );
 }

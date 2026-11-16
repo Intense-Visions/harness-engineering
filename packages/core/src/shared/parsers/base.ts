@@ -25,9 +25,18 @@ export interface Location {
  */
 export interface Import {
   source: string; // './module' or '@pkg/lib'
-  specifiers: string[]; // Named imports
+  specifiers: string[]; // Named imports (LOCAL binding names)
+  /**
+   * The names the source module exports, index-aligned with `specifiers`.
+   * Differs from `specifiers` only for an aliased import (`{ a as b }` records
+   * `b` in `specifiers` and `a` here). Consumers that resolve an import to the
+   * export it names must read this, not `specifiers` (issue #2075).
+   */
+  importedNames?: string[];
   default?: string; // Default import name
   namespace?: string; // import * as X
+  /** True for a dynamic `import('./x')` expression (issue #2075). */
+  dynamic?: boolean;
   location: Location;
   kind: 'value' | 'type'; // Distinguish type-only imports
 }
@@ -41,6 +50,12 @@ export interface Export {
   location: Location;
   isReExport: boolean;
   source?: string; // Re-export source
+  /**
+   * For a re-export, the name the export has in `source` when it differs from
+   * `name` — e.g. `export { default as Foo } from './foo'` has name `Foo` and
+   * localName `default` (issue #2075).
+   */
+  localName?: string;
 }
 
 /**
