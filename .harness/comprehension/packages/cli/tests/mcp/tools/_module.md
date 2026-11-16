@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/tests/mcp/tools'
-sourceHash: '8fece95fe11a05488be2d8f59cfd7fadc8fc260c1c67ed9155b8b3defa308656'
+sourceHash: '25cf4a00eaedf23c3ba4df3cc867e22ffcff2c11739924e7a66318f8977d4d5f'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -86,7 +86,6 @@ members:
     'roadmap-file-less-cov544.test.ts',
     'roadmap-groom-sharded.test.ts',
     'roadmap-groom.test.ts',
-    'roadmap-invalid-status.test.ts',
     'roadmap-missing-path.test.ts',
     'roadmap-scoped-sync.test.ts',
     'roadmap.file-backed-regression.test.ts',
@@ -98,6 +97,7 @@ members:
     'search-skills.test.ts',
     'security-craft.test.ts',
     'security-record.test.ts',
+    'security-scan-denominator.test.ts',
     'skill-progressive-loading.test.ts',
     'skill-proposal.test.ts',
     'skill-telemetry.test.ts',
