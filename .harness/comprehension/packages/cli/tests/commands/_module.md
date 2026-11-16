@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/tests/commands'
-sourceHash: '0715487b5f24acb6aba9a46960bd9769ee892a40a8a4fc2ae84281bde02d16e1'
+sourceHash: 'b62585f4047f1195955d227573e692d454364698acfb600aa3c687c37a4caa0c'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -116,6 +116,7 @@ members:
     'install.test.ts',
     'integrations-sync.test.ts',
     'integrations.test.ts',
+    'json-result-channel.test.ts',
     'knowledge-craft-command.test.ts',
     'knowledge-craft-cov544.test.ts',
     'knowledge-pipeline-cov544b.test.ts',
@@ -437,7 +438,7 @@ import { resolveAnalysisProvider } from '../../src/mcp/utils/analysis-provider'
 import '../../src/mcp/utils/graph-loader'
 import { NamingCraftInput, NamingCraftOutput } from '../../src/naming-craft/index.js'
 import { OutputFormatter, OutputMode } from '../../src/output/formatter'
-import { logger } from '../../src/output/logger'
+import { logger, setMachineOutput } from '../../src/output/logger'
 import { confirmYesNo, prompt } from '../../src/output/prompt'
 import { loadPersona } from '../../src/persona/loader'
 import { runPersona } from '../../src/persona/runner'

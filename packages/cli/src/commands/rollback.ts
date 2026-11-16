@@ -246,7 +246,8 @@ export function createRollbackCommand(): Command {
         action: decision.action,
         ...(decision.prUrl ? { prUrl: decision.prUrl } : {}),
       });
-      logger.info(JSON.stringify(decision, null, 2));
+      // The decision is the command's result: stdout, unprefixed, even under --json.
+      logger.raw(decision);
       // Non-proposed verdicts are legitimate outcomes, not failures — exit 0.
     });
 

@@ -193,7 +193,8 @@ export function createAdviseSkillsCommand(): Command {
         });
 
         if (opts.json) {
-          logger.info(JSON.stringify(outcome.result, null, 2));
+          // The JSON document is the result: stdout, unprefixed, even in machine mode.
+          logger.raw(outcome.result);
         } else {
           logger.info(formatOutput(outcome));
         }
