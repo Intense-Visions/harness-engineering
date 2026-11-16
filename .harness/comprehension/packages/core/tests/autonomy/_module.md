@@ -1,13 +1,14 @@
 ---
 schemaVersion: 1
 module: 'packages/core/tests/autonomy'
-sourceHash: 'b2aa6eea161721396e8ce651c9ff124c1f5f95f93f90b90ae46029328de4fe0a'
+sourceHash: 'c4542be651992c589c1207ccc5a69f8fe1335b42015a8fe5745ce5f0b58714de'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
 members:
   [
     'decision-log-concurrency.test.ts',
+    'decision-log-inflight.test.ts',
     'decision-log-surface.test.ts',
     'decision-log.test.ts',
     'decision-schema.test.ts',
@@ -34,6 +35,7 @@ members:
 ## Dependency Slice
 
 ```
+import { withAppendLock } from '../../src/autonomy/append-lock'
 import { MAX_AUTO_DECISION_LINE_BYTES, appendAutoDecision, autoDecisionLogPath, readAutoDecisions, recordAutoDecision } from '../../src/autonomy/decision-log'
 import { AUTO_DECISION_LIMITS, escapeUnsafeLogText, parseAutoDecisionLine, validateAutoDecisionInput } from '../../src/autonomy/decision-schema'
 import { AUTONOMY_SESSION_NOT_FOUND, DEFAULT_RAISE_TTL_MS, autonomyAuditLogPath, computeRepoKey, readSessionOverride, resolveAutonomy, resolveAutonomyForSession, sessionOverridePath, writeLoweringOverride, writeSessionOverride } from '../../src/autonomy/index'
@@ -48,6 +50,7 @@ import { resolveSessionDir } from '../../src/state/session-resolver'
 import { AutoDecision, AutonomyLevel, AutonomySessionOverride } from '@harness-engineering/types'
 import { execFileSync, spawn } from 'node:child_process'
 import * as fs from 'node:fs'
+import { createRequire, syncBuiltinESMExports } from 'node:module'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import { fileURLToPath } from 'node:url'

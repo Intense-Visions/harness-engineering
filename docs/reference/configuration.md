@@ -369,10 +369,10 @@ Configures entropy detection, which identifies high-entropy strings (potential s
 
 ### EntropyConfig Object
 
-| Field             | Type       | Default                                  | Description                                 |
-| ----------------- | ---------- | ---------------------------------------- | ------------------------------------------- |
-| `excludePatterns` | `string[]` | `["**/node_modules/**", "**/*.test.ts"]` | Glob patterns to exclude from entropy scans |
-| `autoFix`         | `boolean`  | `false`                                  | Automatically apply fixes when detected     |
+| Field             | Type       | Default                                  | Description                                                                                                                      |
+| ----------------- | ---------- | ---------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| `excludePatterns` | `string[]` | `["**/node_modules/**", "**/*.test.ts"]` | Glob patterns to exclude from entropy scans. `harness check-perf` honours the same patterns and also skips every gitignored path |
+| `autoFix`         | `boolean`  | `false`                                  | Automatically apply fixes when detected                                                                                          |
 
 ### Example
 
