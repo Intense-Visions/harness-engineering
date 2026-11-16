@@ -1,4 +1,3 @@
-import { execSync } from 'node:child_process';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -44,6 +43,7 @@ export interface AdrFrontmatter {
 /** A summary record used by `list` (frontmatter + slug + path, no body). */
 export interface AdrSummary extends AdrFrontmatter {
   slug: string;
+  /** Absolute path of the ADR file on disk — the file actually read or written (#2145). */
   file: string;
 }
 
@@ -66,31 +66,55 @@ function decisionsDirFor(projectRoot: string): string {
 }
 
 /**
- * Resolve the ADR root to the active git worktree.
- *
- * `manage_adr` is invoked from whatever checkout the caller is working in, which
- * — under `git worktree` — is NOT necessarily the MCP server's launch root
- * (`fallbackRoot`, threaded in as the `path` argument). Writing ADRs to the
- * server root pollutes the wrong checkout and mints collision-free numbers
- * against a store the worktree branch can't see (#1507).
- *
- * We resolve the enclosing worktree top-level via `git rev-parse
- * --show-toplevel` from the caller's `cwd`. When `cwd` is inside a git worktree
- * we target that worktree; otherwise (not a git repo, or git unavailable) we
- * fall back to the caller-supplied root, so non-git usage is unaffected.
+ * Assert that `projectRoot` — the caller's `path` argument — is an existing
+ * directory. The ADR root is ALWAYS the caller-supplied path, never the MCP
+ * server's `process.cwd()` (its launch checkout): resolving from the cwd sent a
+ * -fleet lane's ADRs into the shared checkout (#2145). A path that does not
+ * exist fails loudly here instead of surfacing as "ADR not found" (read/list)
+ * or silently scaffolding a fresh tree (create).
  */
-export function resolveWorktreeRoot(cwd: string, fallbackRoot: string): string {
+export function assertProjectRoot(projectRoot: string): void {
+  let stat: fs.Stats;
   try {
-    const top = execSync('git rev-parse --show-toplevel', {
-      cwd,
-      encoding: 'utf-8',
-      stdio: ['pipe', 'pipe', 'pipe'],
-    }).trim();
-    if (top.length > 0) return path.resolve(top);
+    stat = fs.statSync(projectRoot);
   } catch {
-    // Not inside a git worktree (or git unavailable) — keep the supplied root.
+    throw new AdrStoreError(`path "${projectRoot}" does not exist.`);
   }
-  return fallbackRoot;
+  if (!stat.isDirectory()) {
+    throw new AdrStoreError(`path "${projectRoot}" is not a directory.`);
+  }
+}
+
+/**
+ * Remove one layer of YAML quoting from a scalar, so a value written by
+ * {@link yamlScalar} (e.g. `'#834'`) reads back as the original string.
+ */
+function unquoteYaml(value: string): string {
+  if (value.length >= 2 && value.startsWith("'") && value.endsWith("'")) {
+    return value.slice(1, -1).replace(/''/g, "'");
+  }
+  if (value.length >= 2 && value.startsWith('"') && value.endsWith('"')) {
+    return value.slice(1, -1).replace(/\\"/g, '"').replace(/\\\\/g, '\\');
+  }
+  return value;
+}
+
+/**
+ * Render a frontmatter value as a YAML scalar, single-quoting it whenever the
+ * plain form would be misread: a leading indicator character (`#834` parses as
+ * a comment, i.e. null — #2145), an embedded `: ` or ` #`, a trailing `:`, or
+ * surrounding whitespace. Plain-safe values are emitted unquoted, unchanged.
+ */
+function yamlScalar(value: string): string {
+  const needsQuote =
+    /^[#&*!|>'"%@`{}[\],?:-]/.test(value) || /: |\s#|:$/.test(value) || value !== value.trim();
+  return needsQuote ? `'${value.replace(/'/g, "''")}'` : value;
+}
+
+/** Local calendar date (YYYY-MM-DD) — the session's date, not the UTC one (#2145). */
+function localIsoDate(now: Date = new Date()): string {
+  const pad = (n: number): string => String(n).padStart(2, '0');
+  return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
 }
 
 /**
@@ -112,7 +136,7 @@ function parseAdr(raw: string): { frontmatter: AdrFrontmatter; body: string } | 
     if (!kv) continue;
     const value = kv[2]!.trim();
     if (value.length === 0) continue;
-    fm[kv[1]!] = value;
+    fm[kv[1]!] = unquoteYaml(value);
   }
 
   if (!fm.number || !fm.title) return null;
@@ -138,7 +162,7 @@ function serializeAdr(frontmatter: AdrFrontmatter, body: string): string {
   for (const key of order) {
     const value = frontmatter[key];
     if (value === undefined || value === null || `${value}`.length === 0) continue;
-    lines.push(`${key}: ${value}`);
+    lines.push(`${key}: ${yamlScalar(`${value}`)}`);
   }
   lines.push('---');
   const trimmedBody = body.replace(/^\n+/, '');
@@ -198,7 +222,7 @@ export function listAdrs(projectRoot: string): AdrSummary[] {
     summaries.push({
       ...parsed.frontmatter,
       slug: file.replace(/^\d+-/, '').replace(/\.md$/, ''),
-      file,
+      file: path.join(dir, file),
     });
   }
   return summaries.sort((a, b) => numericValue(a.number) - numericValue(b.number));
@@ -259,7 +283,7 @@ export function readAdr(projectRoot: string, ref: string): AdrRecord {
   return {
     ...parsed.frontmatter,
     slug: file.replace(/^\d+-/, '').replace(/\.md$/, ''),
-    file,
+    file: path.join(dir, file),
     body: parsed.body,
   };
 }
@@ -316,7 +340,7 @@ function buildCreateFrontmatter(
   const fm: AdrFrontmatter = {
     number,
     title,
-    date: input.date ?? new Date().toISOString().slice(0, 10),
+    date: input.date ?? localIsoDate(),
     status: input.status ?? 'proposed',
   };
   if (input.tier) fm.tier = input.tier;
@@ -353,7 +377,7 @@ export function createAdr(projectRoot: string, input: CreateAdrInput): AdrRecord
   fs.mkdirSync(dir, { recursive: true });
   fs.writeFileSync(fullPath, serializeAdr(frontmatter, body), 'utf-8');
 
-  return { ...frontmatter, slug, file, body };
+  return { ...frontmatter, slug, file: fullPath, body };
 }
 
 export interface UpdateAdrInput {
@@ -428,7 +452,6 @@ function resolveUpdatedBody(existingBody: string, input: UpdateAdrInput): string
  */
 export function updateAdr(projectRoot: string, ref: string, input: UpdateAdrInput): AdrRecord {
   const existing = readAdr(projectRoot, ref);
-  const dir = decisionsDirFor(projectRoot);
 
   const frontmatter: AdrFrontmatter = { ...existing };
   delete (frontmatter as { slug?: string }).slug;
@@ -438,7 +461,7 @@ export function updateAdr(projectRoot: string, ref: string, input: UpdateAdrInpu
   patchFrontmatter(frontmatter, input);
   const body = resolveUpdatedBody(existing.body, input);
 
-  fs.writeFileSync(path.join(dir, existing.file), serializeAdr(frontmatter, body), 'utf-8');
+  fs.writeFileSync(existing.file, serializeAdr(frontmatter, body), 'utf-8');
 
   return { ...frontmatter, slug: existing.slug, file: existing.file, body };
 }

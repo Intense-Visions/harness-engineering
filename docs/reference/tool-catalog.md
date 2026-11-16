@@ -3276,7 +3276,7 @@ Manage Architecture Decision Records (ADRs) in docs/knowledge/decisions/: create
       "type": "string"
     },
     "path": {
-      "description": "Path to project root",
+      "description": "Path to project root. Every action reads and writes ADRs under <path>/docs/knowledge/decisions/ — pass your worktree here; the server's own checkout is never used. Must exist.",
       "type": "string"
     },
     "ref": {
