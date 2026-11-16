@@ -121,6 +121,14 @@ const TriageOutcomePayload = z.object({
   actual: ComplexityVerdictPayload,
   exceededBy: z.number(),
   matched: z.boolean(),
+  /**
+   * `false` marks a FAIL-SAFE outcome (#2264): the retrospective blocked because nothing
+   * could be judged (a missing/garbled prediction or an unclassifiable actual), so
+   * `matched`/`exceededBy` are not a measurement. Kept in the log for forensics but
+   * excluded from the precedent base rate and the ratchet sample. Optional and additive:
+   * an absent field (every pre-#2264 outcome) means graded, so old logs aggregate as before.
+   */
+  graded: z.boolean().optional(),
 });
 /** Inferred input shape for a triage_outcome payload (used by recordTriageOutcome). */
 export type TriageOutcomeInput = z.infer<typeof TriageOutcomePayload>;

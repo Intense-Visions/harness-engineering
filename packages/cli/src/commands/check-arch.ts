@@ -204,12 +204,26 @@ function configGate(
  * while the category is configured is a malfunction — the rules exist, yet
  * nothing was analysed against them.
  */
-const WORK_DENOMINATORS = [
-  'modulesAnalyzed',
-  'filesAnalyzed',
-  'edgeCount',
-  'functionsAnalyzed',
-] as const;
+const WORK_DENOMINATORS = ['modulesAnalyzed', 'filesAnalyzed'] as const;
+
+/**
+ * Work units counted *inside* the analysed files. Their 0 is a malfunction only
+ * when no positive `filesAnalyzed` says real files were read (#2317): over real
+ * files, `functionsAnalyzed=0` is the honest answer for a declaration-only or
+ * types-only package, and `edgeCount=0` for an import-free one (`edgeCount`
+ * counts in-project edges only, so such a package cannot contain a cycle).
+ * Measured on `.d.ts`-only, re-export-barrel, types-only `.ts` and
+ * bare-specifier-only fixtures: every one reported `filesAnalyzed > 0` with a 0
+ * here, and every one used to abstain on a package that was measured and clean.
+ */
+const FILE_SCOPED_DENOMINATORS = ['edgeCount', 'functionsAnalyzed'] as const;
+
+/** A zero work count, judged per the two denominator lists above. */
+function reportsNoWork(meta: Record<string, unknown>): boolean {
+  if (WORK_DENOMINATORS.some((key) => meta[key] === 0)) return true;
+  const filesRead = typeof meta.filesAnalyzed === 'number' && meta.filesAnalyzed > 0;
+  return !filesRead && FILE_SCOPED_DENOMINATORS.some((key) => meta[key] === 0);
+}
 
 /**
  * Denominators whose 0 is ambiguous on its own, each paired with the count that
@@ -295,10 +309,7 @@ export function classifyMeasurement(
   // claimed it guarded against reordering, which it does not.
   if (gate === 'rules-not-received') return 'abstained';
   if (meta.skipped !== undefined || meta.error !== undefined) return 'abstained';
-  const analysedNothing = WORK_DENOMINATORS.some(
-    (key) => typeof meta[key] === 'number' && meta[key] === 0
-  );
-  if (analysedNothing) return 'abstained';
+  if (reportsNoWork(meta)) return 'abstained';
   return uncorroboratedZeros(meta).length > 0 ? 'abstained' : 'measured';
 }
 

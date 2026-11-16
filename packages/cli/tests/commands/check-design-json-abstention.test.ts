@@ -1,8 +1,8 @@
 import { describe, it, expect, afterEach } from 'vitest';
-import { execFileSync } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
+import { runHarness } from '../e2e/support/harness-cli';
 
 /**
  * `check-design --json` must stay machine-readable when a verifier abstains.
@@ -23,21 +23,8 @@ const CLI = path.join(__dirname, '../../dist/bin/harness.js');
  * this branch. Failing loudly with an actionable message is the point.
  */
 function runCli(cwd: string, args: string[]): { status: number; stdout: string; stderr: string } {
-  try {
-    const stdout = execFileSync(process.execPath, [CLI, ...args], {
-      cwd,
-      encoding: 'utf8',
-      stdio: ['ignore', 'pipe', 'pipe'],
-    });
-    return { status: 0, stdout, stderr: '' };
-  } catch (err) {
-    const e = err as { status?: number; stdout?: string; stderr?: string };
-    return {
-      status: e.status ?? -1,
-      stdout: String(e.stdout ?? ''),
-      stderr: String(e.stderr ?? ''),
-    };
-  }
+  // Bounded: runHarness throws on a hang instead of stalling the gate (#2555).
+  return runHarness(args, { cwd, bin: CLI });
 }
 
 function requireBuiltCli(): void {
@@ -75,17 +62,8 @@ describe('check-design --json survives an abstention (#2070)', () => {
     // one is a scope that discards every candidate.
     fs.writeFileSync(path.join(dir, 'src', 'App.tsx'), 'export const A = () => null;\n');
 
-    let stdout = '';
-    try {
-      stdout = execFileSync(process.execPath, [CLI, 'check-design', '--mode', 'full', '--json'], {
-        cwd: dir,
-        encoding: 'utf8',
-        stdio: ['ignore', 'pipe', 'ignore'],
-      });
-    } catch (err) {
-      // Exit 2 (degraded) is expected; the payload is what is under test.
-      stdout = String((err as { stdout?: string }).stdout ?? '');
-    }
+    // Exit 2 (degraded) is expected; the payload is what is under test.
+    const { stdout } = runCli(dir, ['check-design', '--mode', 'full', '--json']);
 
     // The defect: this threw "Unexpected token '!'".
     const parsed = JSON.parse(stdout) as {
@@ -117,16 +95,7 @@ describe('check-design --json survives an abstention (#2070)', () => {
     fs.mkdirSync(path.join(dir, 'src'));
     fs.writeFileSync(path.join(dir, 'src', 'App.tsx'), 'export const A = () => null;\n');
 
-    let out = '';
-    try {
-      out = execFileSync(process.execPath, [CLI, 'check-design', '--mode', 'full'], {
-        cwd: dir,
-        encoding: 'utf8',
-        stdio: ['ignore', 'pipe', 'ignore'],
-      });
-    } catch (err) {
-      out = String((err as { stdout?: string }).stdout ?? '');
-    }
+    const { stdout: out } = runCli(dir, ['check-design', '--mode', 'full']);
 
     // The defect: the human report printed `audit-anatomy (0 findings)` for a
     // verifier that read nothing — the #2070 symptom one surface over. A reader

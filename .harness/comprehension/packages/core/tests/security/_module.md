@@ -1,18 +1,20 @@
 ---
 schemaVersion: 1
 module: 'packages/core/tests/security'
-sourceHash: 'f297ad02c9cc2688eda451a680abefcd111a431a6c2bc7e7a521b810989807a8'
+sourceHash: '2bc91042a5bddcbd06376e8c92a0259625cfd0555353db8a53b7b45f4d0b4a6e'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
 members:
   [
+    'comment-mask.test.ts',
     'config.test.ts',
     'injection-patterns.test.ts',
     'integration.test.ts',
     'osv-client.test.ts',
     'scan-targets-default-ignore.test.ts',
     'scan-targets-rust.test.ts',
+    'scanner-comment-context.test.ts',
     'scanner-fileglob.test.ts',
     'scanner.test.ts',
     'secret-reference.test.ts',
@@ -32,6 +34,7 @@ members:
 ## Dependency Slice
 
 ```
+import { maskComments, supportsCommentMasking } from '../../src/security/comment-mask'
 import { SecurityConfigSchema, parseSecurityConfig, resolveRuleSeverity } from '../../src/security/config'
 import { InjectionFinding, getInjectionPatterns, scanForInjection } from '../../src/security/injection-patterns'
 import { createOsvClient } from '../../src/security/osv-client'

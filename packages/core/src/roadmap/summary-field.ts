@@ -16,14 +16,23 @@
  * roadmap document all keep byte-stable round-trips through the shared
  * `serializeFeature` / `parseFeatureBlock` seam.
  *
- * Encoding order matters: the backslash is escaped FIRST so every backslash in the
- * output is the start of exactly one `\\` / `\n` / `\r` pair, which makes
- * {@link decodeSummaryField} an exact left-to-right inverse. A plain single-line
- * summary contains none of these characters, so both directions are identities on
- * legacy content — existing roadmaps are unaffected.
+ * Encoding order matters: backslashes are escaped FIRST, so every `\\` / `\n` / `\r`
+ * pair in the output is one the encoder wrote, which makes
+ * {@link decodeSummaryField} an exact left-to-right inverse.
+ *
+ * ONLY A BACKSLASH THE DECODER WOULD MISREAD IS ESCAPED (#2166): one followed by a
+ * backslash, `n`, `r`, or a raw newline / carriage return (which encode to `\n` /
+ * `\r`). Every other backslash — the `\d` of a regex documented in prose — decodes
+ * verbatim already, so leaving it alone makes encode(decode(text)) === text for
+ * authored prose. The old encoder doubled every backslash, which rewrote prose on
+ * the first unrelated write; a value it wrote (`\\d`) still decodes to `\d` and is
+ * re-encoded in the un-doubled form.
  */
 export function encodeSummaryField(value: string): string {
-  return value.replace(/\\/g, '\\\\').replace(/\r/g, '\\r').replace(/\n/g, '\\n');
+  return value
+    .replace(/\\(?=[\\nr\n\r])/g, '\\\\')
+    .replace(/\r/g, '\\r')
+    .replace(/\n/g, '\\n');
 }
 
 /** Exact inverse of {@link encodeSummaryField}. */

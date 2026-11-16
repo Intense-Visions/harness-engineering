@@ -27,13 +27,26 @@ export function persistToolingConfig(
       config.template.framework = framework;
     }
 
+    // Tooling lives at `template.tooling` — the only place HarnessConfigSchema
+    // reads it (#2475). A root-level `tooling` block is stripped by loadConfig
+    // with an "ignored unknown key" warning, so fold any legacy root block in.
+    let tooling = config.template?.tooling;
+    if (config.tooling) {
+      tooling = { ...config.tooling, ...tooling };
+      delete config.tooling;
+    }
+
     // Add tooling from overlay metadata (framework takes precedence over base)
     if (overlayMeta?.tooling) {
-      config.tooling = { ...config.tooling, ...overlayMeta.tooling };
-      delete config.tooling.lockFile;
-    } else if (resolveResult.metadata.tooling && !config.tooling) {
-      config.tooling = { ...resolveResult.metadata.tooling };
-      delete config.tooling.lockFile;
+      tooling = { ...tooling, ...overlayMeta.tooling };
+    } else if (resolveResult.metadata.tooling && !tooling) {
+      tooling = { ...resolveResult.metadata.tooling };
+    }
+
+    if (tooling) {
+      delete tooling.lockFile;
+      config.template = config.template || {};
+      config.template.tooling = tooling;
     }
 
     // Remove level:null for non-JS languages

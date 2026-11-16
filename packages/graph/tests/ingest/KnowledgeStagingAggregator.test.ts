@@ -136,6 +136,83 @@ describe('KnowledgeStagingAggregator', () => {
     expect(result.staged).toBe(0);
   });
 
+  describe('flat knowledge dirs (#2236)', () => {
+    it('counts flat files at the knowledge root by their frontmatter domain', async () => {
+      const aggregator = new KnowledgeStagingAggregator(tmpDir);
+      const knowledgeDir = path.join(tmpDir, 'docs', 'knowledge');
+      await fs.mkdir(knowledgeDir, { recursive: true });
+      await fs.writeFile(
+        path.join(knowledgeDir, 'refunds.md'),
+        '---\ntype: business_rule\ndomain: payments\n---\n\n# Refund window\n'
+      );
+      await fs.writeFile(
+        path.join(knowledgeDir, 'chargebacks.md'),
+        '---\ntype: business_rule\ndomain: payments\n---\n\n# Chargebacks\n'
+      );
+      await fs.writeFile(
+        path.join(knowledgeDir, 'sessions.md'),
+        '---\ntype: business_concept\ndomain: auth\n---\n\n# Sessions\n'
+      );
+
+      const gapReport = await aggregator.generateGapReport(knowledgeDir);
+
+      expect(gapReport.totalEntries).toBe(3);
+      expect(gapReport.domains.find((d) => d.domain === 'payments')?.entryCount).toBe(2);
+      expect(gapReport.domains.find((d) => d.domain === 'auth')?.entryCount).toBe(1);
+    });
+
+    it('does not count a flat file with no frontmatter domain (the ingestor cannot place it)', async () => {
+      const aggregator = new KnowledgeStagingAggregator(tmpDir);
+      const knowledgeDir = path.join(tmpDir, 'docs', 'knowledge');
+      await fs.mkdir(knowledgeDir, { recursive: true });
+      await fs.writeFile(path.join(knowledgeDir, 'rules.md'), '# Some rules\n');
+
+      const gapReport = await aggregator.generateGapReport(knowledgeDir);
+
+      expect(gapReport.totalEntries).toBe(0);
+      expect(gapReport.domains).toHaveLength(0);
+    });
+
+    it('attributes a nested file to its frontmatter domain over its directory name', async () => {
+      const aggregator = new KnowledgeStagingAggregator(tmpDir);
+      const knowledgeDir = path.join(tmpDir, 'docs', 'knowledge');
+      await fs.mkdir(path.join(knowledgeDir, 'misc'), { recursive: true });
+      await fs.writeFile(
+        path.join(knowledgeDir, 'misc', 'refunds.md'),
+        '---\ntype: business_rule\ndomain: payments\n---\n\n# Refund window\n'
+      );
+
+      const gapReport = await aggregator.generateGapReport(knowledgeDir);
+
+      expect(gapReport.domains.map((d) => d.domain)).toEqual(['payments']);
+      expect(gapReport.domains[0]!.entryCount).toBe(1);
+    });
+
+    it('matches a flat documented entry against the extracted node of the same name', async () => {
+      const aggregator = new KnowledgeStagingAggregator(tmpDir);
+      const knowledgeDir = path.join(tmpDir, 'docs', 'knowledge');
+      await fs.mkdir(knowledgeDir, { recursive: true });
+      await fs.writeFile(
+        path.join(knowledgeDir, 'refunds.md'),
+        '---\ntype: business_rule\ndomain: payments\n---\n\n# Refund window\n'
+      );
+      const store = new GraphStore();
+      store.addNode({
+        id: 'bk:payments:refunds',
+        type: 'business_rule',
+        name: 'Refund window',
+        path: 'refunds.md',
+        metadata: { domain: 'payments' },
+      });
+
+      const gapReport = await aggregator.generateGapReport(knowledgeDir, store);
+
+      const payments = gapReport.domains.find((d) => d.domain === 'payments');
+      expect(payments?.entryCount).toBe(1);
+      expect(payments?.gapCount).toBe(0);
+    });
+  });
+
   it('handles gap report with no knowledge directory', async () => {
     const aggregator = new KnowledgeStagingAggregator(tmpDir);
     const nonexistent = path.join(tmpDir, 'docs', 'knowledge');

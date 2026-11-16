@@ -39,7 +39,17 @@ export interface RoadmapFeature {
   externalId: string | null;
   /** ISO timestamp of last claim/heartbeat update — null if never set */
   updatedAt: string | null;
+  /**
+   * Optional bullets the source row carried with an empty (`—`) value. The
+   * serializer re-emits exactly these so an authored `- **Priority:** —` survives
+   * a parse → serialize round-trip instead of being dropped (#2166). Set by the
+   * parser only when non-empty; absent on rows built in code.
+   */
+  emptyOptionalFields?: RoadmapOptionalFieldKey[];
 }
+
+/** The optional per-row bullets whose empty (`—`) form a round-trip preserves. */
+export type RoadmapOptionalFieldKey = 'Assignee' | 'Priority' | 'External-ID' | 'Updated-At';
 
 /**
  * A thematic grouping / narrative section in a milestone. Authored as an
