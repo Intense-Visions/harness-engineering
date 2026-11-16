@@ -4,7 +4,7 @@
 // EntropyAnalyzer and the REAL clone detector against a copied fixture — the
 // `entropy-config-threading.test.ts` pattern, no mocks. The enum row is
 // deliberately shallow; the behavioral rows below are the WIRED proof.
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
@@ -209,36 +209,65 @@ describe('detect_entropy type: "duplication"', () => {
     expect(payload.duplication.stats.classesReported).toBe(1);
   });
 
-  // The phase's one named MCP safety guard (spec Phase 3 forward note 3), and
-  // until this row it had ZERO coverage: deleting the whole did-not-run branch
-  // from `handleDetectEntropy` left the suite green, because the fixture has
-  // no `.harness/graph` so `snapshot-bypassed` never fired. On any
-  // graph-bearing project it is the ONLY outcome this surface can produce —
-  // `loadEntropyGraphOptions` supplies both graph keys unconditionally, which
-  // makes `EntropyAnalyzer` bypass the snapshot, and duplication discovers
-  // through `snapshot.files` — so the untested branch is the one that fires in
-  // essentially every real invocation. Its CLI twin was already tested.
+  // #2168: this tool used to feed graph-derived drift and dead-code data into
+  // the analyzer whenever `.harness/graph` existed, which bypassed the
+  // snapshot — so duplication, which discovers through `snapshot.files`,
+  // could NEVER run on a graph-bearing project and always refused with
+  // `snapshot-bypassed`. The tool now takes the same snapshot path as
+  // `harness cleanup`, so a graph on disk changes nothing.
   //
-  // `saveGraph([], [])` is the whole fixture: `loadGraphStore` only needs
-  // `metadata.json` + `graph.json` at the current schema version to hand back
-  // a store, and the adapter is content with an empty one. Written through the
-  // real serializer rather than hand-rolled JSON so a schema bump cannot make
-  // this row silently stop firing.
-  it('names the did-not-run reason on a graph-bearing project', async () => {
+  // `saveGraph([], [])` is the whole fixture: written through the real
+  // serializer so a schema bump cannot make this row silently stop firing.
+  it('runs duplication on a graph-bearing project (#2168)', async () => {
     const { saveGraph } = await import('@harness-engineering/graph');
     await saveGraph(path.join(projectDir, '.harness', 'graph'), [], []);
 
-    const result = await handleDetectEntropy({ path: projectDir, type: 'duplication' });
-    // MUTATION: delete the did-not-run branch and this returns a report with
-    // `duplication` absent and isError unset — "did not run" rendering as
-    // "no duplication found", which is the opposite of the truth.
-    expect(result.isError).toBe(true);
-    const text = result.content[0]!.text;
-    expect(text).toContain('Duplication analysis did not run');
-    expect(text).toContain('no codebase snapshot was built');
-    // The analyzer's own suggestions, not a paraphrase.
-    expect(text).toContain('Supply graph data for at most one of drift / deadCode');
-    expect(text).not.toContain('classesReported');
+    // MUTATION: pass graph drift + dead-code data back into `analyze()` and
+    // this refuses with "Duplication analysis did not run".
+    const { result, payload } = await detect({ path: projectDir, type: 'duplication' });
+    expect(result.isError).toBeUndefined();
+    expect(payload.duplication.stats.classesReported).toBe(1);
+  });
+
+  // The phase's one named MCP safety guard (spec Phase 3 forward note 3):
+  // an explicit request whose detector declined to run must say WHY, never
+  // render as "no duplication found". The analyzer is stubbed because the
+  // graph bypass that used to reach this branch on every real project is gone
+  // (#2168); the remaining reasons (`zero-files-discovered`,
+  // `invalid-ignore-pattern`) are the analyzer's to produce, and this row pins
+  // the tool's handling of whichever one arrives. Its CLI twin is in
+  // `cleanup-duplication.test.ts`.
+  it("names the analyzer's did-not-run reason for an explicit request", async () => {
+    const { EntropyAnalyzer } = await import('@harness-engineering/core');
+    const { Ok } = await import('@harness-engineering/core');
+    const spy = vi.spyOn(EntropyAnalyzer.prototype, 'analyze').mockResolvedValue(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      Ok({
+        analysisErrors: [
+          {
+            analyzer: 'duplication',
+            error: {
+              message: 'Duplication analysis did not run: zero files were discovered.',
+              suggestions: ['Check entropy.duplication.ignore against the scanned tree'],
+            },
+          },
+        ],
+      }) as any
+    );
+    try {
+      const result = await handleDetectEntropy({ path: projectDir, type: 'duplication' });
+      // MUTATION: delete the did-not-run branch and this returns a report with
+      // `duplication` absent and isError unset — "did not run" rendering as
+      // "no duplication found", which is the opposite of the truth.
+      expect(result.isError).toBe(true);
+      const text = result.content[0]!.text;
+      expect(text).toContain('Duplication analysis did not run');
+      // The analyzer's own suggestions, not a paraphrase.
+      expect(text).toContain('Check entropy.duplication.ignore against the scanned tree');
+      expect(text).not.toContain('classesReported');
+    } finally {
+      spy.mockRestore();
+    }
   });
 
   // The JSON-schema `enum` is DECORATIVE — the MCP SDK does not enforce it.

@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/mcp/tools'
-sourceHash: 'e51f21ed68d7bbf298b5665a24e4507b266dd825d526197ab0a6a4351878b8f4'
+sourceHash: '6b0ca65063d9f44ac03fdbd84768c48b41ff3355ce992180220eb7fd6b6c0272'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -535,7 +535,7 @@ import { resolveProjectConfig } from '../utils/config-resolver.js'
 import '../utils/glob-helper.js'
 import { loadGraphStore } from '../utils/graph-loader.js'
 import { McpToolResponse, bigIntSafeReplacer, resultToMcpResponse } from '../utils/result-adapter.js'
-import { sanitizePath } from '../utils/sanitize-path.js'
+import { resolveProjectRootArg, sanitizePath } from '../utils/sanitize-path.js'
 import { sortFindingsBySeverity } from '../utils/severity.js'
 import { emitAcceptanceVerdictEvent, emitOutcomeVerdictEvent, emitUatSignoffEvent } from '../utils/waypoint-emission.js'
 import { AdrStoreError, CreateAdrInput, UpdateAdrInput, createAdr, listAdrs, readAdr, resolveWorktreeRoot, updateAdr } from './adr-store.js'
