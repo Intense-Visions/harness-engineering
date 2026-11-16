@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/src/constraints'
-sourceHash: '4c6339386ddb8e7df734fd30e6da6cc40a015c06f3a11de5f1212a0d7deb1324'
+sourceHash: '656773a23f2ae782c9762a9170d986c0d6e3238392a502000a8467f00cd8ad46'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -11,6 +11,7 @@ members:
     'circular-deps.ts',
     'dependencies.ts',
     'index.ts',
+    'layer-config.ts',
     'layers.ts',
     'packs.ts',
     'types.ts',
@@ -36,6 +37,8 @@ export DependencyEdge
 export DependencyGraph
 export DependencyValidation
 export DependencyViolation
+export DepsFallbackBehavior
+export DepsSettings
 export GraphDependencyData
 export Layer
 export LayerConfig
@@ -49,7 +52,9 @@ export detectCircularDeps
 export detectCircularDepsInFiles
 export getConstraintPack
 export resolveConstraintPacks
+export resolveDepsSettings
 export resolveFileToLayer
+export toLayerConfig
 export validateBoundaries
 export validateDependencies
 ```
@@ -63,11 +68,12 @@ import { fileExists, findFiles, readFileContent, relativePosix } from '../shared
 import { Import, LanguageParser } from '../shared/parsers'
 import { Err, Ok, Result } from '../shared/result'
 import { buildDependencyGraph } from './dependencies'
-import { resolveFileToLayer } from './layers'
+import { defineLayer, resolveFileToLayer } from './layers'
 import { BoundaryDefinition, BoundaryValidation, BoundaryValidator, BoundaryViolation, CircularDependency, CircularDepsResult, DependencyEdge, DependencyGraph, DependencyValidation, DependencyViolation, GraphDependencyData, Layer, LayerConfig, UnparsedFile } from './types'
 import { loadWorkspacePackages, resolveWorkspaceSpecifier } from './workspace-packages'
 import { ConstraintStage } from '@harness-engineering/types'
 import { minimatch } from 'minimatch'
+import * as path from 'node:path'
 import { dirname, extname, join, resolve } from 'path'
 import { parseYaml } from 'yaml'
 import { z } from 'zod'
