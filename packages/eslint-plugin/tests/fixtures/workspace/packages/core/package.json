@@ -1,0 +1,13 @@
+{
+  "name": "@fixture-ws/core",
+  "private": true,
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./internal": {
+      "import": "./dist/internal/index.js"
+    }
+  }
+}

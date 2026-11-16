@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/eslint-plugin/tests/rules'
-sourceHash: '37dfa6427bae186a1673b4d5e0c39df20096c9de048e5e17388df396241ca0bc'
+sourceHash: 'eeb80eb11fa34ed37e941a27c1888bfadac68e1856f96d074be16df6c7c715d9'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -15,6 +15,7 @@ members:
     'no-forbidden-imports.test.ts',
     'no-hardcoded-path-separator.test.ts',
     'no-hardcoded-test-count.test.ts',
+    'no-layer-violation-workspace.test.ts',
     'no-layer-violation.test.ts',
     'no-nested-loops-in-critical.test.ts',
     'no-process-env-in-spawn.test.ts',
@@ -62,6 +63,7 @@ import rule from '../../src/rules/prefer-execfile-over-exec'
 import rule from '../../src/rules/require-boundary-schema'
 import rule from '../../src/rules/require-path-normalization'
 import { clearConfigCache } from '../../src/utils/config-loader'
+import { clearWorkspaceCache } from '../../src/utils/workspace-packages'
 import { RuleTester } from '@typescript-eslint/rule-tester'
 import * as path from 'path'
 import { afterAll, beforeEach, describe, expect, it } from 'vitest'

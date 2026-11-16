@@ -69,6 +69,12 @@ Create `harness.config.json` in your project root:
 | `no-circular-deps`     | Detect circular dependencies    | error   |
 | `no-forbidden-imports` | Block forbidden import patterns | error   |
 
+`no-layer-violation` checks relative imports by default. Pass `{ resolveWorkspacePackages: true }` to also resolve workspace-package specifiers (`@scope/pkg`, `@scope/pkg/sub`) to the package source and enforce layer boundaries across packages:
+
+```js
+'@harness-engineering/no-layer-violation': ['error', { resolveWorkspacePackages: true }],
+```
+
 ### Boundary Rules
 
 | Rule                      | Description                              | Default |

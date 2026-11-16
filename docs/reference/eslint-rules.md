@@ -96,13 +96,13 @@ const config = fs.readFileSync('config.json', 'utf-8');
 
 Enforces layer boundary imports. Files in one layer can only import from layers listed in their `allowedDependencies`.
 
-| Property             | Value                                   |
-| -------------------- | --------------------------------------- |
-| **Category**         | Architecture                            |
-| **Default severity** | `error`                                 |
-| **Requires config**  | Yes (`layers` in `harness.config.json`) |
-| **Fixable**          | No                                      |
-| **Options**          | None                                    |
+| Property             | Value                                    |
+| -------------------- | ---------------------------------------- |
+| **Category**         | Architecture                             |
+| **Default severity** | `error`                                  |
+| **Requires config**  | Yes (`layers` in `harness.config.json`)  |
+| **Fixable**          | No                                       |
+| **Options**          | `{ resolveWorkspacePackages?: boolean }` |
 
 **Source:** [`no-layer-violation.ts`](../../packages/eslint-plugin/src/rules/no-layer-violation.ts)
 
@@ -122,6 +122,25 @@ import { UserService } from '../services/user-service'; // ERROR: Layer "domain"
 // File: src/domain/user.ts (domain layer)
 import { UserId } from '../types/user'; // OK: "types" is in allowedDependencies
 ```
+
+**Options:**
+
+- `resolveWorkspacePackages` (default `false`) — also check bare specifiers that name a **workspace package** (`@scope/pkg`, `@scope/pkg/sub`). The rule reads the workspace members from `pnpm-workspace.yaml` (or the root `package.json` `workspaces` field) next to `harness.config.json`, maps the specifier through the member's `exports` map (or `source`/`module`/`main`), translates a build-output target (`dist/`, `build/`, `lib/`, `out/`) back to its `src/` twin, and checks the resulting source file against the layer config. Specifiers that name no workspace package, or that resolve to no source file, are ignored exactly as without the option. The workspace map is built once per workspace root per lint process.
+
+```js
+// eslint.config.js
+rules: {
+  '@harness-engineering/no-layer-violation': ['error', { resolveWorkspacePackages: true }],
+}
+```
+
+```ts
+// File: packages/types/src/index.ts (types layer, allowedDependencies: [])
+import { run } from '@acme/core'; // ERROR with resolveWorkspacePackages: Layer "types" cannot import from layer "core"
+import { x } from '@acme/core/internal'; // ERROR: subpath export resolved to packages/core/src/internal/...
+```
+
+Without the option, only relative imports are checked — a monorepo whose packages import each other by package name gets no cross-package enforcement. Enabling it on an existing repo can surface pre-existing violations (see #2216); #2572 proposes the matching opt-in for `harness check-deps`.
 
 **No-op when:** No `layers` array in config, or the file does not match any layer pattern.
 

@@ -1,11 +1,19 @@
 ---
 schemaVersion: 1
 module: 'packages/eslint-plugin/src/utils'
-sourceHash: '0b3238c5ef7ea78c888b7de6f6e639abcdf84857177dc0a1262cee79ba674e68'
+sourceHash: '2fda76aa77ea22ad63a30ef5587507b24e1bfd08cd5445274444b829e870c2f8'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
-members: ['ast-helpers.ts', 'config-loader.ts', 'index.ts', 'path-utils.ts', 'schema.ts']
+members:
+  [
+    'ast-helpers.ts',
+    'config-loader.ts',
+    'index.ts',
+    'path-utils.ts',
+    'schema.ts',
+    'workspace-packages.ts',
+  ]
 ---
 
 ## Interface Contract
