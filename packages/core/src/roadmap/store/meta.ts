@@ -121,13 +121,13 @@ function parsePreamble(body: string): string {
  * `_meta.md` stays structurally identical (and byte-stable) to Phase 1.
  */
 function attachAssignmentHistory(meta: RoadmapMeta, body: string): Result<RoadmapMeta> {
-  // Ask the parser, not `body.includes(...)`: a fenced EXAMPLE of the grammar is
-  // not a section, and the two answers must not diverge (#1862 review).
-  if (findAssignmentHistoryHeadingIndex(body) !== null) {
-    const history = parseAssignmentHistory(body);
-    if (!history.ok) return Err(history.error);
-    if (history.value.length > 0) meta.assignmentHistory = history.value;
-  }
+  // Ask the parser UNCONDITIONALLY — it already answers `Ok([])` for a body with
+  // no section. Gating on an exact heading match skipped the parser's near-miss
+  // check: `## Assignment History (legacy)` then rode into the preamble, regen
+  // exited 0, and the aggregate it wrote was one `parseRoadmap` rejects (#1961).
+  const history = parseAssignmentHistory(body);
+  if (!history.ok) return Err(history.error);
+  if (history.value.length > 0) meta.assignmentHistory = history.value;
   return Ok(meta);
 }
 

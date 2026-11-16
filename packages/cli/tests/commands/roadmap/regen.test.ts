@@ -267,3 +267,37 @@ describe('runRoadmapRegen() recovery hatch for an unreadable history section', (
     }
   });
 });
+
+// --- #1961: the hatch advice is offered only for an error the hatch can carry ---
+
+describe('runRoadmapRegen() names the recovery hatch only where it can help (#1961)', () => {
+  it('does not advise --allow-unreadable-history for a near-miss heading it cannot carry', async () => {
+    fs.writeFileSync(
+      path.join(shardDir, '_meta.md'),
+      serializeMeta(META) +
+        [
+          '',
+          '## Assignment History (legacy)',
+          '',
+          '- **Feature:** Alpha',
+          '- **Assignee:** alice',
+          '- **Action:** assigned',
+          '- **Date:** 2026-05-09',
+          '',
+        ].join('\n')
+    );
+
+    const r = await runRoadmapRegen({ cwd });
+
+    expect(r.ok).toBe(false);
+    if (!r.ok) {
+      expect(r.error.message).toContain('Assignment History (legacy)');
+      expect(r.error.message).not.toContain('--allow-unreadable-history');
+    }
+    expect(fs.existsSync(roadmapPath)).toBe(false);
+
+    // And the hatch is genuinely no help here, so the advice would have been false.
+    const hatched = await runRoadmapRegen({ cwd, allowUnreadableHistory: true });
+    expect(hatched.ok).toBe(false);
+  });
+});
