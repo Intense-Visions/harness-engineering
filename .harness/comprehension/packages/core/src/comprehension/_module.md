@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/src/comprehension'
-sourceHash: 'aa865a1464aecd486c4f1b32e072a024ac64c40185a72788fe4677dd57ef3026'
+sourceHash: 'c8abdd0970ed018a1edff1fe6aef6a9f88de58cfe83a59b43c691ed445421fb8'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -62,6 +62,7 @@ export RemoteUnitNotFoundError
 export SCHEMA_VERSION
 export SERVE_TOKEN_CREDENTIAL_KEY
 export STATIC_SUPPORTED_EXTENSIONS
+export SemanticCoverage
 export SemanticGeneration
 export SemanticInput
 export ServeVerdict
@@ -91,6 +92,7 @@ export runComprehendCheck
 export runComprehendStats
 export serializeUnit
 export serveGate
+export summarizeSemanticCoverage
 export withComprehensionActive
 ```
 

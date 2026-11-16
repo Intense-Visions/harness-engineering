@@ -1,12 +1,13 @@
 ---
 schemaVersion: 1
 module: 'packages/core/src/security'
-sourceHash: 'b9b0b5829beac01ebe6eda9433d7572dce4a92c0995ebee1f60ce9bf89e645e7'
+sourceHash: '969d5cef027243b8c9a3ff37b288cde58626f0f0961e984d0849733570376009'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
 members:
   [
+    'comment-mask.ts',
     'config.ts',
     'harness-ignore.ts',
     'index.ts',
@@ -123,6 +124,7 @@ export xssRules
 ## Dependency Slice
 
 ```
+import { maskComments, supportsCommentMasking } from './comment-mask'
 import { resolveRuleSeverity } from './config'
 import { parseHarnessIgnore } from './harness-ignore'
 import { InjectionFinding } from './injection-patterns'

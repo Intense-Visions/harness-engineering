@@ -37,6 +37,7 @@ export type {
   BoundaryViolation,
   BoundaryValidation,
   GraphDependencyData,
+  UnparsedFile,
 } from './types';
 
 /**

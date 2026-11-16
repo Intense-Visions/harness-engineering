@@ -239,9 +239,17 @@ function registerReportCommand(perf: Command): void {
 }
 
 function printCriticalPaths(result: Awaited<ReturnType<CriticalPathResolver['resolve']>>): void {
+  // "0 graph-inferred" read as a measurement even when inference never ran (#2327).
+  const graphPart =
+    result.graphInference.status === 'ran'
+      ? `${result.stats.graphInferred} graph-inferred`
+      : 'graph inference not run';
   logger.info(
-    `Critical paths: ${result.stats.total} (${result.stats.annotated} annotated, ${result.stats.graphInferred} graph-inferred)`
+    `Critical paths: ${result.stats.total} (${result.stats.annotated} annotated, ${graphPart})`
   );
+  if (result.noSignal) {
+    logger.warn(`No critical-path signal: ${result.noSignal.reason}`);
+  }
   for (const entry of result.entries) {
     logger.info(
       `  ${entry.file}::${entry.function} [${entry.source}]${entry.fanIn ? ` (fan-in: ${entry.fanIn})` : ''}`

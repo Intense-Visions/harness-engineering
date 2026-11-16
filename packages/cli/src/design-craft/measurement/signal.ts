@@ -73,6 +73,7 @@ function fingerprintFinding(finding: CraftFinding): string {
   // sometimes flags polish, sometimes foundational" from masking a real
   // pattern that's always foundational/large.
   const raw = `${finding.code}|${finding.tier}|${finding.cite.rubricOrPatternId}`;
+  // harness-ignore SEC-CRY-001: non-security finding-shape grouping key, not integrity or auth; changing the digest would re-key the persisted signal-event log
   return crypto.createHash('sha1').update(raw).digest('hex').slice(0, 16);
 }
 

@@ -185,6 +185,30 @@ describe('perf command', () => {
       logSpy.mockRestore();
     });
 
+    // #2327: an empty set printed "Critical paths: 0 (0 annotated, 0 graph-inferred)",
+    // which reads as a clean measurement. It must read as an abstention.
+    it('reports an empty set as no signal, not a clean zero', async () => {
+      mockResolve.mockResolvedValue({
+        stats: { total: 0, annotated: 0, graphInferred: 0 },
+        entries: [],
+        graphInference: { status: 'not-run', reason: 'graph inference did not run: no data' },
+        noSignal: { reason: 'no annotated production functions and graph inference did not run' },
+      });
+      const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+      const cmd = createPerfCommand();
+      await cmd.parseAsync(['critical-paths'], { from: 'user' });
+
+      const out = [...logSpy.mock.calls, ...warnSpy.mock.calls].map((c) => c.join(' ')).join('\n');
+      expect(out).not.toMatch(/0 graph-inferred/);
+      expect(out).toMatch(/graph inference not run/);
+      expect(out).toMatch(/no critical-path signal/i);
+      expect(out).toMatch(/graph inference did not run/);
+      logSpy.mockRestore();
+      warnSpy.mockRestore();
+    });
+
     it('prints JSON when --json flag is set', async () => {
       mockBaselineLoad.mockReturnValue({
         updatedAt: '2026-04-15T00:00:00.000Z',
@@ -289,6 +313,7 @@ describe('perf command', () => {
     it('prints critical paths in text mode', async () => {
       mockResolve.mockResolvedValue({
         stats: { total: 2, annotated: 1, graphInferred: 1 },
+        graphInference: { status: 'ran' },
         entries: [
           { file: 'src/core.ts', function: 'init', source: 'annotation', fanIn: 5 },
           { file: 'src/hub.ts', function: 'route', source: 'graph', fanIn: undefined },
@@ -306,6 +331,7 @@ describe('perf command', () => {
     it('prints JSON when --json flag is set', async () => {
       mockResolve.mockResolvedValue({
         stats: { total: 1, annotated: 1, graphInferred: 0 },
+        graphInference: { status: 'not-run', reason: 'no graph data' },
         entries: [{ file: 'src/core.ts', function: 'init', source: 'annotation', fanIn: 3 }],
       });
       const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});

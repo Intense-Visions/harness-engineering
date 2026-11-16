@@ -130,7 +130,7 @@ describe('HistoryTable', () => {
     );
     const badges = screen.getAllByTitle(/Undocumented learnings detected/i);
     expect(badges).toHaveLength(1);
-    expect(badges[0].textContent).toContain('3 candidates');
+    expect(badges[0]!.textContent).toContain('3 candidates');
   });
 
   it('applies the failure accent class to a failed status cell', () => {

@@ -9,6 +9,7 @@ import type {
 } from '../types';
 import { fileExists } from '../../shared/fs-utils';
 import { dirname, resolve } from 'path';
+import { collectDeclaredNames, resolveReferenceName } from './drift-symbols';
 
 /**
  * Initialize the Levenshtein distance matrix with base cases.
@@ -244,15 +245,6 @@ const SCREAMING_SNAKE_RE = /^[A-Z][A-Z0-9]*(_[A-Z0-9]+)+$/;
 type ExportConventions = { hasSnakeExports: boolean; hasScreamingExports: boolean };
 
 /**
- * Resolve a reference to the top-level symbol name to look up. Dotted
- * references (`User.email`) resolve to their head segment, since the export
- * map only tracks top-level symbols (github issue #816).
- */
-function resolveReferenceName(reference: string): string {
-  return reference.includes('.') ? (reference.split('.')[0] ?? reference) : reference;
-}
-
-/**
  * Whether a reference is noise that should not be checked for drift: caller
  * ignore patterns, forward-looking docs (ADRs/proposals/change specs), or a
  * snake_case / SCREAMING_SNAKE token in a codebase that exports nothing of
@@ -272,7 +264,7 @@ function isSuppressedReference(
   return false;
 }
 
-/** Build the drift finding for a reference that did not resolve to an export. */
+/** Build the drift finding for a reference that did not resolve to a declaration. */
 function buildApiDrift(
   ref: CodebaseSnapshot['codeReferences'][number],
   exportIndex: ExportMatchIndex
@@ -306,6 +298,14 @@ function checkApiSignatureDrift(
   config: DriftConfig
 ): DocumentationDrift[] {
   const drifts: DocumentationDrift[] = [];
+  // Existence is checked against every top-level declaration, not just value
+  // exports: type aliases, interfaces, enums and file-local consts are real
+  // symbols too (#2078).
+  const declaredNames = collectDeclaredNames(snapshot);
+  // Conventions and fuzzy suggestions stay keyed to EXPORTS, as before: a
+  // file-local SCREAMING const must not un-suppress every env-var name in the
+  // docs (#816), and widening the suggestion pool would only turn more
+  // NOT_FOUND findings into fuzzy RENAMED guesses (#2078).
   const exportNames = Array.from(snapshot.exportMap.byName.keys());
   const conventions: ExportConventions = {
     hasSnakeExports: exportNames.some((n) => SNAKE_CASE_RE.test(n)),
@@ -318,7 +318,7 @@ function checkApiSignatureDrift(
   for (const ref of snapshot.codeReferences) {
     const resolvedName = resolveReferenceName(ref.reference);
     if (isSuppressedReference(ref, resolvedName, config, conventions)) continue;
-    if (snapshot.exportMap.byName.has(resolvedName)) continue;
+    if (declaredNames.has(resolvedName)) continue;
     drifts.push(buildApiDrift(ref, exportIndex));
   }
 

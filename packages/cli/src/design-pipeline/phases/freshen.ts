@@ -32,19 +32,46 @@ export interface FreshenInput {
 
 export function runFreshen(input: FreshenInput): void {
   const { projectRoot, context } = input;
+  context.inputs = probeInputs(projectRoot);
+}
 
+/**
+ * Read-only probe of which design-system inputs exist on disk. FRESHEN records
+ * the result as `context.inputs`; the orchestrator also takes it before FILL
+ * on every run, so the verdict can read input *presence* rather than whether
+ * FILL happened to bootstrap something (#1960).
+ */
+export function probeInputs(projectRoot: string): DesignPipelineContext['inputs'] {
   const designMdPath = path.join(projectRoot, 'design-system', 'DESIGN.md');
   const tokensJsonPath = path.join(projectRoot, 'design-system', 'tokens.json');
 
-  context.inputs.designMdExists = fs.existsSync(designMdPath);
-  context.inputs.tokensJsonExists = fs.existsSync(tokensJsonPath);
-
-  if (context.inputs.designMdExists) {
+  const designMdExists = fs.existsSync(designMdPath);
+  const tokensJsonExists = fs.existsSync(tokensJsonPath);
+  let componentRegistryExists = false;
+  let brandRulesExist = false;
+  if (designMdExists) {
     const content = readFileSafe(designMdPath);
-    context.inputs.componentRegistryExists =
-      content !== null && /^##\s+component\s+registry\b/im.test(content);
-    context.inputs.brandRulesExist = content !== null && /^##\s+brand\s+rules\b/im.test(content);
+    componentRegistryExists = content !== null && /^##\s+component\s+registry\b/im.test(content);
+    brandRulesExist = content !== null && /^##\s+brand\s+rules\b/im.test(content);
   }
+  return { designMdExists, tokensJsonExists, componentRegistryExists, brandRulesExist };
+}
+
+/**
+ * The inputs a probe found missing, named as a reader would look for them.
+ * A missing DESIGN.md implies its sections are missing too, so they are not
+ * listed separately.
+ */
+export function listMissingInputs(inputs: DesignPipelineContext['inputs']): string[] {
+  const missing: string[] = [];
+  if (!inputs.designMdExists) {
+    missing.push('design-system/DESIGN.md');
+  } else {
+    if (!inputs.componentRegistryExists) missing.push('DESIGN.md "## Component Registry" section');
+    if (!inputs.brandRulesExist) missing.push('DESIGN.md "## Brand Rules" section');
+  }
+  if (!inputs.tokensJsonExists) missing.push('design-system/tokens.json');
+  return missing;
 }
 
 function readFileSafe(p: string): string | null {

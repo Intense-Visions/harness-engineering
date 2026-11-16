@@ -261,9 +261,13 @@ describe('Orchestrator + LocalModelResolver wiring (Phase 3)', () => {
 
         // A pool mutation fires on the orchestrator bus.
         orch.emit('local-models:pool', { pool: [], evicted: [] });
-        // Wait past the debounce window for the coalesced re-probe.
-        await new Promise((r) => setTimeout(r, 60));
-        expect(fetchModels).toHaveBeenCalledTimes(2); // event-driven re-probe
+        // Wait for the coalesced re-probe. Poll rather than sleeping a fixed
+        // 60ms past the 10ms debounce: a loaded runner can fire the debounce
+        // timer later than that, which read 1 call instead of 2 (#2227).
+        await vi.waitFor(() => expect(fetchModels).toHaveBeenCalledTimes(2), {
+          timeout: 10_000,
+          interval: 10,
+        }); // event-driven re-probe
       } finally {
         await orch.stop();
       }

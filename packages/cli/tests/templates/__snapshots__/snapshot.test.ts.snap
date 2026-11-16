@@ -268,14 +268,14 @@ too-many-arguments-threshold = 7
   },
   "template": {
     "language": "rust",
-    "version": 1
-  },
-  "tooling": {
-    "packageManager": "cargo",
-    "linter": "clippy",
-    "formatter": "rustfmt",
-    "buildTool": "cargo",
-    "testRunner": "cargo test"
+    "version": 1,
+    "tooling": {
+      "packageManager": "cargo",
+      "linter": "clippy",
+      "formatter": "rustfmt",
+      "buildTool": "cargo",
+      "testRunner": "cargo test"
+    }
   }
 }",
   "src/main.rs": "use axum::{routing::get, Router};
@@ -556,13 +556,13 @@ snapshot-test -- A Python project managed with Harness Engineering practices.
   },
   "template": {
     "language": "python",
-    "version": 1
-  },
-  "tooling": {
-    "packageManager": "pip",
-    "linter": "ruff",
-    "formatter": "ruff",
-    "testRunner": "pytest"
+    "version": 1,
+    "tooling": {
+      "packageManager": "pip",
+      "linter": "ruff",
+      "formatter": "ruff",
+      "testRunner": "pytest"
+    }
   }
 }",
   "manage.py": "#!/usr/bin/env python
@@ -960,13 +960,13 @@ snapshot-test -- A Python project managed with Harness Engineering practices.
   },
   "template": {
     "language": "python",
-    "version": 1
-  },
-  "tooling": {
-    "packageManager": "pip",
-    "linter": "ruff",
-    "formatter": "ruff",
-    "testRunner": "pytest"
+    "version": 1,
+    "tooling": {
+      "packageManager": "pip",
+      "linter": "ruff",
+      "formatter": "ruff",
+      "testRunner": "pytest"
+    }
   }
 }",
   "pyproject.toml": "[project]
@@ -1113,14 +1113,14 @@ require github.com/gin-gonic/gin v1.9.1
   },
   "template": {
     "language": "go",
-    "version": 1
-  },
-  "tooling": {
-    "packageManager": "go",
-    "linter": "golangci-lint",
-    "formatter": "gofmt",
-    "buildTool": "go",
-    "testRunner": "go test"
+    "version": 1,
+    "tooling": {
+      "packageManager": "go",
+      "linter": "golangci-lint",
+      "formatter": "gofmt",
+      "buildTool": "go",
+      "testRunner": "go test"
+    }
   }
 }",
   "main.go": "package main
@@ -1243,14 +1243,14 @@ go 1.21
   },
   "template": {
     "language": "go",
-    "version": 1
-  },
-  "tooling": {
-    "packageManager": "go",
-    "linter": "golangci-lint",
-    "formatter": "gofmt",
-    "buildTool": "go",
-    "testRunner": "go test"
+    "version": 1,
+    "tooling": {
+      "packageManager": "go",
+      "linter": "golangci-lint",
+      "formatter": "gofmt",
+      "buildTool": "go",
+      "testRunner": "go test"
+    }
   }
 }",
   "main.go": "package main
@@ -1591,13 +1591,13 @@ snapshot-test -- A Java project managed with Harness Engineering practices.
   },
   "template": {
     "language": "java",
-    "version": 1
-  },
-  "tooling": {
-    "packageManager": "maven",
-    "linter": "checkstyle",
-    "buildTool": "maven",
-    "testRunner": "junit"
+    "version": 1,
+    "tooling": {
+      "packageManager": "maven",
+      "linter": "checkstyle",
+      "buildTool": "maven",
+      "testRunner": "junit"
+    }
   }
 }",
   "pom.xml": "<?xml version="1.0" encoding="UTF-8"?>
@@ -2257,13 +2257,13 @@ snapshot-test -- A Python project managed with Harness Engineering practices.
   },
   "template": {
     "language": "python",
-    "version": 1
-  },
-  "tooling": {
-    "packageManager": "pip",
-    "linter": "ruff",
-    "formatter": "ruff",
-    "testRunner": "pytest"
+    "version": 1,
+    "tooling": {
+      "packageManager": "pip",
+      "linter": "ruff",
+      "formatter": "ruff",
+      "testRunner": "pytest"
+    }
   }
 }",
   "pyproject.toml": "[project]
@@ -2609,14 +2609,14 @@ too-many-arguments-threshold = 7
   },
   "template": {
     "language": "rust",
-    "version": 1
-  },
-  "tooling": {
-    "packageManager": "cargo",
-    "linter": "clippy",
-    "formatter": "rustfmt",
-    "buildTool": "cargo",
-    "testRunner": "cargo test"
+    "version": 1,
+    "tooling": {
+      "packageManager": "cargo",
+      "linter": "clippy",
+      "formatter": "rustfmt",
+      "buildTool": "cargo",
+      "testRunner": "cargo test"
+    }
   }
 }",
   "src/main.rs": "fn main() {
@@ -2717,13 +2717,13 @@ snapshot-test -- A Java project managed with Harness Engineering practices.
   },
   "template": {
     "language": "java",
-    "version": 1
-  },
-  "tooling": {
-    "packageManager": "maven",
-    "linter": "checkstyle",
-    "buildTool": "maven",
-    "testRunner": "junit"
+    "version": 1,
+    "tooling": {
+      "packageManager": "maven",
+      "linter": "checkstyle",
+      "buildTool": "maven",
+      "testRunner": "junit"
+    }
   }
 }",
   "pom.xml": "<?xml version="1.0" encoding="UTF-8"?>
