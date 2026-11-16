@@ -27,6 +27,14 @@ export const TemplateMetadataSchema = z.object({
   level: z.enum(['basic', 'intermediate', 'load-bearing-minimum', 'advanced']).optional(),
   framework: z.string().optional(),
   extends: z.string().optional(),
+  /**
+   * Base-template files this framework overlay replaces, by rendered path
+   * (`.hbs` suffix stripped). Overlays already win over a base file at the SAME
+   * path; this covers a replacement at a different path, e.g. spring-boot's
+   * `Application.java` replacing java-base's `Main.java` (#2630). Every entry
+   * must name a base file — an unmatched entry is a resolve error, not a no-op.
+   */
+  replaces: z.array(z.string()).optional(),
   mergeStrategy: MergeStrategySchema.prefault({}),
   version: z.literal(1),
   language: LanguageEnum.optional(),

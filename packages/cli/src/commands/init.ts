@@ -23,14 +23,7 @@ import {
   configureComprehensionMergeDriver,
 } from '../git/merge-driver-setup';
 import { runMinimalInit, printMinimalInitSuccess } from './init-minimal';
-
-/**
- * Tiers reachable via `--tier` (ADR 0101). `minimal` is the new load-bearing
- * floor mapped to the field's 5-item Minimum Viable Harness; every other tier
- * delegates to the existing adoption-level scaffold so the ladder's upgrade
- * wording ("`harness init --tier intermediate`") resolves to a real command.
- */
-const TIER_LEVELS = ['minimal', 'basic', 'intermediate', 'load-bearing-minimum', 'advanced'];
+import { TIER_LEVELS, decideReinit, writeUpgradedConfig } from './init-tier';
 
 interface InitOptions {
   cwd?: string;
@@ -39,6 +32,12 @@ interface InitOptions {
   framework?: string;
   language?: string;
   force?: boolean;
+  /**
+   * The tier the caller explicitly asked for (`--tier`, or an explicit
+   * `--level`). Only an explicit request can layer on top of an existing
+   * lower-tier install (#2630); without it a re-run is refused as before.
+   */
+  tier?: string;
 }
 
 interface InitResult {
@@ -47,6 +46,15 @@ interface InitResult {
   /** Files init left untouched because they already existed (no `--force`). */
   skippedExisting?: string[];
   detectedFrameworks?: DetectedFramework[];
+  /** Set when this run layered a higher tier over an existing install. */
+  upgradedFrom?: string;
+}
+
+/** An additive re-run over a lower-tier install: the config as the adopter left it. */
+interface TierUpgrade {
+  from: string;
+  to: string;
+  original: Record<string, unknown>;
 }
 
 function loadEngineAndTemplates(_options: InitOptions): {
@@ -68,10 +76,15 @@ export async function runInit(options: InitOptions): Promise<Result<InitResult, 
   const { cwd, name, force } = resolveInitDefaults(options);
 
   const configPath = path.join(cwd, 'harness.config.json');
+  let upgrade: TierUpgrade | undefined;
   if (!force && fs.existsSync(configPath)) {
-    return Err(
-      new CLIError('Project already initialized. Use --force to overwrite.', ExitCode.ERROR)
-    );
+    const decision = decideReinit(configPath, options.tier);
+    if (decision.kind === 'refuse') return Err(new CLIError(decision.message, ExitCode.ERROR));
+    upgrade = {
+      from: decision.from,
+      to: decision.to,
+      original: JSON.parse(fs.readFileSync(configPath, 'utf-8')) as Record<string, unknown>,
+    };
   }
 
   const { engine, templateList } = loadEngineAndTemplates(options);
@@ -79,11 +92,11 @@ export async function runInit(options: InitOptions): Promise<Result<InitResult, 
   const validationError = validateFrameworkLanguage(options, templateList);
   if (validationError) return Err(validationError);
 
-  const detected = tryAutoDetect(engine, cwd, options);
+  const detected = upgrade ? null : tryAutoDetect(engine, cwd, options);
   if (detected) return Ok(detected);
 
   const language = resolveLanguage(options, templateList);
-  return scaffoldProject(engine, { cwd, name, force, language, options });
+  return scaffoldProject(engine, { cwd, name, force, language, options, upgrade });
 }
 
 function validateFrameworkLanguage(
@@ -134,11 +147,21 @@ async function scaffoldProject(
     force: boolean;
     language: string | undefined;
     options: InitOptions;
+    upgrade?: TierUpgrade | undefined;
   }
 ): Promise<Result<InitResult, CLIError>> {
-  const { cwd, name, force, language, options } = ctx;
+  const { cwd, name, force, language, options, upgrade } = ctx;
   const isNonJs = language && language !== 'typescript';
   const level = isNonJs ? undefined : (options.level ?? 'load-bearing-minimum');
+  if (upgrade && level !== upgrade.to) {
+    return Err(
+      new CLIError(
+        `Cannot layer tier "${upgrade.to}" over the existing "${upgrade.from}" install: ` +
+          'tier upgrades apply to the TypeScript adoption ladder only. Use --force to overwrite.',
+        ExitCode.ERROR
+      )
+    );
+  }
 
   const resolveResult = engine.resolveTemplate(level, options.framework, language);
   if (!resolveResult.ok) return Err(new CLIError(resolveResult.error.message, ExitCode.ERROR));
@@ -193,6 +216,17 @@ async function scaffoldProject(
   }
 
   persistToolingConfig(cwd, resolveResult.value, options.framework);
+  if (upgrade) {
+    // The existing config was skipped by engine.write (it never overwrites);
+    // layer the higher tier's keys under every value the adopter set (#2630).
+    const rendered = renderResult.value.files.find((f) => f.relativePath === 'harness.config.json');
+    writeUpgradedConfig({
+      cwd,
+      original: upgrade.original,
+      rendered: rendered ? (JSON.parse(rendered.content) as Record<string, unknown>) : {},
+      tier: upgrade.to,
+    });
+  }
   appendFrameworkAgents(cwd, options.framework, language);
   ensureHarnessGitignore(cwd);
   ensureComprehensionSearchIgnore(cwd);
@@ -241,7 +275,12 @@ async function scaffoldProject(
   return Ok({
     filesCreated: [...writeResult.value.written, ...roadmapFiles],
     skippedConfigs: writeResult.value.skippedConfigs,
-    skippedExisting: writeResult.value.skippedExisting,
+    // A tier upgrade merges into the existing harness.config.json (writeUpgradedConfig)
+    // rather than leaving it untouched, so it is not reported as a kept file.
+    skippedExisting: upgrade
+      ? writeResult.value.skippedExisting.filter((f) => f !== 'harness.config.json')
+      : writeResult.value.skippedExisting,
+    ...(upgrade && { upgradedFrom: upgrade.from }),
   });
 }
 
@@ -276,10 +315,17 @@ function scaffoldShardedRoadmap(cwd: string, name: string): string[] {
 function printInitSuccess(
   filesCreated: string[],
   mcpConfigured: string[],
-  skippedExisting: string[] = []
+  skippedExisting: string[] = [],
+  upgradedFrom?: string
 ): void {
   console.log('');
-  logger.success('Project initialized!');
+  if (upgradedFrom) {
+    logger.success(
+      `Project upgraded from tier "${upgradedFrom}" (additive: existing files and config values kept).`
+    );
+  } else {
+    logger.success('Project initialized!');
+  }
   console.log('');
   logger.info('Created files:');
   for (const file of filesCreated) {
@@ -345,7 +391,12 @@ async function runInitAction(opts: InitOptions & { quiet?: boolean }): Promise<v
   const mcpResult = setupMcp(cwd, 'all');
 
   if (!opts.quiet) {
-    printInitSuccess(result.value.filesCreated, mcpResult.configured, result.value.skippedExisting);
+    printInitSuccess(
+      result.value.filesCreated,
+      mcpResult.configured,
+      result.value.skippedExisting,
+      result.value.upgradedFrom
+    );
   }
 
   process.exit(ExitCode.SUCCESS);
@@ -356,7 +407,11 @@ async function runInitAction(opts: InitOptions & { quiet?: boolean }): Promise<v
  * every other tier delegates to the existing adoption-level scaffold (mapped
  * through `level`, with `--template` and `--tier` taking precedence).
  */
-async function dispatchInit(opts: OptionValues, globalOpts: OptionValues): Promise<void> {
+async function dispatchInit(
+  opts: OptionValues,
+  globalOpts: OptionValues,
+  levelIsExplicit: boolean
+): Promise<void> {
   const tier: string | undefined = opts.tier;
   if (tier !== undefined && !TIER_LEVELS.includes(tier)) {
     logger.error(`Invalid --tier: ${tier}. Must be one of: ${TIER_LEVELS.join(', ')}`);
@@ -376,7 +431,16 @@ async function dispatchInit(opts: OptionValues, globalOpts: OptionValues): Promi
     return;
   }
 
-  await runInitAction({ ...common, level: opts.template ?? tier ?? opts.level });
+  // A tier is "requested" only when the adopter named one: `--tier`, or an
+  // explicit `--level`. A bare re-run (commander's default level) or a named
+  // `--template` never layers over an existing install (#2630).
+  const requestedTier =
+    opts.template !== undefined ? undefined : (tier ?? (levelIsExplicit ? opts.level : undefined));
+  await runInitAction({
+    ...common,
+    level: opts.template ?? tier ?? opts.level,
+    ...(requestedTier !== undefined && { tier: requestedTier }),
+  });
 }
 
 export function createInitCommand(): Command {
@@ -398,6 +462,10 @@ export function createInitCommand(): Command {
     .option('-f, --force', 'Overwrite existing files')
     .option('-y, --yes', 'Use defaults without prompting')
     .action(async (opts, cmd) => {
-      await dispatchInit(opts, cmd.optsWithGlobals());
+      await dispatchInit(
+        opts,
+        cmd.optsWithGlobals(),
+        cmd.getOptionValueSource('level') !== 'default'
+      );
     });
 }

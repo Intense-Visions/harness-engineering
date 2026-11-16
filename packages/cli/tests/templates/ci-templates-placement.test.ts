@@ -94,6 +94,21 @@ describe.each(CASES)('$template placement (#2630)', (c) => {
     expect(result.value.skippedExisting).toContain(c.workflow);
   });
 
+  it('an add-on applied to an existing project reports only real skips and is not a tier upgrade', async () => {
+    const dir = tmp();
+    fs.writeFileSync(path.join(dir, 'README.md'), '# My Project\n');
+    fs.writeFileSync(path.join(dir, 'package.json'), '{"name":"my-project"}\n');
+    const result = await runInit({ cwd: dir, name: 'demo', level: c.template });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.value.upgradedFrom).toBeUndefined();
+    expect(result.value.filesCreated).toContain(c.workflow);
+    expect(result.value.skippedExisting).not.toContain(c.workflow);
+    for (const f of result.value.skippedExisting ?? []) {
+      expect(result.value.filesCreated).not.toContain(f);
+    }
+  });
+
   it('does not collide with the load-bearing-minimum required-review workflow (either order)', async () => {
     // LBM first, then layer the CI template on (re-init needs --force).
     const a = tmp();

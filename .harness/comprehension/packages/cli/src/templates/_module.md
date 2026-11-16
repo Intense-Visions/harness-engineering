@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/templates'
-sourceHash: '4bfa0892ec2ba9dbe2dfc867d959c1ea12231b9acd6dc026893c36bf0e4648d6'
+sourceHash: '13d2725b1f4dd9f0686a2d7962c53c4df8847392c399bec51713da8146994c82'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -32,7 +32,7 @@ export persistToolingConfig
 ## Dependency Slice
 
 ```
-import { CLI_VERSION } from '../version'
+import { CLI_VERSION, eslintPluginVersion } from '../version'
 import { appendFrameworkSection } from './agents-append.js'
 import { ResolvedTemplate } from './engine.js'
 import { deepMergeJson, mergePackageJson } from './merger'

@@ -6,6 +6,8 @@ const TEMPLATES_DIR = path.resolve(__dirname, '..', '..', '..', '..', 'templates
 // Pinned so the scaffolded `@harness-engineering/cli` range does not churn the
 // snapshots on every release (the engine defaults it to the running CLI_VERSION).
 const SNAPSHOT_CLI_VERSION = '1.2.3';
+// Same for the scaffolded `@harness-engineering/eslint-plugin` range.
+const SNAPSHOT_ESLINT_PLUGIN_VERSION = '4.5.6';
 
 describe('template snapshots', () => {
   const engine = new TemplateEngine(TEMPLATES_DIR);
@@ -18,6 +20,7 @@ describe('template snapshots', () => {
       const rendered = engine.render(resolved.value, {
         projectName: 'snapshot-test',
         harnessCliVersion: SNAPSHOT_CLI_VERSION,
+        eslintPluginVersion: SNAPSHOT_ESLINT_PLUGIN_VERSION,
         level,
       });
       if (!rendered.ok) throw new Error(rendered.error.message);
@@ -44,6 +47,7 @@ describe('template snapshots', () => {
       const rendered = engine.render(resolved.value, {
         projectName: 'snapshot-test',
         harnessCliVersion: SNAPSHOT_CLI_VERSION,
+        eslintPluginVersion: SNAPSHOT_ESLINT_PLUGIN_VERSION,
         language,
       });
       if (!rendered.ok) throw new Error(rendered.error.message);
@@ -73,6 +77,7 @@ describe('template snapshots', () => {
       const rendered = engine.render(resolved.value, {
         projectName: 'snapshot-test',
         harnessCliVersion: SNAPSHOT_CLI_VERSION,
+        eslintPluginVersion: SNAPSHOT_ESLINT_PLUGIN_VERSION,
         level,
         framework,
       });
@@ -107,6 +112,7 @@ describe('template snapshots', () => {
       const rendered = engine.render(resolved.value, {
         projectName: 'snapshot-test',
         harnessCliVersion: SNAPSHOT_CLI_VERSION,
+        eslintPluginVersion: SNAPSHOT_ESLINT_PLUGIN_VERSION,
         language,
         framework,
       });

@@ -196,7 +196,7 @@ See [architecture.md](./architecture.md) for architectural decisions.
   "dependencies": {},
   "devDependencies": {
     "@harness-engineering/cli": "^1.2.3",
-    "@harness-engineering/eslint-plugin": "^0.1.0",
+    "@harness-engineering/eslint-plugin": "^4.5.6",
     "eslint": "^9.0.0",
     "typescript": "^5.0.0"
   }
@@ -1552,7 +1552,7 @@ export default [
   "dependencies": {},
   "devDependencies": {
     "@harness-engineering/cli": "^1.2.3",
-    "@harness-engineering/eslint-plugin": "^0.1.0",
+    "@harness-engineering/eslint-plugin": "^4.5.6",
     "eslint": "^9.0.0",
     "typescript": "^5.0.0"
   }
@@ -2024,7 +2024,7 @@ export default [
   "dependencies": {},
   "devDependencies": {
     "@harness-engineering/cli": "^1.2.3",
-    "@harness-engineering/eslint-plugin": "^0.1.0",
+    "@harness-engineering/eslint-plugin": "^4.5.6",
     "eslint": "^9.0.0",
     "typescript": "^5.0.0"
   }
@@ -2905,12 +2905,6 @@ public class Application {
     @GetMapping("/")
     public String root() {
         return "Hello, world!";
-    }
-}
-",
-  "src/main/java/Main.java": "public class Main {
-    public static void main(String[] args) {
-        System.out.println("Hello, world!");
     }
 }
 ",

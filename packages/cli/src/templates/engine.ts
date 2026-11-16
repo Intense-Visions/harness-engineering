@@ -5,7 +5,7 @@ import type { Result } from '@harness-engineering/core';
 import { Ok, Err } from '@harness-engineering/core';
 import { TemplateMetadataSchema, type TemplateMetadata } from './schema';
 import { deepMergeJson, mergePackageJson } from './merger';
-import { CLI_VERSION } from '../version';
+import { CLI_VERSION, eslintPluginVersion } from '../version';
 
 export interface TemplateContext {
   projectName: string;
@@ -29,6 +29,12 @@ export interface TemplateContext {
    * value to keep snapshots release-independent.
    */
   harnessCliVersion?: string;
+  /**
+   * The `@harness-engineering/eslint-plugin` version scaffolded package.json
+   * files pin (`^{{eslintPluginVersion}}`). Defaults to the eslint-plugin
+   * version the running CLI was built alongside (#2630).
+   */
+  eslintPluginVersion?: string;
 }
 
 interface TemplateFile {
@@ -197,6 +203,9 @@ function applyLanguageDefaults(context: TemplateContext): TemplateContext {
   return {
     ...context,
     ...(context.harnessCliVersion === undefined && { harnessCliVersion: CLI_VERSION }),
+    ...(context.eslintPluginVersion === undefined && {
+      eslintPluginVersion: eslintPluginVersion(),
+    }),
     ...(context.language === 'python' &&
       context.pythonMinVersion === undefined && { pythonMinVersion: '3.10' }),
     ...(context.language === 'go' &&
@@ -318,22 +327,7 @@ export class TemplateEngine {
     const ownFiles = this.collectFiles(dir, sourceName);
     files = this.mergeFileLists(files, ownFiles);
 
-    let overlayMetadata: TemplateMetadata | undefined;
-    if (framework) {
-      const frameworkDir = this.findTemplateDir(framework, 'framework');
-      if (!frameworkDir) return Err(new Error(`Framework template not found: ${framework}`));
-      const fMetaPath = path.join(frameworkDir, 'template.json');
-      const fMetaRaw = JSON.parse(fs.readFileSync(fMetaPath, 'utf-8'));
-      const fMetaResult = TemplateMetadataSchema.safeParse(fMetaRaw);
-      if (fMetaResult.success) overlayMetadata = fMetaResult.data;
-      const frameworkFiles = this.collectFiles(frameworkDir, framework);
-      files = this.mergeFileLists(files, frameworkFiles);
-    }
-
-    files = files.filter((f) => f.relativePath !== 'template.json');
-    const resolved: ResolvedTemplate = { metadata, files };
-    if (overlayMetadata !== undefined) resolved.overlayMetadata = overlayMetadata;
-    return Ok(resolved);
+    return this.applyFrameworkOverlay(metadata, files, framework);
   }
 
   render(template: ResolvedTemplate, context: TemplateContext): Result<RenderedFiles, Error> {
@@ -492,8 +486,22 @@ export class TemplateEngine {
       return Err(new Error(`Invalid template.json in ${baseName}: ${metaResult.error.message}`));
 
     const metadata = metaResult.data;
-    let files = this.collectFiles(baseDir, baseName);
+    const files = this.collectFiles(baseDir, baseName);
 
+    return this.applyFrameworkOverlay(metadata, files, framework);
+  }
+
+  /**
+   * Merge an optional framework overlay over already-resolved base files and
+   * finish the ResolvedTemplate. Shared by the level path and the language path.
+   * Base files the overlay lists in `replaces` are dropped first (#2630).
+   */
+  private applyFrameworkOverlay(
+    metadata: TemplateMetadata,
+    baseFiles: TemplateFile[],
+    framework?: string
+  ): Result<ResolvedTemplate, Error> {
+    let files = baseFiles;
     let overlayMetadata: TemplateMetadata | undefined;
     if (framework) {
       const frameworkDir = this.findTemplateDir(framework, 'framework');
@@ -502,14 +510,38 @@ export class TemplateEngine {
       const fMetaRaw = JSON.parse(fs.readFileSync(fMetaPath, 'utf-8'));
       const fMetaResult = TemplateMetadataSchema.safeParse(fMetaRaw);
       if (fMetaResult.success) overlayMetadata = fMetaResult.data;
+      const replaced = this.dropReplacedFiles(files, overlayMetadata?.replaces ?? [], framework);
+      if (!replaced.ok) return replaced;
       const frameworkFiles = this.collectFiles(frameworkDir, framework);
-      files = this.mergeFileLists(files, frameworkFiles);
+      files = this.mergeFileLists(replaced.value, frameworkFiles);
     }
 
     files = files.filter((f) => f.relativePath !== 'template.json');
     const resolved: ResolvedTemplate = { metadata, files };
     if (overlayMetadata !== undefined) resolved.overlayMetadata = overlayMetadata;
     return Ok(resolved);
+  }
+
+  /**
+   * Remove the base files an overlay declares it replaces, matched by rendered
+   * path. An entry that matches nothing is an error: a silently ignored
+   * `replaces` would ship the duplicate it exists to prevent.
+   */
+  private dropReplacedFiles(
+    files: TemplateFile[],
+    replaces: readonly string[],
+    framework: string
+  ): Result<TemplateFile[], Error> {
+    if (replaces.length === 0) return Ok(files);
+    const renderedPath = (f: TemplateFile) => f.relativePath.replace(/\.hbs$/, '');
+    const missing = replaces.filter((r) => !files.some((f) => renderedPath(f) === r));
+    if (missing.length > 0)
+      return Err(
+        new Error(
+          `Framework template ${framework} replaces base files that do not exist: ${missing.join(', ')}`
+        )
+      );
+    return Ok(files.filter((f) => !replaces.includes(renderedPath(f))));
   }
 
   private findTemplateDir(name: string, type: 'level' | 'framework' | 'name'): string | null {
