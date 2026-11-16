@@ -10,6 +10,7 @@ import type {
   PatternMatch,
   SourceFile,
 } from '../types';
+import { readFileSync } from 'node:fs';
 import { minimatch } from 'minimatch';
 import { relativePosix } from '../../shared/fs-utils';
 
@@ -171,13 +172,53 @@ function checkMaxExports(
   return [];
 }
 
+/**
+ * Count a file's lines the way ESLint's `max-lines` does: every line counts
+ * (blank and comment lines included — the rule has no skip options), any of
+ * `\r\n`, `\r`, `\n`, U+2028, U+2029 ends a line, and the empty "line" after
+ * a trailing line break is not counted. So `a\nb\n` and `a\nb` are both 2.
+ */
+function countLines(text: string): number {
+  const lines = text.split(/\r\n|[\r\n\u2028\u2029]/);
+  if (lines.length > 1 && lines[lines.length - 1] === '') lines.pop();
+  return lines.length;
+}
+
+/**
+ * Flag a file with more than `rule.count` lines. `SourceFile` carries no
+ * source text, so the file is read from `file.path` — lazily, and only for
+ * files a `max-lines` rule applies to. The violation is reported at the first
+ * line over the limit (`count + 1`), as ESLint does. A file that cannot be read
+ * is reported, not passed: an unchecked file must never read as clean (#2324).
+ */
 function checkMaxLines(
-  _rule: ConfigPattern['rule'],
-  _file: SourceFile,
-  _message: string | undefined
+  rule: ConfigPattern['rule'],
+  file: SourceFile,
+  message: string | undefined
 ): PatternMatch[] {
-  // Would need actual line count from file content
-  // For now, skip this check (would need AST end location)
+  if (rule.type !== 'max-lines') return [];
+  let text: string;
+  try {
+    text = readFileSync(file.path, 'utf-8');
+  } catch (e) {
+    return [
+      {
+        line: 1,
+        message: `Could not read file to check max-lines (${rule.count}): ${(e as Error).message}`,
+        suggestion: 'Check that the file exists and is readable',
+      },
+    ];
+  }
+  const lineCount = countLines(text);
+  if (lineCount > rule.count) {
+    return [
+      {
+        line: Math.floor(rule.count) + 1,
+        message: message || `File has ${lineCount} lines, max is ${rule.count}`,
+        suggestion: `Split into smaller files or reduce to ${rule.count} lines`,
+      },
+    ];
+  }
   return [];
 }
 
@@ -198,7 +239,8 @@ function checkRequireJsdoc(
   return [];
 }
 
-const RULE_CHECKERS: Record<string, RuleChecker> = {
+/** Exhaustive over the rule-type union: a new rule type without a checker fails to compile. */
+const RULE_CHECKERS: Record<ConfigPattern['rule']['type'], RuleChecker> = {
   'must-export': checkMustExport,
   'must-export-default': checkMustExportDefault,
   'no-export': checkNoExport,
@@ -221,8 +263,22 @@ export function checkConfigPattern(
   const fileMatches = pattern.files.some((glob) => fileMatchesPattern(file.path, glob, rootDir));
   if (!fileMatches) return [];
 
-  const checker = RULE_CHECKERS[pattern.rule.type];
-  if (!checker) return [];
+  const ruleType: string = pattern.rule.type;
+  const checker = Object.hasOwn(RULE_CHECKERS, ruleType)
+    ? RULE_CHECKERS[ruleType as keyof typeof RULE_CHECKERS]
+    : undefined;
+  if (!checker) {
+    // Validated config cannot reach here (the schema is a discriminated union),
+    // but a programmatic caller can. Report it: a rule that silently checks
+    // nothing reads as a pass (#2324).
+    return [
+      {
+        line: 1,
+        message: `Unknown pattern rule type "${ruleType}" in "${pattern.name}": this rule was not checked`,
+        suggestion: 'Use a supported rule type, or remove the rule',
+      },
+    ];
+  }
 
   return checker(pattern.rule, file, pattern.message);
 }

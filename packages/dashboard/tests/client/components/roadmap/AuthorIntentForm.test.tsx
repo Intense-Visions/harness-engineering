@@ -52,7 +52,7 @@ describe('AuthorIntentForm', () => {
   });
 
   it('AC2: submitting posts exactly one /api/roadmap/append with {title, summary}', async () => {
-    const fetchSpy = vi.fn(async () => successResponse());
+    const fetchSpy = vi.fn(async (_url: string, _init?: RequestInit) => successResponse());
     vi.stubGlobal('fetch', fetchSpy);
     const onCreated = vi.fn();
     render(<AuthorIntentForm onCreated={onCreated} />);
@@ -68,7 +68,8 @@ describe('AuthorIntentForm', () => {
     });
 
     await waitFor(() => expect(fetchSpy).toHaveBeenCalledTimes(1));
-    const [url, init] = fetchSpy.mock.calls[0] as [string, RequestInit];
+    const [url, init] = fetchSpy.mock.calls[0]!;
+    if (!init) throw new Error('fetch was called without a RequestInit');
     expect(url).toBe('/api/roadmap/append');
     expect(init.method).toBe('POST');
     expect(JSON.parse(init.body as string)).toEqual({
@@ -79,7 +80,7 @@ describe('AuthorIntentForm', () => {
   });
 
   it('AC2: omits summary when the Description is empty', async () => {
-    const fetchSpy = vi.fn(async () => successResponse());
+    const fetchSpy = vi.fn(async (_url: string, _init?: RequestInit) => successResponse());
     vi.stubGlobal('fetch', fetchSpy);
     render(<AuthorIntentForm />);
 
@@ -91,7 +92,8 @@ describe('AuthorIntentForm', () => {
     });
 
     await waitFor(() => expect(fetchSpy).toHaveBeenCalledTimes(1));
-    const [, init] = fetchSpy.mock.calls[0] as [string, RequestInit];
+    const [, init] = fetchSpy.mock.calls[0]!;
+    if (!init) throw new Error('fetch was called without a RequestInit');
     expect(JSON.parse(init.body as string)).toEqual({ title: 'Just a title' });
   });
 
@@ -118,7 +120,7 @@ describe('AuthorIntentForm', () => {
   });
 
   it('AC4: an empty/whitespace title disables submit and issues no fetch', async () => {
-    const fetchSpy = vi.fn(async () => successResponse());
+    const fetchSpy = vi.fn(async (_url: string, _init?: RequestInit) => successResponse());
     vi.stubGlobal('fetch', fetchSpy);
     render(<AuthorIntentForm />);
 

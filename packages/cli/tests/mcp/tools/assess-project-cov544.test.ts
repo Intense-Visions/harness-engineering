@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import * as path from 'path';
 
 // Mock every sub-tool the composite delegates to, so we can drive the
 // populated / error / detailed branches of each check deterministically.
@@ -160,25 +161,107 @@ describe('handleAssessProject check branches (cov544)', () => {
     expect(c.passed).toBe(false);
   });
 
-  it('entropy: aggregates issue counts across drift/deadCode/patterns', async () => {
+  // `assess_project` asks detect_entropy for its SUMMARY payload — the shape
+  // `buildSummaryResponse` in entropy.ts emits: `{ mode, totalIssues,
+  // categories: { drift, deadCode, patterns? } }`. The stubs below mirror it.
+  // The check once summed `drift.staleReferences` / `drift.missingTargets` /
+  // `deadCode.unusedExports` — fields no entropy report has — and its old
+  // stub used those same phantom fields, so it passed against the bug (#2550).
+  function entropySummary(categories: Record<string, { issueCount: number; topIssues: string[] }>) {
+    const totalIssues = Object.values(categories).reduce((s, c) => s + c.issueCount, 0);
+    return { mode: 'summary', totalIssues, categories };
+  }
+
+  it('entropy: requests the summary payload for every category', async () => {
     vi.mocked(handleDetectEntropy).mockResolvedValue(
-      tool({
-        drift: { staleReferences: [1], missingTargets: [1, 2] },
-        deadCode: { unusedImports: [1], unusedExports: [] },
-        patterns: { violations: [1, 2, 3] },
-      })
+      tool(
+        entropySummary({
+          drift: { issueCount: 0, topIssues: [] },
+          deadCode: { issueCount: 0, topIssues: [] },
+        })
+      )
+    );
+    await handleAssessProject({ path: PATH, checks: ['entropy'] });
+    // The product resolves the input to an absolute native path (sanitizePath),
+    // so on win32 '/tmp/x' becomes 'D:\\tmp\\x' — compare against the same resolution.
+    expect(handleDetectEntropy).toHaveBeenCalledWith({
+      path: path.resolve(PATH),
+      type: 'all',
+      mode: 'summary',
+    });
+  });
+
+  it('entropy: counts drift, dead code and pattern findings from the real report shape', async () => {
+    vi.mocked(handleDetectEntropy).mockResolvedValue(
+      tool(
+        entropySummary({
+          drift: { issueCount: 2, topIssues: ['Drift: api-signature in docs/api.md'] },
+          deadCode: { issueCount: 4, topIssues: ['Dead export: foo in src/a.ts'] },
+          patterns: { issueCount: 1, topIssues: ['no-console: src/b.ts'] },
+        })
+      )
     );
     const c = check(await handleAssessProject({ path: PATH, checks: ['entropy'] }), 'entropy');
     expect(c.issueCount).toBe(7);
     expect(c.passed).toBe(false);
-    expect(c.topIssue).toContain('Entropy detected');
+    expect(c.topIssue).toBe('Drift: api-signature in docs/api.md');
+  });
+
+  it('entropy: drift alone fails the check (it was invisible before #2550)', async () => {
+    vi.mocked(handleDetectEntropy).mockResolvedValue(
+      tool(
+        entropySummary({
+          drift: { issueCount: 5, topIssues: ['Drift: structure in README.md'] },
+          deadCode: { issueCount: 0, topIssues: [] },
+        })
+      )
+    );
+    const c = check(await handleAssessProject({ path: PATH, checks: ['entropy'] }), 'entropy');
+    expect(c.issueCount).toBe(5);
+    expect(c.passed).toBe(false);
   });
 
   it('entropy: clean → passed with no topIssue', async () => {
-    vi.mocked(handleDetectEntropy).mockResolvedValue(tool({}));
+    vi.mocked(handleDetectEntropy).mockResolvedValue(
+      tool(
+        entropySummary({
+          drift: { issueCount: 0, topIssues: [] },
+          deadCode: { issueCount: 0, topIssues: [] },
+        })
+      )
+    );
     const c = check(await handleAssessProject({ path: PATH, checks: ['entropy'] }), 'entropy');
     expect(c.issueCount).toBe(0);
     expect(c.passed).toBe(true);
+    expect(c.topIssue).toBeUndefined();
+  });
+
+  it('entropy: a payload with no numeric totalIssues fails closed, never counts 0', async () => {
+    vi.mocked(handleDetectEntropy).mockResolvedValue(tool({}));
+    const c = check(await handleAssessProject({ path: PATH, checks: ['entropy'] }), 'entropy');
+    expect(c.passed).toBe(false);
+    expect(c.topIssue).toMatch(/not measured/i);
+  });
+
+  it('entropy: the legacy phantom-field shape fails closed', async () => {
+    vi.mocked(handleDetectEntropy).mockResolvedValue(
+      tool({
+        drift: { staleReferences: [1], missingTargets: [1, 2] },
+        deadCode: { unusedImports: [], unusedExports: [] },
+      })
+    );
+    const c = check(await handleAssessProject({ path: PATH, checks: ['entropy'] }), 'entropy');
+    expect(c.passed).toBe(false);
+    expect(c.topIssue).toMatch(/not measured/i);
+  });
+
+  it('entropy: a missing deadCode category (analyzer failed) fails closed', async () => {
+    vi.mocked(handleDetectEntropy).mockResolvedValue(
+      tool(entropySummary({ drift: { issueCount: 0, topIssues: [] } }))
+    );
+    const c = check(await handleAssessProject({ path: PATH, checks: ['entropy'] }), 'entropy');
+    expect(c.passed).toBe(false);
+    expect(c.topIssue).toMatch(/not measured/i);
   });
 
   it('entropy: thrown → catch', async () => {

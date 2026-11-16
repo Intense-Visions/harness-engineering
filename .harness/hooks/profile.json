@@ -1,7 +1,7 @@
 {
   "profile": "standard",
   "fileHashes": {
-    "block-no-verify.js": "aa1db9030f9a83eeea6aedbe0385c0588e5068f8cc8535eeacf8e9cfab4156e1",
+    "block-no-verify.js": "24849f041e7d4acb793b744f66ec4d6105390a1ea8156914e158adf91723c69d",
     "autonomy-guard.js": "297218fc9ec9d643c6d8c8338178ee2c5e73b60ae2a5d161665a43d654233c0d",
     "protect-config.js": "270a5ccecf6bf49e0f08efa849796e89e6d4ba01af517e928252376a92cb9ae2",
     "quality-warner.js": "36717a4778e79166a23c640d60d24c9c9315f98323c3f9d65947f9dafaa3701c",

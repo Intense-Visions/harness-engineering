@@ -147,6 +147,54 @@ describe('ensureHarnessGitignore', () => {
     const lines = content.split(/\r?\n/);
     expect(lines).toContain('cache/');
   });
+
+  // Issue #2474: an existing `.harness/.gitignore` that ignores `.harness/metrics/`
+  // as `metrics/*` + `!metrics/<ledger>` (so one tracked ledger stays stageable) got
+  // a bare `metrics/` APPENDED on every run, because the merge compared lines by exact
+  // text. A directory-suffix rule stops git descending into the directory, so the
+  // negation is silently defeated. `metrics/*` already covers `metrics/`.
+  it('does not append a bare dir/ rule that shadows an existing dir/* + negation pair (#2474)', () => {
+    fs.mkdirSync(path.join(tmpDir, '.harness'), { recursive: true });
+    const gitignorePath = path.join(tmpDir, '.harness', '.gitignore');
+    // Seed with the full template, then swap in the ledger-preserving pair.
+    ensureHarnessGitignore(tmpDir);
+    const seeded = fs
+      .readFileSync(gitignorePath, 'utf8')
+      .split('\n')
+      .filter((l) => l.trim() !== 'metrics/' && l.trim() !== 'metrics/*')
+      .join('\n')
+      .concat('metrics/*\n!metrics/ledger.jsonl\n');
+    fs.writeFileSync(gitignorePath, seeded);
+
+    ensureHarnessGitignore(tmpDir);
+
+    expect(fs.readFileSync(gitignorePath, 'utf8')).toBe(seeded);
+  });
+
+  it('keeps a negated ledger under an ignored dir stageable after a run (#2474)', () => {
+    spawnSync('git', ['init', '-q'], { cwd: tmpDir });
+    fs.mkdirSync(path.join(tmpDir, '.harness'), { recursive: true });
+    fs.writeFileSync(
+      path.join(tmpDir, '.harness', '.gitignore'),
+      'metrics/*\n!metrics/ledger.jsonl\n'
+    );
+
+    ensureHarnessGitignore(tmpDir);
+
+    const check = (rel: string) =>
+      spawnSync('git', ['check-ignore', '-q', '--no-index', rel], { cwd: tmpDir }).status;
+    expect(check('.harness/metrics/ledger.jsonl')).toBe(1); // not ignored
+    expect(check('.harness/metrics/adoption.jsonl')).toBe(0); // still ignored
+  });
+
+  it('ignores every file under metrics/ for a fresh project without a bare dir rule', () => {
+    ensureHarnessGitignore(tmpDir);
+    const lines = fs
+      .readFileSync(path.join(tmpDir, '.harness', '.gitignore'), 'utf-8')
+      .split(/\r?\n/);
+    expect(lines).toContain('metrics/*');
+    expect(lines).not.toContain('metrics/');
+  });
 });
 
 // Issue #1692: committed compiled-comprehension units are TRACKED (so the LLM-free

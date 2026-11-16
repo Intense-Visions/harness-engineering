@@ -11,6 +11,14 @@ export interface GraphComplexityHotspot {
 export interface GraphComplexityResult {
   readonly hotspots: readonly GraphComplexityHotspot[];
   readonly percentile95Score: number;
+  /**
+   * Whether `changeFrequency` was actually measured. `false` means the graph
+   * holds no git history (no `commit` nodes — e.g. `GitIngestor` never ran or
+   * failed), so every `changeFrequency` / `hotspotScore` of 0 is "not
+   * measured", not "no churn". Consumers must not read those zeros as a
+   * healthy, hotspot-free codebase.
+   */
+  readonly changeFrequencyMeasured: boolean;
 }
 
 export class GraphComplexityAdapter {
@@ -20,7 +28,8 @@ export class GraphComplexityAdapter {
    * Compute complexity hotspots by combining cyclomatic complexity with change frequency.
    *
    * 1. Find all function and method nodes
-   * 2. For each, find the containing file and count commit nodes referencing that file
+   * 2. For each, find the containing file and count the distinct commits that touched it
+   *    (the `triggered_by` file -> commit edges written by GitIngestor)
    * 3. Compute hotspotScore = changeFrequency * cyclomaticComplexity
    * 4. Sort descending by score
    * 5. Compute 95th percentile
@@ -31,8 +40,10 @@ export class GraphComplexityAdapter {
       ...this.store.findNodes({ type: 'method' }),
     ];
 
+    const changeFrequencyMeasured = this.store.findNodes({ type: 'commit' }).length > 0;
+
     if (functionNodes.length === 0) {
-      return { hotspots: [], percentile95Score: 0 };
+      return { hotspots: [], percentile95Score: 0, changeFrequencyMeasured };
     }
 
     // Build a cache of file -> commit count (change frequency)
@@ -68,7 +79,7 @@ export class GraphComplexityAdapter {
       95
     );
 
-    return { hotspots, percentile95Score };
+    return { hotspots, percentile95Score, changeFrequencyMeasured };
   }
 
   /**
@@ -97,11 +108,21 @@ export class GraphComplexityAdapter {
     return undefined;
   }
 
+  /**
+   * Count the distinct commits that touched a file. GitIngestor records each
+   * touch as a `triggered_by` edge FROM the file TO the commit node (#2022).
+   * `triggered_by` is also used for build -> commit (CIConnector), so only
+   * edges whose target is a `commit` node count. Inbound `references` edges
+   * (diagrams, Slack, Figma) are documentation links, not churn.
+   */
   private getChangeFrequency(fileId: string, cache: Map<string, number>): number {
     let freq = cache.get(fileId);
     if (freq === undefined) {
-      const referencesEdges = this.store.getEdges({ to: fileId, type: 'references' });
-      freq = referencesEdges.length;
+      const commits = new Set<string>();
+      for (const edge of this.store.getEdges({ from: fileId, type: 'triggered_by' })) {
+        if (this.store.getNode(edge.to)?.type === 'commit') commits.add(edge.to);
+      }
+      freq = commits.size;
       cache.set(fileId, freq);
     }
     return freq;

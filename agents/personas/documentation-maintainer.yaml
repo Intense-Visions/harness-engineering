@@ -15,7 +15,7 @@ commands:
 triggers:
   - event: on_pr
     conditions:
-      paths: ["src/**", "docs/**"]
+      paths: ["**/src/**", "docs/**"]
   - event: on_commit
     conditions:
       branches: ["main"]

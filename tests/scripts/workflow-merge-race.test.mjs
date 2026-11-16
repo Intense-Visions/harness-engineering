@@ -54,6 +54,9 @@ const goldenPromoteStep = stepText(
   '\n  docker:'
 );
 const autoDoneStep = stepText('roadmap-auto-done.yml', 'Commit and push the shard flip');
+// #2088: the fourth call site — the workflow #2048 credited for the retry idiom
+// had only ever applied it to its direct PUSH, never to its own merge.
+const holidayLedgerStep = stepText('holiday-confidence-track.yml', 'Commit the trend ledger');
 
 /**
  * Both steps already contained an unrelated `for attempt in 1 2 3` loop around
@@ -69,6 +72,7 @@ const SILENCED_MERGE = /gh pr merge[^\n]*\|\|\s*true/;
 for (const [label, step] of [
   ['release/golden-promote', goldenPromoteStep],
   ['roadmap-auto-done', autoDoneStep],
+  ['holiday-confidence-track', holidayLedgerStep],
 ]) {
   test(`${label}: the auto-merge call sits inside a bounded retry that re-derives`, () => {
     assert.match(
@@ -174,5 +178,48 @@ test('release/golden-promote: the re-derive is a wholesale manifest re-apply', (
     goldenPromoteStep,
     /rebuild_branch_on_base\(\) \{[\s\S]*?git checkout "\$OURS" -- "\$MANIFEST"/,
     'the golden manifest re-derive must re-apply our wholesale snapshot on the fresh tip'
+  );
+});
+
+test('holiday-confidence-track: the re-derive APPENDS our record, never a snapshot copy', () => {
+  // #2088 question 1. The ledger is an append-only JSONL series, not a wholesale
+  // regenerated file, so copying our snapshot of it over a newer base would
+  // REVERT any record that reached the base in between (e.g. an earlier week's
+  // PR merged late by a human). The re-derive must append our one record onto
+  // the base's own ledger, keyed by date so it stays idempotent.
+  const rebuild = holidayLedgerStep.match(/rebuild_branch_on_base\(\) \{([\s\S]*?)\n {10}\}/);
+  assert.ok(rebuild, 'rebuild_branch_on_base must be a named function with a readable body');
+  const dedupe = rebuild[1].indexOf('grep -qF "\\"date\\":\\"$RECORD_DATE\\"" "$LEDGER"');
+  const append = rebuild[1].indexOf(`printf '%s\\n' "$RECORD" >> "$LEDGER"`);
+  assert.ok(dedupe !== -1, 'the re-derive must skip a date the base ledger already carries');
+  assert.ok(append > dedupe, 'the re-derive must then APPEND our record onto the base ledger');
+  assert.doesNotMatch(
+    holidayLedgerStep,
+    /git checkout "\$OURS" -- "\$LEDGER"/,
+    'the PR branch must never be built by copying our ledger snapshot over a newer base'
+  );
+});
+
+test('holiday-confidence-track: a QUEUED auto-merge is awaited, never reported as merged', () => {
+  // The ci.yml #2412/#2416 lesson: `gh pr merge --auto` exits 0 when it merely
+  // QUEUES, and mergeability is computed lazily. Treating that exit as "merged"
+  // reports a landing that has not happened.
+  assert.match(
+    holidayLedgerStep,
+    /if gh pr merge "\$PR_URL" --auto --squash --delete-branch; then\n\s*settled=0\n\s*await_merge \|\| settled=\$\?/,
+    'a successful merge call must be followed by await_merge before anything is reported'
+  );
+  const awaitBody = holidayLedgerStep.match(/await_merge\(\) \{([\s\S]*?)\n {10}\}/);
+  assert.ok(awaitBody, 'await_merge must be a named function with a readable body');
+  assert.match(awaitBody[1], /MERGED\|CLOSED\) return 0/, 'only MERGED/CLOSED counts as settled');
+  assert.match(
+    awaitBody[1],
+    /mergeable_state[\s\S]*?= "dirty"[\s\S]*?return 1/,
+    'DIRTY must re-derive'
+  );
+  assert.match(
+    holidayLedgerStep,
+    /"\$settled" = 2[\s\S]*?::warning::[^\n]*QUEUED/,
+    'a still-queued merge must be surfaced as a warning, not as success'
   );
 });

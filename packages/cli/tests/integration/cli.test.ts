@@ -1,17 +1,17 @@
 // packages/cli/tests/integration/cli.test.ts
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { spawnSync } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
+import { runHarness } from '../e2e/support/harness-cli';
 
 const CLI_PATH = path.join(__dirname, '../../dist/bin/harness.js');
 
+// Bounded by runHarness's spawn timeout, which throws with the captured output
+// on a hang. A bare spawnSync here once stalled the pre-push gate for 15 minutes
+// (#2555): spawnSync blocks the event loop, so testTimeout below cannot fire.
 function runCLI(args: string[], cwd?: string) {
-  return spawnSync('node', [CLI_PATH, ...args], {
-    cwd,
-    encoding: 'utf-8',
-  });
+  return runHarness(args, { cwd: cwd ?? process.cwd(), bin: CLI_PATH });
 }
 
 // No per-suite timeout override: these tests spawn the built CLI as a

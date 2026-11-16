@@ -207,5 +207,96 @@ export function sharedFunc() {}
         total: 0,
       });
     });
+
+    // #2327: an empty set over a project is NO SIGNAL, not a clean zero.
+    it('abstains with a reason when the set is empty and graph inference did not run', async () => {
+      writeFile('src/plain.ts', `export function noAnnotation() {\n  return 42;\n}\n`);
+
+      const result = await new CriticalPathResolver(tmpDir).resolve();
+
+      expect(result.graphInference.status).toBe('not-run');
+      expect(result.graphInference.reason).toMatch(/fan-in/);
+      expect(result.noSignal).toBeDefined();
+      expect(result.noSignal?.reason).toMatch(/graph inference did not run/);
+    });
+
+    it('abstains even when graph inference ran but found nothing', async () => {
+      const result = await new CriticalPathResolver(tmpDir).resolve({ highFanInFunctions: [] });
+
+      expect(result.graphInference).toEqual({ status: 'ran' });
+      expect(result.noSignal?.reason).toMatch(/no high-fan-in functions/);
+    });
+
+    it('carries no abstention marker when the set is non-empty', async () => {
+      writeFile('src/core.ts', `// @perf-critical\nexport function hot() {}\n`);
+
+      const result = await new CriticalPathResolver(tmpDir).resolve();
+
+      expect(result.entries).toHaveLength(1);
+      expect(result.noSignal).toBeUndefined();
+      // Inference still reports that it never ran, so a consumer can tell the
+      // set is annotation-only rather than annotation + graph.
+      expect(result.graphInference.status).toBe('not-run');
+    });
+
+    it('reports graph inference as ran when graph data is supplied', async () => {
+      const result = await new CriticalPathResolver(tmpDir).resolve({
+        highFanInFunctions: [{ file: 'src/hub.ts', function: 'route', fanIn: 40 }],
+      });
+
+      expect(result.graphInference).toEqual({ status: 'ran' });
+      expect(result.noSignal).toBeUndefined();
+    });
+  });
+
+  // #2256: every annotated path in this repo resolved into test/fixture code.
+  describe('test and fixture exclusion', () => {
+    const annotated = (name: string) => `/** @perf-critical */\nexport function ${name}() {}\n`;
+
+    it('ignores annotations in test, spec, and bench files', async () => {
+      writeFile('src/core.test.ts', annotated('inTest'));
+      writeFile('src/core.spec.tsx', annotated('inSpec'));
+      writeFile('src/core.bench.ts', annotated('inBench'));
+      writeFile('src/core.ts', annotated('real'));
+
+      const result = await new CriticalPathResolver(tmpDir).resolve();
+
+      expect(result.entries.map((e) => e.function)).toEqual(['real']);
+    });
+
+    it('ignores annotations under test and fixture directories', async () => {
+      writeFile('tests/helpers.ts', annotated('inTests'));
+      writeFile('packages/a/test/util.ts', annotated('inTestDir'));
+      writeFile('src/__tests__/x.ts', annotated('inDunderTests'));
+      writeFile('src/__fixtures__/x.ts', annotated('inDunderFixtures'));
+      writeFile('src/fixtures/x.ts', annotated('inFixtures'));
+      writeFile('src/__mocks__/x.ts', annotated('inMocks'));
+      writeFile('packages/a/src/hot.ts', annotated('real'));
+
+      const result = await new CriticalPathResolver(tmpDir).resolve();
+
+      expect(result.entries).toEqual([
+        { file: 'packages/a/src/hot.ts', function: 'real', source: 'annotation' },
+      ]);
+    });
+
+    it('ignores the marker when it appears in code rather than a comment', async () => {
+      // The resolver's own source mentions the marker in a string literal and
+      // was registering the next declaration (`fnName`) as a critical path.
+      writeFile(
+        'src/scanner.ts',
+        [
+          "if (!line.includes('@perf-critical')) skip();",
+          'const fnName = resolve();',
+          'const marker = "@perf-critical";',
+          'export function notCritical() {}',
+          '',
+        ].join('\n')
+      );
+
+      const result = await new CriticalPathResolver(tmpDir).resolve();
+
+      expect(result.entries).toEqual([]);
+    });
   });
 });
