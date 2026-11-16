@@ -54,7 +54,7 @@ describe('GET /api/signals', () => {
     expect(res.status).toBe(200);
     const body = (await res.json()) as { data: SignalsResult; timestamp: string };
     expect(body.data.signals).toHaveLength(1);
-    expect(body.data.signals[0].id).toBe('complexity-trend-up-30d');
+    expect(body.data.signals[0]!.id).toBe('complexity-trend-up-30d');
     expect(body.data.generatedAt).toBe('2026-06-22T00:00:00.000Z');
     expect(body.timestamp).toBeTypeOf('string');
   });

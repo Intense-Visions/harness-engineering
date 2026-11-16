@@ -357,6 +357,18 @@ describe('buildShapeHistory — FOLLOW-UP 1 outcome timestamps for order-safe re
     // sorts by ts and correctly HOLDS at stage 1 on the chronologically-newest miss.
     expect(resolveStage(hist, { threshold: 0.5, minSample: 2, window: 10 })).toBe(1);
   });
+
+  it('#2264: a fail-safe (graded:false) outcome is NOT ratchet evidence; a judged miss is', async () => {
+    vi.setSystemTime(new Date('2026-01-01T00:00:00Z'));
+    await eventSourcing.recordTriageOutcome(tmp, outcome('A', true));
+    await eventSourcing.recordTriageOutcome(tmp, { ...outcome('FS', false), graded: false });
+    await eventSourcing.recordTriageOutcome(tmp, outcome('J', false));
+    const hist = (await buildShapeHistory(tmp))(SHAPE);
+    expect(hist.map((o) => o.matched).sort()).toEqual([false, true]);
+
+    const lookup = await buildPrecedentLookup(tmp);
+    expect(lookup?.rateForShape(SHAPE)).toEqual({ kind: 'rate', matched: 1, total: 2, rate: 0.5 });
+  });
 });
 
 // ===========================================================================

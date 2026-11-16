@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'scripts'
-sourceHash: '947c8d5c67aa9f4add5f623293259ce3a1d1a1d010e0dadc726ea9f74d2203e1'
+sourceHash: '45f7ea2131e637492597c437882ea14443c8482fbbcb5625724a71cdeb36c06c'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -57,6 +57,7 @@ export findOpenAlarmIssue
 export findPinnedVersion
 export findReportPaths
 export formatSummary
+export inScopeFromTurboDryRun
 export lapseReason
 export main
 export mergeBenchmarkBaselines
@@ -67,6 +68,7 @@ export parsePublishOutput
 export parseTargetFiles
 export prepushTestOptions
 export pruneCoverageSummaries
+export ratchetVerdict
 export readCliVersion
 export reconcile
 export registryUrl
