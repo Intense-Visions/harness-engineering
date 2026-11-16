@@ -1,13 +1,14 @@
 ---
 schemaVersion: 1
 module: 'packages/core/src/entropy'
-sourceHash: 'd6014f81281aed991195cc3649a528d028d43079959455195898019528165129'
+sourceHash: '4bb3dc3bfef7536ef25780750a6ebf655eba95a75f9c9f3bc009f6b6feb24124'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
 members:
   [
     'analyzer.ts',
+    'entry-dir-waiver.ts',
     'entry-points.test.ts',
     'entry-points.ts',
     'index.ts',
@@ -124,14 +125,16 @@ import { detectDocDrift } from './detectors/drift'
 import { detectDuplication } from './detectors/duplication'
 import { detectPatternViolations } from './detectors/patterns'
 import { detectSizeBudgetViolations } from './detectors/size-budget'
+import { discoverWaivedFiles, discoverWaivedTestFiles, entryDirWaivers, isExcludedPath, isExcludedTestImportSource } from './entry-dir-waiver'
 import { resolveEntryPoints } from './entry-points'
 import { generateSuggestions } from './fixers/suggestions'
 import { loadPathAliases } from './path-aliases'
 import { buildSnapshot } from './snapshot'
 import { AnalysisError, CodeBlock, CodeReference, CodebaseSnapshot, ComplexityReport, CouplingReport, DeadCodeReport, DocumentationFile, DriftConfig, DriftReport, DuplicationReport, EntropyConfig, EntropyError, EntropyReport, ExportMap, InlineReference, InternalSymbol, JSDocComment, PatternConfig, PatternReport, SizeBudgetReport, SourceFile, SuggestionReport, TestImportSource } from './types'
-import { skipDirGlobs } from '@harness-engineering/graph'
+import { DEFAULT_SKIP_DIRS, skipDirGlobs } from '@harness-engineering/graph'
 import * as fs from 'fs'
 import { stat } from 'fs/promises'
+import { glob } from 'glob'
 import { minimatch } from 'minimatch'
 import * as os from 'os'
 import { dirname, isAbsolute, join, resolve, sep } from 'path'

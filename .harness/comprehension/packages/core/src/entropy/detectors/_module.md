@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/src/entropy/detectors'
-sourceHash: 'b03912ba5ca30e796cbe7e6089f1d42f1f5540ee638433629f42138d9da8dad9'
+sourceHash: 'c24b5317e380625e5fa54670221146e3fe9f11f3c08af4a5b624ad5f4e36e3da'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -44,7 +44,7 @@ import { resolveAliasCandidates } from '../path-aliases'
 import { CodebaseSnapshot, ComplexityConfig, ComplexityReport, ComplexityViolation, ConfigPattern, CouplingConfig, CouplingReport, CouplingViolation, DeadCodeReport, DeadExport, DeadFile, DeadInternal, DocumentationDrift, DriftConfig, DriftReport, DuplicationReport, EntropyError, PatternConfig, PatternMatch, PatternReport, PatternViolation, SizeBudgetConfig, SizeBudgetReport, SizeBudgetViolation, SourceFile, UnusedImport } from '../types'
 import { DEFAULT_SKIP_DIRS } from '@harness-engineering/graph'
 import { minimatch } from 'minimatch'
-import { readFileSync, readdirSync, statSync } from 'node:fs'
+import { readdirSync, statSync } from 'node:fs'
 import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { basename, dirname, extname, resolve } from 'path'

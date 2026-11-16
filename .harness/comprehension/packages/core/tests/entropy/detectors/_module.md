@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/tests/entropy/detectors'
-sourceHash: '023f749ef0671401aa24d5a6064be9b558f9247d282d24442d520f13e186210e'
+sourceHash: 'aa3896ec43b2d44daeb5caec35ea2de3d253de99cb1755b562d964e43e5538a6'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -9,6 +9,7 @@ members:
   [
     'complexity.test.ts',
     'coupling.test.ts',
+    'dead-code-false-positive-engines.test.ts',
     'dead-code-path-alias.test.ts',
     'dead-code-public-api.test.ts',
     'dead-code.test.ts',
@@ -55,10 +56,13 @@ import { skipDirGlobs } from '@harness-engineering/graph'
 import { parse } from '@typescript-eslint/typescript-estree'
 import { mkdtemp, rm, writeFile } from 'fs/promises'
 import { minimatch } from 'minimatch'
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdirSync, rmSync, writeFileSync } from 'node:fs'
+import * as fs from 'node:fs'
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
+import * as os from 'node:os'
 import { join } from 'node:path'
+import * as path from 'node:path'
 import { tmpdir } from 'os'
 import { join } from 'path'
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest'
