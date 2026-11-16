@@ -1,3 +1,4 @@
+import type { CollectorRunContext } from './collectors/run-context';
 import { z } from 'zod';
 
 // --- Metric Categories ---
@@ -157,6 +158,13 @@ export interface ArchDependencyRules {
   layers?: ArchLayerRule[] | undefined;
   /** Forbidden-import rules; `from` / `disallow` globs are `rootDir`-relative. */
   forbiddenImports?: ArchForbiddenImportRule[] | undefined;
+  /**
+   * `deps.resolveWorkspacePackages` from harness.config.json (#2216): resolve
+   * workspace-package specifiers (`@scope/pkg`) so the layer-violation collector
+   * enforces `allowedDependencies` BETWEEN packages, exactly as `check-deps`
+   * does. Absent (the default) means off — byte-identical to before.
+   */
+  resolveWorkspacePackages?: boolean | undefined;
 }
 
 export type ArchConfig = z.infer<typeof ArchConfigSchema> & ArchDependencyRules;
@@ -224,6 +232,15 @@ export type EmergenceResult = z.infer<typeof EmergenceResultSchema>;
  */
 export interface Collector {
   category: ArchMetricCategory;
-  collect(config: ArchConfig, rootDir: string): Promise<MetricResult[]>;
+  /**
+   * `context` is the run-scoped state `runAll` shares across every collector in
+   * one invocation (#2270). Optional: a collector called on its own builds its
+   * own, and a collector that shares nothing may ignore it.
+   */
+  collect(
+    config: ArchConfig,
+    rootDir: string,
+    context?: CollectorRunContext
+  ): Promise<MetricResult[]>;
   getRules(config: ArchConfig, rootDir: string): ConstraintRule[];
 }

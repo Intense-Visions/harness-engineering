@@ -1,4 +1,5 @@
 import { Command } from 'commander';
+import chalk from 'chalk';
 import { logger } from '../../output/logger';
 import { ExitCode } from '../../utils/errors';
 import {
@@ -16,6 +17,15 @@ function shortHash(hash?: string): string {
   return hash ? hash.slice(0, 12) : '—';
 }
 
+/**
+ * A drift row is the diff REPORT itself, not a diagnostic, so it stays on
+ * stdout (`harness golden-build diff > drift.txt` keeps it) even though
+ * `logger.warn` now writes to stderr (#2519).
+ */
+function driftRow(line: string): void {
+  console.log(chalk.yellow('!'), line);
+}
+
 function printDiffHuman(result: GoldenVerifyResult): void {
   const { diff, golden } = result;
   if (golden) {
@@ -26,13 +36,13 @@ function printDiffHuman(result: GoldenVerifyResult): void {
     return;
   }
   for (const c of diff.changed) {
-    logger.warn(`changed  ${c.path}  ${shortHash(c.goldenHash)} -> ${shortHash(c.currentHash)}`);
+    driftRow(`changed  ${c.path}  ${shortHash(c.goldenHash)} -> ${shortHash(c.currentHash)}`);
   }
   for (const c of diff.missing) {
-    logger.warn(`missing  ${c.path}  (was ${shortHash(c.goldenHash)}, now absent)`);
+    driftRow(`missing  ${c.path}  (was ${shortHash(c.goldenHash)}, now absent)`);
   }
   for (const c of diff.added) {
-    logger.warn(`added    ${c.path}  ${shortHash(c.currentHash)} (not in golden)`);
+    driftRow(`added    ${c.path}  ${shortHash(c.currentHash)} (not in golden)`);
   }
 }
 

@@ -36,7 +36,16 @@ describe('integrations commands', () => {
     it('printTier0Integrations prints tier 0 entries', async () => {
       const { printTier0Integrations } = await import('../../src/commands/integrations/list');
       const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
-      const tier0 = [{ name: 'context7', description: 'Context docs', tier: 0 as const }];
+      const tier0 = [
+        {
+          name: 'context7',
+          displayName: 'Context7',
+          description: 'Context docs',
+          tier: 0 as const,
+          mcpConfig: { command: 'npx', args: [] },
+          platforms: [],
+        },
+      ];
       printTier0Integrations(tier0, { context7: {} });
       expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('Tier 0'));
       expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('context7'));
@@ -46,7 +55,16 @@ describe('integrations commands', () => {
     it('printTier0Integrations marks unconfigured with circle icon', async () => {
       const { printTier0Integrations } = await import('../../src/commands/integrations/list');
       const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
-      const tier0 = [{ name: 'context7', description: 'Context docs', tier: 0 as const }];
+      const tier0 = [
+        {
+          name: 'context7',
+          displayName: 'Context7',
+          description: 'Context docs',
+          tier: 0 as const,
+          mcpConfig: { command: 'npx', args: [] },
+          platforms: [],
+        },
+      ];
       printTier0Integrations(tier0, {});
       const calls = consoleSpy.mock.calls.map((c) => c[0]).join('\n');
       expect(calls).toContain('context7');
@@ -59,9 +77,12 @@ describe('integrations commands', () => {
       const tier1 = [
         {
           name: 'exa',
+          displayName: 'Exa',
           description: 'Exa search',
           tier: 1 as const,
           envVar: 'EXA_API_KEY',
+          mcpConfig: { command: 'npx', args: [] },
+          platforms: [],
         },
       ];
       printTier1Integrations(tier1, {}, ['exa']);
@@ -77,9 +98,12 @@ describe('integrations commands', () => {
       const tier1 = [
         {
           name: 'exa',
+          displayName: 'Exa',
           description: 'Exa search',
           tier: 1 as const,
           envVar: 'EXA_API_KEY',
+          mcpConfig: { command: 'npx', args: [] },
+          platforms: [],
         },
       ];
       printTier1Integrations(tier1, {}, []);

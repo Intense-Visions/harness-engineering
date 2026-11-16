@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/mcp/tools'
-sourceHash: 'e51f21ed68d7bbf298b5665a24e4507b266dd825d526197ab0a6a4351878b8f4'
+sourceHash: '9a7e67ab4a00de860099dbddcd30a78b0ec57ab7232e55d1591c0395ebadbc15'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -231,6 +231,7 @@ export editFileDefinition
 export emitInteractionDefinition
 export emitSkillEvent
 export emitSkillProposalDefinition
+export entropyCheckFromSummary
 export finalizeApiCraft
 export finalizeCliErgonomicsCraft
 export finalizeCodeCraft
@@ -473,7 +474,7 @@ import { comprehensionEndpoint, readComprehensionConfig, remoteFileConfig, resol
 import { maybeCreateGenerateSemantic, semanticResponseSchema } from '../../comprehension/generate-semantic'
 import { committedSemanticAllowed } from '../../comprehension/policy'
 import { createStaticExtractor } from '../../comprehension/static-extractor'
-import { loadAnalysisExclude, loadDepsFallbackBehavior } from '../../config/analysis-schema.js'
+import { loadAnalysisExclude, loadDepsFallbackBehavior, loadDepsResolveWorkspacePackages } from '../../config/analysis-schema.js'
 import { resolveConfig } from '../../config/loader'
 import { findConfigFile, loadConfig, resolveConfig } from '../../config/loader.js'
 import { HarnessConfig } from '../../config/schema.js'
@@ -506,8 +507,11 @@ import { DEFAULT_RESPONSIVE_GATE_CONFIG, ResponsiveGateConfig, ResponsiveMetrics
 import { CollectPromptsOutput, FinalizeSecurityCraftInput, SecurityCraftInput, SecurityCraftMode, SecurityCraftOutput, collectSecurityCraftPrompts, finalizeSecurityCraft, runSecurityCraft } from '../../security-craft/index.js'
 import { craftClumpView } from '../../shared/craft/findings/clumpable.js'
 import { resolveCraftLlmMode } from '../../shared/craft/llm/provider.js'
+import { craftPathError, withCraftAbstention } from '../../shared/craft/scope.js'
 import { collectDesignScanFiles, designScanAbstention, noFilesScannedError, resolveDesignExcludePatterns } from '../../shared/design-scan-targets.js'
+import { baselineDeltaForReport } from '../../shared/duplication-baseline.js'
 import { ENTROPY_ISSUE_TYPES, describeDuplicationNotRun, describeUnknownIssueType, isEntropyIssueType, resolveDuplicationRequest } from '../../shared/duplication-request.js'
+import { EntropyScope, resolveEntropyScope } from '../../shared/entropy-scope.js'
 import '../../shared/state-events.js'
 import { Verifier } from '../../shared/verifier.js'
 import { dispatchSkills, dispatchSkillsFromGit, enrichSnapshotForDispatch } from '../../skill/dispatch-engine.js'
@@ -535,7 +539,7 @@ import { resolveProjectConfig } from '../utils/config-resolver.js'
 import '../utils/glob-helper.js'
 import { loadGraphStore } from '../utils/graph-loader.js'
 import { McpToolResponse, bigIntSafeReplacer, resultToMcpResponse } from '../utils/result-adapter.js'
-import { sanitizePath } from '../utils/sanitize-path.js'
+import { resolveProjectRootArg, sanitizePath } from '../utils/sanitize-path.js'
 import { sortFindingsBySeverity } from '../utils/severity.js'
 import { emitAcceptanceVerdictEvent, emitOutcomeVerdictEvent, emitUatSignoffEvent } from '../utils/waypoint-emission.js'
 import { AdrStoreError, CreateAdrInput, UpdateAdrInput, createAdr, listAdrs, readAdr, resolveWorktreeRoot, updateAdr } from './adr-store.js'

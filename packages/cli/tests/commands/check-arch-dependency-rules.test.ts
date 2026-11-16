@@ -119,6 +119,35 @@ describe('check-arch measures the configured dependency rules (issue #2235)', ()
   });
 });
 
+describe('check-arch honours deps.resolveWorkspacePackages (issue #2216)', () => {
+  // Two workspace packages; the bottom layer imports the top one by bare name —
+  // an edge check-deps flags once the project opts in, and check-arch must agree.
+  const files = {
+    'pnpm-workspace.yaml': "packages:\n  - 'packages/*'\n",
+    'packages/low/package.json': JSON.stringify({ name: '@fx/low', main: './dist/index.js' }),
+    'packages/high/package.json': JSON.stringify({ name: '@fx/high', main: './dist/index.js' }),
+    'packages/high/src/index.ts': "import { base } from '@fx/low';\nexport const h = base;\n",
+    'packages/low/src/index.ts': "import { h } from '@fx/high';\nexport const base = h;\n",
+  };
+  const layers = [
+    { name: 'low', pattern: 'packages/low/src/**', allowedDependencies: [] },
+    { name: 'high', pattern: 'packages/high/src/**', allowedDependencies: ['low'] },
+  ];
+
+  it('counts the cross-package layer violation when the flag is on', async () => {
+    const root = fixture(files, { version: 1, layers, deps: { resolveWorkspacePackages: true } });
+    const { metrics } = await recordedBaseline(root);
+    expect(metrics['layer-violations']!.value).toBe(1);
+  });
+
+  it('flag off: unchanged — the bare import is not followed (0 over a real denominator)', async () => {
+    const root = fixture(files, { version: 1, layers });
+    const { metrics, denominators } = await recordedBaseline(root);
+    expect(metrics['layer-violations']!.value).toBe(0);
+    expect(denominators['layer-violations']!.modulesAnalyzed as number).toBeGreaterThan(0);
+  });
+});
+
 describe('withDependencyRules', () => {
   const arch = ArchConfigSchema.parse({});
 
@@ -229,17 +258,44 @@ describe('abstainedMeasurements (issue #2235)', () => {
     expect(classifyMeasurement(dropped)).toBe('not-applicable');
   });
 
-  it('flags a run that globbed files but extracted zero functions', () => {
-    // `complexity` emits `functionsAnalyzed` alongside `filesAnalyzed`; a parser
-    // degradation that still walks the tree shows up here and nowhere else.
-    const flagged = abstainedMeasurements([
+  it('does NOT flag a run that analysed real files and found zero functions or edges (#2317)', () => {
+    // `functionsAnalyzed` and `edgeCount` are 0 for an honest reason over real
+    // files: a declaration-only / types-only package has no functions, and an
+    // import-free one has no in-project edges and so cannot contain a cycle.
+    // Once `filesAnalyzed` > 0 the collector measured something — a clean zero.
+    // (This test previously pinned `{filesAnalyzed: 31, functionsAnalyzed: 0}`
+    // as an abstention, which was the #2317 false abstention itself.)
+    const clean = [
       measurement({
         category: 'complexity',
         metadata: { filesAnalyzed: 31, functionsAnalyzed: 0 },
       }),
-    ]);
+      measurement({
+        category: 'circular-deps',
+        metadata: { largestCycle: 0, cycleCount: 0, filesAnalyzed: 2, edgeCount: 0 },
+      }),
+    ];
 
-    expect(flagged).toHaveLength(1);
+    expect(abstainedMeasurements(clean, declared({}))).toEqual([]);
+    expect(clean.map((m) => classifyMeasurement(m, declared({})))).toEqual([
+      'measured',
+      'measured',
+    ]);
+  });
+
+  it('still abstains on a zero function/edge count when no file count backs it (#2317)', () => {
+    // Without a positive `filesAnalyzed` there is nothing to say the collector
+    // ran over anything, so the zero stays an abstention.
+    for (const metadata of [
+      { functionsAnalyzed: 0 },
+      { edgeCount: 0 },
+      { filesAnalyzed: 0, functionsAnalyzed: 0 },
+      { filesAnalyzed: 0, edgeCount: 0 },
+    ]) {
+      expect(
+        classifyMeasurement(measurement({ category: 'complexity', metadata }), declared({}))
+      ).toBe('abstained');
+    }
   });
 
   it('does NOT flag a category the project never declared', () => {
@@ -327,11 +383,11 @@ describe('abstainedMeasurements (issue #2235)', () => {
       abstentionReason(
         measurement({
           category: 'complexity',
-          metadata: { filesAnalyzed: 31, functionsAnalyzed: 0 },
+          metadata: { filesAnalyzed: 0, functionsAnalyzed: 0 },
         }),
         declared({})
       )
-    ).toBe('nothing to measure (functionsAnalyzed=0)');
+    ).toBe('nothing to measure (filesAnalyzed=0, functionsAnalyzed=0)');
   });
 
   it('never silences a dead parser: the three ungated collectors still abstain', () => {
@@ -493,5 +549,76 @@ describe('abstention reporting over a real run (issue #2235)', () => {
     expect(abstainedMeasurements(measurements, categories).map((m) => m.category)).toContain(
       'layer-violations'
     );
+  });
+});
+
+describe('declaration-only and import-free packages are measured, not abstained (issue #2317)', () => {
+  // The four fixtures measured in #2317, run through the REAL collectors. Each
+  // has real files but no functions and no in-project import edges: a clean
+  // zero for both complexity and circular-deps, which used to abstain.
+  const config = { version: 1, architecture: { enabled: true } };
+  const fixtures: Record<string, Record<string, string>> = {
+    '.d.ts only, no imports': {
+      'src/a.d.ts': 'export declare const a: number;\n',
+      'src/b.d.ts': 'export interface B { b: string }\n',
+    },
+    '.d.ts re-export barrel': {
+      'src/index.d.ts': "export * from 'some-external-pkg';\n",
+      'src/types.d.ts': 'export type T = string;\n',
+    },
+    'types-only .ts': {
+      'src/types.ts': 'export interface User { id: string }\nexport type Id = string;\n',
+    },
+    'one .ts importing only node:fs, no functions': {
+      'src/fs.ts': "import * as fs from 'node:fs';\nexport const sep = fs.constants.F_OK;\n",
+    },
+  };
+
+  for (const [name, files] of Object.entries(fixtures)) {
+    it(`classifies complexity and circular-deps as measured: ${name}`, async () => {
+      const root = fixture(files, config);
+      const result = await runCheckArch({
+        cwd: root,
+        configPath: path.join(root, 'harness.config.json'),
+        updateBaseline: true,
+      });
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      const { measurements = [], configuredCategories } = result.value;
+      const byCategory = new Map(measurements.map((m) => [m.category, m]));
+
+      const complexity = byCategory.get('complexity')!;
+      const cycles = byCategory.get('circular-deps')!;
+      // Preconditions: this IS the #2317 shape — files analysed, zero work units.
+      expect(complexity.metadata!.filesAnalyzed as number).toBeGreaterThan(0);
+      expect(complexity.metadata!.functionsAnalyzed).toBe(0);
+      expect(cycles.metadata!.filesAnalyzed as number).toBeGreaterThan(0);
+      expect(cycles.metadata!.edgeCount).toBe(0);
+
+      expect(classifyMeasurement(complexity, configuredCategories)).toBe('measured');
+      expect(classifyMeasurement(cycles, configuredCategories)).toBe('measured');
+      const flagged = abstainedMeasurements(measurements, configuredCategories).map(
+        (m) => m.category
+      );
+      expect(flagged).not.toContain('complexity');
+      expect(flagged).not.toContain('circular-deps');
+    });
+  }
+
+  it('still abstains on both when there are no source files at all', async () => {
+    const root = fixture({ 'README.md': '# no source\n' }, config);
+    const result = await runCheckArch({
+      cwd: root,
+      configPath: path.join(root, 'harness.config.json'),
+      updateBaseline: true,
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    const flagged = abstainedMeasurements(
+      result.value.measurements ?? [],
+      result.value.configuredCategories
+    ).map((m) => m.category);
+    expect(flagged).toContain('complexity');
+    expect(flagged).toContain('circular-deps');
   });
 });

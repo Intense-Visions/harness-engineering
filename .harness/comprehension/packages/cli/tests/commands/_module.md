@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/tests/commands'
-sourceHash: '966196a8c1f73721eb699364c9c54af951e595a3c92a8e1dfe7597043fe95571'
+sourceHash: '39603323d3061e3115e442008afc18a587f221f7a86e9a292ed7cb02d2a9948e'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -30,6 +30,7 @@ members:
     'autonomy-show.test.ts',
     'backfill-skill-provenance.test.ts',
     'bugfleet-publish-analyses-prefix-crosstalk.test.ts',
+    'check-arch-abstention.test.ts',
     'check-arch-dependency-rules.test.ts',
     'check-arch.test.ts',
     'check-deployment.test.ts',
@@ -38,6 +39,8 @@ members:
     'check-deps-err-swallow.test.ts',
     'check-deps-no-layers-cycle.test.ts',
     'check-deps-skipped-abstention.test.ts',
+    'check-deps-unparseable-files.test.ts',
+    'check-deps-workspace-packages.test.ts',
     'check-deps.test.ts',
     'check-design-cov544.test.ts',
     'check-design-json-abstention.test.ts',
@@ -47,14 +50,18 @@ members:
     'check-harness-strength.test.ts',
     'check-operational-drift-cov544.test.ts',
     'check-perf-cov544.test.ts',
+    'check-perf-exclusions.test.ts',
     'check-perf.test.ts',
     'check-phase-gate.test.ts',
     'check-security-cov544.test.ts',
+    'check-security-readonly.test.ts',
     'check-security.test.ts',
     'check-vocabulary-cov544b.test.ts',
     'check-vocabulary.test.ts',
     'cleanup-cov544b.test.ts',
+    'cleanup-duplication-baseline.test.ts',
     'cleanup-duplication.test.ts',
+    'cleanup-findings-items.test.ts',
     'cleanup-sessions-cov544.test.ts',
     'cleanup-sessions.test.ts',
     'cleanup.test.ts',
@@ -86,6 +93,7 @@ members:
     'fix-drift-cov544.test.ts',
     'fix-drift.test.ts',
     'generate-agent-definitions-cov544b.test.ts',
+    'generate-agent-definitions-links.test.ts',
     'generate-agent-definitions.test.ts',
     'generate-slash-commands-cov544.test.ts',
     'generate-slash-commands.test.ts',
@@ -111,6 +119,7 @@ members:
     'install.test.ts',
     'integrations-sync.test.ts',
     'integrations.test.ts',
+    'json-result-channel.test.ts',
     'knowledge-craft-command.test.ts',
     'knowledge-craft-cov544.test.ts',
     'knowledge-pipeline-cov544b.test.ts',
@@ -249,7 +258,7 @@ import { ApiCraftOutput, ApiFinding } from '../../src/api-craft/findings/schema.
 import { ApiCraftInput, runApiCraft } from '../../src/api-craft/index.js'
 import { CliErgonomicsCraftOutput, CliErgonomicsFinding } from '../../src/cli-ergonomics-craft/findings/schema.js'
 import { CliErgonomicsCraftInput, runCliErgonomicsCraft } from '../../src/cli-ergonomics-craft/index.js'
-import { CodeCraftOutput, CodeFinding } from '../../src/code-craft/findings/schema.js'
+import { CodeCraftOutput, CodeFinding, SiblingIndexOutcome } from '../../src/code-craft/findings/schema.js'
 import { CodeCraftInput, runCodeCraft } from '../../src/code-craft/index.js'
 import { commandCreators } from '../../src/commands/_registry'
 import { createAddCommand, runAdd } from '../../src/commands/add'
@@ -277,7 +286,7 @@ import { createCheckPhaseGateCommand, runCheckPhaseGate } from '../../src/comman
 import { createCheckSecurityCommand, runCheckSecurity } from '../../src/commands/check-security'
 import { createCheckVocabularyCommand, runCheckVocabulary } from '../../src/commands/check-vocabulary'
 import '../../src/commands/ci/check'
-import { createCleanupCommand, printCleanupResult, runCleanup } from '../../src/commands/cleanup'
+import { buildCleanupFindingItems, createCleanupCommand, printCleanupResult, runCleanup } from '../../src/commands/cleanup'
 import { createCleanupSessionsCommand, printCleanupAllResult, printCleanupSessionsResult, runCleanupAll, runCleanupSessions } from '../../src/commands/cleanup-sessions'
 import { createCliErgonomicsCraftCommand } from '../../src/commands/cli-ergonomics-craft'
 import { createCodeCraftCommand } from '../../src/commands/code-craft'
@@ -397,7 +406,7 @@ import { runCrossCheck } from '../../src/commands/validate-cross-check'
 import { SCOPED_WALKERS, deriveChangedSurface, filterToDesignSurface } from '../../src/commands/validate-scope'
 import { createWaypointCommand } from '../../src/commands/waypoint'
 import { runComprehend, runComprehendCheck, runComprehendStats } from '../../src/comprehension/compile-run'
-import { resolveComprehensionCiMode } from '../../src/comprehension/config'
+import { readComprehensionConfig, resolveComprehensionCiMode } from '../../src/comprehension/config'
 import { shouldRunComprehendHook } from '../../src/comprehension/hook'
 import { committedSemanticAllowed } from '../../src/comprehension/policy'
 import { explainInactiveRefreshGate, resolveRefreshJobGate } from '../../src/comprehension/refresh-gate'
@@ -432,7 +441,7 @@ import { resolveAnalysisProvider } from '../../src/mcp/utils/analysis-provider'
 import '../../src/mcp/utils/graph-loader'
 import { NamingCraftInput, NamingCraftOutput } from '../../src/naming-craft/index.js'
 import { OutputFormatter, OutputMode } from '../../src/output/formatter'
-import { logger } from '../../src/output/logger'
+import { logger, setMachineOutput } from '../../src/output/logger'
 import { confirmYesNo, prompt } from '../../src/output/prompt'
 import { loadPersona } from '../../src/persona/loader'
 import { runPersona } from '../../src/persona/runner'
@@ -445,6 +454,8 @@ import { validateForPublish } from '../../src/registry/validator'
 import { ROLLBACK_EVENTS_FILE } from '../../src/rollback/breadcrumb'
 import { SweepSignalRule } from '../../src/rollback/sweep'
 import { SecurityCraftInput, SecurityCraftOutput } from '../../src/security-craft/index.js'
+import { collectDesignScanFiles, resolveDesignExcludePatterns } from '../../src/shared/design-scan-targets'
+import { DUPLICATION_BASELINE_PATH } from '../../src/shared/duplication-baseline'
 import { HealthSnapshot, captureHealthSnapshot, isSnapshotFresh, loadCachedSnapshot } from '../../src/skill/health-snapshot'
 import { loadOrRebuildIndex } from '../../src/skill/index-builder'
 import { derivePackageJson } from '../../src/skill/package-json'
@@ -456,18 +467,19 @@ import { CLIError, ExitCode } from '../../src/utils/errors'
 import { markSetupComplete } from '../../src/utils/first-run'
 import { CLI_VERSION } from '../../src/version'
 import { VocabularyRule, formatViolations, scanFiles, scanText } from '../../src/vocabulary/scanner'
+import { runHarness } from '../e2e/support/harness-cli'
 import { resolveProjectFrom } from '../helpers/resolve-project-mock'
 import { ConsoleCapture, captureConsole, runToExit, stubProcessExit } from './cli-command-harness'
 import { CraftCommandRun, DEFAULT_CWD, runCraftCommand } from './craft-command-harness-cohort-b'
 import { llmCalls, runCraftCommand } from './craft-command-harness.js'
 import { parseJsonStdout, runCommand } from './design-command-harness'
 import * as clack from '@clack/prompts'
-import { ArchConfigSchema, CiReviewResult, ConstraintError, DEFAULT_REMOTE_URL, DiffInfo, Err, GoldenFileChange, GoldenSnapshot, Ok, RefinementDemandReport, RollbackDecision, RunCiReviewOptions, SECURITY_SCAN_EXTENSIONS, SECURITY_SCAN_GLOB, applyFixes, archiveStream, buildSnapshot, checkTaint, clearTaint, computeRepoKey, createError, createFixes, createModelProposal, createProposal, createStream, detectDeadCode, detectDocDrift, extractBundle, generateSuggestions, listStreams, listTaintedSessions, loadStreamIndex, parseCiReviewVerdict, parseDiff, parseManifest, readAdoptionRecords, requestPeerReview, resetWaypointEmitterForTests, runReviewPipeline, sessionOverridePath, setActiveStream, validateAgentConfigs, validateAgentsMap, validateDecisionNumbers, validateKnowledgeMap, validatePulseConfig, validateRoadmapMode, validateSolutionsDir, validateStrategy, writeConfig, writeSessionOverride } from '@harness-engineering/core'
+import { ArchConfigSchema, CiReviewResult, Collector, ConstraintError, DEFAULT_REMOTE_URL, DiffInfo, Err, GoldenFileChange, GoldenSnapshot, MetricResult, Ok, RefinementDemandReport, RollbackDecision, RunCiReviewOptions, SECURITY_SCAN_EXTENSIONS, SECURITY_SCAN_GLOB, applyFixes, archiveStream, buildSnapshot, checkTaint, clearTaint, computeRepoKey, createError, createFixes, createModelProposal, createProposal, createStream, detectDeadCode, detectDocDrift, extractBundle, generateSuggestions, listStreams, listTaintedSessions, loadStreamIndex, parseCiReviewVerdict, parseDiff, parseManifest, readAdoptionRecords, requestPeerReview, resetWaypointEmitterForTests, runReviewPipeline, sessionOverridePath, setActiveStream, validateAgentConfigs, validateAgentsMap, validateDecisionNumbers, validateKnowledgeMap, validatePulseConfig, validateRoadmapMode, validateSolutionsDir, validateStrategy, writeConfig, writeSessionOverride } from '@harness-engineering/core'
 import '@harness-engineering/graph'
 import { GUARDIAN_ANALYSIS_SCHEMA, GUARDIAN_ANALYSIS_VERSION, GuardianAnalysis, OutcomeVerdict, SkillRegressionFixture, SkillRegressionVerdict } from '@harness-engineering/intelligence'
 import { AnalysisRecord, MockBackend, RunMode, RunResult, SyncMainResult, TaskDefinition, renderAnalysisComment } from '@harness-engineering/orchestrator'
 import { SignalResult, SignalsResult } from '@harness-engineering/signals'
-import { SdlcEvent, TrackerComment } from '@harness-engineering/types'
+import { SdlcEvent, TrackerComment, parseFindingsContract } from '@harness-engineering/types'
 import { execFileSync, execSync } from 'child_process'
 import { Command } from 'commander'
 import * as fs from 'fs'

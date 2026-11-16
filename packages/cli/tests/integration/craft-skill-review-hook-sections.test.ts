@@ -169,13 +169,19 @@ describe('no auto-wired craft tool instructs a repo-relative `files` path form',
 });
 
 // FINAL_REVIEW I-2. "Forwarding unresolved paths yields `status: "collected"`
-// with zero prompts" was asserted in six shipped prose sites. It is TRUE for
+// with zero prompts" was asserted in six shipped prose sites. It was TRUE for
 // the nine collector-based domains and FALSE for design_craft, which has no
 // collector at all: `grep -rn "'collected'" packages/cli/src/design-craft`
 // returns nothing, and a relative entry throws ENOENT out of runCritique
 // (pinned, with two mutants, in tests/design-craft/phases/files-path-form.ts).
 // The split is DERIVED here from CRAFT_REVIEW_DOMAINS and the source tree, so a
 // domain that gained or lost a collector reddens the prose law below with it.
+//
+// #2571 / PR #2573 then made the silent zero FALSE for the nine as well: every
+// collector now resolves a relative entry against the tool's `path` (pinned
+// behaviourally in tests/shared/craft/relative-files-scope.test.ts). The prose
+// law below therefore forbids the zero-prompts claim everywhere and demands the
+// corrected one, backed by a case in that behavioural law.
 describe('the `status: "collected"` claim is made only where a collector exists', () => {
   /** `harness-design-craft` -> src/design-craft; `code-craft` -> src/code-craft. */
   function srcDirFor(skill: string): string {
@@ -223,24 +229,61 @@ describe('the `status: "collected"` claim is made only where a collector exists'
     });
   }
 
+  const RELATIVE_LAW = path.join(
+    REPO_ROOT,
+    'packages',
+    'cli',
+    'tests',
+    'shared',
+    'craft',
+    'relative-files-scope.test.ts'
+  );
+  const relativeLaw = fs.readFileSync(RELATIVE_LAW, 'utf-8');
+
+  for (const skill of collectorDomains) {
+    it(`${skill}: the behavioural relative-files law has a case for it`, () => {
+      // The prose below claims this domain reads a relative entry. That claim
+      // is only as good as the law that measures it, so the domain must be a
+      // row in that law's CASES table (each row opens with the quoted name).
+      expect(relativeLaw, `${skill} has no row in relative-files-scope.test.ts`).toContain(
+        `'${skill}',`
+      );
+    });
+
+    for (const platform of PLATFORMS) {
+      it(`${platform}/${skill}: states relative entries resolve against \`path\`, not a silent zero`, () => {
+        const body = section(skillMd(platform, skill), skill).replace(/\s+/g, ' ');
+        // VACUITY CONTROL: the body is the real `files` contract.
+        expect(body).toContain('**`files`**');
+        expect(body, `${platform}/${skill} still claims the silent zero`).not.toMatch(
+          /zero prompts|collectors read nothing/
+        );
+        // The positive half at the same scope: deleting the false sentence is
+        // not a fix; it has to state what DOES happen.
+        expect(body).toMatch(/resolves a relative entry against the tool's `path`/);
+      });
+    }
+  }
+
   for (const host of ['harness-autopilot', 'harness-code-review'] as const) {
-    it(`${host}: qualifies the collected claim instead of stating it uniformly`, () => {
+    it(`${host}: splits the relative-path behaviour by domain without the stale silent zero`, () => {
       const md = skillMd('claude-code', host);
+      expect(md, `${host} still claims the silent zero`).not.toMatch(/zero prompts/);
+      expect(md, `${host} still claims a collected-with-nothing run`).not.toContain(
+        'status: "collected"'
+      );
       const lines = md.split('\n');
       const sites = lines
         .map((line, i) => ({ line, n: i + 1 }))
-        .filter(({ line }) => line.includes('status: "collected"'));
-      // CARDINALITY: one site per host today. A second, unqualified mention
-      // added later must redden rather than slip past a per-site loop.
+        .filter(({ line }) => line.includes('nine collector-based domains'));
+      // CARDINALITY: one site per host. A second mention must redden rather
+      // than slip past a per-site check.
       expect(sites).toHaveLength(1);
-      // WINDOW, not same-line: both hosts wrap prose at ~100 cols, so the
-      // qualifier lands on an adjacent line. VACUITY CHECKED — "nine
-      // collector-based domains" appears nowhere else in either file, so no
-      // unrelated prose can satisfy a window of this width.
+      // WINDOW, not same-line: both hosts wrap prose at ~100 cols.
       const { n } = sites[0]!;
-      const window = lines.slice(Math.max(0, n - 3), n + 3).join(' ');
-      expect(window, `${host} states the collected claim without the exception`).toMatch(
-        /nine collector-based domains/
+      const window = lines.slice(Math.max(0, n - 3), n + 5).join(' ');
+      expect(window, `${host} does not say the nine resolve against path`).toMatch(
+        /resolve a relative entry against the tool's `path`/
       );
       expect(window, `${host} does not name the design_craft throw`).toMatch(/ENOENT/);
     });
@@ -402,3 +445,16 @@ describe('a multi-language craft domain does not advertise itself as TS/JS-only'
 //
 // 4 registered mutants, 0 survivors (plus one self-inflicted red that found a
 // formatting-coupled probe before it shipped).
+
+// MUTATION RESULTS (2026-11-16, #2571 follow-up: the silent-zero prose law)
+//
+//  M-STALE-PROSE (also the PRE-EDIT control) — restored the original SKILL.md
+//    prose ("collectors read nothing ... zero prompts") in all 40 craft copies
+//    and both hosts, keeping this law. 38 RED: the 36 collector-domain ×
+//    platform cases plus both host cases; design-craft and the nine backing
+//    cases stayed GREEN. 38 failed | 63 passed (101).
+//  M-UNBACKED — deleted api-craft's row from relative-files-scope.test.ts.
+//    ONLY "api-craft: the behavioural relative-files law has a case for it"
+//    went RED. 1 failed | 100 passed (101).
+//
+// 2 registered mutants, 0 survivors.

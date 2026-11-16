@@ -76,7 +76,7 @@ harness comprehend --all`) — `--all` sweeps the current project root downward.
 
 ```bash
 harness comprehend --check   # token-free freshness gate; "All comprehension units are source-fresh." (exit 0)
-harness comprehend --stats   # served-vs-raw token savings across the fresh units
+harness comprehend --stats   # token savings + semantic present/absent ratio (--json for machine output)
 git add .harness/comprehension && git commit -m "chore: backfill comprehension substrate"
 ```
 
@@ -85,6 +85,13 @@ stand in for (typically ~80–95% per module). That is a per-module compaction
 measure, not an end-to-end guarantee — the realized context-replay reduction
 depends on how much of a leaf's context is blast-radius source vs. edit-region
 source and prompt/tool overhead.
+
+`--stats` also reports **semantic coverage** — how many committed units carry the
+semantic half (`semantic: present`) versus static-only (`semantic: absent`) — and
+`--check` repeats it: as a warning on `main` (the semantic debt the main-pass has
+not yet restored) and as info with `--context pr`, where static-only units are the
+designed outcome. Set `comprehension.maxSemanticAbsentRatio` (0–1) to make `--check`
+fail on `main` once the absent share exceeds that ceiling; it is off by default.
 
 ## 4. Keep it fresh (ongoing)
 
@@ -117,12 +124,13 @@ prompt.
 
 ## Troubleshooting
 
-| Symptom                                   | Cause / fix                                                                                                                                                                                    |
-| ----------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `--all` reports `0 semantic`              | No provider/model resolved. Set `comprehension.model` to a model your provider serves; check the stderr for the exact error.                                                                   |
-| `--check` exits non-zero                  | Some units are source-stale (expected after editing source without recompiling). Run `harness comprehend --changed` (or `--all`) then commit.                                                  |
-| Committed units show up in `grep`/ripgrep | They are tracked files, so raw text search matches them. Prefer the harness graph-scoped tools for code search, or use `"storage": "cache"` (gitignored) if you don't want them in raw search. |
-| Backfill is slow / burns rate limit       | Semantic backfill is one model call per module. Do Phase A (static) first, run Phase B when idle, and lean on `--changed` for steady-state.                                                    |
+| Symptom                                   | Cause / fix                                                                                                                                                                                                                         |
+| ----------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--all` reports `0 semantic`              | No provider/model resolved. Set `comprehension.model` to a model your provider serves; check the stderr for the exact error.                                                                                                        |
+| `--check` exits non-zero                  | Some units are source-stale (expected after editing source without recompiling). Run `harness comprehend --changed` (or `--all`) then commit.                                                                                       |
+| `--check` reports `orphan unit(s)`        | A committed unit's module directory was deleted, or is one `--all` never walks (dot-directories, `node_modules`/`dist`/`build`/`coverage`). Recompiling cannot clear it: run `harness comprehend --prune` and commit the deletions. |
+| Committed units show up in `grep`/ripgrep | They are tracked files, so raw text search matches them. Prefer the harness graph-scoped tools for code search, or use `"storage": "cache"` (gitignored) if you don't want them in raw search.                                      |
+| Backfill is slow / burns rate limit       | Semantic backfill is one model call per module. Do Phase A (static) first, run Phase B when idle, and lean on `--changed` for steady-state.                                                                                         |
 
 ## See also
 

@@ -7,19 +7,20 @@
     "enabled": false
   },
   "entropy": {
-    "enabled": false
+    "enabled": false,
+    "entryPoints": ["src/__init__.py"]
   },
   "performance": {
     "enabled": false
   },
   "template": {
     "language": "python",
-    "version": 1
-  },
-  "tooling": {
-    "packageManager": "pip",
-    "linter": "ruff",
-    "formatter": "ruff",
-    "testRunner": "pytest"
+    "version": 1,
+    "tooling": {
+      "packageManager": "pip",
+      "linter": "ruff",
+      "formatter": "ruff",
+      "testRunner": "pytest"
+    }
   }
 }

@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/src/architecture'
-sourceHash: '5e3334fe38b719e320c5e6316e82b0c022173023dd8627a1096a9c98d3e52b70'
+sourceHash: '5093ce7868e768b0a096544899b959c99b36eabc60e79cbb97bd565773c2ae1d'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -22,6 +22,7 @@ members:
     'prediction-engine.ts',
     'prediction-types.ts',
     'regression.ts',
+    'sort-results.ts',
     'spec-impact-estimator.ts',
     'sync-constraints.ts',
     'timeline-manager.ts',
@@ -66,6 +67,7 @@ export CategoryRegressionSchema
 export CategorySnapshotSchema
 export CircularDepsCollector
 export Collector
+export CollectorRunContext
 export ComplexityCollector
 export ConfidenceTier
 export ConfidenceTierSchema
@@ -140,6 +142,7 @@ export archModule
 export architecture
 export classifyConfidence
 export clusterViolations
+export compareViolations
 export constraintRuleId
 export defaultCollectors
 export detectEmergentConstraints
@@ -157,6 +160,7 @@ export resolveArchBaseline
 export resolveExcludePatterns
 export resolveThresholds
 export runAll
+export sortMetricResults
 export syncConstraintNodes
 export violationId
 export weeksUntilThreshold
@@ -181,6 +185,7 @@ import { constraintRuleId } from './collectors/hash'
 import { runAll } from './collectors/index'
 import { LayerViolationCollector } from './collectors/layer-violations'
 import { ModuleSizeCollector } from './collectors/module-size'
+import { CollectorRunContext } from './collectors/run-context'
 import { diff } from './diff'
 import { extractDirectoryScope, normalizeViolationPattern } from './normalize-pattern'
 import { AdjustedForecast, CategoryForecast, ConfidenceTier, Direction, PredictionOptions, PredictionResult, PredictionWarning, SpecImpactEstimate, StabilityForecast } from './prediction-types'

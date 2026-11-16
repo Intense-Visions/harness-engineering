@@ -1,3 +1,4 @@
+import * as path from 'node:path';
 import type { Persona, Step } from '../persona/schema';
 import { toKebabCase } from '../utils/string';
 
@@ -86,6 +87,46 @@ export const GEMINI_TOOL_MAP: Record<string, string> = {
   Grep: 'search_file_content',
 };
 
+const ABSOLUTE_TARGET = /^(?:[a-z][a-z0-9+.-]*:|#|\/)/i;
+const MARKDOWN_LINK = /!?\[([^\]\n]*)\]\(([^)\s]+)(?:\s+"[^"]*")?\)/g;
+
+/**
+ * Rewrite a skill's relative Markdown links as plain text naming the target.
+ *
+ * A SKILL.md links siblings such as `references/confidence-rubric.md` relative
+ * to its own skill directory. Inlined into a flat agents directory, those links
+ * resolve next to the generated file, where nothing is written (#2132). The
+ * generator has no output location for skill-owned files (one flat, synced
+ * directory shared by every persona), so the link becomes text that still names
+ * the reference, qualified by its skill: `harness-code-review/references/...`.
+ * A path that climbs out of the skill directory keeps only its in-repo tail.
+ * URLs, in-page anchors, absolute paths and code (fenced or inline) are left
+ * untouched.
+ */
+export function inlineRelativeLinks(markdown: string, skillName: string): string {
+  let inFence = false;
+  return markdown
+    .split('\n')
+    .map((line) => {
+      if (/^\s*(```|~~~)/.test(line)) {
+        inFence = !inFence;
+        return line;
+      }
+      if (inFence) return line;
+      const codeSpans = [...line.matchAll(/`[^`]*`/g)].map((m) => [m.index, m.index + m[0].length]);
+      const inCode = (at: number) => codeSpans.some(([start, end]) => at > start! && at < end!);
+      return line.replace(MARKDOWN_LINK, (match, text: string, target: string, at: number) => {
+        if (ABSOLUTE_TARGET.test(target) || inCode(at)) return match;
+        const named = path.posix
+          .normalize(path.posix.join(skillName, target))
+          .replace(/^(\.\.\/)+/, '');
+        const label = text.replace(/`/g, '').trim();
+        return label === '' || label === target ? `\`${named}\`` : `${text} (\`${named}\`)`;
+      });
+    })
+    .join('\n');
+}
+
 export function generateAgentDefinition(
   persona: Persona,
   skillContents: Map<string, string>
@@ -98,7 +139,7 @@ export function generateAgentDefinition(
   for (const skillName of persona.skills) {
     const content = skillContents.get(skillName);
     if (content) {
-      methodologyParts.push(content);
+      methodologyParts.push(inlineRelativeLinks(content, skillName));
     }
   }
 

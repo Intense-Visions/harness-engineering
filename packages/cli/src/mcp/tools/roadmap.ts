@@ -10,6 +10,7 @@ import {
   detectRoadmapStorageMode,
   archiveDoneShardsForProject,
   slugifyFeatureName,
+  validateRoadmapFeatureFields,
 } from '@harness-engineering/core';
 import type { Roadmap, Result } from '@harness-engineering/types';
 import { resultToMcpResponse } from '../utils/result-adapter.js';
@@ -83,6 +84,14 @@ export const manageRoadmapDefinition = {
         type: 'boolean',
         description: 'For sync action: override human-always-wins rule',
       },
+      external_id: {
+        type: 'string',
+        description:
+          'For add action: link the new row to an EXISTING tracker ticket (e.g. "github:<owner>/<repo>#<n>"). ' +
+          'The row records this External-ID and no tracker ticket is created. Idempotent: if any row ' +
+          'already carries this External-ID nothing is written. Returns a compact envelope ' +
+          '{ added, feature, milestone, externalId } instead of the whole roadmap. Not supported in file-less mode.',
+      },
     },
     required: ['path', 'action'],
   },
@@ -102,6 +111,7 @@ interface ManageRoadmapInput {
   filter?: string;
   apply?: boolean;
   force_sync?: boolean;
+  external_id?: string;
 }
 
 /**
@@ -112,6 +122,38 @@ interface ManageRoadmapInput {
  */
 async function loadRoadmap(projectRoot: string): Promise<Result<Roadmap>> {
   return resolveRoadmapStore({ projectRoot }).load();
+}
+
+/**
+ * Refuse a write whose field values carry a line break or other control
+ * character, before anything is persisted (#2623). The roadmap is line-oriented,
+ * so such a value used to land on disk as a NEW line: a forged
+ * `- **Status:** done` bullet flipped the row, a forged `### ` heading made every
+ * later read fail. The rules live in core (`validateRoadmapFeatureFields`) next
+ * to the serializer that also refuses to emit a line break; this is the
+ * API-boundary half, which reports the field and writes nothing. Runs before the
+ * mode dispatch so file-less mode gets the same contract.
+ */
+function unsafeFieldError(input: ManageRoadmapInput): McpResponse | null {
+  if (input.action !== 'add' && input.action !== 'update' && input.action !== 'promote') {
+    return null;
+  }
+  const checked = validateRoadmapFeatureFields({
+    name: input.feature,
+    milestone: input.milestone,
+    status: input.status,
+    summary: input.summary,
+    spec: input.spec,
+    plans: input.plans,
+    blockedBy: input.blocked_by,
+    assignee: input.assignee,
+    externalId: input.external_id,
+  });
+  if (checked.ok) return null;
+  return {
+    content: [{ type: 'text' as const, text: `Error: ${checked.error.message}; nothing written` }],
+    isError: true,
+  };
 }
 
 /**
@@ -322,9 +364,89 @@ function buildFeatureFromInput(input: ManageRoadmapInput) {
     summary: input.summary!,
     assignee: null,
     priority: null,
-    externalId: null,
+    externalId: input.external_id ?? null,
     updatedAt: null,
   };
+}
+
+/**
+ * `<kind>:<ref>` with no whitespace — e.g. `github:owner/repo#42`. The value is
+ * written verbatim into a markdown field line, so whitespace (a newline in
+ * particular) would let a caller inject extra fields into the row.
+ */
+const EXTERNAL_ID_PATTERN = /^[a-z][a-z0-9-]*:\S+$/;
+
+/**
+ * `add` with a caller-supplied External-ID (#2328): the ticket already exists,
+ * so the row records the link and the tracker is NOT asked to create one —
+ * a create here mints a duplicate of the very issue being routed. Idempotent
+ * by External-ID across every milestone, and the response is a compact
+ * envelope: echoing the whole roadmap made this call's payload grow with the
+ * roadmap (hundreds of KB) for a caller that only needs to know the outcome.
+ */
+async function handleAddLinked(
+  projectPath: string,
+  input: ManageRoadmapInput,
+  deps: RoadmapDeps
+): Promise<McpResponse> {
+  const externalId = input.external_id!;
+  if (!EXTERNAL_ID_PATTERN.test(externalId)) {
+    return {
+      content: [
+        {
+          type: 'text' as const,
+          text: `Error: external_id "${externalId}" is malformed; expected <kind>:<ref> with no whitespace (e.g. github:owner/repo#42)`,
+        },
+      ],
+      isError: true,
+    };
+  }
+
+  const result = await loadRoadmap(projectPath);
+  if (!result.ok) return resultToMcpResponse(result);
+  const roadmap = result.value;
+  const before = structuredClone(roadmap);
+
+  const wanted = externalId.toLowerCase();
+  for (const m of roadmap.milestones) {
+    const existing = m.features.find((f) => f.externalId?.toLowerCase() === wanted);
+    if (existing) {
+      return resultToMcpResponse(
+        deps.Ok({
+          added: false,
+          feature: existing.name,
+          milestone: m.name,
+          externalId: existing.externalId,
+          message: `A row already carries External-ID ${existing.externalId}; nothing written.`,
+        })
+      );
+    }
+  }
+
+  const milestone = roadmap.milestones.find(
+    (m) => m.name.toLowerCase() === input.milestone!.toLowerCase()
+  );
+  if (!milestone) {
+    return {
+      content: [{ type: 'text' as const, text: `Error: milestone "${input.milestone}" not found` }],
+      isError: true,
+    };
+  }
+
+  milestone.features.push(buildFeatureFromInput(input));
+  roadmap.frontmatter.lastManualEdit = new Date().toISOString();
+
+  const persisted = await persistRoadmap(projectPath, before, roadmap);
+  if (!persisted.ok) return resultToMcpResponse(persisted);
+
+  return resultToMcpResponse(
+    deps.Ok({
+      added: true,
+      feature: input.feature!,
+      milestone: milestone.name,
+      externalId,
+    })
+  );
 }
 
 /**
@@ -377,6 +499,8 @@ async function handleAdd(
   if (validationError) return validationError;
 
   if (!roadmapSourceExists(projectPath)) return roadmapNotFoundError();
+
+  if (input.external_id !== undefined) return handleAddLinked(projectPath, input, deps);
 
   const result = await loadRoadmap(projectPath);
   if (!result.ok) return resultToMcpResponse(result);
@@ -872,6 +996,41 @@ function shouldTriggerExternalSync(input: ManageRoadmapInput, response: McpRespo
   return true;
 }
 
+/**
+ * Statuses the roadmap parser accepts (`VALID_STATUSES` in core's
+ * `roadmap/parse.ts`; `FeatureStatus` in types). The schema `enum` above is
+ * advisory — the MCP Server does not validate input — and the parser only sees
+ * a written row on the read-back AFTER persist, so an unchecked status used to
+ * land on disk and make every later read fail (#2619).
+ */
+const WRITABLE_STATUSES: ReadonlySet<string> = new Set([
+  'backlog',
+  'planned',
+  'in-progress',
+  'done',
+  'blocked',
+  'needs-human',
+]);
+
+/** Reject an invalid `status` on a write action before anything is persisted. */
+function invalidStatusError(input: ManageRoadmapInput): McpResponse | null {
+  if (input.action !== 'add' && input.action !== 'update') return null;
+  // A falsy status is "not supplied": add reports it as a missing field and
+  // update leaves the row's status unchanged, exactly as before.
+  if (!input.status || WRITABLE_STATUSES.has(input.status)) return null;
+  return {
+    content: [
+      {
+        type: 'text' as const,
+        text:
+          `Error: invalid status "${String(input.status)}"; nothing written. ` +
+          `Valid statuses: ${[...WRITABLE_STATUSES].join(', ')}`,
+      },
+    ],
+    isError: true,
+  };
+}
+
 export async function handleManageRoadmap(input: ManageRoadmapInput): Promise<McpResponse> {
   // `sanitizePath` throws synchronously on a missing/non-string `path` (e.g.
   // `path.resolve(undefined)`). Every other validation failure in this file
@@ -893,12 +1052,17 @@ export async function handleManageRoadmap(input: ManageRoadmapInput): Promise<Mc
     };
   }
 
+  const statusError = invalidStatusError(input);
+  if (statusError) return statusError;
+
   // Phase 4 / S1: dispatch on roadmap mode.
   // Note: `sanitizePath(input.path)` runs upstream of the file-less guard,
   // so any externalId resolution downstream (in handleManageRoadmapFileLess)
   // sees a sanitized project path. The externalId itself comes from the
   // tracker client response, not from `input`, and is guarded again by the
   // adapter's confused-deputy check (see github-issues.ts).
+  const fieldError = unsafeFieldError(input);
+  if (fieldError) return fieldError;
   const mode = loadProjectRoadmapMode(projectPathPre);
   if (mode === 'file-less') {
     const trackerCfg = loadTrackerClientConfigFromProject(projectPathPre);

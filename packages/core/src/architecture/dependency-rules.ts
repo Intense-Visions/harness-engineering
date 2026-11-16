@@ -48,6 +48,8 @@ export function withDependencyRules(
       pattern: rootPrefix ? path.posix.join(rootPrefix, layer.pattern) : layer.pattern,
     })),
     forbiddenImports: source.forbiddenImports ?? [],
+    // Only stamped when on, so the default config stays byte-identical (#2216).
+    ...(source.resolveWorkspacePackages === true ? { resolveWorkspacePackages: true } : {}),
   };
 }
 
@@ -77,6 +79,13 @@ function toForbiddenImportRule(raw: unknown): ArchForbiddenImportRule | undefine
   };
 }
 
+/** `deps.resolveWorkspacePackages` out of a raw config record; anything but `true` is off. */
+export function readResolveWorkspacePackages(config: Record<string, unknown>): boolean {
+  const deps = config.deps;
+  if (typeof deps !== 'object' || deps === null) return false;
+  return (deps as Record<string, unknown>).resolveWorkspacePackages === true;
+}
+
 /**
  * Read the dependency-rule slice out of a raw harness config record.
  *
@@ -98,5 +107,6 @@ export function readDependencyRules(config: Record<string, unknown>): Dependency
     ...(typeof config.rootDir === 'string' ? { rootDir: config.rootDir } : {}),
     layers,
     forbiddenImports,
+    ...(readResolveWorkspacePackages(config) ? { resolveWorkspacePackages: true } : {}),
   };
 }

@@ -568,7 +568,8 @@ Simulate cascading failure propagation from a source node using probability-weig
 
 **Parameters:**
 
-- `path` (string, required) — Path to project root
+- `path` (string, optional) — Path to project root (defaults to the server working directory)
+- `projectPath` (string, optional) — Alias for path
 - `file` (string, optional) — File path (relative to project root) to simulate failure for
 - `nodeId` (string, optional) — Node ID to simulate failure for
 - `probabilityFloor` (number, optional) — Minimum cumulative probability to continue traversal (default 0.05)
@@ -1050,7 +1051,8 @@ List performance-critical functions from @perf-critical annotations and graph in
 
 **Parameters:**
 
-- `path` (string, required) — Path to project root
+- `path` (string, optional) — Path to project root (defaults to the server working directory)
+- `projectPath` (string, optional) — Alias for path
 
 **CLI equivalent:** [`harness perf critical-paths`](cli-commands.md#harness-perf-critical-paths)
 
@@ -1081,7 +1083,8 @@ Analyze the impact of changing a node or file. Returns affected tests, docs, cod
 
 **Parameters:**
 
-- `path` (string, required) — Path to project root
+- `path` (string, optional) — Path to project root (defaults to the server working directory)
+- `projectPath` (string, optional) — Alias for path
 - `nodeId` (string, optional) — ID of the node to analyze impact for
 - `filePath` (string, optional) — File path (relative to project root) to analyze impact for
 - `mode` (string, optional) — Response density: summary returns impacted file count by category + highest-risk items, detailed returns full impact tree. Default: detailed
@@ -1375,6 +1378,7 @@ Manage the project roadmap: show, add, update, remove, promote, sync, groom feat
 - `filter` (string, optional) — Query filter: "blocked", "in-progress", "done", "planned", "backlog", or "milestone:&lt;name>" (required for query)
 - `apply` (boolean, optional) — For sync action: apply proposed changes (default: false, preview only)
 - `force_sync` (boolean, optional) — For sync action: override human-always-wins rule
+- `external_id` (string, optional) — For add action: link the new row to an EXISTING tracker ticket (e.g. "github:&lt;owner>/&lt;repo>#&lt;n>"). The row records this External-ID and no tracker ticket is created. Idempotent: if any row already carries this External-ID nothing is written. Returns a compact envelope { added, feature, milestone, externalId } instead of the whole roadmap. Not supported in file-less mode.
 
 ### `manage_state`
 

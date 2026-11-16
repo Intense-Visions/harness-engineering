@@ -376,8 +376,20 @@ describe('runHealthChecks', () => {
           {
             type: 'text',
             text: JSON.stringify({
-              deadCode: { unusedExports: ['a', 'b'], unusedImports: [], deadFiles: ['x.ts'] },
-              drift: { staleReferences: ['ref1'], missingTargets: [] },
+              // detect_entropy summary mode (#2589).
+              mode: 'summary',
+              totalIssues: 4,
+              categories: {
+                drift: { issueCount: 1, topIssues: [] },
+                deadCode: {
+                  issueCount: 3,
+                  topIssues: [],
+                  deadExports: 2,
+                  deadFiles: 1,
+                  unusedImports: 0,
+                },
+                patterns: { issueCount: 0, topIssues: [] },
+              },
             }),
           },
         ],
@@ -415,6 +427,29 @@ describe('runHealthChecks', () => {
     expect(checks.lint.passed).toBe(true);
   });
 
+  // Issue #2474: a health snapshot is a read-only probe, but it ran the security
+  // scan through the MCP handler with its default timeline capture, so dispatching
+  // skills appended a snapshot to the tracked `.harness/security/timeline.json`.
+  it('runs the security scan without recording to the tracked timeline (#2474)', async () => {
+    const ok = { content: [{ type: 'text', text: '{}' }] };
+    vi.doMock('../../src/mcp/tools/assess-project', () => ({
+      handleAssessProject: vi.fn().mockResolvedValue(ok),
+    }));
+    vi.doMock('../../src/mcp/tools/architecture', () => ({
+      handleCheckDependencies: vi.fn().mockResolvedValue(ok),
+    }));
+    vi.doMock('../../src/mcp/tools/entropy', () => ({
+      handleDetectEntropy: vi.fn().mockResolvedValue(ok),
+    }));
+    const scan = vi.fn().mockResolvedValue(ok);
+    vi.doMock('../../src/mcp/tools/security', () => ({ handleRunSecurityScan: scan }));
+
+    const { runHealthChecks } = await import('../../src/skill/health-snapshot');
+    await runHealthChecks('/tmp/test-project');
+
+    expect(scan).toHaveBeenCalledWith({ path: '/tmp/test-project', record: false });
+  });
+
   it('does not crash when a tool returns isError with non-JSON text', async () => {
     // Regression: previously parseToolResult called JSON.parse on the error text and
     // crashed with `Unexpected token 'E', "Error: Max"... is not valid JSON`, breaking
@@ -444,7 +479,10 @@ describe('runHealthChecks', () => {
     const { runHealthChecks } = await import('../../src/skill/health-snapshot');
     const checks = await runHealthChecks('/tmp/test-project');
 
-    // Failed tool degrades to default zero counts; other tools continue.
+    // Failed tool degrades to zero counts marked NOT MEASURED (never a clean
+    // pass, #2589); other tools continue.
+    expect(checks.entropy.measured).toBe(false);
+    expect(checks.entropy.passed).toBe(false);
     expect(checks.entropy.deadExports).toBe(0);
     expect(checks.entropy.deadFiles).toBe(0);
     expect(checks.entropy.driftCount).toBe(0);
@@ -573,7 +611,27 @@ describe('captureHealthSnapshot', () => {
     }));
     vi.doMock('../../src/mcp/tools/entropy', () => ({
       handleDetectEntropy: vi.fn().mockResolvedValue({
-        content: [{ type: 'text', text: JSON.stringify({ deadCode: {}, drift: {} }) }],
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify({
+              // detect_entropy summary mode (#2589).
+              mode: 'summary',
+              totalIssues: 0,
+              categories: {
+                drift: { issueCount: 0, topIssues: [] },
+                deadCode: {
+                  issueCount: 0,
+                  topIssues: [],
+                  deadExports: 0,
+                  deadFiles: 0,
+                  unusedImports: 0,
+                },
+                patterns: { issueCount: 0, topIssues: [] },
+              },
+            }),
+          },
+        ],
       }),
     }));
     vi.doMock('../../src/mcp/tools/security', () => ({
@@ -673,8 +731,20 @@ describe('captureHealthSnapshot', () => {
           {
             type: 'text',
             text: JSON.stringify({
-              deadCode: { unusedExports: ['a'], deadFiles: [] },
-              drift: { staleReferences: ['r1'], missingTargets: [] },
+              // detect_entropy summary mode (#2589).
+              mode: 'summary',
+              totalIssues: 2,
+              categories: {
+                drift: { issueCount: 1, topIssues: [] },
+                deadCode: {
+                  issueCount: 1,
+                  topIssues: [],
+                  deadExports: 1,
+                  deadFiles: 0,
+                  unusedImports: 0,
+                },
+                patterns: { issueCount: 0, topIssues: [] },
+              },
             }),
           },
         ],
@@ -771,7 +841,27 @@ describe('captureHealthSnapshot', () => {
     }));
     vi.doMock('../../src/mcp/tools/entropy', () => ({
       handleDetectEntropy: vi.fn().mockResolvedValue({
-        content: [{ type: 'text', text: JSON.stringify({ deadCode: {}, drift: {} }) }],
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify({
+              // detect_entropy summary mode (#2589).
+              mode: 'summary',
+              totalIssues: 0,
+              categories: {
+                drift: { issueCount: 0, topIssues: [] },
+                deadCode: {
+                  issueCount: 0,
+                  topIssues: [],
+                  deadExports: 0,
+                  deadFiles: 0,
+                  unusedImports: 0,
+                },
+                patterns: { issueCount: 0, topIssues: [] },
+              },
+            }),
+          },
+        ],
       }),
     }));
     vi.doMock('../../src/mcp/tools/security', () => ({

@@ -79,8 +79,20 @@ vi.mock('../../src/mcp/tools/entropy', () => ({
       {
         type: 'text',
         text: JSON.stringify({
-          deadCode: { unusedExports: ['fn1', 'fn2'], unusedImports: [], deadFiles: ['old.ts'] },
-          drift: { staleReferences: ['ref1'], missingTargets: [] },
+          // detect_entropy summary mode (#2589).
+          mode: 'summary',
+          totalIssues: 4,
+          categories: {
+            drift: { issueCount: 1, topIssues: [] },
+            deadCode: {
+              issueCount: 3,
+              topIssues: [],
+              deadExports: 2,
+              deadFiles: 1,
+              unusedImports: 0,
+            },
+            patterns: { issueCount: 0, topIssues: [] },
+          },
         }),
       },
     ],
@@ -228,8 +240,20 @@ describe('Recommendation Pipeline Integration', { timeout: 10000 }, () => {
         {
           type: 'text',
           text: JSON.stringify({
-            deadCode: { unusedExports: [], unusedImports: [], deadFiles: [] },
-            drift: { staleReferences: [], missingTargets: [] },
+            // detect_entropy summary mode (#2589).
+            mode: 'summary',
+            totalIssues: 0,
+            categories: {
+              drift: { issueCount: 0, topIssues: [] },
+              deadCode: {
+                issueCount: 0,
+                topIssues: [],
+                deadExports: 0,
+                deadFiles: 0,
+                unusedImports: 0,
+              },
+              patterns: { issueCount: 0, topIssues: [] },
+            },
           }),
         },
       ],

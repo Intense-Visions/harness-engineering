@@ -210,14 +210,25 @@ Tunes `harness check-deps` discovery — the set of files considered for both la
 
 ### DepsConfig Object
 
-| Field              | Type                          | Default  | Description                                                                                                                                                         |
-| ------------------ | ----------------------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `exclude`          | `string[]`                    | `[]`     | Extra glob patterns (minimatch) excluded from `check-deps` discovery, stacked on top of the built-in skip-list. Lets you scope without shrinking a layer `pattern`. |
-| `fallbackBehavior` | `"skip" \| "warn" \| "error"` | `"skip"` | What `check-deps` does when the analysis engine cannot run (the parser reports itself unavailable). See below.                                                      |
+| Field                      | Type                          | Default  | Description                                                                                                                                                         |
+| -------------------------- | ----------------------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `exclude`                  | `string[]`                    | `[]`     | Extra glob patterns (minimatch) excluded from `check-deps` discovery, stacked on top of the built-in skip-list. Lets you scope without shrinking a layer `pattern`. |
+| `fallbackBehavior`         | `"skip" \| "warn" \| "error"` | `"skip"` | What `check-deps` does when the analysis engine cannot run (the parser reports itself unavailable). See below.                                                      |
+| `resolveWorkspacePackages` | `boolean`                     | `false`  | Follow imports of workspace packages by name (`@scope/pkg`, `@scope/pkg/sub`) so layer `allowedDependencies` are enforced **between** packages. See below.          |
 
 Mirrors [`analysis.exclude`](#analysis) and [`design.exclude`](#design). Prefer `deps.exclude` over narrowing a layer `pattern` to silence a finding — narrowing the pattern also shrinks what the gate actually checks.
 
-`check-deps` reports the analyzed-module count ("Analyzed N module(s) across M layer(s).") so the scanned denominator is observable. A run with layers configured that discovers **zero** modules fails rather than reporting clean.
+`check-deps` reports the analyzed-module count ("Analyzed N module(s) across M layer(s).") so the scanned denominator is observable. The count is the number of source files whose imports were actually read — directories, non-source files a layer glob happens to match, and files that failed to parse are not counted. A run with layers configured that discovers **zero** modules fails rather than reporting clean.
+
+A source file that **fails to parse** (a syntax error, or import extraction failing) is never dropped silently: its imports — and any layer violation or cycle among them — were not checked. Each such file is reported by path on the "checks that could not run" channel below and is treated like an engine abstention: exit `3` by default, downgraded to `0` (still reported) under `fallbackBehavior: "warn"`. Fix the file, or exclude it with `deps.exclude`.
+
+#### Cross-package imports (`resolveWorkspacePackages`)
+
+By default only **relative** imports become edges in the layer check, so in a monorepo a package-to-package import such as `import { x } from '@scope/core'` is never checked against `allowedDependencies` — a layer declared per package documents intent but does not enforce it between packages (issue #2216).
+
+`deps.resolveWorkspacePackages: true` resolves a bare specifier that names a workspace package to a source file inside it. Workspace members come from `pnpm-workspace.yaml` `packages`, or the root `package.json` `workspaces` field, keyed by each member's `package.json` `name`. The package's `exports` (or `source`/`module`/`main`) target is mapped back from a build directory (`dist/`, `build/`, `lib/`, `out/`) to `src/`, falling back to `src/index` (or `src/<subpath>`). A specifier that names no workspace package — `lodash`, `node:fs` — is ignored, as before. Wildcard (`./*`) export patterns are not expanded.
+
+It is **opt-in** because turning it on in an existing monorepo can surface violations that were previously invisible. Enable it, triage what it reports (fix the import, or update the layer's `allowedDependencies` if the dependency is intended), then keep it on. It applies to `harness check-deps`, the `check_dependencies` MCP tool, the `layer-violations` metric of `harness check-arch`, and the `deps` step of `harness ci check`, so all four agree on cross-package edges.
 
 #### When the analysis engine cannot run
 
@@ -237,7 +248,8 @@ An engine that cannot run has **abstained**, not passed. `check-deps` reports th
 {
   "deps": {
     "exclude": ["packages/*/generated/**", "**/*.pb.ts"],
-    "fallbackBehavior": "skip"
+    "fallbackBehavior": "skip",
+    "resolveWorkspacePackages": true
   }
 }
 ```
@@ -363,14 +375,14 @@ These fields are escape hatches for projects with non-standard cache or output d
 - **Type:** `EntropyConfig`
 - **Required:** No
 
-Configures entropy detection, which identifies high-entropy strings (potential secrets or credentials) in source files.
+Configures codebase entropy analysis — the decay that accumulates as code and docs evolve apart: documentation drift (`drift`), dead code (unreachable exports and files, traced from `entryPoints`), pattern violations (`patterns`), and duplicated code units (`duplication`). It backs `harness cleanup`, the `detect_entropy` MCP tool, and the `entropy` check of `harness ci check`. The drift, dead-code and pattern analyzers are TypeScript-based; set `enabled: false` to declare them not applicable on other stacks. This block does not scan for secrets or high-entropy strings — that is the [`security`](#security) scanner's job.
 
 ### EntropyConfig Object
 
-| Field             | Type       | Default                                  | Description                                 |
-| ----------------- | ---------- | ---------------------------------------- | ------------------------------------------- |
-| `excludePatterns` | `string[]` | `["**/node_modules/**", "**/*.test.ts"]` | Glob patterns to exclude from entropy scans |
-| `autoFix`         | `boolean`  | `false`                                  | Automatically apply fixes when detected     |
+| Field             | Type       | Default                                  | Description                                                                                                                      |
+| ----------------- | ---------- | ---------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| `excludePatterns` | `string[]` | `["**/node_modules/**", "**/*.test.ts"]` | Glob patterns to exclude from entropy scans. `harness check-perf` honours the same patterns and also skips every gitignored path |
+| `autoFix`         | `boolean`  | `false`                                  | Automatically apply fixes when detected                                                                                          |
 
 ### Example
 
@@ -505,15 +517,16 @@ correctness, `git push`, and CI run with no LLM and no API token.
 
 ### ComprehensionConfig Object
 
-| Field             | Type                             | Default       | Description                                                                                                                                                                                                                                                         |
-| ----------------- | -------------------------------- | ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `storage`         | `"committed" \| "cache"`         | `"committed"` | Where units live. `committed` writes git-tracked units under `.harness/comprehension/` (versioned alongside the code); `cache` writes disposable, git-ignored units.                                                                                                |
-| `semantic`        | `boolean`                        | `true`        | Whether to generate the advisory LLM half (summary + invariants). `false` ⇒ **static-only**, never resolves a provider or calls an LLM.                                                                                                                             |
-| `model`           | `string \| null`                 | `null`        | Override the semantic-tier model. `null` uses the default cheap/fast tier (comprehension summarizes, it does not reason).                                                                                                                                           |
-| `maxTokensPerRun` | `number` (positive int)          | `200000`      | Per-run semantic token budget. When exhausted the run fails loud; remaining modules are left `semantic: absent`, never silently partial.                                                                                                                            |
-| `concurrency`     | `number` (positive int)          | `4`           | Bounded concurrency for semantic generation.                                                                                                                                                                                                                        |
-| `ci`              | `"verify" \| "refresh" \| "off"` | `"verify"`    | CI behavior. `verify` runs the token-free static/hash freshness backstop (non-blocking); `refresh` is an opt-in, token-gated regeneration job; `off` disables the CI step.                                                                                          |
-| `hook`            | `boolean`                        | `false`       | Opt-in git pre-commit hook. When `true`, a config-gated, **static-only, non-blocking** step runs `harness comprehend --changed --static --stage` so a source change lands with its refreshed unit in the same commit. Never calls an LLM and never blocks a commit. |
+| Field                    | Type                             | Default       | Description                                                                                                                                                                                                                                                                                                |
+| ------------------------ | -------------------------------- | ------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `storage`                | `"committed" \| "cache"`         | `"committed"` | Where units live. `committed` writes git-tracked units under `.harness/comprehension/` (versioned alongside the code); `cache` writes disposable, git-ignored units.                                                                                                                                       |
+| `semantic`               | `boolean`                        | `true`        | Whether to generate the advisory LLM half (summary + invariants). `false` ⇒ **static-only**, never resolves a provider or calls an LLM.                                                                                                                                                                    |
+| `model`                  | `string \| null`                 | `null`        | Override the semantic-tier model. `null` uses the default cheap/fast tier (comprehension summarizes, it does not reason).                                                                                                                                                                                  |
+| `maxTokensPerRun`        | `number` (positive int)          | `200000`      | Per-run semantic token budget. When exhausted the run fails loud; remaining modules are left `semantic: absent`, never silently partial.                                                                                                                                                                   |
+| `concurrency`            | `number` (positive int)          | `4`           | Bounded concurrency for semantic generation.                                                                                                                                                                                                                                                               |
+| `ci`                     | `"verify" \| "refresh" \| "off"` | `"verify"`    | CI behavior. `verify` runs the token-free static/hash freshness backstop (non-blocking); `refresh` is an opt-in, token-gated regeneration job; `off` disables the CI step.                                                                                                                                 |
+| `maxSemanticAbsentRatio` | `number` (0–1)                   | unset (off)   | Optional ceiling on the committed substrate's `semantic: absent` share. Unset ⇒ `harness comprehend --check` only warns with the ratio on `main`; set ⇒ `--check` fails on `main` when the absent ratio exceeds it. Never applies with `--context pr` (static-only units are expected there, ADR 0116 §4). |
+| `hook`                   | `boolean`                        | `false`       | Opt-in git pre-commit hook. When `true`, a config-gated, **static-only, non-blocking** step runs `harness comprehend --changed --static --stage` so a source change lands with its refreshed unit in the same commit. Never calls an LLM and never blocks a commit.                                        |
 
 ### Example
 

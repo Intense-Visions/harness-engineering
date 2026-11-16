@@ -1,5 +1,5 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { render, screen, act } from '@testing-library/react';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { render, act } from '@testing-library/react';
 import { expectRenderedOnce, expectNotRendered } from './render-assertions';
 import React from 'react';
 import { StreamingIndicator } from '../../../../../src/client/components/chat/blocks/StreamingIndicator';

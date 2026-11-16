@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/tests/comprehension'
-sourceHash: 'fa756dab8d342d409fd86ea517242fb576bbe838701ff494f6a5d9146481934e'
+sourceHash: '4068f7e81c0bff5543f3ec0eb8a32a442c20a8c262e803a3135d9a622dc3e952'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -15,8 +15,10 @@ members:
     'hook.test.ts',
     'invalidation.test.ts',
     'policy.test.ts',
+    'prune.test.ts',
     'refresh-gate.test.ts',
     'regression.test.ts',
+    'semantic-coverage.test.ts',
   ]
 ---
 
@@ -39,8 +41,10 @@ import { DEFAULT_DIGEST_CHAR_BUDGET, DEFAULT_MAX_OUTPUT_TOKENS, DEFAULT_SEMANTIC
 import { shouldRunComprehendHook } from '../../src/comprehension/hook'
 import { enumerateModules, filesToModules } from '../../src/comprehension/invalidation'
 import { MAIN_BRANCH, committedSemanticAllowed, isMainPassContext, resolveComprehensionBranch } from '../../src/comprehension/policy'
+import { pruneOrphanUnits } from '../../src/comprehension/prune'
 import { RefreshJobGateReason, explainInactiveRefreshGate, resolveRefreshJobGate } from '../../src/comprehension/refresh-gate'
 import { RefReadDeps, SemanticState, detectCommittedSemanticOnBranch, detectSemanticRegressions, parseModuleSemantic, readSemanticMapAtRef } from '../../src/comprehension/regression'
+import { assessSemanticCoverage, formatSemanticCoverage } from '../../src/comprehension/semantic-coverage'
 import { createStaticExtractor } from '../../src/comprehension/static-extractor'
 import { ComprehensionConfigSchema, HarnessConfig, HarnessConfigSchema } from '../../src/config/schema'
 import { ComprehensionStore, SemanticInput, SourceFile, StaticExtraction, compileModule, createNodeComprehensionIO, createNodeModuleSourceReader, serveGate } from '@harness-engineering/core'

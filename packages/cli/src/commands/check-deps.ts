@@ -5,10 +5,11 @@ import { Ok } from '@harness-engineering/core';
 import {
   validateDependencies,
   detectCircularDepsInFiles,
-  defineLayer,
+  resolveDepsSettings,
+  toLayerConfig,
   TypeScriptParser,
 } from '@harness-engineering/core';
-import type { LayerConfig } from '@harness-engineering/core';
+import type { UnparsedFile } from '@harness-engineering/core';
 import { formatFindingsContract } from '@harness-engineering/types';
 import { resolveProject } from '../config/loader';
 import { loadDepsExclude } from '../config/schema';
@@ -35,9 +36,11 @@ interface CheckDepsOptions {
  * `unavailableChecks` entry `OutputFormatter.formatValidation` renders, and the
  * identical structure `harness validate` already emits.
  */
-interface UnavailableCheck {
+export interface UnavailableCheck {
   /** The analysis that abstained. */
   check: string;
+  /** Posix-relative path, when the abstention is about one file (#2073). */
+  file?: string;
   /** Why it did not run. Carries the engine's own reason verbatim. */
   reason: string;
   /** What the operator should do about it. */
@@ -159,6 +162,73 @@ function recordAbstention(
   result.valid = false;
 }
 
+/**
+ * Record source files the analysis could not parse (#2073).
+ *
+ * The engine used to drop them without a word, so a single syntax error hid
+ * every layer violation and cycle in that file behind `v validation passed`,
+ * while `modulesAnalyzed` still counted it. Each file is reported on the
+ * abstention channel — the analysis did not run for it — so it reaches every
+ * output mode and the exit code, under the same `deps.fallbackBehavior: 'warn'`
+ * downgrade as a whole-engine abstention (#2098).
+ *
+ * @param result - The in-progress check-deps result to annotate.
+ * @param unparsed - Files the engine could not read imports from, deduplicated by path.
+ * @param rootDir - Root that paths are rendered relative to.
+ * @param downgraded - Whether `deps.fallbackBehavior: 'warn'` is in force.
+ */
+function recordUnparsedFiles(
+  result: CheckDepsResult,
+  unparsed: readonly UnparsedFile[],
+  rootDir: string,
+  downgraded: boolean
+): void {
+  if (unparsed.length === 0) return;
+  result.unavailableChecks ??= [];
+  result.unavailableChecks.push(...unparsedFileChecks(unparsed, rootDir));
+  if (downgraded) {
+    result.abstentionDowngraded = true;
+    return;
+  }
+  result.valid = false;
+}
+
+/**
+ * One `unavailableChecks` entry per source file the analysis could not parse
+ * (#2073), with a posix-relative path. Shared with the `check_dependencies` MCP
+ * tool so both surfaces name skipped files identically (#2606).
+ *
+ * @param unparsed - Files the engine could not read imports from.
+ * @param rootDir - Root that paths are rendered relative to.
+ */
+export function unparsedFileChecks(
+  unparsed: readonly UnparsedFile[],
+  rootDir: string
+): UnavailableCheck[] {
+  return unparsed.map(({ file, reason }) => {
+    const relative = path.relative(rootDir, file).replaceAll('\\', '/');
+    return {
+      check: 'dependency analysis',
+      file: relative,
+      reason: `${relative} could not be parsed, so its imports were not checked: ${reason}`,
+      suggestion:
+        'Fix the file so it parses, or exclude it via `deps.exclude`. ' +
+        'To keep exiting 0 meanwhile, set `deps.fallbackBehavior: "warn"` in harness.config.json.',
+    };
+  });
+}
+
+/** Merge unparsed-file lists from both engines, keeping the first reason per path. */
+function mergeUnparsed(...lists: Array<readonly UnparsedFile[] | undefined>): UnparsedFile[] {
+  const byFile = new Map<string, UnparsedFile>();
+  for (const list of lists) {
+    for (const entry of list ?? []) {
+      if (!byFile.has(entry.file)) byFile.set(entry.file, entry);
+    }
+  }
+  return [...byFile.values()];
+}
+
 export async function runCheckDeps(
   options: CheckDepsOptions
 ): Promise<Result<CheckDepsResult, CLIError>> {
@@ -186,39 +256,34 @@ export async function runCheckDeps(
   // circular-dependency detection, a check that needs no layers at all. So
   // `harness check-deps && deploy` passed on a project with a real import
   // cycle, on the configuration most adopters are on (#2098).
-  const layers = config.layers ?? [];
+  // The same config-to-LayerConfig mapping the `harness ci check` deps step
+  // uses, so the two cannot drift apart again (#2606).
+  const settings = resolveDepsSettings(config, cwd);
+  const layers = settings.layers;
   result.layersConfigured = layers.length;
 
   // Additional discovery-scoping globs (stacked on core's node_modules/skip-dir
   // defaults) — prefer the resolved config's `deps.exclude` (honors whatever
   // config path resolveConfig found), falling back to the best-effort
   // `loadDepsExclude(cwd)` loader for callers without a resolved block (#1188).
-  const depsExclude =
-    config.deps?.exclude && config.deps.exclude.length > 0
-      ? config.deps.exclude
-      : loadDepsExclude(cwd);
+  const depsExclude = settings.exclude.length > 0 ? settings.exclude : loadDepsExclude(cwd);
 
   // Abstention policy (#2098). Default `skip`: the engine abstains rather than
   // warning-and-continuing, and check-deps reports that abstention instead of
   // discarding it. `warn` is the documented downgrade back to exit 0.
-  const fallbackBehavior = config.deps?.fallbackBehavior ?? 'skip';
+  const fallbackBehavior = settings.fallbackBehavior;
 
-  const rootDir = path.resolve(cwd, config.rootDir);
+  const rootDir = settings.rootDir;
   const parser = new TypeScriptParser();
+  // Source files either engine could not parse (#2073); reported once, below.
+  let layerUnparsed: readonly UnparsedFile[] | undefined;
 
   // Layer validation needs layers. With none configured it is genuinely not
   // applicable, and the circular-dependency half below still runs.
   if (layers.length > 0) {
-    const layerConfig: LayerConfig = {
-      // Define layers from config (convert pattern string to patterns array)
-      layers: layers.map((l) => defineLayer(l.name, [l.pattern], l.allowedDependencies)),
-      rootDir,
-      parser,
-      fallbackBehavior,
-      extraIgnore: depsExclude,
-    };
-
-    const depsResult = await validateDependencies(layerConfig);
+    const depsResult = await validateDependencies(
+      toLayerConfig({ ...settings, exclude: depsExclude }, parser)
+    );
     if (depsResult.ok) {
       // The engine abstained — it validated nothing and labelled the result as
       // such. Reporting this as a clean pass is the #2098 defect.
@@ -230,6 +295,7 @@ export async function runCheckDeps(
           fallbackBehavior === 'warn'
         );
       }
+      layerUnparsed = depsResult.value.unparsedFiles;
       for (const violation of depsResult.value.violations) {
         result.valid = false;
         result.layerViolations.push({
@@ -250,7 +316,7 @@ export async function runCheckDeps(
   // source files, because circular detection does not depend on layers and a
   // layerless project must not get a free pass (#2098).
   const discoveryPatterns =
-    layers.length > 0 ? layers.map((l) => l.pattern) : [UNLAYERED_DISCOVERY_PATTERN];
+    layers.length > 0 ? layers.flatMap((l) => l.patterns) : [UNLAYERED_DISCOVERY_PATTERN];
   const allFiles: string[] = [];
   for (const pattern of discoveryPatterns) {
     const files = await findFiles(pattern, rootDir, depsExclude);
@@ -290,8 +356,16 @@ export async function runCheckDeps(
   }
 
   // Detect circular dependencies
+  let cycleUnparsed: readonly UnparsedFile[] | undefined;
   if (uniqueFiles.length > 0) {
     const circularResult = await detectCircularDepsInFiles(uniqueFiles, parser);
+    if (circularResult.ok && circularResult.value.analyzedFiles !== undefined) {
+      // The real denominator: source files whose imports were read — not every
+      // path the glob matched, which includes directories, Markdown and any
+      // file that failed to parse (#2073).
+      result.modulesAnalyzed = circularResult.value.analyzedFiles;
+      cycleUnparsed = circularResult.value.unparsedFiles;
+    }
     if (!circularResult.ok) {
       recordAnalysisError(result, 'circular-dependency detection', circularResult.error);
     } else if (circularResult.value.hasCycles) {
@@ -308,6 +382,26 @@ export async function runCheckDeps(
         result.circularDeps.push({ cycle: cycle.cycle, file, message });
       }
     }
+  }
+
+  const unparsed = mergeUnparsed(layerUnparsed, cycleUnparsed);
+  recordUnparsedFiles(result, unparsed, rootDir, fallbackBehavior === 'warn');
+
+  // The layer globs matched paths, but none was a source file (only
+  // directories, Markdown, JSON…): the same "asked to analyse something,
+  // analysed nothing" claim as the zero-module abstention above (#1188, #2073).
+  if (
+    layers.length > 0 &&
+    uniqueFiles.length > 0 &&
+    result.modulesAnalyzed === 0 &&
+    unparsed.length === 0 &&
+    !result.analysisNote
+  ) {
+    result.valid = false;
+    result.analysisNote =
+      `check-deps analyzed 0 source modules across ${layers.length} configured ` +
+      `layer(s) — the layer patterns matched only non-source paths; refusing to ` +
+      `report clean (check layer patterns / deps.exclude).`;
   }
 
   return Ok(result);

@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/test-craft'
-sourceHash: 'da483e7e12851026652aa48df86627cf9bef2d7715908afe8bec2cf44abaa0c5'
+sourceHash: '782754b13308c880aeebe67114073f4b7f3a6681aabc5e1fe9bf6d01fb1150f5'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -36,6 +36,7 @@ import { Tier } from '../shared/craft/findings/axes.js'
 import { craftClumpView } from '../shared/craft/findings/clumpable.js'
 import { InSessionLlmProvider, LlmProvider, getProvider } from '../shared/craft/llm/provider.js'
 import { deleteRunState, loadRunState, pruneOldRuns, saveRunState } from '../shared/craft/runs/store.js'
+import { CraftAbstention, withCraftAbstention } from '../shared/craft/scope.js'
 import { SEED_RUBRICS, TestRubric } from './catalog/rubrics/index.js'
 import { emitTestCraftReport } from './emit.js'
 import { detectFramework } from './extract/framework.js'

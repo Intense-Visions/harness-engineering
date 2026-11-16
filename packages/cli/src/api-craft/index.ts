@@ -45,6 +45,8 @@ import {
 } from './phases/critique.js';
 import type { ApiCraftOutput, ApiFinding } from './findings/schema.js';
 import { craftClumpView } from '../shared/craft/findings/clumpable.js';
+import { withCraftAbstention, type CraftAbstention } from '../shared/craft/scope.js';
+import { resolveScopedFiles } from '../shared/craft/extract/scoped-files.js';
 
 export type ApiCraftMode = 'inline' | 'in-session';
 
@@ -78,6 +80,8 @@ export interface CollectPromptsOutput {
   hint?: string;
   /** Persisted to disk under .harness/craft/runs/<runId>.json. */
   runFile?: string;
+  /** Present only when the collect step examined zero candidates: `promptCount: 0` is then NOT a clean result (#2625). */
+  abstention?: CraftAbstention;
 }
 
 export interface FinalizeApiCraftInput {
@@ -230,6 +234,7 @@ export async function collectApiCraftPrompts(
     pendingPrompts: pending,
     projection: { promptCount: pending.length, budget },
     runFile,
+    ...withCraftAbstention('api-craft', filesScanned + filesSkipped),
   };
 }
 
@@ -292,6 +297,7 @@ export async function finalizeApiCraft(input: FinalizeApiCraftInput): Promise<Ap
         exemplarsAvailable: SEED_EXEMPLARS.length,
       },
       counts: { filesScanned: state.meta.filesScanned, filesSkipped: state.meta.filesSkipped },
+      ...withCraftAbstention('api-craft', state.meta.filesScanned + state.meta.filesSkipped),
       runId: input.runId,
     },
   };
@@ -350,6 +356,7 @@ function buildSummary(
       exemplarsAvailable: SEED_EXEMPLARS.length,
     },
     counts: { filesScanned: acc.filesScanned, filesSkipped: acc.filesSkipped },
+    ...withCraftAbstention('api-craft', acc.filesScanned + acc.filesSkipped),
     runId: randomUUID(),
   };
 }
@@ -385,7 +392,7 @@ export async function critiqueApiSurfaceFile(
 
 function collectSurfaces(projectRoot: string, input: ApiCraftInput): DiscoveredApiSurface[] {
   if (input.files !== undefined && input.files.length > 0) {
-    return input.files.map((f) => {
+    return resolveScopedFiles(projectRoot, input.files).map((f) => {
       const relative = path.relative(projectRoot, f).replaceAll('\\', '/');
       let content = '';
       try {

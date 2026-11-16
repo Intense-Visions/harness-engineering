@@ -112,8 +112,16 @@ const VALID_ACTIONS: ReadonlySet<string> = new Set(['assigned', 'completed', 'un
  */
 const FIELD_BULLET = /^- \*\*(Feature|Assignee|Action|Date):\*\*(?: (.*))?$/;
 
-/** A legacy pipe-table separator row (`|---|---|`), which opens the data rows. */
-const LEGACY_SEPARATOR = /^\|[-\s|]+\|$/;
+/**
+ * A legacy pipe-table separator row, which opens the data rows: every cell a run
+ * of dashes, optionally colon-flanked — the GFM delimiter row, alignment markers
+ * included (`|---|`, `| :--- |`, `|:-:|`, `| ---: |`).
+ *
+ * The colons used to be rejected, so a GFM-aligned table read as separator-less
+ * and the error told the operator to "restore" a separator that was right there
+ * (#1961).
+ */
+const LEGACY_SEPARATOR = /^\|(?:[ \t]*:?-+:?[ \t]*\|)+$/;
 
 /** Emit one `- **Key:** value` bullet, omitting the separator space when empty. */
 function emitFieldBullet(label: FieldLabel, value: string): string {
@@ -316,6 +324,14 @@ interface ReadPass {
 }
 
 /**
+ * Whether a `label` bullet opens a new record rather than filling the open one:
+ * always for `Feature`, and for any label the open draft already holds (#1961).
+ */
+function startsNewRecord(label: FieldLabel, draft: RecordDraft | null): boolean {
+  return label === 'Feature' || draft?.[FIELD_KEYS[label]] !== undefined;
+}
+
+/**
  * Read the current bullet-block format. A `- **Feature:**` bullet closes the
  * previous record and opens a new one; the other three fill in the open record.
  * Anything else on the line is ignored, so blank lines and the legacy table are
@@ -345,9 +361,15 @@ function readBulletRecords(lines: string[]): ReadPass {
     const match = line.match(FIELD_BULLET);
     if (!match) continue;
     const label = match[1] as FieldLabel;
-    if (label === 'Feature') closeDraft();
+    const key = FIELD_KEYS[label];
+    // A label the open record ALREADY holds cannot belong to it: it starts the
+    // next block. Without this, a block that lost its `- **Feature:**` bullet
+    // overwrote its neighbour's fields — one corrupted record survived, every line
+    // counted as consumed, and the guard never fired (#1961). Closing here leaves
+    // the orphan block Feature-less, so it never finalizes and the guard reports it.
+    if (startsNewRecord(label, draft)) closeDraft();
     draft ??= {};
-    draft[FIELD_KEYS[label]] = decodeSummaryField(match[2] ?? '');
+    draft[key] = decodeSummaryField(match[2] ?? '');
     draftLines.push(index);
   }
   closeDraft();
@@ -356,8 +378,8 @@ function readBulletRecords(lines: string[]): ReadPass {
 }
 
 /**
- * Read the legacy pipe table: rows before the `|---|` separator are header and
- * are skipped, empty cells are dropped by the positional split, and a row whose
+ * Read the legacy pipe table: the one row directly above the `|---|` separator is
+ * the header and is skipped, empty cells are dropped by the positional split, and a row whose
  * third value is not an action is skipped. A table with NO separator row yields
  * nothing here — and since its rows ARE record-shaped, {@link
  * parseAssignmentHistory} turns that into an error rather than an empty history
@@ -368,20 +390,23 @@ function readBulletRecords(lines: string[]): ReadPass {
 function readLegacyTableRecords(lines: string[]): ReadPass & { sawSeparator: boolean } {
   const records: AssignmentRecord[] = [];
   const consumed = new Set<number>();
-  const headerLines: number[] = [];
   let sawSeparator = false;
 
   for (const [index, line] of lines.entries()) {
     const trimmed = line.trim();
     if (!trimmed.startsWith('|')) continue;
     if (!sawSeparator) {
-      headerLines.push(index);
       if (LEGACY_SEPARATOR.test(trimmed)) {
-        // The separator proves the rows above it are a header, not lost data —
-        // so a well-formed table with zero data rows is genuinely empty, and the
-        // guard must stay quiet about it.
+        // The separator proves the row DIRECTLY above it is the header, not lost
+        // data — so a well-formed table with zero data rows is genuinely empty,
+        // and the guard must stay quiet about it. Only that one row: a table has
+        // exactly one header row, so any other `|` row above the separator is a
+        // data row out of place, and consuming it too dropped it in silence
+        // (#1961). Left unconsumed, the guard reports it.
         sawSeparator = true;
-        for (const header of headerLines) consumed.add(header);
+        consumed.add(index);
+        const header = index - 1;
+        if (header >= 0 && lines[header]!.trim().startsWith('|')) consumed.add(header);
       }
       continue;
     }
@@ -566,8 +591,25 @@ export function parseAssignmentHistory(body: string): Result<AssignmentRecord[]>
   return Ok(records);
 }
 
-/** A heading line whose text STARTS with the section name (`## Assignment History (legacy)`). */
-const NEAR_MISS_HEADING = /^#{1,6}[ \t]+Assignment History[^\n]*$/m;
+/**
+ * An H1/H2 heading line whose text STARTS with the section name
+ * (`## Assignment History (legacy)`), global so every occurrence is checked.
+ *
+ * Levels 1–2 only. Those are the levels whose body `parseRoadmap` re-reads as a
+ * milestone (or absorbs into one) and so deletes on the next write; an `###`+
+ * heading in the preamble is carried verbatim, and inside a feature it is that
+ * feature's prose. Matching every level hard-failed documents that parsed before
+ * #1952 over a heading with nothing at risk under it (#1961).
+ */
+const NEAR_MISS_HEADING = /^#{1,2}[ \t]+Assignment History[^\n]*$/gm;
+
+/**
+ * A line under a near-miss heading that carries history data: a legacy table row,
+ * or a bullet with a label ONLY a history record has. `Assignee` is left out on
+ * purpose — feature rows carry it too, and a milestone that merely happens to be
+ * named `Assignment History …` must not hard-fail the document.
+ */
+const NEAR_MISS_RECORD_LINE = /^(?:\||[-*+]\s+\*\*(?:Feature|Action|Date):\*\*)/;
 
 /**
  * The answer for a document {@link locateSection} found no section in.
@@ -581,7 +623,18 @@ const NEAR_MISS_HEADING = /^#{1,6}[ \t]+Assignment History[^\n]*$/m;
  * edit.
  */
 function unlocatedHeadingCheck(body: string): Result<AssignmentRecord[]> {
-  const nearMiss = maskFencedBlocks(body).match(NEAR_MISS_HEADING);
+  const mask = maskFencedBlocks(body);
+  // Only a near-miss heading with history data under it is at risk. One whose
+  // body is prose — `## Assignment History (moved to the wiki)` — has nothing to
+  // lose, and refusing it wedged every reader of a document that used to parse
+  // (#1961). The body is bounded the same way a real section is.
+  const nearMiss = [...mask.matchAll(NEAR_MISS_HEADING)].find((heading) => {
+    const start = heading.index + heading[0].length;
+    const rest = mask.slice(start);
+    const next = rest.search(NEXT_HEADING);
+    const section = next === -1 ? rest : rest.slice(0, next);
+    return sectionLines(section).some((line) => NEAR_MISS_RECORD_LINE.test(line.trim()));
+  });
   if (!nearMiss) return Ok([]);
   return Err(
     new Error(

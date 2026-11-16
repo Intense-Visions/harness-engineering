@@ -120,12 +120,13 @@ The craft family's ceiling-layer critique runs automatically at autopilot's two 
   craft skill's "Invoked as a review hook" section; `mcp__harness__design_craft` does not — it
   accepts **neither `promptBudget` nor `maxFiles`**, so bound it with `phases` / `mode` instead or
   it runs all three phases over 13 rubrics with no ceiling). `plan.files` holds **repo-relative
-  POSIX** paths; the collectors read them with `fs.readFileSync`, which resolves a relative path
-  against the process CWD — so **resolve each entry against the project root first**. Forwarding
-  them unresolved fails DIFFERENTLY by domain and neither failure is loud at the call site: the
-  nine collector-based domains produce `status: "collected"` with **zero prompts** — a clean report
-  from a run that read nothing — while `mcp__harness__design_craft` has no collector and instead
-  THROWS `ENOENT` out of `runCritique`, which has no try/catch. Both are pinned
+  POSIX** paths — **resolve each entry against the project root first**; absolute is correct for
+  every domain and REQUIRED for one. Forwarding them unresolved behaves DIFFERENTLY by domain:
+  the nine collector-based domains resolve a relative entry against the tool's `path` (never
+  the process CWD), so they still read the in-diff file
+  (`packages/cli/tests/shared/craft/relative-files-scope.test.ts`), while
+  `mcp__harness__design_craft` has no collector, resolves a relative entry against the process
+  CWD, and THROWS `ENOENT` out of `runCritique`, which has no try/catch
   (`packages/cli/tests/design-craft/phases/files-path-form.test.ts`).
   Never call `rule.owns()` yourself: it is correct only on repo-relative POSIX paths, and on raw VCS
   output it yields false negatives and, worse, false positives (a `dist\…` build artifact leaks in).

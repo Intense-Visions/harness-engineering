@@ -19,7 +19,7 @@ Phases:
 - confirm: Present the triaged queue in one round — duplicates flagged for closure with citations, routes, ranked order, the clump table with every shed count and the conservation line, forks as questions, proposed concurrency — for a single up-front human approval that carries the destructive-close authorization
 - dispatch: Partition the backlog into disjoint slices and fan out concurrency-governed triage subagents that finalize label/dedup/route/prioritize against the shared dedup snapshot, capped at the concurrency governor
 - verify: Independently re-derive every proposed mutation (each label, dedup close, and route) from the issue's own signals and confirm each authorized close is a genuine duplicate with a real citation — never by subagent self-report
-- report: Apply verified labels/routes, close only human-authorized and verified duplicates with canonical citations, emit the ranked/routed queue grouped by downstream fleet plus a one-row-per-issue batch summary, and never close an unauthorized or unverified issue
+- report: Apply verified labels/routes, add an idempotent External-ID-linked roadmap row for each issue routed to roadmap-fleet (never creating a tracker issue, never via sync) and re-read the roadmap to confirm it, close only human-authorized and verified duplicates with canonical citations, emit the ranked/routed queue grouped by downstream fleet plus a one-row-per-issue batch summary, and never close an unauthorized or unverified issue
   </objective>
 
 <execution_context>

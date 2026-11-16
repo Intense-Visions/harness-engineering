@@ -7,6 +7,7 @@ import { Ok, Err, generateAgentsMap, ArchBaselineManager } from '@harness-engine
 import { logger } from '../output/logger';
 import { CLIError, ExitCode } from '../utils/errors';
 import { initHooks } from './hooks/init';
+import { ensureHarnessGitignore } from '../templates/post-write';
 
 /**
  * The `minimal` init tier (ADR 0101): the documented floor of the adoption
@@ -112,7 +113,14 @@ function buildPreCommitBlock(): string {
     '# Verification loop: run the harness architecture gate before every commit so a',
     '# layer violation can never land. Managed by `harness init --tier minimal` — edits',
     '# inside this block are overwritten on the next run.',
-    'if ! npx harness check-arch; then',
+    // Resolve the CLI explicitly: a bare `npx harness` resolves the unrelated npm
+    // package named `harness` (this tier writes no package.json pinning ours), and
+    // npx never consults PATH, so a globally installed CLI would be ignored (#2630).
+    'if [ -x ./node_modules/.bin/harness ]; then HARNESS_CLI=./node_modules/.bin/harness',
+    'elif command -v harness >/dev/null 2>&1; then HARNESS_CLI=harness',
+    'else HARNESS_CLI="npx --yes --package=@harness-engineering/cli harness"',
+    'fi',
+    'if ! $HARNESS_CLI check-arch; then',
     '  echo "Commit blocked: harness check-arch failed; fix the violation before committing." >&2',
     '  exit 1',
     'fi',
@@ -230,6 +238,11 @@ export async function runMinimalInit(
     files: ['.harness/arch/baselines.json'],
     scaffolded: true,
   };
+
+  // Housekeeping, not an MVH artifact: ignore the runtime files every harness
+  // command writes under .harness/ (telemetry, caches, session state) the same
+  // way the full init path does, so `git add -A` never stages them (#2630).
+  ensureHarnessGitignore(cwd);
 
   // 4. Verification loop.
   const verificationLoop = installVerificationLoop(cwd);
