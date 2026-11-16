@@ -51,6 +51,36 @@ export interface CodeFinding {
   derived: { priority: number };
 }
 
+/**
+ * What became of the run's clone-index build — the sibling-evidence channel's
+ * own health, so "this codebase has no duplication" (`built`, zero incidence)
+ * and "the clone index never built" (`empty` / `failed`) stop looking
+ * identical.
+ *
+ * Advisory only: no status here ever fails a run or changes its exit code. A
+ * non-`built` status means the critique ran exactly as it did before sibling
+ * evidence existed, with no `MECHANICAL DUPLICATION EVIDENCE` in any prompt.
+ *
+ * Source: docs/roadmap.d/code-craft-sibling-evidence-incidence.md
+ */
+export type SiblingIndexOutcome =
+  | {
+      status: 'built';
+      /** Clone classes the index reported over the full project discovery. */
+      classes: number;
+      /**
+       * Critiqued units in THIS run whose prompts carried sibling evidence —
+       * the incidence, scoped to what was critiqued, not to the whole index.
+       */
+      unitsWithSiblings: number;
+    }
+  /** Discovery found no source files, so there was nothing to index. */
+  | { status: 'empty'; reason: string }
+  /** The index build answered `Err` or threw; `reason` is what it said. */
+  | { status: 'failed'; reason: string }
+  /** The caller passed `siblings: false`. */
+  | { status: 'disabled'; reason: string };
+
 export interface CodeCraftSummary {
   phaseRun: ['critique'];
   mode: 'fast';
@@ -63,6 +93,11 @@ export interface CodeCraftSummary {
     unitsDetected: number;
   };
   runId: string;
+  /**
+   * The clone-index build outcome. Optional so a summary produced before this
+   * field existed (an in-flight in-session run-state file) still type-checks.
+   */
+  siblingIndex?: SiblingIndexOutcome;
 }
 
 export interface CodeCraftOutput {
