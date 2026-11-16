@@ -10,6 +10,7 @@ import {
   detectRoadmapStorageMode,
   archiveDoneShardsForProject,
   slugifyFeatureName,
+  validateRoadmapFeatureFields,
 } from '@harness-engineering/core';
 import type { Roadmap, Result } from '@harness-engineering/types';
 import { resultToMcpResponse } from '../utils/result-adapter.js';
@@ -121,6 +122,38 @@ interface ManageRoadmapInput {
  */
 async function loadRoadmap(projectRoot: string): Promise<Result<Roadmap>> {
   return resolveRoadmapStore({ projectRoot }).load();
+}
+
+/**
+ * Refuse a write whose field values carry a line break or other control
+ * character, before anything is persisted (#2623). The roadmap is line-oriented,
+ * so such a value used to land on disk as a NEW line: a forged
+ * `- **Status:** done` bullet flipped the row, a forged `### ` heading made every
+ * later read fail. The rules live in core (`validateRoadmapFeatureFields`) next
+ * to the serializer that also refuses to emit a line break; this is the
+ * API-boundary half, which reports the field and writes nothing. Runs before the
+ * mode dispatch so file-less mode gets the same contract.
+ */
+function unsafeFieldError(input: ManageRoadmapInput): McpResponse | null {
+  if (input.action !== 'add' && input.action !== 'update' && input.action !== 'promote') {
+    return null;
+  }
+  const checked = validateRoadmapFeatureFields({
+    name: input.feature,
+    milestone: input.milestone,
+    status: input.status,
+    summary: input.summary,
+    spec: input.spec,
+    plans: input.plans,
+    blockedBy: input.blocked_by,
+    assignee: input.assignee,
+    externalId: input.external_id,
+  });
+  if (checked.ok) return null;
+  return {
+    content: [{ type: 'text' as const, text: `Error: ${checked.error.message}; nothing written` }],
+    isError: true,
+  };
 }
 
 /**
@@ -1028,6 +1061,8 @@ export async function handleManageRoadmap(input: ManageRoadmapInput): Promise<Mc
   // sees a sanitized project path. The externalId itself comes from the
   // tracker client response, not from `input`, and is guarded again by the
   // adapter's confused-deputy check (see github-issues.ts).
+  const fieldError = unsafeFieldError(input);
+  if (fieldError) return fieldError;
   const mode = loadProjectRoadmapMode(projectPathPre);
   if (mode === 'file-less') {
     const trackerCfg = loadTrackerClientConfigFromProject(projectPathPre);

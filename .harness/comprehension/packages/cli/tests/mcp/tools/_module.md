@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/tests/mcp/tools'
-sourceHash: '25cf4a00eaedf23c3ba4df3cc867e22ffcff2c11739924e7a66318f8977d4d5f'
+sourceHash: '0f564ad3f992e3baa973a460753217c62d47c1b70a2dce8b633123d3c488a4e9'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -83,6 +83,7 @@ members:
     'roadmap-add-external-id.test.ts',
     'roadmap-auto-sync.test.ts',
     'roadmap-cov544.test.ts',
+    'roadmap-field-injection.test.ts',
     'roadmap-file-less-cov544.test.ts',
     'roadmap-groom-sharded.test.ts',
     'roadmap-groom.test.ts',
@@ -97,7 +98,6 @@ members:
     'search-skills.test.ts',
     'security-craft.test.ts',
     'security-record.test.ts',
-    'security-scan-denominator.test.ts',
     'skill-progressive-loading.test.ts',
     'skill-proposal.test.ts',
     'skill-telemetry.test.ts',
