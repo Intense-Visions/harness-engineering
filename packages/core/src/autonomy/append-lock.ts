@@ -9,6 +9,11 @@ import * as fs from 'node:fs';
  * Model: `<file>.lock`, created with O_EXCL ('wx') and holding the holder's pid (the
  * state/learnings.ts precedent, made synchronous). A holder keeps it for one tail read and one
  * write. A lock older than `staleMs` is from a holder that died mid-append and is broken.
+ *
+ * Windows (#2596): while the previous holder's lock file is being deleted (delete pending),
+ * creating it fails with EPERM rather than EEXIST, and unlinking a lock another process has open
+ * can fail with EPERM, EBUSY or EACCES. On win32 those codes mean "busy, retry" for both create
+ * and release; on POSIX they remain real errors.
  */
 export interface AppendLockOptions {
   /** Give up after this long (ms). */
@@ -19,10 +24,17 @@ export interface AppendLockOptions {
   wait?: (attempt: number) => void;
   /** @internal Test seam: the clock. */
   now?: () => number;
+  /** @internal Test seam: the platform whose lock-file error semantics apply. */
+  platform?: NodeJS.Platform;
 }
 
-export const APPEND_LOCK_TIMEOUT_MS = 8_000;
-export const APPEND_LOCK_STALE_MS = 5_000;
+/** Generous: the decision log is low-frequency, and a contended CI runner can be slow. */
+export const APPEND_LOCK_TIMEOUT_MS = 30_000;
+/** A holder keeps the lock for one tail read and one write; 10 s is far beyond a live holder. */
+export const APPEND_LOCK_STALE_MS = 10_000;
+
+/** Codes that, on win32, mean the lock file is busy (delete pending or open elsewhere). */
+const WIN32_BUSY_CODES = new Set(['EPERM', 'EBUSY', 'EACCES']);
 
 const sleepCell = new Int32Array(new SharedArrayBuffer(4));
 function sleepMs(ms: number): void {
@@ -31,18 +43,29 @@ function sleepMs(ms: number): void {
 const backoff = (attempt: number): number => Math.min(2 ** attempt, 25);
 
 export class AppendLockTimeoutError extends Error {
-  constructor(lockPath: string, timeoutMs: number) {
-    super(`lock ${lockPath} was held by another writer for over ${timeoutMs} ms`);
+  constructor(lockPath: string, timeoutMs: number, lastBusyCode?: string) {
+    const why = lastBusyCode ? ` (last busy: ${lastBusyCode})` : '';
+    super(`lock ${lockPath} was held by another writer for over ${timeoutMs} ms${why}`);
     this.name = 'AppendLockTimeoutError';
   }
 }
 
-function tryCreate(lockPath: string): boolean {
+/** The error code if `err` means the lock is busy on `platform`, else undefined. */
+function busyCode(err: unknown, platform: NodeJS.Platform): string | undefined {
+  const code = (err as NodeJS.ErrnoException).code;
+  if (code === 'EEXIST') return code;
+  if (platform === 'win32' && code !== undefined && WIN32_BUSY_CODES.has(code)) return code;
+  return undefined;
+}
+
+/** Create the lock. Returns undefined on success, else the busy code (lock held / not yet gone). */
+function tryCreate(lockPath: string, platform: NodeJS.Platform): string | undefined {
   let fd: number;
   try {
     fd = fs.openSync(lockPath, 'wx', 0o600);
   } catch (err) {
-    if ((err as NodeJS.ErrnoException).code === 'EEXIST') return false;
+    const code = busyCode(err, platform);
+    if (code) return code;
     throw err;
   }
   try {
@@ -50,7 +73,7 @@ function tryCreate(lockPath: string): boolean {
   } finally {
     fs.closeSync(fd);
   }
-  return true;
+  return undefined;
 }
 
 /**
@@ -80,22 +103,46 @@ function breakIfStale(lockPath: string, staleMs: number, now: number): void {
   fs.rmSync(aside, { force: true });
 }
 
+/**
+ * Remove our lock. On win32 a busy unlink is retried within `timeoutMs`; if it stays busy, the
+ * lock is left for the stale-lock breaker rather than failing `fn`, whose write already landed.
+ */
+function release(lockPath: string, timeoutMs: number, opts: AppendLockOptions): void {
+  const platform = opts.platform ?? process.platform;
+  const now = opts.now ?? Date.now;
+  const start = now();
+  for (let attempt = 0; ; attempt++) {
+    try {
+      fs.rmSync(lockPath, { force: true });
+      return;
+    } catch (err) {
+      const code = (err as NodeJS.ErrnoException).code;
+      if (platform !== 'win32' || code === undefined || !WIN32_BUSY_CODES.has(code)) throw err;
+      if (now() - start > timeoutMs) return; // stale after staleMs; the next writer breaks it
+    }
+    (opts.wait ?? ((n: number) => sleepMs(backoff(n))))(attempt);
+  }
+}
+
 /** Run `fn` while holding `<file>.lock`. Throws AppendLockTimeoutError if it cannot be taken. */
 export function withAppendLock<T>(file: string, fn: () => T, opts: AppendLockOptions = {}): T {
   const lockPath = `${file}.lock`;
   const timeoutMs = opts.timeoutMs ?? APPEND_LOCK_TIMEOUT_MS;
   const staleMs = opts.staleMs ?? APPEND_LOCK_STALE_MS;
   const now = opts.now ?? Date.now;
+  const platform = opts.platform ?? process.platform;
   const start = now();
-  for (let attempt = 0; !tryCreate(lockPath); attempt++) {
+  for (let attempt = 0; ; attempt++) {
+    const busy = tryCreate(lockPath, platform);
+    if (busy === undefined) break;
     const t = now();
-    if (t - start > timeoutMs) throw new AppendLockTimeoutError(lockPath, timeoutMs);
+    if (t - start > timeoutMs) throw new AppendLockTimeoutError(lockPath, timeoutMs, busy);
     breakIfStale(lockPath, staleMs, t);
     (opts.wait ?? ((n: number) => sleepMs(backoff(n))))(attempt);
   }
   try {
     return fn();
   } finally {
-    fs.rmSync(lockPath, { force: true });
+    release(lockPath, timeoutMs, opts);
   }
 }
