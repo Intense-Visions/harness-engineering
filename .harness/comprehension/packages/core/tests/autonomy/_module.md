@@ -1,12 +1,13 @@
 ---
 schemaVersion: 1
 module: 'packages/core/tests/autonomy'
-sourceHash: 'c4542be651992c589c1207ccc5a69f8fe1335b42015a8fe5745ce5f0b58714de'
+sourceHash: '8136572ca5cf763a59f56a7ca47e415447e1edf2605f70501cada5aa76150a5a'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
 members:
   [
+    'append-lock-win32.test.ts',
     'decision-log-concurrency.test.ts',
     'decision-log-inflight.test.ts',
     'decision-log-surface.test.ts',
@@ -35,7 +36,7 @@ members:
 ## Dependency Slice
 
 ```
-import { withAppendLock } from '../../src/autonomy/append-lock'
+import { AppendLockTimeoutError, withAppendLock } from '../../src/autonomy/append-lock'
 import { MAX_AUTO_DECISION_LINE_BYTES, appendAutoDecision, autoDecisionLogPath, readAutoDecisions, recordAutoDecision } from '../../src/autonomy/decision-log'
 import { AUTO_DECISION_LIMITS, escapeUnsafeLogText, parseAutoDecisionLine, validateAutoDecisionInput } from '../../src/autonomy/decision-schema'
 import { AUTONOMY_SESSION_NOT_FOUND, DEFAULT_RAISE_TTL_MS, autonomyAuditLogPath, computeRepoKey, readSessionOverride, resolveAutonomy, resolveAutonomyForSession, sessionOverridePath, writeLoweringOverride, writeSessionOverride } from '../../src/autonomy/index'

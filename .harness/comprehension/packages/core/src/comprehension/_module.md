@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/src/comprehension'
-sourceHash: 'c8abdd0970ed018a1edff1fe6aef6a9f88de58cfe83a59b43c691ed445421fb8'
+sourceHash: '6c3968b225a1af7c889c91c04b66acc3489f21b16ce082b340a60b0305f80e24'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -76,6 +76,7 @@ export createNodeComprehensionIO
 export createNodeModuleSourceReader
 export createStaticExtractor
 export fetchPublicOutposts
+export findOrphanModules
 export isComprehensionReentrant
 export isStaticSupported
 export mapWithConcurrency

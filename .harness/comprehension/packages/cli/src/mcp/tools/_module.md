@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/mcp/tools'
-sourceHash: 'e5b35bf45140e7cd5ca3d7fa9941d7fa340a0bf50b1112f728269f9cd81c5c32'
+sourceHash: 'd06a9391a46bccf0f3d815c0b03e96bb964575d4c8689af5ca4dc0b7b012d013'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -462,6 +462,7 @@ import { AuditBrandInput, AuditBrandOutput, runAuditBrand } from '../../brand/in
 import { CliErgonomicsCraftInput, CliErgonomicsCraftMode, CliErgonomicsCraftOutput, CollectPromptsOutput, FinalizeCliErgonomicsCraftInput, collectCliErgonomicsCraftPrompts, finalizeCliErgonomicsCraft, runCliErgonomicsCraft } from '../../cli-ergonomics-craft/index.js'
 import { CodeCraftInput, CodeCraftMode, CodeCraftOutput, CollectPromptsOutput, FinalizeCodeCraftInput, collectCodeCraftPrompts, finalizeCodeCraft, runCodeCraft } from '../../code-craft/index.js'
 import { runAdviseSkills } from '../../commands/advise-skills.js'
+import { unparsedFileChecks } from '../../commands/check-deps.js'
 import '../../commands/check-phase-gate.js'
 import '../../commands/create-skill.js'
 import '../../commands/generate-agent-definitions.js'
@@ -474,7 +475,7 @@ import { comprehensionEndpoint, readComprehensionConfig, remoteFileConfig, resol
 import { maybeCreateGenerateSemantic, semanticResponseSchema } from '../../comprehension/generate-semantic'
 import { committedSemanticAllowed } from '../../comprehension/policy'
 import { createStaticExtractor } from '../../comprehension/static-extractor'
-import { loadAnalysisExclude, loadDepsFallbackBehavior, loadDepsResolveWorkspacePackages } from '../../config/analysis-schema.js'
+import { loadAnalysisExclude } from '../../config/analysis-schema.js'
 import { resolveConfig } from '../../config/loader'
 import { findConfigFile, loadConfig, resolveConfig } from '../../config/loader.js'
 import { HarnessConfig } from '../../config/schema.js'

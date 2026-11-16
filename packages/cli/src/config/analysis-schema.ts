@@ -192,50 +192,6 @@ export type DepsConfig = z.infer<typeof DepsConfigSchema>;
  * fails validation) so check-deps keeps working on un-configured projects.
  * Mirrors `loadDesignExclude`.
  */
-/**
- * Best-effort load of `deps.fallbackBehavior` from
- * `<projectPath>/harness.config.json`, returning `undefined` on any miss so the
- * caller applies its own default. Mirrors `loadDepsExclude`.
- *
- * Exists because the `check_dependencies` MCP handler called
- * `validateDependencies` with no `fallbackBehavior` at all, so core's default
- * `'error'` applied and a parser-unavailable run returned `Err` — the handler's
- * own `skipped` branch could never execute, and the documented
- * `deps.fallbackBehavior` config was ignored on the MCP surface (#2098).
- */
-export function loadDepsFallbackBehavior(
-  projectPath: string
-): 'skip' | 'warn' | 'error' | undefined {
-  return loadDepsBlock(projectPath)?.fallbackBehavior;
-}
-
-/**
- * Best-effort load of `deps.resolveWorkspacePackages` (issue #2216), `false` on
- * any miss. Lets the `check_dependencies` MCP handler honour the same opt-in as
- * check-deps.
- */
-export function loadDepsResolveWorkspacePackages(projectPath: string): boolean {
-  return loadDepsBlock(projectPath)?.resolveWorkspacePackages ?? false;
-}
-
-/** The validated `deps` block of `<projectPath>/harness.config.json`, or `undefined` on any miss. */
-function loadDepsBlock(projectPath: string): DepsConfig | undefined {
-  const configPath = path.join(projectPath, 'harness.config.json');
-  if (!fs.existsSync(configPath)) return undefined;
-
-  let raw: unknown;
-  try {
-    raw = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
-  } catch {
-    return undefined;
-  }
-
-  const depsRaw = (raw as { deps?: unknown } | null | undefined)?.deps;
-  if (depsRaw === undefined || depsRaw === null || typeof depsRaw !== 'object') return undefined;
-  const parsed = DepsConfigSchema.safeParse(depsRaw);
-  return parsed.success ? parsed.data : undefined;
-}
-
 export function loadDepsExclude(projectPath: string): string[] {
   const configPath = path.join(projectPath, 'harness.config.json');
   if (!fs.existsSync(configPath)) return [];

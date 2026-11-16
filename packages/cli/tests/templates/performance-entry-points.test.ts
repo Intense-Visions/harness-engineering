@@ -3,6 +3,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { SECURITY_SCAN_EXTENSIONS } from '@harness-engineering/core';
+import { deepMergeJson } from '../../src/templates/merger';
 
 /**
  * #2071 invariant: a freshly scaffolded project from EVERY shipped template
@@ -89,9 +90,36 @@ function templatesUnderTest(): TemplateUnderTest[] {
   for (const name of names) {
     const configFile = path.join(TEMPLATES_DIR, name, 'harness.config.json.hbs');
     if (!fs.existsSync(configFile)) continue; // Overlay: inherits a base's config.
-    out.push({ name, config: readJsonHbs(configFile), files: shippedFiles(name) });
+    const config = readJsonHbs(configFile);
+    const host = overlayHost(name);
+    if (host === undefined) {
+      out.push({ name, config, files: shippedFiles(name) });
+      continue;
+    }
+    // A framework overlay's config is a FRAGMENT (#2630: it declares only the
+    // entry files the overlay renders) and never scaffolds alone, so check what
+    // an adopter actually gets — the fragment merged over the config it lands on.
+    const hostConfig = readJsonHbs(path.join(TEMPLATES_DIR, host, 'harness.config.json.hbs'));
+    out.push({
+      name,
+      config: deepMergeJson(hostConfig, config),
+      files: [...new Set([...shippedFiles(host), ...shippedFiles(name)])],
+    });
   }
   return out;
+}
+
+/**
+ * The template a framework overlay renders over, or undefined for a template
+ * that scaffolds on its own. A TypeScript overlay can land on any adoption
+ * level; `basic` is the smallest, so its entries are the ones every level has.
+ */
+function overlayHost(name: string): string | undefined {
+  const meta = JSON.parse(
+    fs.readFileSync(path.join(TEMPLATES_DIR, name, 'template.json'), 'utf-8')
+  ) as { framework?: string; language?: string; extends?: string };
+  if (!meta.framework) return undefined;
+  return meta.extends ?? (meta.language === 'typescript' ? 'basic' : `${meta.language}-base`);
 }
 
 function section(config: Record<string, unknown>, key: string): Record<string, unknown> {
@@ -105,10 +133,10 @@ function section(config: Record<string, unknown>, key: string): Record<string, u
  * `runEntropyCheck` reads `entropy.entryPoints ?? performance.entryPoints`,
  * while `runPerfCheck` reads only `performance.entryPoints` and never consults
  * the entropy section. Collapsing the two into one accessor would credit
- * `entropy.entryPoints` toward the perf gate, which never reads it — unreachable
- * today, since no shipped template sets either key, but this file's contract is
- * to stay in step with the orchestrator, so it models the asymmetry rather than
- * the convenient average.
+ * `entropy.entryPoints` toward the perf gate, which never reads it — and the
+ * templates now set exactly that key (#2630: the entry files each template
+ * renders) while leaving `performance.entryPoints` unset, so the convenient
+ * average would wrongly credit them toward perf. Model the asymmetry.
  */
 function entryPoints(
   config: Record<string, unknown>,

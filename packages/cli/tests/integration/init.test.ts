@@ -125,7 +125,7 @@ describe('harness init integration', () => {
       {
         framework: 'spring-boot',
         language: 'java',
-        expectFile: 'src/main/java/App.java',
+        expectFile: 'src/main/java/Main.java',
         expectConfig: 'pom.xml',
       },
     ];
@@ -267,7 +267,7 @@ describe('harness init integration', () => {
       expect(fs.existsSync(path.join(tmpDir, 'pom.xml'))).toBe(false);
 
       // Scaffold source files SHOULD NOT be created — project already has source code
-      expect(fs.existsSync(path.join(tmpDir, 'src', 'main', 'java', 'App.java'))).toBe(false);
+      expect(fs.existsSync(path.join(tmpDir, 'src', 'main', 'java', 'Main.java'))).toBe(false);
 
       // Existing files SHOULD be preserved
       const buildGradle = fs.readFileSync(path.join(tmpDir, 'build.gradle'), 'utf-8');
@@ -316,7 +316,7 @@ describe('harness init integration', () => {
       // Brand new project — ALL template files should be created
       expect(fs.existsSync(path.join(tmpDir, 'harness.config.json'))).toBe(true);
       expect(fs.existsSync(path.join(tmpDir, 'pom.xml'))).toBe(true);
-      expect(fs.existsSync(path.join(tmpDir, 'src', 'main', 'java', 'App.java'))).toBe(true);
+      expect(fs.existsSync(path.join(tmpDir, 'src', 'main', 'java', 'Main.java'))).toBe(true);
       expect(fs.existsSync(path.join(tmpDir, 'checkstyle.xml'))).toBe(true);
 
       fs.rmSync(tmpDir, { recursive: true });
