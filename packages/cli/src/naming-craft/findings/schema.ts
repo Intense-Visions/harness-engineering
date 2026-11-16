@@ -52,6 +52,13 @@ export interface NamingCraftSummary {
    */
   filesScanned: number;
   /**
+   * Requested files skipped because naming-craft cannot parse their language
+   * (it extracts TS/JS only). Never extracted, never critiqued, never counted
+   * in `filesScanned` or the convention sample (issue #1967). Absent when
+   * nothing was skipped.
+   */
+  unsupportedFiles?: string[];
+  /**
    * Prompt-level reach of a two-step in-session finalize:
    * `promptsAnswered` of `promptsTotal` collected prompts were judged.
    * Absent on the inline path (which judges everything in one pass); when

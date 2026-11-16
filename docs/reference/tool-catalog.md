@@ -1205,17 +1205,19 @@ Simulate cascading failure propagation from a source node using probability-weig
       "type": "string"
     },
     "path": {
-      "description": "Path to project root",
+      "description": "Path to project root (defaults to the server working directory)",
       "type": "string"
     },
     "probabilityFloor": {
       "description": "Minimum cumulative probability to continue traversal (default 0.05)",
       "type": "number"
+    },
+    "projectPath": {
+      "description": "Alias for path",
+      "type": "string"
     }
   },
-  "required": [
-    "path"
-  ],
+  "required": [],
   "type": "object"
 }
 ```
@@ -2741,13 +2743,15 @@ List performance-critical functions from @perf-critical annotations and graph in
 {
   "properties": {
     "path": {
-      "description": "Path to project root",
+      "description": "Path to project root (defaults to the server working directory)",
+      "type": "string"
+    },
+    "projectPath": {
+      "description": "Alias for path",
       "type": "string"
     }
   },
-  "required": [
-    "path"
-  ],
+  "required": [],
   "type": "object"
 }
 ```
@@ -2849,13 +2853,15 @@ Analyze the impact of changing a node or file. Returns affected tests, docs, cod
       "type": "string"
     },
     "path": {
-      "description": "Path to project root",
+      "description": "Path to project root (defaults to the server working directory)",
+      "type": "string"
+    },
+    "projectPath": {
+      "description": "Alias for path",
       "type": "string"
     }
   },
-  "required": [
-    "path"
-  ],
+  "required": [],
   "type": "object"
 }
 ```

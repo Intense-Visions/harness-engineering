@@ -1,6 +1,6 @@
 import { boundItems } from '@harness-engineering/core';
 import { loadGraphStore } from '../../utils/graph-loader.js';
-import { sanitizePath } from '../../utils/sanitize-path.js';
+import { resolveProjectRootArg } from '../../utils/sanitize-path.js';
 import { graphNotFoundError, resolveDetailCeiling } from './shared.js';
 
 export const getImpactDefinition = {
@@ -10,7 +10,11 @@ export const getImpactDefinition = {
   inputSchema: {
     type: 'object' as const,
     properties: {
-      path: { type: 'string', description: 'Path to project root' },
+      path: {
+        type: 'string',
+        description: 'Path to project root (defaults to the server working directory)',
+      },
+      projectPath: { type: 'string', description: 'Alias for path' },
       nodeId: { type: 'string', description: 'ID of the node to analyze impact for' },
       filePath: {
         type: 'string',
@@ -23,12 +27,13 @@ export const getImpactDefinition = {
           'Response density: summary returns impacted file count by category + highest-risk items, detailed returns full impact tree. Default: detailed',
       },
     },
-    required: ['path'],
+    required: [],
   },
 };
 
 export async function handleGetImpact(input: {
-  path: string;
+  path?: string;
+  projectPath?: string;
   nodeId?: string;
   filePath?: string;
   mode?: 'summary' | 'detailed';
@@ -46,7 +51,7 @@ export async function handleGetImpact(input: {
       };
     }
 
-    const projectPath = sanitizePath(input.path);
+    const projectPath = resolveProjectRootArg(input);
     const store = await loadGraphStore(projectPath);
     if (!store) return graphNotFoundError();
 

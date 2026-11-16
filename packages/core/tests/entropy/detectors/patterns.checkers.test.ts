@@ -1,4 +1,7 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import {
   checkConfigPattern,
   detectPatternViolations,
@@ -43,10 +46,20 @@ describe('checkConfigPattern — glob gating', () => {
     expect(checkConfigPattern(p, f, '/project')).toEqual([]);
   });
 
-  it('returns no matches for an unknown rule type', () => {
+  it('reports an unknown rule type instead of silently passing it (#2324)', () => {
     const p = pattern({ type: 'not-a-real-rule' } as unknown as ConfigPattern['rule']);
     const f = file({ path: '/project/src/mod.ts' });
-    expect(checkConfigPattern(p, f, '/project')).toEqual([]);
+    const matches = checkConfigPattern(p, f, '/project');
+    expect(matches).toHaveLength(1);
+    expect(matches[0]!.message).toBe(
+      'Unknown pattern rule type "not-a-real-rule" in "p": this rule was not checked'
+    );
+  });
+
+  it('does not treat Object.prototype keys as rule types', () => {
+    const p = pattern({ type: 'toString' } as unknown as ConfigPattern['rule']);
+    const matches = checkConfigPattern(p, file({}), '/project');
+    expect(matches[0]!.message).toMatch(/Unknown pattern rule type "toString"/);
   });
 });
 
@@ -182,12 +195,126 @@ describe('checkRequireJsdoc', () => {
 });
 
 describe('checkMaxLines', () => {
-  it('is a no-op that never flags (line count unavailable)', () => {
-    const p = pattern({ type: 'max-lines', count: 1 } as unknown as ConfigPattern['rule']);
-    const f = file({
-      exports: [{ name: 'a', type: 'named', location: loc(1), isReExport: false }],
-    });
-    expect(checkConfigPattern(p, f, '/project')).toEqual([]);
+  // Real files on disk: SourceFile carries no source text, so the checker
+  // counts the lines of the file at `file.path` (issue #2324).
+  let dir: string;
+  beforeAll(() => {
+    dir = mkdtempSync(join(tmpdir(), 'max-lines-'));
+  });
+  afterAll(() => {
+    rmSync(dir, { recursive: true, force: true });
+  });
+  function onDisk(name: string, text: string): SourceFile {
+    const path = join(dir, name);
+    writeFileSync(path, text);
+    return file({ path });
+  }
+  const maxLines = (count: number, extra: Partial<ConfigPattern> = {}) =>
+    pattern({ type: 'max-lines', count }, { files: ['**/*.ts'], ...extra });
+  const lines = (n: number) => Array.from({ length: n }, (_, i) => `const a${i} = ${i};`);
+
+  it('flags a file with N+1 lines against count N, at the first line over the limit', () => {
+    const f = onDisk('over.ts', lines(4).join('\n') + '\n');
+    const matches = checkConfigPattern(maxLines(3), f, dir);
+    expect(matches).toEqual([
+      {
+        line: 4,
+        message: 'File has 4 lines, max is 3',
+        suggestion: 'Split into smaller files or reduce to 3 lines',
+      },
+    ]);
+  });
+
+  it('does not flag a file with exactly N lines', () => {
+    const f = onDisk('exact.ts', lines(3).join('\n') + '\n');
+    expect(checkConfigPattern(maxLines(3), f, dir)).toEqual([]);
+  });
+
+  it('does not count the empty line after a trailing newline (eslint max-lines semantics)', () => {
+    const withNl = onDisk('nl.ts', lines(3).join('\n') + '\n');
+    const withoutNl = onDisk('no-nl.ts', lines(3).join('\n'));
+    expect(checkConfigPattern(maxLines(3), withNl, dir)).toEqual([]);
+    expect(checkConfigPattern(maxLines(3), withoutNl, dir)).toEqual([]);
+    expect(checkConfigPattern(maxLines(2), withoutNl, dir)).toHaveLength(1);
+  });
+
+  it('counts blank lines and CRLF line endings as lines', () => {
+    const f = onDisk('crlf.ts', 'const a = 1;\r\n\r\nconst b = 2;\r\n');
+    expect(checkConfigPattern(maxLines(3), f, dir)).toEqual([]);
+    expect(checkConfigPattern(maxLines(2), f, dir)).toHaveLength(1);
+  });
+
+  it('uses the configured message when one is given', () => {
+    const f = onDisk('msg.ts', lines(2).join('\n'));
+    const [m] = checkConfigPattern(maxLines(1, { message: 'too long' }), f, dir);
+    expect(m?.message).toBe('too long');
+  });
+
+  it('reports a violation it could not check rather than passing silently', () => {
+    const f = file({ path: join(dir, 'missing.ts') });
+    const matches = checkConfigPattern(maxLines(1), f, dir);
+    expect(matches).toHaveLength(1);
+    expect(matches[0]!.message).toMatch(/could not read/i);
+  });
+});
+
+describe('every rule type flags a known-bad file (#2324)', () => {
+  // `satisfies Record<type, …>` makes this table exhaustive: a rule type added
+  // to the union without a case here fails typecheck, so no type can ship as a
+  // checker that never fires.
+  let dir: string;
+  beforeAll(() => {
+    dir = mkdtempSync(join(tmpdir(), 'rule-types-'));
+  });
+  afterAll(() => {
+    rmSync(dir, { recursive: true, force: true });
+  });
+  const exp = (name: string, type: 'named' | 'default' = 'named') => ({
+    name,
+    type,
+    location: loc(1),
+    isReExport: false,
+  });
+  const cases = {
+    'must-export': () => ({ rule: { type: 'must-export', names: ['x'] }, f: file({}) }),
+    'must-export-default': () => ({ rule: { type: 'must-export-default' }, f: file({}) }),
+    'no-export': () => ({
+      rule: { type: 'no-export', names: ['x'] },
+      f: file({ exports: [exp('x')] }),
+    }),
+    'must-import': () => ({ rule: { type: 'must-import', from: 'lib' }, f: file({}) }),
+    'no-import': () => ({
+      rule: { type: 'no-import', from: 'lib' },
+      f: file({
+        imports: [{ source: 'lib', specifiers: [], location: loc(2), kind: 'value' }],
+      } as unknown as Partial<SourceFile>),
+    }),
+    naming: () => ({
+      rule: { type: 'naming', match: '^[a-z]', convention: 'camelCase' },
+      f: file({ exports: [exp('Bad')] }),
+    }),
+    'max-exports': () => ({
+      rule: { type: 'max-exports', count: 1 },
+      f: file({ exports: [exp('a'), exp('b')] }),
+    }),
+    'max-lines': () => {
+      const path = join(dir, 'long.ts');
+      writeFileSync(path, 'a;\nb;\n');
+      return { rule: { type: 'max-lines', count: 1 }, f: file({ path }) };
+    },
+    'require-jsdoc': () => ({
+      rule: { type: 'require-jsdoc', for: ['export'] },
+      f: file({ exports: [exp('a')] }),
+    }),
+  } satisfies Record<
+    ConfigPattern['rule']['type'],
+    () => { rule: ConfigPattern['rule']; f: SourceFile }
+  >;
+
+  it.each(Object.keys(cases) as (keyof typeof cases)[])('%s', (type) => {
+    const { rule, f } = cases[type]();
+    const root = type === 'max-lines' ? dir : '/project';
+    expect(checkConfigPattern(pattern(rule), f, root).length).toBeGreaterThan(0);
   });
 });
 
