@@ -341,9 +341,10 @@ describe('design-pipeline command → warnings and exclusions in human mode', ()
   it('prints every engine warning, so an accepted-but-inert option is never silent', async () => {
     engineReturns(context({ warnings: ['first notice', 'second notice'] }));
     const res = await run([]);
-    const out = res.stdoutLines.join('\n');
-    expect(out).toContain('first notice');
-    expect(out).toContain('second notice');
+    // Warnings are diagnostics: they go to stderr, never stdout (#2519).
+    expect(res.stderr).toContain('first notice');
+    expect(res.stderr).toContain('second notice');
+    expect(res.stdout).not.toContain('first notice');
   });
 
   it('names the applied exclude globs on the DETECT line', async () => {
