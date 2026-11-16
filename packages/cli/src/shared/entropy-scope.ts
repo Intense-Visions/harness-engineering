@@ -29,8 +29,19 @@ export function resolveEntropyScope(config: HarnessConfig, projectRoot: string):
     ?.docPaths;
   return {
     rootDir: path.resolve(projectRoot, config.rootDir),
-    docPaths: configuredDocPaths ?? [
-      path.join(path.resolve(projectRoot, config.docsDir), '**/*.md'),
-    ],
+    docPaths: configuredDocPaths ?? [docsDirGlob(path.resolve(projectRoot, config.docsDir))],
   };
+}
+
+/**
+ * Every markdown file under an absolute docs directory, as a forward-slash
+ * glob.
+ *
+ * `path.join` emits backslashes on win32, and `glob` treats a backslash as an
+ * ESCAPE, not a separator — so `C:\repo\docs\**\*.md` matches nothing and
+ * the drift denominator silently drops to zero on Windows. `glob` accepts
+ * forward slashes (drive letter included) on every platform.
+ */
+export function docsDirGlob(absoluteDocsDir: string): string {
+  return `${absoluteDocsDir.replaceAll('\\', '/').replace(/\/+$/, '')}/**/*.md`;
 }

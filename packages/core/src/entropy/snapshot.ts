@@ -494,7 +494,12 @@ export async function buildSnapshot(
   const docPatterns = config.docPaths || ['docs/**/*.md', 'README.md', '**/README.md'];
   let docFilePaths: string[] = [];
   for (const pattern of docPatterns) {
-    const docFiles = await findFiles(pattern, rootDir);
+    // On win32 a docPath built with `path.join` (e.g. `harness cleanup`'s
+    // `<docsDir>/**/*.md` fallback) carries backslashes, which `glob` reads as
+    // escapes — the pattern then matches nothing and drift silently scans zero
+    // docs (#2168). Backslash is never a meaningful escape in a Windows path.
+    const globPattern = process.platform === 'win32' ? pattern.replaceAll('\\', '/') : pattern;
+    const docFiles = await findFiles(globPattern, rootDir);
     docFilePaths.push(...docFiles);
   }
   docFilePaths = [...new Set(docFilePaths)]; // Dedupe

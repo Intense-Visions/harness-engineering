@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/shared'
-sourceHash: '90ced01d0e01fa7e41cb4c43191678c4042c7b91fa493df3a68f1a3f06c65eda'
+sourceHash: 'd39332c0a72cd0fb67238431101834854d228e649e55f848c8440b5e0f6441d7'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -24,6 +24,7 @@ export collectDesignScanFiles
 export describeDuplicationNotRun
 export describeUnknownIssueType
 export designScanAbstention
+export docsDirGlob
 export emitApprovalRequested
 export emitApprovalResolved
 export emitCoreEvent
