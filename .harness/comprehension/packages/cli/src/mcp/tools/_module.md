@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: "packages/cli/src/mcp/tools"
-sourceHash: "07564f2b6d99edfcca6450efbf4fa74fb7f78368b18e39e5412f82d819ce02be"
+sourceHash: "2d3f9873705e28ed954febb39ecf34f2ef8dda800373ec7ae51b8cb75fd19bd5"
 compiler: { static: "1.0.0", semantic: "1.0.0" }
 model: null
 semantic: absent
@@ -372,7 +372,7 @@ import { comprehensionEndpoint, readComprehensionConfig, remoteFileConfig, resol
 import { maybeCreateGenerateSemantic, semanticResponseSchema } from '../../comprehension/generate-semantic'
 import { committedSemanticAllowed } from '../../comprehension/policy'
 import { createStaticExtractor } from '../../comprehension/static-extractor'
-import { loadAnalysisExclude, loadDepsFallbackBehavior } from '../../config/analysis-schema.js'
+import { loadAnalysisExclude, loadDepsFallbackBehavior, loadDepsResolveWorkspacePackages } from '../../config/analysis-schema.js'
 import { resolveConfig } from '../../config/loader'
 import { findConfigFile, loadConfig, resolveConfig } from '../../config/loader.js'
 import { HarnessConfig } from '../../config/schema.js'

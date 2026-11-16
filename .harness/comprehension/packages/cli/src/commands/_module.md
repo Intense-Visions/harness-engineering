@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: "packages/cli/src/commands"
-sourceHash: "22c22550280e8444552579fd18b3c94c32648733fa38ae7155d0eb7260109ad7"
+sourceHash: "72d0747b4da4be593cbfabf9adda1f4fd4a27665aac06429683d7cd6bbe8c376"
 compiler: { static: "1.0.0", semantic: "1.0.0" }
 model: null
 semantic: absent
@@ -319,7 +319,7 @@ import { RefreshJobGateReason, explainInactiveRefreshGate, resolveRefreshJobGate
 import { RefReadDeps, RegressionContext, SemanticState, defaultRefReadDeps, detectCommittedSemanticOnBranch, detectSemanticRegressions, readSemanticMapAtRef } from '../comprehension/regression'
 import { assessSemanticCoverage, formatSemanticCoverage } from '../comprehension/semantic-coverage'
 import { createStaticExtractor } from '../comprehension/static-extractor'
-import { loadAnalysisExclude } from '../config/analysis-schema.js'
+import { loadAnalysisExclude, loadDesignExclude } from '../config/analysis-schema.js'
 import { withDependencyRules } from '../config/arch-dependency-rules'
 import { findConfigFile, resolveCommandRoot, resolveConfig, resolveProject } from '../config/loader'
 import { resolveConfiguredEntryPoints, resolveExcludePatterns } from '../config/perf-scope'
@@ -372,7 +372,6 @@ import { SETUP_CLIENTS } from '../setup/clients'
 import { CraftScanTally, formatCraftDiagnostic } from '../shared/craft/diagnostics.js'
 import { findOrchestratorMd, readBackendsFromOrchestratorMd } from '../shared/craft/llm/orchestrator-md'
 import { CraftLlmResolution, resolveCraftLlmConfig } from '../shared/craft/llm/provider.js'
-import { isDesignScanPath, isExcluded, resolveDesignExcludePatterns } from '../shared/design-scan-targets.js'
 import { ENTROPY_ISSUE_TYPES, EntropyIssueType, describeDuplicationNotRun, describeUnknownIssueType, isEntropyIssueType, resolveDuplicationRequest } from '../shared/duplication-request'
 import { matchContent } from '../skill/content-matcher'
 import { ContentMatchResult, SkillMatch } from '../skill/content-matcher-types'
