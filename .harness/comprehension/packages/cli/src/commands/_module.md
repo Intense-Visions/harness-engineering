@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/commands'
-sourceHash: '04ded4bcba1fc596c7b16a6216e7f3e75b12d509409a3c42fc5be30061e12126'
+sourceHash: '11315e9b65ca3938bbf07a274a6091ad3d7300227347a5ff2b4344e33a06bde5'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -412,6 +412,7 @@ export runVerify
 export setupMcp
 export stageCompiledUnits
 export summarizeSweepReport
+export unparsedFileChecks
 export upsertComment
 export writeTelemetryConfig
 ```
@@ -498,6 +499,7 @@ import { isDesignScanPath, isExcluded, resolveDesignExcludePatterns } from '../s
 import { DuplicationBaselineDelta, UPDATE_BASELINE_WITHOUT_SCAN, formatDuplicationBaselineLine, recordOrCompareBaseline } from '../shared/duplication-baseline'
 import { ENTROPY_ISSUE_TYPES, EntropyIssueType, describeDuplicationNotRun, describeUnknownIssueType, isEntropyIssueType, resolveDuplicationRequest } from '../shared/duplication-request'
 import { resolveEntropyGate } from '../shared/entropy-gate'
+import { resolveInsightsEntropyGatherer } from '../shared/insights-entropy'
 import { matchContent } from '../skill/content-matcher'
 import { ContentMatchResult, SkillMatch } from '../skill/content-matcher-types'
 import { HealthSnapshot, captureHealthSnapshot, isSnapshotFresh, loadCachedSnapshot } from '../skill/health-snapshot'

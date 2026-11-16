@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/mcp/tools'
-sourceHash: '1d518c2f8acd225609322f98214ef8fd22b55021bacd9b21d28a42472cd55c97'
+sourceHash: 'ccd42b3ccaa665d2099549587432d334d8a4adeb23d3a6f97c88d1e59acd917e'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -179,6 +179,7 @@ export allocateNextNumber
 export analyzeDiffDefinition
 export apiCraftDefinition
 export apiCraftFinalizeDefinition
+export assertProjectRoot
 export assessProjectDefinition
 export attachSemantic
 export auditAnatomyDefinition
@@ -393,7 +394,6 @@ export renderTransition
 export requestPeerReviewDefinition
 export resolveLintCommand
 export resolveTestContent
-export resolveWorktreeRoot
 export reviewChangesDefinition
 export runAgentTaskDefinition
 export runAlignDesignSystem
@@ -462,6 +462,7 @@ import { AuditBrandInput, AuditBrandOutput, runAuditBrand } from '../../brand/in
 import { CliErgonomicsCraftInput, CliErgonomicsCraftMode, CliErgonomicsCraftOutput, CollectPromptsOutput, FinalizeCliErgonomicsCraftInput, collectCliErgonomicsCraftPrompts, finalizeCliErgonomicsCraft, runCliErgonomicsCraft } from '../../cli-ergonomics-craft/index.js'
 import { CodeCraftInput, CodeCraftMode, CodeCraftOutput, CollectPromptsOutput, FinalizeCodeCraftInput, collectCodeCraftPrompts, finalizeCodeCraft, runCodeCraft } from '../../code-craft/index.js'
 import { runAdviseSkills } from '../../commands/advise-skills.js'
+import { unparsedFileChecks } from '../../commands/check-deps.js'
 import '../../commands/check-phase-gate.js'
 import '../../commands/create-skill.js'
 import '../../commands/generate-agent-definitions.js'
@@ -474,7 +475,7 @@ import { comprehensionEndpoint, readComprehensionConfig, remoteFileConfig, resol
 import { maybeCreateGenerateSemantic, semanticResponseSchema } from '../../comprehension/generate-semantic'
 import { committedSemanticAllowed } from '../../comprehension/policy'
 import { createStaticExtractor } from '../../comprehension/static-extractor'
-import { loadAnalysisExclude, loadDepsFallbackBehavior, loadDepsResolveWorkspacePackages } from '../../config/analysis-schema.js'
+import { loadAnalysisExclude } from '../../config/analysis-schema.js'
 import { resolveConfig } from '../../config/loader'
 import { findConfigFile, loadConfig, resolveConfig } from '../../config/loader.js'
 import { HarnessConfig } from '../../config/schema.js'
@@ -507,11 +508,13 @@ import { DEFAULT_RESPONSIVE_GATE_CONFIG, ResponsiveGateConfig, ResponsiveMetrics
 import { CollectPromptsOutput, FinalizeSecurityCraftInput, SecurityCraftInput, SecurityCraftMode, SecurityCraftOutput, collectSecurityCraftPrompts, finalizeSecurityCraft, runSecurityCraft } from '../../security-craft/index.js'
 import { craftClumpView } from '../../shared/craft/findings/clumpable.js'
 import { resolveCraftLlmMode } from '../../shared/craft/llm/provider.js'
+import { craftPathError, withCraftAbstention } from '../../shared/craft/scope.js'
 import { collectDesignScanFiles, designScanAbstention, noFilesScannedError, resolveDesignExcludePatterns } from '../../shared/design-scan-targets.js'
 import { baselineDeltaForReport } from '../../shared/duplication-baseline.js'
 import { ENTROPY_ISSUE_TYPES, describeDuplicationNotRun, describeUnknownIssueType, isEntropyIssueType, resolveDuplicationRequest } from '../../shared/duplication-request.js'
 import { resolveEntropyGate } from '../../shared/entropy-gate.js'
 import { EntropyScope, resolveEntropyScope } from '../../shared/entropy-scope.js'
+import { resolveInsightsEntropyGatherer } from '../../shared/insights-entropy.js'
 import '../../shared/state-events.js'
 import { Verifier } from '../../shared/verifier.js'
 import { dispatchSkills, dispatchSkillsFromGit, enrichSnapshotForDispatch } from '../../skill/dispatch-engine.js'
@@ -542,7 +545,7 @@ import { McpToolResponse, bigIntSafeReplacer, resultToMcpResponse } from '../uti
 import { resolveProjectRootArg, sanitizePath } from '../utils/sanitize-path.js'
 import { sortFindingsBySeverity } from '../utils/severity.js'
 import { emitAcceptanceVerdictEvent, emitOutcomeVerdictEvent, emitUatSignoffEvent } from '../utils/waypoint-emission.js'
-import { AdrStoreError, CreateAdrInput, UpdateAdrInput, createAdr, listAdrs, readAdr, resolveWorktreeRoot, updateAdr } from './adr-store.js'
+import { AdrStoreError, CreateAdrInput, UpdateAdrInput, assertProjectRoot, createAdr, listAdrs, readAdr, updateAdr } from './adr-store.js'
 import { adviseSkillsDefinition, handleAdviseSkills } from './advise-skills.js'
 import './architecture.js'
 import { generateBlueprintDefinition, handleGenerateBlueprint } from './blueprint.js'
@@ -577,7 +580,7 @@ import { handleSummarizeSession, summarizeSessionDefinition } from './summarize-
 import { handleUatSignoff, uatSignoffDefinition } from './uat-signoff.js'
 import './validate.js'
 import { handleSubscribeWebhook, subscribeWebhookDefinition } from './webhook-tools'
-import { CHARS_PER_TOKEN, COMPREHENSION_ROOT, CompactionPipeline, ComprehensionSourceFile, ComprehensionStore, ComprehensionUnit, ConflictError, DEFAULT_INSTRUCTION_BUDGET, DriftConfig, DuplicationConfig, EntropyReport, Err, ExtractStatic, FeaturePatch, GenerateSemantic, LevelInstructionDensity, NewFeatureInput, Ok, PackedEnvelope, PatternConfig, RefinementContextClass, RefinementDemandReport, RefinementOperation, RefinementRequest, Result, RoadmapPromoteCoreResult, RoadmapTrackerClient, SourceFile, StaticExtraction, StructuralStrategy, TrackedFeature, TrackerSyncAdapter, TruncationStrategy, aggregateDemand, analyzeSkillInstructionDensity, applyRoadmapDiff, archiveDoneShardsForProject, classifyRefinement, computeLoadPlan, computeSourceHash, createHttpComprehensionReadIO, createNodeComprehensionIO, createNodeModuleSourceReader, createTrackerClient, decidePromotionForRow, detectRoadmapStorageMode, estimateTokens, extractLevel, loadProjectRoadmapMode, loadTrackerClientConfigFromProject, loadTrackerSyncConfig, paginate, renderServedUnit, reportIgnoredClumpingBlock, resolveAutonomyForSession, resolveRoadmapStore, roadmapSourceExists, serializeEnvelope, serveGate, slugifyFeatureName } from '@harness-engineering/core'
+import { CHARS_PER_TOKEN, COMPREHENSION_ROOT, CompactionPipeline, ComprehensionSourceFile, ComprehensionStore, ComprehensionUnit, ConflictError, DEFAULT_INSTRUCTION_BUDGET, DriftConfig, DuplicationConfig, EntropyReport, Err, ExtractStatic, FeaturePatch, GenerateSemantic, LevelInstructionDensity, NewFeatureInput, Ok, PackedEnvelope, PatternConfig, RefinementContextClass, RefinementDemandReport, RefinementOperation, RefinementRequest, Result, RoadmapPromoteCoreResult, RoadmapTrackerClient, SourceFile, StaticExtraction, StructuralStrategy, TrackedFeature, TrackerSyncAdapter, TruncationStrategy, aggregateDemand, analyzeSkillInstructionDensity, applyRoadmapDiff, archiveDoneShardsForProject, classifyRefinement, computeLoadPlan, computeSourceHash, createHttpComprehensionReadIO, createNodeComprehensionIO, createNodeModuleSourceReader, createTrackerClient, decidePromotionForRow, detectRoadmapStorageMode, estimateTokens, extractLevel, loadProjectRoadmapMode, loadTrackerClientConfigFromProject, loadTrackerSyncConfig, paginate, renderServedUnit, reportIgnoredClumpingBlock, resolveAutonomyForSession, resolveRoadmapStore, roadmapSourceExists, serializeEnvelope, serveGate, slugifyFeatureName, validateRoadmapFeatureFields } from '@harness-engineering/core'
 import { skipDirGlobs } from '@harness-engineering/graph'
 import { AnalysisProvider, CanaryAdapter, CanaryFrameworkInfo, GuardianAnalysis, createCanaryAdapter, readGuardianAnalyses, resolveTestCommand } from '@harness-engineering/intelligence'
 import '@harness-engineering/linter-gen'

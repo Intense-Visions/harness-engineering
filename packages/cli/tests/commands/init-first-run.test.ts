@@ -19,6 +19,19 @@ function tmp(): string {
   return fs.mkdtempSync(path.join(os.tmpdir(), 'harness-init-first-run-'));
 }
 
+/**
+ * Opt a scaffold into the entropy analyzers. Language-base templates ship
+ * `entropy.enabled: false` (the analyzers are TypeScript-based), and cleanup
+ * refuses an explicit `-t dead-code` there (#2633) — so a test proving the
+ * declared entry points resolve must opt in first, as an adopter would.
+ */
+function optInToEntropy(dir: string): void {
+  const configPath = path.join(dir, 'harness.config.json');
+  const config = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+  config.entropy = { ...config.entropy, enabled: true };
+  fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
+}
+
 describe('harness init — adopter first run (#2630)', () => {
   it.each(TS_LEVELS)(
     '%s: package.json pins a @harness-engineering/cli range the running CLI satisfies',
@@ -79,6 +92,7 @@ describe('harness init — adopter first run (#2630)', () => {
       expect(result.ok).toBe(true);
       // `src/main/java/App.java` matched neither Main.java nor *Application.java,
       // so `harness cleanup` failed with "Could not resolve entry points".
+      optInToEntropy(dir);
       const clean = await runCleanup({
         cwd: dir,
         configPath: path.join(dir, 'harness.config.json'),
@@ -87,6 +101,28 @@ describe('harness init — adopter first run (#2630)', () => {
       });
       if (!clean.ok) throw new Error(clean.error.message);
       expect(clean.value.ran.deadCode).toBe(true);
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('java: with the template default (entropy.enabled: false) -t dead-code refuses, naming the config', async () => {
+    const dir = tmp();
+    try {
+      const result = await runInit({ cwd: dir, name: 'demo', language: 'java' });
+      expect(result.ok).toBe(true);
+      const config = JSON.parse(fs.readFileSync(path.join(dir, 'harness.config.json'), 'utf-8'));
+      expect(config.entropy?.enabled).toBe(false);
+      const clean = await runCleanup({
+        cwd: dir,
+        configPath: path.join(dir, 'harness.config.json'),
+        type: 'dead-code',
+        quiet: true,
+      });
+      expect(clean.ok).toBe(false);
+      if (clean.ok) return;
+      expect(clean.error.message).toMatch(/entropy\.enabled: false/);
+      expect(clean.error.message).toMatch(/Refusing/);
     } finally {
       fs.rmSync(dir, { recursive: true, force: true });
     }

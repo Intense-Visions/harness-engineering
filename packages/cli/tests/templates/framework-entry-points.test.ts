@@ -83,8 +83,24 @@ function scaffold(s: Scaffold): string {
   return dir;
 }
 
+/**
+ * Opt a scaffold into the entropy analyzers when its template ships them off.
+ * Language-base templates (python, java, go, rust) declare
+ * `entropy.enabled: false`, and cleanup refuses an explicit `-t dead-code`
+ * there (#2633); these tests prove the declared entry points remove the false
+ * positives once an adopter turns the analyzers on. Template defaults are untouched.
+ */
+function optInToEntropy(dir: string): void {
+  const configPath = path.join(dir, 'harness.config.json');
+  const config = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+  if (config.entropy?.enabled !== false) return;
+  config.entropy = { ...config.entropy, enabled: true };
+  fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
+}
+
 /** Dead-code findings, as project-relative POSIX paths (stable on win32). */
 async function deadCode(dir: string): Promise<string[]> {
+  optInToEntropy(dir);
   const result = await runCleanup({
     cwd: dir,
     configPath: path.join(dir, 'harness.config.json'),
@@ -109,6 +125,27 @@ describe('fresh framework scaffolds report no dead code on their entry files (#2
       expect(await deadCode(dir)).toContain(s.orphan.file);
     }, 30_000);
   });
+});
+
+describe('a language-base scaffold left at its default refuses -t dead-code (#2633)', () => {
+  it.each(SCAFFOLDS.filter((s) => s.language === 'python'))(
+    '$label',
+    async (s) => {
+      const dir = scaffold(s);
+      const config = JSON.parse(fs.readFileSync(path.join(dir, 'harness.config.json'), 'utf-8'));
+      expect(config.entropy?.enabled).toBe(false);
+      const result = await runCleanup({
+        cwd: dir,
+        configPath: path.join(dir, 'harness.config.json'),
+        type: 'dead-code',
+      });
+      expect(result.ok).toBe(false);
+      if (result.ok) return;
+      expect(result.error.message).toMatch(/disabled/);
+      expect(result.error.message).toMatch(/entropy\.enabled: false/);
+    },
+    30_000
+  );
 });
 
 describe('a written harness.config.json names only entry files that exist (#2630)', () => {
