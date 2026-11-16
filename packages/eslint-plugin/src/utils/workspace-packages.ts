@@ -150,6 +150,29 @@ function listDirs(dir: string): string[] {
   }
 }
 
+const joinRel = (rel: string, child: string): string => (rel ? `${rel}/${child}` : child);
+
+/** `rel` plus every directory below it (the `**` segment: zero or more dirs). */
+function descendants(rootDir: string, rel: string): string[] {
+  const out: string[] = [];
+  const stack = [rel];
+  while (stack.length > 0) {
+    const r = stack.pop()!;
+    out.push(r);
+    for (const child of listDirs(path.join(rootDir, r))) stack.push(joinRel(r, child));
+  }
+  return out;
+}
+
+/** Apply one glob segment to one root-relative directory. */
+function expandSegment(rootDir: string, rel: string, segment: string): string[] {
+  if (segment === '**') return descendants(rootDir, rel);
+  if (!/[*?[{]/.test(segment)) return [joinRel(rel, segment)];
+  return listDirs(path.join(rootDir, rel))
+    .filter((child) => minimatch(child, segment))
+    .map((child) => joinRel(rel, child));
+}
+
 /**
  * Expand a workspace directory glob (e.g. `packages/*`, `apps/**`, `docs`)
  * into root-relative directories, segment by segment.
@@ -163,28 +186,7 @@ function expandDirGlob(rootDir: string, glob: string): string[] {
     .filter((s) => s.length > 0);
   let current: string[] = [''];
   for (const segment of segments) {
-    const next: string[] = [];
-    for (const rel of current) {
-      const abs = path.join(rootDir, rel);
-      if (segment === '**') {
-        // Zero or more directories.
-        const stack = [rel];
-        while (stack.length > 0) {
-          const r = stack.pop()!;
-          next.push(r);
-          for (const child of listDirs(path.join(rootDir, r))) {
-            stack.push(r ? `${r}/${child}` : child);
-          }
-        }
-      } else if (/[*?[{]/.test(segment)) {
-        for (const child of listDirs(abs)) {
-          if (minimatch(child, segment)) next.push(rel ? `${rel}/${child}` : child);
-        }
-      } else {
-        next.push(rel ? `${rel}/${segment}` : segment);
-      }
-    }
-    current = next;
+    current = current.flatMap((rel) => expandSegment(rootDir, rel, segment));
   }
   return current.filter((r) => r.length > 0);
 }
