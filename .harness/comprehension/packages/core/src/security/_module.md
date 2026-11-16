@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/src/security'
-sourceHash: '969d5cef027243b8c9a3ff37b288cde58626f0f0961e984d0849733570376009'
+sourceHash: '04cff14547e05c03b12ecb4d099e2151640d1894965ae373eb19b0808f3ddd27'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -29,6 +29,7 @@ members:
 ## Interface Contract
 
 ```ts
+export AuditCommandRunner
 export DEFAULT_SECURITY_CONFIG
 export DESTRUCTIVE_BASH
 export EMPTY_SUPPLY_CHAIN
@@ -84,6 +85,7 @@ export TimeToFixStats
 export TimeToFixStatsSchema
 export TrendAttribution
 export TrendAttributionSchema
+export UNMEASURED_SUPPLY_CHAIN_SCORE_CEILING
 export agentConfigRules
 export checkTaint
 export clearTaint
@@ -94,12 +96,15 @@ export cryptoRules
 export deserializationRules
 export detectStack
 export expressRules
+export findFencedCodeLines
 export getInjectionPatterns
 export getTaintFilePath
 export goRules
 export injectionRules
 export insecureDefaultsRules
 export isDuplicateFinding
+export isMarkdownPath
+export isSupplyChainMeasured
 export listTaintedSessions
 export mapInjectionFindings
 export mapSecurityFindings
@@ -107,6 +112,7 @@ export mapSecuritySeverity
 export mcpRules
 export networkRules
 export nodeRules
+export normalizeMarkdownTableRow
 export parseHarnessIgnore
 export parseSecurityConfig
 export pathTraversalRules
@@ -117,6 +123,7 @@ export scanForInjection
 export secretRules
 export securityFindingId
 export sharpEdgesRules
+export suppressMarkdownStructureFindings
 export writeTaint
 export xssRules
 ```
@@ -127,7 +134,7 @@ export xssRules
 import { maskComments, supportsCommentMasking } from './comment-mask'
 import { resolveRuleSeverity } from './config'
 import { parseHarnessIgnore } from './harness-ignore'
-import { InjectionFinding } from './injection-patterns'
+import { InjectionFinding, getInjectionPatterns } from './injection-patterns'
 import { agentConfigRules } from './rules/agent-config'
 import { cryptoRules } from './rules/crypto'
 import { deserializationRules } from './rules/deserialization'
@@ -147,7 +154,7 @@ import { xssRules } from './rules/xss'
 import { ScanConfigFileResult, ScanConfigFinding, computeOverallSeverity, computeScanExitCode, isDuplicateFinding, mapInjectionFindings, mapSecurityFindings, mapSecuritySeverity } from './scan-config-shared'
 import { SECURITY_SCAN_DEFAULT_IGNORE } from './scan-targets'
 import { extractQuotedSecretValue, isReferenceOnlySecretValue } from './secret-reference'
-import { Direction, EMPTY_SUPPLY_CHAIN, FindingLifecycle, SecurityCategorySnapshot, SecurityTimelineFile, SecurityTimelineFileSchema, SecurityTimelineSnapshot, SecurityTrendLine, SecurityTrendResult, SupplyChainSnapshot, TimeToFixResult, TimeToFixStats, TrendAttribution, securityFindingId } from './security-timeline-types'
+import { Direction, EMPTY_SUPPLY_CHAIN, FindingLifecycle, SecurityCategorySnapshot, SecurityTimelineFile, SecurityTimelineFileSchema, SecurityTimelineSnapshot, SecurityTrendLine, SecurityTrendResult, SupplyChainSnapshot, TimeToFixResult, TimeToFixStats, TrendAttribution, UNMEASURED_SUPPLY_CHAIN_SCORE_CEILING, isSupplyChainMeasured, securityFindingId } from './security-timeline-types'
 import { detectStack } from './stack-detector'
 import { DEFAULT_SECURITY_CONFIG, RuleOverride, ScanResult, SecurityConfig, SecurityFinding, SecurityRule, SecuritySeverity } from './types'
 import { skipDirGlobs } from '@harness-engineering/graph'
