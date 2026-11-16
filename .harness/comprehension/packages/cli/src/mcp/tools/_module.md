@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/mcp/tools'
-sourceHash: '36472f868b4c8632da9b88e52227c2def247180fe2706b7206a02bfe93ef405e'
+sourceHash: 'e5b35bf45140e7cd5ca3d7fa9941d7fa340a0bf50b1112f728269f9cd81c5c32'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -474,7 +474,7 @@ import { comprehensionEndpoint, readComprehensionConfig, remoteFileConfig, resol
 import { maybeCreateGenerateSemantic, semanticResponseSchema } from '../../comprehension/generate-semantic'
 import { committedSemanticAllowed } from '../../comprehension/policy'
 import { createStaticExtractor } from '../../comprehension/static-extractor'
-import { loadAnalysisExclude, loadDepsFallbackBehavior } from '../../config/analysis-schema.js'
+import { loadAnalysisExclude, loadDepsFallbackBehavior, loadDepsResolveWorkspacePackages } from '../../config/analysis-schema.js'
 import { resolveConfig } from '../../config/loader'
 import { findConfigFile, loadConfig, resolveConfig } from '../../config/loader.js'
 import { HarnessConfig } from '../../config/schema.js'
@@ -508,6 +508,7 @@ import { CollectPromptsOutput, FinalizeSecurityCraftInput, SecurityCraftInput, S
 import { craftClumpView } from '../../shared/craft/findings/clumpable.js'
 import { resolveCraftLlmMode } from '../../shared/craft/llm/provider.js'
 import { collectDesignScanFiles, designScanAbstention, noFilesScannedError, resolveDesignExcludePatterns } from '../../shared/design-scan-targets.js'
+import { baselineDeltaForReport } from '../../shared/duplication-baseline.js'
 import { ENTROPY_ISSUE_TYPES, describeDuplicationNotRun, describeUnknownIssueType, isEntropyIssueType, resolveDuplicationRequest } from '../../shared/duplication-request.js'
 import { EntropyScope, resolveEntropyScope } from '../../shared/entropy-scope.js'
 import '../../shared/state-events.js'

@@ -199,17 +199,14 @@ describe('updateProposal', () => {
   it('preserves id, createdAt, and kind even if patch tries to change them', async () => {
     const p = await createProposal(tmpDir, NEW_SKILL_INPUT);
     const updated = await updateProposal(tmpDir, p.id, {
-      // @ts-expect-error — intentionally exercising the immutable guard
       id: 'proposal_other',
-      // @ts-expect-error — intentionally exercising the immutable guard
       createdAt: '1999-01-01T00:00:00.000Z',
-      // @ts-expect-error — intentionally exercising the immutable guard
       skillKind: 'refinement',
       status: 'gate-running',
     });
     expect(updated.id).toBe(p.id);
     expect(updated.createdAt).toBe(p.createdAt);
-    expect(updated.skillKind).toBe('new-skill');
+    expect(updated).toMatchObject({ skillKind: 'new-skill' });
     expect(updated.status).toBe('gate-running');
   });
 });

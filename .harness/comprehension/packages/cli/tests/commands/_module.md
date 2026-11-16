@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/tests/commands'
-sourceHash: '64155fa596a7f0a59de3ba02183e1cffaf6903e175eb39c12173d4acbb1e2019'
+sourceHash: '2e9dda468e3ea6f463b86220ad725a8432a50d8e135902d6b859aa12e45626f2'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -30,6 +30,7 @@ members:
     'autonomy-show.test.ts',
     'backfill-skill-provenance.test.ts',
     'bugfleet-publish-analyses-prefix-crosstalk.test.ts',
+    'check-arch-abstention.test.ts',
     'check-arch-dependency-rules.test.ts',
     'check-arch.test.ts',
     'check-deployment.test.ts',
@@ -58,6 +59,7 @@ members:
     'check-vocabulary-cov544b.test.ts',
     'check-vocabulary.test.ts',
     'cleanup-cov544b.test.ts',
+    'cleanup-duplication-baseline.test.ts',
     'cleanup-duplication.test.ts',
     'cleanup-findings-items.test.ts',
     'cleanup-sessions-cov544.test.ts',
@@ -453,6 +455,7 @@ import { ROLLBACK_EVENTS_FILE } from '../../src/rollback/breadcrumb'
 import { SweepSignalRule } from '../../src/rollback/sweep'
 import { SecurityCraftInput, SecurityCraftOutput } from '../../src/security-craft/index.js'
 import { collectDesignScanFiles, resolveDesignExcludePatterns } from '../../src/shared/design-scan-targets'
+import { DUPLICATION_BASELINE_PATH } from '../../src/shared/duplication-baseline'
 import { HealthSnapshot, captureHealthSnapshot, isSnapshotFresh, loadCachedSnapshot } from '../../src/skill/health-snapshot'
 import { loadOrRebuildIndex } from '../../src/skill/index-builder'
 import { derivePackageJson } from '../../src/skill/package-json'
@@ -471,7 +474,7 @@ import { CraftCommandRun, DEFAULT_CWD, runCraftCommand } from './craft-command-h
 import { llmCalls, runCraftCommand } from './craft-command-harness.js'
 import { parseJsonStdout, runCommand } from './design-command-harness'
 import * as clack from '@clack/prompts'
-import { ArchConfigSchema, CiReviewResult, ConstraintError, DEFAULT_REMOTE_URL, DiffInfo, Err, GoldenFileChange, GoldenSnapshot, Ok, RefinementDemandReport, RollbackDecision, RunCiReviewOptions, SECURITY_SCAN_EXTENSIONS, SECURITY_SCAN_GLOB, applyFixes, archiveStream, buildSnapshot, checkTaint, clearTaint, computeRepoKey, createError, createFixes, createModelProposal, createProposal, createStream, detectDeadCode, detectDocDrift, extractBundle, generateSuggestions, listStreams, listTaintedSessions, loadStreamIndex, parseCiReviewVerdict, parseDiff, parseManifest, readAdoptionRecords, requestPeerReview, resetWaypointEmitterForTests, runReviewPipeline, sessionOverridePath, setActiveStream, validateAgentConfigs, validateAgentsMap, validateDecisionNumbers, validateKnowledgeMap, validatePulseConfig, validateRoadmapMode, validateSolutionsDir, validateStrategy, writeConfig, writeSessionOverride } from '@harness-engineering/core'
+import { ArchConfigSchema, CiReviewResult, Collector, ConstraintError, DEFAULT_REMOTE_URL, DiffInfo, Err, GoldenFileChange, GoldenSnapshot, MetricResult, Ok, RefinementDemandReport, RollbackDecision, RunCiReviewOptions, SECURITY_SCAN_EXTENSIONS, SECURITY_SCAN_GLOB, applyFixes, archiveStream, buildSnapshot, checkTaint, clearTaint, computeRepoKey, createError, createFixes, createModelProposal, createProposal, createStream, detectDeadCode, detectDocDrift, extractBundle, generateSuggestions, listStreams, listTaintedSessions, loadStreamIndex, parseCiReviewVerdict, parseDiff, parseManifest, readAdoptionRecords, requestPeerReview, resetWaypointEmitterForTests, runReviewPipeline, sessionOverridePath, setActiveStream, validateAgentConfigs, validateAgentsMap, validateDecisionNumbers, validateKnowledgeMap, validatePulseConfig, validateRoadmapMode, validateSolutionsDir, validateStrategy, writeConfig, writeSessionOverride } from '@harness-engineering/core'
 import '@harness-engineering/graph'
 import { GUARDIAN_ANALYSIS_SCHEMA, GUARDIAN_ANALYSIS_VERSION, GuardianAnalysis, OutcomeVerdict, SkillRegressionFixture, SkillRegressionVerdict } from '@harness-engineering/intelligence'
 import { AnalysisRecord, MockBackend, RunMode, RunResult, SyncMainResult, TaskDefinition, renderAnalysisComment } from '@harness-engineering/orchestrator'
