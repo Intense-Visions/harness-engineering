@@ -14,7 +14,7 @@
   "packages/cli": {
     "lines": 91.36,
     "branches": 81.95,
-    "functions": 93.14,
+    "functions": 93.25,
     "statements": 90.07
   },
   "packages/orchestrator": {

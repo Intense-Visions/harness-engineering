@@ -376,20 +376,20 @@ describe('runHealthChecks', () => {
           {
             type: 'text',
             text: JSON.stringify({
-              // The real EntropyReport shape (core entropy/types): drift lives
-              // in `drift.drifts`, dead exports in `deadCode.deadExports`. The
-              // old stub used phantom `unusedExports` / `staleReferences` /
-              // `missingTargets` and passed against the bug (#2550).
-              deadCode: {
-                deadExports: [
-                  { file: 'a.ts', name: 'a' },
-                  { file: 'b.ts', name: 'b' },
-                ],
-                deadFiles: [{ path: 'x.ts' }],
-                deadInternals: [],
-                unusedImports: [],
+              // detect_entropy summary mode (#2589).
+              mode: 'summary',
+              totalIssues: 4,
+              categories: {
+                drift: { issueCount: 1, topIssues: [] },
+                deadCode: {
+                  issueCount: 3,
+                  topIssues: [],
+                  deadExports: 2,
+                  deadFiles: 1,
+                  unusedImports: 0,
+                },
+                patterns: { issueCount: 0, topIssues: [] },
               },
-              drift: { drifts: [{ type: 'api-signature', docFile: 'README.md' }] },
             }),
           },
         ],
@@ -479,7 +479,10 @@ describe('runHealthChecks', () => {
     const { runHealthChecks } = await import('../../src/skill/health-snapshot');
     const checks = await runHealthChecks('/tmp/test-project');
 
-    // Failed tool degrades to default zero counts; other tools continue.
+    // Failed tool degrades to zero counts marked NOT MEASURED (never a clean
+    // pass, #2589); other tools continue.
+    expect(checks.entropy.measured).toBe(false);
+    expect(checks.entropy.passed).toBe(false);
     expect(checks.entropy.deadExports).toBe(0);
     expect(checks.entropy.deadFiles).toBe(0);
     expect(checks.entropy.driftCount).toBe(0);
@@ -608,7 +611,27 @@ describe('captureHealthSnapshot', () => {
     }));
     vi.doMock('../../src/mcp/tools/entropy', () => ({
       handleDetectEntropy: vi.fn().mockResolvedValue({
-        content: [{ type: 'text', text: JSON.stringify({ deadCode: {}, drift: {} }) }],
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify({
+              // detect_entropy summary mode (#2589).
+              mode: 'summary',
+              totalIssues: 0,
+              categories: {
+                drift: { issueCount: 0, topIssues: [] },
+                deadCode: {
+                  issueCount: 0,
+                  topIssues: [],
+                  deadExports: 0,
+                  deadFiles: 0,
+                  unusedImports: 0,
+                },
+                patterns: { issueCount: 0, topIssues: [] },
+              },
+            }),
+          },
+        ],
       }),
     }));
     vi.doMock('../../src/mcp/tools/security', () => ({
@@ -708,8 +731,20 @@ describe('captureHealthSnapshot', () => {
           {
             type: 'text',
             text: JSON.stringify({
-              deadCode: { deadExports: [{ file: 'a.ts', name: 'a' }], deadFiles: [] },
-              drift: { drifts: [{ type: 'api-signature', docFile: 'README.md' }] },
+              // detect_entropy summary mode (#2589).
+              mode: 'summary',
+              totalIssues: 2,
+              categories: {
+                drift: { issueCount: 1, topIssues: [] },
+                deadCode: {
+                  issueCount: 1,
+                  topIssues: [],
+                  deadExports: 1,
+                  deadFiles: 0,
+                  unusedImports: 0,
+                },
+                patterns: { issueCount: 0, topIssues: [] },
+              },
             }),
           },
         ],
@@ -806,7 +841,27 @@ describe('captureHealthSnapshot', () => {
     }));
     vi.doMock('../../src/mcp/tools/entropy', () => ({
       handleDetectEntropy: vi.fn().mockResolvedValue({
-        content: [{ type: 'text', text: JSON.stringify({ deadCode: {}, drift: {} }) }],
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify({
+              // detect_entropy summary mode (#2589).
+              mode: 'summary',
+              totalIssues: 0,
+              categories: {
+                drift: { issueCount: 0, topIssues: [] },
+                deadCode: {
+                  issueCount: 0,
+                  topIssues: [],
+                  deadExports: 0,
+                  deadFiles: 0,
+                  unusedImports: 0,
+                },
+                patterns: { issueCount: 0, topIssues: [] },
+              },
+            }),
+          },
+        ],
       }),
     }));
     vi.doMock('../../src/mcp/tools/security', () => ({
