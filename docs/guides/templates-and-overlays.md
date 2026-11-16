@@ -181,14 +181,14 @@ harness init --name my-service --language python
 harness init --name my-service --language java
 ```
 
-| File                         | Purpose                                                           |
-| ---------------------------- | ----------------------------------------------------------------- |
-| `src/main/java/App.java.hbs` | Application entry point                                           |
-| `pom.xml.hbs`                | Maven project configuration (uses `javaGroupId` variable)         |
-| `checkstyle.xml`             | Google Java Style Guide rules                                     |
-| `AGENTS.md.hbs`              | Java-specific knowledge map (Java 17, Maven, JUnit 5, Checkstyle) |
-| `harness.config.json.hbs`    | Tooling: Maven, Checkstyle, JUnit                                 |
-| `.gitignore`                 | Java/Maven-specific ignores                                       |
+| File                          | Purpose                                                           |
+| ----------------------------- | ----------------------------------------------------------------- |
+| `src/main/java/Main.java.hbs` | Application entry point                                           |
+| `pom.xml.hbs`                 | Maven project configuration (uses `javaGroupId` variable)         |
+| `checkstyle.xml`              | Google Java Style Guide rules                                     |
+| `AGENTS.md.hbs`               | Java-specific knowledge map (Java 17, Maven, JUnit 5, Checkstyle) |
+| `harness.config.json.hbs`     | Tooling: Maven, Checkstyle, JUnit                                 |
+| `.gitignore`                  | Java/Maven-specific ignores                                       |
 
 #### Rust (`rust-base`)
 

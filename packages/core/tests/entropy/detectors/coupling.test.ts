@@ -144,4 +144,90 @@ describe('detectCouplingViolations', () => {
     expect(fanOutV).toHaveLength(1);
     expect(fanOutV[0].threshold).toBe(15);
   });
+  // #2153: under TS `"module": "NodeNext"` the `.js` / `.mjs` / `.cjs` extension
+  // is mandatory on a relative specifier, and it names the `.ts` / `.mts` /
+  // `.cts` (or `.tsx`) SOURCE. Resolving it literally left every ESM file at
+  // fanIn 0, pinning couplingRatio to 1.00. Each case asserts the NAMED target's
+  // fanIn via the fanIn rule (threshold 0), so an abstention cannot satisfy it.
+  describe('TS ESM runtime-extension specifiers (#2153)', () => {
+    const fanInOf = async (
+      files: Array<{ path: string; imports?: Array<ReturnType<typeof makeImport>> }>
+    ): Promise<Map<string, number>> => {
+      const result = await detectCouplingViolations(makeSnapshot(files), {
+        thresholds: { fanIn: { info: 0 } },
+      });
+      expect(result.ok).toBe(true);
+      if (!result.ok) return new Map();
+      return new Map(
+        result.value.violations.filter((v) => v.metric === 'fanIn').map((v) => [v.file, v.value])
+      );
+    };
+
+    it('resolves ./b.js to b.ts', async () => {
+      const fanIn = await fanInOf([
+        { path: 'src/a.ts', imports: [makeImport('./b.js')] },
+        { path: 'src/b.ts' },
+      ]);
+      expect(fanIn.get('src/b.ts')).toBe(1);
+    });
+
+    it('resolves ./c.mjs to c.mts and ./d.cjs to d.cts', async () => {
+      const fanIn = await fanInOf([
+        { path: 'src/a.ts', imports: [makeImport('./c.mjs'), makeImport('./d.cjs')] },
+        { path: 'src/c.mts' },
+        { path: 'src/d.cts' },
+      ]);
+      expect(fanIn.get('src/c.mts')).toBe(1);
+      expect(fanIn.get('src/d.cts')).toBe(1);
+    });
+
+    it('resolves ./View.js to View.tsx', async () => {
+      const fanIn = await fanInOf([
+        { path: 'src/a.ts', imports: [makeImport('./View.js')] },
+        { path: 'src/View.tsx' },
+      ]);
+      expect(fanIn.get('src/View.tsx')).toBe(1);
+    });
+
+    it('resolves ./lib/index.js and ../lib/index.js to lib/index.ts', async () => {
+      const fanIn = await fanInOf([
+        { path: 'src/a.ts', imports: [makeImport('./lib/index.js')] },
+        { path: 'src/sub/b.ts', imports: [makeImport('../lib/index.js')] },
+        { path: 'src/lib/index.ts' },
+      ]);
+      expect(fanIn.get('src/lib/index.ts')).toBe(2);
+    });
+
+    it('still resolves a literal .js file in a plain-JS project', async () => {
+      const fanIn = await fanInOf([
+        { path: 'src/a.js', imports: [makeImport('./b.js')] },
+        { path: 'src/b.js' },
+      ]);
+      expect(fanIn.get('src/b.js')).toBe(1);
+    });
+
+    it('a heavily-imported ESM hub no longer reports couplingRatio 1.00', async () => {
+      // The issue's A/B: 10 outbound imports, 3 importers via `.js` specifiers.
+      // Expected ratio 10 / (3 + 10) = 0.77, the same as the extensionless form.
+      const deps = Array.from({ length: 10 }, (_, i) => `src/dep${i}.ts`);
+      const snapshot = makeSnapshot([
+        {
+          path: 'src/auth-helper.ts',
+          imports: deps.map((_, i) => makeImport(`./dep${i}.js`)),
+        },
+        ...deps.map((path) => ({ path })),
+        ...[0, 1, 2].map((i) => ({
+          path: `src/spec${i}.ts`,
+          imports: [makeImport('./auth-helper.js')],
+        })),
+      ]);
+      const result = await detectCouplingViolations(snapshot);
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      const ratio = result.value.violations.find(
+        (v) => v.metric === 'couplingRatio' && v.file === 'src/auth-helper.ts'
+      );
+      expect(ratio?.value).toBeCloseTo(10 / 13, 5);
+    });
+  });
 });

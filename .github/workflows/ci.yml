@@ -158,6 +158,14 @@ jobs:
         if: matrix.os == 'ubuntu-latest'
         run: pnpm generate:persona-workflows:check
 
+      # Barrels (cli command registry + core barrel) and the core public-symbol
+      # manifest (packages/core/public-symbols.txt). Diffing the barrel text alone
+      # misses a symbol published behind `export *`; the manifest half does not
+      # (#2473).
+      - name: Verify barrels and the core public-symbol manifest are fresh
+        if: matrix.os == 'ubuntu-latest'
+        run: pnpm run generate:barrels:check
+
       - name: Upload coverage to Codecov
         if: matrix.os == 'ubuntu-latest'
         uses: codecov/codecov-action@v5

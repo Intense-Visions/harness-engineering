@@ -116,6 +116,33 @@ function resolveReviewMode(globalOpts: Record<string, unknown>): OutputModeType 
   return OutputMode.TEXT;
 }
 
+type ReviewValue = Extract<Awaited<ReturnType<typeof runAgentReview>>, { ok: true }>['value'];
+
+/**
+ * The `--json` payload. Exported so the shape is testable without spawning.
+ *
+ * `githubComments` and `githubCommentReport` ride along (#2476): with
+ * `--comment`, the grouping report is what explains a comment count far below
+ * the finding count, and it used to be computed and then thrown away.
+ */
+export function toReviewJson(value: ReviewValue): Record<string, unknown> {
+  const { pipelineResult } = value;
+  return {
+    ...value,
+    pipelineResult: pipelineResult
+      ? {
+          assessment: pipelineResult.assessment,
+          findings: pipelineResult.findings,
+          exitCode: pipelineResult.exitCode,
+          githubComments: pipelineResult.githubComments,
+          ...(pipelineResult.githubCommentReport != null
+            ? { githubCommentReport: pipelineResult.githubCommentReport }
+            : {}),
+        }
+      : undefined,
+  };
+}
+
 function printReviewResult(
   result: Awaited<ReturnType<typeof runAgentReview>>,
   mode: OutputModeType
@@ -123,22 +150,7 @@ function printReviewResult(
   if (!result.ok) return;
   const { pipelineResult } = result.value;
   if (mode === OutputMode.JSON) {
-    console.log(
-      JSON.stringify(
-        {
-          ...result.value,
-          pipelineResult: pipelineResult
-            ? {
-                assessment: pipelineResult.assessment,
-                findings: pipelineResult.findings,
-                exitCode: pipelineResult.exitCode,
-              }
-            : undefined,
-        },
-        null,
-        2
-      )
-    );
+    console.log(JSON.stringify(toReviewJson(result.value), null, 2));
   } else if (mode !== OutputMode.QUIET) {
     if (pipelineResult) {
       console.log(pipelineResult.terminalOutput);

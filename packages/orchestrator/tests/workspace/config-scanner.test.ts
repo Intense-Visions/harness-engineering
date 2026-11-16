@@ -127,4 +127,22 @@ describe('scanWorkspaceConfig', () => {
     expect(agentsResult).toBeDefined();
     expect(agentsResult!.overallSeverity).toBe('high');
   });
+
+  it('does not taint dispatch on Markdown tables and fenced code samples (#2052)', async () => {
+    fs.writeFileSync(
+      path.join(tmpDir, 'AGENTS.md'),
+      [
+        '| Prefix      | Use                                        |',
+        '| ----------- | ------------------------------------------ |',
+        '',
+        '```js',
+        'const v = fs.readFileSync(p + f, "utf8");',
+        '```',
+        '',
+      ].join('\n')
+    );
+    const result = await scanWorkspaceConfig(tmpDir);
+    expect(result.results[0]!.findings).toEqual([]);
+    expect(result.exitCode).toBe(0);
+  });
 });

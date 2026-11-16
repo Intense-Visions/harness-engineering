@@ -1,7 +1,7 @@
 import { resultToMcpResponse } from '../utils/result-adapter.js';
 import { resolveProjectConfig } from '../utils/config-resolver.js';
 import { sanitizePath } from '../utils/sanitize-path.js';
-import { loadDepsFallbackBehavior } from '../../config/analysis-schema.js';
+import { unparsedFileChecks } from '../../commands/check-deps.js';
 
 export const checkDependenciesDefinition = {
   name: 'check_dependencies',
@@ -35,18 +35,13 @@ export async function handleCheckDependencies(input: { path: string }) {
 
   // Delegate to core library
   try {
-    const { validateDependencies, TypeScriptParser } = await import('@harness-engineering/core');
-    const config = configResult.value as Record<string, unknown>;
-    const rawLayers = (Array.isArray(config.layers) ? config.layers : []) as Array<{
-      name: string;
-      pattern: string;
-      allowedDependencies: string[];
-    }>;
-    const layers = rawLayers.map((l) => ({
-      name: l.name,
-      patterns: [l.pattern],
-      allowedDependencies: l.allowedDependencies,
-    }));
+    const { validateDependencies, TypeScriptParser, resolveDepsSettings, toLayerConfig } =
+      await import('@harness-engineering/core');
+    // The same config-to-LayerConfig mapping `harness check-deps` and the
+    // `harness ci check` deps step use, so all three honour `deps.exclude`,
+    // `deps.fallbackBehavior` (default `skip`, #2098),
+    // `deps.resolveWorkspacePackages` (#2216) and `rootDir` alike (#2606).
+    const settings = resolveDepsSettings(configResult.value, projectPath);
     const parser = new TypeScriptParser();
 
     // Attempt to load graph for enhanced validation
@@ -63,17 +58,9 @@ export async function handleCheckDependencies(input: { path: string }) {
       };
     }
 
-    // Without an explicit policy, core defaults to `'error'`, so a
-    // parser-unavailable run returned `Err` and the `skipped` branch below
-    // could never execute — and the documented `deps.fallbackBehavior` config
-    // was simply ignored on the MCP surface. Same default as check-deps (#2098).
-    const fallbackBehavior = loadDepsFallbackBehavior(projectPath) ?? 'skip';
-
     const result = await validateDependencies({
-      layers,
-      rootDir: projectPath,
-      parser,
-      fallbackBehavior,
+      ...toLayerConfig(settings, parser),
+      // Inert for workspace resolution when graph data is supplied.
       ...(graphDependencyData !== undefined && { graphDependencyData }),
     });
 
@@ -119,16 +106,28 @@ export async function handleCheckDependencies(input: { path: string }) {
       }
     }
 
-    // Merge design violations into the result when present
-    if (result.ok && designViolations.length > 0) {
-      const merged = {
-        ...result.value,
-        designViolations,
-      };
-      return resultToMcpResponse({ ok: true, value: merged });
-    }
+    if (!result.ok) return resultToMcpResponse(result);
 
-    return resultToMcpResponse(result);
+    // Files the engine could not parse (#2073), named the way `check-deps`
+    // names them. Additive: `valid` keeps speaking only to violations, so a
+    // consumer deciding on a clean verdict must also read `unavailableChecks`
+    // unless `abstentionDowngraded` (`deps.fallbackBehavior: 'warn'`) is set.
+    const unavailableChecks = unparsedFileChecks(
+      result.value.unparsedFiles ?? [],
+      settings.rootDir
+    );
+
+    return resultToMcpResponse({
+      ok: true,
+      value: {
+        ...result.value,
+        ...(designViolations.length > 0 ? { designViolations } : {}),
+        ...(unavailableChecks.length > 0 ? { unavailableChecks } : {}),
+        ...(unavailableChecks.length > 0 && settings.fallbackBehavior === 'warn'
+          ? { abstentionDowngraded: true }
+          : {}),
+      },
+    });
   } catch (error) {
     return {
       content: [

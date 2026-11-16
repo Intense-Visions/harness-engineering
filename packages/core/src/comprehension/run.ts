@@ -232,13 +232,48 @@ export interface ComprehendListStore {
   list(): Promise<Result<ComprehensionListing>>;
 }
 
+/**
+ * #2063 — the committed substrate's semantic coverage: how many units carry the
+ * LLM-generated semantic half (`semantic: present`) versus static-only
+ * (`semantic: absent`). Counted over EVERY parseable committed unit, fresh or
+ * stale — a stale unit is still committed debt. Reporting-only: nothing here
+ * decides a verdict (the CLI owns any warning/threshold).
+ */
+export interface SemanticCoverage {
+  total: number;
+  present: number;
+  absent: number;
+  /** `absent / total` as a fraction in [0, 1]; 0 (never NaN) for an empty substrate. */
+  absentRatio: number;
+}
+
+/** Pure tally of {@link SemanticCoverage} over a set of committed units (#2063). */
+export function summarizeSemanticCoverage(
+  units: readonly Pick<ComprehensionUnit, 'provenance'>[]
+): SemanticCoverage {
+  let present = 0;
+  for (const unit of units) if (unit.provenance.semantic === 'present') present++;
+  const total = units.length;
+  const absent = total - present;
+  return { total, present, absent, absentRatio: total > 0 ? absent / total : 0 };
+}
+
 export interface ComprehendCheckResult {
   /** Modules whose committed unit is source-stale (recompile needed). */
   stale: string[];
+  /**
+   * #2578 — modules whose committed unit has no enumerable module any more (the
+   * directory was deleted, or it is one `--all` never walks, e.g. a git-ignored
+   * dot-directory cache). Recompiling cannot clear these; `--prune` deletes them.
+   * Disjoint from `stale`. Always `[]` when `listModules` is not supplied.
+   */
+  orphans: string[];
   /** Units store.list() could not read/parse (surfaced, not silently dropped). */
   skipped: SkippedUnit[];
-  /** True iff no unit is source-stale. */
+  /** True iff no unit is source-stale and no unit is an orphan. */
   ok: boolean;
+  /** #2063 — semantic present/absent coverage of the committed substrate (advisory). */
+  semantic: SemanticCoverage;
 }
 
 /**
@@ -252,21 +287,58 @@ export interface ComprehendCheckResult {
 export async function runComprehendCheck(opts: {
   store: ComprehendListStore;
   reader: ComprehendModuleReader;
+  /**
+   * #2578 — the canonical module enumerator (the one `--all` uses). When given, a
+   * unit whose module it does not return is reported as an ORPHAN instead of being
+   * hash-checked. Token-free: enumeration only.
+   */
+  listModules?: () => Promise<string[]>;
 }): Promise<ComprehendCheckResult> {
   const listing = await opts.store.list();
   if (!listing.ok) {
     return {
       stale: [],
+      orphans: [],
       skipped: [{ path: '<listing>', reason: listing.error.message }],
       ok: false,
+      semantic: summarizeSemanticCoverage([]),
     };
   }
+  const orphanSet = opts.listModules
+    ? new Set(findOrphanModules(listing.value.units, await opts.listModules()))
+    : new Set<string>();
   const stale: string[] = [];
   for (const unit of listing.value.units) {
+    if (orphanSet.has(unit.provenance.module)) continue;
     const verdict = await serveGate(unit, opts.reader);
     if (!verdict.serve) stale.push(verdict.module);
   }
-  return { stale, skipped: listing.value.skipped, ok: stale.length === 0 };
+  const orphans = [...orphanSet];
+  return {
+    stale,
+    orphans,
+    skipped: listing.value.skipped,
+    ok: stale.length === 0 && orphans.length === 0,
+    semantic: summarizeSemanticCoverage(listing.value.units),
+  };
+}
+
+/**
+ * #2578 — the modules of committed `units` that are absent from `enumerable` (the
+ * canonical `--all` module set): orphans no recompile can refresh. Sorted,
+ * de-duplicated, posix. Pure.
+ */
+export function findOrphanModules(
+  units: readonly ComprehensionUnit[],
+  enumerable: readonly string[]
+): string[] {
+  const live = new Set(enumerable.map((m) => m.replaceAll('\\', '/')));
+  const orphans = new Set<string>();
+  for (const unit of units) {
+    const module = unit.provenance.module.replaceAll('\\', '/');
+    if (!live.has(module)) orphans.add(module);
+  }
+  return [...orphans].sort();
 }
 
 export interface ComprehendStatsResult {
@@ -277,6 +349,11 @@ export interface ComprehendStatsResult {
   savedPct: number;
   /** Number of fresh (serveable) units counted. */
   units: number;
+  /**
+   * #2063 — semantic present/absent coverage over ALL committed units (fresh or
+   * stale), unlike the savings figures above which count fresh units only.
+   */
+  semantic: SemanticCoverage;
 }
 
 /**
@@ -307,5 +384,6 @@ export async function runComprehendStats(opts: {
   }
   const savedTokens = rawTokens - servedTokens;
   const savedPct = rawTokens > 0 ? (savedTokens / rawTokens) * 100 : 0;
-  return { rawTokens, servedTokens, savedTokens, savedPct, units };
+  const semantic = summarizeSemanticCoverage(listing.ok ? listing.value.units : []);
+  return { rawTokens, servedTokens, savedTokens, savedPct, units, semantic };
 }

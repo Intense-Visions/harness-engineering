@@ -34,25 +34,35 @@ import {
 import type { ComprehensionConfig } from '../config/schema';
 import { createStaticExtractor } from '../comprehension/static-extractor';
 import { filesToModules, enumerateModules } from '../comprehension/invalidation';
+import { pruneOrphanUnits } from '../comprehension/prune';
 import { maybeCreateGenerateSemantic } from '../comprehension/generate-semantic';
+import { assessSemanticCoverage, formatSemanticCoverage } from '../comprehension/semantic-coverage';
 import {
   runComprehend,
   runComprehendCheck,
   runComprehendStats,
   type ComprehendRunResult,
+  type ComprehendCheckResult,
 } from '../comprehension/compile-run';
+
+type ComprehendCheckSemantic = ComprehendCheckResult['semantic'];
 import { resolveAnalysisProvider } from '../mcp/utils/analysis-provider';
 import { deriveChangedSurface, type ChangedSurface } from './validate-scope';
 import { logger } from '../output/logger';
 import { ExitCode } from '../utils/errors';
 
-export type ComprehendMode = 'changed' | 'all' | 'check' | 'stats' | 'refresh';
+export type ComprehendMode = 'changed' | 'all' | 'check' | 'stats' | 'refresh' | 'prune';
 
 interface ComprehendFlags {
   changed?: boolean;
   all?: boolean;
   check?: boolean;
   stats?: boolean;
+  /**
+   * #2578 — delete orphan units: committed `_module.md` files whose module the
+   * `--all` enumerator no longer returns (deleted, or never walked). Token-free.
+   */
+  prune?: boolean;
   /**
    * #1689 / ADR 0116 §3 — the opt-in token-gated CI **refresh** entrypoint. On the
    * single-writer main-pass with a provider credential AND `comprehension.ci:
@@ -84,10 +94,11 @@ interface ComprehendFlags {
   hook?: boolean;
 }
 
-/** Resolve the run mode from the boolean flags: refresh > check > stats > all > changed. */
+/** Resolve the run mode from the boolean flags: refresh > check > prune > stats > all > changed. */
 export function resolveMode(flags: ComprehendFlags): ComprehendMode {
   if (flags.refresh) return 'refresh';
   if (flags.check) return 'check';
+  if (flags.prune) return 'prune';
   if (flags.stats) return 'stats';
   if (flags.all) return 'all';
   return 'changed';
@@ -346,13 +357,26 @@ async function runCheckMode(
     process.exit(ExitCode.SUCCESS);
   }
 
-  const result = await runComprehendCheck({ store, reader });
+  const result = await runComprehendCheck({
+    store,
+    reader,
+    listModules: () => enumerateModules(opts.projectRoot),
+  });
   for (const s of result.skipped) {
     logger.warn(`skipped ${s.path}: ${s.reason}`);
   }
   if (result.stale.length > 0) {
     logger.error(`${result.stale.length} source-stale unit(s): ${result.stale.join(', ')}`);
-  } else {
+  }
+  // #2578 — an orphan is NOT source-stale: recompiling cannot clear it (its module
+  // is no longer enumerable), so name it apart and give the one remedy that works.
+  if (result.orphans.length > 0) {
+    logger.error(
+      `${result.orphans.length} orphan unit(s) with no enumerable module: ` +
+        `${result.orphans.join(', ')} — run \`harness comprehend --prune\` and commit the deletions.`
+    );
+  }
+  if (result.stale.length === 0 && result.orphans.length === 0) {
     logger.success('All comprehension units are source-fresh.');
   }
 
@@ -360,6 +384,7 @@ async function runCheckMode(
   // whole narrative (ref reads, unreadable-ref refusal, pr-vs-main framing) lives
   // in `reportSemanticRegression`; here we only feed it and consume its verdict.
   const context: RegressionContext = opts.context ?? 'main';
+  const coverageOk = reportSemanticCoverage(result.semantic, context, opts.config);
   const { regressed, refUnreadable } = opts.since
     ? reportSemanticRegression(opts.since, context, defaultRefReadDeps(opts.projectRoot))
     : { regressed: [] as string[], refUnreadable: false };
@@ -370,19 +395,65 @@ async function runCheckMode(
     await runRefreshMainPass(opts.projectRoot, store, reader, cconf, opts.since);
   }
 
-  const ok = result.ok && regressed.length === 0 && !refUnreadable;
+  const ok = result.ok && coverageOk && regressed.length === 0 && !refUnreadable;
   process.exit(ok ? ExitCode.SUCCESS : ExitCode.VALIDATION_FAILED);
+}
+
+/**
+ * #2063 — surface the committed substrate's semantic present/absent ratio in
+ * `--check`. Advisory by default (a warning on `main`, info on the `pr` path);
+ * returns `false` only when the opt-in `comprehension.maxSemanticAbsentRatio`
+ * threshold is configured and exceeded on `main`.
+ */
+function reportSemanticCoverage(
+  coverage: ComprehendCheckSemantic,
+  context: RegressionContext,
+  config: HarnessConfig | undefined
+): boolean {
+  const max = readComprehensionConfig(config).maxSemanticAbsentRatio;
+  const assessment = assessSemanticCoverage(coverage, context, max);
+  if (assessment.level === 'info') logger.info(assessment.message);
+  else if (assessment.level === 'warn') logger.warn(assessment.message);
+  else if (assessment.level === 'error') logger.error(assessment.message);
+  return assessment.level !== 'error';
+}
+
+/**
+ * #2578 — `--prune`: delete orphan units (token-free; enumeration + unlink only).
+ * Exits non-zero when an orphan could not be removed, so a partial prune is never
+ * reported as clean.
+ */
+async function runPruneMode(projectRoot: string, store: ComprehensionStore): Promise<void> {
+  const result = await pruneOrphanUnits({
+    store,
+    listModules: () => enumerateModules(projectRoot),
+  });
+  for (const f of result.failed) logger.error(`could not prune ${f.module}: ${f.reason}`);
+  if (result.removed.length > 0) {
+    logger.success(
+      `Pruned ${result.removed.length} orphan unit(s): ${result.removed.join(', ')} — commit the deletions.`
+    );
+  } else if (result.failed.length === 0) {
+    logger.success('No orphan comprehension units.');
+  }
+  process.exit(result.failed.length === 0 ? ExitCode.SUCCESS : ExitCode.VALIDATION_FAILED);
 }
 
 async function runStatsMode(
   store: ComprehensionStore,
-  reader: ReturnType<typeof createNodeModuleSourceReader>
+  reader: ReturnType<typeof createNodeModuleSourceReader>,
+  json = false
 ): Promise<void> {
   const stats = await runComprehendStats({ store, reader });
+  if (json) {
+    logger.raw(stats);
+    process.exit(ExitCode.SUCCESS);
+  }
   logger.info(
     `${stats.units} fresh unit(s): raw≈${stats.rawTokens} tok, served≈${stats.servedTokens} tok, ` +
       `saved≈${stats.savedTokens} tok (${stats.savedPct.toFixed(1)}%).`
   );
+  logger.info(formatSemanticCoverage(stats.semantic));
   process.exit(ExitCode.SUCCESS);
 }
 
@@ -685,6 +756,7 @@ export async function runComprehendAction(
     hook?: boolean;
     since?: string;
     context?: RegressionContext;
+    json?: boolean;
   } = {}
 ): Promise<void> {
   // Root on the project that owns the config, not `process.cwd()`. `-c` used to
@@ -719,7 +791,8 @@ export async function runComprehendAction(
       ...(opts.since ? { since: opts.since } : {}),
       ...(opts.context ? { context: opts.context } : {}),
     });
-  if (mode === 'stats') return runStatsMode(store, reader);
+  if (mode === 'prune') return runPruneMode(projectRoot, store);
+  if (mode === 'stats') return runStatsMode(store, reader, opts.json ?? false);
   if (mode === 'refresh') return runRefreshMode(projectRoot, store, reader, config);
   return runCompileMode(mode, projectRoot, store, reader, config, opts);
 }
@@ -729,7 +802,8 @@ export async function runComprehendAction(
  *
  * `--changed` (default) recompiles only the modules owning git-diff'd files (SC3);
  * `--all` backfills every module; `--check` is a token-free CI backstop that
- * reports source-stale units (exit non-zero); `--stats` reports served-vs-raw
+ * reports source-stale and orphan units (exit non-zero); `--prune` deletes orphan
+ * units; `--stats` reports served-vs-raw
  * token savings. All modules enumerate through the SAME canonical reader the serve
  * gate uses, so a freshly compiled unit serves immediately (hash-equal).
  */
@@ -738,7 +812,11 @@ export function createComprehendCommand(): Command {
     .description('Compile and maintain the per-module comprehension substrate')
     .option('--changed', 'Recompile only modules owning changed files (default)')
     .option('--all', 'Recompile every module (backfill)')
-    .option('--check', 'Token-free: report source-stale units, exit non-zero if any')
+    .option('--check', 'Token-free: report source-stale and orphan units, exit non-zero if any')
+    .option(
+      '--prune',
+      'Token-free: delete orphan units (committed units whose module directory no longer exists or is never enumerated)'
+    )
     .option(
       '--refresh',
       'Opt-in token-gated CI refresh (#1689): on the single-writer main-pass with a provider credential and comprehension.ci:refresh, regenerate+stage committed semantic; a clean no-op otherwise'
@@ -751,7 +829,10 @@ export function createComprehendCommand(): Command {
       '--context <pr|main>',
       'With --check --since: which path to guard (ADR 0116 §4). "main" (default): present→absent is a regression. "pr": the static-only PR path, present→absent is expected and never flagged.'
     )
-    .option('--stats', 'Report served-vs-raw token savings (token-free)')
+    .option(
+      '--stats',
+      'Report served-vs-raw token savings and the semantic present/absent ratio (token-free; honors --json)'
+    )
     .option(
       '--static',
       'Static-only: never resolve a provider or call an LLM (pre-commit/CI posture)'
@@ -760,7 +841,7 @@ export function createComprehendCommand(): Command {
     .option('--hook', 'Pre-commit-hook posture: no-op unless comprehension.hook is enabled')
     .action(async (opts: ComprehendFlags, cmd: Command) => {
       const mode = resolveMode(opts);
-      const globalOpts = cmd.optsWithGlobals() as { config?: string };
+      const globalOpts = cmd.optsWithGlobals() as { config?: string; json?: boolean };
       // Validate --context to the two supported values; anything else falls back
       // to the strict `main` default rather than silently mis-guarding.
       const context: RegressionContext | undefined =
@@ -771,6 +852,7 @@ export function createComprehendCommand(): Command {
         hook: opts.hook ?? false,
         ...(opts.since ? { since: opts.since } : {}),
         ...(context ? { context } : {}),
+        ...(globalOpts.json === true ? { json: true } : {}),
       });
     });
 }

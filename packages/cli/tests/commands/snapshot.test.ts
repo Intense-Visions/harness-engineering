@@ -340,7 +340,8 @@ describe('snapshot command', () => {
     });
 
     it('list prints warning when no snapshots exist', async () => {
-      const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+      // logger.warn writes to stderr (#2519).
+      const logSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 
       const cmd = createSnapshotCommand();
       const origCwd = process.cwd;
@@ -403,7 +404,8 @@ describe('snapshot command', () => {
     });
 
     it('trends prints warning when no snapshots exist', async () => {
-      const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+      // logger.warn writes to stderr (#2519).
+      const logSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 
       const cmd = createSnapshotCommand();
       const origCwd = process.cwd;

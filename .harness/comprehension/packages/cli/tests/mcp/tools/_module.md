@@ -1,14 +1,14 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/tests/mcp/tools'
-sourceHash: '2eb3f5b3daa251c8dcd6c89d73d12243b175ffd54d8a0434715a4a4c563a1017'
+sourceHash: '59d54cb547a06716bcef7fee6bd567c39ce356afbf7f4a0a8164caf80a5c5f7f'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
 members:
   [
     'acceptance-eval.test.ts',
-    'adr-worktree.test.ts',
+    'adr-path.test.ts',
     'adr.test.ts',
     'agent.test.ts',
     'api-craft.test.ts',
@@ -135,7 +135,7 @@ import { resolveDocsPublishConnector } from '../../../src/docs-publish/index'
 import { wrapWithCompaction } from '../../../src/mcp/middleware/compaction'
 import { acceptanceEvalDefinition, handleAcceptanceEval, resolveTestContent } from '../../../src/mcp/tools/acceptance-eval.js'
 import { handleManageAdr, manageAdrDefinition } from '../../../src/mcp/tools/adr'
-import { allocateNextNumber, listAdrs, resolveWorktreeRoot } from '../../../src/mcp/tools/adr-store'
+import { allocateNextNumber, listAdrs } from '../../../src/mcp/tools/adr-store'
 import { addComponentDefinition, handleAddComponent, handleRunAgentTask, runAgentTaskDefinition } from '../../../src/mcp/tools/agent'
 import { apiCraftDefinition, apiCraftFinalizeDefinition, handleApiCraft, handleApiCraftFinalize } from '../../../src/mcp/tools/api-craft'
 import { checkDependenciesDefinition, handleCheckDependencies } from '../../../src/mcp/tools/architecture'
@@ -238,4 +238,5 @@ import * as os from 'os'
 import { join, resolve } from 'path'
 import * as path from 'path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { parseYaml } from 'yaml'
 ```

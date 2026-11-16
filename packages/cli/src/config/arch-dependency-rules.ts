@@ -13,7 +13,7 @@ import type { HarnessConfig } from './schema';
  */
 export function withDependencyRules(
   archConfig: ArchConfig,
-  config: Pick<HarnessConfig, 'rootDir' | 'layers' | 'forbiddenImports'>,
+  config: Pick<HarnessConfig, 'rootDir' | 'layers' | 'forbiddenImports' | 'deps'>,
   cwd: string
 ): ArchConfig {
   return withDependencyRulesCore(
@@ -24,6 +24,9 @@ export function withDependencyRules(
       ...(config.forbiddenImports !== undefined
         ? { forbiddenImports: config.forbiddenImports }
         : {}),
+      // `deps.resolveWorkspacePackages` (#2216): the layer collector follows
+      // workspace-package imports only when check-deps does.
+      ...(config.deps?.resolveWorkspacePackages === true ? { resolveWorkspacePackages: true } : {}),
     },
     cwd
   );

@@ -80,6 +80,33 @@ export const DESIGN_SCAN_EXTENSIONS = [
 const SKIPPED_DIRECTORIES = new Set(['node_modules', 'dist', 'build', 'coverage']);
 
 /**
+ * Test fixtures are malformed by design, so findings on them are false (#2349):
+ * `__fixtures__` anywhere, `fixtures` only directly under a test dir (an app-level
+ * `fixtures/` is real UI). Skipped in the walk, so fixtures alone are "no source".
+ */
+const TEST_DIRECTORIES = new Set(['test', 'tests', '__tests__']);
+const posix = (file: string): string => file.replaceAll('\\', '/');
+
+const hasDesignScanExtension = (name: string): boolean =>
+  DESIGN_SCAN_EXTENSIONS.some((extension) => name.endsWith(extension));
+
+/** Whether the walk skips a segment; `parent` is its enclosing dir within the project. */
+function isSkippedSegment(name: string, parent: string | undefined, isDirectory: boolean): boolean {
+  if (name.startsWith('.') || SKIPPED_DIRECTORIES.has(name)) return true;
+  if (!isDirectory) return false;
+  return name === '__fixtures__' || (name === 'fixtures' && TEST_DIRECTORIES.has(parent ?? ''));
+}
+
+/** Whether the walk would collect this project-relative POSIX path (before exclude globs). */
+export function isDesignScanPath(relativePosixPath: string): boolean {
+  const segments = relativePosixPath.split('/');
+  if (!hasDesignScanExtension(segments[segments.length - 1] ?? '')) return false;
+  return segments.every(
+    (seg, i) => !isSkippedSegment(seg, segments[i - 1], i < segments.length - 1)
+  );
+}
+
+/**
  * NO depth cap. There was one, at 8 and then 32, justified as protecting
  * against "a pathological or symlink-looping tree". That justification was
  * false: `readdirSync(dir, { withFileTypes: true })` is lstat-based, so
@@ -219,7 +246,9 @@ export function collectDesignScanFiles(
   // Walk everything; filter per-file. No directory pruning — see the note on
   // `walk` for why that was removed rather than narrowed.
   const candidates: string[] = [];
-  walk(projectRoot, candidates);
+  walk(projectRoot, candidates, undefined);
+  // readdir order is filesystem-defined; sort on the POSIX form so output is diffable (#2349).
+  candidates.sort((a, b) => (posix(a) < posix(b) ? -1 : posix(a) > posix(b) ? 1 : 0));
   const files =
     excludePatterns.length === 0
       ? candidates
@@ -302,7 +331,7 @@ export function isExcluded(
  * Deleting the prune deletes the class, and with it the two safety comments
  * that kept asserting a property the code did not have.
  */
-function walk(dir: string, out: string[]): void {
+function walk(dir: string, out: string[], dirName: string | undefined): void {
   let entries: fs.Dirent[];
   try {
     entries = fs.readdirSync(dir, { withFileTypes: true });
@@ -310,17 +339,15 @@ function walk(dir: string, out: string[]): void {
     return;
   }
   for (const entry of entries) {
-    if (entry.name.startsWith('.') || SKIPPED_DIRECTORIES.has(entry.name)) continue;
+    if (isSkippedSegment(entry.name, dirName, entry.isDirectory())) continue;
     const full = path.join(dir, entry.name);
     if (entry.isDirectory()) {
       // `isDirectory()` is false for a symlink to a directory (lstat-based), so
       // this never follows one and a symlink cycle cannot loop here.
-      walk(full, out);
+      walk(full, out, entry.name);
       continue;
     }
     if (!entry.isFile()) continue;
-    if (DESIGN_SCAN_EXTENSIONS.some((extension) => entry.name.endsWith(extension))) {
-      out.push(full);
-    }
+    if (hasDesignScanExtension(entry.name)) out.push(full);
   }
 }

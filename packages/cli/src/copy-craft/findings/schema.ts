@@ -9,6 +9,7 @@
 
 import type { ClumpView } from '@harness-engineering/core';
 import type { Tier, Impact, Confidence } from '../../shared/craft/findings/axes.js';
+import type { CraftAbstention } from '../../shared/craft/scope.js';
 
 export type { Tier, Impact, Confidence };
 
@@ -43,6 +44,11 @@ export interface CopyCraftSummary {
   catalog: { rubricsApplied: string[]; surfacesScanned: CopySurface[] };
   counts: Record<CopySurface, number>;
   skippedSurfaces: Array<{ surface: CopySurface; reason: string }>;
+  /**
+   * Present only when the run examined zero candidates: its empty `findings`
+   * says nothing about the code (#2625). Absent on every run that looked.
+   */
+  abstention?: CraftAbstention;
   runId: string;
 }
 

@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/copy-craft'
-sourceHash: '08584e8f544d975bfabbdb2fc8ece8c780584e6c64be6a6041fc39b898febd8b'
+sourceHash: 'a7b3cc806614093b40e69dbb4dcfe7c940fbbd16b5f1545eb4be2bf1644307cb'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -27,6 +27,7 @@ import { sanitizePath } from '../mcp/utils/sanitize-path.js'
 import { craftClumpView } from '../shared/craft/findings/clumpable.js'
 import { InSessionLlmProvider, LlmProvider, getProvider } from '../shared/craft/llm/provider.js'
 import { deleteRunState, loadRunStateOrThrow, pruneOldRuns, saveRunState } from '../shared/craft/runs/store.js'
+import { CraftAbstention, withCraftAbstention } from '../shared/craft/scope.js'
 import { CopyRubric, SEED_RUBRICS, rubricApplies } from './catalog/rubrics/index.js'
 import { extractCommits } from './extract/commits.js'
 import { extractPRDescriptions } from './extract/pr-descriptions.js'

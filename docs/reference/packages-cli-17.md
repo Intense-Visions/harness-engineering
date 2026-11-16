@@ -46,9 +46,9 @@ The authored, evidence-based capability table keyed by registered tool name — 
 
 [`packages/cli/src/mcp/tools/adr-store.ts`](/packages/cli/src/mcp/tools/adr-store.ts)
 
-Self-contained filesystem read/write seam for Architecture Decision Records under `docs/knowledge/decisions/NNNN-<slug>.md` — frontmatter parsing, slugification, worktree-root resolution, and collision-free number allocation as `max(existing) + 1`. Backs the `manage_adr` tool; deliberately not exported through core because only that tool consumes it.
+Self-contained filesystem read/write seam for Architecture Decision Records under `docs/knowledge/decisions/NNNN-<slug>.md` — frontmatter parsing (with YAML-safe quoting), slugification, project-root validation against the caller's `path`, and collision-free number allocation as `max(existing) + 1`. Backs the `manage_adr` tool; deliberately not exported through core because only that tool consumes it.
 
-**Exports:** `AdrStatus`, `AdrTier`, `AdrFrontmatter`, `AdrSummary`, `AdrRecord`, `AdrStoreError`, `resolveWorktreeRoot`, `slugify`, `listAdrs`, `allocateNextNumber`, `readAdr`, `CreateAdrInput`, `createAdr`, `UpdateAdrInput`, `updateAdr`
+**Exports:** `AdrStatus`, `AdrTier`, `AdrFrontmatter`, `AdrSummary`, `AdrRecord`, `AdrStoreError`, `assertProjectRoot`, `slugify`, `listAdrs`, `allocateNextNumber`, `readAdr`, `CreateAdrInput`, `createAdr`, `UpdateAdrInput`, `updateAdr`
 
 ## packages/cli/src/mcp/tools/adr.ts
 

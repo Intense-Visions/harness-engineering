@@ -31,9 +31,7 @@ describe('parseCodexNotifyPayload', () => {
   });
 
   it('returns null for a non-string raw', () => {
-    // @ts-expect-error intentionally passing a non-string
     expect(parseCodexNotifyPayload(undefined)).toBeNull();
-    // @ts-expect-error intentionally passing a non-string
     expect(parseCodexNotifyPayload(42)).toBeNull();
   });
 

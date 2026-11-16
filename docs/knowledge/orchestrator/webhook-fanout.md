@@ -271,6 +271,16 @@ instance, not persisted to SQLite — restarting the orchestrator effectively
 resets the cap. This is acceptable because the cap is a flow-control device,
 not a correctness invariant.
 
+The cap is enforced **inside the claim transaction**: the worker passes
+`claim(now, limit, { maxPerSub, available })` its per-subscription remaining
+slots, and `claim()` leases at most that many rows per subscription (ranked
+per subscription in SQL, so one saturated subscription's backlog cannot crowd
+another's due rows out of the batch). Rows over the cap stay `pending`/`failed`
+and are picked up by a later tick once a slot frees. The invariant is that
+every `in_flight` row is owned by an executing delivery (drain-abort excepted);
+an earlier version claimed first and skipped over-cap rows afterwards, which
+stranded them `in_flight` until the next restart (#2553).
+
 ### Drain semantics
 
 `WebhookDelivery.stop()` clears the polling timer, sets `draining = true`,

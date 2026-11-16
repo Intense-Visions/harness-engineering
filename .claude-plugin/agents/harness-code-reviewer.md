@@ -117,7 +117,7 @@ interface ReviewFinding {
 
 The two optional fields are additive — existing 4 agents leave them
 undefined. Numeric `confidence` values follow the anchored rubric at
-[references/confidence-rubric.md](references/confidence-rubric.md).
+`harness-code-review/references/confidence-rubric.md`.
 
 ### Flags
 
@@ -273,12 +273,14 @@ for the `{ wired, skipped, expected, files }` split. The full contract lives in 
   paths**, together with a `promptBudget` where that domain's MCP tool accepts one (see each craft
   skill's "Invoked as a review hook" section; `mcp__harness__design_craft` does not — it accepts
   neither `promptBudget` nor `maxFiles`, so bound it with `phases` / `mode` instead or it runs all
-  three phases over 13 rubrics with no ceiling). `plan.files` holds repo-relative POSIX paths and
-  the collectors `readFileSync` them against the process CWD, so forwarding them unresolved fails
-  differently by domain and neither failure is loud here: the nine collector-based domains yield
-  `status: "collected"` with zero prompts — a clean report from a run that read nothing — while
-  `mcp__harness__design_craft` has no collector and THROWS `ENOENT` out of `runCritique`, which has
-  no try/catch. Both are pinned (`packages/cli/tests/design-craft/phases/files-path-form.test.ts`).
+  three phases over 13 rubrics with no ceiling). `plan.files` holds repo-relative POSIX paths, and
+  forwarding them unresolved behaves differently by domain: the nine collector-based domains
+  resolve a relative entry against the tool's `path` (never the process CWD), so they still read
+  the in-diff file (`packages/cli/tests/shared/craft/relative-files-scope.test.ts`), while
+  `mcp__harness__design_craft` has no collector, resolves a relative entry against the process
+  CWD, and THROWS `ENOENT` out of `runCritique`, which has no try/catch
+  (`packages/cli/tests/design-craft/phases/files-path-form.test.ts`). Resolving every entry to an
+  absolute path first is correct for all ten domains and required for design_craft.
   Never call `rule.owns()` yourself. When the
   changed-file set is unknown, nothing activates and every domain is reported `no-diff-context`;
   do not fall back to a repository walk.
@@ -377,7 +379,7 @@ Use to determine: **Hotspot?** (3+ changes in last 5 commits) **Recently refacto
 **Steps:**
 
 1. **Count changed lines.** Sum `+`/`-` lines per file, excluding test files (`*.test.{ts,tsx,js,jsx}`, `__tests__/**`, `*.spec.{ts,tsx,js,jsx}`), generated files (`*.generated.{ts,tsx,js,jsx}`), lockfiles (`pnpm-lock.yaml`, `package-lock.json`, `yarn.lock`), and `dist/` / `build/` directories.
-2. **Detect risk keywords.** Match the canonical keyword list from [references/risk-keywords.md](references/risk-keywords.md) against the diff content, file paths, and commit message (case-insensitive, whole-word for single-word keywords, substring for multi-word keywords like `external API`).
+2. **Detect risk keywords.** Match the canonical keyword list from `harness-code-review/references/risk-keywords.md` against the diff content, file paths, and commit message (case-insensitive, whole-word for single-word keywords, substring for multi-word keywords like `external API`).
 3. **Compute tier.**
    - **Quick:** `< 50` lines AND `0` keywords
    - **Standard:** `50–199` lines OR exactly `1` keyword
@@ -520,7 +522,7 @@ Reviews architectural violations, dependency direction, and design pattern compl
 
 #### Conditional Subagents (depth-gated, activated by Phase 3.5)
 
-The dispatcher reads `PipelineContext.depthCalibration.activations` and runs only those listed. Each conditional subagent emits findings under existing domain values (`bug` or `architecture`) and populates `subagent` + `confidence` per the [confidence rubric](references/confidence-rubric.md).
+The dispatcher reads `PipelineContext.depthCalibration.activations` and runs only those listed. Each conditional subagent emits findings under existing domain values (`bug` or `architecture`) and populates `subagent` + `confidence` per the confidence rubric (`harness-code-review/references/confidence-rubric.md`).
 
 ##### Adversarial (strong tier) — activates at Standard or Deep
 

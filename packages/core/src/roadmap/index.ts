@@ -9,6 +9,14 @@ export { parseRoadmap } from './parse';
 export { serializeRoadmap } from './serialize';
 
 /**
+ * Line-break / control-character guard for roadmap field values (#2623): the
+ * API-boundary validator writers call before persisting, and the serializer-side
+ * assertion that keeps every writer from emitting a forged bullet or heading.
+ */
+export { validateRoadmapFeatureFields, assertSerializableFeature } from './field-guard';
+export type { RoadmapFieldValues } from './field-guard';
+
+/**
  * Roadmap store: backend-agnostic storage (shard/`_meta` format, RoadmapStore
  * interface with MonolithStore + ShardStore backends, assembler, regenerator).
  * See packages/core/src/roadmap/store/index.ts.
@@ -107,6 +115,19 @@ export {
   scoreRoadmapCandidatesForMode,
 } from './pilot-scoring';
 export type { ScoredCandidate, PilotScoringOptions } from './pilot-scoring';
+export {
+  findBlockedRoadmapCandidates,
+  createBlockerResolver,
+  shardSlugAliases,
+} from './blocker-resolution';
+export type {
+  BlockerResolutionOptions,
+  SlugAliases,
+  BlockedCandidate,
+  HeldBlocker,
+  BlockerHoldReason,
+  BlockerResolver,
+} from './blocker-resolution';
 
 /**
  * Assignee lifecycle authority — the `assignee ≠ null ⟺ in-progress` invariant,

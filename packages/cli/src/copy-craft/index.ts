@@ -38,6 +38,7 @@ import type {
   ExtractedCopyItem,
 } from './findings/schema.js';
 import { craftClumpView } from '../shared/craft/findings/clumpable.js';
+import { withCraftAbstention, type CraftAbstention } from '../shared/craft/scope.js';
 
 export type CopyCraftMode = 'inline' | 'in-session';
 
@@ -74,6 +75,8 @@ export interface CollectPromptsOutput {
   hint?: string;
   /** Persisted to disk under .harness/craft/runs/<runId>.json. */
   runFile?: string;
+  /** Present only when the collect step examined zero candidates: `promptCount: 0` is then NOT a clean result (#2625). */
+  abstention?: CraftAbstention;
 }
 
 export interface FinalizeCopyCraftInput {
@@ -203,6 +206,7 @@ export async function runCopyCraft(input: CopyCraftInput): Promise<CopyCraftOutp
       counts: tallyCounts(items),
       skippedSurfaces,
       runId: randomUUID(),
+      ...withCraftAbstention('copy-craft', items.length, 'copy items'),
     },
   };
 }
@@ -275,6 +279,7 @@ export async function collectCopyCraftPrompts(
     pendingPrompts: pending,
     projection: { promptCount: pending.length, budget },
     runFile,
+    ...withCraftAbstention('copy-craft', items.length, 'copy items'),
   };
 }
 
@@ -322,6 +327,11 @@ export async function finalizeCopyCraft(input: FinalizeCopyCraftInput): Promise<
       },
       counts: state.meta.counts,
       skippedSurfaces: state.meta.skippedSurfaces,
+      ...withCraftAbstention(
+        'copy-craft',
+        Object.values(state.meta.counts).reduce((sum, n) => sum + n, 0),
+        'copy items'
+      ),
       runId: input.runId,
     },
   };

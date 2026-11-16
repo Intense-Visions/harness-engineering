@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/tests/comprehension'
-sourceHash: '8bdecad6a5d01b7bfc6a5178a7c6484a0f65bdf8b0ef154978a35034b184cc67'
+sourceHash: 'f0499763083bc780bb9ef7db7bc9a172e80e5480e73f16ab1946eb11445634f4'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -43,7 +43,7 @@ import { REENTRANCY_ENV, isComprehensionReentrant } from '../../src/comprehensio
 import { DEFAULT_REMOTE_URL, RemoteComprehensionFileConfig, normalizeRemoteFileConfig, resolveRemoteComprehension } from '../../src/comprehension/remote-config'
 import { resolveRemoteComprehensionWithGlobalToken } from '../../src/comprehension/remote-config-io'
 import { renderServedUnit } from '../../src/comprehension/render'
-import { mapWithConcurrency, runComprehend, runComprehendCheck, runComprehendStats } from '../../src/comprehension/run'
+import { mapWithConcurrency, runComprehend, runComprehendCheck, runComprehendStats, summarizeSemanticCoverage } from '../../src/comprehension/run'
 import { parseUnit, serializeUnit } from '../../src/comprehension/serialize'
 import { ModuleSourceReader, serveGate } from '../../src/comprehension/serve-gate'
 import { computeSourceHash } from '../../src/comprehension/source-hash'

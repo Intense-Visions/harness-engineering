@@ -74,6 +74,7 @@ describe('RecommendationsCard', () => {
   it('renders ranked recommendation rows', () => {
     render(
       <RecommendationsCard
+        pool={null}
         recommendations={RECS}
         recommendationsError={null}
         proposals={[]}
@@ -93,7 +94,7 @@ describe('RecommendationsCard', () => {
     // `local-models:install` WS topic — so the row must NOT fire the onDecided
     // refetch here (that would race a not-yet-pulled model) and must stay busy.
     const accepted = { ok: true, status: 202, text: async () => 'accepted' } as Response;
-    const fetchMock = vi.fn(() => Promise.resolve(accepted));
+    const fetchMock = vi.fn<typeof fetch>(() => Promise.resolve(accepted));
     vi.stubGlobal('fetch', fetchMock);
     const onDecided = vi.fn();
     render(
@@ -176,7 +177,7 @@ describe('RecommendationsCard', () => {
 
   it('Refresh POSTs to /refresh and refetches (onDecided) on success', async () => {
     const accepted = { ok: true, status: 200, text: async () => 'ok' } as Response;
-    const fetchMock = vi.fn(() => Promise.resolve(accepted));
+    const fetchMock = vi.fn<typeof fetch>(() => Promise.resolve(accepted));
     vi.stubGlobal('fetch', fetchMock);
     const onDecided = vi.fn();
     render(
@@ -201,6 +202,7 @@ describe('RecommendationsCard', () => {
   it('hides the Refresh button when recommendations are LMLM-disabled', () => {
     render(
       <RecommendationsCard
+        pool={null}
         recommendations={null}
         recommendationsError="LMLM disabled"
         proposals={[]}
@@ -212,7 +214,7 @@ describe('RecommendationsCard', () => {
   });
 
   it('a failed Refresh surfaces an inline error and does not call onDecided', async () => {
-    const fetchMock = vi.fn(() =>
+    const fetchMock = vi.fn<typeof fetch>(() =>
       Promise.resolve({ ok: false, status: 503, text: async () => 'LMLM disabled' } as Response)
     );
     vi.stubGlobal('fetch', fetchMock);
@@ -250,7 +252,7 @@ describe('RecommendationsCard', () => {
   });
 
   it('a failed install surfaces an inline error and does not call onDecided', async () => {
-    const fetchMock = vi.fn(() =>
+    const fetchMock = vi.fn<typeof fetch>(() =>
       Promise.resolve({ ok: false, status: 409, text: async () => 'budget_exceeded' } as Response)
     );
     vi.stubGlobal('fetch', fetchMock);
@@ -283,6 +285,7 @@ describe('RecommendationsCard', () => {
     ];
     render(
       <RecommendationsCard
+        pool={null}
         recommendations={noisy}
         recommendationsError={null}
         proposals={[]}
@@ -303,6 +306,7 @@ describe('RecommendationsCard', () => {
   it('[O3 / known limitation] renders "No recommendations yet" for an empty ranked set', () => {
     render(
       <RecommendationsCard
+        pool={null}
         recommendations={[]}
         recommendationsError={null}
         proposals={[]}
@@ -316,6 +320,7 @@ describe('RecommendationsCard', () => {
   it('renders the empty state when recommendations are LMLM-disabled', () => {
     render(
       <RecommendationsCard
+        pool={null}
         recommendations={null}
         recommendationsError="LMLM disabled"
         proposals={[]}
@@ -329,6 +334,7 @@ describe('RecommendationsCard', () => {
   it('renders each pending proposal with Approve + Reject buttons', () => {
     render(
       <RecommendationsCard
+        pool={null}
         recommendations={[]}
         recommendationsError={null}
         proposals={[PROPOSAL]}
@@ -344,12 +350,13 @@ describe('RecommendationsCard', () => {
   });
 
   it('Approve POSTs to /approve and calls onDecided on success', async () => {
-    const fetchMock = vi.fn(() => Promise.resolve(okRes()));
+    const fetchMock = vi.fn<typeof fetch>(() => Promise.resolve(okRes()));
     vi.stubGlobal('fetch', fetchMock);
     const onDecided = vi.fn();
 
     render(
       <RecommendationsCard
+        pool={null}
         recommendations={[]}
         recommendationsError={null}
         proposals={[PROPOSAL]}
@@ -360,7 +367,7 @@ describe('RecommendationsCard', () => {
     fireEvent.click(screen.getByRole('button', { name: /approve/i }));
 
     await waitFor(() => expect(onDecided).toHaveBeenCalledTimes(1));
-    const [url, init] = fetchMock.mock.calls[0];
+    const [url, init] = fetchMock.mock.calls[0]!;
     expect(String(url)).toBe('/api/v1/proposals/mp-1/approve');
     expect((init as RequestInit).method).toBe('POST');
     // XP-4: approve sends NO body — the route derives decidedBy from the auth
@@ -373,11 +380,12 @@ describe('RecommendationsCard', () => {
     // Approving an add/swap installs the target (ollama pull); the route returns
     // 202 and streams over WS, so the row must stay busy and NOT refetch here.
     const accepted = { ok: true, status: 202, text: async () => 'accepted' } as Response;
-    const fetchMock = vi.fn(() => Promise.resolve(accepted));
+    const fetchMock = vi.fn<typeof fetch>(() => Promise.resolve(accepted));
     vi.stubGlobal('fetch', fetchMock);
     const onDecided = vi.fn();
     render(
       <RecommendationsCard
+        pool={null}
         recommendations={[]}
         recommendationsError={null}
         proposals={[PROPOSAL]}
@@ -398,6 +406,7 @@ describe('RecommendationsCard', () => {
   it('renders a download progress bar while a proposal is installing', () => {
     render(
       <RecommendationsCard
+        pool={null}
         recommendations={[]}
         recommendationsError={null}
         proposals={[PROPOSAL]}
@@ -417,6 +426,7 @@ describe('RecommendationsCard', () => {
   it('surfaces a WS install error on the proposal row and re-enables Approve', () => {
     render(
       <RecommendationsCard
+        pool={null}
         recommendations={[]}
         recommendationsError={null}
         proposals={[PROPOSAL]}
@@ -435,12 +445,13 @@ describe('RecommendationsCard', () => {
   });
 
   it('Reject with a reason POSTs to /reject and calls onDecided', async () => {
-    const fetchMock = vi.fn(() => Promise.resolve(okRes()));
+    const fetchMock = vi.fn<typeof fetch>(() => Promise.resolve(okRes()));
     vi.stubGlobal('fetch', fetchMock);
     const onDecided = vi.fn();
 
     render(
       <RecommendationsCard
+        pool={null}
         recommendations={[]}
         recommendationsError={null}
         proposals={[PROPOSAL]}
@@ -454,7 +465,7 @@ describe('RecommendationsCard', () => {
     fireEvent.click(screen.getByRole('button', { name: /reject/i }));
 
     await waitFor(() => expect(onDecided).toHaveBeenCalledTimes(1));
-    const [url, init] = fetchMock.mock.calls[0];
+    const [url, init] = fetchMock.mock.calls[0]!;
     expect(String(url)).toBe('/api/v1/proposals/mp-1/reject');
     expect((init as RequestInit).method).toBe('POST');
     expect(String((init as RequestInit).body)).toContain('not worth the disk');
@@ -465,7 +476,7 @@ describe('RecommendationsCard', () => {
     // Keep the POST in-flight so `busy` state never flushes between the two
     // synchronous clicks — proving the ref guard, not the disabled re-render.
     let resolveFetch: () => void = () => {};
-    const fetchMock = vi.fn(
+    const fetchMock = vi.fn<typeof fetch>(
       () =>
         new Promise<Response>((resolve) => {
           resolveFetch = () => resolve(okRes());
@@ -476,6 +487,7 @@ describe('RecommendationsCard', () => {
 
     render(
       <RecommendationsCard
+        pool={null}
         recommendations={[]}
         recommendationsError={null}
         proposals={[PROPOSAL]}
@@ -502,7 +514,7 @@ describe('RecommendationsCard', () => {
   });
 
   it('a failed POST surfaces an inline error and does not call onDecided', async () => {
-    const fetchMock = vi.fn(() =>
+    const fetchMock = vi.fn<typeof fetch>(() =>
       Promise.resolve({ ok: false, status: 409, text: async () => 'conflict' } as Response)
     );
     vi.stubGlobal('fetch', fetchMock);
@@ -510,6 +522,7 @@ describe('RecommendationsCard', () => {
 
     render(
       <RecommendationsCard
+        pool={null}
         recommendations={[]}
         recommendationsError={null}
         proposals={[PROPOSAL]}

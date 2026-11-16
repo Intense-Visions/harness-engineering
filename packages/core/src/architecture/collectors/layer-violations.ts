@@ -6,6 +6,8 @@ import { relativePosix } from '../../shared/fs-utils';
 import { getDefaultRegistry } from '../../shared/parsers/registry';
 import { defineLayer } from '../../constraints/layers';
 import { resolveExcludePatterns } from '../exclude';
+import { createCollectorRunContext } from './run-context';
+import type { CollectorRunContext } from './run-context';
 
 function mapLayerViolations(
   layerViolations: DependencyViolation[],
@@ -63,16 +65,26 @@ export class LayerViolationCollector implements Collector {
     ];
   }
 
-  async collect(config: ArchConfig, rootDir: string): Promise<MetricResult[]> {
+  async collect(
+    config: ArchConfig,
+    rootDir: string,
+    context: CollectorRunContext = createCollectorRunContext()
+  ): Promise<MetricResult[]> {
     const layers = configuredLayers(config);
     const registry = getDefaultRegistry();
     const parser = registry.getByLanguage('typescript') ?? registry.getByLanguage('javascript');
     const result = await validateDependencies({
       layers,
       rootDir,
-      parser: parser as import('../../shared/parsers').LanguageParser,
+      // Through the run's shared memo (#2270): every layer file is also a
+      // circular-deps file, so its parse is normally already done.
+      parser: (parser
+        ? context.imports.forParser(parser)
+        : parser) as import('../../shared/parsers').LanguageParser,
       fallbackBehavior: 'skip',
       extraIgnore: resolveExcludePatterns(config),
+      // Same opt-in as `check-deps` (#2216), so the two agree on cross-package edges.
+      resolveWorkspacePackages: config.resolveWorkspacePackages === true,
     });
 
     if (!result.ok) {

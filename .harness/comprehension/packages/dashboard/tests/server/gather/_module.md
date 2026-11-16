@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/dashboard/tests/server/gather'
-sourceHash: '7e0118622be3a1c79b1f17dd33f30ecf51e56a7659c8a67dae8497f86e75df6e'
+sourceHash: 'b666488476264f8dee75def305efeefc31356315305cbf7faaf16c70cd21bcb7'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent

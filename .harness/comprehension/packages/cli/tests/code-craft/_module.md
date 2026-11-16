@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/tests/code-craft'
-sourceHash: '00a40a69dc1a3e97d64e20e365cc7870a19caa7000f76318aa9d4ac5517e66b5'
+sourceHash: 'bcf41b69f6968d3f7c491b7e52b67efde44269f53167b29f1ebd89be105be47b'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -16,6 +16,7 @@ members:
     'integration.test.ts',
     'multilang-extraction.test.ts',
     'sibling-evidence.test.ts',
+    'sibling-index-outcome.test.ts',
     'siblings-integration.test.ts',
     'siblings.test.ts',
     'units-cov544.test.ts',
@@ -40,13 +41,14 @@ import { controlFlowHonestRubric } from '../../src/code-craft/catalog/rubrics/co
 import { SEED_RUBRICS, rubricApplies } from '../../src/code-craft/catalog/rubrics/index'
 import { revealsIntentRubric } from '../../src/code-craft/catalog/rubrics/reveals-intent'
 import { discoverSourceFiles } from '../../src/code-craft/extract/discover'
-import { buildCodeCraftCloneIndex, resolveSiblingEvidence } from '../../src/code-craft/extract/siblings'
+import { buildCodeCraftCloneIndex, buildCodeCraftCloneIndexOutcome, resolveSiblingEvidence } from '../../src/code-craft/extract/siblings'
 import { extractCodeUnits, extractTsUnits, extractUnits, unitSource, usesTsCompilerExtraction } from '../../src/code-craft/extract/units'
 import { extractUnits, unitSource } from '../../src/code-craft/extract/units.js'
 import { CodeUnit, UnitKind } from '../../src/code-craft/findings/schema'
 import { CodeUnit } from '../../src/code-craft/findings/schema.js'
 import { SIBLING_AWARE_RUBRIC_IDS, buildPrompt, critiqueOne } from '../../src/code-craft/phases/critique'
 import { renderSiblingEvidence } from '../../src/code-craft/phases/sibling-evidence'
+import { handleCodeCraft } from '../../src/mcp/tools/code-craft'
 import { usesOutlineExtraction } from '../../src/shared/craft/extract/outline-units'
 import { InSessionLlmProvider, LlmCallCost, LlmProvider, MockLlmProvider } from '../../src/shared/craft/llm/provider'
 import { CloneClass, CloneIndex, CloneMember, EXTENSION_MAP, extractEstreeUnits } from '@harness-engineering/core'

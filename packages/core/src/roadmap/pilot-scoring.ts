@@ -2,6 +2,13 @@ import type { Roadmap, RoadmapFeature, Priority } from '@harness-engineering/typ
 import { getRoadmapMode, type RoadmapMode, type RoadmapModeConfig } from './mode';
 import { scoreRoadmapCandidatesFileLess } from './pilot-scoring-file-less';
 import type { TrackedFeature } from './tracker';
+import {
+  createBlockerReferenceResolver,
+  createBlockerResolver,
+  isPilotStatus,
+  type BlockerReferenceResolver,
+  type BlockerResolutionOptions,
+} from './blocker-resolution';
 
 /**
  * A candidate feature with computed scores for the pilot selection algorithm.
@@ -13,9 +20,9 @@ export interface ScoredCandidate {
   milestone: string;
   /** Position-based score (0-1): earlier in milestone + earlier milestone = higher */
   positionScore: number;
-  /** Dependents-based score (0-1): more downstream blockers = higher */
+  /** Dependents-based score (0-1): more not-done rows whose Blockers name this row = higher */
   dependentsScore: number;
-  /** Affinity-based score (0-1): bonus if user completed related items */
+  /** Affinity-based score (0-1): 1 if the user completed a blocker of this row, 0.5 if a milestone sibling */
   affinityScore: number;
   /** Final weighted score (within tier) */
   weightedScore: number;
@@ -23,8 +30,12 @@ export interface ScoredCandidate {
   priorityTier: number | null;
 }
 
-export interface PilotScoringOptions {
-  /** Current user identifier for affinity matching */
+export interface PilotScoringOptions extends BlockerResolutionOptions {
+  /**
+   * Current user identifier for affinity matching. Compared case-insensitively
+   * with a leading `@` ignored against row `Assignee` values and assignment
+   * history; no alias mapping between a git name, an email and a handle is done.
+   */
   currentUser?: string;
 }
 
@@ -39,37 +50,93 @@ const POSITION_WEIGHT = 0.5;
 const DEPENDENTS_WEIGHT = 0.3;
 const AFFINITY_WEIGHT = 0.2;
 
-function isEligibleCandidate(
-  feature: RoadmapFeature,
-  allFeatureNames: Set<string>,
-  doneFeatures: Set<string>
-): boolean {
-  if (feature.status !== 'planned' && feature.status !== 'backlog') return false;
-  const isBlocked = feature.blockedBy.some((blocker) => {
-    const key = blocker.toLowerCase();
-    return allFeatureNames.has(key) && !doneFeatures.has(key);
-  });
-  return !isBlocked;
+function normalizeUser(user: string): string {
+  return user.trim().replace(/^@/, '').toLowerCase();
+}
+
+/**
+ * The rows the current user completed (#2222). A row counts when it is `done`
+ * and the user is its owner of record: an explicit `completed` assignment record,
+ * the row's own `Assignee`, or — when the row's `Assignee` is empty — the user is
+ * the assignee of the row's latest `assigned` history record. Nothing in
+ * production writes `completed` records, so the old `completed`-only rule made
+ * affinity identically zero on every real roadmap.
+ */
+function userCompletedFeatures(
+  roadmap: Roadmap,
+  currentUser: string | undefined
+): Set<RoadmapFeature> {
+  const completed = new Set<RoadmapFeature>();
+  if (!currentUser) return completed;
+  const user = normalizeUser(currentUser);
+  if (user === '') return completed;
+
+  const completedByRecord = new Set<string>();
+  const lastAssigned = new Map<string, string | null>();
+  for (const record of roadmap.assignmentHistory) {
+    const key = record.feature.trim().toLowerCase();
+    const who = normalizeUser(record.assignee);
+    if (record.action === 'completed' && who === user) completedByRecord.add(key);
+    if (record.action === 'assigned') lastAssigned.set(key, who);
+    if (record.action === 'unassigned' && lastAssigned.get(key) === who)
+      lastAssigned.set(key, null);
+  }
+
+  for (const feature of roadmap.milestones.flatMap((m) => m.features)) {
+    if (feature.status !== 'done') continue;
+    const key = feature.name.trim().toLowerCase();
+    const owner = feature.assignee ? normalizeUser(feature.assignee) : lastAssigned.get(key);
+    if (completedByRecord.has(key) || owner === user) completed.add(feature);
+  }
+  return completed;
 }
 
 function computeAffinityScore(
   feature: RoadmapFeature,
-  milestoneName: string,
-  milestoneMap: Map<string, string[]>,
-  userCompletedFeatures: Set<string>
+  siblings: readonly RoadmapFeature[],
+  resolveRefs: BlockerReferenceResolver,
+  completed: ReadonlySet<RoadmapFeature>
 ): number {
-  if (userCompletedFeatures.size === 0) return 0;
+  if (completed.size === 0) return 0;
   const completedBlocker = feature.blockedBy.some((b) =>
-    userCompletedFeatures.has(b.toLowerCase())
+    resolveRefs(b).some((ref) => ref !== feature && completed.has(ref))
   );
   if (completedBlocker) return 1.0;
-  const siblings = milestoneMap.get(milestoneName) ?? [];
-  const completedSibling = siblings.some((s) => userCompletedFeatures.has(s));
-  return completedSibling ? 0.5 : 0;
+  return siblings.some((s) => s !== feature && completed.has(s)) ? 0.5 : 0;
+}
+
+/**
+ * Count, per row, the distinct not-done rows whose Blockers reference it, using
+ * the same matching rules as the eligibility filter (#2222). A dependent that
+ * names the same row in several comma-split fragments counts once; a blocker
+ * that resolves to no row contributes nothing (it used to become its own key and
+ * could set the normalizer).
+ */
+function countDependents(
+  allFeatures: readonly RoadmapFeature[],
+  resolveRefs: BlockerReferenceResolver
+): Map<RoadmapFeature, number> {
+  const dependents = new Map<RoadmapFeature, Set<RoadmapFeature>>();
+  for (const dependent of allFeatures) {
+    if (dependent.status === 'done') continue;
+    for (const text of dependent.blockedBy) {
+      if (text.trim() === '') continue;
+      for (const target of resolveRefs(text)) {
+        if (target === dependent) continue;
+        const set = dependents.get(target) ?? new Set<RoadmapFeature>();
+        set.add(dependent);
+        dependents.set(target, set);
+      }
+    }
+  }
+  return new Map([...dependents].map(([target, set]) => [target, set.size]));
 }
 
 /**
  * Score and sort unblocked planned/backlog items using the two-tier algorithm.
+ *
+ * A row is unblocked when every `Blockers` entry resolves to `done` rows; rows
+ * withheld as blocked are listed by `findBlockedRoadmapCandidates`.
  *
  * Tier 1: Items with explicit priority sorted by priority level (P0 > P1 > P2 > P3).
  * Tier 2: Items without priority sorted by weighted score.
@@ -82,40 +149,16 @@ export function scoreRoadmapCandidates(
   options?: PilotScoringOptions
 ): ScoredCandidate[] {
   const allFeatures = roadmap.milestones.flatMap((m) => m.features);
-  const allFeatureNames = new Set(allFeatures.map((f) => f.name.toLowerCase()));
-  const doneFeatures = new Set(
-    allFeatures.filter((f) => f.status === 'done').map((f) => f.name.toLowerCase())
-  );
+  // Eligibility: a planned/backlog row is dispatchable only when none of its
+  // blockers still holds. See `blocker-resolution.ts` for the forms a Blockers
+  // entry takes and why an unresolvable one fails closed (#2255). Rows withheld
+  // here are reported by `findBlockedRoadmapCandidates`.
+  const heldBlockers = createBlockerResolver(roadmap, options);
+  const resolveRefs = createBlockerReferenceResolver(roadmap, options);
 
-  // Build dependents map: feature name -> count of features that list it as a blocker
-  const dependentsCount = new Map<string, number>();
-  for (const feature of allFeatures) {
-    for (const blocker of feature.blockedBy) {
-      const key = blocker.toLowerCase();
-      dependentsCount.set(key, (dependentsCount.get(key) ?? 0) + 1);
-    }
-  }
+  const dependentsCount = countDependents(allFeatures, resolveRefs);
   const maxDependents = Math.max(1, ...dependentsCount.values());
-
-  // Build milestone feature map for affinity
-  const milestoneMap = new Map<string, string[]>();
-  for (const ms of roadmap.milestones) {
-    milestoneMap.set(
-      ms.name,
-      ms.features.map((f) => f.name.toLowerCase())
-    );
-  }
-
-  // Build affinity data from assignment history
-  const userCompletedFeatures = new Set<string>();
-  if (options?.currentUser) {
-    const user = options.currentUser.toLowerCase();
-    for (const record of roadmap.assignmentHistory) {
-      if (record.action === 'completed' && record.assignee.toLowerCase() === user) {
-        userCompletedFeatures.add(record.feature.toLowerCase());
-      }
-    }
-  }
+  const completed = userCompletedFeatures(roadmap, options?.currentUser);
 
   // Compute total positions for normalization
   let totalPositions = 0;
@@ -132,17 +175,12 @@ export function scoreRoadmapCandidates(
     for (const feature of ms.features) {
       globalPosition++;
 
-      if (!isEligibleCandidate(feature, allFeatureNames, doneFeatures)) continue;
+      if (!isPilotStatus(feature) || heldBlockers(feature).length > 0) continue;
 
       const positionScore = 1 - (globalPosition - 1) / totalPositions;
-      const deps = dependentsCount.get(feature.name.toLowerCase()) ?? 0;
+      const deps = dependentsCount.get(feature) ?? 0;
       const dependentsScore = deps / maxDependents;
-      const affinityScore = computeAffinityScore(
-        feature,
-        ms.name,
-        milestoneMap,
-        userCompletedFeatures
-      );
+      const affinityScore = computeAffinityScore(feature, ms.features, resolveRefs, completed);
       const weightedScore =
         POSITION_WEIGHT * positionScore +
         DEPENDENTS_WEIGHT * dependentsScore +

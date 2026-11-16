@@ -351,3 +351,75 @@ describe('toClumpableFinding', () => {
     expect(comments).toHaveLength(2);
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// #2476 §1 — a committable `suggestion` block keeps its anchor.
+//
+// GitHub applies a ```suggestion``` block only at the line its comment is
+// anchored to, so folding a finding that carries one into a grouped comment
+// throws the one-click fix away unrecoverably. `isSmallSuggestion` (< 10 lines)
+// is exactly what `formatGitHubComment` gates the committable block on, so it is
+// the gate here too: a sub-floor finding carrying one keeps its own comment.
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('#2476: a finding carrying a committable suggestion keeps its own anchor', () => {
+  const patch = 'const renamed = value;';
+  const withPatch = suggestions.map((f, i) => (i < 2 ? { ...f, suggestion: patch } : f));
+
+  it('emits the committable findings individually, with their ```suggestion``` block', () => {
+    const { comments, report } = formatClumpedComments(withPatch, { touched });
+    // 4 grouped into one clump + 2 anchored individually.
+    expect(comments).toHaveLength(3);
+    expect(report.committable).toBe(2);
+    expect(report.grouped).toBe(N - 2);
+    for (const f of withPatch.slice(0, 2)) {
+      const own = comments.filter((c) => c.body.includes(f.title));
+      expect(own).toHaveLength(1);
+      expect(own[0]!.path).toBe(f.file);
+      expect(own[0]!.line).toBe(f.lineRange[1]);
+      expect(own[0]!.body).toContain('```suggestion\n' + patch + '\n```');
+      expect(own[0]!.body).not.toContain('harness-clump:');
+    }
+  });
+
+  it('LAW still holds: every finding appears in exactly one comment', () => {
+    const { comments } = formatClumpedComments(withPatch, { touched });
+    for (const f of withPatch) {
+      expect(comments.filter((c) => c.body.includes(f.title))).toHaveLength(1);
+    }
+  });
+
+  it('POSITIVE CONTROL: a large (non-committable) suggestion still groups', () => {
+    // 12 lines is past `isSmallSuggestion`'s limit, so `formatGitHubComment`
+    // would render it as prose, not a committable block — nothing is lost by
+    // grouping it, and it must keep grouping.
+    const big = Array.from({ length: 12 }, (_, i) => `line ${i}`).join('\n');
+    const withBig = suggestions.map((f) => ({ ...f, suggestion: big }));
+    const { comments, report } = formatClumpedComments(withBig, { touched });
+    expect(comments).toHaveLength(1);
+    expect(report.committable).toBe(0);
+    expect(report.grouped).toBe(N);
+  });
+});
+
+describe('#2476: a grouped comment spanning several files says where its markers are not', () => {
+  it('states that only the anchor file carries a diff marker when members span files', () => {
+    const { comments } = formatClumpedComments(suggestions, { touched });
+    const body = comments[0]!.body;
+    expect(body).toMatch(/anchored on `src\/auth\/f\d\.ts`/);
+    expect(body).toMatch(/other members' lines carry no marker in the diff/);
+  });
+
+  it('POSITIVE CONTROL: an individually-anchored comment carries no such note', () => {
+    // Members of one clump never share a file (`conflictKeys: [file]` makes
+    // same-file members conflict, and conflicting items never co-clump), so
+    // every clump spans files and the note is unconditional there. The control
+    // is that an ungrouped comment, which IS on its own line, never says it.
+    const { comments } = formatClumpedComments(suggestions, {
+      touched,
+      policy: { minToClump: Number.MAX_SAFE_INTEGER },
+    });
+    expect(comments).toHaveLength(N);
+    for (const c of comments) expect(c.body).not.toMatch(/carry no marker/);
+  });
+});

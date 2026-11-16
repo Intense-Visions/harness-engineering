@@ -263,14 +263,16 @@ describe('runInstallHookAction (CLI wrapper)', () => {
   it('prints a human skipped warning when not sharded (no force)', async () => {
     mkGit();
     await runInstallHookAction({ cwd, mechanism: 'git', format: 'human' });
-    const printed = logSpy.mock.calls.map((c) => c.map(String).join(' ')).join('\n');
+    // logger.warn writes to stderr (#2519).
+    const printed = errSpy.mock.calls.map((c) => c.map(String).join(' ')).join('\n');
     expect(printed).toMatch(/not sharded/i);
   });
 
   it('warns that the hook is a no-op when force-installed without sharding (human)', async () => {
     mkGit();
     await runInstallHookAction({ cwd, mechanism: 'git', force: true, format: 'human' });
-    const printed = logSpy.mock.calls.map((c) => c.map(String).join(' ')).join('\n');
+    // logger.warn writes to stderr (#2519).
+    const printed = errSpy.mock.calls.map((c) => c.map(String).join(' ')).join('\n');
     expect(printed).toMatch(/no-op until/i);
   });
 });

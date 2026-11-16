@@ -25,6 +25,7 @@ import {
   type FinalizeDocsCraftInput,
 } from '../../docs-craft/index.js';
 import { resolveCraftLlmMode } from '../../shared/craft/llm/provider.js';
+import { craftPathError } from '../../shared/craft/scope.js';
 
 interface ToolResponse {
   content: Array<{ type: 'text'; text: string }>;
@@ -122,9 +123,8 @@ function effectiveMode(input: DocsCraftInput): DocsCraftMode {
 export async function handleDocsCraft(
   input: DocsCraftInput & { promptBudget?: number }
 ): Promise<ToolResponse> {
-  if (typeof input?.path !== 'string' || input.path.length === 0) {
-    return fail(JSON.stringify({ error: 'docs_craft: `path` is required' }));
-  }
+  const pathError = craftPathError('docs_craft', input?.path);
+  if (pathError !== null) return fail(JSON.stringify({ error: pathError }));
   try {
     if (effectiveMode(input) === 'in-session') {
       const result: CollectPromptsOutput = await collectDocsCraftPrompts(input);

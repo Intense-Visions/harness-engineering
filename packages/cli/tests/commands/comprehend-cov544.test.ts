@@ -92,16 +92,26 @@ vi.mock('../../src/comprehension/compile-run', () => ({
     skipped: [],
     fresh: [],
   })),
-  runComprehendCheck: vi.fn(async () => ({ ok: true, stale: [], skipped: [] })),
+  runComprehendCheck: vi.fn(async () => ({
+    ok: true,
+    stale: [],
+    orphans: [],
+    skipped: [],
+    semantic: { total: 3, present: 3, absent: 0, absentRatio: 0 },
+  })),
   runComprehendStats: vi.fn(async () => ({
     units: 3,
     rawTokens: 1000,
     servedTokens: 100,
     savedTokens: 900,
     savedPct: 90,
+    semantic: { total: 3, present: 3, absent: 0, absentRatio: 0 },
   })),
 }));
 
+vi.mock('../../src/comprehension/prune', () => ({
+  pruneOrphanUnits: vi.fn(async () => ({ removed: [], failed: [] })),
+}));
 vi.mock('../../src/mcp/utils/analysis-provider', () => ({
   resolveAnalysisProvider: vi.fn(async () => null),
 }));
@@ -110,9 +120,13 @@ vi.mock('../../src/commands/validate-scope', () => ({
   deriveChangedSurface: vi.fn(() => ({ ok: true, files: [] })),
 }));
 
+import { Command } from 'commander';
 import { createComprehendCommand } from '../../src/commands/comprehend';
 import { logger } from '../../src/output/logger';
-import { resolveComprehensionCiMode } from '../../src/comprehension/config';
+import {
+  resolveComprehensionCiMode,
+  readComprehensionConfig,
+} from '../../src/comprehension/config';
 import { shouldRunComprehendHook } from '../../src/comprehension/hook';
 import { committedSemanticAllowed } from '../../src/comprehension/policy';
 import {
@@ -129,6 +143,7 @@ import {
   runComprehendCheck,
   runComprehendStats,
 } from '../../src/comprehension/compile-run';
+import { pruneOrphanUnits } from '../../src/comprehension/prune';
 import { resolveAnalysisProvider } from '../../src/mcp/utils/analysis-provider';
 import { deriveChangedSurface } from '../../src/commands/validate-scope';
 
@@ -173,7 +188,9 @@ describe('comprehend command action paths (cov544)', () => {
     vi.mocked(runComprehendCheck).mockResolvedValue({
       ok: true,
       stale: [],
+      orphans: [],
       skipped: [],
+      semantic: { total: 3, present: 3, absent: 0, absentRatio: 0 },
     } as never);
     vi.mocked(runComprehendStats).mockResolvedValue({
       units: 3,
@@ -181,6 +198,13 @@ describe('comprehend command action paths (cov544)', () => {
       servedTokens: 100,
       savedTokens: 900,
       savedPct: 90,
+      semantic: { total: 3, present: 3, absent: 0, absentRatio: 0 },
+    } as never);
+    vi.mocked(readComprehensionConfig).mockReturnValue({
+      semantic: true,
+      model: null,
+      maxTokensPerRun: 1000,
+      concurrency: 1,
     } as never);
 
     exitCodes = [];
@@ -215,6 +239,146 @@ describe('comprehend command action paths (cov544)', () => {
       if (e !== EXIT) throw e;
     }
   }
+
+  /** Run under a root program that owns the global `--json` (as the real CLI does). */
+  async function runWithRoot(args: string[]): Promise<void> {
+    const root = new Command('harness').option('--json', 'Output as JSON');
+    root.addCommand(createComprehendCommand());
+    try {
+      await root.parseAsync(args, { from: 'user' });
+    } catch (e) {
+      if (e !== EXIT) throw e;
+    }
+  }
+
+  // --- #2063: semantic present/absent ratio ----------------------------------
+
+  const MIXED = { total: 750, present: 572, absent: 178, absentRatio: 178 / 750 };
+
+  it('--stats reports semantic present/absent counts and the absent ratio (#2063)', async () => {
+    vi.mocked(runComprehendStats).mockResolvedValue({
+      units: 3,
+      rawTokens: 1000,
+      servedTokens: 100,
+      savedTokens: 900,
+      savedPct: 90,
+      semantic: MIXED,
+    } as never);
+    await run(['--stats']);
+    const lines = logInfo.mock.calls.map((c) => String(c[0]));
+    expect(
+      lines.some((l) => /572 present/.test(l) && /178 absent/.test(l) && /23\.7%/.test(l))
+    ).toBe(true);
+    expect(exitCodes).toEqual([0]);
+  });
+
+  it('--json --stats emits the stats (incl. semantic coverage) as JSON (#2063)', async () => {
+    vi.mocked(runComprehendStats).mockResolvedValue({
+      units: 3,
+      rawTokens: 1000,
+      servedTokens: 100,
+      savedTokens: 900,
+      savedPct: 90,
+      semantic: MIXED,
+    } as never);
+    const rawSpy = vi.spyOn(logger, 'raw').mockImplementation(() => {});
+    try {
+      await runWithRoot(['--json', 'comprehend', '--stats']);
+      expect(rawSpy).toHaveBeenCalledTimes(1);
+      const payload = rawSpy.mock.calls[0]![0] as { semantic: typeof MIXED; savedPct: number };
+      expect(payload.semantic).toEqual(MIXED);
+      expect(payload.savedPct).toBe(90);
+      expect(exitCodes).toEqual([0]);
+    } finally {
+      rawSpy.mockRestore();
+    }
+  });
+
+  it('--check (main context) warns with the absent ratio but still exits SUCCESS (#2063)', async () => {
+    vi.mocked(runComprehendCheck).mockResolvedValue({
+      ok: true,
+      stale: [],
+      orphans: [],
+      skipped: [],
+      semantic: MIXED,
+    } as never);
+    await run(['--check']);
+    expect(logWarn).toHaveBeenCalledWith(expect.stringMatching(/178 absent.*23\.7%/s));
+    expect(exitCodes).toEqual([0]);
+  });
+
+  it('--check --context pr reports the ratio as info, never a warning (#2063)', async () => {
+    vi.mocked(runComprehendCheck).mockResolvedValue({
+      ok: true,
+      stale: [],
+      orphans: [],
+      skipped: [],
+      semantic: MIXED,
+    } as never);
+    await run(['--check', '--context', 'pr']);
+    expect(logWarn).not.toHaveBeenCalledWith(expect.stringContaining('178 absent'));
+    expect(logInfo).toHaveBeenCalledWith(expect.stringContaining('178 absent'));
+    expect(exitCodes).toEqual([0]);
+  });
+
+  it('--check (main) fails when comprehension.maxSemanticAbsentRatio is exceeded (#2063)', async () => {
+    vi.mocked(runComprehendCheck).mockResolvedValue({
+      ok: true,
+      stale: [],
+      orphans: [],
+      skipped: [],
+      semantic: MIXED,
+    } as never);
+    vi.mocked(readComprehensionConfig).mockReturnValue({
+      semantic: true,
+      model: null,
+      maxTokensPerRun: 1000,
+      concurrency: 1,
+      maxSemanticAbsentRatio: 0.2,
+    } as never);
+    await run(['--check']);
+    expect(logError).toHaveBeenCalledWith(expect.stringContaining('maxSemanticAbsentRatio'));
+    expect(exitCodes).toEqual([1]);
+  });
+
+  it('--check (main) passes when the absent ratio is within maxSemanticAbsentRatio (#2063)', async () => {
+    vi.mocked(runComprehendCheck).mockResolvedValue({
+      ok: true,
+      stale: [],
+      orphans: [],
+      skipped: [],
+      semantic: MIXED,
+    } as never);
+    vi.mocked(readComprehensionConfig).mockReturnValue({
+      semantic: true,
+      model: null,
+      maxTokensPerRun: 1000,
+      concurrency: 1,
+      maxSemanticAbsentRatio: 0.3,
+    } as never);
+    await run(['--check']);
+    expect(logError).not.toHaveBeenCalled();
+    expect(exitCodes).toEqual([0]);
+  });
+
+  it('--check --context pr never fails on maxSemanticAbsentRatio (absent is expected on a PR) (#2063)', async () => {
+    vi.mocked(runComprehendCheck).mockResolvedValue({
+      ok: true,
+      stale: [],
+      orphans: [],
+      skipped: [],
+      semantic: MIXED,
+    } as never);
+    vi.mocked(readComprehensionConfig).mockReturnValue({
+      semantic: true,
+      model: null,
+      maxTokensPerRun: 1000,
+      concurrency: 1,
+      maxSemanticAbsentRatio: 0.2,
+    } as never);
+    await run(['--check', '--context', 'pr']);
+    expect(exitCodes).toEqual([0]);
+  });
 
   // --- hook gate ------------------------------------------------------------
 
@@ -255,11 +419,49 @@ describe('comprehend command action paths (cov544)', () => {
     vi.mocked(runComprehendCheck).mockResolvedValue({
       ok: false,
       stale: ['pkg/m'],
+      orphans: [],
       skipped: [{ path: 'pkg/x', reason: 'unreadable' }],
+      semantic: { total: 1, present: 1, absent: 0, absentRatio: 0 },
     } as never);
     await run(['--check']);
     expect(logWarn).toHaveBeenCalledWith(expect.stringContaining('skipped pkg/x'));
     expect(logError).toHaveBeenCalledWith(expect.stringContaining('source-stale'));
+    expect(exitCodes).toEqual([1]);
+  });
+
+  it('--check names orphan units apart from source-stale, points at --prune, exits VALIDATION_FAILED (#2578)', async () => {
+    vi.mocked(runComprehendCheck).mockResolvedValue({
+      ok: false,
+      stale: [],
+      orphans: ['docs/.vitepress/cache/deps'],
+      skipped: [],
+      semantic: { total: 1, present: 0, absent: 1, absentRatio: 1 },
+    } as never);
+    await run(['--check']);
+    expect(logError).toHaveBeenCalledWith(expect.stringContaining('orphan unit(s)'));
+    expect(logError).toHaveBeenCalledWith(expect.stringContaining('--prune'));
+    expect(logError).not.toHaveBeenCalledWith(expect.stringContaining('source-stale'));
+    expect(logSuccess).not.toHaveBeenCalledWith(expect.stringContaining('source-fresh'));
+    expect(exitCodes).toEqual([1]);
+  });
+
+  it('--prune deletes orphans token-free and exits SUCCESS (#2578)', async () => {
+    vi.mocked(pruneOrphanUnits).mockResolvedValue({ removed: ['pkg/gone'], failed: [] });
+    await run(['--prune']);
+    expect(pruneOrphanUnits).toHaveBeenCalledTimes(1);
+    expect(resolveAnalysisProvider).not.toHaveBeenCalled();
+    expect(runComprehend).not.toHaveBeenCalled();
+    expect(logSuccess).toHaveBeenCalledWith(expect.stringContaining('pkg/gone'));
+    expect(exitCodes).toEqual([0]);
+  });
+
+  it('--prune exits VALIDATION_FAILED when an orphan could not be removed (#2578)', async () => {
+    vi.mocked(pruneOrphanUnits).mockResolvedValue({
+      removed: [],
+      failed: [{ module: 'pkg/gone', reason: 'EACCES' }],
+    });
+    await run(['--prune']);
+    expect(logError).toHaveBeenCalledWith(expect.stringContaining('could not prune pkg/gone'));
     expect(exitCodes).toEqual([1]);
   });
 

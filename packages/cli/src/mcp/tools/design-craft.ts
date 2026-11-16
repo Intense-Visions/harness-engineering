@@ -42,6 +42,7 @@ import { runCritique, runVisionCritique } from '../../design-craft/phases/critiq
 import type { CritiqueTarget, VisionCritiqueTarget } from '../../design-craft/phases/critique.js';
 import { runPolish } from '../../design-craft/phases/polish.js';
 import { craftClumpView } from '../../shared/craft/findings/clumpable.js';
+import { craftPathError, withCraftAbstention } from '../../shared/craft/scope.js';
 import type { PolishTarget } from '../../design-craft/phases/polish.js';
 import { runBenchmark, runVisionBenchmark } from '../../design-craft/phases/benchmark.js';
 import type {
@@ -715,6 +716,12 @@ async function runPipeline(
       },
       deferralsToHarnessDesign: 0,
       runId: crypto.randomUUID(),
+      // Nothing to critique, polish or benchmark: an abstention, not a clean run (#2625).
+      ...withCraftAbstention(
+        'design_craft',
+        critiqueTargets.length + benchmarkTargets.length + captures.length,
+        'targets'
+      ),
     },
   };
 
@@ -722,9 +729,8 @@ async function runPipeline(
 }
 
 export async function handleDesignCraft(input: DesignCraftInput): Promise<McpToolResponse> {
-  if (typeof input?.path !== 'string' || input.path.length === 0) {
-    return resultToMcpResponse(Err({ message: 'design_craft: `path` is required' }));
-  }
+  const pathError = craftPathError('design_craft', input?.path);
+  if (pathError !== null) return resultToMcpResponse(Err({ message: pathError }));
   try {
     const result = await runPipeline(input);
     return resultToMcpResponse(result);

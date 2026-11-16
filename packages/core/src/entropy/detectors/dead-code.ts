@@ -133,9 +133,12 @@ function resolveCandidatePath(resolved: string, hasFile: (p: string) => boolean)
 
   if (hasFile(resolved)) return resolved;
 
-  if (!sourceExt) return firstExisting(extensionlessCandidates(resolved), hasFile);
-
-  return null;
+  // Extensionless candidates are tried even when `extname` found an
+  // "extension": for a dotted basename (`./budget.types`, `./app.config`) the
+  // trailing segment is part of the module name, not an extension, and the
+  // file on disk is `budget.types.ts`. Gating this on `!sourceExt` made every
+  // such import resolve to nothing and its target report dead (issue #2075).
+  return firstExisting(extensionlessCandidates(resolved), hasFile);
 }
 
 /**
@@ -144,8 +147,9 @@ function resolveCandidatePath(resolved: string, hasFile: (p: string) => boolean)
  * Relative specifiers resolve against the importing file's directory. Non-relative
  * specifiers are matched against the project's tsconfig `paths` aliases (e.g.
  * `@lib/*` → `src/lib/*`); without this a file reached only through an alias
- * import was falsely reported dead (issue #1759). Anything that matches no alias
- * is treated as an external package.
+ * import was falsely reported dead (issue #1759). A specifier naming a workspace
+ * package (`@scope/pkg[/sub]`) is then looked up in the snapshot's pre-resolved
+ * map (issue #2189). Anything else is treated as an external package.
  */
 function resolveImportToFile(
   importSource: string,
@@ -170,6 +174,11 @@ function resolveImportToFile(
       if (match) return match;
     }
   }
+
+  // Non-relative naming a workspace package (`@scope/pkg[/sub]`), pre-resolved
+  // at snapshot time (#2189). External packages are absent from the map.
+  const workspaceTarget = snapshot.workspaceSpecifiers?.[importSource];
+  if (workspaceTarget && hasFile(workspaceTarget)) return workspaceTarget;
 
   return null; // External package
 }
@@ -266,13 +275,36 @@ function resolveReExportTarget(
   const target = resolveImportToFile(exp.source, file, snapshot, fileIndex);
   if (!target) return { file, name: exportName };
 
-  return resolveReExportTarget(snapshot, fileIndex, target, exp.name, seen);
+  // A renamed re-export (`export { default as Foo } from './foo'`) continues
+  // the chain under the name the target module exports (issue #2075).
+  return resolveReExportTarget(snapshot, fileIndex, target, exp.localName ?? exp.name, seen);
 }
 
 /** Usage record for one export: its source importers, whether it is re-exported, and whether any test imports it. */
 type ExportUsage = { importers: string[]; isReExported: boolean; importedByTest: boolean };
 
-type ImportEdge = { source: string; specifiers: string[] };
+type ImportEdge = {
+  source: string;
+  specifiers: string[];
+  importedNames?: string[];
+  default?: string;
+  dynamic?: boolean;
+};
+
+/**
+ * The export names one import edge consumes from its source module.
+ *
+ * `specifiers` holds LOCAL binding names, so `{ aliased as renamed }` must be
+ * read through `importedNames`. A default import, and a dynamic `import()` —
+ * whose namespace object is how a lazily-loaded module's `default` is reached —
+ * consume `default`. Reading `specifiers` alone made every default export, and
+ * every alias-imported one, invisible to the usage map (issue #2075).
+ */
+function importedExportNames(imp: ImportEdge): string[] {
+  const names = [...(imp.importedNames ?? imp.specifiers)];
+  if (imp.default !== undefined || imp.dynamic) names.push('default');
+  return names;
+}
 
 /**
  * Mark an export live: a test importer flips `importedByTest`, a real source
@@ -301,7 +333,7 @@ function recordImportEdge(
   const sourceFile = fileIndex.get(resolvedFile);
   if (!sourceFile) return;
 
-  for (const specifier of imp.specifiers) {
+  for (const specifier of importedExportNames(imp)) {
     const matchingExport = sourceFile.exports.find(
       (e) => e.name === specifier || (specifier === 'default' && e.type === 'default')
     );

@@ -1,11 +1,11 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/tests/commands/agent'
-sourceHash: '38becf41abfa172d3ca7f363c140fb08e87f73db7af1586b64a908ffe574dedf'
+sourceHash: '6d3ec1c02a55f2a5dc4b5dac92d40c0899783e88c8ed3057263637de4ceefc85'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
-members: ['review-cov544b.test.ts']
+members: ['review-cov544b.test.ts', 'review-json-report.test.ts']
 ---
 
 ## Interface Contract
@@ -17,7 +17,7 @@ members: ['review-cov544b.test.ts']
 ## Dependency Slice
 
 ```
-import { createReviewCommand } from '../../../src/commands/agent/review'
+import { createReviewCommand, toReviewJson } from '../../../src/commands/agent/review'
 import { resolveConfig } from '../../../src/config/loader'
 import { logger } from '../../../src/output/logger'
 import { CLIError, ExitCode } from '../../../src/utils/errors'

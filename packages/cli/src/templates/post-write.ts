@@ -27,13 +27,26 @@ export function persistToolingConfig(
       config.template.framework = framework;
     }
 
+    // Tooling lives at `template.tooling` — the only place HarnessConfigSchema
+    // reads it (#2475). A root-level `tooling` block is stripped by loadConfig
+    // with an "ignored unknown key" warning, so fold any legacy root block in.
+    let tooling = config.template?.tooling;
+    if (config.tooling) {
+      tooling = { ...config.tooling, ...tooling };
+      delete config.tooling;
+    }
+
     // Add tooling from overlay metadata (framework takes precedence over base)
     if (overlayMeta?.tooling) {
-      config.tooling = { ...config.tooling, ...overlayMeta.tooling };
-      delete config.tooling.lockFile;
-    } else if (resolveResult.metadata.tooling && !config.tooling) {
-      config.tooling = { ...resolveResult.metadata.tooling };
-      delete config.tooling.lockFile;
+      tooling = { ...tooling, ...overlayMeta.tooling };
+    } else if (resolveResult.metadata.tooling && !tooling) {
+      tooling = { ...resolveResult.metadata.tooling };
+    }
+
+    if (tooling) {
+      delete tooling.lockFile;
+      config.template = config.template || {};
+      config.template.tooling = tooling;
     }
 
     // Remove level:null for non-JS languages
@@ -81,7 +94,9 @@ health-snapshot.json
 release-readiness.json
 skills-index.json
 stack-profile.json
-metrics/
+# metrics/*, not a bare metrics/: a directory-suffix rule stops git descending into
+# the directory, so no later !metrics/<file> rule could re-include a tracked file.
+metrics/*
 .install-id
 telemetry.json
 .telemetry-notice-shown
@@ -114,15 +129,77 @@ security/*
   }
 
   // Preserve user customizations: only append template entries not already present.
-  const existing = fs.readFileSync(gitignorePath, 'utf8');
-  const existingLines = new Set(existing.split('\n').map((l) => l.trim()));
+  // Presence is judged by the directory a rule covers, not its exact text (#2474):
+  // `metrics/` and `metrics/*` ignore the same files, but appending the bare form to
+  // a file that holds `metrics/*` + `!metrics/<ledger>` would silently defeat the
+  // negation. A rule is likewise never appended over a user's `!dir/...` un-ignore.
+  const original = fs.readFileSync(gitignorePath, 'utf8');
+  const existing = migrateLegacyHarnessRules(original);
+  if (existing !== original) fs.writeFileSync(gitignorePath, existing);
+  const existingRules = existing
+    .split('\n')
+    .map((l) => l.trim())
+    .filter((l) => l && !l.startsWith('#'));
+  const coveredKeys = new Set(existingRules.map(ignoreRuleKey));
+  const negatedDirs = existingRules
+    .filter((l) => l.startsWith('!'))
+    .map((l) => l.slice(1).split('/')[0]);
   const missing = content
     .split('\n')
-    .filter((l) => l.trim() && !l.startsWith('#') && !existingLines.has(l.trim()));
+    .map((l) => l.trim())
+    .filter(
+      (l) =>
+        l &&
+        !l.startsWith('#') &&
+        !coveredKeys.has(ignoreRuleKey(l)) &&
+        (l.startsWith('!') || !negatedDirs.includes(ignoreRuleKey(l)))
+    );
   if (missing.length > 0) {
     const prefix = existing.endsWith('\n') ? '' : '\n';
     fs.appendFileSync(gitignorePath, prefix + missing.join('\n') + '\n');
   }
+}
+
+/** The un-ignore pair that keeps the security trend ledger trackable (#270). */
+const SECURITY_LEDGER_RULES = ['security/*', '!security/timeline.json'];
+
+/**
+ * Rewrite the two exact rules that pre-#270 scaffolds wrote and that hide files
+ * #270 made tracked-by-default (#2135). Every other line is left untouched.
+ *
+ *   - `security/` — a directory-suffix ignore stops git descending into
+ *     `.harness/security/`, so no `!security/timeline.json` (even one already in
+ *     the file) can re-include the ledger. Replaced in place by `security/*` +
+ *     `!security/timeline.json`, minus whichever of the pair is already present.
+ *   - `hooks/` — the team-policy hook scripts that `.claude/settings.json`
+ *     references; ignoring them leaves a fresh clone failing every hook with
+ *     MODULE_NOT_FOUND and running without policy enforcement. Dropped.
+ *
+ * Only those exact (trimmed) lines match, so a user's own variant such as
+ * `hooks/*.local.js` or `security/**` is preserved.
+ */
+function migrateLegacyHarnessRules(text: string): string {
+  const lines = text.split('\n');
+  const trimmed = lines.map((l) => l.trim());
+  if (!trimmed.includes('security/') && !trimmed.includes('hooks/')) return text;
+  const out: string[] = [];
+  for (const [i, line] of lines.entries()) {
+    if (trimmed[i] === 'hooks/') continue;
+    if (trimmed[i] === 'security/') {
+      out.push(...SECURITY_LEDGER_RULES.filter((r) => !trimmed.includes(r) && !out.includes(r)));
+      continue;
+    }
+    out.push(line);
+  }
+  return out.join('\n');
+}
+
+/**
+ * Normalize an ignore rule to the path it covers, so `dir/` and `dir/*` compare equal.
+ * Negations keep their `!` so an un-ignore never counts as covering an ignore.
+ */
+function ignoreRuleKey(rule: string): string {
+  return rule.replace(/\/\*?$/, '');
 }
 
 /** Marker line prefixed to the harness-managed block in the repo-root `.ignore`. */
