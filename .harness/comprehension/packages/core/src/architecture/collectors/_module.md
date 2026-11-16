@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/src/architecture/collectors'
-sourceHash: '132e86c5e504ca1ccc60b03b8da5b2c66a2df3e7201c5a39275ca08987fad324'
+sourceHash: '9e0122fbade5d6ac42a253f575556f2d217034fff37f53162e90a5b9aa2e2dda'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -16,6 +16,7 @@ members:
     'index.ts',
     'layer-violations.ts',
     'module-size.ts',
+    'run-context.ts',
   ]
 ---
 
@@ -23,6 +24,7 @@ members:
 
 ```ts
 export CircularDepsCollector
+export CollectorRunContext
 export ComplexityCollector
 export CouplingCollector
 export DepDepthCollector
@@ -39,7 +41,7 @@ export violationId
 
 ```
 import { detectCircularDeps } from '../../constraints/circular-deps'
-import { buildDependencyGraph, buildDependencyGraphFromParsed, validateDependencies } from '../../constraints/dependencies'
+import { ParserLookup, buildDependencyGraph, buildDependencyGraphFromParsed, validateDependencies } from '../../constraints/dependencies'
 import { defineLayer } from '../../constraints/layers'
 import { DependencyValidation, DependencyViolation, Layer } from '../../constraints/types'
 import { detectComplexityViolations } from '../../entropy/detectors/complexity'
@@ -48,7 +50,7 @@ import { buildExportMap, parseSourceFiles } from '../../entropy/snapshot'
 import { CodebaseSnapshot } from '../../entropy/types'
 import { EntropyError } from '../../shared/errors'
 import { findFiles, relativePosix } from '../../shared/fs-utils'
-import { Import } from '../../shared/parsers'
+import { AST, Export, Import, LanguageParser, ParseError } from '../../shared/parsers'
 import { getDefaultRegistry } from '../../shared/parsers/registry'
 import { Ok, Result } from '../../shared/result'
 import { isExcluded, resolveExcludePatterns } from '../exclude'
@@ -61,6 +63,7 @@ import { ForbiddenImportCollector } from './forbidden-imports'
 import { constraintRuleId, violationId } from './hash'
 import { LayerViolationCollector } from './layer-violations'
 import { ModuleSizeCollector } from './module-size'
+import { CollectorRunContext, createCollectorRunContext } from './run-context'
 import { DEFAULT_SKIP_DIRS } from '@harness-engineering/graph'
 import { minimatch } from 'minimatch'
 import { createHash } from 'node:crypto'
