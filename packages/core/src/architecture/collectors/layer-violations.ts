@@ -83,6 +83,8 @@ export class LayerViolationCollector implements Collector {
         : parser) as import('../../shared/parsers').LanguageParser,
       fallbackBehavior: 'skip',
       extraIgnore: resolveExcludePatterns(config),
+      // Same opt-in as `check-deps` (#2216), so the two agree on cross-package edges.
+      resolveWorkspacePackages: config.resolveWorkspacePackages === true,
     });
 
     if (!result.ok) {
