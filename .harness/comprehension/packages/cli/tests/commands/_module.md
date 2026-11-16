@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/tests/commands'
-sourceHash: '966196a8c1f73721eb699364c9c54af951e595a3c92a8e1dfe7597043fe95571'
+sourceHash: '93b1f8e2bd237b3536957672b582df7ef423ac8986dcc961225b98431c85d815'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -456,6 +456,7 @@ import { CLIError, ExitCode } from '../../src/utils/errors'
 import { markSetupComplete } from '../../src/utils/first-run'
 import { CLI_VERSION } from '../../src/version'
 import { VocabularyRule, formatViolations, scanFiles, scanText } from '../../src/vocabulary/scanner'
+import { runHarness } from '../e2e/support/harness-cli'
 import { resolveProjectFrom } from '../helpers/resolve-project-mock'
 import { ConsoleCapture, captureConsole, runToExit, stubProcessExit } from './cli-command-harness'
 import { CraftCommandRun, DEFAULT_CWD, runCraftCommand } from './craft-command-harness-cohort-b'
