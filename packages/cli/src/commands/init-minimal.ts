@@ -8,6 +8,7 @@ import { logger } from '../output/logger';
 import { CLIError, ExitCode } from '../utils/errors';
 import { initHooks } from './hooks/init';
 import { ensureHarnessGitignore } from '../templates/post-write';
+import { decideReinit } from './init-tier';
 
 /**
  * The `minimal` init tier (ADR 0101): the documented floor of the adoption
@@ -213,9 +214,14 @@ export async function runMinimalInit(
 
   const configPath = path.join(cwd, 'harness.config.json');
   if (!force && fs.existsSync(configPath)) {
-    return Err(
-      new CLIError('Project already initialized. Use --force to overwrite.', ExitCode.ERROR)
-    );
+    // `minimal` is the floor of the ladder, so a re-run is never an upgrade:
+    // the decision only words the refusal (same tier vs. would-be downgrade).
+    const decision = decideReinit(configPath, 'minimal');
+    const message =
+      decision.kind === 'refuse'
+        ? decision.message
+        : 'Project already initialized. Use --force to overwrite.';
+    return Err(new CLIError(message, ExitCode.ERROR));
   }
 
   // 1. Repo guide.
