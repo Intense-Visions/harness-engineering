@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/config'
-sourceHash: '433c7e1303d4b3eeb30e35ca1127c0d5609aec231e49fab4b7ce9d10ca853a88'
+sourceHash: 'e946dc723671123faeb47e13f92f795c4807d6d52f1e2b19c39cc7f4d65b4010'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -11,7 +11,6 @@ members:
     'arch-dependency-rules.ts',
     'ingest-schema.ts',
     'loader.ts',
-    'perf-scope.ts',
     'schema.amr.test.ts',
     'schema.ts',
     'stripped-keys.test.ts',
@@ -88,8 +87,6 @@ export loadDesignExclude
 export loadDesignTokenPath
 export resolveCommandRoot
 export resolveConfig
-export resolveConfiguredEntryPoints
-export resolveExcludePatterns
 export resolveProject
 export withDependencyRules
 ```
@@ -98,10 +95,9 @@ export withDependencyRules
 
 ```
 import { CLIError, ExitCode } from '../utils/errors'
-import { gitIgnoredExcludeGlobs } from '../utils/git-ignored'
 import { AnalysisConfigSchema, DepsConfigSchema } from './analysis-schema.js'
 import { IngestConfigSchema } from './ingest-schema.js'
-import { loadConfig, resolveConfig } from './loader'
+import { loadConfig } from './loader'
 import { AgentConfigSchema, HarnessConfig, HarnessConfigSchema } from './schema'
 import { collectStrippedKeys, formatStrippedKeyWarnings } from './stripped-keys'
 import { ArchConfig, ArchConfigSchema, ClumpingConfigSchema, Err, GoldenConfigSchema, Ok, PatternConfigSchema, Result, withDependencyRulesCore } from '@harness-engineering/core'

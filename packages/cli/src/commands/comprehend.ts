@@ -35,12 +35,16 @@ import type { ComprehensionConfig } from '../config/schema';
 import { createStaticExtractor } from '../comprehension/static-extractor';
 import { filesToModules, enumerateModules } from '../comprehension/invalidation';
 import { maybeCreateGenerateSemantic } from '../comprehension/generate-semantic';
+import { assessSemanticCoverage, formatSemanticCoverage } from '../comprehension/semantic-coverage';
 import {
   runComprehend,
   runComprehendCheck,
   runComprehendStats,
   type ComprehendRunResult,
+  type ComprehendCheckResult,
 } from '../comprehension/compile-run';
+
+type ComprehendCheckSemantic = ComprehendCheckResult['semantic'];
 import { resolveAnalysisProvider } from '../mcp/utils/analysis-provider';
 import { deriveChangedSurface, type ChangedSurface } from './validate-scope';
 import { logger } from '../output/logger';
@@ -360,6 +364,7 @@ async function runCheckMode(
   // whole narrative (ref reads, unreadable-ref refusal, pr-vs-main framing) lives
   // in `reportSemanticRegression`; here we only feed it and consume its verdict.
   const context: RegressionContext = opts.context ?? 'main';
+  const coverageOk = reportSemanticCoverage(result.semantic, context, opts.config);
   const { regressed, refUnreadable } = opts.since
     ? reportSemanticRegression(opts.since, context, defaultRefReadDeps(opts.projectRoot))
     : { regressed: [] as string[], refUnreadable: false };
@@ -370,19 +375,44 @@ async function runCheckMode(
     await runRefreshMainPass(opts.projectRoot, store, reader, cconf, opts.since);
   }
 
-  const ok = result.ok && regressed.length === 0 && !refUnreadable;
+  const ok = result.ok && coverageOk && regressed.length === 0 && !refUnreadable;
   process.exit(ok ? ExitCode.SUCCESS : ExitCode.VALIDATION_FAILED);
+}
+
+/**
+ * #2063 — surface the committed substrate's semantic present/absent ratio in
+ * `--check`. Advisory by default (a warning on `main`, info on the `pr` path);
+ * returns `false` only when the opt-in `comprehension.maxSemanticAbsentRatio`
+ * threshold is configured and exceeded on `main`.
+ */
+function reportSemanticCoverage(
+  coverage: ComprehendCheckSemantic,
+  context: RegressionContext,
+  config: HarnessConfig | undefined
+): boolean {
+  const max = readComprehensionConfig(config).maxSemanticAbsentRatio;
+  const assessment = assessSemanticCoverage(coverage, context, max);
+  if (assessment.level === 'info') logger.info(assessment.message);
+  else if (assessment.level === 'warn') logger.warn(assessment.message);
+  else if (assessment.level === 'error') logger.error(assessment.message);
+  return assessment.level !== 'error';
 }
 
 async function runStatsMode(
   store: ComprehensionStore,
-  reader: ReturnType<typeof createNodeModuleSourceReader>
+  reader: ReturnType<typeof createNodeModuleSourceReader>,
+  json = false
 ): Promise<void> {
   const stats = await runComprehendStats({ store, reader });
+  if (json) {
+    logger.raw(stats);
+    process.exit(ExitCode.SUCCESS);
+  }
   logger.info(
     `${stats.units} fresh unit(s): raw≈${stats.rawTokens} tok, served≈${stats.servedTokens} tok, ` +
       `saved≈${stats.savedTokens} tok (${stats.savedPct.toFixed(1)}%).`
   );
+  logger.info(formatSemanticCoverage(stats.semantic));
   process.exit(ExitCode.SUCCESS);
 }
 
@@ -685,6 +715,7 @@ export async function runComprehendAction(
     hook?: boolean;
     since?: string;
     context?: RegressionContext;
+    json?: boolean;
   } = {}
 ): Promise<void> {
   // Root on the project that owns the config, not `process.cwd()`. `-c` used to
@@ -719,7 +750,7 @@ export async function runComprehendAction(
       ...(opts.since ? { since: opts.since } : {}),
       ...(opts.context ? { context: opts.context } : {}),
     });
-  if (mode === 'stats') return runStatsMode(store, reader);
+  if (mode === 'stats') return runStatsMode(store, reader, opts.json ?? false);
   if (mode === 'refresh') return runRefreshMode(projectRoot, store, reader, config);
   return runCompileMode(mode, projectRoot, store, reader, config, opts);
 }
@@ -751,7 +782,10 @@ export function createComprehendCommand(): Command {
       '--context <pr|main>',
       'With --check --since: which path to guard (ADR 0116 §4). "main" (default): present→absent is a regression. "pr": the static-only PR path, present→absent is expected and never flagged.'
     )
-    .option('--stats', 'Report served-vs-raw token savings (token-free)')
+    .option(
+      '--stats',
+      'Report served-vs-raw token savings and the semantic present/absent ratio (token-free; honors --json)'
+    )
     .option(
       '--static',
       'Static-only: never resolve a provider or call an LLM (pre-commit/CI posture)'
@@ -760,7 +794,7 @@ export function createComprehendCommand(): Command {
     .option('--hook', 'Pre-commit-hook posture: no-op unless comprehension.hook is enabled')
     .action(async (opts: ComprehendFlags, cmd: Command) => {
       const mode = resolveMode(opts);
-      const globalOpts = cmd.optsWithGlobals() as { config?: string };
+      const globalOpts = cmd.optsWithGlobals() as { config?: string; json?: boolean };
       // Validate --context to the two supported values; anything else falls back
       // to the strict `main` default rather than silently mis-guarding.
       const context: RegressionContext | undefined =
@@ -771,6 +805,7 @@ export function createComprehendCommand(): Command {
         hook: opts.hook ?? false,
         ...(opts.since ? { since: opts.since } : {}),
         ...(context ? { context } : {}),
+        ...(globalOpts.json === true ? { json: true } : {}),
       });
     });
 }
