@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/src/review'
-sourceHash: '7c1f76da67e63d2d70cb0510860bdab6d778911fffc821a08537d7c1f49469cf'
+sourceHash: 'ffe7b4ae0f07443e803ff9f19083982bd4b30160e60844af2346fdaed5620a37'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -204,7 +204,7 @@ import { fanOutConditionalSubagents, fanOutReview } from './fan-out'
 import { EnforceFindingIntegrityOptions, FindingIntegrityReport, enforceFindingIntegrity } from './finding-integrity'
 import { runMechanicalChecks } from './mechanical-checks'
 import { generateRubric } from './meta-judge'
-import { determineAssessment, formatClumpedComments, formatTerminalOutput, getExitCode } from './output'
+import { ClumpedCommentReport, determineAssessment, formatClumpedComments, formatTerminalOutput, getExitCode } from './output'
 import { computeTrustScores, getTrustLevel } from './trust-score'
 import { splitBundlesByStage } from './two-stage'
 import { AgentReviewResult, ChangeType, CommitHistoryEntry, ContextBundle, ContextFile, ContextScopeOptions, DiffInfo, EligibilityResult, EvidenceCoverageReport, FanOutOptions, FindingIntegrityViolation, FindingSeverity, GitHubInlineComment, GraphAdapter, GraphNode, MechanicalCheckOptions, MechanicalCheckResult, MechanicalCheckStatus, MechanicalFinding, ModelProvider, ModelTier, ModelTierConfig, ParallelGroups, PipelineFlags, PrMetadata, ProviderDefaults, ReviewConfidence, ReviewDomain, ReviewFinding, ReviewPipelineResult, ReviewStage, ReviewStrength, ReviewSubagent, Rubric, RubricItem } from './types'
