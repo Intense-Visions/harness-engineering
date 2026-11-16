@@ -22,7 +22,7 @@ triggers:
   - event: on_pr
     conditions:
       paths:
-        - "src/**"
+        - "**/src/**"
         - "packages/**"
   - event: manual
 config:

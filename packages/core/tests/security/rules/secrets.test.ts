@@ -71,3 +71,43 @@ describe('SecurityScanner secret reference suppression', () => {
     expect(scan('export API_KEY="${PREFIX}sk-live-abc123def456"').length).toBeGreaterThan(0);
   });
 });
+
+/**
+ * #2375: SEC-SEC-004 required the literal to follow the name directly
+ * (`password = "..."`), so a type annotation between them hid the credential:
+ * `const password: string = "..."` (TS) and `const DB_PASSWORD: &str = "..."`
+ * (Rust). The annotation is now allowed; non-literal right-hand sides, type-only
+ * declarations and prompt/label names must stay quiet.
+ */
+describe('SEC-SEC-004 typed declarations (#2375)', () => {
+  const scanner = new SecurityScanner({ enabled: true, strict: false });
+  const ids = (content: string, file: string) =>
+    scanner.scanFileContent(content, file).map((f) => f.ruleId);
+
+  const flagged: Array<[string, string]> = [
+    ['TS const with string annotation', 'const password: string = "hunter2-secret";'],
+    ['TS class field with annotation', "  private readonly dbPassword: string = 'hunter2';"],
+    ['TS default parameter', "function login(password: string = 'changeme') {}"],
+    ['Python annotated assignment', 'PASSWORD: str = "hunter2-secret"'],
+  ];
+  for (const [label, line] of flagged) {
+    it(`flags ${label}`, () => {
+      expect(ids(line, 'src/config.ts')).toContain('SEC-SEC-004');
+    });
+  }
+
+  const quiet: Array<[string, string]> = [
+    ['interface member', '  password: string;'],
+    ['env-sourced value', 'const password: string = process.env.DB_PASSWORD ?? "";'],
+    ['label/prompt name', 'const passwordLabel: string = "Enter your password";'],
+    ['prompt constant', 'const PASSWORD_PROMPT: string = "Password: ";'],
+    ['comparison, not assignment', 'const ok = { password: input === "abcd1234" };'],
+    ['short literal', 'const pwd: string = "";'],
+    ['reference-only value', 'const password: string = "${DB_PASSWORD}";'],
+  ];
+  for (const [label, line] of quiet) {
+    it(`stays quiet on ${label}`, () => {
+      expect(ids(line, 'src/config.ts')).not.toContain('SEC-SEC-004');
+    });
+  }
+});

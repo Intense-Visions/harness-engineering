@@ -61,22 +61,56 @@ jobs:
           fi
           echo "Direct push blocked by branch protection. Opening a PR instead."
           git fetch origin main
-          # Never stack a second snapshot PR on an unmerged one: both branches append
-          # to the same timeline file and would conflict on the same JSON array, which
-          # is how automated-artifact PRs end up DIRTY and abandoned. Exit clean and
-          # let the operator merge the one that is already waiting.
-          EXISTING=$(gh pr list --state open --json number,headRefName \
-            --jq '[.[] | select(.headRefName | startswith("chore/arch-snapshot-"))] | .[0].number' || true)
-          if [ -n "$EXISTING" ] && [ "$EXISTING" != "null" ]; then
-            echo "Snapshot PR #$EXISTING is already open and unmerged; not opening a duplicate."
+          # Union-merge timelines instead of copying "ours" over a base: a fresh
+          # capture (taken from main) lacks any point an unmerged snapshot PR
+          # carries, so a wholesale copy in either direction DROPS weeks.
+          # scripts/merge-arch-timeline.mjs keeps every distinct point, sorted.
+          git show "$OURS:$TIMELINE" > "$RUNNER_TEMP/ours.json"
+          git show "origin/main:$TIMELINE" > "$RUNNER_TEMP/main.json" 2>/dev/null || : > "$RUNNER_TEMP/main.json"
+
+          # Never stack a SECOND snapshot PR on an unmerged one: both branches would
+          # append to the same JSON array and conflict. But never DISCARD this week's
+          # point either (#2266): skipping with `exit 0` here once froze the series
+          # for three green weeks while #2232 sat open, with nothing announcing it.
+          # Instead FOLD the new point into the waiting PR — rebuild its branch on
+          # the current main tip carrying the union of main's, the PR's and this
+          # run's points — so the open PR accumulates every week it blocks and
+          # stays conflict-free with main.
+          EXISTING_JSON=$(gh pr list --state open --base main --json number,headRefName,createdAt \
+            --jq '[.[] | select(.headRefName | startswith("chore/arch-snapshot-"))] | sort_by(.createdAt) | .[0] // empty')
+          if [ -n "$EXISTING_JSON" ]; then
+            EXISTING=$(echo "$EXISTING_JSON" | jq -r '.number')
+            BRANCH=$(echo "$EXISTING_JSON" | jq -r '.headRefName')
+            CREATED=$(echo "$EXISTING_JSON" | jq -r '.createdAt')
+            AGE_DAYS=$(( ( $(date -u +%s) - $(date -u -d "$CREATED" +%s) ) / 86400 ))
+            git fetch origin "$BRANCH"
+            git show "origin/$BRANCH:$TIMELINE" > "$RUNNER_TEMP/pr.json" 2>/dev/null || : > "$RUNNER_TEMP/pr.json"
+            git checkout -B "$BRANCH" origin/main
+            node scripts/merge-arch-timeline.mjs "$TIMELINE" \
+              "$RUNNER_TEMP/main.json" "$RUNNER_TEMP/pr.json" "$RUNNER_TEMP/ours.json"
+            git add "$TIMELINE"
+            if git diff --cached --quiet; then
+              echo "Latest main already carries every pending snapshot point; nothing to fold into #$EXISTING."
+              exit 0
+            fi
+            git commit -m "chore: architecture snapshot $(date +%Y-%m-%d) [skip ci]"
+            # Lease against the ref just fetched: never clobber a concurrent push to
+            # the PR branch. Losing that race is reported RED, not swallowed — a
+            # green run that dropped its point is the exact failure #2266 is about.
+            if ! git push --force-with-lease="$BRANCH:origin/$BRANCH" origin "HEAD:$BRANCH"; then
+              echo "::error::Could not fold this week's snapshot into #$EXISTING (its branch moved concurrently). This week's point is NOT recorded; re-run the workflow."
+              exit 1
+            fi
+            # Visible, not silent: say the series is waiting on a human merge.
+            echo "::warning::Snapshot PR #$EXISTING has been open ${AGE_DAYS} day(s); folded this week's point into it. The architecture timeline on main does not advance until it is merged."
+            gh pr comment "$EXISTING" --body "Folded the $(date -u +%Y-%m-%d) architecture snapshot into this PR (rebuilt on the current main; open ${AGE_DAYS} day(s)). Every point captured while this PR waits accumulates here; merging it advances \`$TIMELINE\` on main." \
+              || echo "::warning::Could not post the fold comment on #$EXISTING."
             exit 0
           fi
+
           BRANCH="chore/arch-snapshot-$(date +%s)"
           git checkout -B "$BRANCH" origin/main
-          # Re-apply the freshly captured timeline on top of the latest main. Capture
-          # appends to whatever main carried at checkout, so "ours" is a superset of
-          # main's series and this re-apply cannot conflict.
-          git checkout "$OURS" -- "$TIMELINE"
+          node scripts/merge-arch-timeline.mjs "$TIMELINE" "$RUNNER_TEMP/main.json" "$RUNNER_TEMP/ours.json"
           git add "$TIMELINE"
           if git diff --cached --quiet; then
             echo "Latest main already carries this snapshot; nothing to PR."

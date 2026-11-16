@@ -1,4 +1,9 @@
-import type { Roadmap, RoadmapMilestone, RoadmapFeature } from '@harness-engineering/types';
+import type {
+  Roadmap,
+  RoadmapMilestone,
+  RoadmapFeature,
+  RoadmapOptionalFieldKey,
+} from '@harness-engineering/types';
 // The H3 heading emitter lives in `./heading`, the single source of truth shared
 // with both readers, so the emitter cannot drift from them (#1261).
 import { serializeFeatureHeading } from './heading';
@@ -105,14 +110,23 @@ function serializeExtendedLines(feature: RoadmapFeature): string[] {
     feature.priority !== null ||
     feature.externalId !== null ||
     feature.updatedAt !== null;
-  if (!hasExtended) return [];
-  const lines = [
-    `- **Assignee:** ${orDash(feature.assignee)}`,
-    `- **Priority:** ${orDash(feature.priority)}`,
-    `- **External-ID:** ${orDash(feature.externalId)}`,
+  // An optional bullet the source carried with an empty `—` value is re-emitted
+  // even when no extended field has a value, so an authored
+  // `- **Priority:** —` survives a round-trip (#2166).
+  const keptEmpty = new Set(feature.emptyOptionalFields ?? []);
+  const lines: string[] = [];
+  // Assignee / Priority / External-ID are emitted together whenever any extended
+  // field has a value (the historical block shape); Updated-At only when set.
+  const block: Array<[RoadmapOptionalFieldKey, string | null, boolean]> = [
+    ['Assignee', feature.assignee, hasExtended],
+    ['Priority', feature.priority, hasExtended],
+    ['External-ID', feature.externalId, hasExtended],
+    ['Updated-At', feature.updatedAt, false],
   ];
-  if (feature.updatedAt !== null) {
-    lines.push(`- **Updated-At:** ${feature.updatedAt}`);
+  for (const [key, value, inBlock] of block) {
+    if (inBlock || value !== null || keptEmpty.has(key)) {
+      lines.push(`- **${key}:** ${orDash(value)}`);
+    }
   }
   return lines;
 }

@@ -376,8 +376,20 @@ describe('runHealthChecks', () => {
           {
             type: 'text',
             text: JSON.stringify({
-              deadCode: { unusedExports: ['a', 'b'], unusedImports: [], deadFiles: ['x.ts'] },
-              drift: { staleReferences: ['ref1'], missingTargets: [] },
+              // The real EntropyReport shape (core entropy/types): drift lives
+              // in `drift.drifts`, dead exports in `deadCode.deadExports`. The
+              // old stub used phantom `unusedExports` / `staleReferences` /
+              // `missingTargets` and passed against the bug (#2550).
+              deadCode: {
+                deadExports: [
+                  { file: 'a.ts', name: 'a' },
+                  { file: 'b.ts', name: 'b' },
+                ],
+                deadFiles: [{ path: 'x.ts' }],
+                deadInternals: [],
+                unusedImports: [],
+              },
+              drift: { drifts: [{ type: 'api-signature', docFile: 'README.md' }] },
             }),
           },
         ],
@@ -413,6 +425,29 @@ describe('runHealthChecks', () => {
     expect(checks.security.criticalCount).toBe(1);
     expect(checks.docs.undocumentedCount).toBe(5);
     expect(checks.lint.passed).toBe(true);
+  });
+
+  // Issue #2474: a health snapshot is a read-only probe, but it ran the security
+  // scan through the MCP handler with its default timeline capture, so dispatching
+  // skills appended a snapshot to the tracked `.harness/security/timeline.json`.
+  it('runs the security scan without recording to the tracked timeline (#2474)', async () => {
+    const ok = { content: [{ type: 'text', text: '{}' }] };
+    vi.doMock('../../src/mcp/tools/assess-project', () => ({
+      handleAssessProject: vi.fn().mockResolvedValue(ok),
+    }));
+    vi.doMock('../../src/mcp/tools/architecture', () => ({
+      handleCheckDependencies: vi.fn().mockResolvedValue(ok),
+    }));
+    vi.doMock('../../src/mcp/tools/entropy', () => ({
+      handleDetectEntropy: vi.fn().mockResolvedValue(ok),
+    }));
+    const scan = vi.fn().mockResolvedValue(ok);
+    vi.doMock('../../src/mcp/tools/security', () => ({ handleRunSecurityScan: scan }));
+
+    const { runHealthChecks } = await import('../../src/skill/health-snapshot');
+    await runHealthChecks('/tmp/test-project');
+
+    expect(scan).toHaveBeenCalledWith({ path: '/tmp/test-project', record: false });
   });
 
   it('does not crash when a tool returns isError with non-JSON text', async () => {
@@ -673,8 +708,8 @@ describe('captureHealthSnapshot', () => {
           {
             type: 'text',
             text: JSON.stringify({
-              deadCode: { unusedExports: ['a'], deadFiles: [] },
-              drift: { staleReferences: ['r1'], missingTargets: [] },
+              deadCode: { deadExports: [{ file: 'a.ts', name: 'a' }], deadFiles: [] },
+              drift: { drifts: [{ type: 'api-signature', docFile: 'README.md' }] },
             }),
           },
         ],

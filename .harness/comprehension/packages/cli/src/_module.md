@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src'
-sourceHash: 'fbe001a085c9d9082d750e5f432f2cb7b3a94b205e9eff4d3d191be2b68d19a8'
+sourceHash: '161d4b70cbf23dfeebc27dd01a952aa1ba8d009b87e23b81d30dce594ba4e3f1'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -38,6 +38,7 @@ export startServer
 import { commandCreators } from './commands/_registry'
 import { registerDeprecatedGraphAliases } from './commands/graph/deprecated-aliases'
 import { setMachineOutput } from './output/logger'
+import { installRootOptionPropagation } from './utils/global-option-propagation'
 import { installVersionGuard } from './utils/version-guard'
 import { CLI_VERSION } from './version'
 import { Command } from 'commander'

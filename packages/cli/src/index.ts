@@ -15,6 +15,7 @@ import { commandCreators } from './commands/_registry';
 import { registerDeprecatedGraphAliases } from './commands/graph/deprecated-aliases';
 import { installVersionGuard } from './utils/version-guard';
 import { setMachineOutput } from './output/logger';
+import { installRootOptionPropagation } from './utils/global-option-propagation';
 
 /**
  * Creates and configures the main Harness CLI program.
@@ -94,6 +95,11 @@ export function createProgram(): Command {
   // Legacy top-level scan/query/ingest, kept as hidden deprecated aliases of
   // the canonical `harness graph <op>` commands (see #644).
   registerDeprecatedGraphAliases(program);
+
+  // A subcommand that redeclares a root flag (`--json`, `--verbose`, `--quiet`,
+  // `-c`) never receives it — commander gives it to the root (#2069). Copy the
+  // user's value down before the action runs so its own `opts` sees it.
+  installRootOptionPropagation(program);
 
   // Refuse to emit findings when this CLI is sharply out of step with the
   // workspace it is scanning. Installed here rather than in bin/harness.ts so

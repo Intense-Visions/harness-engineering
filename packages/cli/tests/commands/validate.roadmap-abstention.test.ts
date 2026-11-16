@@ -2,9 +2,9 @@ import { describe, it, expect, afterEach } from 'vitest';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
-import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { runValidate } from '../../src/commands/validate';
+import { runHarness } from '../e2e/support/harness-cli';
 // eslint-disable-next-line import/no-relative-packages -- shared repo-root test helper (#2089)
 import { removeTempDirSafely } from '../../../../tests/helpers/remove-temp-dir';
 
@@ -54,17 +54,13 @@ function makeProject(files: Record<string, string>): string {
 
 /** Run the built CLI with extra args and capture both the exit code and stdout. */
 function runCliWith(dir: string, args: string[]): { code: number; stdout: string } {
-  try {
-    const stdout = execFileSync(process.execPath, [CLI_BIN, 'validate', ...args], {
-      cwd: dir,
-      encoding: 'utf-8',
-      env: { ...process.env, NO_COLOR: '1', FORCE_COLOR: '0' },
-    });
-    return { code: 0, stdout };
-  } catch (err) {
-    const e = err as { status?: number | null; stdout?: string };
-    return { code: e.status ?? -1, stdout: e.stdout ?? '' };
-  }
+  // Bounded: runHarness throws on a hang instead of stalling the gate (#2555).
+  const r = runHarness(['validate', ...args], {
+    cwd: dir,
+    bin: CLI_BIN,
+    env: { ...process.env, NO_COLOR: '1', FORCE_COLOR: '0' },
+  });
+  return { code: r.status, stdout: r.stdout };
 }
 
 /** Run the built CLI and capture both the exit code and stdout. */
