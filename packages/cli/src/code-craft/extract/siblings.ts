@@ -139,7 +139,25 @@ function toRelativePosix(projectRoot: string, file: string): string {
 }
 
 /**
- * Build the clone index for one `code-craft` run, or `undefined`.
+ * What one clone-index build produced, before the run adds its incidence.
+ *
+ * `built` carries the class count; the run-scoped `unitsWithSiblings` is
+ * counted by the orchestrator as it critiques, because only it knows which
+ * units were in scope.
+ */
+export type CloneIndexBuildOutcome =
+  | { status: 'built'; classes: number }
+  | { status: 'empty'; reason: string }
+  | { status: 'failed'; reason: string };
+
+export interface CloneIndexBuild {
+  /** Present exactly when `outcome.status === 'built'`. */
+  index?: CloneIndex;
+  outcome: CloneIndexBuildOutcome;
+}
+
+/**
+ * Build the clone index for one `code-craft` run, and say what happened.
  *
  * Scope is the FULL project discovery — deliberately NOT `input.files`,
  * `input.packages` or `input.maxFiles`. Siblings live in other files by
@@ -157,26 +175,54 @@ function toRelativePosix(projectRoot: string, file: string): string {
  * recorded assumption rather than an oversight, and the fix if it is wrong is
  * one option object here.
  *
- * Returns `undefined` on `Err` and on an empty discovery, and the reason is
- * DROPPED: `CodeCraftSummary` has no channel for it and the spec requires the
- * critique to degrade to current behaviour rather than fail. The honest cost is
- * that a failed index build is invisible to an operator — a filed follow-up,
- * because surfacing it changes `CodeCraftOutput`, the MCP response and the
- * printed page. What keeps the wiring falsifiable meanwhile is the end-to-end
- * assertion over `collectCodeCraftPrompts(...).pendingPrompts[].userPrompt`.
+ * Never rejects. An `Err`, a throw, and an empty discovery all degrade the
+ * critique to its pre-sibling behaviour (the spec's requirement, and craft's
+ * advisory contract) — but the REASON is kept on `outcome` and carried to the
+ * run summary, the `code_craft` MCP response and the printed page, so a failed
+ * build is no longer indistinguishable from a codebase with no duplication.
+ */
+export async function buildCodeCraftCloneIndexOutcome(
+  projectRoot: string
+): Promise<CloneIndexBuild> {
+  const files = discoverSourceFiles(projectRoot);
+  // Returned before the call, not delegated to it: `buildCloneIndex([])`
+  // answers `Err` (its refuse-to-pass-over-zero-files path), which would report
+  // this as `failed` when nothing failed — there was simply nothing to scan.
+  // `tests/code-craft/siblings.test.ts` asserts the call does not happen.
+  if (files.length === 0) {
+    return {
+      outcome: {
+        status: 'empty',
+        reason: `no source files discovered under ${projectRoot}, so there was nothing to index`,
+      },
+    };
+  }
+  try {
+    const result = await buildCloneIndex(files, { rootDir: projectRoot });
+    if (result.ok) {
+      return {
+        index: result.value,
+        outcome: { status: 'built', classes: result.value.classes.length },
+      };
+    }
+    // `details.reason` is the discriminator core documents (`code` is shared
+    // across unrelated conditions), so it leads; the message says the rest.
+    const why = result.error.details?.reason ?? result.error.code;
+    return { outcome: { status: 'failed', reason: `${why}: ${result.error.message}` } };
+  } catch (err) {
+    return {
+      outcome: { status: 'failed', reason: err instanceof Error ? err.message : String(err) },
+    };
+  }
+}
+
+/**
+ * The clone index alone, or `undefined` when it did not build. Kept for callers
+ * that hold no summary to report into; the orchestrator uses
+ * {@link buildCodeCraftCloneIndexOutcome} so the reason is not dropped.
  */
 export async function buildCodeCraftCloneIndex(
   projectRoot: string
 ): Promise<CloneIndex | undefined> {
-  const files = discoverSourceFiles(projectRoot);
-  // Returned before the call, not delegated to it: `buildCloneIndex([])`
-  // answers `Err` (its refuse-to-pass-over-zero-files path), so the outcome
-  // would be the same either way — but paying a module load and a config
-  // resolution to learn there is nothing to scan is work with no question
-  // behind it. `tests/code-craft/siblings.test.ts` asserts the call does not
-  // happen, because without that assertion the guard is untestable: both paths
-  // return `undefined`.
-  if (files.length === 0) return undefined;
-  const result = await buildCloneIndex(files, { rootDir: projectRoot });
-  return result.ok ? result.value : undefined;
+  return (await buildCodeCraftCloneIndexOutcome(projectRoot)).index;
 }
