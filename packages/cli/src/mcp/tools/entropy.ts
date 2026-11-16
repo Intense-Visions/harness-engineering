@@ -146,8 +146,20 @@ function summarizeDrift(drift: any): { issueCount: number; topIssues: string[] }
   return { issueCount: driftIssues.length, topIssues: driftIssues.slice(0, 3) };
 }
 
+/**
+ * The dead-code summary carries its per-kind counts beside the total: the
+ * health snapshot's `dead-code` signal keys on dead exports and dead files
+ * specifically, and summary mode is the only mode that does not overflow on a
+ * large repo (#2589). Additive — `issueCount` / `topIssues` are unchanged.
+ */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function summarizeDeadCode(deadCode: any): { issueCount: number; topIssues: string[] } {
+function summarizeDeadCode(deadCode: any): {
+  issueCount: number;
+  topIssues: string[];
+  deadExports: number;
+  deadFiles: number;
+  unusedImports: number;
+} {
   const deadIssues = [
     ...(deadCode.unusedImports ?? []).map(
       (i: { specifiers: string[]; source: string }) =>
@@ -158,7 +170,13 @@ function summarizeDeadCode(deadCode: any): { issueCount: number; topIssues: stri
     ),
     ...(deadCode.deadFiles ?? []).map((f: { path: string }) => `Dead file: ${f.path}`),
   ];
-  return { issueCount: deadIssues.length, topIssues: deadIssues.slice(0, 3) };
+  return {
+    issueCount: deadIssues.length,
+    topIssues: deadIssues.slice(0, 3),
+    deadExports: (deadCode.deadExports ?? []).length,
+    deadFiles: (deadCode.deadFiles ?? []).length,
+    unusedImports: (deadCode.unusedImports ?? []).length,
+  };
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
