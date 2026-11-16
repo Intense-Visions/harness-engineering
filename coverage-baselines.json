@@ -24,10 +24,10 @@
     "statements": 87.87
   },
   "packages/eslint-plugin": {
-    "lines": 96.13,
-    "branches": 89.64,
+    "lines": 96.81,
+    "branches": 90.79,
     "functions": 99.14,
-    "statements": 93.99
+    "statements": 94.95
   },
   "packages/linter-gen": {
     "lines": 89.39,
