@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/commands'
-sourceHash: '788890da69269718aa77e5461138a22a268da1eb412350b4244cb019719bb94d'
+sourceHash: '24dd2ec093765307b6135279e7fb002e2c667345dcdcfb0f6df4cc6c491496e0'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -316,6 +316,7 @@ export loadMaintenanceConfig
 export loadOutcomeStore
 export loadRunHistory
 export makeResolveBackend
+export measuredNothing
 export mergeResolvedTasks
 export normalizeRel
 export offerGenerateSlashCommands

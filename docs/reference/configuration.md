@@ -210,16 +210,25 @@ Tunes `harness check-deps` discovery — the set of files considered for both la
 
 ### DepsConfig Object
 
-| Field              | Type                          | Default  | Description                                                                                                                                                         |
-| ------------------ | ----------------------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `exclude`          | `string[]`                    | `[]`     | Extra glob patterns (minimatch) excluded from `check-deps` discovery, stacked on top of the built-in skip-list. Lets you scope without shrinking a layer `pattern`. |
-| `fallbackBehavior` | `"skip" \| "warn" \| "error"` | `"skip"` | What `check-deps` does when the analysis engine cannot run (the parser reports itself unavailable). See below.                                                      |
+| Field                      | Type                          | Default  | Description                                                                                                                                                         |
+| -------------------------- | ----------------------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `exclude`                  | `string[]`                    | `[]`     | Extra glob patterns (minimatch) excluded from `check-deps` discovery, stacked on top of the built-in skip-list. Lets you scope without shrinking a layer `pattern`. |
+| `fallbackBehavior`         | `"skip" \| "warn" \| "error"` | `"skip"` | What `check-deps` does when the analysis engine cannot run (the parser reports itself unavailable). See below.                                                      |
+| `resolveWorkspacePackages` | `boolean`                     | `false`  | Follow imports of workspace packages by name (`@scope/pkg`, `@scope/pkg/sub`) so layer `allowedDependencies` are enforced **between** packages. See below.          |
 
 Mirrors [`analysis.exclude`](#analysis) and [`design.exclude`](#design). Prefer `deps.exclude` over narrowing a layer `pattern` to silence a finding — narrowing the pattern also shrinks what the gate actually checks.
 
 `check-deps` reports the analyzed-module count ("Analyzed N module(s) across M layer(s).") so the scanned denominator is observable. The count is the number of source files whose imports were actually read — directories, non-source files a layer glob happens to match, and files that failed to parse are not counted. A run with layers configured that discovers **zero** modules fails rather than reporting clean.
 
 A source file that **fails to parse** (a syntax error, or import extraction failing) is never dropped silently: its imports — and any layer violation or cycle among them — were not checked. Each such file is reported by path on the "checks that could not run" channel below and is treated like an engine abstention: exit `3` by default, downgraded to `0` (still reported) under `fallbackBehavior: "warn"`. Fix the file, or exclude it with `deps.exclude`.
+
+#### Cross-package imports (`resolveWorkspacePackages`)
+
+By default only **relative** imports become edges in the layer check, so in a monorepo a package-to-package import such as `import { x } from '@scope/core'` is never checked against `allowedDependencies` — a layer declared per package documents intent but does not enforce it between packages (issue #2216).
+
+`deps.resolveWorkspacePackages: true` resolves a bare specifier that names a workspace package to a source file inside it. Workspace members come from `pnpm-workspace.yaml` `packages`, or the root `package.json` `workspaces` field, keyed by each member's `package.json` `name`. The package's `exports` (or `source`/`module`/`main`) target is mapped back from a build directory (`dist/`, `build/`, `lib/`, `out/`) to `src/`, falling back to `src/index` (or `src/<subpath>`). A specifier that names no workspace package — `lodash`, `node:fs` — is ignored, as before. Wildcard (`./*`) export patterns are not expanded.
+
+It is **opt-in** because turning it on in an existing monorepo can surface violations that were previously invisible. Enable it, triage what it reports (fix the import, or update the layer's `allowedDependencies` if the dependency is intended), then keep it on. It applies to `harness check-deps` and the `check_dependencies` MCP tool.
 
 #### When the analysis engine cannot run
 
@@ -239,7 +248,8 @@ An engine that cannot run has **abstained**, not passed. `check-deps` reports th
 {
   "deps": {
     "exclude": ["packages/*/generated/**", "**/*.pb.ts"],
-    "fallbackBehavior": "skip"
+    "fallbackBehavior": "skip",
+    "resolveWorkspacePackages": true
   }
 }
 ```

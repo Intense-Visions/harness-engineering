@@ -171,6 +171,17 @@ export const DepsConfigSchema = z.object({
    *   it as an analysis error and exits `ERROR` (2) (issue #1996).
    */
   fallbackBehavior: z.enum(['skip', 'warn', 'error']).optional(),
+  /**
+   * Resolve imports of workspace packages by name (`@scope/pkg`,
+   * `@scope/pkg/sub`) to the package's source so layer `allowedDependencies`
+   * are enforced BETWEEN packages, not only within one (issue #2216). Maps onto
+   * core's `LayerConfig.resolveWorkspacePackages`.
+   *
+   * Defaults to `false`: before #2216 every package-to-package import was
+   * silently dropped, so turning this on in an existing monorepo can surface
+   * violations that were never reported. Opt in once those are triaged.
+   */
+  resolveWorkspacePackages: z.boolean().optional(),
 });
 
 export type DepsConfig = z.infer<typeof DepsConfigSchema>;
@@ -195,6 +206,20 @@ export type DepsConfig = z.infer<typeof DepsConfigSchema>;
 export function loadDepsFallbackBehavior(
   projectPath: string
 ): 'skip' | 'warn' | 'error' | undefined {
+  return loadDepsBlock(projectPath)?.fallbackBehavior;
+}
+
+/**
+ * Best-effort load of `deps.resolveWorkspacePackages` (issue #2216), `false` on
+ * any miss. Lets the `check_dependencies` MCP handler honour the same opt-in as
+ * check-deps.
+ */
+export function loadDepsResolveWorkspacePackages(projectPath: string): boolean {
+  return loadDepsBlock(projectPath)?.resolveWorkspacePackages ?? false;
+}
+
+/** The validated `deps` block of `<projectPath>/harness.config.json`, or `undefined` on any miss. */
+function loadDepsBlock(projectPath: string): DepsConfig | undefined {
   const configPath = path.join(projectPath, 'harness.config.json');
   if (!fs.existsSync(configPath)) return undefined;
 
@@ -208,8 +233,7 @@ export function loadDepsFallbackBehavior(
   const depsRaw = (raw as { deps?: unknown } | null | undefined)?.deps;
   if (depsRaw === undefined || depsRaw === null || typeof depsRaw !== 'object') return undefined;
   const parsed = DepsConfigSchema.safeParse(depsRaw);
-  if (!parsed.success) return undefined;
-  return parsed.data.fallbackBehavior;
+  return parsed.success ? parsed.data : undefined;
 }
 
 export function loadDepsExclude(projectPath: string): string[] {
