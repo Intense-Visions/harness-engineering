@@ -86,9 +86,9 @@ describe('GET /api/impact/anomalies', () => {
     expect(res.status).toBe(200);
     const body = (await res.json()) as { data: AnomalyData };
     expect(body.data.outliers).toHaveLength(1);
-    expect(body.data.outliers[0].nodeId).toBe('n1');
+    expect(body.data.outliers[0]!.nodeId).toBe('n1');
     expect(body.data.articulationPoints).toHaveLength(1);
-    expect(body.data.articulationPoints[0].dependentCount).toBe(15);
+    expect(body.data.articulationPoints[0]!.dependentCount).toBe(15);
   });
 
   it('returns empty data when cache has unavailable result', async () => {

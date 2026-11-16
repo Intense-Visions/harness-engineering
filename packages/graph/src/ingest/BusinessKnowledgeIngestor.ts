@@ -296,8 +296,16 @@ export class BusinessKnowledgeIngestor {
 
     for (const filePath of files) {
       try {
-        const entry = await this.parseAndAddNode(filePath, knowledgeDir);
-        if (entry) entries.push(entry);
+        const outcome = await this.parseAndAddNode(filePath, knowledgeDir);
+        if ('skipped' in outcome) {
+          // #2236: a knowledge file the ingestor cannot index is reported, never
+          // dropped silently — a source of truth that indexes nothing must not
+          // read like an empty one. `null` means the file is not a business
+          // knowledge doc at all (e.g. an ADR owned by DecisionIngestor).
+          if (outcome.skipped) errors.push(`${filePath}: ${outcome.skipped}`);
+        } else {
+          entries.push(outcome);
+        }
       } catch (err) {
         errors.push(`${filePath}: ${err instanceof Error ? err.message : String(err)}`);
       }
@@ -306,16 +314,18 @@ export class BusinessKnowledgeIngestor {
     return entries;
   }
 
-  private async parseAndAddNode(filePath: string, knowledgeDir: string): Promise<NodeEntry | null> {
+  private async parseAndAddNode(
+    filePath: string,
+    knowledgeDir: string
+  ): Promise<NodeEntry | { skipped: string | null }> {
     const raw = await fs.readFile(filePath, 'utf-8');
     const parsed = parseFrontmatter(raw);
-    if (!parsed) return null;
+    if ('skipped' in parsed) return parsed;
 
     const { frontmatter, body } = parsed;
-    if (!BUSINESS_KNOWLEDGE_TYPES.has(frontmatter.type)) return null;
 
     const relPath = path.relative(knowledgeDir, filePath).replaceAll('\\', '/');
-    const domain = frontmatter.domain ?? relPath.split('/')[0] ?? 'unknown';
+    const domain = frontmatter.domain;
     const filename = path.basename(filePath, '.md');
     const nodeId = `bk:${domain}:${filename}`;
 
@@ -511,9 +521,20 @@ function foldFlowSequence(value: string, continuation: string[]): string {
     .replace(/,?\s*\]$/, ']');
 }
 
-function parseFrontmatter(raw: string): { frontmatter: Frontmatter; body: string } | null {
+const NOT_INDEXED_HINT = 'not indexed (business knowledge needs `type` and `domain` frontmatter)';
+
+/**
+ * Parse a knowledge file's frontmatter. A file the ingestor cannot index comes
+ * back as `{ skipped: reason }` so the caller can report it (#2236). `reason`
+ * is `null` only when the file has frontmatter declaring neither `type` nor
+ * `domain` — it is some other kind of doc (an ADR, a README with metadata)
+ * owned by a different ingestor, so skipping it is not a misconfiguration.
+ */
+function parseFrontmatter(
+  raw: string
+): { frontmatter: Frontmatter; body: string } | { skipped: string | null } {
   const match = raw.match(/^---\n([\s\S]*?)\n---\n([\s\S]*)$/);
-  if (!match) return null;
+  if (!match) return { skipped: `no frontmatter found — ${NOT_INDEXED_HINT}` };
 
   const yamlBlock = match[1]!;
   const body = match[2]!;
@@ -532,8 +553,17 @@ function parseFrontmatter(raw: string): { frontmatter: Frontmatter; body: string
     }
   }
 
-  if (!frontmatter.type || typeof frontmatter.type !== 'string') return null;
-  if (!frontmatter.domain || typeof frontmatter.domain !== 'string') return null;
+  const hasType = typeof frontmatter.type === 'string' && frontmatter.type !== '';
+  const hasDomain = typeof frontmatter.domain === 'string' && frontmatter.domain !== '';
+  if (!hasType && !hasDomain) return { skipped: null };
+  if (!hasType) return { skipped: `frontmatter missing \`type\` — ${NOT_INDEXED_HINT}` };
+  if (!BUSINESS_KNOWLEDGE_TYPES.has(frontmatter.type as string)) {
+    const allowed = [...BUSINESS_KNOWLEDGE_TYPES].join(', ');
+    return {
+      skipped: `unsupported type "${String(frontmatter.type)}" — not indexed (expected one of: ${allowed})`,
+    };
+  }
+  if (!hasDomain) return { skipped: `frontmatter missing \`domain\` — ${NOT_INDEXED_HINT}` };
 
   return {
     frontmatter: frontmatter as unknown as Frontmatter,

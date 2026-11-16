@@ -28,7 +28,7 @@ describe('local-models client types', () => {
       allowedFamilies: [],
       lastRefreshAt: null,
     };
-    expect(view.entries[0].pendingEviction).toBe(true);
+    expect(view.entries[0]!.pendingEviction).toBe(true);
   });
 
   it('WebSocketMessage union accepts the two local-models topics', () => {
