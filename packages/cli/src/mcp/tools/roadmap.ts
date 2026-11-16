@@ -963,6 +963,41 @@ function shouldTriggerExternalSync(input: ManageRoadmapInput, response: McpRespo
   return true;
 }
 
+/**
+ * Statuses the roadmap parser accepts (`VALID_STATUSES` in core's
+ * `roadmap/parse.ts`; `FeatureStatus` in types). The schema `enum` above is
+ * advisory — the MCP Server does not validate input — and the parser only sees
+ * a written row on the read-back AFTER persist, so an unchecked status used to
+ * land on disk and make every later read fail (#2619).
+ */
+const WRITABLE_STATUSES: ReadonlySet<string> = new Set([
+  'backlog',
+  'planned',
+  'in-progress',
+  'done',
+  'blocked',
+  'needs-human',
+]);
+
+/** Reject an invalid `status` on a write action before anything is persisted. */
+function invalidStatusError(input: ManageRoadmapInput): McpResponse | null {
+  if (input.action !== 'add' && input.action !== 'update') return null;
+  // A falsy status is "not supplied": add reports it as a missing field and
+  // update leaves the row's status unchanged, exactly as before.
+  if (!input.status || WRITABLE_STATUSES.has(input.status)) return null;
+  return {
+    content: [
+      {
+        type: 'text' as const,
+        text:
+          `Error: invalid status "${String(input.status)}"; nothing written. ` +
+          `Valid statuses: ${[...WRITABLE_STATUSES].join(', ')}`,
+      },
+    ],
+    isError: true,
+  };
+}
+
 export async function handleManageRoadmap(input: ManageRoadmapInput): Promise<McpResponse> {
   // `sanitizePath` throws synchronously on a missing/non-string `path` (e.g.
   // `path.resolve(undefined)`). Every other validation failure in this file
@@ -983,6 +1018,9 @@ export async function handleManageRoadmap(input: ManageRoadmapInput): Promise<Mc
       isError: true,
     };
   }
+
+  const statusError = invalidStatusError(input);
+  if (statusError) return statusError;
 
   // Phase 4 / S1: dispatch on roadmap mode.
   // Note: `sanitizePath(input.path)` runs upstream of the file-less guard,
