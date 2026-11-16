@@ -114,9 +114,12 @@ forwards the subset of the diff this domain owns:
 
 - **`files`** — this domain's owned subset of the changed files, as **ABSOLUTE** paths. The host
   reads it from `plan.files["security-craft"]`, which holds repo-relative POSIX paths, and resolves each
-  entry against the project root before calling `mcp__harness__security_craft`. Forwarded unresolved, the
-  collectors read nothing and the run reports `status: "collected"` with zero prompts — a clean
-  report from a run that read no code.
+  entry against the project root before calling `mcp__harness__security_craft`. Absolute is the
+  recommended form, not a correctness requirement for this domain: its collector resolves a
+  relative entry against the tool's `path` (never the process CWD), so a repo-relative entry
+  forwarded unresolved still reads the in-diff file (pinned by
+  `packages/cli/tests/shared/craft/relative-files-scope.test.ts`). Only
+  `mcp__harness__design_craft` still requires absolute paths.
 - **`promptBudget`** — accepted; raises the prompt ceiling for the forwarded scope when the diff subset is large.
 
 Findings from a hook-triggered run are advisory: reported, never blocking, never counted toward
