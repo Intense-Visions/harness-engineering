@@ -1,32 +1,11 @@
 ---
 schemaVersion: 1
-module: 'packages/cli/tests/integration'
-sourceHash: '478a3a71ffc6ffb16a3a9ec2d822d1fd30852093674488a4acbda40da899922b'
-compiler: { static: '1.0.0', semantic: '1.0.0' }
+module: "packages/cli/tests/integration"
+sourceHash: "55f2e9b5833b2445f1c1b88c8bf175834b79408d9e69e696a1b686d2f46d0bc9"
+compiler: { static: "1.0.0", semantic: "1.0.0" }
 model: null
 semantic: absent
-members:
-  [
-    'autopilot-skill-hooks.test.ts',
-    'check-deps-exit-code.e2e.test.ts',
-    'cleanup-duplication-exit-code.e2e.test.ts',
-    'cleanup-findings-enumerable.e2e.test.ts',
-    'cli.test.ts',
-    'community-skill-discovery.test.ts',
-    'core-clumping-export.test.ts',
-    'craft-diff-scope.test.ts',
-    'craft-family-tier-claim.test.ts',
-    'craft-hooks-export.test.ts',
-    'craft-skill-review-hook-sections.test.ts',
-    'init-design-roadmap-matrix.test.ts',
-    'init-design-roadmap-yes-yes-e2e.test.ts',
-    'init.test.ts',
-    'planning-skills-commit-artifacts.test.ts',
-    'pulse-run.integration.test.ts',
-    'recommendation-pipeline.test.ts',
-    'skill-catalog-consistency.test.ts',
-    'tier0-catalog-consistency.test.ts',
-  ]
+members: ["autopilot-skill-hooks.test.ts", "check-deps-exit-code.e2e.test.ts", "cleanup-duplication-exit-code.e2e.test.ts", "cleanup-findings-enumerable.e2e.test.ts", "cli.test.ts", "community-skill-discovery.test.ts", "core-clumping-export.test.ts", "craft-diff-scope.test.ts", "craft-family-tier-claim.test.ts", "craft-hooks-export.test.ts", "craft-skill-review-hook-sections.test.ts", "init-design-roadmap-matrix.test.ts", "init-design-roadmap-yes-yes-e2e.test.ts", "init.test.ts", "planning-skills-commit-artifacts.test.ts", "pulse-run.integration.test.ts", "recommendation-pipeline.test.ts", "skill-catalog-consistency.test.ts", "tier0-catalog-consistency.test.ts"]
 ---
 
 ## Interface Contract

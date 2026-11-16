@@ -25,7 +25,7 @@
     "build": "tsup src/index.ts src/architecture/matchers.ts --format cjs,esm --dts --tsconfig tsconfig.build.json",
     "dev": "tsup src/index.ts --format cjs,esm --dts --watch",
     "lint": "eslint src",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit && tsc -p tsconfig.type-tests.json",
     "clean": "node ../../scripts/clean.mjs dist",
     "test": "vitest run",
     "test:watch": "vitest",
