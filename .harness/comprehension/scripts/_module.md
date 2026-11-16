@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'scripts'
-sourceHash: '947c8d5c67aa9f4add5f623293259ce3a1d1a1d010e0dadc726ea9f74d2203e1'
+sourceHash: '7e5138224dbe0096c62eb37fd44f60d96c397a481784615f4be9cd828638f764'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -24,6 +24,7 @@ members:
     'generate-plugin.mjs',
     'generate-tool-catalog.mjs',
     'main-health-check.mjs',
+    'override-floors.mjs',
     'refresh-model-candidates.mjs',
     'release-publish.mjs',
     'summarize-test-failures.mjs',
@@ -45,7 +46,9 @@ export MANIFEST_PATHS
 export REGISTRY_BASE
 export assessVitestLog
 export baseUrl
+export checkFloors
 export classifyPublish
+export compareVersions
 export decideAction
 export deliverAlarm
 export evaluateCoverage
@@ -53,6 +56,7 @@ export evaluateHealth
 export extractAdvisories
 export extractFailures
 export fetchRuns
+export findAdvancements
 export findOpenAlarmIssue
 export findPinnedVersion
 export findReportPaths
@@ -63,8 +67,12 @@ export mergeBenchmarkBaselines
 export mergeCoverageBaselines
 export pageFiles
 export parseChangesetFrontmatter
+export parseLockfile
+export parseOverrideKey
 export parsePublishOutput
+export parseRange
 export parseTargetFiles
+export parseVersion
 export prepushTestOptions
 export pruneCoverageSummaries
 export readCliVersion
@@ -73,6 +81,7 @@ export registryUrl
 export renderIssueBody
 export renderSummary
 export runRelease
+export satisfies
 export selectDecisiveRuns
 export slugForFile
 export specKey

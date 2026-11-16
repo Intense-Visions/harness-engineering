@@ -1,12 +1,13 @@
 ---
 schemaVersion: 1
 module: 'packages/core/src/autonomy'
-sourceHash: '27fd7a5103135c325b4600026a23622082a2e7aea0ace42273a46338d588df9d'
+sourceHash: 'c9ab857ddf22a96b965d5d1785a95b25a20dbb6a305cbad8f04de60973e5ad53'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
 members:
   [
+    'append-lock.ts',
     'decision-log.ts',
     'decision-schema.ts',
     'index.ts',
@@ -91,6 +92,7 @@ export writeSessionOverride
 ```
 import { Err, Ok, Result } from '../shared/result'
 import { sessionSlugError } from '../shared/session-slug'
+import { AppendLockOptions, withAppendLock } from './append-lock'
 import { AutoDecisionInvalidError, escapeUnsafeLogText, isUnsafeLogChar, parseAutoDecisionLine, validateAutoDecisionInput } from './decision-schema'
 import { OverrideStoreOptions, readSessionOverride, writeSessionOverride } from './override-store'
 import { AutonomyPathOptions, autonomyAuditLogPath, computeRepoKey, isDirectory, sessionDirForRaise, sessionDirPath, sessionOverridePath, userConfigPath, validateOverrideSlug } from './paths'

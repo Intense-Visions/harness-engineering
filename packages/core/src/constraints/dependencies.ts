@@ -11,6 +11,7 @@ import type {
   DependencyViolation,
   DependencyValidation,
   GraphDependencyData,
+  UnparsedFile,
 } from './types';
 import { resolveFileToLayer } from './layers';
 import { findFiles, fileExists, relativePosix } from '../shared/fs-utils';
@@ -219,6 +220,25 @@ export async function buildDependencyGraphFromParsed(
 }
 
 /**
+ * Whether `file` is a source file `parser` is expected to read (#2073).
+ *
+ * Layer patterns are globs like `src/domain/**`, which also match directories,
+ * Markdown, JSON and templates. Those were always "skipped" silently and must
+ * stay out of scope — they are not source the analysis promised to read. A
+ * source file that fails to parse is different: its imports, and any violation
+ * among them, would vanish. The TypeScript parser also reads the JavaScript
+ * family, so a parser claiming a TypeScript extension claims those too.
+ */
+function isSourceFileFor(parser: LanguageParser, file: string): boolean {
+  const ext = extname(file).toLowerCase();
+  // Defensive: hand-rolled parsers (and test doubles) may omit `extensions`.
+  const claimed: readonly string[] = parser.extensions ?? [];
+  if (claimed.includes(ext)) return true;
+  const readsTypeScript = claimed.some((e) => EXTENSION_BY_LANG.typescript!.includes(e));
+  return readsTypeScript && EXTENSION_BY_LANG.javascript!.includes(ext);
+}
+
+/**
  * Build a dependency graph from a list of files.
  * Accepts either a single parser or a ParserLookup for multi-language support.
  * Note: buildDependencyGraph is exported as an addition beyond spec for advanced use cases
@@ -238,6 +258,8 @@ export async function buildDependencyGraph(
 
   const isLookup = 'getForFile' in parser;
   const parsed: ParsedFileImports[] = [];
+  const unparsedFiles: UnparsedFile[] = [];
+  let analyzedFiles = 0;
 
   for (const file of files) {
     // Select the appropriate parser for this file
@@ -260,21 +282,42 @@ export async function buildDependencyGraph(
       if (parseResult.error.code === 'PARSER_UNAVAILABLE') {
         return Err(graphParserUnavailable(fileParser.name, file, parseResult.error));
       }
-      // Skip files that can't be parsed
+      // A non-source file (directory, Markdown, JSON) is out of scope and
+      // skipped quietly. A SOURCE file that fails to parse is recorded: its
+      // imports are missing from the graph, and dropping it silently is how a
+      // syntax error hid a layer violation behind a clean pass (#2073).
+      if (isSourceFileFor(fileParser, file)) {
+        unparsedFiles.push({
+          file,
+          reason: `${parseResult.error.code}: ${parseResult.error.message}`,
+        });
+      }
       continue;
     }
 
     const importsResult = fileParser.extractImports(parseResult.value);
     if (!importsResult.ok) {
+      if (isSourceFileFor(fileParser, file)) {
+        unparsedFiles.push({
+          file,
+          reason: `${importsResult.error.code}: ${importsResult.error.message}`,
+        });
+      }
       continue;
     }
 
+    if (isSourceFileFor(fileParser, file)) analyzedFiles++;
     parsed.push({ path: file, imports: importsResult.value });
   }
 
   // Nodes are every file handed in, parsed or not — unchanged from when this
   // loop built them inline.
-  return Ok(await buildDependencyGraphFromParsed(files, parsed));
+  const graph = await buildDependencyGraphFromParsed(files, parsed);
+  return Ok({
+    ...graph,
+    analyzedFiles,
+    ...(unparsedFiles.length > 0 ? { unparsedFiles } : {}),
+  });
 }
 
 /**
@@ -427,10 +470,16 @@ export async function validateDependencies(
 
   // Check for violations
   const violations = checkLayerViolations(graphResult.value, layers, rootDir);
+  const { unparsedFiles, analyzedFiles } = graphResult.value;
 
   return Ok({
     valid: violations.length === 0,
     violations,
     graph: graphResult.value,
+    ...(analyzedFiles !== undefined ? { analyzedFiles } : {}),
+    // Files the analysis could not read (#2073). `valid` is left to speak only
+    // to violations — its long-standing contract — so a consumer deciding on a
+    // clean verdict must check this too.
+    ...(unparsedFiles ? { unparsedFiles } : {}),
   });
 }

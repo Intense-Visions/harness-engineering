@@ -59,7 +59,7 @@ interface StreamSessionFixture {
   issueId: string;
   externalId: number | string | null;
   identifier: string;
-  title?: string;
+  title?: string | undefined;
   attempts: Attempt[];
   pr: { number: number; linkedAt: string; status: string } | null;
   highlights: null;

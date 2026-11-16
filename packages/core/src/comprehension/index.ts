@@ -59,7 +59,13 @@ export { REENTRANCY_ENV, isComprehensionReentrant, withComprehensionActive } fro
 
 // The diff-scoped compile + write driver (IO-injected) and its --check/--stats
 // companions — the same orchestration the `harness comprehend` CLI runs.
-export { runComprehend, runComprehendCheck, runComprehendStats, mapWithConcurrency } from './run';
+export {
+  runComprehend,
+  runComprehendCheck,
+  runComprehendStats,
+  mapWithConcurrency,
+  summarizeSemanticCoverage,
+} from './run';
 export type {
   ComprehendModuleReader,
   ComprehendUnitStore,
@@ -68,6 +74,7 @@ export type {
   ComprehendListStore,
   ComprehendCheckResult,
   ComprehendStatsResult,
+  SemanticCoverage,
 } from './run';
 
 // Public-Outpost discovery — fetch the pnyon public directory (`GET /public-outposts`) so a
