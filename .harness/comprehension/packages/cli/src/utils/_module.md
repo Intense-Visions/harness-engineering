@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/utils'
-sourceHash: 'afe4f1f3b3382cc056eff555fa72e1114404bdb973385c76a877d61222fc7f07'
+sourceHash: '669076c83de0a2023b1da0e91fa2379ebc129dd3eda82e07233024f60186ae88'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -13,6 +13,7 @@ members:
     'files.ts',
     'first-run.ts',
     'git-ignored.ts',
+    'global-option-propagation.ts',
     'guardian-context.ts',
     'node-version.ts',
     'output.ts',
@@ -39,12 +40,14 @@ export findUpFrom
 export formatError
 export gitIgnoredExcludeGlobs
 export handleError
+export installRootOptionPropagation
 export installVersionGuard
 export isFirstRun
 export loadGuardianCoverage
 export mapWithConcurrency
 export markSetupComplete
 export printFirstRunWelcome
+export propagateRootOptions
 export resolveAllSkillsDirs
 export resolveAllSkillsDirsWithSource
 export resolveCommandPath
