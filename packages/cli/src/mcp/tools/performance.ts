@@ -1,6 +1,6 @@
 import { Ok } from '@harness-engineering/core';
 import { resultToMcpResponse } from '../utils/result-adapter.js';
-import { sanitizePath } from '../utils/sanitize-path.js';
+import { resolveProjectRootArg, sanitizePath } from '../utils/sanitize-path.js';
 import { toJsonSafeReport } from './entropy.js';
 import { findConfigFile, loadConfig } from '../../config/loader.js';
 
@@ -195,16 +195,20 @@ export const getCriticalPathsDefinition = {
   inputSchema: {
     type: 'object' as const,
     properties: {
-      path: { type: 'string', description: 'Path to project root' },
+      path: {
+        type: 'string',
+        description: 'Path to project root (defaults to the server working directory)',
+      },
+      projectPath: { type: 'string', description: 'Alias for path' },
     },
-    required: ['path'],
+    required: [],
   },
 };
 
-export async function handleGetCriticalPaths(input: { path: string }) {
+export async function handleGetCriticalPaths(input: { path?: string; projectPath?: string }) {
   try {
     const { CriticalPathResolver } = await import('@harness-engineering/core');
-    const resolver = new CriticalPathResolver(sanitizePath(input.path));
+    const resolver = new CriticalPathResolver(resolveProjectRootArg(input));
     const result = await resolver.resolve();
     return resultToMcpResponse(Ok(result));
   } catch (error) {

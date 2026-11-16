@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/graph/src/ingest'
-sourceHash: 'fab96efb667e253f972a00c3a681b89f38bb82868eb3de59ccedaa0b6064772a'
+sourceHash: '5d5e85fd71f7c7360d1869961bc7811003985f9ff24819ee636b26f0a35f1713'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent

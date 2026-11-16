@@ -79,8 +79,16 @@ vi.mock('../../src/mcp/tools/entropy', () => ({
       {
         type: 'text',
         text: JSON.stringify({
-          deadCode: { unusedExports: ['fn1', 'fn2'], unusedImports: [], deadFiles: ['old.ts'] },
-          drift: { staleReferences: ['ref1'], missingTargets: [] },
+          // Real EntropyReport field names (#2550).
+          deadCode: {
+            deadExports: [
+              { file: 'a.ts', name: 'fn1' },
+              { file: 'a.ts', name: 'fn2' },
+            ],
+            unusedImports: [],
+            deadFiles: [{ path: 'old.ts' }],
+          },
+          drift: { drifts: [{ type: 'api-signature', docFile: 'README.md' }] },
         }),
       },
     ],
@@ -228,8 +236,8 @@ describe('Recommendation Pipeline Integration', { timeout: 10000 }, () => {
         {
           type: 'text',
           text: JSON.stringify({
-            deadCode: { unusedExports: [], unusedImports: [], deadFiles: [] },
-            drift: { staleReferences: [], missingTargets: [] },
+            deadCode: { deadExports: [], unusedImports: [], deadFiles: [] },
+            drift: { drifts: [] },
           }),
         },
       ],

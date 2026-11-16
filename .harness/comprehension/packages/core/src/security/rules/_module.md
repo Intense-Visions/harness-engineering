@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/src/security/rules'
-sourceHash: 'c117dbc8679e5aa85ab6a0084e65ca2365692d1bacc69de6e0247d63ba1ceb72'
+sourceHash: '2fcd08f8dac5226ced17b5bae5dc3a4f37e7e729ea0c8575e71cadff80c7a436'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -31,6 +31,7 @@ export cryptoRules
 export deserializationRules
 export injectionRules
 export insecureDefaultsRules
+export isJsonParseSchemaValidated
 export mcpRules
 export networkRules
 export pathTraversalRules

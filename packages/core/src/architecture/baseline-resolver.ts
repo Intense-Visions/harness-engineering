@@ -215,6 +215,12 @@ export const ArchAllowanceSchema = z.object({
   categories: z.partialRecord(ArchMetricCategorySchema, z.number()).default({}),
   /** New (warning-severity) violation ids this allowance accepts. */
   violationIds: z.array(z.string()).default([]),
+  /**
+   * The reason each violation id was acknowledged under (#2474). A later
+   * `--update-baseline --reason` keeps the recorded reason for ids it did not change
+   * and assigns its own reason only to the ids it adds.
+   */
+  violationReasons: z.record(z.string(), z.string()).default({}),
   /** Commit the allowance was authored from (provenance only). */
   createdFrom: z.string().default(''),
 });

@@ -51,6 +51,7 @@ export {
   violationId,
   constraintRuleId,
 } from './collectors/index';
+export type { CollectorRunContext } from './collectors/index';
 
 export { syncConstraintNodes } from './sync-constraints';
 export type { ConstraintNodeStore } from './sync-constraints';

@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/tests/architecture/collectors'
-sourceHash: '2588914f884cfdc622eed46dee5d727c2db53f2ed4969fed5a46137b3663dde4'
+sourceHash: 'ee9b57d500b989f663edc5c7d6493f8406dbd765f04685234815f04fa37bd8d1'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -20,6 +20,8 @@ members:
     'layer-violations.test.ts',
     'module-size.test.ts',
     'planted-positives.test.ts',
+    'run-context.test.ts',
+    'shared-parse.test.ts',
   ]
 ---
 
@@ -41,14 +43,17 @@ import { constraintRuleId, violationId } from '../../../src/architecture/collect
 import { defaultCollectors, runAll } from '../../../src/architecture/collectors/index'
 import { LayerViolationCollector } from '../../../src/architecture/collectors/layer-violations'
 import { ModuleSizeCollector } from '../../../src/architecture/collectors/module-size'
+import { SharedImportParser, createCollectorRunContext } from '../../../src/architecture/collectors/run-context'
 import { ArchConfig, Collector, ConstraintRule, MetricResult } from '../../../src/architecture/types'
 import { detectCircularDeps } from '../../../src/constraints/circular-deps'
 import { buildDependencyGraph, validateDependencies } from '../../../src/constraints/dependencies'
 import { detectComplexityViolations } from '../../../src/entropy/detectors/complexity'
 import { detectCouplingViolations } from '../../../src/entropy/detectors/coupling'
 import '../../../src/shared/fs-utils'
+import { AST, Import, LanguageParser, ParseError } from '../../../src/shared/parsers'
+import { getDefaultRegistry, resetDefaultRegistry } from '../../../src/shared/parsers/registry'
 import { TypeScriptParser } from '../../../src/shared/parsers/typescript'
-import { Err } from '../../../src/shared/result'
+import { Err, Ok } from '../../../src/shared/result'
 import { mkdir, mkdtemp, rm, writeFile } from 'fs/promises'
 import * as fs from 'node:fs'
 import * as fsp from 'node:fs/promises'

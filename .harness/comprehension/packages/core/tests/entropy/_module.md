@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/tests/entropy'
-sourceHash: '8a70a3a7b822342444976762d975d641583bbf99ce94c6955bac2f6fd2685766'
+sourceHash: '69903a876486b31ea5f68fb7f299e0fd5d3c5f3a74661e3de97b43e1c6e950eb'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -14,6 +14,7 @@ members:
     'graph-integration.test.ts',
     'path-aliases.test.ts',
     'snapshot-parser-unavailable.test.ts',
+    'snapshot-win32-doc-glob.test.ts',
     'snapshot.test.ts',
   ]
 ---
@@ -46,6 +47,7 @@ import * as fs from 'node:fs'
 import * as fsp from 'node:fs/promises'
 import * as os from 'node:os'
 import { join } from 'node:path'
+import * as path from 'node:path'
 import { tmpdir } from 'os'
 import * as os from 'os'
 import { dirname, join, resolve, sep } from 'path'

@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/tests/mcp/tools'
-sourceHash: 'a25213719e7c1e43e405ec9b8a18b675bfd52ae34320be9efec73443b9476ba5'
+sourceHash: '633363b83dd6d2280f9f5b90c6463e8ef2c4163cdb152e256bac3767e6277141'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -16,6 +16,7 @@ members:
     'architecture-skipped-abstention.test.ts',
     'architecture.test.ts',
     'assess-project-cov544.test.ts',
+    'assess-project-entropy.test.ts',
     'assess-project-error-handling.test.ts',
     'assess-project.test.ts',
     'auto-decision.test.ts',
@@ -36,6 +37,7 @@ members:
     'docs-craft.test.ts',
     'docs-publish-cov544.test.ts',
     'docs.test.ts',
+    'entropy-cleanup-parity.test.ts',
     'entropy-config-threading.test.ts',
     'entropy-duplication.test.ts',
     'entropy-patterns-empty-ruleset.test.ts',
@@ -92,6 +94,7 @@ members:
     'roadmap.test.ts',
     'search-skills.test.ts',
     'security-craft.test.ts',
+    'security-record.test.ts',
     'skill-progressive-loading.test.ts',
     'skill-proposal.test.ts',
     'skill-telemetry.test.ts',
@@ -129,6 +132,7 @@ export writeShardedProject
 import { computeLoadPlan } from '../../../../core/src/context/progressive-loader'
 import { extractLevel } from '../../../../core/src/context/section-parser'
 import { runAutonomyShow } from '../../../src/commands/autonomy/show'
+import { runCleanup } from '../../../src/commands/cleanup'
 import { findConfigFile, loadConfig } from '../../../src/config/loader'
 import { MockLlmProvider } from '../../../src/design-craft/llm/provider.js'
 import { resolveDocsPublishConnector } from '../../../src/docs-publish/index'
