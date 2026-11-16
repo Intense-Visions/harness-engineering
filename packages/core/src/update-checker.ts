@@ -142,6 +142,11 @@ try {
     const child = spawn(process.execPath, ['-e', script], {
       detached: true,
       stdio: 'ignore',
+      // Never inherit the caller's cwd (the user's project). On Windows a
+      // process's current directory is an open handle, so a detached child
+      // left in the project would block deleting or renaming it (EBUSY) for
+      // as long as `npm view` runs (#2652). The script only uses absolute paths.
+      cwd: os.tmpdir(),
     });
     child.unref();
   } catch {

@@ -302,6 +302,10 @@ export function spawnBackgroundFreshnessCheck(lockfilePaths: string[]): void {
     const child = spawn(process.execPath, ['-e', script], {
       detached: true,
       stdio: 'ignore',
+      // Never inherit the caller's cwd (the user's project): on Windows the
+      // detached probe would hold the directory open, so it could not be
+      // deleted or renamed while the probe runs (#2652). Paths are absolute.
+      cwd: os.tmpdir(),
     });
     child.unref();
   } catch {

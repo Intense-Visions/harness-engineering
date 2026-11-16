@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/tests/comprehension'
-sourceHash: '4068f7e81c0bff5543f3ec0eb8a32a442c20a8c262e803a3135d9a622dc3e952'
+sourceHash: 'a17371125a6c9e5edb8ee559ad5f8b2425de4f142d76e924c610c2e10b3a3c04'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -50,7 +50,7 @@ import { ComprehensionConfigSchema, HarnessConfig, HarnessConfigSchema } from '.
 import { ComprehensionStore, SemanticInput, SourceFile, StaticExtraction, compileModule, createNodeComprehensionIO, createNodeModuleSourceReader, serveGate } from '@harness-engineering/core'
 import { AnalysisProvider, AnalysisRequest, AnalysisResponse } from '@harness-engineering/intelligence'
 import { spawnSync } from 'node:child_process'
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
 import * as fsp from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import * as os from 'node:os'

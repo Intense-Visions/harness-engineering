@@ -264,6 +264,19 @@ describe('spawnBackgroundCheck', () => {
     expect(mockUnref).toHaveBeenCalledOnce();
   });
 
+  it('runs the child from os.tmpdir(), never the caller cwd (#2652)', () => {
+    // Windows holds a handle on a process's current directory. Inheriting the
+    // CLI's cwd (the user's project) would pin that directory for the life of
+    // the `npm view` child, so it could not be deleted or renamed (EBUSY).
+    mockSpawn.mockClear();
+
+    spawnBackgroundCheck('1.7.0');
+
+    const opts = mockSpawn.mock.calls[0]![2] as { cwd?: string };
+    expect(opts.cwd).toBe(os.tmpdir());
+    expect(opts.cwd).not.toBe(process.cwd());
+  });
+
   it('inline script references npm view and the state file path', () => {
     mockSpawn.mockClear();
     mockUnref.mockClear();

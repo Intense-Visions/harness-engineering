@@ -30,7 +30,10 @@ export interface RunResult {
 export interface RunOptions {
   /** Working directory for the spawned CLI (usually a scaffolded temp project). */
   cwd: string;
-  /** Environment for the child. When omitted the parent env is inherited. */
+  /**
+   * Environment for the child. When omitted the parent env is inherited. Either way
+   * `HARNESS_NO_UPDATE_CHECK=1` is defaulted in unless the caller sets it (#2652).
+   */
   env?: NodeJS.ProcessEnv;
   /** Override the binary path (for callers outside the cli package). */
   bin?: string;
@@ -73,7 +76,11 @@ export function runHarness(args: string[], opts: RunOptions): RunResult {
     encoding: 'utf8',
     timeout: timeoutMs,
     killSignal: 'SIGKILL',
-    ...(opts.env ? { env: opts.env } : {}),
+    // The CLI fires detached background update/freshness probes at startup.
+    // No E2E is about them, and a probe that outlives the CLI must never be
+    // able to hold the scratch project open on Windows and red a teardown
+    // with EBUSY (#2652). A caller that does want them can pass '0'.
+    env: { HARNESS_NO_UPDATE_CHECK: '1', ...(opts.env ?? process.env) },
   });
   if (res.error || res.signal) {
     const command = `harness ${args.join(' ')}`;
