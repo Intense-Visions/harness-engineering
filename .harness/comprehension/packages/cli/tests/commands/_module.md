@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: "packages/cli/tests/commands"
-sourceHash: "0715487b5f24acb6aba9a46960bd9769ee892a40a8a4fc2ae84281bde02d16e1"
+sourceHash: "66cc2b051794d009fad5188dc823c4882a7267943b2fde42c6b197a43273ecc7"
 compiler: { static: "1.0.0", semantic: "1.0.0" }
 model: null
 semantic: absent
@@ -33,7 +33,7 @@ import { ApiCraftOutput, ApiFinding } from '../../src/api-craft/findings/schema.
 import { ApiCraftInput, runApiCraft } from '../../src/api-craft/index.js'
 import { CliErgonomicsCraftOutput, CliErgonomicsFinding } from '../../src/cli-ergonomics-craft/findings/schema.js'
 import { CliErgonomicsCraftInput, runCliErgonomicsCraft } from '../../src/cli-ergonomics-craft/index.js'
-import { CodeCraftOutput, CodeFinding } from '../../src/code-craft/findings/schema.js'
+import { CodeCraftOutput, CodeFinding, SiblingIndexOutcome } from '../../src/code-craft/findings/schema.js'
 import { CodeCraftInput, runCodeCraft } from '../../src/code-craft/index.js'
 import { commandCreators } from '../../src/commands/_registry'
 import { createAddCommand, runAdd } from '../../src/commands/add'

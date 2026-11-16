@@ -1,113 +1,11 @@
 ---
 schemaVersion: 1
-module: 'packages/cli/src/mcp/tools'
-sourceHash: '09ec7911f546a7e779583a9d201cfa949b799bbe9b3e44d6f9963178492daf15'
-compiler: { static: '1.0.0', semantic: '1.0.0' }
+module: "packages/cli/src/mcp/tools"
+sourceHash: "2d3f9873705e28ed954febb39ecf34f2ef8dda800373ec7ae51b8cb75fd19bd5"
+compiler: { static: "1.0.0", semantic: "1.0.0" }
 model: null
 semantic: absent
-members:
-  [
-    'acceptance-eval.ts',
-    'adr-store.ts',
-    'adr.ts',
-    'advise-skills.test.ts',
-    'advise-skills.ts',
-    'agent-definitions.ts',
-    'agent.ts',
-    'align-design-system.ts',
-    'api-craft.ts',
-    'architecture.ts',
-    'assess-project.ts',
-    'audit-anatomy.ts',
-    'audit-brand.ts',
-    'auto-decision.ts',
-    'blueprint.test.ts',
-    'blueprint.ts',
-    'canary.test.ts',
-    'canary.ts',
-    'ci.ts',
-    'cli-ergonomics-craft.ts',
-    'code-craft.ts',
-    'code-nav.ts',
-    'compact.ts',
-    'compound.test.ts',
-    'compound.ts',
-    'conflict-prediction.ts',
-    'constraint-emergence.ts',
-    'copy-craft.ts',
-    'cross-check.test.ts',
-    'cross-check.ts',
-    'decay-trends.ts',
-    'design-craft.ts',
-    'design-pipeline.ts',
-    'detect-drift.ts',
-    'dispatch-skills.ts',
-    'docs-craft.ts',
-    'docs-publish.test.ts',
-    'docs-publish.ts',
-    'docs.ts',
-    'edit-file.test.ts',
-    'edit-file.ts',
-    'entropy.ts',
-    'event-emitter.ts',
-    'feedback.ts',
-    'gateway-tools.test.ts',
-    'gateway-tools.ts',
-    'gather-context.ts',
-    'generate-slash-commands.ts',
-    'get-comprehension.test.ts',
-    'get-comprehension.ts',
-    'hermes-tools.test.ts',
-    'init.ts',
-    'insights-summary.ts',
-    'instruction-density.test.ts',
-    'instruction-density.ts',
-    'interaction-renderer.test.ts',
-    'interaction-renderer.ts',
-    'interaction-schemas.ts',
-    'interaction.ts',
-    'knowledge-craft.ts',
-    'linter.ts',
-    'naming-craft.ts',
-    'outcome-eval.ts',
-    'parallelization.test.ts',
-    'parallelization.ts',
-    'performance.ts',
-    'persona.ts',
-    'phase-gate.ts',
-    'predict-failures.ts',
-    'pulse.test.ts',
-    'pulse.ts',
-    'put-comprehension.ts',
-    'recommend-skills.ts',
-    'refinement-telemetry.ts',
-    'review-changes.ts',
-    'review-pipeline.ts',
-    'roadmap-auto-sync.ts',
-    'roadmap-file-less.ts',
-    'roadmap.ts',
-    'search-sessions.ts',
-    'search-skills.ts',
-    'security-craft.ts',
-    'security.ts',
-    'skill-proposal.ts',
-    'skill-telemetry.ts',
-    'skill.ts',
-    'spec-craft.ts',
-    'stale-constraints.ts',
-    'state.ts',
-    'strategy.test.ts',
-    'strategy.ts',
-    'summarize-session.ts',
-    'task-independence.ts',
-    'test-craft.ts',
-    'traceability.ts',
-    'uat-signoff.test.ts',
-    'uat-signoff.ts',
-    'validate.ts',
-    'webhook-tools.test.ts',
-    'webhook-tools.ts',
-  ]
+members: ["acceptance-eval.ts", "adr-store.ts", "adr.ts", "advise-skills.test.ts", "advise-skills.ts", "agent-definitions.ts", "agent.ts", "align-design-system.ts", "api-craft.ts", "architecture.ts", "assess-project.ts", "audit-anatomy.ts", "audit-brand.ts", "auto-decision.ts", "blueprint.test.ts", "blueprint.ts", "canary.test.ts", "canary.ts", "ci.ts", "cli-ergonomics-craft.ts", "code-craft.ts", "code-nav.ts", "compact.ts", "compound.test.ts", "compound.ts", "conflict-prediction.ts", "constraint-emergence.ts", "copy-craft.ts", "cross-check.test.ts", "cross-check.ts", "decay-trends.ts", "design-craft.ts", "design-pipeline.ts", "detect-drift.ts", "dispatch-skills.ts", "docs-craft.ts", "docs-publish.test.ts", "docs-publish.ts", "docs.ts", "edit-file.test.ts", "edit-file.ts", "entropy.ts", "event-emitter.ts", "feedback.ts", "gateway-tools.test.ts", "gateway-tools.ts", "gather-context.ts", "generate-slash-commands.ts", "get-comprehension.test.ts", "get-comprehension.ts", "hermes-tools.test.ts", "init.ts", "insights-summary.ts", "instruction-density.test.ts", "instruction-density.ts", "interaction-renderer.test.ts", "interaction-renderer.ts", "interaction-schemas.ts", "interaction.ts", "knowledge-craft.ts", "linter.ts", "naming-craft.ts", "outcome-eval.ts", "parallelization.test.ts", "parallelization.ts", "performance.ts", "persona.ts", "phase-gate.ts", "predict-failures.ts", "pulse.test.ts", "pulse.ts", "put-comprehension.ts", "recommend-skills.ts", "refinement-telemetry.ts", "review-changes.ts", "review-pipeline.ts", "roadmap-auto-sync.ts", "roadmap-file-less.ts", "roadmap.ts", "search-sessions.ts", "search-skills.ts", "security-craft.ts", "security.ts", "skill-proposal.ts", "skill-telemetry.ts", "skill.ts", "spec-craft.ts", "stale-constraints.ts", "state.ts", "strategy.test.ts", "strategy.ts", "summarize-session.ts", "task-independence.ts", "test-craft.ts", "traceability.ts", "uat-signoff.test.ts", "uat-signoff.ts", "validate.ts", "webhook-tools.test.ts", "webhook-tools.ts"]
 ---
 
 ## Interface Contract
@@ -231,6 +129,7 @@ export editFileDefinition
 export emitInteractionDefinition
 export emitSkillEvent
 export emitSkillProposalDefinition
+export entropyCheckFromSummary
 export finalizeApiCraft
 export finalizeCliErgonomicsCraft
 export finalizeCodeCraft
@@ -473,7 +372,7 @@ import { comprehensionEndpoint, readComprehensionConfig, remoteFileConfig, resol
 import { maybeCreateGenerateSemantic, semanticResponseSchema } from '../../comprehension/generate-semantic'
 import { committedSemanticAllowed } from '../../comprehension/policy'
 import { createStaticExtractor } from '../../comprehension/static-extractor'
-import { loadAnalysisExclude, loadDepsFallbackBehavior } from '../../config/analysis-schema.js'
+import { loadAnalysisExclude, loadDepsFallbackBehavior, loadDepsResolveWorkspacePackages } from '../../config/analysis-schema.js'
 import { resolveConfig } from '../../config/loader'
 import { findConfigFile, loadConfig, resolveConfig } from '../../config/loader.js'
 import { HarnessConfig } from '../../config/schema.js'
@@ -508,6 +407,7 @@ import { craftClumpView } from '../../shared/craft/findings/clumpable.js'
 import { resolveCraftLlmMode } from '../../shared/craft/llm/provider.js'
 import { collectDesignScanFiles, designScanAbstention, noFilesScannedError, resolveDesignExcludePatterns } from '../../shared/design-scan-targets.js'
 import { ENTROPY_ISSUE_TYPES, describeDuplicationNotRun, describeUnknownIssueType, isEntropyIssueType, resolveDuplicationRequest } from '../../shared/duplication-request.js'
+import { EntropyScope, resolveEntropyScope } from '../../shared/entropy-scope.js'
 import '../../shared/state-events.js'
 import { Verifier } from '../../shared/verifier.js'
 import { dispatchSkills, dispatchSkillsFromGit, enrichSnapshotForDispatch } from '../../skill/dispatch-engine.js'
@@ -535,7 +435,7 @@ import { resolveProjectConfig } from '../utils/config-resolver.js'
 import '../utils/glob-helper.js'
 import { loadGraphStore } from '../utils/graph-loader.js'
 import { McpToolResponse, bigIntSafeReplacer, resultToMcpResponse } from '../utils/result-adapter.js'
-import { sanitizePath } from '../utils/sanitize-path.js'
+import { resolveProjectRootArg, sanitizePath } from '../utils/sanitize-path.js'
 import { sortFindingsBySeverity } from '../utils/severity.js'
 import { emitAcceptanceVerdictEvent, emitOutcomeVerdictEvent, emitUatSignoffEvent } from '../utils/waypoint-emission.js'
 import { AdrStoreError, CreateAdrInput, UpdateAdrInput, createAdr, listAdrs, readAdr, resolveWorktreeRoot, updateAdr } from './adr-store.js'
