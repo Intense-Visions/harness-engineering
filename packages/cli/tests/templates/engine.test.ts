@@ -343,7 +343,7 @@ describe('TemplateEngine', () => {
       const config = rendered.value.files.find((f) => f.relativePath === 'harness.config.json');
       const parsed = JSON.parse(config!.content);
       expect(parsed.template.language).toBe('python');
-      expect(parsed.tooling.linter).toBe('ruff');
+      expect(parsed.template.tooling.linter).toBe('ruff');
     });
 
     it('resolves and renders go-base', () => {
@@ -440,7 +440,7 @@ describe('TemplateEngine', () => {
         const parsed = JSON.parse(config!.content);
         expect(parsed.version).toBe(1);
         expect(parsed.template.language).toBe(lang);
-        expect(parsed.tooling).toBeDefined();
+        expect(parsed.template.tooling).toBeDefined();
       }
     });
 
