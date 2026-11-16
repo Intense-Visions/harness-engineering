@@ -6,7 +6,7 @@
 // Exit codes: 0 = allow (always, log-only hook — never blocks session teardown)
 
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import process from 'node:process';
@@ -259,6 +259,20 @@ function showFirstRunNotice(cwd) {
   }
 }
 
+// --- Project root ---
+
+/**
+ * The project whose telemetry state is read and written. The CLI spawns this
+ * reporter detached from os.tmpdir() (a detached child whose cwd is the project
+ * pins that dir on Windows, #2652) and names the project via
+ * HARNESS_TELEMETRY_PROJECT_ROOT. As a Stop hook it runs inside the project and
+ * the variable is absent, so process.cwd() is the fallback.
+ */
+function resolveProjectRoot() {
+  const explicit = process.env.HARNESS_TELEMETRY_PROJECT_ROOT;
+  return explicit ? resolve(explicit) : process.cwd();
+}
+
 // --- Main ---
 
 async function main() {
@@ -286,7 +300,7 @@ async function main() {
   }
 
   try {
-    const cwd = process.cwd();
+    const cwd = resolveProjectRoot();
     const consent = resolveConsent(cwd);
 
     if (!consent.allowed) {
