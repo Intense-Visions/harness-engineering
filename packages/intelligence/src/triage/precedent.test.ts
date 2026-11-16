@@ -63,6 +63,33 @@ describe('aggregatePrecedent', () => {
   });
 });
 
+describe('aggregatePrecedent — fail-safe (ungraded) outcomes are not evidence (#2264)', () => {
+  it('an outcome flagged graded:false does not enter the base rate', () => {
+    const failSafe = record('fs', KEY, false);
+    failSafe.outcome!.graded = false;
+    expect(aggregatePrecedent([record('a', KEY, true), failSafe], KEY)).toEqual({
+      kind: 'rate',
+      matched: 1,
+      total: 1,
+      rate: 1,
+    });
+    // A shape whose ONLY outcome is a fail-safe block has no evidence at all.
+    expect(aggregatePrecedent([failSafe], KEY)).toEqual({ kind: 'unknown' });
+  });
+
+  it('a judged mispredict (graded, or a legacy outcome with no flag) still counts', () => {
+    const judged = record('j', KEY, false);
+    judged.outcome!.graded = true;
+    const legacy = record('l', KEY, false); // pre-#2264 outcome: no `graded` field
+    expect(aggregatePrecedent([record('a', KEY, true), judged, legacy], KEY)).toEqual({
+      kind: 'rate',
+      matched: 1,
+      total: 3,
+      rate: 1 / 3,
+    });
+  });
+});
+
 describe('precedentLookupFromRecords (the real PrecedentLookup P4 wires)', () => {
   it('an empty set yields unknown for every shape (P1 cold-start)', () => {
     const lookup = precedentLookupFromRecords([]);
