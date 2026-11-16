@@ -87,3 +87,29 @@ export interface EligibilityResult {
   /** Human-readable reason when not eligible */
   reason?: string;
 }
+
+/** What the grouping did, so a caller can report it instead of guessing. */
+export interface ClumpedCommentReport {
+  /** Findings handed in. */
+  findings: number;
+  /** Comments emitted. */
+  comments: number;
+  /** Findings that kept their own anchored comment (above the floor, or solo). */
+  individual: number;
+  /** Clumps emitted. */
+  clumps: number;
+  /** Findings folded into a clump. */
+  grouped: number;
+  /** Sub-floor findings whose conflict keys were all inside the touched set (D4). */
+  act: number;
+  /** Sub-floor findings that fell outside it, or ran with no touched set. */
+  file: number;
+  /**
+   * Sub-floor findings kept as their own anchored comment because they carry a
+   * committable ```suggestion``` block (#2476). Not counted in `act` / `file`:
+   * they never became grouping candidates.
+   */
+  committable: number;
+  /** Groups past `maxClumps`, degraded back to individual comments rather than dropped. */
+  overCapFindings: number;
+}

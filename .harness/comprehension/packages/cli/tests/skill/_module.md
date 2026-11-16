@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/tests/skill'
-sourceHash: 'ce5f53ba3ab38439787754e21277281888351be08e507bb8fcfbc20a4de03c54'
+sourceHash: 'cfc5557875cea8205ad4534d1d7be02d8e351ba462ac4fcc65512902713a3f1f'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -20,6 +20,7 @@ members:
     'dispatcher.test.ts',
     'harness-capabilities-seed.test.ts',
     'health-snapshot-types.test.ts',
+    'health-snapshot-unmeasured.test.ts',
     'health-snapshot.test.ts',
     'index-builder-extra.test.ts',
     'index-builder.test.ts',

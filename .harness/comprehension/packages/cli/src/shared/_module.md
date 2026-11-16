@@ -1,13 +1,14 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/shared'
-sourceHash: 'd39332c0a72cd0fb67238431101834854d228e649e55f848c8440b5e0f6441d7'
+sourceHash: 'd934869b5bbda04e24c0507bf1008f35cc223d994451aa8781958fb45d4fa9c4'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
 members:
   [
     'design-scan-targets.ts',
+    'duplication-baseline.ts',
     'duplication-request.ts',
     'entropy-scope.ts',
     'state-events.ts',
@@ -19,25 +20,37 @@ members:
 
 ```ts
 export DESIGN_SCAN_EXTENSIONS
+export DUPLICATION_BASELINE_PATH
 export ENTROPY_ISSUE_TYPES
+export UPDATE_BASELINE_WITHOUT_SCAN
+export baselineDeltaForReport
+export buildDuplicationBaseline
+export classIdentity
 export collectDesignScanFiles
+export compareDuplicationBaseline
 export describeDuplicationNotRun
 export describeUnknownIssueType
 export designScanAbstention
 export docsDirGlob
+export duplicationBaselineDelta
 export emitApprovalRequested
 export emitApprovalResolved
 export emitCoreEvent
 export emitUserInputCaptured
+export formatDuplicationBaselineLine
+export isDesignScanPath
 export isEmptyHarnessState
 export isEntropyIssueType
 export isExcluded
 export noFilesScannedError
 export readAuditTimeline
+export readDuplicationBaseline
 export readHarnessState
+export recordOrCompareBaseline
 export resolveDesignExcludePatterns
 export resolveDuplicationRequest
 export resolveEntropyScope
+export writeDuplicationBaseline
 ```
 
 ## Dependency Slice
@@ -46,6 +59,7 @@ export resolveEntropyScope
 import { loadAnalysisExclude, loadDesignExclude } from '../config/analysis-schema.js'
 import { HarnessConfig } from '../config/schema.js'
 import { DuplicationConfig, HarnessState, Ok, Result, eventSourcing } from '@harness-engineering/core'
+import * as fs from 'fs'
 import { minimatch } from 'minimatch'
 import * as fs from 'node:fs'
 import * as path from 'node:path'

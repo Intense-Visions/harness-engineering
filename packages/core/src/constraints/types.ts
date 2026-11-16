@@ -17,6 +17,15 @@ export interface LayerConfig {
   /** Extra glob patterns excluded from per-layer file discovery, stacked on
    *  top of core's DEFAULT_FIND_FILES_IGNORE (issue #1188). */
   extraIgnore?: readonly string[];
+  /**
+   * Resolve bare specifiers that name a workspace package (`@scope/pkg`,
+   * `@scope/pkg/sub`) to that package's source, so cross-package imports are
+   * checked against `allowedDependencies` (#2216). Without it only relative
+   * imports become edges and package-to-package violations are invisible.
+   * Opt-in: defaults to `false` because enabling it on an existing monorepo can
+   * surface violations that were never reported before.
+   */
+  resolveWorkspacePackages?: boolean;
 }
 
 // Dependency Graph Types

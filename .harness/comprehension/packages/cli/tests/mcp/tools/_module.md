@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/tests/mcp/tools'
-sourceHash: '633363b83dd6d2280f9f5b90c6463e8ef2c4163cdb152e256bac3767e6277141'
+sourceHash: '0b151a6a02557b08b906081aaa846985361bdf7000a1255ea0b86cab7d1c683b'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -39,6 +39,7 @@ members:
     'docs.test.ts',
     'entropy-cleanup-parity.test.ts',
     'entropy-config-threading.test.ts',
+    'entropy-duplication-baseline.test.ts',
     'entropy-duplication.test.ts',
     'entropy-patterns-empty-ruleset.test.ts',
     'entropy.test.ts',
@@ -79,6 +80,7 @@ members:
     'review-changes.test.ts',
     'review-pipeline-config.test.ts',
     'review-pipeline.test.ts',
+    'roadmap-add-external-id.test.ts',
     'roadmap-auto-sync.test.ts',
     'roadmap-cov544.test.ts',
     'roadmap-file-less-cov544.test.ts',

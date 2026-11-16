@@ -362,8 +362,8 @@ describe('formClumps — rank and cap EMITTED WORK UNITS (D9)', () => {
   // deterministic function of the input SET, and V8's sort is stable, so two runs
   // over the same input agree with the tiebreak REMOVED. A test comparing two runs
   // therefore cannot falsify it. (Measured: a mutant deleting only the unit
-  // tiebreak left all 77 tests green, including a test named for this very
-  // property — it compared two runs over identically-ordered input.)
+  // tiebreak left the whole clumping suite green, including a test named for
+  // this very property — it compared two runs over identically-ordered input.)
   //
   // The guarantee that IS observable is WHICH tied unit survives the cap: the
   // lexicographically smallest unit ids among the equal-weight candidates. These

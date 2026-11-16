@@ -180,6 +180,7 @@ Detect entropy issues (doc drift, dead code, patterns, duplication). Duplication
 **Options:**
 
 - `-t, --type` — Issue type: drift, dead-code, patterns, duplication, all (default: "all")
+- `--update-baseline` — Record the advisory duplication baseline (.harness/duplication/baseline.json) from this scan; later runs report the class delta against it. Never affects the exit code.
 - `--findings-json` — Emit the machine-readable maintenance findings contract ({ findings: N, items: [...] }) as a trailing stdout line; items lists every gating finding with kind, file, line and (dead code) reason (#691, #2133)
 
 ### `harness cleanup-sessions`

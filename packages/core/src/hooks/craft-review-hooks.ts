@@ -183,21 +183,30 @@ const EXCLUDED_PATH_PATTERNS: readonly RegExp[] = [
   // activates docs-craft on its own bookkeeping.
   /(^|\/)\.harness\//,
   /\.generated\.[A-Za-z0-9]+$/,
-  /\.d\.ts$/,
+  // Every declaration extension TypeScript emits: `.mts`/`.cts` are in
+  // EXTENSION_MAP, so their declarations must be excluded too.
+  /\.d\.[mc]?ts$/,
   /(^|\/)(pnpm-lock\.yaml|package-lock\.json|yarn\.lock)$/,
   /\.min\.(js|css)$/,
   /\.snap$/,
 ];
 
-/** Test conventions across the six supported languages (path-only — module is IO-free). */
+/**
+ * Test conventions across the six supported languages (path-only — module is IO-free).
+ *
+ * Must cover every extension in EXTENSION_MAP and agree with code-craft's own
+ * discovery (`packages/cli/src/code-craft/extract/discover.ts` TEST_FILE_PATTERNS):
+ * a test this list misses is claimed by `isExtractableSource`, so it activates the
+ * source domains (burning the budget) while test-craft never activates.
+ */
 const TEST_PATH_PATTERNS: readonly RegExp[] = [
-  /\.(test|spec)\.(ts|tsx|js|jsx|mjs|cjs)$/,
+  /\.(test|spec)\.(ts|tsx|js|jsx|mjs|cjs|mts|cts)$/,
   /(^|\/)__tests__\//,
   /(^|\/)tests?\//,
   /(^|\/)test_[^/]+\.py$/,
-  /_test\.(py|go)$/,
+  /_test\.(py|go|rs)$/,
   /(^|\/)src\/test\/(java|kotlin)\//,
-  /Test\.java$/,
+  /(Test|Tests|IT)\.java$/,
 ];
 
 const STYLESHEET_PATTERN = /\.(css|scss|sass|less|styl)$/;

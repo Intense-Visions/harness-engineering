@@ -133,7 +133,9 @@ security/*
   // `metrics/` and `metrics/*` ignore the same files, but appending the bare form to
   // a file that holds `metrics/*` + `!metrics/<ledger>` would silently defeat the
   // negation. A rule is likewise never appended over a user's `!dir/...` un-ignore.
-  const existing = fs.readFileSync(gitignorePath, 'utf8');
+  const original = fs.readFileSync(gitignorePath, 'utf8');
+  const existing = migrateLegacyHarnessRules(original);
+  if (existing !== original) fs.writeFileSync(gitignorePath, existing);
   const existingRules = existing
     .split('\n')
     .map((l) => l.trim())
@@ -156,6 +158,40 @@ security/*
     const prefix = existing.endsWith('\n') ? '' : '\n';
     fs.appendFileSync(gitignorePath, prefix + missing.join('\n') + '\n');
   }
+}
+
+/** The un-ignore pair that keeps the security trend ledger trackable (#270). */
+const SECURITY_LEDGER_RULES = ['security/*', '!security/timeline.json'];
+
+/**
+ * Rewrite the two exact rules that pre-#270 scaffolds wrote and that hide files
+ * #270 made tracked-by-default (#2135). Every other line is left untouched.
+ *
+ *   - `security/` — a directory-suffix ignore stops git descending into
+ *     `.harness/security/`, so no `!security/timeline.json` (even one already in
+ *     the file) can re-include the ledger. Replaced in place by `security/*` +
+ *     `!security/timeline.json`, minus whichever of the pair is already present.
+ *   - `hooks/` — the team-policy hook scripts that `.claude/settings.json`
+ *     references; ignoring them leaves a fresh clone failing every hook with
+ *     MODULE_NOT_FOUND and running without policy enforcement. Dropped.
+ *
+ * Only those exact (trimmed) lines match, so a user's own variant such as
+ * `hooks/*.local.js` or `security/**` is preserved.
+ */
+function migrateLegacyHarnessRules(text: string): string {
+  const lines = text.split('\n');
+  const trimmed = lines.map((l) => l.trim());
+  if (!trimmed.includes('security/') && !trimmed.includes('hooks/')) return text;
+  const out: string[] = [];
+  for (const [i, line] of lines.entries()) {
+    if (trimmed[i] === 'hooks/') continue;
+    if (trimmed[i] === 'security/') {
+      out.push(...SECURITY_LEDGER_RULES.filter((r) => !trimmed.includes(r) && !out.includes(r)));
+      continue;
+    }
+    out.push(line);
+  }
+  return out.join('\n');
 }
 
 /**

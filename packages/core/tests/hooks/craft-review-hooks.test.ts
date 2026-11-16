@@ -1578,3 +1578,57 @@ describe('module laws', () => {
 //    way to satisfy a law that also requires the true statement.
 //
 // 2 registered mutants, 0 survivors.
+
+describe('[#2571] test/declaration classification agrees with every extension code-nav accepts', () => {
+  // code-nav's EXTENSION_MAP accepts `.mts` / `.cts`, so `isExtractableSource`
+  // claims them — but the test-file and declaration patterns were still the
+  // pre-Phase-2a TS/JS list. A `foo.test.mts` diff then activated code-craft,
+  // security-craft and naming-craft on a TEST file (spending the whole default
+  // budget of 3) while test-craft never activated. The same disagreement existed
+  // with code-craft's own discovery (packages/cli/src/code-craft/extract/
+  // discover.ts TEST_FILE_PATTERNS), which already treats `Tests.java`,
+  // `IT.java` and `_test.rs` as tests.
+  const SOURCE_DOMAINS = ['code-craft', 'security-craft', 'naming-craft'] as const;
+
+  it.each([
+    'src/cart.test.mts',
+    'src/cart.spec.mts',
+    'src/cart.test.cts',
+    'src/cart.spec.cts',
+    'src/main/java/com/acme/CartTests.java',
+    'src/main/java/com/acme/CartIT.java',
+    'crates/cart/src/cart_test.rs',
+  ])('%s is a TEST file — test-craft owns it, no source domain does', (file) => {
+    expect(DOMAIN('test-craft').owns([file])).toEqual([file]);
+    for (const skill of SOURCE_DOMAINS) expect(DOMAIN(skill).owns([file])).toEqual([]);
+  });
+
+  it.each(['src/types.d.mts', 'src/types.d.cts'])(
+    '%s is a declaration file — excluded like .d.ts',
+    (file) => {
+      for (const skill of SOURCE_DOMAINS) expect(DOMAIN(skill).owns([file])).toEqual([]);
+    }
+  );
+
+  it('a .test.mts diff wires test-craft and burns no source-domain slot', () => {
+    const plan = planCraftReviewDomains(
+      'harness-code-review',
+      'after:mechanical',
+      ['src/cart.test.mts'],
+      new Set(CRAFT_REVIEW_DOMAINS.map((d) => d.skill))
+    );
+    expect(plan.wired.map((h) => h.skill)).toEqual(['test-craft']);
+  });
+
+  it('POSITIVE CONTROL — the production siblings are still source, not tests', () => {
+    for (const file of [
+      'src/cart.mts',
+      'src/cart.cts',
+      'src/main/java/com/acme/Cart.java',
+      'crates/cart/src/cart.rs',
+    ]) {
+      expect(DOMAIN('code-craft').owns([file])).toEqual([file]);
+      expect(DOMAIN('test-craft').owns([file])).toEqual([]);
+    }
+  });
+});

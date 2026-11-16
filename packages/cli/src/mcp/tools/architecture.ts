@@ -1,7 +1,10 @@
 import { resultToMcpResponse } from '../utils/result-adapter.js';
 import { resolveProjectConfig } from '../utils/config-resolver.js';
 import { sanitizePath } from '../utils/sanitize-path.js';
-import { loadDepsFallbackBehavior } from '../../config/analysis-schema.js';
+import {
+  loadDepsFallbackBehavior,
+  loadDepsResolveWorkspacePackages,
+} from '../../config/analysis-schema.js';
 
 export const checkDependenciesDefinition = {
   name: 'check_dependencies',
@@ -74,6 +77,8 @@ export async function handleCheckDependencies(input: { path: string }) {
       rootDir: projectPath,
       parser,
       fallbackBehavior,
+      // Same opt-in as check-deps (#2216); inert when graph data is supplied.
+      resolveWorkspacePackages: loadDepsResolveWorkspacePackages(projectPath),
       ...(graphDependencyData !== undefined && { graphDependencyData }),
     });
 

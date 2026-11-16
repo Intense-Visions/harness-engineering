@@ -143,4 +143,57 @@ describe('SecurityScanner — SEC-DES-001 schema validation context', () => {
     const src = ['const raw = JSON.parse(payload);', 'const again = JSON.parse(raw);'].join('\n');
     expect(ruleIds(src)).toContain('SEC-DES-001');
   });
+
+  it('a discarded .safeParse(data) result does not validate data', () => {
+    const src = ['const data = JSON.parse(body);', 'Schema.safeParse(data);', 'run(data);'].join(
+      '\n'
+    );
+    expect(ruleIds(src)).toContain('SEC-DES-001');
+    const awaited = ['const data = JSON.parse(body);', 'await Schema.safeParseAsync(data);'].join(
+      '\n'
+    );
+    expect(ruleIds(awaited)).toContain('SEC-DES-001');
+  });
+
+  it('control: a used .safeParse result and a bare throwing .parse still validate', () => {
+    for (const check of [
+      'const r = Schema.safeParse(data);',
+      'if (!Schema.safeParse(data).success) return;',
+      'Schema.parse(data);',
+    ]) {
+      expect(ruleIds(['const data = JSON.parse(body);', check].join('\n'))).not.toContain(
+        'SEC-DES-001'
+      );
+    }
+  });
+
+  it('validating one JSON.parse does not clear a second one on the same line', () => {
+    const declared = [
+      'const data = JSON.parse(body), other = JSON.parse(input);',
+      'Schema.parse(data);',
+    ].join('\n');
+    expect(ruleIds(declared)).toContain('SEC-DES-001');
+    expect(ruleIds('const v = S.parse(JSON.parse(body)); const w = JSON.parse(input);')).toContain(
+      'SEC-DES-001'
+    );
+  });
+});
+
+describe('SecurityScanner — a string slash never hides the code after it', () => {
+  it('flags eval after a postfix-increment division and a string containing //', () => {
+    expect(ruleIds("n = i++ / 2; u = 'a/b//c'; eval(input);")).toContain('SEC-INJ-001');
+  });
+
+  it('flags eval after an if-header regex literal containing a quote', () => {
+    expect(ruleIds("if (ok) /'/.test(s) && u('//'); eval(input);")).toContain('SEC-INJ-001');
+  });
+
+  it('flags eval after a string continued across a line with a backslash', () => {
+    expect(ruleIds("const s = 'abc\\\n//x'; eval(input);")).toContain('SEC-INJ-001');
+  });
+
+  it('does not flag eval named only in a trailing comment after the same constructs', () => {
+    expect(ruleIds('n = i++ / 2; // eval(input)')).not.toContain('SEC-INJ-001');
+    expect(ruleIds('if (ok) /x/.test(s); // eval(input)')).not.toContain('SEC-INJ-001');
+  });
 });

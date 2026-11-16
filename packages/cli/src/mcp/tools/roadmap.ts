@@ -83,6 +83,14 @@ export const manageRoadmapDefinition = {
         type: 'boolean',
         description: 'For sync action: override human-always-wins rule',
       },
+      external_id: {
+        type: 'string',
+        description:
+          'For add action: link the new row to an EXISTING tracker ticket (e.g. "github:<owner>/<repo>#<n>"). ' +
+          'The row records this External-ID and no tracker ticket is created. Idempotent: if any row ' +
+          'already carries this External-ID nothing is written. Returns a compact envelope ' +
+          '{ added, feature, milestone, externalId } instead of the whole roadmap. Not supported in file-less mode.',
+      },
     },
     required: ['path', 'action'],
   },
@@ -102,6 +110,7 @@ interface ManageRoadmapInput {
   filter?: string;
   apply?: boolean;
   force_sync?: boolean;
+  external_id?: string;
 }
 
 /**
@@ -322,9 +331,89 @@ function buildFeatureFromInput(input: ManageRoadmapInput) {
     summary: input.summary!,
     assignee: null,
     priority: null,
-    externalId: null,
+    externalId: input.external_id ?? null,
     updatedAt: null,
   };
+}
+
+/**
+ * `<kind>:<ref>` with no whitespace — e.g. `github:owner/repo#42`. The value is
+ * written verbatim into a markdown field line, so whitespace (a newline in
+ * particular) would let a caller inject extra fields into the row.
+ */
+const EXTERNAL_ID_PATTERN = /^[a-z][a-z0-9-]*:\S+$/;
+
+/**
+ * `add` with a caller-supplied External-ID (#2328): the ticket already exists,
+ * so the row records the link and the tracker is NOT asked to create one —
+ * a create here mints a duplicate of the very issue being routed. Idempotent
+ * by External-ID across every milestone, and the response is a compact
+ * envelope: echoing the whole roadmap made this call's payload grow with the
+ * roadmap (hundreds of KB) for a caller that only needs to know the outcome.
+ */
+async function handleAddLinked(
+  projectPath: string,
+  input: ManageRoadmapInput,
+  deps: RoadmapDeps
+): Promise<McpResponse> {
+  const externalId = input.external_id!;
+  if (!EXTERNAL_ID_PATTERN.test(externalId)) {
+    return {
+      content: [
+        {
+          type: 'text' as const,
+          text: `Error: external_id "${externalId}" is malformed; expected <kind>:<ref> with no whitespace (e.g. github:owner/repo#42)`,
+        },
+      ],
+      isError: true,
+    };
+  }
+
+  const result = await loadRoadmap(projectPath);
+  if (!result.ok) return resultToMcpResponse(result);
+  const roadmap = result.value;
+  const before = structuredClone(roadmap);
+
+  const wanted = externalId.toLowerCase();
+  for (const m of roadmap.milestones) {
+    const existing = m.features.find((f) => f.externalId?.toLowerCase() === wanted);
+    if (existing) {
+      return resultToMcpResponse(
+        deps.Ok({
+          added: false,
+          feature: existing.name,
+          milestone: m.name,
+          externalId: existing.externalId,
+          message: `A row already carries External-ID ${existing.externalId}; nothing written.`,
+        })
+      );
+    }
+  }
+
+  const milestone = roadmap.milestones.find(
+    (m) => m.name.toLowerCase() === input.milestone!.toLowerCase()
+  );
+  if (!milestone) {
+    return {
+      content: [{ type: 'text' as const, text: `Error: milestone "${input.milestone}" not found` }],
+      isError: true,
+    };
+  }
+
+  milestone.features.push(buildFeatureFromInput(input));
+  roadmap.frontmatter.lastManualEdit = new Date().toISOString();
+
+  const persisted = await persistRoadmap(projectPath, before, roadmap);
+  if (!persisted.ok) return resultToMcpResponse(persisted);
+
+  return resultToMcpResponse(
+    deps.Ok({
+      added: true,
+      feature: input.feature!,
+      milestone: milestone.name,
+      externalId,
+    })
+  );
 }
 
 /**
@@ -377,6 +466,8 @@ async function handleAdd(
   if (validationError) return validationError;
 
   if (!roadmapSourceExists(projectPath)) return roadmapNotFoundError();
+
+  if (input.external_id !== undefined) return handleAddLinked(projectPath, input, deps);
 
   const result = await loadRoadmap(projectPath);
   if (!result.ok) return resultToMcpResponse(result);

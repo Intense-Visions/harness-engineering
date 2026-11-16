@@ -45,6 +45,7 @@ import {
 } from './phases/critique.js';
 import type { ApiCraftOutput, ApiFinding } from './findings/schema.js';
 import { craftClumpView } from '../shared/craft/findings/clumpable.js';
+import { resolveScopedFiles } from '../shared/craft/extract/scoped-files.js';
 
 export type ApiCraftMode = 'inline' | 'in-session';
 
@@ -385,7 +386,7 @@ export async function critiqueApiSurfaceFile(
 
 function collectSurfaces(projectRoot: string, input: ApiCraftInput): DiscoveredApiSurface[] {
   if (input.files !== undefined && input.files.length > 0) {
-    return input.files.map((f) => {
+    return resolveScopedFiles(projectRoot, input.files).map((f) => {
       const relative = path.relative(projectRoot, f).replaceAll('\\', '/');
       let content = '';
       try {

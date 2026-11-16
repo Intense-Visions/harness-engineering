@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/tests/commands'
-sourceHash: '1e2c616031a9c5cff12afcefc40bb978ae137557c801fec8e49e39bc5459e4c6'
+sourceHash: 'e6f192f49b468d5b30a86f9499239e01f9dd1e997190f4f4f9df76b33bdd3229'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -30,6 +30,7 @@ members:
     'autonomy-show.test.ts',
     'backfill-skill-provenance.test.ts',
     'bugfleet-publish-analyses-prefix-crosstalk.test.ts',
+    'check-arch-abstention.test.ts',
     'check-arch-dependency-rules.test.ts',
     'check-arch.test.ts',
     'check-deployment.test.ts',
@@ -39,6 +40,7 @@ members:
     'check-deps-no-layers-cycle.test.ts',
     'check-deps-skipped-abstention.test.ts',
     'check-deps-unparseable-files.test.ts',
+    'check-deps-workspace-packages.test.ts',
     'check-deps.test.ts',
     'check-design-cov544.test.ts',
     'check-design-json-abstention.test.ts',
@@ -57,6 +59,7 @@ members:
     'check-vocabulary-cov544b.test.ts',
     'check-vocabulary.test.ts',
     'cleanup-cov544b.test.ts',
+    'cleanup-duplication-baseline.test.ts',
     'cleanup-duplication.test.ts',
     'cleanup-findings-items.test.ts',
     'cleanup-sessions-cov544.test.ts',
@@ -116,6 +119,7 @@ members:
     'install.test.ts',
     'integrations-sync.test.ts',
     'integrations.test.ts',
+    'json-result-channel.test.ts',
     'knowledge-craft-command.test.ts',
     'knowledge-craft-cov544.test.ts',
     'knowledge-pipeline-cov544b.test.ts',
@@ -254,7 +258,7 @@ import { ApiCraftOutput, ApiFinding } from '../../src/api-craft/findings/schema.
 import { ApiCraftInput, runApiCraft } from '../../src/api-craft/index.js'
 import { CliErgonomicsCraftOutput, CliErgonomicsFinding } from '../../src/cli-ergonomics-craft/findings/schema.js'
 import { CliErgonomicsCraftInput, runCliErgonomicsCraft } from '../../src/cli-ergonomics-craft/index.js'
-import { CodeCraftOutput, CodeFinding } from '../../src/code-craft/findings/schema.js'
+import { CodeCraftOutput, CodeFinding, SiblingIndexOutcome } from '../../src/code-craft/findings/schema.js'
 import { CodeCraftInput, runCodeCraft } from '../../src/code-craft/index.js'
 import { commandCreators } from '../../src/commands/_registry'
 import { createAddCommand, runAdd } from '../../src/commands/add'
@@ -438,7 +442,7 @@ import { resolveAnalysisProvider } from '../../src/mcp/utils/analysis-provider'
 import '../../src/mcp/utils/graph-loader'
 import { NamingCraftInput, NamingCraftOutput } from '../../src/naming-craft/index.js'
 import { OutputFormatter, OutputMode } from '../../src/output/formatter'
-import { logger } from '../../src/output/logger'
+import { logger, setMachineOutput } from '../../src/output/logger'
 import { confirmYesNo, prompt } from '../../src/output/prompt'
 import { loadPersona } from '../../src/persona/loader'
 import { runPersona } from '../../src/persona/runner'
@@ -451,6 +455,8 @@ import { validateForPublish } from '../../src/registry/validator'
 import { ROLLBACK_EVENTS_FILE } from '../../src/rollback/breadcrumb'
 import { SweepSignalRule } from '../../src/rollback/sweep'
 import { SecurityCraftInput, SecurityCraftOutput } from '../../src/security-craft/index.js'
+import { collectDesignScanFiles, resolveDesignExcludePatterns } from '../../src/shared/design-scan-targets'
+import { DUPLICATION_BASELINE_PATH } from '../../src/shared/duplication-baseline'
 import { HealthSnapshot, captureHealthSnapshot, isSnapshotFresh, loadCachedSnapshot } from '../../src/skill/health-snapshot'
 import { loadOrRebuildIndex } from '../../src/skill/index-builder'
 import { derivePackageJson } from '../../src/skill/package-json'
@@ -469,7 +475,7 @@ import { CraftCommandRun, DEFAULT_CWD, runCraftCommand } from './craft-command-h
 import { llmCalls, runCraftCommand } from './craft-command-harness.js'
 import { parseJsonStdout, runCommand } from './design-command-harness'
 import * as clack from '@clack/prompts'
-import { ArchConfigSchema, CiReviewResult, ConstraintError, DEFAULT_REMOTE_URL, DiffInfo, Err, GoldenFileChange, GoldenSnapshot, Ok, RefinementDemandReport, RollbackDecision, RunCiReviewOptions, SECURITY_SCAN_EXTENSIONS, SECURITY_SCAN_GLOB, applyFixes, archiveStream, buildSnapshot, checkTaint, clearTaint, computeRepoKey, createError, createFixes, createModelProposal, createProposal, createStream, detectDeadCode, detectDocDrift, extractBundle, generateSuggestions, listStreams, listTaintedSessions, loadStreamIndex, parseCiReviewVerdict, parseDiff, parseManifest, readAdoptionRecords, requestPeerReview, resetWaypointEmitterForTests, runReviewPipeline, sessionOverridePath, setActiveStream, validateAgentConfigs, validateAgentsMap, validateDecisionNumbers, validateKnowledgeMap, validatePulseConfig, validateRoadmapMode, validateSolutionsDir, validateStrategy, writeConfig, writeSessionOverride } from '@harness-engineering/core'
+import { ArchConfigSchema, CiReviewResult, Collector, ConstraintError, DEFAULT_REMOTE_URL, DiffInfo, Err, GoldenFileChange, GoldenSnapshot, MetricResult, Ok, RefinementDemandReport, RollbackDecision, RunCiReviewOptions, SECURITY_SCAN_EXTENSIONS, SECURITY_SCAN_GLOB, applyFixes, archiveStream, buildSnapshot, checkTaint, clearTaint, computeRepoKey, createError, createFixes, createModelProposal, createProposal, createStream, detectDeadCode, detectDocDrift, extractBundle, generateSuggestions, listStreams, listTaintedSessions, loadStreamIndex, parseCiReviewVerdict, parseDiff, parseManifest, readAdoptionRecords, requestPeerReview, resetWaypointEmitterForTests, runReviewPipeline, sessionOverridePath, setActiveStream, validateAgentConfigs, validateAgentsMap, validateDecisionNumbers, validateKnowledgeMap, validatePulseConfig, validateRoadmapMode, validateSolutionsDir, validateStrategy, writeConfig, writeSessionOverride } from '@harness-engineering/core'
 import '@harness-engineering/graph'
 import { GUARDIAN_ANALYSIS_SCHEMA, GUARDIAN_ANALYSIS_VERSION, GuardianAnalysis, OutcomeVerdict, SkillRegressionFixture, SkillRegressionVerdict } from '@harness-engineering/intelligence'
 import { AnalysisRecord, MockBackend, RunMode, RunResult, SyncMainResult, TaskDefinition, renderAnalysisComment } from '@harness-engineering/orchestrator'
