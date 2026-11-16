@@ -63,6 +63,7 @@ export interface EntropyError extends BaseError {
     | 'SNAPSHOT_BUILD_FAILED'
     | 'PARSE_ERROR'
     | 'ENTRY_POINT_NOT_FOUND'
+    | 'ENTRY_POINT_NOT_ANALYSED'
     | 'INVALID_CONFIG'
     | 'CONFIG_VALIDATION_ERROR'
     | 'FIX_FAILED'
