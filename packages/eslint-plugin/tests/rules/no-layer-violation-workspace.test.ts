@@ -51,6 +51,10 @@ ruleTester.run('no-layer-violation (resolveWorkspacePackages)', rule, {
     { code: `import { core } from '@fixture-ws/core';`, filename: coreFile, options: on },
     // Option ON: external (non-workspace) packages are still ignored.
     { code: `import lodash from 'lodash';`, filename: typesFile, options: on },
+    // Option ON: a workspace member that belongs to no layer is ignored.
+    { code: `import { misc } from '@fixture-ws/misc';`, filename: typesFile, options: on },
+    // Option ON: a file with no harness.config.json is a no-op.
+    { code: `import { a } from '@fixture-ws/core';`, filename: '/no-config/file.ts', options: on },
     // Option ON: a package outside the workspace globs is not a member.
     { code: `import { x } from '@fixture-ws/not-a-member';`, filename: typesFile, options: on },
     // Option ON: a subpath the exports map does not declare and has no src twin.

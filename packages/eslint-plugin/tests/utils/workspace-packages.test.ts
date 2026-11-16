@@ -49,6 +49,7 @@ describe('fixture workspace (pnpm-workspace.yaml)', () => {
     expect([...pkgs.keys()].sort()).toEqual([
       '@fixture-ws/cli',
       '@fixture-ws/core',
+      '@fixture-ws/misc',
       '@fixture-ws/types',
     ]);
   });
@@ -107,5 +108,91 @@ describe('package.json workspaces + caching', () => {
     } finally {
       fs.rmSync(empty, { recursive: true, force: true });
     }
+  });
+});
+
+describe('manifest shapes', () => {
+  let tmp: string;
+  const write = (rel: string, content: string) => {
+    const abs = path.join(tmp, rel);
+    fs.mkdirSync(path.dirname(abs), { recursive: true });
+    fs.writeFileSync(abs, content);
+  };
+  const pkg = (dir: string, manifest: object) =>
+    write(`${dir}/package.json`, JSON.stringify(manifest));
+  const rel = (abs: string | null) => (abs ? path.posix.relative(posix(tmp), abs) : null);
+
+  beforeEach(() => {
+    tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'eslint-wsm-'));
+    // Array workspaces, unquoted entries, an exclusion and a brace glob.
+    write('package.json', JSON.stringify({ workspaces: ['pkgs/*', '!pkgs/skip', 'x/{a,b}'] }));
+    pkg('pkgs/str', { name: 'str', exports: './dist/main.js' });
+    write('pkgs/str/src/main.ts', '');
+    pkg('pkgs/arr', { name: 'arr', exports: { '.': [{ import: './lib/a.mjs' }, './src/b.ts'] } });
+    write('pkgs/arr/src/a.mts', '');
+    pkg('pkgs/dts', { name: 'dts', exports: { '.': { types: './src/types.d.ts' } } });
+    write('pkgs/dts/src/types.ts', '');
+    pkg('pkgs/exact', { name: 'exact', source: './src/entry.tsx' });
+    write('pkgs/exact/src/entry.tsx', '');
+    pkg('pkgs/sub', { name: 'sub' });
+    write('pkgs/sub/src/deep/thing.ts', '');
+    pkg('pkgs/nostr', { name: 'nostr', exports: { '.': { types: 42 } }, main: 3 });
+    pkg('pkgs/skip', { name: 'skip' });
+    pkg('pkgs/zdup', { name: 'str' }); // sorts after pkgs/str: first wins
+    pkg('pkgs/noname', { version: '1' });
+    write('pkgs/bad/package.json', '{not json');
+    write('pkgs/nullish/package.json', 'null');
+    pkg('x/a', { name: 'xa' });
+    pkg('x/c', { name: 'xc' });
+  });
+  afterEach(() => fs.rmSync(tmp, { recursive: true, force: true }));
+
+  it('honours exclusions, brace globs, duplicates and invalid manifests', () => {
+    expect([...loadWorkspacePackages(tmp).keys()].sort()).toEqual([
+      'arr',
+      'dts',
+      'exact',
+      'nostr',
+      'str',
+      'sub',
+      'xa',
+    ]);
+  });
+
+  it('resolves string, array, .d.ts, exact and unexported-subpath targets', () => {
+    const pkgs = loadWorkspacePackages(tmp);
+    expect(rel(resolveWorkspaceSpecifier('str', pkgs))).toBe('pkgs/str/src/main.ts');
+    expect(rel(resolveWorkspaceSpecifier('arr', pkgs))).toBe('pkgs/arr/src/a.mts');
+    expect(rel(resolveWorkspaceSpecifier('dts', pkgs))).toBe('pkgs/dts/src/types.ts');
+    expect(rel(resolveWorkspaceSpecifier('exact', pkgs))).toBe('pkgs/exact/src/entry.tsx');
+    expect(rel(resolveWorkspaceSpecifier('sub/src/deep/thing', pkgs))).toBe(
+      'pkgs/sub/src/deep/thing.ts'
+    );
+    // A non-subpath `exports` string declares nothing for a subpath.
+    expect(resolveWorkspaceSpecifier('str/other', pkgs)).toBeNull();
+    // Non-string export targets and main are ignored.
+    expect(resolveWorkspaceSpecifier('nostr', pkgs)).toBeNull();
+    expect(resolveWorkspaceSpecifier('./str', pkgs)).toBeNull();
+  });
+
+  it('treats unreadable workspace declarations as no workspace', () => {
+    const other = fs.mkdtempSync(path.join(os.tmpdir(), 'eslint-wsb-'));
+    try {
+      fs.writeFileSync(path.join(other, 'package.json'), JSON.stringify({ workspaces: 'nope' }));
+      expect(loadWorkspacePackages(other).size).toBe(0);
+      fs.writeFileSync(path.join(other, 'package.json'), '[1]');
+      expect(loadWorkspacePackages(other).size).toBe(0);
+      fs.mkdirSync(path.join(other, 'pnpm-workspace.yaml'));
+      expect(loadWorkspacePackages(other).size).toBe(0);
+    } finally {
+      fs.rmSync(other, { recursive: true, force: true });
+    }
+  });
+
+  it('parses unquoted pnpm entries', () => {
+    expect(parsePnpmWorkspacePackages('packages:\n  - pkgs/*\n\n  - "x"\n')).toEqual([
+      'pkgs/*',
+      'x',
+    ]);
   });
 });

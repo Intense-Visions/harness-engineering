@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/eslint-plugin/tests/rules'
-sourceHash: 'eeb80eb11fa34ed37e941a27c1888bfadac68e1856f96d074be16df6c7c715d9'
+sourceHash: 'ddd56de14042d679b956234b8b8596253afd664d75d7e7be54a187f248cb53e8'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
