@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/commands'
-sourceHash: 'b2e575e75bc2ec7f9f90855be9a9500419a6f25e9284d30fd36ae8555feccee9'
+sourceHash: 'dac27d8a58572c1b9affc33e9ae2957bd59fa584ff5312e6110a7d0b5c809486'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -427,7 +427,7 @@ import { ApiCraftInput, ApiCraftOutput, runApiCraft } from '../api-craft/index.j
 import { AnatomyFinding } from '../audit/component-anatomy/findings/finding'
 import { BrandFinding } from '../brand/findings/finding'
 import { CliErgonomicsCraftInput, CliErgonomicsCraftOutput, runCliErgonomicsCraft } from '../cli-ergonomics-craft/index.js'
-import { CodeCraftInput, CodeCraftOutput, runCodeCraft } from '../code-craft/index.js'
+import { CodeCraftInput, CodeCraftOutput, SiblingIndexOutcome, runCodeCraft } from '../code-craft/index.js'
 import { ComprehendRunResult, runComprehend, runComprehendCheck, runComprehendStats } from '../comprehension/compile-run'
 import { comprehensionCli, comprehensionEndpoint, readComprehensionConfig, resolveComprehensionCiMode, selectSemanticModel } from '../comprehension/config'
 import { maybeCreateGenerateSemantic } from '../comprehension/generate-semantic'
