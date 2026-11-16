@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/mcp/tools'
-sourceHash: 'bc979f3a34fd47e17d3aeb8c86001edd11bfee13ff31b35db10f6cb59b55e1aa'
+sourceHash: '8dbaba655b9e4d896deeaff4ff5d0d7d9c754bd6e55b57762c02b16d0cecd1a5'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -508,6 +508,7 @@ import { craftClumpView } from '../../shared/craft/findings/clumpable.js'
 import { resolveCraftLlmMode } from '../../shared/craft/llm/provider.js'
 import { collectDesignScanFiles, designScanAbstention, noFilesScannedError, resolveDesignExcludePatterns } from '../../shared/design-scan-targets.js'
 import { ENTROPY_ISSUE_TYPES, describeDuplicationNotRun, describeUnknownIssueType, isEntropyIssueType, resolveDuplicationRequest } from '../../shared/duplication-request.js'
+import { EntropyScope, resolveEntropyScope } from '../../shared/entropy-scope.js'
 import '../../shared/state-events.js'
 import { Verifier } from '../../shared/verifier.js'
 import { dispatchSkills, dispatchSkillsFromGit, enrichSnapshotForDispatch } from '../../skill/dispatch-engine.js'
