@@ -9,6 +9,7 @@ import type {
 } from './types.js';
 import { CompositeProbabilityStrategy } from './CompositeProbabilityStrategy.js';
 import { classifyNodeCategory } from '../query/groupImpact.js';
+import { countFileCommits, hasIngestedCommits } from '../entropy/GraphComplexityAdapter.js';
 
 interface BfsEntry {
   nodeId: string;
@@ -175,8 +176,29 @@ export class CascadeSimulator {
   }
 
   private buildDefaultStrategy(): ProbabilityStrategy {
-    // Default with empty maps -- no changeFreq/coupling data
-    return new CompositeProbabilityStrategy(new Map(), new Map());
+    // Coupling stays empty: the proposal's import fan-in/fan-out source is
+    // structural and would reweight graphs with no git history (#2545).
+    return new CompositeProbabilityStrategy(this.buildChangeFrequencyMap(), new Map());
+  }
+
+  /**
+   * Per-file commit counts, max-normalized to 0..1 and keyed by file node id.
+   * Empty when no git history was ingested, so the strategy falls back to
+   * edge-type-only weights rather than reading "unmeasured" as "no churn".
+   */
+  private buildChangeFrequencyMap(): Map<string, number> {
+    const changeFreq = new Map<string, number>();
+    if (!hasIngestedCommits(this.store)) return changeFreq;
+
+    let maxCount = 0;
+    for (const file of this.store.findNodes({ type: 'file' })) {
+      const count = countFileCommits(this.store, file.id);
+      if (count === 0) continue;
+      changeFreq.set(file.id, count);
+      if (count > maxCount) maxCount = count;
+    }
+    for (const [fileId, count] of changeFreq) changeFreq.set(fileId, count / maxCount);
+    return changeFreq;
   }
 
   private buildResult(

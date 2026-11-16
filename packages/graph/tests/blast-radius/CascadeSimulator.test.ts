@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { GraphStore } from '../../src/store/GraphStore';
 import { CascadeSimulator } from '../../src/blast-radius/CascadeSimulator';
+import { CompositeProbabilityStrategy } from '../../src/blast-radius/CompositeProbabilityStrategy';
 import type { GraphNode, GraphEdge } from '../../src/types';
 
 function makeNode(id: string, overrides?: Partial<GraphNode>): GraphNode {
@@ -417,6 +418,70 @@ describe('CascadeSimulator', () => {
           result.flatSummary[i].cumulativeProbability
         );
       }
+    });
+  });
+
+  describe('change frequency from ingested git history (#2545)', () => {
+    /** Record `count` commits touching `fileId`, as GitIngestor does (file -> commit triggered_by). */
+    function addCommits(store: GraphStore, fileId: string, count: number, prefix: string): void {
+      for (let i = 0; i < count; i++) {
+        const commitId = `commit:${prefix}${i}`;
+        store.addNode({ id: commitId, type: 'commit', name: `commit ${prefix}${i}`, metadata: {} });
+        store.addEdge(makeEdge(fileId, commitId, 'triggered_by'));
+      }
+    }
+
+    function fanOutGraph(): GraphStore {
+      const store = new GraphStore();
+      store.addNode(makeNode('file:a'));
+      store.addNode(makeNode('file:hot'));
+      store.addNode(makeNode('file:cold'));
+      store.addEdge(makeEdge('file:a', 'file:hot', 'imports'));
+      store.addEdge(makeEdge('file:a', 'file:cold', 'imports'));
+      return store;
+    }
+
+    function probOf(store: GraphStore, nodeId: string): number {
+      const result = new CascadeSimulator(store).simulate('file:a', { edgeTypes: ['imports'] });
+      const node = result.flatSummary.find((n) => n.nodeId === nodeId);
+      if (!node) throw new Error(`${nodeId} not in cascade`);
+      return node.cumulativeProbability;
+    }
+
+    it('gives a high-churn neighbour a higher cascade probability than a no-churn one', () => {
+      const store = fanOutGraph();
+      addCommits(store, 'file:hot', 3, 'h');
+
+      // hot: 0.7*0.5 + (3/3)*0.3 = 0.65; cold: 0.7*0.5 + 0 = 0.35
+      expect(probOf(store, 'file:hot')).toBeCloseTo(0.65, 10);
+      expect(probOf(store, 'file:cold')).toBeCloseTo(0.35, 10);
+      expect(probOf(store, 'file:hot')).toBeGreaterThan(probOf(store, 'file:cold'));
+    });
+
+    it('max-normalizes commit counts to 0..1 across files', () => {
+      const store = fanOutGraph();
+      addCommits(store, 'file:hot', 4, 'h');
+      addCommits(store, 'file:cold', 2, 'c');
+
+      // hot: 0.35 + (4/4)*0.3 = 0.65; cold: 0.35 + (2/4)*0.3 = 0.5
+      expect(probOf(store, 'file:hot')).toBeCloseTo(0.65, 10);
+      expect(probOf(store, 'file:cold')).toBeCloseTo(0.5, 10);
+    });
+
+    it('positive control: without ingested commits, results equal the edge-type-only strategy', () => {
+      const store = fanOutGraph();
+      store.addNode(makeNode('file:d'));
+      store.addEdge(makeEdge('file:hot', 'file:d', 'calls'));
+      store.addEdge(makeEdge('file:d', 'file:a', 'references'));
+
+      const sim = new CascadeSimulator(store);
+      const defaulted = sim.simulate('file:a');
+      const edgeTypeOnly = sim.simulate('file:a', {
+        strategy: new CompositeProbabilityStrategy(new Map(), new Map()),
+      });
+
+      expect(defaulted).toEqual(edgeTypeOnly);
+      expect(probOf(store, 'file:hot')).toBeCloseTo(0.35, 10);
     });
   });
 });
