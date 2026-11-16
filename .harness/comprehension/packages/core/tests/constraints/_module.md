@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/tests/constraints'
-sourceHash: 'df09ce96e57811e95ca03c695fecd43d1e94686d118a00b653850d428da66097'
+sourceHash: '7787e6f14757394b6990410eb31c14ee00828ca21c26e13759c783816a97da8c'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -12,6 +12,7 @@ members:
     'circular-deps.test.ts',
     'dependencies.test.ts',
     'graph-integration.test.ts',
+    'layer-config.test.ts',
     'layers.test.ts',
     'multi-lang-deps.test.ts',
     'packs.test.ts',
@@ -33,6 +34,7 @@ members:
 import { createBoundaryValidator, validateBoundaries } from '../../src/constraints/boundary'
 import { detectCircularDeps, detectCircularDepsInFiles } from '../../src/constraints/circular-deps'
 import { ParserLookup, buildDependencyGraph, defineLayer, validateDependencies } from '../../src/constraints/dependencies'
+import { resolveDepsSettings, toLayerConfig } from '../../src/constraints/layer-config'
 import { defineLayer, resolveFileToLayer } from '../../src/constraints/layers'
 import { BUILT_IN_CONSTRAINT_PACKS, getConstraintPack, resolveConstraintPacks } from '../../src/constraints/packs'
 import { DependencyGraph, GraphDependencyData, Layer } from '../../src/constraints/types'
@@ -43,6 +45,7 @@ import { AST, Export, Import, LanguageParser } from '../../src/shared/parsers/ba
 import { TypeScriptParser } from '../../src/shared/parsers/typescript'
 import { Err, Ok } from '../../src/shared/result'
 import * as fs from 'fs'
+import * as path from 'node:path'
 import * as os from 'os'
 import { join } from 'path'
 import * as path from 'path'

@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/tests/ci'
-sourceHash: 'abe6551b85ba50ceec6b440e52f5e63514228079004fbca5d064ae66c4df49ef'
+sourceHash: 'ac9942af4c5ecc96a9a2c0313f45ad71a6daab66f1e59a8d6e57e59e107d5ddb'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -13,6 +13,7 @@ members:
     'check-skip-status.test.ts',
     'constraint-packs-orchestrator.test.ts',
     'constraint-packs-real-scanner.test.ts',
+    'deps-config-parity.behavior.test.ts',
     'notifier.test.ts',
     'report-formatter.test.ts',
     'verdict-cache.test.ts',
