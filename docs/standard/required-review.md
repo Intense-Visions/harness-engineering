@@ -7,18 +7,24 @@ runner secret — a full LLM multi-persona review, then fails the check when the
 rejects the change.
 
 This page is the adoption walkthrough. For the field-level reference (every runner's
-secret, the exact `gh api` apply), see [`templates/ci/README.md`](../../templates/ci/README.md).
+secret, the exact `gh api` apply), see [`templates/ci/.github/harness/ci-required-review.md`](../../templates/ci/.github/harness/ci-required-review.md).
 
 ## 1. Inherit the template
 
 `harness init` can render the `ci-required-review` template, which writes:
 
-- `.github/workflows/required-review.yml` — the gate workflow (runs on `pull_request`).
+- `.github/workflows/harness-required-review.yml` — the gate workflow (runs on `pull_request`).
 - `required-review.ruleset.json` — the config-as-code binding that makes the check required.
+- `.github/harness/ci-required-review.md` — the setup notes (secrets, applying the ruleset).
+
+It never overwrites an existing file (it reports the skip) and writes into an existing
+project too. The `load-bearing-minimum` level already ships this gate as
+`.github/workflows/required-review.yml`; the distinct file name keeps the two from
+overwriting each other.
 
 The workflow diffs the PR's real base — `origin/<base-ref>...HEAD` resolved from the
 runtime base branch, with `fetch-depth: 0` plus a base fetch — so it always reviews
-the actual change set. (See `templates/ci/README.md` for the exact range expression.)
+the actual change set. (See `templates/ci/.github/harness/ci-required-review.md` for the exact range expression.)
 
 ## 2. Pick a runner (and its secret)
 

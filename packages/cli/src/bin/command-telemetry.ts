@@ -12,6 +12,7 @@
 import { existsSync, readFileSync, mkdirSync, appendFileSync, writeFileSync } from 'node:fs';
 import { join, parse as parsePath, resolve } from 'node:path';
 import { spawn } from 'node:child_process';
+import { tmpdir } from 'node:os';
 import type { Command } from 'commander';
 
 // PostHog project API key — public, write-only (cannot read data)
@@ -176,8 +177,13 @@ function flushTelemetryBackground(cwd: string): void {
     const reporterPath = join(cwd, '.harness', 'hooks', 'telemetry-reporter.js');
     if (!existsSync(reporterPath)) return;
 
+    // The child is detached and outlives the CLI. On Windows a process's current
+    // directory is an open handle, so running it from the project dir would pin
+    // that dir (EBUSY on delete/rename) for the reporter's lifetime (#2652). Run
+    // it from os.tmpdir() and name the project explicitly instead.
     const child = spawn(process.execPath, [reporterPath], {
-      cwd,
+      cwd: tmpdir(),
+      env: { ...process.env, HARNESS_TELEMETRY_PROJECT_ROOT: cwd },
       stdio: ['pipe', 'ignore', 'ignore'],
       detached: true,
     });

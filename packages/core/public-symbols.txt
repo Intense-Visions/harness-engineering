@@ -111,7 +111,9 @@ AssembleInput
 AssignmentRecord
 AttributedContributor
 AttributedSpendEvent
+AttributionInput
 AttributionReport
+AttributionResult
 AuditCommandRunner
 AuditOptions
 AuditResult
@@ -409,6 +411,7 @@ ContributionsSchema
 Convention
 CorpusDocument
 CorpusSpan
+CorrelatedRun
 CounterMode
 CouplingCollector
 CouplingConfig
@@ -580,6 +583,7 @@ FLEET_HANDOFF_BLOCKER_REQUIRED_STATUSES
 FLEET_HANDOFF_RECORD_VERSION
 FLEET_SPEND_BUDGET_VERSION
 FRONTEND_RACES_DESCRIPTOR
+FailingTest
 FailureCategory
 FailureEntry
 FailureEntrySchema
@@ -620,6 +624,7 @@ FixConfig
 FixResult
 FixType
 FlagStaleLearningNodesOptions
+FlakeVerdict
 FleetBudgetStatus
 FleetClaim
 FleetClaimSchema
@@ -806,6 +811,7 @@ MAX_AUTO_DECISION_LINE_BYTES
 MAX_EVIDENCE_ENTRIES
 MAX_PROXIMITY
 MEMOIZABLE_CHECKS
+MIN_INDEPENDENT_FAILURES_FLOOR
 MOCK_ADAPTER_NAME
 MaintenanceConfig
 MaintenanceFindingsContract
@@ -1216,6 +1222,8 @@ RuleProvenanceInput
 RuleRegistry
 RunCIChecksInput
 RunCiReviewOptions
+RunObservation
+RunOrigin
 RunOutcome
 RunPipelineOptions
 RunnerId
@@ -1486,6 +1494,7 @@ TelemetrySynthesis
 TelemetrySynthesisHeadline
 TelemetrySynthesisSection
 TermBinding
+TestAttribution
 ThresholdConfig
 ThresholdConfigSchema
 ThrottledFetchError
@@ -1671,6 +1680,7 @@ assignNumber
 assignTiers
 assigneeInvariantHolds
 attachGuardianCoverage
+attributeFailure
 auditStaleReferences
 autoDecisionLogPath
 autonomyAuditLogPath
@@ -1722,6 +1732,7 @@ classifyRevert
 classifyRework
 classifySensitivity
 classifySpend
+cleanLogLine
 clearFailuresCache
 clearLearningsCache
 clearPulseAdapters
@@ -2016,6 +2027,7 @@ mapSecurityFindings
 mapSecuritySeverity
 mapWithConcurrency
 markProtectedFindings
+matchDiff
 mcpRules
 mergeIntegrityReports
 mergeSegments
@@ -2038,6 +2050,7 @@ normalizeTokens
 normalizeViolationPattern
 overlayClumpPolicy
 paginate
+pairedSourceCandidates
 parseAntigravityVerdict
 parseAutoDecisionLine
 parseCCRecords
@@ -2049,6 +2062,7 @@ parseCodexVerdict
 parseDateFromEntry
 parseDiff
 parseExternalId
+parseFailingTests
 parseFile
 parseFileRegions
 parseFindingsContract
@@ -2260,6 +2274,7 @@ syncRoadmap
 syncRowToExternal
 syncToExternal
 tagUncitedFindings
+testKey
 toClumpView
 toClumpableFinding
 toLayerConfig

@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/src/ci'
-sourceHash: '97e4150e06f20be82322b2261ca6b843728d41d942043daa146efaedb272c105'
+sourceHash: 'f28bac433ad046e36935cc962b9bef14061e0677810357fb8c80acf2ef1239a5'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -9,6 +9,7 @@ members:
   [
     'base-freshness.ts',
     'check-orchestrator.ts',
+    'flake-attribution.ts',
     'index.ts',
     'notifier.ts',
     'report-formatter.ts',
@@ -19,25 +20,40 @@ members:
 ## Interface Contract
 
 ```ts
+export AttributionInput
+export AttributionResult
 export BaseFreshnessInput
 export BaseFreshnessTrust
 export BaseFreshnessVerdict
 export CINotifier
+export CorrelatedRun
 export DEFAULT_VERDICT_CACHE_DIR
+export FailingTest
+export FlakeVerdict
 export GATE_VERSIONS
 export MEMOIZABLE_CHECKS
+export MIN_INDEPENDENT_FAILURES_FLOOR
 export RunCIChecksInput
+export RunObservation
+export RunOrigin
+export TestAttribution
 export VerdictCache
 export VerdictCacheConfig
 export VerdictCacheStatsCollector
+export attributeFailure
 export classifyBaseFreshness
+export cleanLogLine
 export computeConfigHash
 export computeProjectInputHash
 export computeVerdictKey
 export formatCIReportAsMarkdown
+export matchDiff
+export pairedSourceCandidates
+export parseFailingTests
 export parseVerdictCacheConfig
 export runCIChecks
 export shouldCacheResult
+export testKey
 ```
 
 ## Dependency Slice

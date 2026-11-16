@@ -11,7 +11,12 @@ describe('ci-required-review template', () => {
   it('ruleset required-check context matches the workflow job name (SC6)', () => {
     // Parse the RAW .hbs: the literal `name: required-review` and the quoted
     // Handlebars tokens are valid YAML, so the job name is stable on the raw file.
-    const wf = yaml.parse(fs.readFileSync(path.join(CI_DIR, 'required-review.yml.hbs'), 'utf-8'));
+    const wf = yaml.parse(
+      fs.readFileSync(
+        path.join(CI_DIR, '.github', 'workflows', 'harness-required-review.yml.hbs'),
+        'utf-8'
+      )
+    );
     const jobName = wf.jobs['required-review'].name;
 
     const ruleset = JSON.parse(
@@ -36,8 +41,13 @@ describe('ci-required-review template', () => {
       },
       files: [
         {
-          relativePath: 'required-review.yml.hbs',
-          absolutePath: path.join(CI_DIR, 'required-review.yml.hbs'),
+          relativePath: '.github/workflows/harness-required-review.yml.hbs',
+          absolutePath: path.join(
+            CI_DIR,
+            '.github',
+            'workflows',
+            'harness-required-review.yml.hbs'
+          ),
           isHandlebars: true,
           sourceTemplate: 'ci',
         },
@@ -54,8 +64,11 @@ describe('ci-required-review template', () => {
     expect(result.ok).toBe(true);
     if (!result.ok) return;
 
-    // The engine strips `.hbs`, so the rendered file is `required-review.yml`.
-    const wf = result.value.files.find((f) => f.relativePath === 'required-review.yml');
+    // The engine strips `.hbs`, so the rendered file is the runnable workflow
+    // under `.github/workflows/` (#2630: never the repo root).
+    const wf = result.value.files.find(
+      (f) => f.relativePath === '.github/workflows/harness-required-review.yml'
+    );
     expect(wf).toBeDefined();
 
     const parsed = yaml.parse(wf!.content); // throws if invalid YAML

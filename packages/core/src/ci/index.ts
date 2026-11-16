@@ -21,3 +21,22 @@ export {
   DEFAULT_VERDICT_CACHE_DIR,
 } from './verdict-cache';
 export type { VerdictCacheConfig } from './verdict-cache';
+export {
+  attributeFailure,
+  parseFailingTests,
+  matchDiff,
+  pairedSourceCandidates,
+  cleanLogLine,
+  testKey,
+  MIN_INDEPENDENT_FAILURES_FLOOR,
+} from './flake-attribution';
+export type {
+  FailingTest,
+  FlakeVerdict,
+  RunObservation,
+  RunOrigin,
+  CorrelatedRun,
+  AttributionInput,
+  TestAttribution,
+  AttributionResult,
+} from './flake-attribution';

@@ -7,10 +7,18 @@ scaffold.
 
 ## What it renders
 
-| File                           | Purpose                                                                                 |
-| ------------------------------ | --------------------------------------------------------------------------------------- |
-| `required-review.yml`          | A `pull_request` workflow whose single job runs `harness review-ci` as the gate.        |
-| `required-review.ruleset.json` | A GitHub repository ruleset that marks the workflow's check as a required status check. |
+| File                                            | Purpose                                                                                 |
+| ----------------------------------------------- | --------------------------------------------------------------------------------------- |
+| `.github/workflows/harness-required-review.yml` | A `pull_request` workflow whose single job runs `harness review-ci` as the gate.        |
+| `required-review.ruleset.json`                  | A GitHub repository ruleset that marks the workflow's check as a required status check. |
+| `.github/harness/ci-required-review.md`         | This document (kept off the project `README.md`, which the template never touches).     |
+
+`harness init` never overwrites a file that already exists (it reports the skip
+instead), and it writes these files into an existing project too. The
+`load-bearing-minimum` level already ships this gate (plus the outcome-eval ship
+gate) as `.github/workflows/required-review.yml`; the distinct `harness-` file
+name means the two never overwrite each other, but a project on that level does
+not need this template.
 
 ### The binding contract
 
@@ -22,7 +30,7 @@ that never reports and every PR will be blocked indefinitely.
 
 ## Template variables
 
-`harness init` renders `required-review.yml.hbs` with three Handlebars variables.
+`harness init` renders `harness-required-review.yml.hbs` with three Handlebars variables.
 The engine compiles in strict mode, so all three must be supplied:
 
 | Variable     | Default           | Meaning                                                 |

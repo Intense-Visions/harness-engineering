@@ -4,7 +4,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import type { Result, RoadmapMeta } from '@harness-engineering/core';
 import { Ok, Err, serializeMeta, roadmapSourceExists } from '@harness-engineering/core';
-import { TemplateEngine, type DetectedFramework } from '../templates/engine';
+import { TemplateEngine, isAddOnTemplate, type DetectedFramework } from '../templates/engine';
 import type { TemplateMetadata } from '../templates/schema';
 import {
   persistToolingConfig,
@@ -43,6 +43,8 @@ interface InitOptions {
 interface InitResult {
   filesCreated: string[];
   skippedConfigs: string[];
+  /** Files init left untouched because they already existed (no `--force`). */
+  skippedExisting?: string[];
   detectedFrameworks?: DetectedFramework[];
   /** Set when this run layered a higher tier over an existing install. */
   upgradedFrom?: string;
@@ -202,6 +204,7 @@ async function scaffoldProject(
     overwrite: force,
     ...(language !== undefined && { language }),
     existingProject,
+    addOn: isAddOnTemplate(resolveResult.value.metadata),
   });
   if (!writeResult.ok) return Err(new CLIError(writeResult.error.message, ExitCode.ERROR));
 
@@ -272,6 +275,11 @@ async function scaffoldProject(
   return Ok({
     filesCreated: [...writeResult.value.written, ...roadmapFiles],
     skippedConfigs: writeResult.value.skippedConfigs,
+    // A tier upgrade merges into the existing harness.config.json (writeUpgradedConfig)
+    // rather than leaving it untouched, so it is not reported as a kept file.
+    skippedExisting: upgrade
+      ? writeResult.value.skippedExisting.filter((f) => f !== 'harness.config.json')
+      : writeResult.value.skippedExisting,
     ...(upgrade && { upgradedFrom: upgrade.from }),
   });
 }
@@ -307,6 +315,7 @@ function scaffoldShardedRoadmap(cwd: string, name: string): string[] {
 function printInitSuccess(
   filesCreated: string[],
   mcpConfigured: string[],
+  skippedExisting: string[] = [],
   upgradedFrom?: string
 ): void {
   console.log('');
@@ -321,6 +330,13 @@ function printInitSuccess(
   logger.info('Created files:');
   for (const file of filesCreated) {
     console.log(`  ${chalk.green('+')} ${file}`);
+  }
+  if (skippedExisting.length > 0) {
+    console.log('');
+    logger.info('Kept existing files (not overwritten; use --force to replace):');
+    for (const file of skippedExisting) {
+      console.log(`  ${chalk.yellow('=')} ${file}`);
+    }
   }
   if (mcpConfigured.length > 0) {
     console.log('');
@@ -375,7 +391,12 @@ async function runInitAction(opts: InitOptions & { quiet?: boolean }): Promise<v
   const mcpResult = setupMcp(cwd, 'all');
 
   if (!opts.quiet) {
-    printInitSuccess(result.value.filesCreated, mcpResult.configured, result.value.upgradedFrom);
+    printInitSuccess(
+      result.value.filesCreated,
+      mcpResult.configured,
+      result.value.skippedExisting,
+      result.value.upgradedFrom
+    );
   }
 
   process.exit(ExitCode.SUCCESS);
