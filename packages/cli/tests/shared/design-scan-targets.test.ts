@@ -84,7 +84,50 @@ describe('design scan targets', () => {
       path.relative(dir, f).replaceAll('\\', '/')
     );
 
-    expect(collected.sort()).toEqual(['src/a.tsx', 'src/styles.scss']);
+    // Sorted by the walk itself (#2349); the ordering contract is pinned in
+    // design-scan-targets-order.test.ts against a hostile readdir order.
+    expect(collected).toEqual(['src/a.tsx', 'src/styles.scss']);
+  });
+
+  // #2349: a deliberately malformed test fixture is a false positive by
+  // construction (ANAT-D001 fired on this repo's own
+  // `packages/core/tests/fixtures/jsx-imports/src/components/Button.jsx`).
+  it('skips test-fixture trees but keeps real components, including an app dir named fixtures', () => {
+    dir = project({
+      'packages/core/tests/fixtures/jsx-imports/src/components/Button.jsx':
+        'export function Button() { return null; }\n',
+      'test/fixtures/theme.css': '.a { color: red; }\n',
+      'src/__fixtures__/Card.tsx': 'export const Card = () => null;\n',
+      'src/__tests__/fixtures/List.tsx': 'export const List = () => null;\n',
+      'src/components/Button.jsx': 'export function Button() { return null; }\n',
+      'src/fixtures/MatchCard.tsx': 'export const MatchCard = () => null;\n',
+    });
+
+    const collected = collectDesignScanFiles(dir, undefined, []).files.map((f) =>
+      path.relative(dir, f).replaceAll('\\', '/')
+    );
+
+    expect(collected).toEqual(['src/components/Button.jsx', 'src/fixtures/MatchCard.tsx']);
+  });
+
+  it('treats a fixtures-only project as having no design surface, not as scoped out', () => {
+    dir = project({ 'tests/fixtures/Button.jsx': 'export function Button() { return null; }\n' });
+    const targets = collectDesignScanFiles(dir, undefined, []);
+    expect(targets.files).toEqual([]);
+    expect(targets.emptyReason).toBe('no-source');
+  });
+
+  it('audit-anatomy reports the malformed component outside fixtures and not the fixture copy', async () => {
+    const BROKEN = 'export function Button() { return null; }\n';
+    dir = project({
+      'tests/fixtures/src/components/Button.jsx': BROKEN,
+      'src/components/Button.jsx': BROKEN,
+    });
+    const out = await runAudit({ path: dir, mode: 'full' });
+    const d001 = out.findings
+      .filter((f) => f.code === 'ANAT-D001')
+      .map((f) => f.file.replaceAll('\\', '/'));
+    expect(d001).toEqual(['src/components/Button.jsx']);
   });
 
   it('unions design.exclude with analysis.exclude', () => {
