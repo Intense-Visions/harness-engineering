@@ -122,7 +122,8 @@ describe('Graph page', () => {
       const cells = within(row)
         .getAllByRole('cell')
         .map((c) => c.textContent);
-      expect(cells).toEqual([EXPECTED_ROWS[i].type, EXPECTED_ROWS[i].count, EXPECTED_ROWS[i].pct]);
+      const expected = EXPECTED_ROWS[i]!;
+      expect(cells).toEqual([expected.type, expected.count, expected.pct]);
     });
   });
 
@@ -136,7 +137,7 @@ describe('Graph page', () => {
     setSSE({ data: { graph: zeroCount }, lastUpdated: '2026-07-20T00:00:00Z' });
     render(<Graph />);
 
-    const row = within(screen.getByRole('table')).getAllByRole('row')[1];
+    const row = within(screen.getByRole('table')).getAllByRole('row')[1]!;
     const cells = within(row)
       .getAllByRole('cell')
       .map((c) => c.textContent);

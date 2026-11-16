@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/src/security'
-sourceHash: 'b9b0b5829beac01ebe6eda9433d7572dce4a92c0995ebee1f60ce9bf89e645e7'
+sourceHash: '2d5da1b1f5be925e83aa43f4b7642f58cce3b391cd74cd89721ad205db3d871f'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -28,6 +28,7 @@ members:
 ## Interface Contract
 
 ```ts
+export AuditCommandRunner
 export DEFAULT_SECURITY_CONFIG
 export DESTRUCTIVE_BASH
 export EMPTY_SUPPLY_CHAIN
@@ -83,6 +84,7 @@ export TimeToFixStats
 export TimeToFixStatsSchema
 export TrendAttribution
 export TrendAttributionSchema
+export UNMEASURED_SUPPLY_CHAIN_SCORE_CEILING
 export agentConfigRules
 export checkTaint
 export clearTaint
@@ -99,6 +101,7 @@ export goRules
 export injectionRules
 export insecureDefaultsRules
 export isDuplicateFinding
+export isSupplyChainMeasured
 export listTaintedSessions
 export mapInjectionFindings
 export mapSecurityFindings
@@ -145,7 +148,7 @@ import { xssRules } from './rules/xss'
 import { ScanConfigFileResult, ScanConfigFinding, computeOverallSeverity, computeScanExitCode, isDuplicateFinding, mapInjectionFindings, mapSecurityFindings, mapSecuritySeverity } from './scan-config-shared'
 import { SECURITY_SCAN_DEFAULT_IGNORE } from './scan-targets'
 import { extractQuotedSecretValue, isReferenceOnlySecretValue } from './secret-reference'
-import { Direction, EMPTY_SUPPLY_CHAIN, FindingLifecycle, SecurityCategorySnapshot, SecurityTimelineFile, SecurityTimelineFileSchema, SecurityTimelineSnapshot, SecurityTrendLine, SecurityTrendResult, SupplyChainSnapshot, TimeToFixResult, TimeToFixStats, TrendAttribution, securityFindingId } from './security-timeline-types'
+import { Direction, EMPTY_SUPPLY_CHAIN, FindingLifecycle, SecurityCategorySnapshot, SecurityTimelineFile, SecurityTimelineFileSchema, SecurityTimelineSnapshot, SecurityTrendLine, SecurityTrendResult, SupplyChainSnapshot, TimeToFixResult, TimeToFixStats, TrendAttribution, UNMEASURED_SUPPLY_CHAIN_SCORE_CEILING, isSupplyChainMeasured, securityFindingId } from './security-timeline-types'
 import { detectStack } from './stack-detector'
 import { DEFAULT_SECURITY_CONFIG, RuleOverride, ScanResult, SecurityConfig, SecurityFinding, SecurityRule, SecuritySeverity } from './types'
 import { skipDirGlobs } from '@harness-engineering/graph'

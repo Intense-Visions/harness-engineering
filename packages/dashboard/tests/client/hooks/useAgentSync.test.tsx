@@ -1,7 +1,7 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach, type Mock } from 'vitest';
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { useAgentSync } from '../../../src/client/hooks/useAgentSync';
-import { useThreadStore } from '../../../src/client/stores/threadStore';
+import { useThreadStore, type ThreadStore } from '../../../src/client/stores/threadStore';
 import type { StreamManifest } from '../../../src/client/hooks/useStreamReplay';
 import type { RunningAgent, OrchestratorSnapshot } from '../../../src/client/types/orchestrator';
 import type { OrchestratorSocketState } from '../../../src/client/hooks/useOrchestratorSocket';
@@ -98,11 +98,11 @@ function stubStreamsFetch(handler: () => Response | Promise<Response>): ReturnTy
 // The thread store is a module-level singleton; reset the mutable slices we
 // touch and swap markSourceHydrated for a fresh spy before every test so call
 // counts and thread state never leak between cases.
-let markSourceHydrated: ReturnType<typeof vi.fn>;
+let markSourceHydrated: Mock<ThreadStore['markSourceHydrated']>;
 
 beforeEach(() => {
   vi.restoreAllMocks();
-  markSourceHydrated = vi.fn();
+  markSourceHydrated = vi.fn<ThreadStore['markSourceHydrated']>();
   useThreadStore.setState({
     threads: new Map(),
     messages: new Map(),

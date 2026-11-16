@@ -166,6 +166,7 @@ Run lightweight security scan: secrets, injection, XSS, weak crypto
 - `--severity` — Minimum severity that fails the command; findings below it are excluded from the report and never fail the gate (error, warning, info) (default: "warning")
 - `--changed-only` — Only scan git-changed files
 - `--fail-on-empty` — Fail when the scan matched 0 files. A scan that read nothing abstained rather than passed; recommended for CI gates
+- `--record` — Append the scan to the tracked .harness/security/timeline.json ledger
 - `--findings-json` — Emit the machine-readable maintenance findings contract ({ findings: N }) as a trailing stdout line (#691)
 
 ### `harness check-vocabulary`
@@ -179,7 +180,7 @@ Detect entropy issues (doc drift, dead code, patterns, duplication). Duplication
 **Options:**
 
 - `-t, --type` — Issue type: drift, dead-code, patterns, duplication, all (default: "all")
-- `--findings-json` — Emit the machine-readable maintenance findings contract ({ findings: N }) as a trailing stdout line (#691)
+- `--findings-json` — Emit the machine-readable maintenance findings contract ({ findings: N, items: [...] }) as a trailing stdout line; items lists every gating finding with kind, file, line and (dead code) reason (#691, #2133)
 
 ### `harness cleanup-sessions`
 

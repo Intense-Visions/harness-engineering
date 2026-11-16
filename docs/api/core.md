@@ -610,13 +610,16 @@ Detects the technology stack of a project (Node, React, Go, etc.).
 
 ### Security Timeline
 
-| Export                       | Description                                          |
-| ---------------------------- | ---------------------------------------------------- |
-| `SecurityTimelineManager`    | Manages security metric timelines and trend analysis |
-| `securityFindingId(finding)` | Deterministic hash ID for a security finding         |
-| `EMPTY_SUPPLY_CHAIN`         | Empty supply chain snapshot constant                 |
+| Export                                                   | Description                                                                       |
+| -------------------------------------------------------- | --------------------------------------------------------------------------------- |
+| `SecurityTimelineManager`                                | Manages security metric timelines and trend analysis                              |
+| `securityFindingId(finding)`                             | Deterministic hash ID for a security finding                                      |
+| `EMPTY_SUPPLY_CHAIN`                                     | Empty supply chain snapshot constant (`measured: false`)                          |
+| `isSupplyChainMeasured(sc)`                              | True only when an audit produced the counts (legacy snapshots read as unmeasured) |
+| `UNMEASURED_SUPPLY_CHAIN_SCORE_CEILING`                  | Max `securityScore` while the supply chain is unmeasured (90)                     |
+| `SecurityTimelineManager.supplyChainFromAuditJson(json)` | Parse `pnpm`/`npm audit --json` output into a measured snapshot                   |
 
-**Types:** `SecurityCategorySnapshot`, `SupplyChainSnapshot`, `SecurityTimelineSnapshot`, `FindingLifecycle`, `SecurityTimelineFile`, `SecurityDirection`, `SecurityTrendLine`, `TrendAttribution`, `SecurityTrendResult`, `TimeToFixStats`, `TimeToFixResult`
+**Types:** `SecurityCategorySnapshot`, `SupplyChainSnapshot`, `SecurityTimelineSnapshot`, `FindingLifecycle`, `SecurityTimelineFile`, `SecurityDirection`, `SecurityTrendLine`, `TrendAttribution`, `SecurityTrendResult`, `TimeToFixStats`, `TimeToFixResult`, `AuditCommandRunner`
 
 **Schemas:** `SecurityConfigSchema`, `SecurityCategorySnapshotSchema`, `SupplyChainSnapshotSchema`, `SecurityTimelineSnapshotSchema`, `FindingLifecycleSchema`, `SecurityTimelineFileSchema`, `SecurityTrendLineSchema`, `TrendAttributionSchema`, `SecurityTrendResultSchema`, `TimeToFixStatsSchema`, `TimeToFixResultSchema`
 

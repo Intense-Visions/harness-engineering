@@ -92,7 +92,13 @@ describe('ProgressChart', () => {
         milestones={[milestone({ total: maxTotal, done: 2, inProgress: 1, planned: 1 })]}
       />
     );
-    const [doneSeg, inProgSeg, plannedSeg] = segmentRects(container);
+    const segments = segmentRects(container);
+    expect(segments).toHaveLength(3);
+    const [doneSeg, inProgSeg, plannedSeg] = segments as [
+      SVGRectElement,
+      SVGRectElement,
+      SVGRectElement,
+    ];
     const unit = BAR_AREA_WIDTH / maxTotal; // width per single item
 
     // done: starts at the bar origin, width = 2 units.
@@ -117,8 +123,8 @@ describe('ProgressChart', () => {
     const segments = segmentRects(container);
     // Only the planned-colored segment renders; its width covers planned+backlog=4 items.
     expect(segments).toHaveLength(1);
-    expect(segments[0].getAttribute('fill')).toBe(STATUS_COLOR['planned']);
-    expect(Number(segments[0].getAttribute('width'))).toBeCloseTo(BAR_AREA_WIDTH);
+    expect(segments[0]!.getAttribute('fill')).toBe(STATUS_COLOR['planned']);
+    expect(Number(segments[0]!.getAttribute('width'))).toBeCloseTo(BAR_AREA_WIDTH);
   });
 
   it('renders a done/total summary label for each row', () => {

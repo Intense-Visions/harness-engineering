@@ -106,11 +106,13 @@ const META: AgentMeta = {
   backendName: 'meta-backend',
 };
 
-const RECORDED_BLOCKS: ContentBlock[] = [
+type TextBlock = Extract<ContentBlock, { kind: 'text' }>;
+
+const RECORDED_BLOCKS: TextBlock[] = [
   { kind: 'text', text: 'recorded-block-1' },
   { kind: 'text', text: 'recorded-block-2' },
 ];
-const LIVE_BLOCKS: ContentBlock[] = [{ kind: 'text', text: 'live-block-1' }];
+const LIVE_BLOCKS: TextBlock[] = [{ kind: 'text', text: 'live-block-1' }];
 
 const SESSION: AgentSession = {
   backendName: 'session-backend',

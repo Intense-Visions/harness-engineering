@@ -145,7 +145,7 @@ describe('DecayTrends page', () => {
     const table = await screen.findByRole('table');
     const bodyRows = within(table.querySelector('tbody') as HTMLElement).getAllByRole('row');
     const renderedCategories = bodyRows.map(
-      (row) => within(row).getAllByRole('cell')[0].textContent
+      (row) => within(row).getAllByRole('cell')[0]!.textContent
     );
 
     expect(renderedCategories).toEqual(EXPECTED_CATEGORY_ORDER);
@@ -159,20 +159,20 @@ describe('DecayTrends page', () => {
     const bodyRows = within(table.querySelector('tbody') as HTMLElement).getAllByRole('row');
 
     // Row order is circular-deps (declining), god-object (improving), layering (stable).
-    const decliningCells = within(bodyRows[0]).getAllByRole('cell');
-    expect(decliningCells[2].textContent).toContain(ARROW_DECLINING);
-    expect(decliningCells[2].textContent).toContain('Degrading');
-    expect(decliningCells[3].textContent).toBe('+12.0');
+    const decliningCells = within(bodyRows[0]!).getAllByRole('cell');
+    expect(decliningCells[2]!.textContent).toContain(ARROW_DECLINING);
+    expect(decliningCells[2]!.textContent).toContain('Degrading');
+    expect(decliningCells[3]!.textContent).toBe('+12.0');
 
-    const improvingCells = within(bodyRows[1]).getAllByRole('cell');
-    expect(improvingCells[2].textContent).toContain(ARROW_IMPROVING);
-    expect(improvingCells[2].textContent).toContain('Improving');
-    expect(improvingCells[3].textContent).toBe('-5.0');
+    const improvingCells = within(bodyRows[1]!).getAllByRole('cell');
+    expect(improvingCells[2]!.textContent).toContain(ARROW_IMPROVING);
+    expect(improvingCells[2]!.textContent).toContain('Improving');
+    expect(improvingCells[3]!.textContent).toBe('-5.0');
 
-    const stableCells = within(bodyRows[2]).getAllByRole('cell');
-    expect(stableCells[2].textContent).toContain(ARROW_STABLE);
-    expect(stableCells[2].textContent).toContain('Stable');
-    expect(stableCells[3].textContent).toBe('0');
+    const stableCells = within(bodyRows[2]!).getAllByRole('cell');
+    expect(stableCells[2]!.textContent).toContain(ARROW_STABLE);
+    expect(stableCells[2]!.textContent).toContain('Stable');
+    expect(stableCells[3]!.textContent).toBe('0');
   });
 
   it('renders the no-category placeholder when snapshots exist but categories are empty', async () => {

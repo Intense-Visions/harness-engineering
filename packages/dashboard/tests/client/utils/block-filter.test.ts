@@ -7,7 +7,7 @@ import {
 import type { ContentBlock } from '../../../src/client/types/chat';
 
 function toolUse(tool: string, args?: string): ContentBlock {
-  return { kind: 'tool_use', tool, args };
+  return args === undefined ? { kind: 'tool_use', tool } : { kind: 'tool_use', tool, args };
 }
 
 describe('isStreamBlock', () => {
@@ -139,7 +139,7 @@ describe('extractTodosFromBlocks', () => {
       toolUse('TaskUpdate', JSON.stringify({ taskId: '1', status: 'in_progress' })),
     ];
 
-    expect(extractTodosFromBlocks(blocks)[0].completed).toBe(false);
+    expect(extractTodosFromBlocks(blocks)[0]!.completed).toBe(false);
   });
 
   it('upserts every todo carried by a TodoWrite payload', () => {

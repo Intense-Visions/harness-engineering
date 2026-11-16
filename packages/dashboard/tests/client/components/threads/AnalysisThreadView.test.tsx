@@ -243,7 +243,7 @@ describe('AnalysisThreadView happy-path streaming', () => {
     // SEL block.
     await screen.findByText(SEL_DATA.intent);
     expect(screen.getByText(SEL_DATA.summary)).toBeDefined();
-    const sys = SEL_DATA.affectedSystems[0];
+    const sys = SEL_DATA.affectedSystems[0]!;
     expect(screen.getByText(`${sys.name} (${Math.round(sys.confidence * 100)}%)`)).toBeDefined();
 
     // CML block — risk level, derived percentages, blast-radius counts, route.

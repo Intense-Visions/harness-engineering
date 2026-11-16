@@ -69,12 +69,97 @@ function stripStringsAndComments(cmd) {
   return s;
 }
 
-// Shell command separators: `;`, `&&`, `||`, `|`, `|&`, a background `&`
-// (but not the `&` of a redirection such as `2>&1`, `&>file` or `&>>file`),
-// newlines, subshell parens and backticks. A flag in one segment never belongs
-// to another. A redirection is NOT a separator: in `git commit &>/dev/null -n`
-// the `-n` is still an argument to git.
-const SEGMENT_SEPARATOR = /&&|\|\||\|&?|;|(?<![<>])&(?!>)|\n|[()`]/;
+// Split a command into simple commands (segments) of shell words, the way the
+// shell would: quotes are removed (`"-n"` and `'--no-verify'` reach git as
+// flags) but quoted text stays inside ONE word, so a commit message like
+// `-m "use -n here"` is a single value and never a flag. Each word records
+// whether any part of it was quoted, so a quoted word that follows a
+// value-taking option is read as that option's value.
+//
+// Segment separators: `;`, `&&`, `||`, `|`, `|&`, a background `&` (but not
+// the `&` of a redirection such as `2>&1`, `&>file` or `&>>file`), newlines,
+// subshell parens and backticks. A redirection is NOT a separator: in
+// `git commit &>/dev/null -n` the `-n` is still an argument to git.
+function tokenizeCommand(cmd) {
+  const segments = [];
+  let words = [];
+  let value = '';
+  let inWord = false;
+  let quoted = false;
+  const endWord = () => {
+    if (inWord) words.push({ value, quoted });
+    value = '';
+    inWord = false;
+    quoted = false;
+  };
+  const endSegment = () => {
+    endWord();
+    if (words.length) segments.push(words);
+    words = [];
+  };
+
+  for (let i = 0; i < cmd.length; i++) {
+    const c = cmd[i];
+    if (c === "'") {
+      const close = cmd.indexOf("'", i + 1);
+      const end = close === -1 ? cmd.length : close;
+      value += cmd.slice(i + 1, end);
+      i = end;
+      inWord = quoted = true;
+    } else if (c === '"') {
+      i += 1;
+      while (i < cmd.length && cmd[i] !== '"') {
+        if (cmd[i] === '\\' && i + 1 < cmd.length && '"\\$`\n'.includes(cmd[i + 1])) {
+          if (cmd[i + 1] !== '\n') value += cmd[i + 1];
+          i += 2;
+          continue;
+        }
+        value += cmd[i];
+        i += 1;
+      }
+      inWord = quoted = true;
+    } else if (c === '\\') {
+      const next = cmd[i + 1];
+      if (next === '\n' || (next === '\r' && cmd[i + 2] === '\n')) {
+        i += next === '\r' ? 2 : 1; // line continuation
+        continue;
+      }
+      // Keep the backslash before word characters so `\git` and Windows
+      // paths (`C:\Git\cmd\git.exe`) still name git; an escaped separator or
+      // quote is literal text.
+      if (next !== undefined && /[\w.\\]/.test(next)) value += c;
+      if (next !== undefined) value += next;
+      i += 1;
+      inWord = true;
+    } else if (c === '#' && !inWord) {
+      while (i + 1 < cmd.length && cmd[i + 1] !== '\n') i += 1; // comment
+    } else if (c === ' ' || c === '\t' || c === '\r') {
+      endWord();
+    } else if (c === '\n' || c === ';' || c === '(' || c === ')' || c === '`' || c === '|') {
+      endSegment();
+      if (c === '|' && (cmd[i + 1] === '|' || cmd[i + 1] === '&')) i += 1;
+    } else if (c === '&') {
+      const prev = cmd[i - 1];
+      if (prev === '<' || prev === '>' || cmd[i + 1] === '>') {
+        value += c; // part of a redirection
+        inWord = true;
+      } else {
+        endSegment();
+        if (cmd[i + 1] === '&') i += 1;
+      }
+    } else {
+      value += c;
+      inWord = true;
+    }
+  }
+  endSegment();
+  return segments;
+}
+
+// The text git receives for a word, with any remaining escapes removed.
+function argText(word) {
+  return word.value.replace(/\\/g, '');
+}
 
 // git global options (before the subcommand) that take a separate value.
 const GIT_GLOBAL_OPTS_WITH_VALUE = new Set([
@@ -158,7 +243,7 @@ function findGitSubcommand(tokens, gitIndex) {
 // aggregated short-option cluster (`-nm`, `-an`).
 function commitArgsBypassHooks(args) {
   for (let i = 0; i < args.length; i++) {
-    const tok = args[i];
+    const tok = argText(args[i]);
     if (tok === '--') return false; // everything after is a pathspec
     if (!isShortOptionCluster(tok)) continue;
     const cluster = tok.slice(1);
@@ -168,15 +253,44 @@ function commitArgsBypassHooks(args) {
       if (COMMIT_SHORT_OPTS_WITH_ATTACHED_VALUE.has(opt)) break;
       if (COMMIT_SHORT_OPTS_WITH_VALUE.has(opt)) {
         // The value is the cluster remainder, else the next argument. Never
-        // let an option-looking argument be swallowed as a value: blocking a
-        // literal `-m -n` is the conservative reading.
+        // let an UNQUOTED option-looking argument be swallowed as a value:
+        // blocking a literal `-m -n` is the conservative reading. A quoted
+        // next argument (`-m "-n is gone"`) is plainly the value.
         if (j === cluster.length - 1) {
           const next = args[i + 1];
-          if (next !== undefined && next !== '--' && !isShortOptionCluster(next)) i += 1;
+          if (next !== undefined) {
+            const text = argText(next);
+            if (next.quoted || (text !== '--' && !isShortOptionCluster(text))) i += 1;
+          }
         }
         break;
       }
     }
+  }
+  return false;
+}
+
+// git reads config from the environment too: GIT_CONFIG_COUNT with
+// GIT_CONFIG_KEY_<n>/GIT_CONFIG_VALUE_<n>, and the older GIT_CONFIG_PARAMETERS.
+// Either can point core.hooksPath somewhere empty.
+function isHooksPathEnvAssignment(text) {
+  return (
+    /^GIT_CONFIG_KEY_\d+=core\.hookspath$/i.test(text) ||
+    /^GIT_CONFIG_PARAMETERS=.*core\.hookspath/i.test(text)
+  );
+}
+
+// Words that may precede an environment assignment in assignment position:
+// `export A=b`, `env A=b git ...`, `declare -x A=b`.
+const ENV_SETTING_WORDS = new Set(['export', 'env', 'declare', 'typeset', 'local', 'readonly']);
+
+function segmentSetsHooksPathEnv(words) {
+  for (const word of words) {
+    const text = argText(word);
+    if (isHooksPathEnvAssignment(text)) return true;
+    const leading =
+      /^[A-Za-z_]\w*=/.test(text) || ENV_SETTING_WORDS.has(text) || text.startsWith('-');
+    if (!leading) return false; // past the assignment prefix: the command itself
   }
   return false;
 }
@@ -186,27 +300,32 @@ function containsHookBypass(command) {
   // harness-ignore SEC-AGT-006: definitional — this IS the detection regex for the bypass flag
   if (/(?:^|\s)--no-verify(?=\s|$)/.test(stripped)) return true;
 
-  const joined = stripped.replace(/\\\r?\n/g, ' '); // line continuations
-  for (const segment of joined.split(SEGMENT_SEPARATOR)) {
-    const tokens = segment.trim().split(/\s+/).filter(Boolean);
-    for (let g = 0; g < tokens.length; g++) {
-      if (!isGitCommandToken(tokens[g])) continue;
+  // Heredoc bodies are data, never argv.
+  const withoutHeredocs = command.replace(/<<-?\s*['"]?(\w+)['"]?[\s\S]*?\n\s*\1\b/g, ' ');
+  const segments = tokenizeCommand(withoutHeredocs);
+  let envRelocatesHooks = false;
+  let runsHookingGit = false;
+
+  for (const words of segments) {
+    if (segmentSetsHooksPathEnv(words)) envRelocatesHooks = true;
+    const tokens = words.map(argText);
+    for (let g = 0; g < words.length; g++) {
+      if (!isGitCommandToken(words[g].value)) continue;
       const sub = findGitSubcommand(tokens, g);
       if (sub === -1) continue;
-      const args = tokens.slice(sub + 1);
-      const dashDash = args.indexOf('--');
-      const options = dashDash === -1 ? args : args.slice(0, dashDash);
+      const args = words.slice(sub + 1);
+      const argTexts = tokens.slice(sub + 1);
+      const dashDash = argTexts.indexOf('--');
+      const options = dashDash === -1 ? argTexts : argTexts.slice(0, dashDash);
       if (options.some(isNoVerifyAbbreviation)) return true;
-      if (
-        HOOK_RUNNING_SUBCOMMANDS.has(tokens[sub]) &&
-        globalOptsRelocateHooks(tokens.slice(g + 1, sub))
-      ) {
-        return true;
+      if (HOOK_RUNNING_SUBCOMMANDS.has(tokens[sub])) {
+        runsHookingGit = true;
+        if (globalOptsRelocateHooks(tokens.slice(g + 1, sub))) return true;
       }
       if (tokens[sub] === 'commit' && commitArgsBypassHooks(args)) return true;
     }
   }
-  return false;
+  return envRelocatesHooks && runsHookingGit;
 }
 
 main();

@@ -155,7 +155,10 @@ export const EntropyConfigSchema = z.object({
    * it, so a value here does not configure perf.
    */
   entryPoints: z.array(z.string()).optional(),
-  /** Patterns to exclude from entropy analysis */
+  /**
+   * Patterns to exclude from entropy analysis. `check-perf` honours the same
+   * key (#2077), and additionally skips every path git ignores (#2331).
+   */
   excludePatterns: z.array(z.string()).default([...skipDirGlobs(), '**/*.test.ts']),
   /** Whether to automatically attempt to fix simple entropy issues */
   autoFix: z.boolean().default(false),

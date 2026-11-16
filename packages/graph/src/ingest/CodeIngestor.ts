@@ -197,6 +197,8 @@ const PARAM_OPENING_BRACKETS = new Set(['(', '[', '{', '<']);
 const PARAM_CLOSING_BRACKETS = new Set([')', ']', '}', '>']);
 // A parameter list longer than this is treated as unterminated.
 const MAX_PARAM_LIST_LINES = 50;
+// The implicit receiver a Python method declares first (`self` / `cls`).
+const PYTHON_RECEIVER = /^\s*(?:self|cls)\b/;
 
 /** Quote characters that open a string literal in `lang`. Rust `'` is a lifetime. */
 function quotesFor(lang: string): string {
@@ -789,7 +791,7 @@ export class CodeIngestor {
           cyclomaticComplexity: this.computeCyclomaticComplexity(lines.slice(i, endLine)),
           nestingDepth: this.computeMaxNesting(lines.slice(i, endLine)),
           lineCount: endLine - i,
-          parameterCount: this.countParameters(lines, i, methodName, lang),
+          parameterCount: this.countParameters(lines, i, methodName, lang, true),
         },
       },
       edge: { from: classId, to: id, type: 'contains', provenance: 'EXTRACTED' },
@@ -1123,15 +1125,24 @@ export class CodeIngestor {
   /**
    * Count the parameters of the declaration of `name` that starts on
    * `lines[lineIdx]`. The list opens at the first `(` after the name (so a Go
-   * receiver is not mistaken for it) and may span several lines.
+   * receiver is not mistaken for it) and may span several lines. For a Python
+   * method, a leading `self`/`cls` is the implicit receiver, not a parameter.
    */
-  private countParameters(lines: string[], lineIdx: number, name: string, lang: string): number {
+  private countParameters(
+    lines: string[],
+    lineIdx: number,
+    name: string,
+    lang: string,
+    isMethod = false
+  ): number {
     const line = lines[lineIdx]!;
     const nameAt = line.search(new RegExp(`\\b${name}\\b\\s*(?:<[^(]*>)?\\s*[(\\[]`));
     const openCol = line.indexOf('(', nameAt < 0 ? 0 : nameAt + name.length);
     if (openCol < 0) return 0;
     const params = captureParameterList(lines, lineIdx, openCol, lang);
-    return params === null ? 0 : countParameterList(params, lang);
+    if (params === null) return 0;
+    const count = countParameterList(params, lang);
+    return isMethod && lang === 'python' && PYTHON_RECEIVER.test(params) ? count - 1 : count;
   }
 
   private detectLanguage(filePath: string): string {

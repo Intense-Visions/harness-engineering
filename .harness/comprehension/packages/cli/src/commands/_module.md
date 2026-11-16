@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/commands'
-sourceHash: 'b2e575e75bc2ec7f9f90855be9a9500419a6f25e9284d30fd36ae8555feccee9'
+sourceHash: '1567d77a128f7961cc3cfa251651ebe52765cd2dc40d60b4473c073cbb2ffb1e'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -153,6 +153,7 @@ export actStatusCommand
 export aggregateReport
 export assertKnownRunner
 export buildBriefBody
+export buildCleanupFindingItems
 export buildDegradedResult
 export buildDiffInfo
 export buildOutcomeBody

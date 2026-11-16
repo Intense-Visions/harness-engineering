@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import http from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { mkdtempSync, rmSync } from 'node:fs';
@@ -13,6 +13,26 @@ function makeSetup() {
   const store = new WebhookStore(join(dir, 'webhooks.json'));
   const queue = new WebhookQueue(':memory:');
   return { dir, store, queue };
+}
+
+/**
+ * Wait for the delivery worker to reach an observable state instead of
+ * sleeping a fixed interval and hoping its tick loop got there first.
+ *
+ * These cases used to sleep 50-300ms and then assert on queue state. That is a
+ * guess about how many ticks fit in the interval, and on a loaded runner (the
+ * pre-push gate runs the package under v8 coverage alongside a second package)
+ * the guess lost: the row had not been claimed yet, so a "delivered" or "dead"
+ * assertion read the untouched pending row (#2227). Polling the condition the
+ * test is actually about removes the budget. The timeout only bounds a genuine
+ * hang; the happy path returns as soon as the condition holds.
+ */
+const SETTLE = { timeout: 10_000, interval: 10 } as const;
+
+function untilQueue(queue: WebhookQueue, predicate: (q: WebhookQueue) => boolean): Promise<void> {
+  return vi.waitFor(() => {
+    if (!predicate(queue)) throw new Error('queue has not reached the expected state yet');
+  }, SETTLE);
 }
 
 function makeGatewayEvent(n = 0) {
@@ -72,7 +92,7 @@ describe('WebhookDelivery (queue-backed)', () => {
     });
     worker.enqueue(sub, makeGatewayEvent());
     worker.start();
-    await new Promise((r) => setTimeout(r, 300));
+    await untilQueue(queue, (q) => q.stats().delivered === 1);
     await worker.stop();
     expect(received).toHaveLength(1);
     expect(received[0]?.headers['x-harness-signature']).toMatch(/^sha256=[a-f0-9]{64}$/);
@@ -96,8 +116,17 @@ describe('WebhookDelivery (queue-backed)', () => {
   });
 
   it('semaphore: maxConcurrentPerSub=1 limits concurrent deliveries', async () => {
+    // Measure concurrency at the receiver instead of inferring it from how many
+    // deliveries finished inside a fixed 100ms window: a loaded runner can fire
+    // that window's timer late enough for two sequential deliveries to land in
+    // it, which failed the old upper-bound assertion with a correct semaphore.
+    let active = 0;
+    let maxActive = 0;
     const slowReceiver = http.createServer((_req, res) => {
+      active++;
+      maxActive = Math.max(maxActive, active);
       setTimeout(() => {
+        active--;
         res.writeHead(200);
         res.end('{}');
       }, 200);
@@ -116,10 +145,12 @@ describe('WebhookDelivery (queue-backed)', () => {
       worker.enqueue(sub, makeGatewayEvent(i));
     }
     worker.start();
-    await new Promise((r) => setTimeout(r, 100));
-    // With cap=1 and 200ms response: at most 1 delivered in first 100ms
-    expect(queue.stats().delivered).toBeLessThanOrEqual(1);
+    // Every claimed row's POST is issued in the same tick, so by the time the
+    // first 200ms response completes, an uncapped worker would already have had
+    // all three requests open at the receiver.
+    await untilQueue(queue, (q) => q.stats().delivered >= 1);
     await worker.stop();
+    expect(maxActive).toBe(1);
     await new Promise<void>((r) => slowReceiver.close(() => r()));
   });
 
@@ -134,7 +165,9 @@ describe('WebhookDelivery (queue-backed)', () => {
     });
     worker.enqueue(sub, makeGatewayEvent());
     worker.start();
-    await new Promise((r) => setTimeout(r, 50));
+    // Stop only once a tick has claimed the row (it is in flight, or already
+    // delivered); stopping before the first tick would test nothing.
+    await untilQueue(queue, (q) => q.stats().pending === 0);
     await worker.stop();
     expect(queue.stats().delivered).toBe(1);
   });
@@ -158,13 +191,16 @@ describe('WebhookDelivery (queue-backed)', () => {
     });
     worker.enqueue(sub, makeGatewayEvent());
     worker.start();
-    // Let the tick fire and the fetch start.
-    await new Promise((r) => setTimeout(r, 80));
+    // Let the tick claim the row and the fetch start.
+    await untilQueue(queue, (q) => q.stats().inFlight === 1);
     const t0 = Date.now();
     await worker.stop();
     const elapsed = Date.now() - t0;
-    // stop() resolves shortly after drainTimeoutMs (100ms drain + 100ms post-abort yield).
-    expect(elapsed).toBeLessThan(400);
+    // stop() resolves shortly after drainTimeoutMs (100ms drain + 100ms post-abort
+    // yield) instead of waiting out the 60s request. The bound only has to
+    // separate those two outcomes; a tight 400ms budget also failed whenever a
+    // loaded runner delayed the post-abort timers (#2227).
+    expect(elapsed).toBeLessThan(10_000);
     // The row is left in_flight (so recoverInFlight on next start re-queues it).
     expect(queue.stats().inFlight).toBe(1);
     expect(queue.stats().delivered).toBe(0);
@@ -186,7 +222,7 @@ describe('WebhookDelivery (queue-backed)', () => {
     const worker = new WebhookDelivery({ queue, store, tickIntervalMs: 20 });
     worker.enqueue(sub, makeGatewayEvent());
     worker.start();
-    await new Promise((r) => setTimeout(r, 150));
+    await untilQueue(queue, (q) => q.stats().dead === 1);
     await worker.stop();
     // The row goes straight to dead — no HTTP attempt was made.
     expect(received).toHaveLength(0);
@@ -218,7 +254,7 @@ describe('WebhookDelivery (queue-backed)', () => {
     });
     worker.enqueue(sub, makeGatewayEvent());
     worker.start();
-    await new Promise((r) => setTimeout(r, 150));
+    await untilQueue(queue, (q) => q.stats().dead === 1);
     await worker.stop();
     expect(lookedUp).toEqual(['hooks.attacker.example']);
     expect(received).toHaveLength(0);
@@ -259,7 +295,7 @@ describe('WebhookDelivery (queue-backed)', () => {
     });
     worker.enqueue(sub, makeGatewayEvent());
     worker.start();
-    await new Promise((r) => setTimeout(r, 250));
+    await untilQueue(queue, (q) => q.stats().failed === 1);
     await worker.stop();
 
     expect(redirectTargetHits).toEqual([]);
@@ -288,7 +324,7 @@ describe('WebhookDelivery (queue-backed)', () => {
     });
     await store.delete(sub.id);
     worker.start();
-    await new Promise((r) => setTimeout(r, 150));
+    await untilQueue(queue, (q) => q.stats().dead === 1);
     await worker.stop();
     expect(queue.list({ status: 'dead' })).toHaveLength(1);
     expect(queue.list({ status: 'dead' })[0]?.lastError).toContain('subscription deleted');
