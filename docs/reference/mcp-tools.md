@@ -717,6 +717,10 @@ Scaffold a new harness engineering project from a template
 - `level` (string, optional) — Adoption level (JS/TS only). Defaults to load-bearing-minimum, which sits between intermediate and advanced: ESLint + complexity cap 15 + module-size cap + multi-persona review + outcome-eval — the minimum that holds when the senior reviewer is away. Use basic for the lightest touch.
 - `framework` (string, optional) — Framework overlay (e.g., nextjs, fastapi, gin)
 - `language` (string, optional) — Target language
+- `template` (string, optional) — Specific named template (e.g. orchestrator, ci-required-review, ci-pre-merge-brief). Takes precedence over level, like `harness init --template`.
+- `runner` (string, optional) — ci-\* templates only: the `harness review-ci --runner` the rendered workflow invokes. Defaults to claude.
+- `blockOn` (string, optional) — ci-\* templates only: the `harness review-ci --block-on` level the rendered workflow uses. Defaults to request-changes.
+- `baseBranch` (string, optional) — ci-\* templates only: the branch the rendered workflow triggers on. Defaults to main.
 
 **CLI equivalent:** [`harness init`](cli-commands.md#harness-init)
 

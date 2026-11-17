@@ -28,7 +28,7 @@ const engineState = vi.hoisted(() => ({
   isExistingProject: false,
   write: {
     ok: true,
-    value: { written: ['harness.config.json'], skippedConfigs: [] },
+    value: { written: ['harness.config.json'], skippedConfigs: [], skippedExisting: [] },
   } as FakeResult,
   lastResolveArgs: undefined as unknown[] | undefined,
 }));
@@ -58,7 +58,9 @@ vi.mock('../../../src/templates/engine', () => {
       return engineState.write;
     }
   }
-  return { TemplateEngine };
+  // Mirror the real engine's named export the handler imports (#2630).
+  const isAddOnTemplate = () => false;
+  return { TemplateEngine, isAddOnTemplate };
 });
 
 vi.mock('../../../src/templates/post-write', () => ({
@@ -84,7 +86,7 @@ describe('handleInitProject — helper branches via the public handler', () => {
     engineState.isExistingProject = false;
     engineState.write = {
       ok: true,
-      value: { written: ['harness.config.json'], skippedConfigs: [] },
+      value: { written: ['harness.config.json'], skippedConfigs: [], skippedExisting: [] },
     };
     engineState.lastResolveArgs = undefined;
   });
@@ -161,7 +163,11 @@ describe('handleInitProject — helper branches via the public handler', () => {
   it('reports skipped config files when write reports skippedConfigs', async () => {
     engineState.write = {
       ok: true,
-      value: { written: ['README.md'], skippedConfigs: ['package.json', 'tsconfig.json'] },
+      value: {
+        written: ['README.md'],
+        skippedConfigs: ['package.json', 'tsconfig.json'],
+        skippedExisting: [],
+      },
     };
     const res = await handleInitProject({ path: tmp, language: 'typescript' });
     expect(res.isError).toBeFalsy();

@@ -1,11 +1,19 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/templates'
-sourceHash: '8e30c1539cd0c07cdbf4de938ff65b667d970a92a20973e8d0d026b1dfc5ca5f'
+sourceHash: 'b57f684535334ad2b91fcac0a20a92f056c0e0ebe3624d505cb24e07f53d0fbe'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
-members: ['agents-append.ts', 'engine.ts', 'merger.ts', 'post-write.ts', 'schema.ts']
+members:
+  [
+    'agents-append.ts',
+    'engine.ts',
+    'merger.ts',
+    'named-template-vars.ts',
+    'post-write.ts',
+    'schema.ts',
+  ]
 ---
 
 ## Interface Contract
@@ -14,6 +22,9 @@ members: ['agents-append.ts', 'engine.ts', 'merger.ts', 'post-write.ts', 'schema
 export DetectPatternSchema
 export LanguageEnum
 export MergeStrategySchema
+export NAMED_TEMPLATE_BLOCK_ON
+export NAMED_TEMPLATE_DEFAULTS
+export NAMED_TEMPLATE_RUNNERS
 export TemplateEngine
 export TemplateMetadataSchema
 export ToolingSchema
@@ -24,8 +35,11 @@ export buildFrameworkSection
 export deepMergeJson
 export ensureComprehensionSearchIgnore
 export ensureHarnessGitignore
+export isAddOnTemplate
 export mergePackageJson
 export persistToolingConfig
+export resolveNamedTemplateVars
+export validateNamedTemplateVars
 ```
 
 ## Dependency Slice
@@ -36,7 +50,7 @@ import { appendFrameworkSection } from './agents-append.js'
 import { ResolvedTemplate } from './engine.js'
 import { deepMergeJson, mergePackageJson } from './merger'
 import { TemplateMetadata, TemplateMetadataSchema } from './schema'
-import { COMPREHENSION_ROOT, Err, Ok, Result } from '@harness-engineering/core'
+import { CI_ASSESSMENTS, COMPREHENSION_ROOT, Err, Ok, RUNNER_PRESETS, Result } from '@harness-engineering/core'
 import { Ecosystem, detectEcosystem } from '@harness-engineering/orchestrator'
 import * as fs from 'fs'
 import Handlebars from 'handlebars'

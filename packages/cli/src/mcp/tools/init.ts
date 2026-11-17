@@ -10,6 +10,14 @@ import {
   ensureComprehensionSearchIgnore,
 } from '../../templates/post-write.js';
 import type { TemplateMetadata } from '../../templates/schema.js';
+import { isAddOnTemplate } from '../../templates/engine.js';
+import {
+  NAMED_TEMPLATE_BLOCK_ON,
+  NAMED_TEMPLATE_DEFAULTS,
+  NAMED_TEMPLATE_RUNNERS,
+  resolveNamedTemplateVars,
+  validateNamedTemplateVars,
+} from '../../templates/named-template-vars.js';
 
 export const initProjectDefinition = {
   name: 'init_project',
@@ -31,6 +39,25 @@ export const initProjectDefinition = {
         enum: ['typescript', 'python', 'go', 'rust', 'java'],
         description: 'Target language',
       },
+      template: {
+        type: 'string',
+        description:
+          'Specific named template (e.g. orchestrator, ci-required-review, ci-pre-merge-brief). Takes precedence over level, like `harness init --template`.',
+      },
+      runner: {
+        type: 'string',
+        enum: [...NAMED_TEMPLATE_RUNNERS],
+        description: `ci-* templates only: the \`harness review-ci --runner\` the rendered workflow invokes. Defaults to ${NAMED_TEMPLATE_DEFAULTS.runner}.`,
+      },
+      blockOn: {
+        type: 'string',
+        enum: [...NAMED_TEMPLATE_BLOCK_ON],
+        description: `ci-* templates only: the \`harness review-ci --block-on\` level the rendered workflow uses. Defaults to ${NAMED_TEMPLATE_DEFAULTS.blockOn}.`,
+      },
+      baseBranch: {
+        type: 'string',
+        description: `ci-* templates only: the branch the rendered workflow triggers on. Defaults to ${NAMED_TEMPLATE_DEFAULTS.baseBranch}.`,
+      },
     },
     required: ['path'],
   },
@@ -42,6 +69,10 @@ interface InitInput {
   level?: string;
   framework?: string;
   language?: string;
+  template?: string;
+  runner?: string;
+  blockOn?: string;
+  baseBranch?: string;
 }
 
 function mcpText(text: string, isError = false): McpToolResponse {
@@ -106,7 +137,16 @@ function scaffoldMcp(
   language: string | undefined
 ): McpToolResponse {
   const isNonJs = language && language !== 'typescript';
-  const level = isNonJs ? undefined : (i.level ?? 'load-bearing-minimum');
+  // `template` takes precedence over `level`, mirroring `harness init --template`.
+  const level = isNonJs ? undefined : (i.template ?? i.level ?? 'load-bearing-minimum');
+
+  const namedVars = resolveNamedTemplateVars({
+    runner: i.runner,
+    blockOn: i.blockOn,
+    baseBranch: i.baseBranch,
+  });
+  const varsError = validateNamedTemplateVars(namedVars);
+  if (varsError) return mcpText(`Init failed: ${varsError}`, true);
 
   const resolveResult = engine.resolveTemplate(level, i.framework, language);
   if (!resolveResult.ok) return resultToMcpResponse(resolveResult);
@@ -114,6 +154,7 @@ function scaffoldMcp(
   const renderResult = engine.render(resolveResult.value, {
     projectName: i.name ?? path.basename(safePath),
     level: level ?? '',
+    ...namedVars,
     ...(i.framework !== undefined && { framework: i.framework }),
     ...(language !== undefined && { language }),
   });
@@ -125,6 +166,9 @@ function scaffoldMcp(
     overwrite: false,
     ...(language !== undefined && { language }),
     existingProject,
+    // Opt-in add-ons (ci-* etc.) write into existing projects too, exactly like
+    // `harness init --template` (#2630).
+    addOn: isAddOnTemplate(resolveResult.value.metadata),
   });
 
   if (writeResult.ok) {
@@ -136,8 +180,12 @@ function scaffoldMcp(
 
   if (writeResult.ok && writeResult.value.skippedConfigs.length > 0) {
     const skippedMsg = writeResult.value.skippedConfigs.map((f: string) => `  - ${f}`).join('\n');
+    const keptMsg =
+      writeResult.value.skippedExisting.length > 0
+        ? `\n\nKept existing files (not overwritten):\n${writeResult.value.skippedExisting.map((f: string) => `  - ${f}`).join('\n')}`
+        : '';
     return mcpText(
-      `Files written: ${writeResult.value.written.join(', ')}\n\nSkipped existing config files (add harness dependencies manually):\n${skippedMsg}`
+      `Files written: ${writeResult.value.written.join(', ')}\n\nSkipped existing config files (add harness dependencies manually):\n${skippedMsg}${keptMsg}`
     );
   }
 
