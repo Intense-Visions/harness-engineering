@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/commands'
-sourceHash: '3f5f8c6e1141aca46ae89cb7162d0fc7bef1e42994e0bb7c81bd1919c8602544'
+sourceHash: 'f59da9210c79a7a9ffd57df83fbcf9622625383de2a17d900148ee8c994139b4'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -153,11 +153,13 @@ export abstainedMeasurements
 export abstentionReason
 export actStatusCommand
 export aggregateReport
+export archVerdict
 export assertKnownRunner
 export buildBriefBody
 export buildCleanupFindingItems
 export buildDegradedResult
 export buildDiffInfo
+export buildNextSteps
 export buildOutcomeBody
 export buildReviewBody
 export buildSkillRegressionBody
@@ -525,7 +527,7 @@ import { applySyncPlan, computeSyncPlan } from '../slash-commands/sync'
 import { computeCodexSync, detectLegacyCodexOrphans } from '../slash-commands/sync-codex'
 import { GenerateOptions, Platform, SlashCommandSpec, VALID_PLATFORMS } from '../slash-commands/types'
 import { SpecCraftInput, SpecCraftOutput, SpecKind, runSpecCraft } from '../spec-craft/index.js'
-import { DetectedFramework, TemplateEngine, isAddOnTemplate } from '../templates/engine'
+import { DetectedFramework, TemplateEngine, isAddOnTemplate, isNamedAddOnTemplate } from '../templates/engine'
 import { resolveNamedTemplateVars } from '../templates/named-template-vars'
 import { appendFrameworkAgents, applyEcosystemAfterCreate, ensureComprehensionSearchIgnore, ensureHarnessGitignore, persistToolingConfig } from '../templates/post-write'
 import { TemplateMetadata } from '../templates/schema'

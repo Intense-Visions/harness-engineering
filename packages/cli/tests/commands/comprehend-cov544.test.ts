@@ -653,4 +653,48 @@ describe('comprehend command action paths (cov544)', () => {
     expect(logSuccess).toHaveBeenCalledWith(expect.stringContaining('regenerated 1 module(s)'));
     expect(exitCodes).toEqual([0]);
   });
+
+  // --- #2673: --check honors --json --------------------------------------------
+
+  it('--check --json emits the verdict document and exits SUCCESS when fresh (#2673)', async () => {
+    const rawSpy = vi.spyOn(logger, 'raw').mockImplementation(() => {});
+    await runWithRoot(['comprehend', '--check', '--json']);
+    expect(rawSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ ok: true, stale: [], orphans: [], skipped: [] })
+    );
+    expect(exitCodes).toEqual([0]);
+    rawSpy.mockRestore();
+  });
+
+  it('--check --json reports ok:false with the stale list and exits VALIDATION_FAILED (#2673)', async () => {
+    vi.mocked(runComprehendCheck).mockResolvedValue({
+      ok: false,
+      stale: ['src/a'],
+      orphans: [],
+      skipped: [],
+      semantic: { total: 1, present: 1, absent: 0, absentRatio: 0 },
+    } as never);
+    const rawSpy = vi.spyOn(logger, 'raw').mockImplementation(() => {});
+    await runWithRoot(['comprehend', '--check', '--since', 'origin/main', '--json']);
+    expect(rawSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        ok: false,
+        stale: ['src/a'],
+        since: 'origin/main',
+        regressed: [],
+        refUnreadable: false,
+      })
+    );
+    expect(exitCodes).toEqual([1]);
+    rawSpy.mockRestore();
+  });
+
+  it('--check --json with comprehension.ci:off emits a disabled document (#2673)', async () => {
+    vi.mocked(resolveComprehensionCiMode).mockReturnValue('off' as never);
+    const rawSpy = vi.spyOn(logger, 'raw').mockImplementation(() => {});
+    await runWithRoot(['comprehend', '--check', '--json']);
+    expect(rawSpy).toHaveBeenCalledWith({ ok: true, disabled: true, ciMode: 'off' });
+    expect(exitCodes[0]).toBe(0);
+    rawSpy.mockRestore();
+  });
 });

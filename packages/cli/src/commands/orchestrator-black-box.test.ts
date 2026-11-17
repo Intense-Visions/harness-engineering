@@ -329,4 +329,42 @@ describe('harness orchestrator black-box — command contract', () => {
 
     expect(joinedLog()).toMatch(/tools: \? x1/);
   });
+
+  // ── --json (#2673) ──────────────────────────────────────────────────────────
+  function makeJsonProgram(): Command {
+    const program = new Command().option('--json', 'Output as JSON');
+    program.addCommand(createBlackBoxCommand());
+    return program;
+  }
+
+  it('list --json emits { dir, runs } even when no runs are recorded', async () => {
+    hoisted.listRunsMock.mockReturnValue([]);
+    await makeJsonProgram().parseAsync(['node', 'harness', 'black-box', 'list', '--json']);
+    const doc = JSON.parse(joinedLog()) as { dir: string; runs: unknown[] };
+    expect(doc.runs).toEqual([]);
+    expect(doc.dir).toBe(resolvedDefaultDir);
+  });
+
+  it('show --json emits { run } for a recorded run', async () => {
+    hoisted.getRunMock.mockReturnValue(makeRun());
+    await makeJsonProgram().parseAsync([
+      'node',
+      'harness',
+      'black-box',
+      'show',
+      'run-abc',
+      '--json',
+    ]);
+    const doc = JSON.parse(joinedLog()) as { run: { runId: string } };
+    expect(doc.run.runId).toBe('run-abc');
+    expect(process.exitCode).toBeUndefined();
+  });
+
+  it('show --json emits { error } on stdout for a missing run and fails', async () => {
+    hoisted.getRunMock.mockReturnValue(null);
+    await makeJsonProgram().parseAsync(['node', 'harness', 'black-box', 'show', 'ghost', '--json']);
+    const doc = JSON.parse(joinedLog()) as { error: string };
+    expect(doc.error).toContain("No black-box run 'ghost'");
+    expect(process.exitCode).toBe(1);
+  });
 });
