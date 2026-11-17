@@ -148,6 +148,35 @@ describe('check-arch abstention channel (#2268)', () => {
       expect(mockExit).toHaveBeenCalledWith(3);
       const out = JSON.parse(String(mockLog.mock.calls[0]?.[0]));
       expect(out.abstainedCategories.sort()).toEqual(['complexity', 'module-size']);
+      // The JSON verdict agrees with the exit code instead of reading as a pass.
+      expect(out.verdict).toBe('abstained');
+      expect(out.abstained).toBe(true);
+    });
+
+    it('plain output says abstained, never "validation passed", with the same exit code', async () => {
+      stubs.collectors = [crashing('complexity'), crashing('module-size')];
+      const mockWarn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      const mockErr = vi.spyOn(console, 'error').mockImplementation(() => {});
+      try {
+        await run(['check-arch']);
+        expect(mockExit).toHaveBeenCalledWith(3);
+        const printed = [...mockLog.mock.calls, ...mockWarn.mock.calls, ...mockErr.mock.calls]
+          .map((c) => c.map(String).join(' '))
+          .join('\n');
+        expect(printed).toMatch(/abstained/i);
+        expect(printed).not.toMatch(/validation passed/i);
+      } finally {
+        mockWarn.mockRestore();
+        mockErr.mockRestore();
+      }
+    });
+
+    it('a measured, clean run reports verdict "passed" in --json (positive control)', async () => {
+      await run(['--json', 'check-arch']);
+      expect(mockExit).toHaveBeenCalledWith(0);
+      const out = JSON.parse(String(mockLog.mock.calls[0]?.[0]));
+      expect(out.verdict).toBe('passed');
+      expect(out.abstained).toBe(false);
     });
 
     it('a partial abstention does not abstain the whole run (positive control)', async () => {

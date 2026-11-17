@@ -107,7 +107,10 @@ function buildMinimalConfig(name: string): string {
 const HOOK_BEGIN = '# >>> harness minimal tier (managed by `harness init --tier minimal`) >>>';
 const HOOK_END = '# <<< harness minimal tier (managed by `harness init --tier minimal`) <<<';
 
-/** The managed pre-commit block: run the arch gate, block the commit on failure. */
+/**
+ * The managed pre-commit block: run the arch gate, block the commit on failure,
+ * and let an abstention (exit 3: nothing measured yet) through with a note.
+ */
 function buildPreCommitBlock(): string {
   return [
     HOOK_BEGIN,
@@ -121,7 +124,18 @@ function buildPreCommitBlock(): string {
     'elif command -v harness >/dev/null 2>&1; then HARNESS_CLI=harness',
     'else HARNESS_CLI="npx --yes --package=@harness-engineering/cli harness"',
     'fi',
-    'if ! $HARNESS_CLI check-arch; then',
+    // Exit 3 is ZERO_DENOMINATOR: check-arch measured nothing (a fresh scaffold
+    // has no source files yet). That is an abstention, not a pass — check-arch
+    // still exits 3 — but there is nothing a commit could violate either, so the
+    // hook lets it through with a note instead of blocking every first commit.
+    // Any other non-zero exit (1 violation, 2 error) still blocks.
+    // `|| status=$?` rather than a bare `$?` so a `set -e` earlier in a merged,
+    // user-owned hook cannot abort before the exit code is inspected.
+    'harness_status=0',
+    '$HARNESS_CLI check-arch || harness_status=$?',
+    'if [ "$harness_status" -eq 3 ]; then',
+    '  echo "harness check-arch measured nothing (exit 3: no source files yet, or every collector abstained; see the warnings above). Nothing to check yet, so the arch gate did not block this commit." >&2',
+    'elif [ "$harness_status" -ne 0 ]; then',
     '  echo "Commit blocked: harness check-arch failed; fix the violation before committing." >&2',
     '  exit 1',
     'fi',
