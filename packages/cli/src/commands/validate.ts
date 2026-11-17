@@ -6,6 +6,7 @@ import { Ok } from '@harness-engineering/core';
 import {
   validateAgentConfigs,
   validateAgentsMap,
+  agentsMapSectionFindings,
   validateKnowledgeMap,
   validatePulseConfig,
   validateSolutionsDir,
@@ -226,6 +227,18 @@ export async function runValidate(
   const agentsResult = await validateAgentsMap(agentsMapPath);
   if (agentsResult.ok) {
     result.checks.agentsMap = true;
+    // Missing required sections are surfaced at the ONE shared severity (warning)
+    // — they never flip `valid`, the same verdict `ci check` and MCP
+    // `validate_project` reach on the same tree (#2669).
+    for (const finding of agentsMapSectionFindings(agentsResult.value)) {
+      result.issues.push({
+        check: 'agentsMap',
+        file: config.agentsMapPath,
+        severity: finding.severity,
+        message: finding.message,
+        suggestion: `Add a "## ${finding.section}" section to ${config.agentsMapPath}`,
+      });
+    }
   } else {
     result.valid = false;
     result.issues.push({

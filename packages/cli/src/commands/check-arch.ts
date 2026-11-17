@@ -385,6 +385,19 @@ export function measuredNothing(value: CheckArchResult): boolean {
   return statuses.includes('abstained') && !statuses.includes('measured');
 }
 
+/** The run's single verdict, shared by the exit code and every output mode. */
+export type ArchVerdict = 'passed' | 'failed' | 'abstained';
+
+/**
+ * One source for the verdict so plain output, `--json`, and the exit code can
+ * never disagree: a failure is a failure; otherwise a run that measured
+ * nothing abstained (exit `ZERO_DENOMINATOR`) rather than passed.
+ */
+export function archVerdict(value: CheckArchResult): ArchVerdict {
+  if (!value.passed) return 'failed';
+  return measuredNothing(value) ? 'abstained' : 'passed';
+}
+
 function abstainedUpdateWarning(abstained: ArchMetricCategory[]): string | undefined {
   if (abstained.length === 0) return undefined;
   return (
@@ -928,8 +941,12 @@ function printArchResult(
   mode: OutputModeType,
   formatter: OutputFormatter
 ): void {
+  const verdict = archVerdict(value);
   if (mode === OutputMode.JSON) {
-    console.log(JSON.stringify(value, null, 2));
+    // `verdict`/`abstained` are additive: `passed` keeps meaning "no violations"
+    // for existing consumers, but on its own it read as a pass on a run that
+    // measured nothing while the process exited 3 — the two channels disagreed.
+    console.log(JSON.stringify({ ...value, verdict, abstained: verdict === 'abstained' }, null, 2));
     return;
   }
   // An abstention reads as a clean 0 in every other output and in baselines.json
@@ -947,6 +964,14 @@ function printArchResult(
   if (mode !== OutputMode.QUIET) warnSkippedAllowances(value);
   if (value.resolvedViolations.length > 0 && mode !== OutputMode.QUIET) {
     logger.success(`${value.resolvedViolations.length} violation(s) resolved since baseline.`);
+  }
+  if (verdict === 'abstained') {
+    // Never print "validation passed" for a run that validated nothing: the exit
+    // code is ZERO_DENOMINATOR (3), and the human channel must say the same thing.
+    logger.warn(
+      'check-arch abstained: every category measured nothing, so nothing was validated (exit 3).'
+    );
+    return;
   }
   const output = formatter.formatValidation({
     valid: value.passed,
@@ -969,8 +994,9 @@ function maybeEmitArchFindings(findingsJson: boolean | undefined, value: CheckAr
  * validated nothing and exits `ZERO_DENOMINATOR` rather than a pass (#2268).
  */
 function archExitCode(value: CheckArchResult): number {
-  if (!value.passed) return ExitCode.VALIDATION_FAILED;
-  return measuredNothing(value) ? ExitCode.ZERO_DENOMINATOR : ExitCode.SUCCESS;
+  const verdict = archVerdict(value);
+  if (verdict === 'failed') return ExitCode.VALIDATION_FAILED;
+  return verdict === 'abstained' ? ExitCode.ZERO_DENOMINATOR : ExitCode.SUCCESS;
 }
 
 export function createCheckArchCommand(): Command {

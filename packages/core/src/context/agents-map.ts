@@ -241,3 +241,39 @@ export async function validateAgentsMap(
     missingSections: [...missingSections],
   });
 }
+
+/**
+ * The ONE severity of a missing required AGENTS.md section, on every surface
+ * that runs the section check (#2669).
+ *
+ * A missing section is advisory: it is surfaced, but it never flips a verdict.
+ * `harness ci check` and the review mechanical checks have always reported it at
+ * `warning`, and `harness validate` never blocked on it. MCP `validate_project`
+ * used to block on it, so the same tree read valid on one surface and invalid on
+ * another. Every surface now derives the finding from
+ * {@link agentsMapSectionFindings} instead of restating its own severity.
+ */
+export const AGENTS_MAP_MISSING_SECTION_SEVERITY = 'warning' as const;
+
+/** One missing required AGENTS.md section, as every surface reports it. */
+export interface AgentsMapSectionFinding {
+  section: string;
+  severity: typeof AGENTS_MAP_MISSING_SECTION_SEVERITY;
+  message: string;
+}
+
+/**
+ * The shared verdict for the AGENTS.md required-section check: one finding per
+ * missing section, at {@link AGENTS_MAP_MISSING_SECTION_SEVERITY}, with one
+ * message shape. MCP `validate_project`, `harness validate`, `harness ci check`
+ * and the review mechanical checks all report exactly these findings.
+ */
+export function agentsMapSectionFindings(
+  validation: Pick<AgentMapValidation, 'missingSections'>
+): AgentsMapSectionFinding[] {
+  return validation.missingSections.map((section) => ({
+    section,
+    severity: AGENTS_MAP_MISSING_SECTION_SEVERITY,
+    message: `Missing section: ${section}`,
+  }));
+}

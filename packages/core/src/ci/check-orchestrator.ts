@@ -25,7 +25,7 @@ import type { Result } from '../shared/result';
 import { Ok, Err } from '../shared/result';
 import { resolveConstraintPacks } from '../constraints/packs';
 import type { ResolvedConstraintPacks } from '../constraints/packs';
-import { validateAgentsMap } from '../context/agents-map';
+import { validateAgentsMap, agentsMapSectionFindings } from '../context/agents-map';
 import { validateDependencies } from '../constraints/dependencies';
 import { resolveDepsSettings, toLayerConfig } from '../constraints/layer-config';
 import { assessDepsCoverage } from '../constraints/deps-coverage';
@@ -197,8 +197,9 @@ async function runValidateCheck(
         issues.push({ severity: 'error', message: err.message });
       }
     }
-    for (const section of result.value.missingSections) {
-      issues.push({ severity: 'warning', message: `Missing section: ${section}` });
+    // One shared verdict for the section check across every surface (#2669).
+    for (const finding of agentsMapSectionFindings(result.value)) {
+      issues.push({ severity: finding.severity, message: finding.message });
     }
     for (const link of result.value.brokenLinks) {
       issues.push({
