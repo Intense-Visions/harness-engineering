@@ -202,6 +202,47 @@ describe('runMinimalInit (ADR 0101)', () => {
         fs.rmSync(dir, { recursive: true, force: true });
       }
     });
+
+    // Post-release smoke of cli@14.1.0: on a fresh scaffold (no source files)
+    // check-arch abstains with exit 3 (ZERO_DENOMINATOR), and the hook blocked
+    // the project's very first commit. Exit 3 means "measured nothing", so the
+    // hook lets it through; every other non-zero exit still blocks.
+    it('lets an abstention (exit 3: nothing measured yet) through', async () => {
+      const dir = makeRepo();
+      try {
+        await runMinimalInit({ cwd: dir, name: 'demo' });
+        const res = runHook(dir, { harness: 'exit 3' });
+        expect(res.log).toMatch(/^harness check-arch$/m);
+        expect(res.code).toBe(0);
+      } finally {
+        fs.rmSync(dir, { recursive: true, force: true });
+      }
+    });
+
+    it('still blocks on an error exit (2), not only on violations', async () => {
+      const dir = makeRepo();
+      try {
+        await runMinimalInit({ cwd: dir, name: 'demo' });
+        const res = runHook(dir, { harness: 'exit 2' });
+        expect(res.code).toBe(1);
+      } finally {
+        fs.rmSync(dir, { recursive: true, force: true });
+      }
+    });
+
+    it('inspects the exit code even under a `set -e` in a merged, user-owned hook', async () => {
+      const dir = makeRepo();
+      try {
+        const hook = path.join(dir, '.git', 'hooks', 'pre-commit');
+        fs.mkdirSync(path.dirname(hook), { recursive: true });
+        fs.writeFileSync(hook, '#!/bin/sh\nset -e\n');
+        await runMinimalInit({ cwd: dir, name: 'demo' });
+        expect(runHook(dir, { harness: 'exit 3' }).code).toBe(0);
+        expect(runHook(dir, { harness: 'exit 1' }).code).not.toBe(0);
+      } finally {
+        fs.rmSync(dir, { recursive: true, force: true });
+      }
+    });
   });
 
   it('git-ignores the .harness runtime artifacts the CLI writes (#2630)', async () => {
