@@ -103,12 +103,13 @@ describe('check-deps command action (cov544b)', () => {
     expect(logs.join('\n')).toContain('Analyzed');
   });
 
-  it('surfaces the zero-module abstention note as an issue (exit 1)', async () => {
+  it('surfaces the zero-module abstention as a check that could not run (exit 3, #2671)', async () => {
     await run([], emptyLayers);
-    expect(exitCode).toBe(1);
-    // analysisNote is pushed into issues and rendered
+    // Nothing was examined: ZERO_DENOMINATOR, not VALIDATION_FAILED.
+    expect(exitCode).toBe(3);
     const out = logs.join('\n');
-    expect(out).toMatch(/refusing to report clean/i);
+    expect(out).toMatch(/could not run/i);
+    expect(out).toMatch(/matched no files/i);
   });
 
   it('emits the findings-json contract line when --findings-json is set', async () => {

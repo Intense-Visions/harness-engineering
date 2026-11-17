@@ -508,8 +508,12 @@ DeploymentGateConfig
 DeploymentGateResult
 DeploymentSeverity
 DeploymentSurface
+DepsCoverage
+DepsCoverageGap
+DepsCoverageGapKind
 DepsFallbackBehavior
 DepsSettings
+DepsUnavailableCheck
 DepthCalibration
 DescriptionCost
 DetectStaleResult
@@ -1678,6 +1682,7 @@ assertRegeneratedRoundTrip
 assertSanitized
 assertSemanticRoundTrip
 assertSerializableFeature
+assessDepsCoverage
 assignFeature
 assignNumber
 assignTiers
@@ -2281,6 +2286,7 @@ testKey
 toClumpView
 toClumpableFinding
 toLayerConfig
+toUnavailableCheck
 topSkills
 touchStream
 trackAction
@@ -2288,6 +2294,7 @@ ulidTime
 unfoldRange
 unfoldSymbol
 unknownPopulation
+unparsedFileGaps
 unshippedLines
 updateProposal
 updateSessionEntryStatus

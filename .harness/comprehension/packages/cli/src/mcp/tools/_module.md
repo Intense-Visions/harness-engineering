@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/mcp/tools'
-sourceHash: '5d02b779f61cbc6af7da9006ed4194bb9c9145d25dd1a4e5f867b0b34f69ef2c'
+sourceHash: 'd91e0457f7f4bc9d66350bf4df2d4475d4bbe3fab0c455938e8477edf3a4c730'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -462,7 +462,6 @@ import { AuditBrandInput, AuditBrandOutput, runAuditBrand } from '../../brand/in
 import { CliErgonomicsCraftInput, CliErgonomicsCraftMode, CliErgonomicsCraftOutput, CollectPromptsOutput, FinalizeCliErgonomicsCraftInput, collectCliErgonomicsCraftPrompts, finalizeCliErgonomicsCraft, runCliErgonomicsCraft } from '../../cli-ergonomics-craft/index.js'
 import { CodeCraftInput, CodeCraftMode, CodeCraftOutput, CollectPromptsOutput, FinalizeCodeCraftInput, collectCodeCraftPrompts, finalizeCodeCraft, runCodeCraft } from '../../code-craft/index.js'
 import { runAdviseSkills } from '../../commands/advise-skills.js'
-import { unparsedFileChecks } from '../../commands/check-deps.js'
 import '../../commands/check-phase-gate.js'
 import '../../commands/create-skill.js'
 import '../../commands/generate-agent-definitions.js'

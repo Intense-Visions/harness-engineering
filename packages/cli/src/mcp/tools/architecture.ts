@@ -1,7 +1,6 @@
 import { resultToMcpResponse } from '../utils/result-adapter.js';
 import { resolveProjectConfig } from '../utils/config-resolver.js';
 import { sanitizePath } from '../utils/sanitize-path.js';
-import { unparsedFileChecks } from '../../commands/check-deps.js';
 
 export const checkDependenciesDefinition = {
   name: 'check_dependencies',
@@ -35,8 +34,14 @@ export async function handleCheckDependencies(input: { path: string }) {
 
   // Delegate to core library
   try {
-    const { validateDependencies, TypeScriptParser, resolveDepsSettings, toLayerConfig } =
-      await import('@harness-engineering/core');
+    const {
+      validateDependencies,
+      TypeScriptParser,
+      resolveDepsSettings,
+      toLayerConfig,
+      assessDepsCoverage,
+      toUnavailableCheck,
+    } = await import('@harness-engineering/core');
     // The same config-to-LayerConfig mapping `harness check-deps` and the
     // `harness ci check` deps step use, so all three honour `deps.exclude`,
     // `deps.fallbackBehavior` (default `skip`, #2098),
@@ -108,24 +113,22 @@ export async function handleCheckDependencies(input: { path: string }) {
 
     if (!result.ok) return resultToMcpResponse(result);
 
-    // Files the engine could not parse (#2073), named the way `check-deps`
-    // names them. Additive: `valid` keeps speaking only to violations, so a
-    // consumer deciding on a clean verdict must also read `unavailableChecks`
-    // unless `abstentionDowngraded` (`deps.fallbackBehavior: 'warn'`) is set.
-    const unavailableChecks = unparsedFileChecks(
-      result.value.unparsedFiles ?? [],
-      settings.rootDir
-    );
+    // What the engine did not cover — files it could not parse (#2073), or
+    // layers with no source module yet (#2671) — from the verdict `check-deps`
+    // and the `ci check` deps step share, named identically. A gap that
+    // `deps.fallbackBehavior: 'warn'` does not downgrade makes `valid` false,
+    // as it does for `check-deps`: a check that examined nothing is not clean.
+    const coverage = assessDepsCoverage(result.value, settings);
+    const unavailableChecks = coverage.gaps.map(toUnavailableCheck);
 
     return resultToMcpResponse({
       ok: true,
       value: {
         ...result.value,
+        valid: result.value.valid && coverage.fatal === 0,
         ...(designViolations.length > 0 ? { designViolations } : {}),
         ...(unavailableChecks.length > 0 ? { unavailableChecks } : {}),
-        ...(unavailableChecks.length > 0 && settings.fallbackBehavior === 'warn'
-          ? { abstentionDowngraded: true }
-          : {}),
+        ...(coverage.downgraded ? { abstentionDowngraded: true } : {}),
       },
     });
   } catch (error) {
