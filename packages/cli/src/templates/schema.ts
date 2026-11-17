@@ -33,6 +33,7 @@ export const TemplateMetadataSchema = z.object({
    * path; this covers a replacement at a different path, e.g. spring-boot's
    * `Application.java` replacing java-base's `Main.java` (#2630). Every entry
    * must name a base file — an unmatched entry is a resolve error, not a no-op.
+   * Paths are matched before `{{placeholder}}` path segments are rendered.
    */
   replaces: z.array(z.string()).optional(),
   mergeStrategy: MergeStrategySchema.prefault({}),

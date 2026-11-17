@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/tests/templates'
-sourceHash: '07441acc8400da0fd3d68d52eb98611489451b3beff04cfc0ccef8780f698c65'
+sourceHash: 'c0928cd1030c600157f6396d81c8af194573ab73779e704fe1b7fa02d54d5bd0'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -10,7 +10,6 @@ members:
     'agents-append.test.ts',
     'ci-pre-merge-brief.test.ts',
     'ci-required-review.test.ts',
-    'ci-templates-placement.test.ts',
     'config-template-validates.test.ts',
     'engine-cov544.test.ts',
     'engine.test.ts',

@@ -15,6 +15,12 @@ export interface TemplateContext {
   goModulePath?: string;
   pythonMinVersion?: string;
   javaGroupId?: string;
+  /**
+   * `javaGroupId` as a directory path (dots → slashes), derived by the engine.
+   * Templates use it as a `{{javaPackagePath}}` path segment so a class that
+   * declares `package {{javaGroupId}};` renders in its package directory (#2630).
+   */
+  javaPackagePath?: string;
   rustEdition?: string;
   // Named-template variables (currently the ci-pre-merge-brief workflow). The
   // engine compiles Handlebars in strict mode, so any template that references
@@ -200,6 +206,29 @@ function scoreDetectPatterns(
 }
 
 function applyLanguageDefaults(context: TemplateContext): TemplateContext {
+  const withDefaults = applyBaseLanguageDefaults(context);
+  if (withDefaults.javaGroupId === undefined || withDefaults.javaPackagePath !== undefined)
+    return withDefaults;
+  return { ...withDefaults, javaPackagePath: withDefaults.javaGroupId.split('.').join('/') };
+}
+
+const PATH_PLACEHOLDER = /\{\{\s*(\w+)\s*\}\}/g;
+
+/**
+ * Substitute `{{name}}` placeholders in a template file's relative path with
+ * string context values. Strict like the content render: a placeholder with no
+ * string value is an error, never an empty or literal path segment.
+ */
+function renderPath(relativePath: string, context: TemplateContext): string {
+  return relativePath.replace(PATH_PLACEHOLDER, (_match, name: string) => {
+    const value = (context as unknown as Record<string, unknown>)[name];
+    if (typeof value !== 'string' || value.length === 0)
+      throw new Error(`path placeholder {{${name}}} has no value in the template context`);
+    return value;
+  });
+}
+
+function applyBaseLanguageDefaults(context: TemplateContext): TemplateContext {
   return {
     ...context,
     ...(context.harnessCliVersion === undefined && { harnessCliVersion: CLI_VERSION }),
@@ -353,8 +382,8 @@ export class TemplateEngine {
     context: TemplateContext,
     jsonBuffers: Map<string, Record<string, unknown>[]>
   ): Result<RenderedFile | null, Error> {
-    const outputPath = file.relativePath.replace(/\.hbs$/, '');
     try {
+      const outputPath = renderPath(file.relativePath, context).replace(/\.hbs$/, '');
       if (file.isHandlebars) {
         const raw = fs.readFileSync(file.absolutePath, 'utf-8');
         const compiled = Handlebars.compile(raw, { strict: true });
@@ -367,7 +396,7 @@ export class TemplateEngine {
         return Ok({ relativePath: outputPath, content });
       }
       const content = fs.readFileSync(file.absolutePath, 'utf-8');
-      return Ok({ relativePath: file.relativePath, content });
+      return Ok({ relativePath: outputPath, content });
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error);
       return Err(
