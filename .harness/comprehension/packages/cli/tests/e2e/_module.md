@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/tests/e2e'
-sourceHash: 'c89ae994ae5623e9bc8fd856f9475f568450383581f25a88e6faac68109a0f56'
+sourceHash: '160f0a1a398e4f88ff9e8a24d8d221e28386eaa2e84d0d1bf2dbc0078fcd2577'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -10,6 +10,7 @@ members:
     'autonomy-env-lower-only.e2e.test.ts',
     'cli-smoke.e2e.test.ts',
     'comprehend-boundary.e2e.test.ts',
+    'json-output-contract.e2e.test.ts',
     'json-stdout-clean.e2e.test.ts',
     'json-stdout-pipe.e2e.test.ts',
   ]

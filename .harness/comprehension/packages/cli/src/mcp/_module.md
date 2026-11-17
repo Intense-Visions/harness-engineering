@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/mcp'
-sourceHash: '9eacf01738b908a3b79cf6cde1ac58853c97fd113d50151a66f22c602a76c853'
+sourceHash: '5761225dda0639058c97452bb39cbb924666415bc9a19dc5110eab0afd488f86'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -35,7 +35,7 @@ export startServer
 
 ```
 import { ensureComprehensionSearchIgnore, ensureHarnessGitignore } from '../templates/post-write.js'
-import '../version.js'
+import { CLI_VERSION } from '../version.js'
 import { agentsMdEntry, gatherContextSurface, hooksEntry, mcpToolEntries, skillTreeEntries, toolDefinitionText } from './context-surface'
 import { getToolDefinitions } from './index.js'
 import { applyCompaction } from './middleware/compaction.js'

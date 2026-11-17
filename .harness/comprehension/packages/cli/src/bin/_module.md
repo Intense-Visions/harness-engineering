@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/bin'
-sourceHash: '52d18b757d188330e71f08c0e95595f46751f79e20c61114c2d8230645b2224d'
+sourceHash: 'b3912960ce0ec9aa7a07967fd64a32a5f37383634b1b328cd0a2345562a003c4'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -43,6 +43,7 @@ export truncateAdoptionFile
 import { findConfigFile, loadConfig } from '../config/loader'
 import { createProgram, handleError } from '../index'
 import { startServer } from '../mcp/index.js'
+import { installErrorJsonSerialization } from '../output/error-json'
 import { getFreshnessNotification, isFreshnessCheckEnabled, readFreshnessState, shouldRunFreshnessCheck, spawnBackgroundFreshnessCheck } from '../registry/freshness-checker'
 import { SessionDispatchResult, formatDispatchBanner, sessionStartDispatch } from '../skill/dispatch-session'
 import { printFirstRunWelcome } from '../utils/first-run'

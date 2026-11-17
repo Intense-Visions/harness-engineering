@@ -1,7 +1,6 @@
 import { Command } from 'commander';
-import { getJson, orchestratorBase } from './http-client';
-import { logger } from '../../output/logger';
-import { ExitCode } from '../../utils/errors';
+import { getJson } from './http-client';
+import { failRoutingCall, routingFailureMessage } from './failure';
 
 /**
  * Spec B Phase 6: `harness routing config` — GET /api/v1/routing/config.
@@ -45,18 +44,7 @@ export function createConfigCommand(): Command {
     .action(async (opts: { json?: boolean }) => {
       const r = await getJson<ConfigResponse>('/api/v1/routing/config');
       if (!r.ok) {
-        if (r.status === 0) {
-          logger.error(
-            `Failed to reach orchestrator at ${orchestratorBase()}: ${r.error ?? 'unknown error'}`
-          );
-        } else if (r.status === 503) {
-          logger.error(
-            'Routing observability not available — orchestrator has no BackendRouter (legacy single-backend config)'
-          );
-        } else {
-          logger.error(`Request failed (${r.status}): ${r.error ?? ''}`);
-        }
-        process.exit(ExitCode.ERROR);
+        failRoutingCall(routingFailureMessage(r, { unavailableOn503: true }), r.status, opts.json);
         return;
       }
       if (opts.json) {

@@ -51,7 +51,10 @@ const LOSSLESS_PIPELINE = new CompactionPipeline([new StructuralStrategy()]);
 /** Build the `<!-- packed: ... -->` header line. */
 function buildHeader(pipeline: CompactionPipeline, orig: number, comp: number): string {
   const pct = orig > 0 ? Math.round((1 - comp / orig) * 100) : 0;
-  return `<!-- packed: ${pipeline.strategyNames.join('+')} | ${orig}→${comp} tokens (-${pct}%) -->`;
+  // A saving reads `-N%`; when the header pushes the packed size ABOVE the
+  // original (small payloads), say `+N%` rather than the old `--N%`.
+  const delta = pct >= 0 ? `-${pct}%` : `+${-pct}%`;
+  return `<!-- packed: ${pipeline.strategyNames.join('+')} | ${orig}→${comp} tokens (${delta}) -->`;
 }
 
 /** Compact text via the given pipeline (no header). */
