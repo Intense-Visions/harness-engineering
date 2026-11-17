@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.57.1
+
+### Patch Changes
+
+- a761d42: fix(validate): MCP `validate_project`, `harness validate` and `harness ci check` now reach one verdict on missing AGENTS.md sections (#2669)
+
+  A missing required AGENTS.md section (`Project Overview`, `Repository Structure`, `Development Workflow`) was a blocking error in MCP `validate_project`, invisible to `harness validate`, and a warning in `harness ci check`. All surfaces now derive the finding from one shared core verdict, `agentsMapSectionFindings`, at one severity — `warning`: reported, never flipping `valid`. MCP `validate_project` reports it under a new `warnings` array instead of `errors`, and `harness validate` now surfaces it as a warning-severity `agentsMap` issue. Broken AGENTS.md links are unchanged.
+
+  Every scaffold template's AGENTS.md (`base`, `go-base`, `java-base`, `python-base`, `rust-base`) now carries the required sections, so a freshly initialised project passes harness's own section check.
+
+- abcabad: Fix `harness check-deps` failing every freshly scaffolded project, and make `check-deps`, `harness ci check` and the `check_dependencies` MCP tool agree on the same tree (#2671).
+
+  Layers that hold no source modules yet (a fresh scaffold's directories contain only `.gitkeep`) are now an abstention on every surface: `check-deps` exits 3 (ZERO_DENOMINATOR) under a `layer validation` label that reads "No source modules yet … nothing to check". Before, it exited 1, the exit code of a real violation, under an `unknown` label. The `ci check` deps step reports `skip` with that reason instead of `pass`, and the MCP tool returns `valid: false` with the same `unavailableChecks` entry instead of `valid: true`. All three now read one shared verdict, core's `assessDepsCoverage`. Dependency-graph nodes are now source files only, so `.gitkeep`, Markdown and directories are no longer listed as modules. A real layer violation still fails all three, and real source with no violations still passes all three.
+
 ## 0.57.0
 
 ### Minor Changes
