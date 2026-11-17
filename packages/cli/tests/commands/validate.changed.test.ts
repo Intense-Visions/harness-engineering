@@ -5,7 +5,10 @@ vi.mock('@harness-engineering/core', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@harness-engineering/core')>();
   return {
     ...actual,
-    validateAgentsMap: vi.fn().mockResolvedValue({ ok: true, value: {} }),
+    validateAgentsMap: vi.fn().mockResolvedValue({
+      ok: true,
+      value: { valid: true, missingSections: [], brokenLinks: [] },
+    }),
     validateKnowledgeMap: vi.fn().mockResolvedValue({ ok: true, value: { brokenLinks: [] } }),
   };
 });

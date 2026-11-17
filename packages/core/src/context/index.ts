@@ -1,7 +1,14 @@
 /**
  * Validation utilities for AGENTS.md and knowledge maps.
  */
-export { validateAgentsMap, extractMarkdownLinks, extractSections } from './agents-map';
+export {
+  validateAgentsMap,
+  extractMarkdownLinks,
+  extractSections,
+  agentsMapSectionFindings,
+  AGENTS_MAP_MISSING_SECTION_SEVERITY,
+} from './agents-map';
+export type { AgentsMapSectionFinding } from './agents-map';
 
 /**
  * Documentation coverage analysis to ensure all critical code is documented.
