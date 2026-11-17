@@ -5,6 +5,7 @@
 # public-API addition or removal is always a reviewed diff of this file.
 ABSTENTION_PLACEHOLDER
 ADVERSARIAL_DESCRIPTOR
+AGENTS_MAP_MISSING_SECTION_SEVERITY
 AGENT_DESCRIPTORS
 AGREEMENT_LINE_GAP
 ALLOWED_FIELD_KEYS
@@ -71,6 +72,7 @@ AgentReviewResult
 AgentSession
 AgentType
 AgentsMapConfig
+AgentsMapSectionFinding
 AllowanceFilteredDiff
 AnnotationIssue
 AnnotationIssueType
@@ -1631,6 +1633,7 @@ acquireCompoundLock
 addProvenance
 advanceMark
 agentConfigRules
+agentsMapSectionFindings
 aggregateAdoptionByDay
 aggregateByDay
 aggregateBySession

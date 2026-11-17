@@ -1,12 +1,13 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/tests/integration'
-sourceHash: '1ec7f6ce8dbff9b2711bb3bf7266230b2e0dfecf8f22bc7685a4da45c0ef1f7f'
+sourceHash: '71c00d3dddcbe649bf41ef530def7e1d19c7f8807493407b6349ce3cc1608d2a'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
 members:
   [
+    'agents-map-verdict-parity.test.ts',
     'autopilot-skill-hooks.test.ts',
     'check-deps-exit-code.e2e.test.ts',
     'cleanup-duplication-exit-code.e2e.test.ts',
@@ -47,6 +48,7 @@ import '../../src/mcp/tools/architecture'
 import '../../src/mcp/tools/assess-project'
 import '../../src/mcp/tools/entropy'
 import '../../src/mcp/tools/security'
+import { handleValidateProject } from '../../src/mcp/tools/validate'
 import { captureHealthSnapshot, isSnapshotFresh } from '../../src/skill/health-snapshot'
 import { recommend } from '../../src/skill/recommendation-engine'
 import { RecommendationResult } from '../../src/skill/recommendation-types'
@@ -56,7 +58,7 @@ import { resolveTemplatesDir } from '../../src/utils/paths'
 import { HARNESS_BIN, cleanup, runHarness, scaffoldProject, skipUnlessBin } from '../e2e/support'
 import { runHarness } from '../e2e/support/harness-cli'
 import { scaffoldInitFixture } from './_helpers/init-fixture'
-import { ALLOWED_FIELD_KEYS, CRAFT_REVIEW_DOMAINS, CRAFT_REVIEW_EVENTS_BY_HOST, Clump, ClumpResult, ClumpableItem, Confidence, CraftTier, DEFAULT_CLUMP_POLICY, Grade, Impact, PII_FIELD_DENYLIST, clearPulseAdapters, formClumps, parseRoadmap, planCraftReviewDomains, registerMockAdapter, registerPulseAdapter, resolveFloor, resolveReviewHooksWithCraft } from '@harness-engineering/core'
+import { ALLOWED_FIELD_KEYS, CRAFT_REVIEW_DOMAINS, CRAFT_REVIEW_EVENTS_BY_HOST, Clump, ClumpResult, ClumpableItem, Confidence, CraftTier, DEFAULT_CLUMP_POLICY, Grade, Impact, PII_FIELD_DENYLIST, REQUIRED_SECTIONS, clearPulseAdapters, formClumps, parseRoadmap, planCraftReviewDomains, registerMockAdapter, registerPulseAdapter, resolveFloor, resolveReviewHooksWithCraft, runCIChecks, validateAgentsMap } from '@harness-engineering/core'
 import * as core from '@harness-engineering/core'
 import { PulseAdapter, SanitizedResult } from '@harness-engineering/types'
 import * as fs from 'fs'

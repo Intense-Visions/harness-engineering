@@ -116,10 +116,25 @@ describe('handleValidateProject — default-path structure + agentsMap branches'
     const parsed = JSON.parse(res.content[0].text);
     expect(parsed.checks.agentsMap).toBe('fail');
     expect(parsed.valid).toBe(false);
-    expect(
-      parsed.errors.some((e: string) => e.includes('missing sections: Overview, Commands'))
-    ).toBe(true);
+    // Missing sections are warning-severity on every surface (#2669): reported
+    // under `warnings`, never under `errors`. The broken links are what fail it.
+    expect(parsed.warnings).toEqual(['Missing section: Overview', 'Missing section: Commands']);
+    expect(parsed.errors.some((e: string) => /missing section/i.test(e))).toBe(false);
     expect(parsed.errors.some((e: string) => e.includes('2 broken link(s)'))).toBe(true);
+  });
+
+  it('missing AGENTS.md sections alone are a non-blocking warning, not a failure (#2669)', async () => {
+    validateAgentsMapMock.mockResolvedValue({
+      ok: true,
+      value: { valid: false, missingSections: ['Project Overview'], brokenLinks: [] },
+    });
+    writeConfig(dir);
+    const res = await handleValidateProject({ path: dir });
+    const parsed = JSON.parse(res.content[0].text);
+    expect(parsed.valid).toBe(true);
+    expect(parsed.checks.agentsMap).toBe('pass');
+    expect(parsed.errors).toEqual([]);
+    expect(parsed.warnings).toEqual(['Missing section: Project Overview']);
   });
 
   it('marks agentsMap fail when its validator returns an error result', async () => {

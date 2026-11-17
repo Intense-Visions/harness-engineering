@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/src/ci'
-sourceHash: 'f28bac433ad046e36935cc962b9bef14061e0677810357fb8c80acf2ef1239a5'
+sourceHash: '858443709e50e1ae607ffc603f632d24d1284b9346d7fd1531dc44c22913a704'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -67,7 +67,7 @@ import { computeSourceHash } from '../comprehension/source-hash'
 import { validateDependencies } from '../constraints/dependencies'
 import { resolveDepsSettings, toLayerConfig } from '../constraints/layer-config'
 import { ResolvedConstraintPacks, resolveConstraintPacks } from '../constraints/packs'
-import { validateAgentsMap } from '../context/agents-map'
+import { agentsMapSectionFindings, validateAgentsMap } from '../context/agents-map'
 import { checkDocCoverage } from '../context/doc-coverage'
 import { EntropyAnalyzer } from '../entropy/analyzer'
 import { DriftConfig } from '../entropy/types'

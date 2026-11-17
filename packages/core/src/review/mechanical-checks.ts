@@ -7,7 +7,7 @@ import type {
   MechanicalCheckStatus,
   MechanicalCheckOptions,
 } from './types';
-import { validateAgentsMap } from '../context/agents-map';
+import { validateAgentsMap, agentsMapSectionFindings } from '../context/agents-map';
 import { validateDependencies, defineLayer } from '../constraints/dependencies';
 import { checkDocCoverage } from '../context/doc-coverage';
 import { SecurityScanner } from '../security/scanner';
@@ -60,12 +60,13 @@ export async function runMechanicalChecks(
             });
           }
         }
-        for (const section of result.value.missingSections) {
+        // One shared verdict for the section check across every surface (#2669).
+        for (const finding of agentsMapSectionFindings(result.value)) {
           findings.push({
             tool: 'validate',
             file: agentsPath,
-            message: `Missing section: ${section}`,
-            severity: 'warning',
+            message: finding.message,
+            severity: finding.severity,
           });
         }
       } else {

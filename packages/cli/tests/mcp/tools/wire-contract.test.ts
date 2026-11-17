@@ -139,6 +139,10 @@ afterEach(() => {
 describe('validate_project over the wire', () => {
   it('delivers verdict + checks, with a single error collapsed to a string', async () => {
     const root = copyFixture('valid-project');
+    // One blocking finding: a broken AGENTS.md link. (Missing sections are a
+    // non-blocking `warnings` entry on every surface since #2669, so they no longer
+    // produce the single error this collapse test needs.)
+    fs.appendFileSync(path.join(root, 'AGENTS.md'), '\n- Gone: [Gone](./docs/gone.md)\n');
     const { header, payload, rawPayload } = await deliverJson(
       'validate_project',
       handleValidateProject,
@@ -152,7 +156,8 @@ describe('validate_project over the wire', () => {
     // The handler emits `errors: [msg]`; the client receives `errors: msg`.
     expectCollapsed(rawPayload.errors, payload.errors, 'errors');
     expect(payload.errors).toBeTypeOf('string');
-    expect(payload.errors).toContain('AGENTS.md missing sections');
+    expect(payload.errors).toContain('AGENTS.md has 1 broken link(s)');
+    expect(payload.warnings).toEqual(expect.arrayContaining(['Missing section: Project Overview']));
   });
 });
 
@@ -451,6 +456,7 @@ describe('run_security_scan over the wire', () => {
 describe('assess_project over the wire', () => {
   it('delivers the verdict and every named check with its pass flag', async () => {
     const root = copyFixture('valid-project');
+    fs.appendFileSync(path.join(root, 'AGENTS.md'), '\n- Gone: [Gone](./docs/gone.md)\n');
     const { header, payload } = await deliverJson(
       'assess_project',
       handleAssessProject,
@@ -468,7 +474,7 @@ describe('assess_project over the wire', () => {
       expect.arrayContaining(['validate', 'deps', 'docs', 'entropy', 'security', 'perf'])
     );
     expect(byName.validate).toMatchObject({ passed: false, issueCount: 1 });
-    expect(byName.validate.topIssue).toContain('AGENTS.md missing sections');
+    expect(byName.validate.topIssue).toContain('AGENTS.md has 1 broken link(s)');
     expect(byName.deps.passed).toBe(true);
   });
 });
