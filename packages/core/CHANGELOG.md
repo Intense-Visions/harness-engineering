@@ -1,5 +1,179 @@
 # Changelog
 
+## 0.57.0
+
+### Minor Changes
+
+- f9e8f49: Auto-wire craft critique at the review moment, and make code-craft genuinely multi-language.
+
+  `core` gains `craft-review-hooks`: a diff-driven, capability-gated resolver that attaches advisory,
+  non-blocking craft critique at a host's review events, as a twin of the existing canary detector
+  resolver. A domain activates only when the diff touches a surface it owns AND a language it can
+  actually extract units from, so a domain that cannot read the changed files is reported as an
+  explicit skip rather than returning an empty finding set — which is indistinguishable from "this
+  code is fine".
+
+  `core/code-nav` gains `getOutlineFromSource` and two fixes that this surfaced. Decorated Python
+  definitions were dropped entirely, because tree-sitter wraps a decorated `def` or `class` in
+  `decorated_definition` while the node maps keyed on `function_definition`: a Flask module whose
+  handlers are all `@app.route`-decorated extracted zero symbols. Rust `mod` bodies were never walked,
+  so everything inside a `mod` was invisible. Both now surface, which also benefits `code_outline` and
+  `code_search`. `code_unfold` sees strictly more symbols too, but it is not a pure gain: lookup is
+  first-match-wins over the outline, so in a Rust file where a `mod`-nested name shadows a top-level
+  one, `code_unfold` now resolves to whichever is EARLIER IN THE FILE — previously it could only ever
+  find the top-level one. That resolution rule is now pinned by a test rather than incidental.
+
+  `cli` gains a shared multi-language extraction seam, and `code-craft` now critiques Python, Go, Rust
+  and Java as well as TypeScript and JavaScript — recursing into nested methods, de-duplicating Rust's
+  struct/impl double emission, and normalizing Go's struct kind so its units actually select rubrics
+  instead of being extracted, counted and critiqued by nothing.
+
+  `harness-autopilot` now resolves those domains at both of its review moments. Its SKILL.md documents
+  `resolveReviewHooksWithCraft` at `after:REVIEW` and `after:FINAL_REVIEW` alongside the canary
+  detectors it already resolves there, with the contract the resolver cannot enforce from prose alone:
+  advisory and never blocking, diff-scoped, budget-capped, once per phase per diff via `alreadyRanFor`,
+  graceful-skip for a harness default against a hard halt for a user-declared hook, and a reported
+  denominator so a `0/M` renders as `0/M` rather than as silence. The forwarded file list must be
+  resolved to ABSOLUTE paths: `CraftReviewPlan.files` carries repo-relative POSIX paths and the craft
+  collectors read them against the process CWD. Forwarding them unresolved fails differently by domain
+  and neither failure is loud at the call site: the nine collector-based domains produce a run that
+  opens no file and reports a confident clean pass, while `design_craft` has no collector and throws
+  `ENOENT` out of `runCritique` instead.
+
+  `harness-code-review` is the second wired host, at its `after:mechanical` event, so craft reaches
+  interactive and CI review and not only autopilot runs. Its SKILL.md records the four claims an
+  implementer cannot infer from the resolver: the timing asymmetry (craft resolves BEFORE the AI
+  fan-out here, AFTER the review under autopilot), the hard-halt EXCEPTION that keeps a missing craft
+  default a skip rather than the halt this skill's own contract would otherwise impose, the rule that
+  craft findings must never enter the mechanical exclusion set — a craft taste judgment at `file:line`
+  discarding a reviewer's real finding at the same `file:line` would be a false green manufactured by
+  this very wiring — and the same ABSOLUTE-path forwarding requirement. All ten auto-wired craft
+  skills now carry an "Invoked as a review hook" section stating the contract they are invoked under,
+  including whether their own MCP tool accepts a `promptBudget`: `design_craft` does not, so the
+  uniform "files plus promptBudget" claim was false for the priority-1 domain and is now qualified
+  wherever it appears.
+
+  `security-craft` now extracts from `.mts` and `.cts`, which its `supportedLanguages` already claimed.
+  It carried the same second extension list that was deleted from `code-craft`, so on identical source
+  a `.ts` file yielded three signals and a `.mts` file yielded zero — a clean security report from a
+  scan that read nothing. `cli-ergonomics-craft` no longer owns the data and markup that merely lives
+  under `cli/`, `commands/`, `cmd/` or `bin/` (a denylist, so unmapped LANGUAGES like `.sh` and `.rb`
+  still pass; `.md` stays owned, because CLI help text is ergonomics).
+
+  Skill availability now resolves through one shared module for both review hosts, removing a
+  byte-identical triple of private helpers and an unreachable predicate clause.
+
+- fa244bf: Clumping follow-ups (#2476):
+  - **Review comments keep their committable suggestion.** A sub-floor finding carrying a small (`< 10` lines) suggestion now keeps its own anchored inline comment with its ` ```suggestion ` block instead of being folded into a grouped comment, since GitHub applies a suggestion only at the line its comment is anchored to. A grouped comment now also states which file it is anchored on, because its other members' lines carry no marker in the diff.
+  - **The comment-grouping report is returned, not discarded.** `ReviewPipelineResult.githubCommentReport` (a `ClumpedCommentReport`, now with a `committable` count) explains a comment count far below the finding count; `run_code_review` emits it next to `githubCommentCount`, and `harness agent review --json` carries `githubComments` and `githubCommentReport`.
+  - **`harness fleet clump-dispatch` exit codes are distinct per refusal.** An unreadable `--verdict` file now exits `17` and a clump with no reported outcomes exits `18`; `14` means only "the input carries no clump set".
+
+- 90ddc68: Add `harness ci attribute-failure` to attribute a PR's red check before you retry it (#1839). It reads the failing job's log and parses the failing test names. It then checks the same job's runs on unrelated PRs and on `main` within ±24h of the failure, and whether the failing test or its source is in the PR's diff. The verdict is `environmental` when the same test failed on at least two independent unrelated diffs or `main` and the PR does not touch it. It is `in-diff` when the PR touches the test or its source, and `inconclusive` otherwise. Every verdict reports its denominator. Expired job logs (`BlobNotFound`) make the command abstain with exit code 3 instead of guessing. The pure classifier (`attributeFailure`, `parseFailingTests`, `matchDiff`) is exported from `@harness-engineering/core`. The `pr-fleet` and `cicd-fleet` skills now say to correlate first and retry only when the verdict is inconclusive.
+- b601a76: Duplication detection now ignores vendored build caches by default. `DEFAULT_DUPLICATION_CONFIG.ignorePatterns` adds the dependency pre-bundles and build caches that front-end tooling writes into the project tree — `.vitepress/cache`, `.vite`, `.next`, `.nuxt`, `.output`, `.svelte-kit`, `.turbo`, `.parcel-cache`, `.cache` and `.angular/cache` — so clone classes made of generated output nobody refactors (e.g. VitePress's `deps_temp_*` pre-bundles) no longer appear in `harness cleanup -t duplication` or `detect_entropy`. First-party files next to them, such as `.vitepress/theme/`, are still scanned. A configured `duplication.ignorePatterns` still replaces the defaults.
+- 9be57d2: Add user-level trusted autonomy mode: `resolveAutonomy` with flag/session/env/user-config precedence, a home-dir session-override store whose agent-callable path (`manage_state set-autonomy`) can only lower autonomy, a `gather_context` `autonomy` include, and `harness autonomy show|set`.
+
+  Raises can come only from `~/.harness/config.json` or an interactive `harness autonomy set`: the `HARNESS_AUTONOMY*` environment tier (reachable from a project `.env`) can only lower. A raise is bound to an existing `.harness/sessions/<slug>/`, expires (default 24h, `--for <duration>`), and is appended to `~/.harness/autonomy-audit.log`. Corrupt overrides fail closed, override writes are locked, and all worktrees of a repo share one override. A new minimal-profile `autonomy-guard` PreToolUse hook blocks agent raises via `harness autonomy set` (and any `autonomy set` whose level or audit is not literally a lowering), a `harness` invocation whose runtime-built argument (`$VAR`, `$(…)`, backticks) could select `autonomy set` (runtime-built arguments to other literal subcommands, and to `autonomy log` / `autonomy show`, stay allowed), `cd` or variable assignment aimed at `~/.harness`, and agent writes to `~/.harness/config.json`, `~/.harness/session-overrides/` and `~/.harness/autonomy-audit.log`.
+
+  Session slugs are now validated by one shared rule, so `resolveSessionDir` (and every `session` argument that reaches it) newly rejects slugs containing `:`, dot-only slugs (`.`, `...`), slugs with leading or trailing whitespace, and Windows reserved device names (`CON`, `NUL`, `COM1`, ...).
+
+  Add the trusted-autonomy decision log: a `record_auto_decision` MCP tool (standard tier) that validates each entry strictly, stamps `ts` and `autonomySource` itself (caller-supplied values are rejected), refuses entries the resolved autonomy does not permit, and appends one line to `.harness/sessions/<slug>/auto-decisions.jsonl` (append-only; a failed write returns `recorded: false` with `action: "pause"`). `harness autonomy log --session <slug> [--json]` summarizes counts by class, `audited N/M` (M counts every judgment decision, including audit `unavailable`/`off`), the agreement rate and escalations; core exports the pure `renderAutoDecisionSummary` for end-of-run summaries. Override-lock release now verifies ownership before unlinking. The `autonomy-guard` hook also blocks agent Write/Edit/Bash writes to `auto-decisions.jsonl` (reads stay allowed). `harness cleanup-sessions` (including `--all`) no longer TTL-deletes a session whose `auto-decisions.jsonl` is non-empty, and `harness autonomy log` reads the newest archived copy (`.harness/archive/sessions/<slug>-<date>`) when the live session is gone.
+
+  Add the trusted-autonomy Pause Protocol (`agents/skills/templates/pause-protocol.md`): every pause point in the brainstorming, planning, autopilot, execution, soundness-review, code-review and integration skills is labelled `ceremony`, `judgment`, `irreversible` or `gate` (enforced by a test). In trusted mode, ceremony and judgment pauses auto-resolve only after `record_auto_decision` succeeds, and judgment forks first pass a blind re-derivation and refutation self-audit; irreversible and gate pauses always stop. Autopilot `--fast` no longer auto-approves plans or INTEGRATE. Autopilot, execution and brainstorming print the auto-decision summary at the end of a run. Invocation flags may now only lower autonomy (`resolveAutonomy` ignores a `trusted` or audit-off flag with a warning), and Tier-1 workflow skills accept `--supervised` / `--audit`. Decision-log text accepts ZERO WIDTH NON-JOINER / JOINER, `harness autonomy log` says when older archived copies of a session exist, and `harness cleanup-sessions` reports sessions it kept because they hold an auto-decision log (`retained` in `--json`).
+
+  Generated Claude Code persona subagents now list the four Pause Protocol MCP tools (`gather_context`, `manage_state`, `record_auto_decision`, `emit_interaction`) under both the `harness` and `harness-claude` plugin server names, so trusted mode reaches inside autopilot's planner and executor. Personas can therefore write the decision log, whose audit statuses remain agent-reported. A dispatched subagent cannot spawn the blind auditor, so instead of taking a judgment fork unaudited it hands it back as a `judgment-fork:` handoff blocker that autopilot audits in the main session.
+
+  The sentinel injection scanner (INJ-UNI-001) no longer flags ZERO WIDTH NON-JOINER / JOINER between characters of a joining script (Arabic, Syriac, N'Ko, Mongolian, the Indic scripts, Sinhala) or inside an emoji ZWJ sequence (VARIATION SELECTOR-16 counts only after a pictograph); ZERO WIDTH SPACE, BOM, WORD JOINER and out-of-context ZWNJ/ZWJ still taint.
+
+  The orchestrator routes a dispatch whose handoff (session, stream or global) carries an `audit-disagreement:` or `judgment-fork:` blocker to its `needs-human` queue, with the handoff's `concerns` as reasons; it records the `needs-human` verdict and neither ships nor re-dispatches the unit. Staged dispatch checks after every passing stage, through a new optional `humanDecisionAfterStage` engine seam.
+
+### Patch Changes
+
+- 977ca7f: perf(arch): parse each file once per `check-arch` run instead of once per dependency collector (#2270)
+
+  The circular-deps, layer-violations and forbidden-imports collectors each parsed every file they read, so a file all three cover was parsed three times per `harness check-arch` / `harness ci check` / dashboard arch refresh (8,405 parses on this repo). `runAll` now hands every collector one run-scoped context whose parser memoizes each file's imports, which drops that to 4,779 — one per distinct file — with every collector's output unchanged. The memo lives only for one `runAll` call, so long-lived hosts (MCP server, dashboard, orchestrator) never reuse a parse across runs.
+
+  `Collector.collect` gains an optional third `context` argument; collectors that ignore it, and direct calls that omit it, behave exactly as before.
+
+- 10e2b9d: Run the detached background update check and skill-freshness probe from the OS temp directory instead of inheriting the project directory as their working directory. On Windows a process's current directory is held open, so for up to ~15 s after any `harness` command the project directory could not be deleted or renamed (`EBUSY`). This was also the root cause of the intermittent `comprehend-smoke` E2E teardown failure on Windows CI (#2652).
+- 08e263b: `harness check-arch --json` (and `harness snapshot`) now produce byte-identical output for an unchanged tree. Collector results arrived in async file-discovery order, so `preExisting` and `thresholdViolations` were reordered on every run; a new core `sortMetricResults` helper puts results and their violations into a canonical order (category, scope, file, detail, id) before they reach the report, baseline and timeline writers.
+- 468f0b6: `deps.resolveWorkspacePackages` now also reaches the `layer-violations` collector of `harness check-arch` and the `deps` step of `harness ci check`, so with the flag on both report the same cross-package layer violations `harness check-deps` does (#2216). The flag stays off by default, and with it off both gates behave exactly as before.
+- 8e49d22: fix(check-deps): stop passing over source files that fail to parse (#2073)
+
+  `buildDependencyGraph` dropped any file it could not parse without a word, so a single syntax error hid every layer violation in that file: `harness check-deps` printed `v validation passed`, exited `0`, and still counted the dropped file as analysed.
+  - Core: `buildDependencyGraph`, `validateDependencies` and `detectCircularDepsInFiles` now return `unparsedFiles` (path + parser reason) and `analyzedFiles` (source files whose imports were actually read). Directories and non-source files matched by a layer glob stay out of scope. `DependencyValidation.valid` still speaks only to violations.
+  - CLI: `check-deps` reports each unparseable file by path on the "checks that could not run" channel and refuses a clean verdict — exit `3` (`ZERO_DENOMINATOR`) by default, downgraded to `0` (still reported) under `deps.fallbackBehavior: "warn"`, matching the existing engine-abstention policy.
+  - CLI: "Analyzed N module(s)" is now the real denominator. It used to count every path the layer globs matched, including directories (2730 on this repo; the real number is 2345).
+
+- 8fa9c1a: `harness ci check` now reports every config-disabled gate as `skip` instead of `pass`: `security.enabled: false`, `traceability.enabled: false`, `architecture.enabled: false` and `phaseGates.enabled: false` (or no `phaseGates` block) join `deps` / `entropy` / `performance`. A gate that did not run never reads as green; it is an acknowledged skip (no `skipReason`, not counted as an abstention), so the exit code is unchanged at `0`. The configuration reference's `entropy` intro no longer claims the block detects high-entropy strings — it configures drift, dead-code, pattern and duplication analysis.
+- 6c94b08: `harness ci check`'s deps step now honours `deps.exclude`, `deps.fallbackBehavior`, `deps.resolveWorkspacePackages` and `rootDir` from `harness.config.json`, like `harness check-deps` does. It also reports files that fail to parse: by default the step abstains (exit 3), and with `deps.fallbackBehavior: "warn"` it reports a warning. Before this change those files were skipped and the step still passed. Both commands now read these settings through one shared helper, `resolveDepsSettings` / `toLayerConfig` in core, so they can't get out of sync again (#2606).
+- 4224017: fix: honour `entropy.enabled: false` in `harness cleanup`, `detect_entropy` and `harness ci check` (#2633). `harness cleanup` and `detect_entropy` with type `all` no longer run the doc-drift, dead-code and pattern analyzers on a project that declared them not applicable, and say they are disabled by config; an explicit `-t drift|dead-code|patterns` refuses. `harness ci check` reports a config-disabled `deps`, `entropy` or `perf` gate as `skip` instead of `pass`.
+- 128f318: fix(comprehension): `harness comprehend --changed` (the pre-commit path) now applies the same module-eligibility rule as `--all`, so it no longer compiles units for dot-directories or `node_modules`/`dist`/`build`/`coverage` paths that no full sweep would ever enumerate. `--check` reports such orphan units (and units whose module directory was deleted) separately from source-stale ones, and the new token-free `harness comprehend --prune` deletes them. Core's `runComprehendCheck` accepts an optional `listModules` and returns `orphans`; `findOrphanModules` is exported.
+- f90bd73: Craft collectors (`code_craft`, `security_craft`, `docs_craft`, `spec_craft`, `knowledge_craft`, `cli_ergonomics_craft`, `api_craft`) now resolve a relative `files` entry against the run's `path` instead of `process.cwd()`. Before, such an entry was skipped without any error and the run reported a clean pass with zero prompts. The review-hook craft resolver now recognises `.test/.spec.mts|.cts`, `*Tests.java`, `*IT.java` and `*_test.rs` as tests, and `.d.mts`/`.d.cts` as declarations. Before, these files activated code-craft, security-craft and naming-craft on a test or declaration file, used up the default budget, and kept test-craft from running (#2571).
+- 5d9e0d2: fix(perf): critical-path resolution no longer reports a clean 0 or test fixtures
+
+  `CriticalPathResolver` (behind `harness perf critical-paths` and the `get_critical_paths` MCP tool) now marks an empty set with `noSignal: { reason }` and reports whether graph inference ran via `graphInference: { status: 'ran' } | { status: 'not-run', reason }`, so consumers scoring on critical-path membership can tell an abstention from a measurement (#2327). The annotation scan now skips test, spec, bench, fixture, and mock files and only honours the marker inside a comment, so test fixtures and string literals are no longer registered as production hot paths (#2256). The text output prints "graph inference not run" instead of "0 graph-inferred" and warns when there is no signal.
+
+- c5e6e98: fix(entropy): remove three dead-code false-positive engines (#2075)
+  - A configured entry point under a skip-dir (e.g. `src/bin/harness.ts`) is now scanned together with its sibling modules, instead of being dropped by the `bin` walker skip-dir before config is consulted. Test files under a matching `bin/` test directory now contribute their import edges too.
+  - Extensionless imports of a dotted basename (`./budget.types`, `./app.config`) now resolve to `budget.types.ts` / `app.config.ts`.
+  - Default imports, aliased named imports (`{ a as b }`), `export { default } from` / `export { default as X } from` re-exports, and dynamic `import()` now credit the export they consume in the usage map.
+
+- 894c1ad: Dead-code detection now resolves bare specifiers that name a workspace package (`@scope/pkg`, `@scope/pkg/sub`) to the package's source file, reusing the layer check's workspace-member resolver. A symbol exported by one package and imported by another by package name is no longer reported dead; external `node_modules` packages stay unresolved as before (#2189).
+- 971dc7b: fix(autonomy): serialize auto-decision log appends so a concurrent writer can no longer leave a blank line in `auto-decisions.jsonl`. The cut-short-line repair read the log's tail and then wrote; on Linux another writer's line still being copied looked cut short, so the repair's newline landed after it as an empty line. The tail check and the write now run under a per-log `O_EXCL` lock file with stale-lock recovery; a lock that cannot be taken fails the append as `AUTO_DECISION_WRITE_FAILED` (the skill pauses). (#2535)
+- 637d4d6: fix(core): stop the decision-log append lock from failing on Windows when the lock file is busy. While a lock file is still being deleted, Windows reports EPERM, EBUSY or EACCES instead of EEXIST, and the lock treated those codes as a failed append (`AUTO_DECISION_WRITE_FAILED`). On win32 it now retries them with bounded backoff on both create and release. A lock still held past the total wait (now 30 s, up from 8 s) still fails closed. POSIX behaviour is unchanged. (#2596)
+- 3b9e2de: fix(entropy): doc-drift no longer reports existing type aliases, interfaces, enums, or file-local declarations as RENAMED/NOT_FOUND. The api-signature check now resolves doc references against every top-level declaration (not only value exports), and strips the `type` modifier and `as` alias from code-block import specifiers (#2078).
+- bfbb818: fix(triage): a fail-safe retrospective block is no longer counted as a graded mispredict. When the post-diff retrospective blocks because nothing could be judged (a missing or garbled prediction, or an unclassifiable actual), the `triage_outcome` event is still recorded for forensics but now carries `graded: false`, and the precedent base rate and the autonomy-ratchet sample skip it. The block still escalates exactly as before. Outcomes recorded before this change have no flag and aggregate exactly as they did.
+- 9172328: Coupling detector (`check-perf` and the `coupling` arch category) now resolves TypeScript ESM runtime-extension specifiers to their sources: `./foo.js` → `foo.ts`/`foo.tsx`, `./foo.mjs` → `foo.mts`, `./foo.cjs` → `foo.cts`. Before, every importer that wrote the extension `"module": "NodeNext"` requires was invisible, so `fanIn` stayed 0 and `couplingRatio` pinned to 1.00 in ESM projects (#2153).
+- adeddbf: Make two gate instruments able to fail (#2473 §2, §3). The core and cli `typecheck` scripts now also run a `tsconfig.type-tests.json` project over the test files that carry type-level assertions (`expectTypeOf`, `assertType`, `@ts-expect-error`, or a `@type-gate` marker) — previously `exclude: ["tests"]` left them unchecked, so they passed against the bugs they existed to catch; a root guard test fails when such a file is not listed. `generate:barrels:check` now also compares core's resolved public symbol names against a committed `packages/core/public-symbols.txt`, so a symbol added or removed behind `export *` is caught, and it runs in CI and pre-push.
+- 8d806ca: Gates no longer leave side effects behind (#2474):
+  - `ensureHarnessGitignore` (run on every MCP server start and by `init`) no longer appends a bare `metrics/` rule to an existing `.harness/.gitignore`. Rules are compared by the directory they cover, so `metrics/` counts as present when `metrics/*` is there, and no rule is appended over a `!dir/...` un-ignore. The template now writes `metrics/*`.
+  - The health snapshot runs the security scan with `record: false`, so dispatching skills no longer appends to the tracked `.harness/security/timeline.json`. The `run_security_scan` MCP tool still records by default.
+  - `check-arch --update-baseline --reason` merges into the branch's existing allowance instead of replacing its reason. Violation ids that were already acknowledged keep their recorded reason (new `violationReasons` map), and the top-level `reason` keeps every distinct justification.
+
+- 9f4fa80: fix(insights): measure entropy with the project's harness.config.json, as `harness cleanup` does (#2192)
+
+  `harness insights`, the `insights_summary` MCP tool and `telemetry synthesize` ignored `entropy.entryPoints` / `excludePatterns`, so on a configured monorepo the analysis could not resolve an entry point and both blocks read NOT MEASURED while `cleanup` reported findings. They now run the same analysis `cleanup` runs, so the counts agree. `drift` is no longer hard-coded off (its count was zero by construction), health and entropy share one analysis run, and `harness insights --json` now emits JSON (the root program's `--json` used to swallow the flag). `-c` now also selects the project insights reports on.
+
+- be96ebb: Layer validation can now follow imports of workspace packages by name (`@scope/pkg`, `@scope/pkg/sub`), so layer `allowedDependencies` are enforced between packages instead of only within one (#2216). Opt in with `deps.resolveWorkspacePackages: true` in `harness.config.json` (core: `LayerConfig.resolveWorkspacePackages`); it is off by default because enabling it on an existing monorepo can surface violations that were previously never reported.
+- 1ba5dea: fix(entropy): `entropy.patterns` `max-lines` rules now fire. `checkMaxLines` was a stub that returned no violations for any file, so `harness cleanup -t patterns` reported a `max-lines` rule as clean whatever the file length. It now counts each file's lines the way ESLint's `max-lines` does (blank and comment lines count, the empty line after a trailing newline does not) and reports at the first line over the limit; a file it cannot read is reported rather than passed. A pattern whose rule type has no checker is now reported as unchecked instead of silently skipped, and the checker table is typed exhaustively over the rule-type union. (#2324)
+- eda3e1b: `detect_entropy` (MCP) now scopes its scan exactly as `harness cleanup` does. Whenever `.harness/graph` existed, the tool fed the analyzer graph-derived drift and dead-code data that ignores `entropy.drift.forwardLookingPaths`, `docPaths`, `ignorePatterns`, `excludePatterns` and `entryPoints`; it also rooted the scan on the given path instead of `rootDir` and fell back to the analyzer's README-inclusive doc globs instead of `docsDir`. On this repository the tool reported 1,686,602 issues where `harness cleanup` reported 1,887; drift now matches exactly (1,115 = 1,115). Duplication also runs on graph-bearing projects now, where it previously always refused with `snapshot-bypassed`. Closes #2168.
+
+  On Windows, drift doc globs built with `path.join` (including `harness cleanup`'s `<docsDir>/**/*.md` fallback) carried backslashes that `glob` reads as escapes, so drift silently scanned zero docs. `buildSnapshot` now normalizes separators on win32, and the shared scope helper emits forward-slash globs.
+
+- 4d3a1fd: Roadmap pilot scoring: the `dependents` and `affinity` inputs now carry signal on a real roadmap (#2222). `dependents` counts the distinct not-done rows whose Blockers resolve to a candidate using the same matching rules as the eligibility filter (names, shard slugs, backticked slugs in prose, `#N` issue references), instead of keying on raw blocker prose. `affinity` treats a `done` row as completed by the current user when the user is its `Assignee` or the latest `assigned` history record names them (plus any explicit `completed` record), since nothing writes `completed` records in practice. Weights (0.5 / 0.3 / 0.2) and the priority-first two-tier sort are unchanged.
+- d6901a1: Report the comprehension substrate's semantic present/absent ratio (#2063). `harness comprehend --stats` (and `--json comprehend --stats`) now reports how many committed units carry the semantic half versus static-only, and `harness comprehend --check` surfaces the absent ratio — a warning on `main`, info with `--context pr`. A new optional `comprehension.maxSemanticAbsentRatio` (default off) makes `--check` fail on `main` when the absent share exceeds it. Core's `runComprehendStats` / `runComprehendCheck` results gain a `semantic` coverage field, and `summarizeSemanticCoverage` is exported.
+- 6ceae58: fix(roadmap): make the roadmap codec a text inverse (#2166). Backslashes in `Summary` / `Plan` / `Blockers` prose (a regex like `\d{3}` documented in a row) are no longer doubled on every write — only a backslash the decoder would misread is escaped — and an authored empty optional bullet such as `- **Priority:** —` or `- **External-ID:** —` now survives a parse → serialize round-trip instead of being dropped. Values the old encoder already doubled still decode correctly and are re-emitted un-doubled.
+- 8f9c25f: `manage_roadmap` no longer writes a field value containing a line break into the roadmap. Such a value used to land as a new line, so `plans: ['x\n- **Status:** done']` flipped a planned row to done and a heading-shaped feature name made every later read fail. `add`, `update` and `promote` now reject any field with a line break or control character (`summary` may still span lines), name the field, and write nothing. The roadmap serializer also refuses to emit a line break, so every writer is protected. New core export: `validateRoadmapFeatureFields`. (#2623)
+- c922aec: fix(roadmap): close the post-#1862 `## Assignment History` parser edges (#1961). A bullet block missing its `Feature` bullet (or repeating a label) is now refused instead of silently merging into its neighbour; a legacy table row sitting above the `|---|` separator is reported instead of dropped; GFM alignment separators (`| :--- |`) are read; a `_meta.md` whose history heading is a near miss (`## Assignment History (legacy)`) now fails `harness roadmap regen` instead of writing an aggregate `parseRoadmap` rejects; a heading that only mentions the section (an `###` heading, or an H1/H2 with no records under it) no longer hard-fails a document; and `roadmap regen` only advises `--allow-unreadable-history` for an error that flag can actually recover.
+- 977cda6: fix(roadmap): `scoreRoadmapCandidates` now withholds rows whose `Blockers` still hold (#2255). A blocker is resolved by feature name, slugified title, backticked slug, `#N` issue reference against `External-ID`, and (via the new `slugAliases` option, built with `shardSlugAliases`) the shard's frontmatter slug; it is satisfied only when every row it names is `done`, and prose that names no row fails closed. The new `findBlockedRoadmapCandidates` reports each withheld row with the reason each blocker holds (`open` or `unresolved`). On this repository's shards the scorer previously offered 170 candidates, 98 of them carrying blockers; it now offers 80 and reports 92 as blocked.
+- c174c68: fix(scan-config): stop reading Markdown structure as injection or path traversal (#2052)
+
+  `harness scan-config` (and the orchestrator's pre-dispatch workspace scan) reported
+  Markdown table syntax as `INJ-SUS-001` / `INJ-SUS-002` (cell-edge padding and the
+  `| --- |` separator row) and fenced code samples as `INJ-SUS-*` / `SEC-PTH-001`.
+  On this repository's AGENTS.md that was 56 false `INJ-SUS-*` findings out of 89.
+  Findings in CLAUDE.md / AGENTS.md now go through `suppressMarkdownStructureFindings`
+  (new core export): those three rules are dropped on table separator rows, on cell-edge
+  padding, and inside fenced code blocks. Whitespace / delimiter runs inside a cell's
+  own text, and every other injection rule (in prose, table cells and fences), still fire.
+
+- 01efd0a: Fix security-scanner false negatives introduced by comment masking: a slash after postfix `++`/`--`, after a property named like a keyword (`obj.in`), or after an `if (…)` header, and a quoted string continued with `\`, no longer flip string parity and blank the real code that follows. SEC-DES-001 no longer treats a discarded `.safeParse(v)` result as validation, and validating one `JSON.parse` no longer clears a second one on the same line.
+- c97e30f: fix(security): the security ledger no longer records an unmeasured supply chain as zero findings (#2082). `SupplyChainSnapshot` gains an additive `measured` flag (legacy snapshots still parse and read as unmeasured); a snapshot captured without audit data is stamped `measured: false` and its `securityScore` is capped at 90 instead of crediting the dimension as clean. `captureSupplyChain()` now runs the audit matching the lockfile (`pnpm audit` / `npm audit`), derives `total` from the severity buckets when pnpm omits it, and reports a failed or unparseable audit as unmeasured rather than zero. New `SecurityTimelineManager.supplyChainFromAuditJson()` lets callers that already ran an audit merge its counts in.
+- 73e2ab6: fix(security): `harness check-security` code-pattern rules no longer match text inside JS/TS/Go comments (a comment naming `__proto__` or `createHash('sha1')` is not a finding), and `SEC-DES-001` is suppressed when the `JSON.parse` result is handed to a schema `.safeParse`/`.parse` call within five lines. Secret rules and `SEC-CRY-002` still scan comments. On this repo the scan drops from 12 false findings to 3.
+- 81dce13: Security scan: SEC-SEC-004 now catches hardcoded passwords behind a type annotation (`const password: string = "..."`, `PASSWORD: str = "..."`, Rust `const DB_PASSWORD: &str = "..."`), and the new SEC-NET-004 flags Rust `danger_accept_invalid_certs(true)` / `danger_accept_invalid_hostnames(true)` (reqwest / native-tls) in `.rs` files.
+- 40be940: Fail a dead-code run on an entry point that exists on disk but is never analysed (#2296). A configured or auto-detected entry point dropped from the analysed file set — by an exclude pattern, an extension outside `include`, or a directory the walker always skips (a `package.json` `main: dist/index.js`) — used to pass the existence check and then contribute no reachability, so everything only it reached reported dead with no error. `buildSnapshot` now returns `ENTRY_POINT_NOT_ANALYSED` naming those entries, with the same gating as #2275's `ENTRY_POINT_NOT_FOUND`: fatal when dead-code analysis is requested, carried as `snapshot.entryPointsError` otherwise.
+- Updated dependencies [723e1b8]
+- Updated dependencies [5c29f94]
+- Updated dependencies [e0ac108]
+- Updated dependencies [4d2a1aa]
+- Updated dependencies [58e51ec]
+- Updated dependencies [dbd11fb]
+- Updated dependencies [3c24996]
+- Updated dependencies [6ceae58]
+- Updated dependencies [9be57d2]
+  - @harness-engineering/graph@0.16.1
+  - @harness-engineering/types@0.37.0
+
 ## 0.56.0
 
 ### Minor Changes

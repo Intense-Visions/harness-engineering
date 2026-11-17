@@ -1,5 +1,68 @@
 # @harness-engineering/dashboard
 
+## 0.17.1
+
+### Patch Changes
+
+- ab8ee3d: `typecheck` now also type-checks `tests/` through a new `tsconfig.tests.json`, so a type error in a dashboard test fails the gate instead of passing silently (#2230). The 99 type errors that had piled up unseen in the test files are fixed.
+- 48f0ef6: Bump `hono` to `^4.13.16` and `@hono/node-server` to `^2.1.6` (lockfile resolves 4.13.18 / 2.1.8), clearing 7 `pnpm audit` advisories in the dashboard HTTP stack: GHSA-qv5m-9pm6-hqp3, GHSA-jpvv-r467-5p4w, GHSA-4m76-xfj5-7975, GHSA-h7mg-cq63-vhpq, GHSA-46wx-v44x-9hh2, GHSA-4h7h-rv7c-7m2v, GHSA-3gg2-335m-rxc6. The root `pnpm.overrides` security floors are raised to match.
+- Updated dependencies [977ca7f]
+- Updated dependencies [f9e8f49]
+- Updated dependencies [10e2b9d]
+- Updated dependencies [723e1b8]
+- Updated dependencies [08e263b]
+- Updated dependencies [468f0b6]
+- Updated dependencies [8e49d22]
+- Updated dependencies [8fa9c1a]
+- Updated dependencies [6c94b08]
+- Updated dependencies [5c29f94]
+- Updated dependencies [4224017]
+- Updated dependencies [fa244bf]
+- Updated dependencies [128f318]
+- Updated dependencies [f90bd73]
+- Updated dependencies [5d9e0d2]
+- Updated dependencies [90ddc68]
+- Updated dependencies [c5e6e98]
+- Updated dependencies [894c1ad]
+- Updated dependencies [971dc7b]
+- Updated dependencies [637d4d6]
+- Updated dependencies [3b9e2de]
+- Updated dependencies [b601a76]
+- Updated dependencies [bfbb818]
+- Updated dependencies [9172328]
+- Updated dependencies [adeddbf]
+- Updated dependencies [8d806ca]
+- Updated dependencies [e0ac108]
+- Updated dependencies [4d2a1aa]
+- Updated dependencies [58e51ec]
+- Updated dependencies [9f4fa80]
+- Updated dependencies [dbd11fb]
+- Updated dependencies [3c24996]
+- Updated dependencies [be96ebb]
+- Updated dependencies [1ba5dea]
+- Updated dependencies [eda3e1b]
+- Updated dependencies [1d704b1]
+- Updated dependencies [4d3a1fd]
+- Updated dependencies [d6901a1]
+- Updated dependencies [6ceae58]
+- Updated dependencies [8f9c25f]
+- Updated dependencies [c922aec]
+- Updated dependencies [977cda6]
+- Updated dependencies [c174c68]
+- Updated dependencies [01efd0a]
+- Updated dependencies [c97e30f]
+- Updated dependencies [73e2ab6]
+- Updated dependencies [81dce13]
+- Updated dependencies [9be57d2]
+- Updated dependencies [40be940]
+- Updated dependencies [c8d94bf]
+  - @harness-engineering/core@0.57.0
+  - @harness-engineering/graph@0.16.1
+  - @harness-engineering/types@0.37.0
+  - @harness-engineering/intelligence@0.15.1
+  - @harness-engineering/orchestrator@0.30.0
+  - @harness-engineering/signals@0.4.1
+
 ## 0.17.0
 
 ### Minor Changes
