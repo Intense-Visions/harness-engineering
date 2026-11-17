@@ -60,7 +60,8 @@ vi.mock('../../../src/templates/engine', () => {
   }
   // Mirror the real engine's named export the handler imports (#2630).
   const isAddOnTemplate = () => false;
-  return { TemplateEngine, isAddOnTemplate };
+  const isNamedAddOnTemplate = () => false;
+  return { TemplateEngine, isAddOnTemplate, isNamedAddOnTemplate };
 });
 
 vi.mock('../../../src/templates/post-write', () => ({
