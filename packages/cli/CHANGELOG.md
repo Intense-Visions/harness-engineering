@@ -1,5 +1,38 @@
 # @harness-engineering/cli
 
+## 14.1.1
+
+### Patch Changes
+
+- a761d42: fix(validate): MCP `validate_project`, `harness validate` and `harness ci check` now reach one verdict on missing AGENTS.md sections (#2669)
+
+  A missing required AGENTS.md section (`Project Overview`, `Repository Structure`, `Development Workflow`) was a blocking error in MCP `validate_project`, invisible to `harness validate`, and a warning in `harness ci check`. All surfaces now derive the finding from one shared core verdict, `agentsMapSectionFindings`, at one severity — `warning`: reported, never flipping `valid`. MCP `validate_project` reports it under a new `warnings` array instead of `errors`, and `harness validate` now surfaces it as a warning-severity `agentsMap` issue. Broken AGENTS.md links are unchanged.
+
+  Every scaffold template's AGENTS.md (`base`, `go-base`, `java-base`, `python-base`, `rust-base`) now carries the required sections, so a freshly initialised project passes harness's own section check.
+
+- 53b0c84: fix(cli): a fresh `harness init --tier minimal` project can make its first commit, and `check-arch` reports an abstention the same way in every output mode (#2672)
+  - The scaffolded pre-commit hook now treats `check-arch` exit 3 (`ZERO_DENOMINATOR`: nothing measured, e.g. no source files yet) as "nothing to check yet" and prints a one-line note instead of blocking. Violations (1) and errors (2) still block the commit.
+  - `check-arch` no longer prints "validation passed" for a run that measured nothing; it says the run abstained. `--json` output gains additive `verdict` (`passed` | `failed` | `abstained`) and `abstained` fields so a consumer no longer has to infer an abstention from the exit code alone. The exit code is unchanged (3).
+
+- abcabad: Fix `harness check-deps` failing every freshly scaffolded project, and make `check-deps`, `harness ci check` and the `check_dependencies` MCP tool agree on the same tree (#2671).
+
+  Layers that hold no source modules yet (a fresh scaffold's directories contain only `.gitkeep`) are now an abstention on every surface: `check-deps` exits 3 (ZERO_DENOMINATOR) under a `layer validation` label that reads "No source modules yet … nothing to check". Before, it exited 1, the exit code of a real violation, under an `unknown` label. The `ci check` deps step reports `skip` with that reason instead of `pass`, and the MCP tool returns `valid: false` with the same `unavailableChecks` entry instead of `valid: true`. All three now read one shared verdict, core's `assessDepsCoverage`. Dependency-graph nodes are now source files only, so `.gitkeep`, Markdown and directories are no longer listed as modules. A real layer violation still fails all three, and real source with no violations still passes all three.
+
+- 6d94a97: fix(init): the `orchestrator` template now writes a `harness.config.json` (so validate passes), add-on templates (`ci-required-review`, `ci-pre-merge-brief`) layer onto an already-initialized project without `--force` and never overwrite a file, an add-on writes only its own files (no generic CI workflow or roadmap scaffold), and the printed next steps now match what was actually written (#2670).
+- 3ffa2f5: fix(cli): close `--json` output-contract gaps found in the 14.1.0 smoke (#2673). Under `--json`, stdout now always carries one parseable document whose verdict agrees with the exit code:
+  - `comprehend --check --json` emits `{ ok, stale, orphans, skipped, semantic }` (previously `--json` was ignored and stdout was empty).
+  - `black-box list --json` emits `{ dir, runs }` (empty list included); `black-box show --json` emits `{ run }` or `{ error }`.
+  - `routing config|decisions|status|telemetry|trace --json` emit `{ error, status }` on stdout when the call fails (the message still goes to stderr; exit 2 unchanged).
+  - Any command group invoked with no subcommand under `--json` (e.g. `usage --json`, `adoption --json`) emits `{ error, command, subcommands }`; help on stderr and exit 1 are unchanged.
+  - `Error` instances embedded in JSON output now serialize with `name` and `message` (and their `cause` chain) instead of losing `message` — e.g. `linter validate --json`.
+  - MCP `serverInfo.version` reports the CLI package version instead of a hardcoded `2.3.1`; the compaction banner reports growth as `+N%` instead of `--N%`.
+
+- Updated dependencies [a761d42]
+- Updated dependencies [abcabad]
+  - @harness-engineering/core@0.57.1
+  - @harness-engineering/dashboard@0.17.2
+  - @harness-engineering/orchestrator@0.30.1
+
 ## 14.1.0
 
 ### Minor Changes

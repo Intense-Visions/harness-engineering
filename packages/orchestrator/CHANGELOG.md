@@ -1,5 +1,13 @@
 # @harness-engineering/orchestrator
 
+## 0.30.1
+
+### Patch Changes
+
+- Updated dependencies [a761d42]
+- Updated dependencies [abcabad]
+  - @harness-engineering/core@0.57.1
+
 ## 0.30.0
 
 ### Minor Changes
