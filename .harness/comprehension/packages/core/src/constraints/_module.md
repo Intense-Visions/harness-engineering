@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/src/constraints'
-sourceHash: '656773a23f2ae782c9762a9170d986c0d6e3238392a502000a8467f00cd8ad46'
+sourceHash: '3f406aee16bfdfd67346132fea45a75b4727789fb38bd2183ca55ada3b7bc683'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -10,6 +10,7 @@ members:
     'boundary.ts',
     'circular-deps.ts',
     'dependencies.ts',
+    'deps-coverage.ts',
     'index.ts',
     'layer-config.ts',
     'layers.ts',
@@ -37,14 +38,19 @@ export DependencyEdge
 export DependencyGraph
 export DependencyValidation
 export DependencyViolation
+export DepsCoverage
+export DepsCoverageGap
+export DepsCoverageGapKind
 export DepsFallbackBehavior
 export DepsSettings
+export DepsUnavailableCheck
 export GraphDependencyData
 export Layer
 export LayerConfig
 export ParserLookup
 export ResolvedConstraintPacks
 export UnparsedFile
+export assessDepsCoverage
 export buildDependencyGraph
 export createBoundaryValidator
 export defineLayer
@@ -55,6 +61,8 @@ export resolveConstraintPacks
 export resolveDepsSettings
 export resolveFileToLayer
 export toLayerConfig
+export toUnavailableCheck
+export unparsedFileGaps
 export validateBoundaries
 export validateDependencies
 ```
@@ -68,6 +76,7 @@ import { fileExists, findFiles, readFileContent, relativePosix } from '../shared
 import { Import, LanguageParser } from '../shared/parsers'
 import { Err, Ok, Result } from '../shared/result'
 import { buildDependencyGraph } from './dependencies'
+import { DepsSettings } from './layer-config'
 import { defineLayer, resolveFileToLayer } from './layers'
 import { BoundaryDefinition, BoundaryValidation, BoundaryValidator, BoundaryViolation, CircularDependency, CircularDepsResult, DependencyEdge, DependencyGraph, DependencyValidation, DependencyViolation, GraphDependencyData, Layer, LayerConfig, UnparsedFile } from './types'
 import { loadWorkspacePackages, resolveWorkspaceSpecifier } from './workspace-packages'

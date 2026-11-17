@@ -90,6 +90,13 @@ export interface DependencyValidation {
   unparsedFiles?: UnparsedFile[];
   /** Mirrors {@link DependencyGraph.analyzedFiles} (#2073). */
   analyzedFiles?: number;
+  /**
+   * Number of paths the layer patterns matched, source or not (#2671). With
+   * `analyzedFiles: 0` it separates "the layers hold no source yet" (> 0) from
+   * "the patterns matched nothing" (0). Absent when the graph came from
+   * precomputed graph data.
+   */
+  matchedPaths?: number;
 }
 
 // Forbidden Import Config Types

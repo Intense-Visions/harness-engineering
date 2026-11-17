@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/tests/ci'
-sourceHash: '217e042f11cd9479dd5907ecaf0feef1ce378655b758abc4504aad5235d73c1b'
+sourceHash: 'bb554676e45b85c228e9573c5996fe11cab80e47febb232eef374c1793b5b4ff'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -14,6 +14,7 @@ members:
     'constraint-packs-orchestrator.test.ts',
     'constraint-packs-real-scanner.test.ts',
     'deps-config-parity.behavior.test.ts',
+    'deps-fresh-scaffold.behavior.test.ts',
     'flake-attribution.test.ts',
     'notifier.test.ts',
     'report-formatter.test.ts',

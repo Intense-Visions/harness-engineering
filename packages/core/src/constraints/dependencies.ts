@@ -250,6 +250,20 @@ function isSourceFileFor(parser: LanguageParser, file: string): boolean {
 }
 
 /**
+ * Whether `file` belongs in the dependency graph as a node (#2671).
+ *
+ * A layer glob like `src/types/**` also matches directories, `.gitkeep`,
+ * Markdown and JSON. They used to become graph nodes, so a freshly scaffolded
+ * project reported `src/types/.gitkeep` as a module. A node is a source file
+ * the parser claims; a hand-rolled parser that declares no extensions keeps
+ * the old every-file behaviour rather than losing all its nodes.
+ */
+function isGraphNodeFor(parser: LanguageParser, file: string): boolean {
+  const claimed: readonly string[] = parser.extensions ?? [];
+  return claimed.length === 0 || isSourceFileFor(parser, file);
+}
+
+/**
  * Build a dependency graph from a list of files.
  * Accepts either a single parser or a ParserLookup for multi-language support.
  * Note: buildDependencyGraph is exported as an addition beyond spec for advanced use cases
@@ -271,6 +285,7 @@ export async function buildDependencyGraph(
   const isLookup = 'getForFile' in parser;
   const parsed: ParsedFileImports[] = [];
   const unparsedFiles: UnparsedFile[] = [];
+  const nodes: string[] = [];
   let analyzedFiles = 0;
 
   for (const file of files) {
@@ -280,6 +295,7 @@ export async function buildDependencyGraph(
       : (parser as LanguageParser);
 
     if (!fileParser) continue;
+    if (isGraphNodeFor(fileParser, file)) nodes.push(file);
 
     const parseResult = await fileParser.parseFile(file);
     if (!parseResult.ok) {
@@ -322,9 +338,10 @@ export async function buildDependencyGraph(
     parsed.push({ path: file, imports: importsResult.value });
   }
 
-  // Nodes are every file handed in, parsed or not — unchanged from when this
-  // loop built them inline.
-  const graph = await buildDependencyGraphFromParsed(files, parsed, resolveBareSpecifier);
+  // Nodes are the source files handed in, parsed or not (an unparseable source
+  // file is still a module of the project). Directories, `.gitkeep` and other
+  // non-source paths a layer glob happened to match are not (#2671).
+  const graph = await buildDependencyGraphFromParsed(nodes, parsed, resolveBareSpecifier);
   return Ok({
     ...graph,
     analyzedFiles,
@@ -514,6 +531,10 @@ export async function validateDependencies(
     violations,
     graph: graphResult.value,
     ...(analyzedFiles !== undefined ? { analyzedFiles } : {}),
+    // Every path the layer globs matched, source or not — lets a caller tell
+    // "the layers exist but hold no source yet" from "the patterns matched
+    // nothing at all" when `analyzedFiles` is 0 (#2671).
+    matchedPaths: uniqueFiles.length,
     // Files the analysis could not read (#2073). `valid` is left to speak only
     // to violations — its long-standing contract — so a consumer deciding on a
     // clean verdict must check this too.
