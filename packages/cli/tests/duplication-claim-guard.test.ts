@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import * as fs from 'node:fs';
+import * as os from 'node:os';
 import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -39,10 +40,12 @@ import { fileURLToPath } from 'node:url';
  * repo scope instead of at one function's output.
  *
  * SCOPE. Everything that SHIPS: every package's `src` (source, and therefore the
- * emitted `.d.ts` JSDoc that consumers read in their editors) plus
- * `.changeset/` (the release notes). Plus the refactoring SKILL, which is the
- * surface that turns the label into an INSTRUCTION to a model — the highest
- * blast radius of the four.
+ * emitted `.d.ts` JSDoc that consumers read in their editors) plus the release
+ * notes in BOTH of the forms they take — pending in `.changeset/*.md`, and
+ * versioned in each package's `CHANGELOG.md` once `changeset version` has
+ * consumed (deleted) the pending files on the release branch. Plus the
+ * refactoring SKILL, which is the surface that turns the label into an
+ * INSTRUCTION to a model — the highest blast radius of the four.
  *
  * NOT scoped: `docs/` and `AGENTS.md`, which carry the genuinely historical
  * framings ("the row PROMISED a delete-and-import repair with nothing to
@@ -115,33 +118,49 @@ function walk(dir: string, matches: (file: string) => boolean, out: string[] = [
   return out;
 }
 
-/** Every shipping file the claim could live in, as repo-relative paths. */
-function shippingFiles(): string[] {
+/** Every shipping file the claim could live in, as `root`-relative paths. */
+function shippingFiles(root: string): string[] {
   const files: string[] = [];
 
-  const packagesDir = path.join(repoRoot, 'packages');
+  const packagesDir = path.join(root, 'packages');
   for (const pkg of fs.readdirSync(packagesDir, { withFileTypes: true })) {
     if (!pkg.isDirectory()) continue;
     const src = path.join(packagesDir, pkg.name, 'src');
-    if (!fs.existsSync(src)) continue;
-    files.push(...walk(src, (f) => f.endsWith('.ts') || f.endsWith('.tsx')));
+    if (fs.existsSync(src)) {
+      files.push(...walk(src, (f) => f.endsWith('.ts') || f.endsWith('.tsx')));
+    }
+    // Where changeset prose lands after `changeset version`.
+    const changelog = path.join(packagesDir, pkg.name, 'CHANGELOG.md');
+    if (fs.existsSync(changelog)) files.push(changelog);
   }
 
-  const changesetDir = path.join(repoRoot, '.changeset');
+  const changesetDir = path.join(root, '.changeset');
   if (fs.existsSync(changesetDir)) {
     files.push(...walk(changesetDir, (f) => f.endsWith('.md') && path.basename(f) !== 'README.md'));
   }
 
-  const skills = path.join(repoRoot, 'agents', 'skills', 'claude-code');
+  const skills = path.join(root, 'agents', 'skills', 'claude-code');
   if (fs.existsSync(skills)) {
     files.push(...walk(skills, (f) => f.endsWith('.md')));
   }
 
-  return files.map((f) => path.relative(repoRoot, f));
+  return files.map((f) => path.relative(root, f));
+}
+
+/** `rel:line: text` for every line of `files` (under `root`) matching `pattern`. */
+function lineOffenders(root: string, files: readonly string[], pattern: RegExp): string[] {
+  const offenders: string[] = [];
+  for (const rel of files) {
+    const lines = fs.readFileSync(path.join(root, rel), 'utf8').split('\n');
+    lines.forEach((line, i) => {
+      if (pattern.test(line)) offenders.push(`${rel}:${i + 1}: ${line.trim()}`);
+    });
+  }
+  return offenders;
 }
 
 describe('the partial-extraction label never promises a delete-and-import', () => {
-  const files = shippingFiles();
+  const files = shippingFiles(repoRoot);
 
   it('scans a non-trivial shipping surface', () => {
     // Without this, a walk that silently returned [] — a renamed `src`, a
@@ -153,21 +172,51 @@ describe('the partial-extraction label never promises a delete-and-import', () =
     expect(files).toContain(path.join('packages', 'core', 'src', 'duplication', 'index.ts'));
     expect(files).toContain(path.join('packages', 'cli', 'src', 'commands', 'cleanup.ts'));
     expect(files).toContain(path.join('packages', 'cli', 'src', 'mcp', 'tools', 'entropy.ts'));
-    expect(files.some((f) => f.startsWith(`.changeset${path.sep}`))).toBe(true);
+    // The versioned release notes. Present on main AND on the release branch.
+    expect(files).toContain(path.join('packages', 'cli', 'CHANGELOG.md'));
     expect(files).toContain(
       path.join('agents', 'skills', 'claude-code', 'harness-refactoring', 'SKILL.md')
     );
+    // NOT asserted here: that the LIVE `.changeset/` holds a pending file. On
+    // the changesets release branch `changeset version` deletes every one, so a
+    // live-repo assertion failed every release PR by construction. Changeset
+    // coverage is proven against a fixture tree in the next test instead.
+  });
+
+  it('scans pending changesets, proven on a fixture tree', () => {
+    // The live repo cannot prove this: whether `.changeset/` holds any pending
+    // file depends on which branch you are on. A fixture always has one, and
+    // carries the false claim, so the scan must both SEE the changeset and FLAG
+    // it — and must skip the README that `changeset init` writes.
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'dup-claim-guard-'));
+    try {
+      fs.mkdirSync(path.join(root, 'packages', 'pkg', 'src'), { recursive: true });
+      fs.writeFileSync(path.join(root, 'packages', 'pkg', 'src', 'index.ts'), 'export {};\n');
+      fs.mkdirSync(path.join(root, '.changeset'));
+      fs.writeFileSync(
+        path.join(root, '.changeset', 'README.md'),
+        'the shared helper already exists\n'
+      );
+      fs.writeFileSync(
+        path.join(root, '.changeset', 'fixture-change.md'),
+        "---\n'@fixture/pkg': patch\n---\n\nThe shared helper already exists in the module.\n"
+      );
+
+      const fixtureFiles = shippingFiles(root);
+      const changeset = path.join('.changeset', 'fixture-change.md');
+      expect(fixtureFiles).toContain(changeset);
+      expect(fixtureFiles).not.toContain(path.join('.changeset', 'README.md'));
+      expect(lineOffenders(root, fixtureFiles, BANNED_CLAIMS[0]!.pattern)).toEqual([
+        `${changeset}:5: The shared helper already exists in the module.`,
+      ]);
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+    }
   });
 
   for (const { pattern, why } of BANNED_CLAIMS) {
     it(`no shipping file asserts ${pattern.source}`, () => {
-      const offenders: string[] = [];
-      for (const rel of files) {
-        const lines = fs.readFileSync(path.join(repoRoot, rel), 'utf8').split('\n');
-        lines.forEach((line, i) => {
-          if (pattern.test(line)) offenders.push(`${rel}:${i + 1}: ${line.trim()}`);
-        });
-      }
+      const offenders = lineOffenders(repoRoot, files, pattern);
 
       // The message carries the correction, not just the failure: whoever trips
       // this is mid-sentence and needs to know what to write instead.
