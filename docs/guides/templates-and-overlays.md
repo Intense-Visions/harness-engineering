@@ -6,6 +6,8 @@ Templates are the scaffolding system behind `harness init`. They generate a read
 
 Every template is a directory under `templates/` containing a `template.json` metadata file and a set of source files. Many files use Handlebars (`.hbs`) for variable substitution -- your project name, module path, and other context values are injected at render time.
 
+File and directory names can use `{{variable}}` placeholders too, filled from the same context. The spring-boot overlay uses `src/main/java/{{javaPackagePath}}/Application.java.hbs`, where `javaPackagePath` is `javaGroupId` with dots replaced by slashes, so the class lands in the directory its `package` line names. A placeholder with no value fails the render.
+
 Templates compose through two mechanisms:
 
 - **Inheritance** -- level templates (basic, intermediate, load-bearing-minimum, advanced) extend the `base` template. Language-base templates (go-base, python-base, etc.) stand alone. Files from the parent are included first, then the child overlays or replaces them.
@@ -242,9 +244,9 @@ Each framework overlay also appends a conventions section to AGENTS.md with fram
 
 #### Java Frameworks
 
-| Framework       | Command                                   | Key Files                                   | Conventions Added to AGENTS.md                                                                             |
-| --------------- | ----------------------------------------- | ------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
-| **Spring Boot** | `--language java --framework spring-boot` | `src/main/java/Application.java`, `pom.xml` | `@SpringBootApplication` entry point, controller/service package structure, constructor injection, JUnit 5 |
+| Framework       | Command                                   | Key Files                                                         | Conventions Added to AGENTS.md                                                                             |
+| --------------- | ----------------------------------------- | ----------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| **Spring Boot** | `--language java --framework spring-boot` | `src/main/java/<javaGroupId as path>/Application.java`, `pom.xml` | `@SpringBootApplication` entry point, controller/service package structure, constructor injection, JUnit 5 |
 
 ### Orchestrator Template
 

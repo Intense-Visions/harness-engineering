@@ -1,11 +1,11 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/commands/ci'
-sourceHash: '7a08fcc86b6dda243a98ec36b75b43315ec6c1b3fb6dda62cf5d69aaa0264ce7'
+sourceHash: '59fbe7a0e53c581cdcbf40954ae7d9d8e649f8e1f63657c62fdb06eb5c008824'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
-members: ['check.ts', 'index.ts', 'init.ts', 'notify.test.ts', 'notify.ts']
+members: ['attribute-failure.ts', 'check.ts', 'index.ts', 'init.ts', 'notify.test.ts', 'notify.ts']
 ---
 
 ## Interface Contract
@@ -17,11 +17,13 @@ export createCICommand
 ## Dependency Slice
 
 ```
+import { AttributeFailureError, AttributeFailureReport, GhRunner, JobAttribution, attributePrFailure, execGh } from '../../ci/attribute-failure'
 import { resolveConfig, resolveProject } from '../../config/loader'
 import { OutputMode } from '../../output/formatter'
 import { logger } from '../../output/logger'
 import { CLIError, ExitCode } from '../../utils/errors'
 import { resolveOutputMode } from '../../utils/output'
+import { createAttributeFailureCommand } from './attribute-failure'
 import { createCheckCommand } from './check'
 import { createInitCommand } from './init'
 import { createNotifyCommand } from './notify'

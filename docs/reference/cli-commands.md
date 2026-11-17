@@ -1010,6 +1010,21 @@ Weekly usage history, anchored to the configured reset
 
 CI/CD integration commands
 
+### `harness ci attribute-failure`
+
+Attribute a PR's red check: environmental (same test failed on unrelated diffs/main), in-diff, or inconclusive — before spending a retry
+
+**Options:**
+
+- `--pr` — PR whose failing check to attribute
+- `--job` — Only failing checks whose name contains this string
+- `--job-id` — Attribute this job id (e.g. a superseded failed attempt) instead of current failing checks
+- `--repo` — Repository (default: the current directory’s)
+- `--window-hours` — Correlation window half-width in hours, centred on the failing job's start (default: "24")
+- `--max-runs` — Most recent other workflow runs to examine (default: "40")
+- `--max-logs` — Cap on failed-job logs fetched for correlation (default: "15")
+- `--min-failures` — Distinct unrelated diffs (or main) that must fail the same test to claim environmental (min 2) (default: "2")
+
 ### `harness ci check`
 
 Run all harness checks for CI (validate, deps, docs, entropy, phase-gate, arch)

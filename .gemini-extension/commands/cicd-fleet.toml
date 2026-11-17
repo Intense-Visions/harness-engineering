@@ -77,7 +77,7 @@ The five-phase spine, the concurrency governor, the artifact + all-OS-CI verific
 
 2. **Classify each item into the red-cause taxonomy.** The fix differs per cause, so triage drives everything downstream:
    - **real-failure** — a deterministic failure that reproduces on rerun of the same SHA → **heal** (diagnose root cause and fix).
-   - **flake** — a non-deterministic failure (passes on rerun of the same SHA) → **deflake** (remove the nondeterminism — the race, the time/order/seed dependency, the shared-state leak).
+   - **flake** — a non-deterministic failure (passes on rerun of the same SHA) → **deflake** (remove the nondeterminism — the race, the time/order/seed dependency, the shared-state leak). **Correlate before you rerun to find out:** `harness ci attribute-failure --pr <n> --json` (or `--job-id <id>` for a superseded attempt) reports, for each failing test, how many unrelated PRs and `main` runs of the same job failed it versus passed it within ±24h, and whether the test or its source is in the PR's diff. An `environmental` verdict (≥2 independent unrelated diffs or `main`, outside the diff) classifies the item as **flake** without spending a rerun, and its counts become the item's `flakeEvidence`. An `in-diff` verdict is a **real-failure** candidate. Rerun the same SHA only when the verdict is `inconclusive`.
    - **infra/config** — a workflow-file, runner, permissions, or action-pinning defect → **heal via `harness-workflow-audit`**.
    - **already-green / superseded** — a run a newer green run or a merged fix already resolved → flag for closure, not remediation.
    - **needs-design** — a red whose root cause is a substantial product defect requiring design judgment → park and report; hand to a human / `roadmap-fleet`.
@@ -97,7 +97,7 @@ The five-phase spine, the concurrency governor, the artifact + all-OS-CI verific
      source,           // "red-run" | "flaky-test"
      cause,            // "real-failure" | "flake" | "infra-config" | "already-green" | "needs-design"
      ciStatus,         // per-OS CI signal
-     flakeEvidence,    // the passed-and-failed-on-same-SHA trace (set when cause = flake)
+     flakeEvidence,    // the passed-and-failed-on-same-SHA trace, or the attribute-failure verdict + counts (set when cause = flake)
      score,            // roadmap-pilot impact score
      supersededBy,     // set when cause = already-green
      remediation,      // actions taken (filled in DISPATCH)
@@ -148,7 +148,7 @@ The five-phase spine, the concurrency governor, the artifact + all-OS-CI verific
 
 4. **For a deflake, require _deterministic_ green.** A single rerun-green is the flake's own signature, not proof of a fix. Confirm the previously-flaky test now passes across **repeated** runs (the branch's CI re-runs, or a repeated-run job) before marking the deflake merge-ready. One green run does not clear a flake.
 
-5. **Classify each returned item** as `verified` (artifact present + all-OS CI green + deterministic green for deflakes), `rejected` (missing artifact, definitively red, or a "fix" that only hid the failure), or `retry` (transient, retried at most once). No item reaches REPORT as merge-ready without passing every applicable check.
+5. **Classify each returned item** as `verified` (artifact present + all-OS CI green + deterministic green for deflakes), `rejected` (missing artifact, definitively red, or a "fix" that only hid the failure), or `retry` (transient, retried at most once — and only after `harness ci attribute-failure` came back `inconclusive`; an `environmental` red needs no retry to classify, an `in-diff` red is not transient). No item reaches REPORT as merge-ready without passing every applicable check.
 
 ### Phase 5: REPORT — Batch Summary, Already-Green Closure, Never Merge
 

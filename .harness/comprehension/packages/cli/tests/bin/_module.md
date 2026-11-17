@@ -1,13 +1,14 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/tests/bin'
-sourceHash: '93bc4b4b88c7e242416168b8db7ea360216f7d8ec1d73f59172f0f7bbe7c97d4'
+sourceHash: 'dd55eb73e73c541a908f14bb913bdf5930de76165ec6c34369a89f800a78b1f0'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
 members:
   [
     'blocking-stdio.test.ts',
+    'command-telemetry-flush-cwd.test.ts',
     'command-telemetry.test.ts',
     'first-run-integration.test.ts',
     'freshness-check-hooks.test.ts',
@@ -36,6 +37,7 @@ import { CLI_VERSION } from '../../src/version'
 import { getUpdateNotification, isUpdateCheckEnabled, readCheckState, shouldRunCheck, spawnBackgroundCheck } from '@harness-engineering/core'
 import { Command } from 'commander'
 import * as fs from 'node:fs'
+import * as os from 'node:os'
 import * as path from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 ```

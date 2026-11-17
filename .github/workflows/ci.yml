@@ -5,6 +5,15 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  # Dispatched by release.yml at `changeset-release/main` after changesets/action
+  # opens or updates the release PR (#2047). That PR is pushed with GITHUB_TOKEN,
+  # so its `pull_request` runs land in `action_required` and never execute;
+  # `workflow_dispatch` is the one GITHUB_TOKEN event that always creates a run.
+  # The run's GITHUB_SHA is the release branch tip — the PR head — so its checks
+  # show on the PR. Every push-only job below is gated on `refs/heads/main` +
+  # `push`, and every `github.event.pull_request` read is gated on
+  # `pull_request`, so a dispatched run is exactly the build-and-test matrix.
+  workflow_dispatch:
 
 # Concurrency is SPLIT BY EVENT on purpose — do not "simplify" this back to a
 # plain `${{ github.workflow }}-${{ github.ref }}` + `cancel-in-progress: true`.
@@ -25,12 +34,17 @@ on:
 #            lands on main reaches its own all-OS verdict.
 #   PR    -> per-REF group, cancel-in-progress ON, so a new push to a PR still
 #            supersedes the old run. No runaway parallelism; PR spend unchanged.
+#   dispatch -> per-REF group, cancel-in-progress ON, exactly like a PR: release.yml
+#            re-dispatches on every release-PR update, and the newer head
+#            supersedes the older one.
 #
-# `cancel-in-progress` officially accepts an expression, and the `A && B || C`
-# idiom is already proven on this repo's runners at the `Test` step below.
+# The test is `== 'push'` (not `== 'pull_request'`) so that any non-push event is
+# superseding rather than accidentally per-commit. `cancel-in-progress` officially
+# accepts an expression, and the `A && B || C` idiom is already proven on this
+# repo's runners at the `Test` step below (B, a SHA, is always truthy).
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.ref || github.sha }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  group: ${{ github.workflow }}-${{ github.event_name == 'push' && github.sha || github.ref }}
+  cancel-in-progress: ${{ github.event_name != 'push' }}
 
 jobs:
   # Fail PRs that change a publishable package without a corresponding

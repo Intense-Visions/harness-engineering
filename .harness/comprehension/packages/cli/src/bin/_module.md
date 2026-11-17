@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/bin'
-sourceHash: '88c33e230348d51f33ffb8bbf9b752a7fad52764d00854026c914bd0da223715'
+sourceHash: '52d18b757d188330e71f08c0e95595f46751f79e20c61114c2d8230645b2224d'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -58,6 +58,7 @@ import 'dotenv/config'
 import * as fs from 'fs'
 import { spawn } from 'node:child_process'
 import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
 import { join, parsePath, resolve } from 'node:path'
 import * as path from 'path'
 ```

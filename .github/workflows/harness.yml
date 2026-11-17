@@ -5,6 +5,9 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  # Dispatched by release.yml at `changeset-release/main` (#2047) — see the
+  # matching trigger comment in ci.yml. This job reads no PR payload.
+  workflow_dispatch:
 
 # Concurrency is SPLIT BY EVENT on purpose — do not "simplify" this back to a
 # plain `harness-${{ github.ref }}` + `cancel-in-progress: true`.
@@ -21,12 +24,14 @@ on:
 #            lands on main reaches its own harness-checks verdict.
 #   PR    -> per-REF group, cancel-in-progress ON, so a new push to a PR still
 #            supersedes the old run. No runaway parallelism; PR spend unchanged.
+#   dispatch -> per-REF group, cancel-in-progress ON, like a PR (release.yml
+#            re-dispatches on every release-PR update; see ci.yml).
 #
 # `cancel-in-progress` officially accepts an expression, and the `A && B || C`
 # idiom is already proven on this repo's runners (ci.yml `Test` step).
 concurrency:
-  group: harness-${{ github.event_name == 'pull_request' && github.ref || github.sha }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  group: harness-${{ github.event_name == 'push' && github.sha || github.ref }}
+  cancel-in-progress: ${{ github.event_name != 'push' }}
 
 # Least authority: every step here only READS the repository (checkout, install,
 # build, run a repo script). Without this block the job would inherit the

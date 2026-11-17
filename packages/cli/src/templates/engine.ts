@@ -15,6 +15,12 @@ export interface TemplateContext {
   goModulePath?: string;
   pythonMinVersion?: string;
   javaGroupId?: string;
+  /**
+   * `javaGroupId` as a directory path (dots → slashes), derived by the engine.
+   * Templates use it as a `{{javaPackagePath}}` path segment so a class that
+   * declares `package {{javaGroupId}};` renders in its package directory (#2630).
+   */
+  javaPackagePath?: string;
   rustEdition?: string;
   // Named-template variables (currently the ci-pre-merge-brief workflow). The
   // engine compiles Handlebars in strict mode, so any template that references
@@ -70,11 +76,35 @@ interface WriteOptions {
   overwrite: boolean;
   language?: string;
   existingProject?: boolean;
+  /**
+   * The template is an opt-in add-on (`harness init -t ci-required-review`),
+   * not a project scaffold: every file it renders is harness infrastructure the
+   * adopter asked for, so it is written into an existing project too (#2630).
+   */
+  addOn?: boolean;
 }
 
 export interface WriteResult {
   written: string[];
   skippedConfigs: string[];
+  /** Files left untouched because they already existed (no `--force`). */
+  skippedExisting: string[];
+}
+
+/**
+ * An opt-in add-on template: a named template (`harness init -t <name>`) that is
+ * neither an adoption-level scaffold, a language base, a framework overlay, nor
+ * an extension of one. Everything it renders is infrastructure layered onto a
+ * project, never the project's own scaffold.
+ */
+export function isAddOnTemplate(metadata: TemplateMetadata): boolean {
+  return (
+    metadata.level === undefined &&
+    metadata.language === undefined &&
+    metadata.framework === undefined &&
+    metadata.extends === undefined &&
+    metadata.name !== 'base'
+  );
 }
 
 /**
@@ -188,6 +218,29 @@ function scoreDetectPatterns(
 }
 
 function applyLanguageDefaults(context: TemplateContext): TemplateContext {
+  const withDefaults = applyBaseLanguageDefaults(context);
+  if (withDefaults.javaGroupId === undefined || withDefaults.javaPackagePath !== undefined)
+    return withDefaults;
+  return { ...withDefaults, javaPackagePath: withDefaults.javaGroupId.split('.').join('/') };
+}
+
+const PATH_PLACEHOLDER = /\{\{\s*(\w+)\s*\}\}/g;
+
+/**
+ * Substitute `{{name}}` placeholders in a template file's relative path with
+ * string context values. Strict like the content render: a placeholder with no
+ * string value is an error, never an empty or literal path segment.
+ */
+function renderPath(relativePath: string, context: TemplateContext): string {
+  return relativePath.replace(PATH_PLACEHOLDER, (_match, name: string) => {
+    const value = (context as unknown as Record<string, unknown>)[name];
+    if (typeof value !== 'string' || value.length === 0)
+      throw new Error(`path placeholder {{${name}}} has no value in the template context`);
+    return value;
+  });
+}
+
+function applyBaseLanguageDefaults(context: TemplateContext): TemplateContext {
   return {
     ...context,
     ...(context.harnessCliVersion === undefined && { harnessCliVersion: CLI_VERSION }),
@@ -341,8 +394,8 @@ export class TemplateEngine {
     context: TemplateContext,
     jsonBuffers: Map<string, Record<string, unknown>[]>
   ): Result<RenderedFile | null, Error> {
-    const outputPath = file.relativePath.replace(/\.hbs$/, '');
     try {
+      const outputPath = renderPath(file.relativePath, context).replace(/\.hbs$/, '');
       if (file.isHandlebars) {
         const raw = fs.readFileSync(file.absolutePath, 'utf-8');
         const compiled = Handlebars.compile(raw, { strict: true });
@@ -355,7 +408,7 @@ export class TemplateEngine {
         return Ok({ relativePath: outputPath, content });
       }
       const content = fs.readFileSync(file.absolutePath, 'utf-8');
-      return Ok({ relativePath: file.relativePath, content });
+      return Ok({ relativePath: outputPath, content });
     } catch (error) {
       const msg = describeRenderError(error);
       return Err(
@@ -372,6 +425,7 @@ export class TemplateEngine {
     try {
       const written: string[] = [];
       const skippedConfigs: string[] = [];
+      const skippedExisting: string[] = [];
       const isNonJsLanguage = options.language && options.language !== 'typescript';
 
       for (const file of files.files) {
@@ -382,6 +436,7 @@ export class TemplateEngine {
         if (
           !options.overwrite &&
           options.existingProject &&
+          !options.addOn &&
           !isHarnessConfigFile(file.relativePath)
         ) {
           continue;
@@ -398,13 +453,16 @@ export class TemplateEngine {
           continue;
         }
 
-        if (!options.overwrite && fs.existsSync(targetPath)) continue;
+        if (!options.overwrite && fs.existsSync(targetPath)) {
+          skippedExisting.push(file.relativePath);
+          continue;
+        }
         fs.mkdirSync(dir, { recursive: true });
         fs.writeFileSync(targetPath, file.content);
         written.push(file.relativePath);
       }
       if (written.includes('harness.config.json')) pruneUnwrittenEntryPoints(targetDir);
-      return Ok({ written, skippedConfigs });
+      return Ok({ written, skippedConfigs, skippedExisting });
     } catch (error) {
       return Err(
         new Error(

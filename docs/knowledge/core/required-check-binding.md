@@ -36,4 +36,4 @@ it proves stable on real PRs. This repo's own `.github/workflows/required-review
 dogfoods the non-blocking stage.
 
 See also: [[ci-review-contract]], [[tiered-review-degradation]]. Adopter setup:
-`templates/ci/README.md` and `docs/standard/required-review.md`.
+`templates/ci/.github/harness/ci-required-review.md` and `docs/standard/required-review.md`.

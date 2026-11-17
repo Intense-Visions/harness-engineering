@@ -107,6 +107,20 @@ Otherwise — the base moved past the tested SHA since the green was gathered �
 
 **Mechanically checkable.** `classifyBaseFreshness` (exported from `@harness-engineering/core`) turns the tested base SHA, current base tip, whether the base advanced since the test, and whether strict protection is enforced into a `{ trust: 'verified' | 'degraded', fresh, reason }` verdict — so the clause is enforceable in code, not only prose. The caller derives its inputs from `gh pr view --json` + `gh api` / branch protection.
 
+## Flake attribution (correlate across PRs before spending a retry)
+
+Every member classifies a red check as flake-or-real, and the reflexive tool is "retry at most once". A retry that lands green is not evidence — it is the flake's own signature, a coin-flip that happened to land. A stronger and cheaper statement is already in the CI history: **did the same test fail in the same job on other, unrelated diffs — or on `main` — around the same time?** (#1839)
+
+**The clause.** Before retrying a red check, correlate it. `harness ci attribute-failure --pr <n> [--job <name> | --job-id <id>] [--json]` reads the failing job's log, parses the failing test names (vitest/jest `FAIL` lines, node:test spec and TAP failures), and compares the same job's runs on other PR branches and on `main` within ±24h of the failure (nearest first, capped). It also checks whether the failing test, or its paired source file, is in the PR's diff. It returns one of three verdicts, each with its denominator:
+
+- **`environmental`** — every failing test failed on at least **two independent** unrelated diffs or `main` (several reds on one branch count once), and none is in the PR's diff. The red is not this PR's. Record the counts as the evidence. No retry is needed to classify it.
+- **`in-diff`** — the PR changes a failing test or its source. Treat the red as real, even when the test also fails elsewhere.
+- **`inconclusive`** — fewer than two independent failures, a zero denominator, or an unreadable log. GitHub log blobs expire, so an expired log abstains as `BlobNotFound` and is never counted as a failure. This is the only verdict after which a single retry is the right tool. When the command abstains outright (exit code `3`), it examined nothing.
+
+**Why two.** One other failure is an anecdote: two PRs can share a cause by coincidence. The floor is clamped in code (`MIN_INDEPENDENT_FAILURES_FLOOR`), so `--min-failures 1` cannot lower it.
+
+**Mechanically checkable.** The decision is the pure `attributeFailure` (with `parseFailingTests` and `matchDiff`), exported from `@harness-engineering/core` and defined in [`packages/core/src/ci/flake-attribution.ts`](../../packages/core/src/ci/flake-attribution.ts). The `gh` gathering is in [`packages/cli/src/ci/attribute-failure.ts`](../../packages/cli/src/ci/attribute-failure.ts), behind an injectable runner so tests never touch the network. Diff matching is suffix-based (runners print package-relative paths). An ambiguous match leans toward `in-diff`, the direction that never wrongly excuses a failure.
+
 ## `CONFLICTING` on driver-managed paths (GitHub cannot run merge drivers)
 
 This repo routes its high-churn generated artifacts through custom merge drivers declared in `.gitattributes`:
