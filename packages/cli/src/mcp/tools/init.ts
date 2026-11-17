@@ -10,7 +10,7 @@ import {
   ensureComprehensionSearchIgnore,
 } from '../../templates/post-write.js';
 import type { TemplateMetadata } from '../../templates/schema.js';
-import { isAddOnTemplate } from '../../templates/engine.js';
+import { isAddOnTemplate, isNamedAddOnTemplate } from '../../templates/engine.js';
 import {
   NAMED_TEMPLATE_BLOCK_ON,
   NAMED_TEMPLATE_DEFAULTS,
@@ -134,7 +134,8 @@ function scaffoldMcp(
   engine: InstanceType<typeof import('../../templates/engine.js').TemplateEngine>,
   safePath: string,
   i: InitInput,
-  language: string | undefined
+  language: string | undefined,
+  namedAddOn: boolean
 ): McpToolResponse {
   const isNonJs = language && language !== 'typescript';
   // `template` takes precedence over `level`, mirroring `harness init --template`.
@@ -161,6 +162,7 @@ function scaffoldMcp(
   if (!renderResult.ok) return resultToMcpResponse(renderResult);
 
   const existingProject = engine.isExistingProject(safePath);
+  const addOn = namedAddOn || isAddOnTemplate(resolveResult.value.metadata);
 
   const writeResult = engine.write(renderResult.value, safePath, {
     overwrite: false,
@@ -168,11 +170,12 @@ function scaffoldMcp(
     existingProject,
     // Opt-in add-ons (ci-* etc.) write into existing projects too, exactly like
     // `harness init --template` (#2630).
-    addOn: isAddOnTemplate(resolveResult.value.metadata),
+    addOn,
   });
 
   if (writeResult.ok) {
-    persistToolingConfig(safePath, resolveResult.value, i.framework);
+    // An add-on leaves an existing harness.config.json byte-for-byte alone (#2670).
+    if (!addOn) persistToolingConfig(safePath, resolveResult.value, i.framework);
     appendFrameworkAgents(safePath, i.framework, language);
     ensureHarnessGitignore(safePath);
     ensureComprehensionSearchIgnore(safePath);
@@ -189,7 +192,15 @@ function scaffoldMcp(
     );
   }
 
-  return resultToMcpResponse(writeResult);
+  const response = resultToMcpResponse(writeResult);
+  if (writeResult.ok && addOn && !fs.existsSync(path.join(safePath, 'harness.config.json'))) {
+    // Same advice as the CLI's next steps: the add-on wrote no project config.
+    response.content.push({
+      type: 'text' as const,
+      text: 'This directory has no harness.config.json yet: run init_project without a template (or `harness init`) to scaffold the project config before `harness validate`.',
+    });
+  }
+  return response;
 }
 
 export async function handleInitProject(input: Record<string, unknown>): Promise<McpToolResponse> {
@@ -199,13 +210,21 @@ export async function handleInitProject(input: Record<string, unknown>): Promise
     const engine = new TemplateEngine(resolveTemplatesDir());
     const safePath = sanitizePath(i.path);
 
-    const detected = tryDetectFramework(engine, safePath, i);
+    const templates = engine.listTemplates();
+    const namedAddOn = isNamedAddOnTemplate(
+      templates.ok ? templates.value : [],
+      i.template ?? i.level,
+      i.language
+    );
+
+    // Framework detection picks a project scaffold; an add-on is not one (#2670).
+    const detected = namedAddOn ? null : tryDetectFramework(engine, safePath, i);
     if (detected) return detected;
 
     const conflict = checkFrameworkLanguageConflict(engine, i);
     if (conflict) return conflict;
 
-    return scaffoldMcp(engine, safePath, i, inferLanguage(engine, i));
+    return scaffoldMcp(engine, safePath, i, inferLanguage(engine, i), namedAddOn);
   } catch (error) {
     return mcpText(`Init failed: ${error instanceof Error ? error.message : String(error)}`, true);
   }

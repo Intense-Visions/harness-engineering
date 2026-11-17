@@ -108,6 +108,24 @@ export function isAddOnTemplate(metadata: TemplateMetadata): boolean {
 }
 
 /**
+ * Whether `harness init --template <name>` (which arrives as `level`) names an
+ * opt-in add-on template. Mirrors resolveTemplate's lookup order: a non-JS
+ * language never resolves a named template, and an adoption-level match wins
+ * over a same-named template. Lets both init entry points decide the add-on
+ * path BEFORE the already-initialized guard and framework detection (#2670).
+ */
+export function isNamedAddOnTemplate(
+  templates: TemplateMetadata[],
+  name: string | undefined,
+  language?: string
+): boolean {
+  if (!name || (language && language !== 'typescript')) return false;
+  if (templates.some((t) => t.level === name)) return false;
+  const named = templates.find((t) => t.name === name);
+  return named !== undefined && isAddOnTemplate(named);
+}
+
+/**
  * Turn a Handlebars strict-mode miss (`"x" not defined in [object Object] - 18:18`)
  * into a message that names the missing variable and line, so callers such as the
  * init_project MCP tool surface something actionable instead of an opaque dump.

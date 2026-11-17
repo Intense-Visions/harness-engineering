@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/tests/commands'
-sourceHash: '5771ef0188c9a7c89862dfad6a7565f50c417a30a85aed6243f24b04f0fb29a1'
+sourceHash: 'b755319d099720c619b2b8842c81c5c9c6f86fe792c5aa52278a2c9fa56293f5'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -113,6 +113,7 @@ members:
     'init-extra.test.ts',
     'init-first-run.test.ts',
     'init-minimal.test.ts',
+    'init-named-template-config.test.ts',
     'init-tier-upgrade.test.ts',
     'init.test.ts',
     'insights.test.ts',
@@ -326,7 +327,7 @@ import { buildHookCommand, buildSettingsHooks, initHooks, mergeSettings } from '
 import { listHooks } from '../../src/commands/hooks/list'
 import { removeHooks } from '../../src/commands/hooks/remove'
 import { runImpactPreview } from '../../src/commands/impact-preview'
-import { createInitCommand, runInit } from '../../src/commands/init'
+import { buildNextSteps, createInitCommand, runInit } from '../../src/commands/init'
 import { buildUpgradePath, runMinimalInit } from '../../src/commands/init-minimal'
 import { createInsightsCommand } from '../../src/commands/insights'
 import { createInstallCommand, installSkillDir, offerGenerateSlashCommands, runBulkInstall, runInstall } from '../../src/commands/install'
@@ -440,6 +441,7 @@ import { runDetectDrift } from '../../src/mcp/tools/detect-drift'
 import { handleDetectEntropy } from '../../src/mcp/tools/entropy'
 import { handleGatherContext } from '../../src/mcp/tools/gather-context'
 import { handleGetImpact } from '../../src/mcp/tools/graph/index'
+import { handleInitProject } from '../../src/mcp/tools/init'
 import { runInstructionDensityAudit } from '../../src/mcp/tools/instruction-density'
 import { handleManageState } from '../../src/mcp/tools/state'
 import { resolveAnalysisProvider } from '../../src/mcp/utils/analysis-provider'

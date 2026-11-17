@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/templates'
-sourceHash: 'b57f684535334ad2b91fcac0a20a92f056c0e0ebe3624d505cb24e07f53d0fbe'
+sourceHash: '1df14a691834cf447eaaeef59e5b308e88db1b81364cd743072ff779809f82b0'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -36,6 +36,7 @@ export deepMergeJson
 export ensureComprehensionSearchIgnore
 export ensureHarnessGitignore
 export isAddOnTemplate
+export isNamedAddOnTemplate
 export mergePackageJson
 export persistToolingConfig
 export resolveNamedTemplateVars

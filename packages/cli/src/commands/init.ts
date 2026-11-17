@@ -4,7 +4,12 @@ import * as fs from 'fs';
 import * as path from 'path';
 import type { Result, RoadmapMeta } from '@harness-engineering/core';
 import { Ok, Err, serializeMeta, roadmapSourceExists } from '@harness-engineering/core';
-import { TemplateEngine, isAddOnTemplate, type DetectedFramework } from '../templates/engine';
+import {
+  TemplateEngine,
+  isAddOnTemplate,
+  isNamedAddOnTemplate,
+  type DetectedFramework,
+} from '../templates/engine';
 import type { TemplateMetadata } from '../templates/schema';
 import { resolveNamedTemplateVars } from '../templates/named-template-vars';
 import {
@@ -49,6 +54,8 @@ interface InitResult {
   detectedFrameworks?: DetectedFramework[];
   /** Set when this run layered a higher tier over an existing install. */
   upgradedFrom?: string;
+  /** The template was an opt-in add-on (`-t ci-*`): it wrote only its own files. */
+  addOn?: boolean;
 }
 
 /** An additive re-run over a lower-tier install: the config as the adopter left it. */
@@ -76,9 +83,14 @@ function resolveInitDefaults(options: InitOptions): { cwd: string; name: string;
 export async function runInit(options: InitOptions): Promise<Result<InitResult, CLIError>> {
   const { cwd, name, force } = resolveInitDefaults(options);
 
+  const { engine, templateList } = loadEngineAndTemplates(options);
+  // An opt-in add-on (`-t ci-*`) layers its own files onto a project and never
+  // overwrites one, so an existing install is not a reason to refuse it (#2670).
+  const addOn = isNamedAddOnTemplate(templateList, options.level, options.language);
+
   const configPath = path.join(cwd, 'harness.config.json');
   let upgrade: TierUpgrade | undefined;
-  if (!force && fs.existsSync(configPath)) {
+  if (!force && !addOn && fs.existsSync(configPath)) {
     const decision = decideReinit(configPath, options.tier);
     if (decision.kind === 'refuse') return Err(new CLIError(decision.message, ExitCode.ERROR));
     upgrade = {
@@ -88,16 +100,15 @@ export async function runInit(options: InitOptions): Promise<Result<InitResult, 
     };
   }
 
-  const { engine, templateList } = loadEngineAndTemplates(options);
-
   const validationError = validateFrameworkLanguage(options, templateList);
   if (validationError) return Err(validationError);
 
-  const detected = upgrade ? null : tryAutoDetect(engine, cwd, options);
+  // Framework detection picks a project scaffold; an add-on is not one.
+  const detected = upgrade || addOn ? null : tryAutoDetect(engine, cwd, options);
   if (detected) return Ok(detected);
 
   const language = resolveLanguage(options, templateList);
-  return scaffoldProject(engine, { cwd, name, force, language, options, upgrade });
+  return scaffoldProject(engine, { cwd, name, force, language, options, upgrade, addOn });
 }
 
 function validateFrameworkLanguage(
@@ -149,9 +160,10 @@ async function scaffoldProject(
     language: string | undefined;
     options: InitOptions;
     upgrade?: TierUpgrade | undefined;
+    addOn: boolean;
   }
 ): Promise<Result<InitResult, CLIError>> {
-  const { cwd, name, force, language, options, upgrade } = ctx;
+  const { cwd, name, force, language, options, upgrade, addOn } = ctx;
   const isNonJs = language && language !== 'typescript';
   const level = isNonJs ? undefined : (options.level ?? 'load-bearing-minimum');
   if (upgrade && level !== upgrade.to) {
@@ -181,22 +193,9 @@ async function scaffoldProject(
   });
   if (!renderResult.ok) return Err(new CLIError(renderResult.error.message, ExitCode.ERROR));
 
-  // Inject the GitHub Actions CI workflow into the write set via the single
-  // generator (generateCIConfig). It is classified as a harness-managed file
-  // (engine.ts HARNESS_CONFIG_FILES), so engine.write emits it in both fresh
-  // and existing-project mode and skips it when a workflow already exists.
-  const ciResult = generateCIConfig({
-    platform: 'github',
-    ...(language !== undefined && { language }),
-  });
-  if (ciResult.ok) {
-    renderResult.value.files.push({
-      relativePath: ciResult.value.filename,
-      content: ciResult.value.content,
-    });
-  } else {
-    logger.warn(`CI workflow was not generated: ${ciResult.error.message}`);
-  }
+  // An add-on writes exactly its own files (#2670): the generic workflow runs
+  // `harness ci check`, which is project scaffold, not part of the add-on.
+  if (!addOn) injectCIWorkflow(renderResult.value.files, language);
 
   const existingProject = !force && engine.isExistingProject(cwd);
 
@@ -204,7 +203,7 @@ async function scaffoldProject(
     overwrite: force,
     ...(language !== undefined && { language }),
     existingProject,
-    addOn: isAddOnTemplate(resolveResult.value.metadata),
+    addOn: addOn || isAddOnTemplate(resolveResult.value.metadata),
   });
   if (!writeResult.ok) return Err(new CLIError(writeResult.error.message, ExitCode.ERROR));
 
@@ -215,7 +214,8 @@ async function scaffoldProject(
     }
   }
 
-  persistToolingConfig(cwd, resolveResult.value, options.framework);
+  // An add-on leaves an adopter's existing harness.config.json byte-for-byte alone.
+  if (!addOn) persistToolingConfig(cwd, resolveResult.value, options.framework);
   if (upgrade) {
     // The existing config was skipped by engine.write (it never overwrites);
     // layer the higher tier's keys under every value the adopter set (#2630).
@@ -231,19 +231,7 @@ async function scaffoldProject(
   ensureHarnessGitignore(cwd);
   ensureComprehensionSearchIgnore(cwd);
 
-  const eco = applyEcosystemAfterCreate(cwd, writeResult.value.written);
-  if (eco.rewritten) {
-    logger.info(
-      `Scaffolded afterCreate install hook for ${eco.ecosystem!.id}: ${eco.installCommand}`
-    );
-  } else if (eco.ecosystem === null) {
-    logger.warn(
-      'No install or verify command could be resolved for this workspace ' +
-        '(no recognized lockfile or manifest at the root). The local enforced verify gate ' +
-        'has nothing to run and no afterCreate install hook was scaffolded. Configure ' +
-        'hooks.afterCreate and the verify command manually for your toolchain.'
-    );
-  }
+  if (!addOn) reportEcosystemAfterCreate(cwd, writeResult.value.written);
 
   // Sharded-by-default (D5): a brand-new project gets a sharded roadmap — an empty
   // `docs/roadmap.d/_meta.md` and NO monolith aggregate. Per-row shards are the
@@ -252,7 +240,7 @@ async function scaffoldProject(
   // shard`). `_meta.md` is emitted via the core serializer so it round-trips
   // through the ShardStore parser byte-for-byte (the format is parser-sensitive).
   const roadmapFiles: string[] = [];
-  if (!existingProject) {
+  if (!existingProject && !addOn) {
     roadmapFiles.push(...scaffoldShardedRoadmap(cwd, name));
   }
 
@@ -281,7 +269,42 @@ async function scaffoldProject(
       ? writeResult.value.skippedExisting.filter((f) => f !== 'harness.config.json')
       : writeResult.value.skippedExisting,
     ...(upgrade && { upgradedFrom: upgrade.from }),
+    ...(addOn && { addOn }),
   });
+}
+
+/**
+ * Inject the GitHub Actions CI workflow into the write set via the single
+ * generator (generateCIConfig). It is classified as a harness-managed file
+ * (engine.ts HARNESS_CONFIG_FILES), so engine.write emits it in both fresh
+ * and existing-project mode and skips it when a workflow already exists.
+ */
+function injectCIWorkflow(files: { relativePath: string; content: string }[], language?: string) {
+  const ciResult = generateCIConfig({
+    platform: 'github',
+    ...(language !== undefined && { language }),
+  });
+  if (ciResult.ok) {
+    files.push({ relativePath: ciResult.value.filename, content: ciResult.value.content });
+  } else {
+    logger.warn(`CI workflow was not generated: ${ciResult.error.message}`);
+  }
+}
+
+function reportEcosystemAfterCreate(cwd: string, written: string[]): void {
+  const eco = applyEcosystemAfterCreate(cwd, written);
+  if (eco.rewritten) {
+    logger.info(
+      `Scaffolded afterCreate install hook for ${eco.ecosystem!.id}: ${eco.installCommand}`
+    );
+  } else if (eco.ecosystem === null) {
+    logger.warn(
+      'No install or verify command could be resolved for this workspace ' +
+        '(no recognized lockfile or manifest at the root). The local enforced verify gate ' +
+        'has nothing to run and no afterCreate install hook was scaffolded. Configure ' +
+        'hooks.afterCreate and the verify command manually for your toolchain.'
+    );
+  }
 }
 
 /**
@@ -313,6 +336,8 @@ function scaffoldShardedRoadmap(cwd: string, name: string): string[] {
 }
 
 function printInitSuccess(
+  cwd: string,
+  addOn: boolean,
   filesCreated: string[],
   mcpConfigured: string[],
   skippedExisting: string[] = [],
@@ -324,7 +349,8 @@ function printInitSuccess(
       `Project upgraded from tier "${upgradedFrom}" (additive: existing files and config values kept).`
     );
   } else {
-    logger.success('Project initialized!');
+    // An add-on layers files onto a project; it does not initialize one (#2670).
+    logger.success(addOn ? 'Template files added.' : 'Project initialized!');
   }
   console.log('');
   logger.info('Created files:');
@@ -347,10 +373,34 @@ function printInitSuccess(
   }
   console.log('');
   console.log(chalk.bold('Next steps:'));
-  console.log(`  1. Review ${chalk.cyan('harness.config.json')}`);
-  console.log(`  2. Update ${chalk.cyan('AGENTS.md')} with your project context`);
-  console.log(`  3. Run ${chalk.cyan('harness validate')} to check your setup`);
+  for (const line of buildNextSteps(cwd, { addOn })) console.log(`  ${line}`);
   console.log('');
+}
+
+/**
+ * The numbered "Next steps" lines printed after a successful init. Derived from
+ * what is actually on disk, so the advice never names a file the run did not
+ * produce (#2670): an add-on into a directory with no harness.config.json says
+ * so and points at `harness init` instead of promising a passing validate.
+ */
+export function buildNextSteps(cwd: string, ctx: { addOn: boolean }): string[] {
+  const hasConfig = fs.existsSync(path.join(cwd, 'harness.config.json'));
+  const steps: string[] = [];
+  if (ctx.addOn) {
+    steps.push('Review the files created above (the template doc lists any one-time setup)');
+    steps.push(
+      hasConfig
+        ? 'Run harness validate to check your setup'
+        : 'This directory has no harness.config.json yet: run harness init to scaffold the project config, then harness validate'
+    );
+  } else {
+    if (hasConfig) steps.push('Review harness.config.json');
+    if (fs.existsSync(path.join(cwd, 'AGENTS.md'))) {
+      steps.push('Update AGENTS.md with your project context');
+    }
+    steps.push('Run harness validate to check your setup');
+  }
+  return steps.map((step, i) => `${i + 1}. ${step}`);
 }
 
 /**
@@ -392,6 +442,8 @@ async function runInitAction(opts: InitOptions & { quiet?: boolean }): Promise<v
 
   if (!opts.quiet) {
     printInitSuccess(
+      cwd,
+      result.value.addOn ?? false,
       result.value.filesCreated,
       mcpResult.configured,
       result.value.skippedExisting,
