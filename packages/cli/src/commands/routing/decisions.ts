@@ -1,7 +1,6 @@
 import { Command } from 'commander';
-import { getJson, orchestratorBase } from './http-client';
-import { logger } from '../../output/logger';
-import { ExitCode } from '../../utils/errors';
+import { getJson } from './http-client';
+import { failRoutingCall, routingFailureMessage } from './failure';
 import type { RoutingDecision, RoutingUseCase } from '@harness-engineering/types';
 
 /**
@@ -91,18 +90,11 @@ export function createDecisionsCommand(): Command {
         const query = buildQuery(opts);
         const r = await getJson<DecisionsResponse>(`/api/v1/routing/decisions${query}`);
         if (!r.ok) {
-          if (r.status === 0) {
-            logger.error(
-              `Failed to reach orchestrator at ${orchestratorBase()}: ${r.error ?? 'unknown error'}`
-            );
-          } else if (r.status === 503) {
-            logger.error(
-              'Routing observability not available — orchestrator has no BackendRouter (legacy single-backend config)'
-            );
-          } else {
-            logger.error(`Request failed (${r.status}): ${r.error ?? ''}`);
-          }
-          process.exit(ExitCode.ERROR);
+          failRoutingCall(
+            routingFailureMessage(r, { unavailableOn503: true }),
+            r.status,
+            opts.json
+          );
           return;
         }
         if (opts.json) {

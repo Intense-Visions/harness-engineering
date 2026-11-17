@@ -225,7 +225,7 @@ Compile and maintain the per-module comprehension substrate
 
 - `--changed` — Recompile only modules owning changed files (default)
 - `--all` — Recompile every module (backfill)
-- `--check` — Token-free: report source-stale and orphan units, exit non-zero if any
+- `--check` — Token-free: report source-stale and orphan units, exit non-zero if any (honors --json)
 - `--prune` — Token-free: delete orphan units (committed units whose module directory no longer exists or is never enumerated)
 - `--refresh` — Opt-in token-gated CI refresh (#1689): on the single-writer main-pass with a provider credential and comprehension.ci:refresh, regenerate+stage committed semantic; a clean no-op otherwise
 - `--since` — With --check: also fail on any module that regressed semantic present→absent vs this git ref (token-free)

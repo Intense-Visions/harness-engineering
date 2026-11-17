@@ -15,6 +15,7 @@ import { applyInjectionGuard } from './middleware/injection-guard.js';
 import { applyCompaction } from './middleware/compaction.js';
 import { applyContextBudget } from './middleware/context-budget.js';
 import { applyVersionGuard } from './middleware/version-guard.js';
+import { CLI_VERSION } from '../version.js';
 import { describeStaleBuildError } from './stale-build.js';
 import { validateToolDefinition, handleValidateProject } from './tools/validate.js';
 import { checkDependenciesDefinition, handleCheckDependencies } from './tools/architecture.js';
@@ -706,7 +707,6 @@ async function appendUpdateNotification(
       spawnBackgroundCheck,
     } = await import('@harness-engineering/core');
 
-    const { CLI_VERSION } = await import('../version.js');
     const configInterval = readConfigInterval(resolvedRoot);
     const DEFAULT_INTERVAL = 86_400_000; // 24 hours
 
@@ -847,7 +847,7 @@ export function createHarnessServer(projectRoot?: string, toolFilter?: string[])
   });
 
   const server = new Server(
-    { name: 'harness-engineering', version: '2.3.1' },
+    { name: 'harness-engineering', version: CLI_VERSION },
     { capabilities: { tools: {}, resources: {} } }
   );
 

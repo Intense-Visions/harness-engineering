@@ -1,7 +1,6 @@
 import { Command } from 'commander';
-import { getJson, orchestratorBase } from './http-client';
-import { logger } from '../../output/logger';
-import { ExitCode } from '../../utils/errors';
+import { getJson } from './http-client';
+import { failRoutingCall, routingFailureMessage } from './failure';
 import type { RoutingStatus } from '@harness-engineering/types';
 
 /**
@@ -72,14 +71,7 @@ export function createStatusCommand(): Command {
     .action(async (opts: { json?: boolean }) => {
       const r = await getJson<RoutingStatus>('/api/v1/routing/status');
       if (!r.ok) {
-        if (r.status === 0) {
-          logger.error(
-            `Failed to reach orchestrator at ${orchestratorBase()}: ${r.error ?? 'unknown error'}`
-          );
-        } else {
-          logger.error(`Request failed (${r.status}): ${r.error ?? ''}`);
-        }
-        process.exit(ExitCode.ERROR);
+        failRoutingCall(routingFailureMessage(r), r.status, opts.json);
         return;
       }
       const body = r.body ?? {

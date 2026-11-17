@@ -348,12 +348,16 @@ async function runCheckMode(
     since?: string;
     context?: RegressionContext;
     config?: HarnessConfig | undefined;
+    json?: boolean;
   } = { projectRoot: process.cwd() }
 ): Promise<void> {
   // ADR 0116 §2 — consume the (previously dormant) `comprehension.ci` seam.
   const ciMode = resolveComprehensionCiMode(opts.config);
   if (ciMode === 'off') {
     logger.info('comprehension.ci: off — the comprehension gate is disabled (ADR 0116 §2).');
+    // Under --json the gate's verdict must still be a document on stdout: an
+    // empty stdout is indistinguishable from a crash to a machine consumer.
+    if (opts.json) logger.raw({ ok: true, disabled: true, ciMode });
     process.exit(ExitCode.SUCCESS);
   }
 
@@ -396,6 +400,19 @@ async function runCheckMode(
   }
 
   const ok = result.ok && coverageOk && regressed.length === 0 && !refUnreadable;
+  // `--json`: the verdict as one document on stdout (the human lines above are
+  // routed to stderr by the logger's machine-output mode), and the exit code
+  // agrees with its `ok` field.
+  if (opts.json) {
+    logger.raw({
+      ok,
+      stale: result.stale,
+      orphans: result.orphans,
+      skipped: result.skipped,
+      semantic: result.semantic,
+      ...(opts.since ? { since: opts.since, regressed, refUnreadable } : {}),
+    });
+  }
   process.exit(ok ? ExitCode.SUCCESS : ExitCode.VALIDATION_FAILED);
 }
 
@@ -790,6 +807,7 @@ export async function runComprehendAction(
       config,
       ...(opts.since ? { since: opts.since } : {}),
       ...(opts.context ? { context: opts.context } : {}),
+      ...(opts.json ? { json: true } : {}),
     });
   if (mode === 'prune') return runPruneMode(projectRoot, store);
   if (mode === 'stats') return runStatsMode(store, reader, opts.json ?? false);
@@ -812,7 +830,10 @@ export function createComprehendCommand(): Command {
     .description('Compile and maintain the per-module comprehension substrate')
     .option('--changed', 'Recompile only modules owning changed files (default)')
     .option('--all', 'Recompile every module (backfill)')
-    .option('--check', 'Token-free: report source-stale and orphan units, exit non-zero if any')
+    .option(
+      '--check',
+      'Token-free: report source-stale and orphan units, exit non-zero if any (honors --json)'
+    )
     .option(
       '--prune',
       'Token-free: delete orphan units (committed units whose module directory no longer exists or is never enumerated)'

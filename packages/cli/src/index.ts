@@ -16,6 +16,7 @@ import { registerDeprecatedGraphAliases } from './commands/graph/deprecated-alia
 import { installVersionGuard } from './utils/version-guard';
 import { setMachineOutput } from './output/logger';
 import { installRootOptionPropagation } from './utils/global-option-propagation';
+import { installJsonMissingSubcommand } from './utils/json-missing-subcommand';
 
 /**
  * Creates and configures the main Harness CLI program.
@@ -100,6 +101,11 @@ export function createProgram(): Command {
   // `-c`) never receives it — commander gives it to the root (#2069). Copy the
   // user's value down before the action runs so its own `opts` sees it.
   installRootOptionPropagation(program);
+
+  // `harness <group> --json` with no subcommand: keep commander's help-on-stderr
+  // + exit 1, and ALSO put a JSON error on stdout so the document agrees with
+  // the exit code instead of stdout being empty.
+  installJsonMissingSubcommand(program, (str) => writeSyncOrFallback(1, str, process.stdout));
 
   // Refuse to emit findings when this CLI is sharply out of step with the
   // workspace it is scanning. Installed here rather than in bin/harness.ts so

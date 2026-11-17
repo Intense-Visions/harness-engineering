@@ -1,7 +1,6 @@
 import { Command } from 'commander';
-import { postJson, orchestratorBase } from './http-client';
-import { logger } from '../../output/logger';
-import { ExitCode } from '../../utils/errors';
+import { postJson } from './http-client';
+import { failRoutingCall, routingFailureMessage } from './failure';
 import type { RoutingDecision, RoutingUseCase } from '@harness-engineering/types';
 
 /**
@@ -93,20 +92,13 @@ interface TraceOptions {
 
 /** Maps a failed trace response to its user-facing error message. */
 function traceErrorMessage(r: { status: number; error?: string }): string {
-  if (r.status === 0) {
-    return `Failed to reach orchestrator at ${orchestratorBase()}: ${r.error ?? 'unknown error'}`;
-  }
-  if (r.status === 503) {
-    return 'Routing observability not available — orchestrator has no BackendRouter (legacy single-backend config)';
-  }
-  return `Trace failed (${r.status}): ${r.error ?? ''}`;
+  return routingFailureMessage(r, { unavailableOn503: true, failedLabel: 'Trace failed' });
 }
 
 async function runTrace(opts: TraceOptions): Promise<void> {
   const useCase = buildUseCase(opts);
   if (!useCase) {
-    logger.error('Either --skill <name> or --mode <m> is required');
-    process.exit(ExitCode.ERROR);
+    failRoutingCall('Either --skill <name> or --mode <m> is required', 0, opts.json);
     return;
   }
   // Fail fast on bad enum values with a friendly, allowed-values error
@@ -115,8 +107,7 @@ async function runTrace(opts: TraceOptions): Promise<void> {
     validateEnum('--complexity', opts.complexity, COMPLEXITY_VALUES) ??
     validateEnum('--risk', opts.risk, RISK_VALUES);
   if (enumError) {
-    logger.error(enumError);
-    process.exit(ExitCode.ERROR);
+    failRoutingCall(enumError, 0, opts.json);
     return;
   }
   const r = await postJson<TraceResponse>('/api/v1/routing/trace', {
@@ -125,8 +116,7 @@ async function runTrace(opts: TraceOptions): Promise<void> {
     ...(opts.risk ? { risk: opts.risk } : {}),
   });
   if (!r.ok) {
-    logger.error(traceErrorMessage(r));
-    process.exit(ExitCode.ERROR);
+    failRoutingCall(traceErrorMessage(r), r.status, opts.json);
     return;
   }
   if (opts.json) {

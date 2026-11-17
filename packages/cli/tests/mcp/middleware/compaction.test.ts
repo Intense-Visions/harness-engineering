@@ -385,3 +385,22 @@ describe('CT-spill: large tool output spills to disk with a followup-readable lo
     expect(result.content[0].text).toContain(SPILL_LOCATOR_SCHEME);
   });
 });
+
+describe('packed header savings sign', () => {
+  it('reports growth as +N% (never a doubled minus) when the header outweighs the saving', async () => {
+    // A tiny, already-compact payload: the header's own tokens push the packed
+    // size above the original, so the "saving" is negative.
+    const handler = async (): Promise<ToolResult> => ({
+      content: [{ type: 'text', text: JSON.stringify({ a: 1 }) }],
+    });
+    const result = await wrapWithCompaction('tiny_tool', handler)({});
+    const header = result.content[0].text.split('\n')[0];
+    expect(header).not.toContain('(--');
+    expect(header).toMatch(/tokens \(\+\d+%\) -->$/);
+  });
+
+  it('still reports a real saving as -N%', async () => {
+    const result = await wrapWithCompaction('big_tool', largeJsonHandler)({});
+    expect(result.content[0].text.split('\n')[0]).toMatch(/tokens \(-\d+%\) -->$/);
+  });
+});

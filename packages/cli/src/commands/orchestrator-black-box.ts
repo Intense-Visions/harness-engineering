@@ -70,8 +70,14 @@ function toolUseForUnit(streamsDir: string, issueId: string): Map<string, number
   return counts;
 }
 
-function renderList(dir: string): void {
+function renderList(dir: string, json = false): void {
   const runs = FlightRecorder.listRuns(dir);
+  // `--json`: the run list is the document, including when it is empty — an
+  // empty stdout is indistinguishable from a crash to a machine consumer.
+  if (json) {
+    logger.raw({ dir, runs });
+    return;
+  }
   if (runs.length === 0) {
     logger.info(`No black-box runs found under ${dir}`);
     return;
@@ -86,11 +92,17 @@ function renderList(dir: string): void {
   }
 }
 
-function renderShow(dir: string, runId: string): boolean {
+function renderShow(dir: string, runId: string, json = false): boolean {
   const run = FlightRecorder.getRun(dir, runId);
   if (run === null) {
-    logger.error(`No black-box run '${runId}' under ${dir}`);
+    const message = `No black-box run '${runId}' under ${dir}`;
+    if (json) logger.raw({ error: message });
+    else logger.error(message);
     return false;
+  }
+  if (json) {
+    logger.raw({ run });
+    return true;
   }
   const streamsDir = path.join(dir, '..', 'streams');
   renderRunHeader(run);
@@ -158,16 +170,18 @@ export function createBlackBoxCommand(): Command {
     .command('list')
     .description('List recorded runs, newest first')
     .option('--dir <path>', 'Black-box directory', DEFAULT_DIR)
-    .action((opts: { dir: string }) => {
-      renderList(path.resolve(process.cwd(), opts.dir));
+    .action((opts: { dir: string }, command: Command) => {
+      const json = Boolean(command.optsWithGlobals().json);
+      renderList(path.resolve(process.cwd(), opts.dir), json);
     });
 
   cmd
     .command('show <runId>')
     .description('Show provenance, verdicts, convergence, and tool-use for a run')
     .option('--dir <path>', 'Black-box directory', DEFAULT_DIR)
-    .action((runId: string, opts: { dir: string }) => {
-      const ok = renderShow(path.resolve(process.cwd(), opts.dir), runId);
+    .action((runId: string, opts: { dir: string }, command: Command) => {
+      const json = Boolean(command.optsWithGlobals().json);
+      const ok = renderShow(path.resolve(process.cwd(), opts.dir), runId, json);
       if (!ok) process.exitCode = 1;
     });
 

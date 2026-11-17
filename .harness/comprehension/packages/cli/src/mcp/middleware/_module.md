@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/mcp/middleware'
-sourceHash: '1e573924b76e5a34085473c5877937fb6aeedc55f53c8eade61147f6a2d26080'
+sourceHash: '04863f8a2ec41cbcd2eaf6c0264586d3c20809e2ced76a2e4635bc81e784b138'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent

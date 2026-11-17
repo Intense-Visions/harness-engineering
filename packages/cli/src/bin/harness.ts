@@ -8,11 +8,16 @@ import { printFirstRunWelcome } from '../utils/first-run';
 import { sessionStartDispatch, formatDispatchBanner } from '../skill/dispatch-session';
 import type { SessionDispatchResult } from '../skill/dispatch-session';
 import { makeStdioPipesBlocking } from './blocking-stdio';
+import { installErrorJsonSerialization } from '../output/error-json';
 
 async function main(): Promise<void> {
   // #2254: piped stdout must not lose queued bytes to a command's explicit
   // process.exit(). Must run before anything writes.
   makeStdioPipesBlocking();
+
+  // `--json` documents that embed an Error must carry its `message` (an Error
+  // stringifies to `{}` by default). Installed before any command runs.
+  installErrorJsonSerialization();
 
   // Show welcome message on first run (before any other output)
   printFirstRunWelcome();
