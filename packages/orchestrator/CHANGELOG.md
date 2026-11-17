@@ -1,5 +1,95 @@
 # @harness-engineering/orchestrator
 
+## 0.30.0
+
+### Minor Changes
+
+- 9be57d2: Add user-level trusted autonomy mode: `resolveAutonomy` with flag/session/env/user-config precedence, a home-dir session-override store whose agent-callable path (`manage_state set-autonomy`) can only lower autonomy, a `gather_context` `autonomy` include, and `harness autonomy show|set`.
+
+  Raises can come only from `~/.harness/config.json` or an interactive `harness autonomy set`: the `HARNESS_AUTONOMY*` environment tier (reachable from a project `.env`) can only lower. A raise is bound to an existing `.harness/sessions/<slug>/`, expires (default 24h, `--for <duration>`), and is appended to `~/.harness/autonomy-audit.log`. Corrupt overrides fail closed, override writes are locked, and all worktrees of a repo share one override. A new minimal-profile `autonomy-guard` PreToolUse hook blocks agent raises via `harness autonomy set` (and any `autonomy set` whose level or audit is not literally a lowering), a `harness` invocation whose runtime-built argument (`$VAR`, `$(…)`, backticks) could select `autonomy set` (runtime-built arguments to other literal subcommands, and to `autonomy log` / `autonomy show`, stay allowed), `cd` or variable assignment aimed at `~/.harness`, and agent writes to `~/.harness/config.json`, `~/.harness/session-overrides/` and `~/.harness/autonomy-audit.log`.
+
+  Session slugs are now validated by one shared rule, so `resolveSessionDir` (and every `session` argument that reaches it) newly rejects slugs containing `:`, dot-only slugs (`.`, `...`), slugs with leading or trailing whitespace, and Windows reserved device names (`CON`, `NUL`, `COM1`, ...).
+
+  Add the trusted-autonomy decision log: a `record_auto_decision` MCP tool (standard tier) that validates each entry strictly, stamps `ts` and `autonomySource` itself (caller-supplied values are rejected), refuses entries the resolved autonomy does not permit, and appends one line to `.harness/sessions/<slug>/auto-decisions.jsonl` (append-only; a failed write returns `recorded: false` with `action: "pause"`). `harness autonomy log --session <slug> [--json]` summarizes counts by class, `audited N/M` (M counts every judgment decision, including audit `unavailable`/`off`), the agreement rate and escalations; core exports the pure `renderAutoDecisionSummary` for end-of-run summaries. Override-lock release now verifies ownership before unlinking. The `autonomy-guard` hook also blocks agent Write/Edit/Bash writes to `auto-decisions.jsonl` (reads stay allowed). `harness cleanup-sessions` (including `--all`) no longer TTL-deletes a session whose `auto-decisions.jsonl` is non-empty, and `harness autonomy log` reads the newest archived copy (`.harness/archive/sessions/<slug>-<date>`) when the live session is gone.
+
+  Add the trusted-autonomy Pause Protocol (`agents/skills/templates/pause-protocol.md`): every pause point in the brainstorming, planning, autopilot, execution, soundness-review, code-review and integration skills is labelled `ceremony`, `judgment`, `irreversible` or `gate` (enforced by a test). In trusted mode, ceremony and judgment pauses auto-resolve only after `record_auto_decision` succeeds, and judgment forks first pass a blind re-derivation and refutation self-audit; irreversible and gate pauses always stop. Autopilot `--fast` no longer auto-approves plans or INTEGRATE. Autopilot, execution and brainstorming print the auto-decision summary at the end of a run. Invocation flags may now only lower autonomy (`resolveAutonomy` ignores a `trusted` or audit-off flag with a warning), and Tier-1 workflow skills accept `--supervised` / `--audit`. Decision-log text accepts ZERO WIDTH NON-JOINER / JOINER, `harness autonomy log` says when older archived copies of a session exist, and `harness cleanup-sessions` reports sessions it kept because they hold an auto-decision log (`retained` in `--json`).
+
+  Generated Claude Code persona subagents now list the four Pause Protocol MCP tools (`gather_context`, `manage_state`, `record_auto_decision`, `emit_interaction`) under both the `harness` and `harness-claude` plugin server names, so trusted mode reaches inside autopilot's planner and executor. Personas can therefore write the decision log, whose audit statuses remain agent-reported. A dispatched subagent cannot spawn the blind auditor, so instead of taking a judgment fork unaudited it hands it back as a `judgment-fork:` handoff blocker that autopilot audits in the main session.
+
+  The sentinel injection scanner (INJ-UNI-001) no longer flags ZERO WIDTH NON-JOINER / JOINER between characters of a joining script (Arabic, Syriac, N'Ko, Mongolian, the Indic scripts, Sinhala) or inside an emoji ZWJ sequence (VARIATION SELECTOR-16 counts only after a pictograph); ZERO WIDTH SPACE, BOM, WORD JOINER and out-of-context ZWNJ/ZWJ still taint.
+
+  The orchestrator routes a dispatch whose handoff (session, stream or global) carries an `audit-disagreement:` or `judgment-fork:` blocker to its `needs-human` queue, with the handoff's `concerns` as reasons; it records the `needs-human` verdict and neither ships nor re-dispatches the unit. Staged dispatch checks after every passing stage, through a new optional `humanDecisionAfterStage` engine seam.
+
+### Patch Changes
+
+- bfbb818: fix(triage): a fail-safe retrospective block is no longer counted as a graded mispredict. When the post-diff retrospective blocks because nothing could be judged (a missing or garbled prediction, or an unclassifiable actual), the `triage_outcome` event is still recorded for forensics but now carries `graded: false`, and the precedent base rate and the autonomy-ratchet sample skip it. The block still escalates exactly as before. Outcomes recorded before this change have no flag and aggregate exactly as they did.
+- 1d704b1: Fix the CommonJS entry so `require('@harness-engineering/orchestrator')` works on Node 22. The deprecated Ink TUI was imported at module top level, and `ink` pulls in `yoga-wasm-web`, whose top-level `await` made every `require()` of the package throw `ERR_REQUIRE_ASYNC_MODULE`. `launchTUI` now loads the renderer lazily; its signature is unchanged, and a TUI load or mount failure surfaces as a rejection of `waitUntilExit()`.
+- c174c68: fix(scan-config): stop reading Markdown structure as injection or path traversal (#2052)
+
+  `harness scan-config` (and the orchestrator's pre-dispatch workspace scan) reported
+  Markdown table syntax as `INJ-SUS-001` / `INJ-SUS-002` (cell-edge padding and the
+  `| --- |` separator row) and fenced code samples as `INJ-SUS-*` / `SEC-PTH-001`.
+  On this repository's AGENTS.md that was 56 false `INJ-SUS-*` findings out of 89.
+  Findings in CLAUDE.md / AGENTS.md now go through `suppressMarkdownStructureFindings`
+  (new core export): those three rules are dropped on table separator rows, on cell-edge
+  padding, and inside fenced code blocks. Whitespace / delimiter runs inside a cell's
+  own text, and every other injection rule (in prose, table cells and fences), still fire.
+
+- c8d94bf: Fix webhook deliveries over a subscription's `maxConcurrentPerSub` cap being stranded `in_flight` until the next restart. The delivery worker now claims only rows it can execute (the per-subscription budget is enforced inside the queue's claim transaction), so over-cap deliveries go out in-process once a slot frees.
+- Updated dependencies [977ca7f]
+- Updated dependencies [f9e8f49]
+- Updated dependencies [10e2b9d]
+- Updated dependencies [723e1b8]
+- Updated dependencies [08e263b]
+- Updated dependencies [468f0b6]
+- Updated dependencies [8e49d22]
+- Updated dependencies [8fa9c1a]
+- Updated dependencies [6c94b08]
+- Updated dependencies [5c29f94]
+- Updated dependencies [4224017]
+- Updated dependencies [fa244bf]
+- Updated dependencies [128f318]
+- Updated dependencies [f90bd73]
+- Updated dependencies [5d9e0d2]
+- Updated dependencies [90ddc68]
+- Updated dependencies [c5e6e98]
+- Updated dependencies [894c1ad]
+- Updated dependencies [971dc7b]
+- Updated dependencies [637d4d6]
+- Updated dependencies [3b9e2de]
+- Updated dependencies [b601a76]
+- Updated dependencies [bfbb818]
+- Updated dependencies [9172328]
+- Updated dependencies [adeddbf]
+- Updated dependencies [8d806ca]
+- Updated dependencies [e0ac108]
+- Updated dependencies [4d2a1aa]
+- Updated dependencies [58e51ec]
+- Updated dependencies [9f4fa80]
+- Updated dependencies [dbd11fb]
+- Updated dependencies [3c24996]
+- Updated dependencies [be96ebb]
+- Updated dependencies [1ba5dea]
+- Updated dependencies [eda3e1b]
+- Updated dependencies [4d3a1fd]
+- Updated dependencies [d6901a1]
+- Updated dependencies [6ceae58]
+- Updated dependencies [8f9c25f]
+- Updated dependencies [c922aec]
+- Updated dependencies [977cda6]
+- Updated dependencies [c174c68]
+- Updated dependencies [01efd0a]
+- Updated dependencies [c97e30f]
+- Updated dependencies [73e2ab6]
+- Updated dependencies [81dce13]
+- Updated dependencies [9be57d2]
+- Updated dependencies [40be940]
+  - @harness-engineering/core@0.57.0
+  - @harness-engineering/graph@0.16.1
+  - @harness-engineering/types@0.37.0
+  - @harness-engineering/intelligence@0.15.1
+  - @harness-engineering/local-models@0.8.1
+
 ## 0.29.0
 
 ### Minor Changes

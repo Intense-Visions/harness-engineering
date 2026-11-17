@@ -1,5 +1,34 @@
 # @harness-engineering/graph
 
+## 0.16.1
+
+### Patch Changes
+
+- 723e1b8: `compute_blast_radius` now weights cascade edges by the target file's change frequency. `CascadeSimulator` always built `CompositeProbabilityStrategy` with empty change-frequency and coupling maps, so the documented 30% change-frequency signal never contributed. The default strategy now counts the commits `GitIngestor` records per file (shared with `GraphComplexityAdapter`) and max-normalizes them to 0..1. Graphs with no ingested git history keep the previous edge-type-only weights. Coupling stays unweighted pending a design decision (#2545).
+- e0ac108: fix(graph): do not count a Python method's `self`/`cls` receiver in `parameterCount`
+
+  `CodeIngestor` counted the implicit `self` (instance) or `cls` (classmethod) receiver
+  as a declared parameter, so every Python method's `parameterCount` metadata was one
+  too high (`def find(self, key)` reported 2). The receiver is now excluded for Python
+  methods only; static methods and free functions are unchanged.
+
+- 4d2a1aa: fix(graph): emit `imports` edges for `export … from` re-exports so barrels and re-export hubs no longer cut test reachability
+
+  `CodeIngestor` only scanned `import … from` statements, so a module that purely re-exports (an `index.ts` barrel, or any plain-named hub such as `DiagramParser.ts`) was a dead end in the graph. Files reached only through one — e.g. `ingest/parsers/{mermaid,d2,plantuml}.ts`, covered by `DiagramParser.test.ts` — had no test reachable via `get_impact` / `query_graph` and were reported by test-advisor as coverage gaps (#2079). Re-exports (`export { X } from`, `export type { T } from`, `export * from`, `export * as ns from`) now produce an `imports` edge tagged `metadata.reexport: true`, and multiple statements reaching one target fold into a single edge (`static` wins over `type-only`).
+
+- 58e51ec: Fix `GraphComplexityAdapter` change frequency so complexity hotspots measure real git churn (#2022). It previously counted inbound `references` edges (diagram/Slack/Figma doc links), while `GitIngestor` records commits as `triggered_by` edges from the file to the commit, so `hotspotScore` was structurally 0 on any repo with only git history. It now counts distinct commits touching the file, and the result carries an additive `changeFrequencyMeasured` flag that is `false` when no git history was ingested, so a 0 reads as "not measured" rather than "no churn". `ConflictPredictor` no longer labels a file "high-churn" when churn was not measured or is 0.
+- dbd11fb: fix(graph): report knowledge files the business-knowledge ingestor cannot index, and count flat knowledge dirs in the gap report (#2236)
+
+  `BusinessKnowledgeIngestor.ingest` no longer drops a knowledge file silently. A file with no frontmatter, a missing `type` or `domain`, or a `type` outside the business-knowledge set now produces an `IngestResult.errors` entry naming the file and the reason, which `harness knowledge-pipeline` prints as an ingestion warning. Files whose frontmatter declares neither `type` nor `domain` (for example ADRs, owned by the decision ingestor) are still skipped quietly.
+
+  The gap report now assigns "documented" entries to domains the way the ingestor does: frontmatter `domain` first, falling back to the domain subdirectory. Flat files directly under the knowledge root are counted by their frontmatter `domain` instead of being ignored.
+
+- 3c24996: fix(knowledge-pipeline): detect-only runs (no `--fix`) no longer write `.harness/knowledge/staged/pipeline-staged.jsonl` — staging is a REMEDIATE step and now only happens behind `--fix`, as the skill documents. The "first run — no prior graph state" drift label is now shown only when the pre-extraction baseline was actually empty, not whenever every finding happens to be new.
+- Updated dependencies [5c29f94]
+- Updated dependencies [6ceae58]
+- Updated dependencies [9be57d2]
+  - @harness-engineering/types@0.37.0
+
 ## 0.16.0
 
 ### Minor Changes

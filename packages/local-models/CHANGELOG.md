@@ -1,5 +1,14 @@
 # @harness-engineering/local-models
 
+## 0.8.1
+
+### Patch Changes
+
+- Updated dependencies [5c29f94]
+- Updated dependencies [6ceae58]
+- Updated dependencies [9be57d2]
+  - @harness-engineering/types@0.37.0
+
 ## 0.8.0
 
 ### Minor Changes

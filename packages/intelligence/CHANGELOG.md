@@ -1,5 +1,22 @@
 # @harness-engineering/intelligence
 
+## 0.15.1
+
+### Patch Changes
+
+- bfbb818: fix(triage): a fail-safe retrospective block is no longer counted as a graded mispredict. When the post-diff retrospective blocks because nothing could be judged (a missing or garbled prediction, or an unclassifiable actual), the `triage_outcome` event is still recorded for forensics but now carries `graded: false`, and the precedent base rate and the autonomy-ratchet sample skip it. The block still escalates exactly as before. Outcomes recorded before this change have no flag and aggregate exactly as they did.
+- Updated dependencies [723e1b8]
+- Updated dependencies [5c29f94]
+- Updated dependencies [e0ac108]
+- Updated dependencies [4d2a1aa]
+- Updated dependencies [58e51ec]
+- Updated dependencies [dbd11fb]
+- Updated dependencies [3c24996]
+- Updated dependencies [6ceae58]
+- Updated dependencies [9be57d2]
+  - @harness-engineering/graph@0.16.1
+  - @harness-engineering/types@0.37.0
+
 ## 0.15.0
 
 ### Minor Changes
