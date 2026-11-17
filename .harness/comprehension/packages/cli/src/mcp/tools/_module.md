@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/mcp/tools'
-sourceHash: '4e1b621acecfafef196e20f48e2b2856738d720469c6fae685ee67255b6434b6'
+sourceHash: '40a5a2a75f1a7e191d5685978f9e352ca872a4d5b502ddafa429049b7970ced5'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -524,7 +524,7 @@ import { loadOrRebuildIndex } from '../../skill/index-builder.js'
 import { recommend } from '../../skill/recommendation-engine.js'
 import { loadOrGenerateProfile } from '../../skill/stack-profile.js'
 import { CollectPromptsOutput, FinalizeSpecCraftInput, SpecCraftInput, SpecCraftMode, SpecCraftOutput, collectSpecCraftPrompts, finalizeSpecCraft, runSpecCraft } from '../../spec-craft/index.js'
-import '../../templates/engine.js'
+import { isAddOnTemplate } from '../../templates/engine.js'
 import { NAMED_TEMPLATE_BLOCK_ON, NAMED_TEMPLATE_DEFAULTS, NAMED_TEMPLATE_RUNNERS, resolveNamedTemplateVars, validateNamedTemplateVars } from '../../templates/named-template-vars.js'
 import { appendFrameworkAgents, ensureComprehensionSearchIgnore, ensureHarnessGitignore, persistToolingConfig } from '../../templates/post-write.js'
 import { TemplateMetadata } from '../../templates/schema.js'

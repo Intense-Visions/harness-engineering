@@ -10,6 +10,7 @@ import {
   ensureComprehensionSearchIgnore,
 } from '../../templates/post-write.js';
 import type { TemplateMetadata } from '../../templates/schema.js';
+import { isAddOnTemplate } from '../../templates/engine.js';
 import {
   NAMED_TEMPLATE_BLOCK_ON,
   NAMED_TEMPLATE_DEFAULTS,
@@ -165,6 +166,9 @@ function scaffoldMcp(
     overwrite: false,
     ...(language !== undefined && { language }),
     existingProject,
+    // Opt-in add-ons (ci-* etc.) write into existing projects too, exactly like
+    // `harness init --template` (#2630).
+    addOn: isAddOnTemplate(resolveResult.value.metadata),
   });
 
   if (writeResult.ok) {
@@ -176,8 +180,12 @@ function scaffoldMcp(
 
   if (writeResult.ok && writeResult.value.skippedConfigs.length > 0) {
     const skippedMsg = writeResult.value.skippedConfigs.map((f: string) => `  - ${f}`).join('\n');
+    const keptMsg =
+      writeResult.value.skippedExisting.length > 0
+        ? `\n\nKept existing files (not overwritten):\n${writeResult.value.skippedExisting.map((f: string) => `  - ${f}`).join('\n')}`
+        : '';
     return mcpText(
-      `Files written: ${writeResult.value.written.join(', ')}\n\nSkipped existing config files (add harness dependencies manually):\n${skippedMsg}`
+      `Files written: ${writeResult.value.written.join(', ')}\n\nSkipped existing config files (add harness dependencies manually):\n${skippedMsg}${keptMsg}`
     );
   }
 

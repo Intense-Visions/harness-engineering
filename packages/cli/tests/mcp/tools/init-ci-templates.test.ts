@@ -15,8 +15,8 @@ import { NAMED_TEMPLATE_DEFAULTS } from '../../../src/templates/named-template-v
 // runner/blockOn/baseBranch.
 
 const CI_TEMPLATES = [
-  { name: 'ci-required-review', workflow: 'required-review.yml' },
-  { name: 'ci-pre-merge-brief', workflow: 'pre-merge-brief.yml' },
+  { name: 'ci-required-review', workflow: '.github/workflows/harness-required-review.yml' },
+  { name: 'ci-pre-merge-brief', workflow: '.github/workflows/harness-pre-merge-brief.yml' },
 ] as const;
 
 const dirs: string[] = [];
@@ -31,20 +31,11 @@ afterEach(() => {
   for (const d of dirs.splice(0)) fs.rmSync(d, { recursive: true, force: true });
 });
 
-/** Locate the rendered workflow wherever the template places it (root or .github/workflows). */
-function findWorkflow(root: string, basename: string): string {
-  const hits: string[] = [];
-  const walk = (dir: string): void => {
-    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
-      if (entry.name === '.git' || entry.name === 'node_modules') continue;
-      const full = path.join(dir, entry.name);
-      if (entry.isDirectory()) walk(full);
-      else if (entry.name === basename || entry.name === `harness-${basename}`) hits.push(full);
-    }
-  };
-  walk(root);
-  expect(hits, `expected exactly one ${basename} under ${root}`).toHaveLength(1);
-  return hits[0]!;
+/** The rendered workflow at its one supported location (#2650). */
+function findWorkflow(root: string, rel: string): string {
+  const full = path.join(root, ...rel.split('/'));
+  expect(fs.existsSync(full), `expected ${rel} under ${root}`).toBe(true);
+  return full;
 }
 
 function text(res: { content: { text: string }[] }): string {
@@ -92,6 +83,30 @@ describe('init_project MCP tool — opt-in ci-* templates (#2630)', () => {
       const wf = fs.readFileSync(findWorkflow(dir, t.workflow), 'utf-8');
       expect(wf).toContain("branches: ['develop']");
       expect(wf).toContain('--runner gemini --block-on comment');
+    });
+  }
+
+  for (const t of CI_TEMPLATES) {
+    it(`writes ${t.name} into an EXISTING project and keeps existing files`, async () => {
+      const dir = gitRepo();
+      const pkg = JSON.stringify({ name: 'existing', version: '1.0.0' }, null, 2);
+      fs.writeFileSync(path.join(dir, 'package.json'), pkg);
+      fs.mkdirSync(path.join(dir, '.github', 'harness'), { recursive: true });
+      const docRel = `.github/harness/${t.name}.md`;
+      fs.writeFileSync(path.join(dir, ...docRel.split('/')), 'adopter notes\n');
+
+      const res = await handleInitProject({ path: dir, template: t.name });
+      expect(res.isError, text(res)).toBeFalsy();
+
+      const wf = fs.readFileSync(findWorkflow(dir, t.workflow), 'utf-8');
+      expect(wf).toContain(`branches: ['${NAMED_TEMPLATE_DEFAULTS.baseBranch}']`);
+      // Existing files are kept untouched and reported.
+      expect(fs.readFileSync(path.join(dir, 'package.json'), 'utf-8')).toBe(pkg);
+      expect(fs.readFileSync(path.join(dir, ...docRel.split('/')), 'utf-8')).toBe(
+        'adopter notes\n'
+      );
+      expect(text(res)).toContain(docRel);
+      expect(text(res)).toContain('skippedExisting');
     });
   }
 
