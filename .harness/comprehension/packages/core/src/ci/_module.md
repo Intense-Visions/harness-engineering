@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/src/ci'
-sourceHash: 'f28bac433ad046e36935cc962b9bef14061e0677810357fb8c80acf2ef1239a5'
+sourceHash: '0794a19adaaae66a4f6ddc2b239b1b36dbc7b448da113b3604d5496bea1cba89'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -65,6 +65,7 @@ import { filterDiffByAllowances, loadArchAllowances, resolveArchBaseline } from 
 import { diff } from '../architecture/diff'
 import { computeSourceHash } from '../comprehension/source-hash'
 import { validateDependencies } from '../constraints/dependencies'
+import { assessDepsCoverage } from '../constraints/deps-coverage'
 import { resolveDepsSettings, toLayerConfig } from '../constraints/layer-config'
 import { ResolvedConstraintPacks, resolveConstraintPacks } from '../constraints/packs'
 import { validateAgentsMap } from '../context/agents-map'

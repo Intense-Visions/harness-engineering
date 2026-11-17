@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/src/context'
-sourceHash: '0c7f206b64d9c19e93bfdcdd3304f099ca2ff105248660b1228729346bb1f2f8'
+sourceHash: '4dc1533e4ca0fe8253b517ac5009aaa2919258a6298e9aed1a06f68d14db0ff0'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -30,10 +30,12 @@ members:
 ## Interface Contract
 
 ```ts
+export AGENTS_MAP_MISSING_SECTION_SEVERITY
 export AgentMapLink
 export AgentMapSection
 export AgentMapValidation
 export AgentsMapConfig
+export AgentsMapSectionFinding
 export AnthropicTokenCounterOptions
 export AttributedContributor
 export AttributionReport
@@ -81,6 +83,7 @@ export TokenBudget
 export TokenBudgetOverrides
 export TokenCounter
 export WorkflowPhase
+export agentsMapSectionFindings
 export aggregateDemand
 export analyzeSkillInstructionDensity
 export buildAttributionReport

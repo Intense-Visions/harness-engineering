@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/mcp/tools'
-sourceHash: '45ae63f9c12a0cfd76e58f4f0a6a25d96d9815d6945f6e6402a7af3587bb807a'
+sourceHash: 'd91e0457f7f4bc9d66350bf4df2d4475d4bbe3fab0c455938e8477edf3a4c730'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -462,7 +462,6 @@ import { AuditBrandInput, AuditBrandOutput, runAuditBrand } from '../../brand/in
 import { CliErgonomicsCraftInput, CliErgonomicsCraftMode, CliErgonomicsCraftOutput, CollectPromptsOutput, FinalizeCliErgonomicsCraftInput, collectCliErgonomicsCraftPrompts, finalizeCliErgonomicsCraft, runCliErgonomicsCraft } from '../../cli-ergonomics-craft/index.js'
 import { CodeCraftInput, CodeCraftMode, CodeCraftOutput, CollectPromptsOutput, FinalizeCodeCraftInput, collectCodeCraftPrompts, finalizeCodeCraft, runCodeCraft } from '../../code-craft/index.js'
 import { runAdviseSkills } from '../../commands/advise-skills.js'
-import { unparsedFileChecks } from '../../commands/check-deps.js'
 import '../../commands/check-phase-gate.js'
 import '../../commands/create-skill.js'
 import '../../commands/generate-agent-definitions.js'
@@ -524,7 +523,7 @@ import { loadOrRebuildIndex } from '../../skill/index-builder.js'
 import { recommend } from '../../skill/recommendation-engine.js'
 import { loadOrGenerateProfile } from '../../skill/stack-profile.js'
 import { CollectPromptsOutput, FinalizeSpecCraftInput, SpecCraftInput, SpecCraftMode, SpecCraftOutput, collectSpecCraftPrompts, finalizeSpecCraft, runSpecCraft } from '../../spec-craft/index.js'
-import { isAddOnTemplate, isNamedAddOnTemplate } from '../../templates/engine.js'
+import { isAddOnTemplate } from '../../templates/engine.js'
 import { NAMED_TEMPLATE_BLOCK_ON, NAMED_TEMPLATE_DEFAULTS, NAMED_TEMPLATE_RUNNERS, resolveNamedTemplateVars, validateNamedTemplateVars } from '../../templates/named-template-vars.js'
 import { appendFrameworkAgents, ensureComprehensionSearchIgnore, ensureHarnessGitignore, persistToolingConfig } from '../../templates/post-write.js'
 import { TemplateMetadata } from '../../templates/schema.js'

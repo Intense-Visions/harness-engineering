@@ -90,6 +90,9 @@ export async function handleValidateProject(input: {
   }
 
   const errors: string[] = [];
+  // Non-blocking findings: surfaced, but they never flip `valid`. Missing AGENTS.md
+  // sections land here at the ONE severity every surface shares (#2669).
+  const warnings: string[] = [];
   const checks: {
     config: 'pass' | 'fail';
     // `abstained` is distinct from `skipped`: skipped means no conventions were
@@ -109,7 +112,9 @@ export async function handleValidateProject(input: {
   if (!configResult.ok) {
     errors.push(`Config: ${configResult.error.message}`);
     return {
-      content: [{ type: 'text' as const, text: JSON.stringify({ valid: false, checks, errors }) }],
+      content: [
+        { type: 'text' as const, text: JSON.stringify({ valid: false, checks, errors, warnings }) },
+      ],
     };
   }
   checks.config = 'pass';
@@ -159,16 +164,16 @@ export async function handleValidateProject(input: {
       const agentsMapPath = path.join(projectPath, 'AGENTS.md');
       const agentsResult = await core.validateAgentsMap(agentsMapPath);
       if (agentsResult.ok) {
-        checks.agentsMap = agentsResult.value.valid ? 'pass' : 'fail';
-        if (!agentsResult.value.valid) {
-          if (agentsResult.value.missingSections.length > 0) {
-            errors.push(
-              `AGENTS.md missing sections: ${agentsResult.value.missingSections.join(', ')}`
-            );
-          }
-          if (agentsResult.value.brokenLinks.length > 0) {
-            errors.push(`AGENTS.md has ${agentsResult.value.brokenLinks.length} broken link(s)`);
-          }
+        // Missing sections are warning-severity on every surface (the shared core
+        // verdict), so they are reported but never fail the check. Broken links
+        // still do.
+        for (const finding of core.agentsMapSectionFindings(agentsResult.value)) {
+          warnings.push(finding.message);
+        }
+        const brokenLinkCount = agentsResult.value.brokenLinks.length;
+        checks.agentsMap = brokenLinkCount > 0 ? 'fail' : 'pass';
+        if (brokenLinkCount > 0) {
+          errors.push(`AGENTS.md has ${brokenLinkCount} broken link(s)`);
         }
       } else {
         checks.agentsMap = 'fail';
@@ -181,6 +186,6 @@ export async function handleValidateProject(input: {
 
   const valid = errors.length === 0;
   return {
-    content: [{ type: 'text' as const, text: JSON.stringify({ valid, checks, errors }) }],
+    content: [{ type: 'text' as const, text: JSON.stringify({ valid, checks, errors, warnings }) }],
   };
 }

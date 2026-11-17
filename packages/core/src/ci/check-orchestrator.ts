@@ -25,9 +25,10 @@ import type { Result } from '../shared/result';
 import { Ok, Err } from '../shared/result';
 import { resolveConstraintPacks } from '../constraints/packs';
 import type { ResolvedConstraintPacks } from '../constraints/packs';
-import { validateAgentsMap } from '../context/agents-map';
+import { validateAgentsMap, agentsMapSectionFindings } from '../context/agents-map';
 import { validateDependencies } from '../constraints/dependencies';
 import { resolveDepsSettings, toLayerConfig } from '../constraints/layer-config';
+import { assessDepsCoverage } from '../constraints/deps-coverage';
 import { checkDocCoverage } from '../context/doc-coverage';
 import { EntropyAnalyzer } from '../entropy/analyzer';
 import type { DriftConfig } from '../entropy/types';
@@ -196,8 +197,9 @@ async function runValidateCheck(
         issues.push({ severity: 'error', message: err.message });
       }
     }
-    for (const section of result.value.missingSections) {
-      issues.push({ severity: 'warning', message: `Missing section: ${section}` });
+    // One shared verdict for the section check across every surface (#2669).
+    for (const finding of agentsMapSectionFindings(result.value)) {
+      issues.push({ severity: finding.severity, message: finding.message });
     }
     for (const link of result.value.brokenLinks) {
       issues.push({
@@ -250,37 +252,30 @@ async function runDepsCheck(
       line: v.line,
     });
   }
-  // What the engine did not validate — the parser was unavailable, or a file
-  // did not parse (#2073). `deps.fallbackBehavior: 'warn'` reports it as a
-  // warning, exactly as `check-deps` downgrades it to exit 0; otherwise the
-  // step abstains, as `check-deps` exits ZERO_DENOMINATOR (#2098).
-  const unvalidated: Array<{ file?: string; message: string }> = [];
-  if (result.value.skipped) {
-    unvalidated.push({
-      message: `Layer validation did not run: ${result.value.reason ?? 'the analysis engine abstained'}`,
+  // What the engine did not cover — the parser was unavailable, a file did not
+  // parse (#2073), or the layers hold no source module yet (#2671). Read from
+  // the verdict `check-deps` and the `check_dependencies` MCP tool share, so the
+  // three cannot disagree on one tree again. `deps.fallbackBehavior: 'warn'`
+  // reports a downgradable gap as a warning, exactly as `check-deps` downgrades
+  // it to exit 0; any other gap abstains, as `check-deps` exits
+  // ZERO_DENOMINATOR (#2098).
+  const coverage = assessDepsCoverage(result.value, settings);
+  if (coverage.gaps.length === 0) return { issues, measurements: [] };
+  const warnOnly = settings.fallbackBehavior === 'warn';
+  const blocking = coverage.gaps.filter((g) => !(warnOnly && g.downgradable));
+  for (const gap of coverage.gaps) {
+    if (blocking.includes(gap)) continue;
+    issues.push({
+      severity: 'warning',
+      message: gap.reason,
+      ...(gap.file ? { file: gap.file } : {}),
     });
   }
-  for (const { file, reason } of result.value.unparsedFiles ?? []) {
-    const relative = path.relative(settings.rootDir, file).replaceAll('\\', '/');
-    unvalidated.push({
-      file: relative,
-      message: `${relative} could not be parsed, so its imports were not checked: ${reason}`,
-    });
-  }
-  if (unvalidated.length === 0) return { issues, measurements: [] };
-  if (settings.fallbackBehavior === 'warn') {
-    for (const u of unvalidated) {
-      issues.push({ severity: 'warning', message: u.message, ...(u.file ? { file: u.file } : {}) });
-    }
-    return { issues, measurements: [] };
-  }
+  if (blocking.length === 0) return { issues, measurements: [] };
   return {
     issues,
     measurements: [],
-    skipReason:
-      unvalidated.map((u) => u.message).join('; ') +
-      '. Fix or exclude the file via `deps.exclude`, or set `deps.fallbackBehavior: "warn"` ' +
-      'to report this as a warning.',
+    skipReason: blocking.map((g) => `${g.reason} ${g.suggestion}`).join('; '),
   };
 }
 

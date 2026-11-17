@@ -8,8 +8,11 @@ import {
   resolveDepsSettings,
   toLayerConfig,
   TypeScriptParser,
+  assessDepsCoverage,
+  unparsedFileGaps,
+  toUnavailableCheck,
 } from '@harness-engineering/core';
-import type { UnparsedFile } from '@harness-engineering/core';
+import type { DepsCoverageGap, UnparsedFile } from '@harness-engineering/core';
 import { formatFindingsContract } from '@harness-engineering/types';
 import { resolveProject } from '../config/loader';
 import { loadDepsExclude } from '../config/schema';
@@ -111,25 +114,6 @@ function recordAnalysisError(
 }
 
 /**
- * Record an engine ABSTENTION on the result (#2098).
- *
- * `validateDependencies` already computes this verdict and labels it — an
- * unavailable parser returns `Ok({ valid: true, violations: [], skipped: true,
- * reason })`. Every consumer then read only `violations`, so the abstention was
- * computed and thrown away: `valid` stayed true, the finding lists stayed empty,
- * and the command exited 0 having validated nothing. Reading the flag is the
- * whole fix.
- *
- * `downgraded` is the documented escape hatch (`deps.fallbackBehavior: 'warn'`):
- * the abstention is still reported in every output mode, but the exit code stays
- * 0 for projects that need the old behaviour while they fix their setup.
- *
- * @param result - The in-progress check-deps result to annotate.
- * @param stage - Human-readable name of the analysis that abstained.
- * @param reason - The engine's own reason for not running.
- * @param downgraded - Whether `deps.fallbackBehavior: 'warn'` is in force.
- */
-/**
  * Source sweep used for circular-dependency detection when no layers are
  * configured. Circular detection needs a file set, not a layer model, and
  * `check-deps` used to return a clean `valid: true` over zero modules the
@@ -141,81 +125,32 @@ function recordAnalysisError(
  */
 const UNLAYERED_DISCOVERY_PATTERN = '**/*.{ts,tsx,mts,cts,js,jsx,mjs,cjs}';
 
-function recordAbstention(
-  result: CheckDepsResult,
-  stage: string,
-  reason: string,
-  downgraded: boolean
-): void {
-  result.unavailableChecks ??= [];
-  result.unavailableChecks.push({
-    check: stage,
-    reason: `check-deps did not run ${stage}: ${reason}`,
-    suggestion:
-      'Restore the analysis engine (the parser reported itself unavailable). ' +
-      'To keep exiting 0 meanwhile, set `deps.fallbackBehavior: "warn"` in harness.config.json.',
-  });
-  if (downgraded) {
-    result.abstentionDowngraded = true;
-    return;
-  }
-  result.valid = false;
-}
-
 /**
- * Record source files the analysis could not parse (#2073).
+ * Record what the analysis could not cover on the result (#2098, #2073, #2671).
  *
- * The engine used to drop them without a word, so a single syntax error hid
- * every layer violation and cycle in that file behind `v validation passed`,
- * while `modulesAnalyzed` still counted it. Each file is reported on the
- * abstention channel — the analysis did not run for it — so it reaches every
- * output mode and the exit code, under the same `deps.fallbackBehavior: 'warn'`
- * downgrade as a whole-engine abstention (#2098).
+ * The gaps come from core's `assessDepsCoverage` — the verdict the
+ * `harness ci check` deps step and the `check_dependencies` MCP tool read too —
+ * so the three surfaces cannot disagree on one tree. Every gap is reported on
+ * the abstention channel, in every output mode. A gap `deps.fallbackBehavior:
+ * 'warn'` downgrades leaves `valid` alone and sets `abstentionDowngraded`; any
+ * other gap refuses to report clean.
  *
  * @param result - The in-progress check-deps result to annotate.
- * @param unparsed - Files the engine could not read imports from, deduplicated by path.
- * @param rootDir - Root that paths are rendered relative to.
- * @param downgraded - Whether `deps.fallbackBehavior: 'warn'` is in force.
+ * @param gaps - What the analysis did not cover.
+ * @param warn - Whether `deps.fallbackBehavior: 'warn'` is in force.
  */
-function recordUnparsedFiles(
+function recordCoverageGaps(
   result: CheckDepsResult,
-  unparsed: readonly UnparsedFile[],
-  rootDir: string,
-  downgraded: boolean
+  gaps: readonly DepsCoverageGap[],
+  warn: boolean
 ): void {
-  if (unparsed.length === 0) return;
+  if (gaps.length === 0) return;
   result.unavailableChecks ??= [];
-  result.unavailableChecks.push(...unparsedFileChecks(unparsed, rootDir));
-  if (downgraded) {
-    result.abstentionDowngraded = true;
-    return;
+  result.unavailableChecks.push(...gaps.map(toUnavailableCheck));
+  for (const gap of gaps) {
+    if (warn && gap.downgradable) result.abstentionDowngraded = true;
+    else result.valid = false;
   }
-  result.valid = false;
-}
-
-/**
- * One `unavailableChecks` entry per source file the analysis could not parse
- * (#2073), with a posix-relative path. Shared with the `check_dependencies` MCP
- * tool so both surfaces name skipped files identically (#2606).
- *
- * @param unparsed - Files the engine could not read imports from.
- * @param rootDir - Root that paths are rendered relative to.
- */
-export function unparsedFileChecks(
-  unparsed: readonly UnparsedFile[],
-  rootDir: string
-): UnavailableCheck[] {
-  return unparsed.map(({ file, reason }) => {
-    const relative = path.relative(rootDir, file).replaceAll('\\', '/');
-    return {
-      check: 'dependency analysis',
-      file: relative,
-      reason: `${relative} could not be parsed, so its imports were not checked: ${reason}`,
-      suggestion:
-        'Fix the file so it parses, or exclude it via `deps.exclude`. ' +
-        'To keep exiting 0 meanwhile, set `deps.fallbackBehavior: "warn"` in harness.config.json.',
-    };
-  });
 }
 
 /** Merge unparsed-file lists from both engines, keeping the first reason per path. */
@@ -275,7 +210,9 @@ export async function runCheckDeps(
 
   const rootDir = settings.rootDir;
   const parser = new TypeScriptParser();
-  // Source files either engine could not parse (#2073); reported once, below.
+  const warn = fallbackBehavior === 'warn';
+  // Source files the layer engine could not parse (#2073), so the cycle pass
+  // below reports only the ones it adds.
   let layerUnparsed: readonly UnparsedFile[] | undefined;
 
   // Layer validation needs layers. With none configured it is genuinely not
@@ -285,16 +222,10 @@ export async function runCheckDeps(
       toLayerConfig({ ...settings, exclude: depsExclude }, parser)
     );
     if (depsResult.ok) {
-      // The engine abstained — it validated nothing and labelled the result as
-      // such. Reporting this as a clean pass is the #2098 defect.
-      if (depsResult.value.skipped) {
-        recordAbstention(
-          result,
-          'layer validation',
-          depsResult.value.reason ?? 'the analysis engine abstained',
-          fallbackBehavior === 'warn'
-        );
-      }
+      // What the engine did not cover: it abstained (#2098), a file did not
+      // parse (#2073), or the layers hold no source module yet (#2671). The
+      // shared verdict, so `ci check` and the MCP tool say the same thing.
+      recordCoverageGaps(result, assessDepsCoverage(depsResult.value, settings).gaps, warn);
       layerUnparsed = depsResult.value.unparsedFiles;
       for (const violation of depsResult.value.violations) {
         result.valid = false;
@@ -333,25 +264,24 @@ export async function runCheckDeps(
   // something and analysed nothing, and reporting that clean is the defect.
   // A project that simply contains no analysable source is "not applicable":
   // there is nothing to say about imports that do not exist.
-  if (uniqueFiles.length === 0) {
-    const scopeWasGiven =
-      layers.length > 0 ||
-      // No layers, so the sweep was unscoped: the only way it can come back
-      // empty while source exists is `deps.exclude`. Probing without the
-      // excludes distinguishes the two, and only runs on the empty result.
-      (depsExclude.length > 0 &&
-        (await findFiles(UNLAYERED_DISCOVERY_PATTERN, rootDir)).length > 0);
+  //
+  // With layers configured, the zero-module case is the shared
+  // `no-source-modules` gap recorded above (#2671): an abstention, not a
+  // violation. Only the layerless sweep is judged here.
+  if (uniqueFiles.length === 0 && layers.length === 0) {
+    // No layers, so the sweep was unscoped: the only way it can come back
+    // empty while source exists is `deps.exclude`. Probing without the
+    // excludes distinguishes the two, and only runs on the empty result.
+    const excludeSwallowedSource =
+      depsExclude.length > 0 && (await findFiles(UNLAYERED_DISCOVERY_PATTERN, rootDir)).length > 0;
 
-    if (scopeWasGiven) {
+    if (excludeSwallowedSource) {
       result.valid = false;
       result.analysisNote =
-        layers.length > 0
-          ? `check-deps analyzed 0 modules across ${layers.length} configured ` +
-            `layer(s) — refusing to report clean (check layer patterns / deps.exclude).`
-          : 'check-deps analyzed 0 modules — source files exist under ' +
-            `${config.rootDir} but deps.exclude discarded all of them, so neither ` +
-            'layer validation nor circular-dependency detection ran. Refusing to ' +
-            'report clean (check deps.exclude).';
+        'check-deps analyzed 0 modules — source files exist under ' +
+        `${config.rootDir} but deps.exclude discarded all of them, so neither ` +
+        'layer validation nor circular-dependency detection ran. Refusing to ' +
+        'report clean (check deps.exclude).';
     }
   }
 
@@ -384,25 +314,11 @@ export async function runCheckDeps(
     }
   }
 
-  const unparsed = mergeUnparsed(layerUnparsed, cycleUnparsed);
-  recordUnparsedFiles(result, unparsed, rootDir, fallbackBehavior === 'warn');
-
-  // The layer globs matched paths, but none was a source file (only
-  // directories, Markdown, JSON…): the same "asked to analyse something,
-  // analysed nothing" claim as the zero-module abstention above (#1188, #2073).
-  if (
-    layers.length > 0 &&
-    uniqueFiles.length > 0 &&
-    result.modulesAnalyzed === 0 &&
-    unparsed.length === 0 &&
-    !result.analysisNote
-  ) {
-    result.valid = false;
-    result.analysisNote =
-      `check-deps analyzed 0 source modules across ${layers.length} configured ` +
-      `layer(s) — the layer patterns matched only non-source paths; refusing to ` +
-      `report clean (check layer patterns / deps.exclude).`;
-  }
+  // Files only the cycle pass failed to parse — the layer pass's are already
+  // recorded. Without layers this is every unparseable file (#2073).
+  const layerUnparsedPaths = new Set((layerUnparsed ?? []).map((u) => u.file));
+  const cycleOnly = mergeUnparsed(cycleUnparsed).filter((u) => !layerUnparsedPaths.has(u.file));
+  recordCoverageGaps(result, unparsedFileGaps(cycleOnly, rootDir), warn);
 
   return Ok(result);
 }
@@ -478,8 +394,13 @@ async function runCheckDepsAction(
     );
   }
 
+  // An abstention-only run is INCOMPLETE, not failed: the formatter's
+  // "could not run" block is the whole verdict, and its trailing
+  // "x Validation failed" would misreport an empty layer set as a violation
+  // (#2671). JSON keeps the real `valid: false` for machine consumers.
+  const abstentionOnly = issues.length === 0 && abstentions.length > 0;
   const output = formatter.formatValidation({
-    valid: result.value.valid,
+    valid: result.value.valid || (abstentionOnly && mode !== OutputMode.JSON),
     issues,
     modulesAnalyzed: result.value.modulesAnalyzed,
     layersConfigured: result.value.layersConfigured,

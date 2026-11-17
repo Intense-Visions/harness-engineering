@@ -13,6 +13,20 @@ export { resolveDepsSettings, toLayerConfig } from './layer-config';
 export type { DepsSettings, DepsFallbackBehavior } from './layer-config';
 
 /**
+ * The one verdict on what a dependency analysis could not cover — engine
+ * unavailable, unparseable files, layers with no source modules — shared by
+ * `harness check-deps`, `harness ci check` and the `check_dependencies` MCP
+ * tool so they agree on the same tree (#2671).
+ */
+export { assessDepsCoverage, unparsedFileGaps, toUnavailableCheck } from './deps-coverage';
+export type {
+  DepsCoverage,
+  DepsCoverageGap,
+  DepsCoverageGapKind,
+  DepsUnavailableCheck,
+} from './deps-coverage';
+
+/**
  * Layer resolution utilities.
  */
 export { resolveFileToLayer } from './layers';

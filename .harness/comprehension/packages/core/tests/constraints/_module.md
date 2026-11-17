@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/tests/constraints'
-sourceHash: '7787e6f14757394b6990410eb31c14ee00828ca21c26e13759c783816a97da8c'
+sourceHash: 'ce67493c77ad6308f1b405351cb635a6269ea7e7de41a788dd4331d521e2d934'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -10,6 +10,7 @@ members:
     'boundary.test.ts',
     'circular-deps-chain.test.ts',
     'circular-deps.test.ts',
+    'dependencies-non-source-nodes.test.ts',
     'dependencies.test.ts',
     'graph-integration.test.ts',
     'layer-config.test.ts',
@@ -45,6 +46,8 @@ import { AST, Export, Import, LanguageParser } from '../../src/shared/parsers/ba
 import { TypeScriptParser } from '../../src/shared/parsers/typescript'
 import { Err, Ok } from '../../src/shared/result'
 import * as fs from 'fs'
+import * as fs from 'node:fs'
+import * as os from 'node:os'
 import * as path from 'node:path'
 import * as os from 'os'
 import { join } from 'path'

@@ -96,7 +96,7 @@ describe('check-deps command', () => {
     });
 
     // Regression for #1188: layers configured but nothing matched => fail (D5).
-    it('fails (does not report clean) when layers are configured but zero modules analyzed (#1188)', async () => {
+    it('abstains (does not report clean) when layers are configured but zero modules analyzed (#1188, #2671)', async () => {
       const emptyLayersPath = path.join(__dirname, '../fixtures/deps-empty-layers');
       const result = await runCheckDeps({
         cwd: emptyLayersPath,
@@ -106,7 +106,11 @@ describe('check-deps command', () => {
       if (result.ok) {
         expect(result.value.modulesAnalyzed).toBe(0);
         expect(result.value.valid).toBe(false);
-        expect(result.value.analysisNote).toBeTruthy();
+        // An abstention on the shared coverage channel (#2671), not a finding:
+        // the pattern matched no files, so nothing was examined.
+        expect(result.value.unavailableChecks).toHaveLength(1);
+        expect(result.value.unavailableChecks![0]!.check).toBe('layer validation');
+        expect(result.value.unavailableChecks![0]!.reason).toMatch(/matched no files/);
       }
     });
   });

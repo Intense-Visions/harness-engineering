@@ -29,18 +29,23 @@ coverage/
 ",
   "AGENTS.md": "# snapshot-test Knowledge Map
 
-## About This Project
+## Project Overview
 
 snapshot-test — A project using Harness Engineering practices (advanced adoption level).
 
-## Documentation
+## Repository Structure
 
+- Entry point: \`src/index.ts\`
 - Main docs: \`docs/\`
 - Architecture decisions: \`docs/architecture.md\`
 
-## Source Code
+## Development Workflow
 
-- Entry point: \`src/index.ts\`
+- Run \`harness validate\` before committing to check project health
+- Use \`harness-brainstorming\` for design exploration
+- Use \`harness-planning\` to break features into atomic tasks
+- Use \`harness-execution\` to implement tasks with TDD
+- Refer to \`harness.config.json\` for project tooling configuration
 
 ## Architecture
 
@@ -219,7 +224,7 @@ exports[`template snapshots > axum overlay with rust-base matches snapshot 1`] =
 ",
   "AGENTS.md": "# snapshot-test Knowledge Map
 
-## About This Project
+## Project Overview
 
 snapshot-test -- A Rust project managed with Harness Engineering practices.
 
@@ -231,7 +236,7 @@ snapshot-test -- A Rust project managed with Harness Engineering practices.
 - **Formatter:** rustfmt
 - **Test runner:** cargo test
 
-## Directory Structure
+## Repository Structure
 
 - \`src/main.rs\` -- Application entry point
 - \`src/lib.rs\` -- Library root (when applicable)
@@ -246,7 +251,7 @@ snapshot-test -- A Rust project managed with Harness Engineering practices.
 - Tests: unit tests in \`#[cfg(test)]\` modules, integration tests in \`tests/\`
 - Error handling: use \`Result<T, E>\` and the \`?\` operator, avoid \`.unwrap()\` in production code
 
-## Harness Skills
+## Development Workflow
 
 - Use \`harness-brainstorming\` for design exploration
 - Use \`harness-planning\` to break features into atomic tasks
@@ -336,18 +341,23 @@ coverage/
 ",
   "AGENTS.md": "# snapshot-test Knowledge Map
 
-## About This Project
+## Project Overview
 
 snapshot-test — A project using Harness Engineering practices (basic adoption level).
 
-## Documentation
+## Repository Structure
 
+- Entry point: \`src/index.ts\`
 - Main docs: \`docs/\`
 - Architecture decisions: \`docs/architecture.md\`
 
-## Source Code
+## Development Workflow
 
-- Entry point: \`src/index.ts\`
+- Run \`harness validate\` before committing to check project health
+- Use \`harness-brainstorming\` for design exploration
+- Use \`harness-planning\` to break features into atomic tasks
+- Use \`harness-execution\` to implement tasks with TDD
+- Refer to \`harness.config.json\` for project tooling configuration
 
 ## Architecture
 
@@ -535,7 +545,7 @@ build/
 ",
   "AGENTS.md": "# snapshot-test Knowledge Map
 
-## About This Project
+## Project Overview
 
 snapshot-test -- A Python project managed with Harness Engineering practices.
 
@@ -546,7 +556,7 @@ snapshot-test -- A Python project managed with Harness Engineering practices.
 - **Test runner:** pytest
 - **Package manager:** pip
 
-## Directory Structure
+## Repository Structure
 
 - \`src/\` -- Application source code
 - \`tests/\` -- Test files (pytest)
@@ -559,7 +569,7 @@ snapshot-test -- A Python project managed with Harness Engineering practices.
 - Tests live in \`tests/\` and mirror \`src/\` structure
 - Import sorting managed by Ruff (isort rules)
 
-## Harness Skills
+## Development Workflow
 
 - Use \`harness-brainstorming\` for design exploration
 - Use \`harness-planning\` to break features into atomic tasks
@@ -740,18 +750,23 @@ coverage/
 ",
   "AGENTS.md": "# snapshot-test Knowledge Map
 
-## About This Project
+## Project Overview
 
 snapshot-test — A project using Harness Engineering practices (basic adoption level).
 
-## Documentation
+## Repository Structure
 
+- Entry point: \`src/index.ts\`
 - Main docs: \`docs/\`
 - Architecture decisions: \`docs/architecture.md\`
 
-## Source Code
+## Development Workflow
 
-- Entry point: \`src/index.ts\`
+- Run \`harness validate\` before committing to check project health
+- Use \`harness-brainstorming\` for design exploration
+- Use \`harness-planning\` to break features into atomic tasks
+- Use \`harness-execution\` to implement tasks with TDD
+- Refer to \`harness.config.json\` for project tooling configuration
 
 ## Architecture
 
@@ -960,7 +975,7 @@ build/
 ",
   "AGENTS.md": "# snapshot-test Knowledge Map
 
-## About This Project
+## Project Overview
 
 snapshot-test -- A Python project managed with Harness Engineering practices.
 
@@ -971,7 +986,7 @@ snapshot-test -- A Python project managed with Harness Engineering practices.
 - **Test runner:** pytest
 - **Package manager:** pip
 
-## Directory Structure
+## Repository Structure
 
 - \`src/\` -- Application source code
 - \`tests/\` -- Test files (pytest)
@@ -984,7 +999,7 @@ snapshot-test -- A Python project managed with Harness Engineering practices.
 - Tests live in \`tests/\` and mirror \`src/\` structure
 - Import sorting managed by Ruff (isort rules)
 
-## Harness Skills
+## Development Workflow
 
 - Use \`harness-brainstorming\` for design exploration
 - Use \`harness-planning\` to break features into atomic tasks
@@ -1108,7 +1123,7 @@ issues:
 ",
   "AGENTS.md": "# snapshot-test Knowledge Map
 
-## About This Project
+## Project Overview
 
 snapshot-test -- A Go project managed with Harness Engineering practices.
 
@@ -1120,7 +1135,7 @@ snapshot-test -- A Go project managed with Harness Engineering practices.
 - **Formatter:** gofmt
 - **Test runner:** go test
 
-## Directory Structure
+## Repository Structure
 
 - \`main.go\` -- Application entry point
 - \`go.mod\` -- Module definition and dependencies
@@ -1135,7 +1150,7 @@ snapshot-test -- A Go project managed with Harness Engineering practices.
 - Error handling: always check returned errors, never discard
 - Package names are lowercase, single-word, no underscores
 
-## Harness Skills
+## Development Workflow
 
 - Use \`harness-brainstorming\` for design exploration
 - Use \`harness-planning\` to break features into atomic tasks
@@ -1240,7 +1255,7 @@ issues:
 ",
   "AGENTS.md": "# snapshot-test Knowledge Map
 
-## About This Project
+## Project Overview
 
 snapshot-test -- A Go project managed with Harness Engineering practices.
 
@@ -1252,7 +1267,7 @@ snapshot-test -- A Go project managed with Harness Engineering practices.
 - **Formatter:** gofmt
 - **Test runner:** go test
 
-## Directory Structure
+## Repository Structure
 
 - \`main.go\` -- Application entry point
 - \`go.mod\` -- Module definition and dependencies
@@ -1267,7 +1282,7 @@ snapshot-test -- A Go project managed with Harness Engineering practices.
 - Error handling: always check returned errors, never discard
 - Package names are lowercase, single-word, no underscores
 
-## Harness Skills
+## Development Workflow
 
 - Use \`harness-brainstorming\` for design exploration
 - Use \`harness-planning\` to break features into atomic tasks
@@ -1344,18 +1359,23 @@ coverage/
 ",
   "AGENTS.md": "# snapshot-test Knowledge Map
 
-## About This Project
+## Project Overview
 
 snapshot-test — A project using Harness Engineering practices (intermediate adoption level).
 
-## Documentation
+## Repository Structure
 
+- Entry point: \`src/index.ts\`
 - Main docs: \`docs/\`
 - Architecture decisions: \`docs/architecture.md\`
 
-## Source Code
+## Development Workflow
 
-- Entry point: \`src/index.ts\`
+- Run \`harness validate\` before committing to check project health
+- Use \`harness-brainstorming\` for design exploration
+- Use \`harness-planning\` to break features into atomic tasks
+- Use \`harness-execution\` to implement tasks with TDD
+- Refer to \`harness.config.json\` for project tooling configuration
 
 ## Architecture
 
@@ -1585,7 +1605,7 @@ exports[`template snapshots > java-base template output matches snapshot 1`] = `
 ",
   "AGENTS.md": "# snapshot-test Knowledge Map
 
-## About This Project
+## Project Overview
 
 snapshot-test -- A Java project managed with Harness Engineering practices.
 
@@ -1597,7 +1617,7 @@ snapshot-test -- A Java project managed with Harness Engineering practices.
 - **Test runner:** JUnit 5
 - **Group ID:** com.example.snapshottest
 
-## Directory Structure
+## Repository Structure
 
 - \`src/main/java/\` -- Application source code
 - \`src/test/java/\` -- Test files (JUnit 5)
@@ -1612,7 +1632,7 @@ snapshot-test -- A Java project managed with Harness Engineering practices.
 - Use JUnit 5 assertions and lifecycle annotations
 - Prefer dependency injection over static methods
 
-## Harness Skills
+## Development Workflow
 
 - Use \`harness-brainstorming\` for design exploration
 - Use \`harness-planning\` to break features into atomic tasks
@@ -1809,18 +1829,23 @@ coverage/
 ",
   "AGENTS.md": "# snapshot-test Knowledge Map
 
-## About This Project
+## Project Overview
 
 snapshot-test — A project using Harness Engineering practices (load-bearing-minimum adoption level).
 
-## Documentation
+## Repository Structure
 
+- Entry point: \`src/index.ts\`
 - Main docs: \`docs/\`
 - Architecture decisions: \`docs/architecture.md\`
 
-## Source Code
+## Development Workflow
 
-- Entry point: \`src/index.ts\`
+- Run \`harness validate\` before committing to check project health
+- Use \`harness-brainstorming\` for design exploration
+- Use \`harness-planning\` to break features into atomic tasks
+- Use \`harness-execution\` to implement tasks with TDD
+- Refer to \`harness.config.json\` for project tooling configuration
 
 ## Architecture
 
@@ -2066,18 +2091,23 @@ coverage/
 ",
   "AGENTS.md": "# snapshot-test Knowledge Map
 
-## About This Project
+## Project Overview
 
 snapshot-test — A project using Harness Engineering practices (basic adoption level).
 
-## Documentation
+## Repository Structure
 
+- Entry point: \`src/index.ts\`
 - Main docs: \`docs/\`
 - Architecture decisions: \`docs/architecture.md\`
 
-## Source Code
+## Development Workflow
 
-- Entry point: \`src/index.ts\`
+- Run \`harness validate\` before committing to check project health
+- Use \`harness-brainstorming\` for design exploration
+- Use \`harness-planning\` to break features into atomic tasks
+- Use \`harness-execution\` to implement tasks with TDD
+- Refer to \`harness.config.json\` for project tooling configuration
 
 ## Architecture
 
@@ -2303,7 +2333,7 @@ build/
 ",
   "AGENTS.md": "# snapshot-test Knowledge Map
 
-## About This Project
+## Project Overview
 
 snapshot-test -- A Python project managed with Harness Engineering practices.
 
@@ -2314,7 +2344,7 @@ snapshot-test -- A Python project managed with Harness Engineering practices.
 - **Test runner:** pytest
 - **Package manager:** pip
 
-## Directory Structure
+## Repository Structure
 
 - \`src/\` -- Application source code
 - \`tests/\` -- Test files (pytest)
@@ -2327,7 +2357,7 @@ snapshot-test -- A Python project managed with Harness Engineering practices.
 - Tests live in \`tests/\` and mirror \`src/\` structure
 - Import sorting managed by Ruff (isort rules)
 
-## Harness Skills
+## Development Workflow
 
 - Use \`harness-brainstorming\` for design exploration
 - Use \`harness-planning\` to break features into atomic tasks
@@ -2420,18 +2450,23 @@ coverage/
 ",
   "AGENTS.md": "# snapshot-test Knowledge Map
 
-## About This Project
+## Project Overview
 
 snapshot-test — A project using Harness Engineering practices (basic adoption level).
 
-## Documentation
+## Repository Structure
 
+- Entry point: \`src/index.ts\`
 - Main docs: \`docs/\`
 - Architecture decisions: \`docs/architecture.md\`
 
-## Source Code
+## Development Workflow
 
-- Entry point: \`src/index.ts\`
+- Run \`harness validate\` before committing to check project health
+- Use \`harness-brainstorming\` for design exploration
+- Use \`harness-planning\` to break features into atomic tasks
+- Use \`harness-execution\` to implement tasks with TDD
+- Refer to \`harness.config.json\` for project tooling configuration
 
 ## Architecture
 
@@ -2660,7 +2695,7 @@ exports[`template snapshots > rust-base template output matches snapshot 1`] = `
 ",
   "AGENTS.md": "# snapshot-test Knowledge Map
 
-## About This Project
+## Project Overview
 
 snapshot-test -- A Rust project managed with Harness Engineering practices.
 
@@ -2672,7 +2707,7 @@ snapshot-test -- A Rust project managed with Harness Engineering practices.
 - **Formatter:** rustfmt
 - **Test runner:** cargo test
 
-## Directory Structure
+## Repository Structure
 
 - \`src/main.rs\` -- Application entry point
 - \`src/lib.rs\` -- Library root (when applicable)
@@ -2687,7 +2722,7 @@ snapshot-test -- A Rust project managed with Harness Engineering practices.
 - Tests: unit tests in \`#[cfg(test)]\` modules, integration tests in \`tests/\`
 - Error handling: use \`Result<T, E>\` and the \`?\` operator, avoid \`.unwrap()\` in production code
 
-## Harness Skills
+## Development Workflow
 
 - Use \`harness-brainstorming\` for design exploration
 - Use \`harness-planning\` to break features into atomic tasks
@@ -2757,7 +2792,7 @@ exports[`template snapshots > spring-boot overlay with java-base matches snapsho
 ",
   "AGENTS.md": "# snapshot-test Knowledge Map
 
-## About This Project
+## Project Overview
 
 snapshot-test -- A Java project managed with Harness Engineering practices.
 
@@ -2769,7 +2804,7 @@ snapshot-test -- A Java project managed with Harness Engineering practices.
 - **Test runner:** JUnit 5
 - **Group ID:** com.example.snapshottest
 
-## Directory Structure
+## Repository Structure
 
 - \`src/main/java/\` -- Application source code
 - \`src/test/java/\` -- Test files (JUnit 5)
@@ -2784,7 +2819,7 @@ snapshot-test -- A Java project managed with Harness Engineering practices.
 - Use JUnit 5 assertions and lifecycle annotations
 - Prefer dependency injection over static methods
 
-## Harness Skills
+## Development Workflow
 
 - Use \`harness-brainstorming\` for design exploration
 - Use \`harness-planning\` to break features into atomic tasks
@@ -2940,18 +2975,23 @@ coverage/
 ",
   "AGENTS.md": "# snapshot-test Knowledge Map
 
-## About This Project
+## Project Overview
 
 snapshot-test — A project using Harness Engineering practices (basic adoption level).
 
-## Documentation
+## Repository Structure
 
+- Entry point: \`src/index.ts\`
 - Main docs: \`docs/\`
 - Architecture decisions: \`docs/architecture.md\`
 
-## Source Code
+## Development Workflow
 
-- Entry point: \`src/index.ts\`
+- Run \`harness validate\` before committing to check project health
+- Use \`harness-brainstorming\` for design exploration
+- Use \`harness-planning\` to break features into atomic tasks
+- Use \`harness-execution\` to implement tasks with TDD
+- Refer to \`harness.config.json\` for project tooling configuration
 
 ## Architecture
 

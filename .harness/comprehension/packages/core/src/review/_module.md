@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/src/review'
-sourceHash: 'ffe7b4ae0f07443e803ff9f19083982bd4b30160e60844af2346fdaed5620a37'
+sourceHash: '3fddfc1412d5680339d0e1bcad212e1bbf0d3348e6139f294c163ebd23b9e03f'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -174,7 +174,7 @@ export validateFindings
 
 ```
 import { defineLayer, validateDependencies } from '../constraints/dependencies'
-import { validateAgentsMap } from '../context/agents-map'
+import { agentsMapSectionFindings, validateAgentsMap } from '../context/agents-map'
 import { checkDocCoverage } from '../context/doc-coverage'
 import { clumpingFromConfig, resolveSeamClumpPolicy } from '../fleet/clumping'
 import { parseSecurityConfig } from '../security/config'
