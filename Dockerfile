@@ -26,6 +26,7 @@ COPY packages/linter-gen/package.json packages/linter-gen/
 COPY packages/local-models/package.json packages/local-models/
 COPY packages/orchestrator/package.json packages/orchestrator/
 COPY packages/signals/package.json packages/signals/
+COPY packages/stats/package.json packages/stats/
 COPY packages/types/package.json packages/types/
 COPY docs/package.json docs/
 COPY agents/skills/package.json agents/skills/

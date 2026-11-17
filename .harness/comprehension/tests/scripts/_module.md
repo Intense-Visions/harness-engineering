@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'tests/scripts'
-sourceHash: '1e2e5dbbb6c9b29abb60bf41bb8ea94b943b8084949a661f9cac8c4a93e24100'
+sourceHash: '6daab0b32e3a685335d8f21471d373fc7338ceb6987cc45d7e3c7f868cf06a51'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -15,6 +15,7 @@ members:
     'core-public-symbols.test.mjs',
     'coverage-ratchet-floor.test.mjs',
     'design-capture.test.mjs',
+    'dockerfile-deps-workspace-coverage.test.mjs',
     'ensure-node-pin.test.mjs',
     'generate-barrel-exports.test.ts',
     'generate-docs-determinism.test.ts',
