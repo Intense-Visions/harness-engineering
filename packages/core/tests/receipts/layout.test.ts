@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   REVIEW_RECEIPT_FILENAME,
+  phaseOfReviewLabel,
   reviewMomentOfDir,
   sessionDirOfReviewDir,
 } from '../../src/receipts/layout';
@@ -8,6 +9,20 @@ import {
 describe('review artifact layout', () => {
   it('names the receipt file', () => {
     expect(REVIEW_RECEIPT_FILENAME).toBe('receipt.json');
+  });
+});
+
+describe('phaseOfReviewLabel: the N of a session `phase-N` label (round 2, architecture-1)', () => {
+  it.each<[string, number | undefined]>([
+    ['phase-0', 0],
+    ['phase-12', 12],
+    ['phase-01', undefined],
+    ['phase-', undefined],
+    ['final-all', undefined],
+    ['phase-1/', undefined],
+    ['x-phase-1', undefined],
+  ])('%s -> %s', (label, n) => {
+    expect(phaseOfReviewLabel(label)).toBe(n);
   });
 });
 

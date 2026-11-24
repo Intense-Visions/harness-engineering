@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/src/receipts'
-sourceHash: '3080293e3fd98e5a5c0ed27ab65fc9e997d81e21291bd354ba3693b3e214d13a'
+sourceHash: '43f8bd9e35082730a49a6962fbed5aa0810afd0cba0bc094cfd1c6d42737541c'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -15,6 +15,8 @@ export EarlierPhaseReceipt
 export FinalReviewBase
 export FindingsFileRange
 export PhaseReviewBase
+export REVIEWS_DIRNAME
+export REVIEW_RECEIPT_FILENAME
 export ResolvedReviewBackend
 export ReviewGateContext
 export ReviewGateFailure
@@ -26,6 +28,7 @@ export expectedReviewMoment
 export finalReviewBase
 export parseReviewReceipt
 export parseReviewerFindingsFile
+export phaseOfReviewLabel
 export phaseReviewBase
 export readRegularFile
 export readReviewReceiptFile

@@ -3,10 +3,14 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import {
   FULL_SHA_PATTERN,
+  REVIEWS_DIRNAME,
+  REVIEW_RECEIPT_FILENAME,
   finalReviewBase,
+  phaseOfReviewLabel,
   readRegularFile,
   readReviewReceiptFile,
   resolveSessionDir,
+  sessionDirOfReviewDir,
   standaloneReviewBase,
   type EarlierPhaseReceipt,
   type FinalReviewBase,
@@ -118,9 +122,6 @@ export const isSha = (v: unknown): v is string => typeof v === 'string' && FULL_
 export const fields = (v: unknown): Record<string, unknown> =>
   v !== null && typeof v === 'object' ? { ...v } : {};
 
-/** `phase-N` with N written as the session layout writes it (no leading zeros). */
-const PHASE_LABEL = /^phase-(0|[1-9][0-9]{0,8})$/;
-
 /**
  * `git merge-base --is-ancestor <ancestor> <of>`: true, false (git exits 1), or undefined when git
  * cannot say (a missing object, no git).
@@ -149,9 +150,10 @@ export function earlierPhaseReceipt(
   reviewDir: string,
   reachable: (head: string) => boolean
 ): EarlierPhaseReceipt {
-  const n = PHASE_LABEL.exec(path.basename(reviewDir))?.[1];
-  if (n === undefined) return { status: 'none' };
-  const reviews = path.dirname(reviewDir);
+  const n = phaseOfReviewLabel(path.basename(reviewDir));
+  const sessionDir = sessionDirOfReviewDir(reviewDir);
+  if (n === undefined || sessionDir === undefined) return { status: 'none' };
+  const reviews = path.join(sessionDir, REVIEWS_DIRNAME);
   let entries: string[];
   try {
     entries = fs.readdirSync(reviews);
@@ -159,13 +161,11 @@ export function earlierPhaseReceipt(
     return { status: 'none' };
   }
   const earlier = entries
-    .map((e) => PHASE_LABEL.exec(e)?.[1])
-    .filter((m): m is string => m !== undefined)
-    .map(Number)
-    .filter((m) => m < Number(n))
-    .sort((a, b) => b - a);
-  for (const phase of earlier) {
-    const file = path.join(reviews, `phase-${phase}`, 'receipt.json');
+    .map((label) => ({ label, phase: phaseOfReviewLabel(label) }))
+    .filter((e): e is { label: string; phase: number } => e.phase !== undefined && e.phase < n)
+    .sort((a, b) => b.phase - a.phase);
+  for (const { label, phase } of earlier) {
+    const file = path.join(reviews, label, REVIEW_RECEIPT_FILENAME);
     const read = readReviewReceiptFile(file, { within: reviews });
     const head = read.status === 'ok' ? fields(fields(read.raw).diff).head : undefined;
     if (isSha(head) && reachable(head)) return { status: 'found', phase, head };

@@ -11,13 +11,20 @@ describe('receipts module surface', () => {
     'resolveReviewBackend',
     'readReviewReceiptFile',
     'reviewFindingsReaderFor',
+    // Round 2 (architecture-1): the CLI reads the session layout from here, not a copy.
+    'phaseOfReviewLabel',
   ])('exports %s as a function', (name) => {
     expect(typeof (receipts as Record<string, unknown>)[name]).toBe('function');
   });
+  it('publishes the layout names the CLI reads (round 2, architecture-1)', () => {
+    expect(receipts).toMatchObject({
+      REVIEW_RECEIPT_FILENAME: 'receipt.json',
+      REVIEWS_DIRNAME: 'reviews',
+    });
+  });
+  // Only names that exist at this head: an assertion about an absent name passes vacuously.
   it('does not publish module-internal helpers', () => {
     for (const name of [
-      'attributionKey',
-      'findingLocationKey',
       'resolveReceiptPath',
       'ReviewerRecordSchema',
       'REVIEWER_ID_PATTERN',
@@ -25,30 +32,16 @@ describe('receipts module surface', () => {
       // No consumer outside the module (round 3, barrel-surface):
       'ReviewReceiptSchema',
       'ReviewerFindingsFileSchema',
-      'ReviewAttributionRecordSchema',
       'isBlockingSeverity',
       'normalizeReviewPath',
       'tallyReviewFindings',
-      'effectiveAttribution',
-      'reviewLabel',
-      'MISSING_REVIEW',
-      'REVIEW_RECEIPT_FILENAME',
-      // Generic names, renamed so a second receipt kind cannot collide:
-      'ATTRIBUTION_REVIEW_LABEL',
-      'STAMP_CELL_GRAMMAR',
       'inert',
-      'gateFailure',
-      'readReceiptFile',
-      'findingsReaderFor',
       // Round 4, fix 13: no consumer outside the module.
       'pathEscapes',
-      'compareReviewLabels',
       'reviewMomentOfDir',
-      'STARTING_COMMIT_GAP',
-      // Unit 1 fix round 1, fix 14: no consumer outside the module in unit 1 (later units add
-      // what they use), and FULL_SHA_PATTERN is the types package's to export.
+      // Unit 1 fix round 1, fix 14: no consumer outside the module, and FULL_SHA_PATTERN is the
+      // types package's to export.
       'FINAL_REVIEW_LABEL',
-      'REVIEWS_DIRNAME',
       'SESSION_REVIEW_LABEL',
       'FULL_SHA_PATTERN',
     ]) {

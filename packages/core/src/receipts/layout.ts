@@ -16,6 +16,13 @@ export const FINAL_REVIEW_LABEL = 'final-all';
  */
 export const SESSION_REVIEW_LABEL = /^(?:final-all|phase-(?:0|[1-9][0-9]{0,8}))$/;
 
+/** N of a session review label `phase-N` (SESSION_REVIEW_LABEL); undefined for any other name. */
+export function phaseOfReviewLabel(label: string): number | undefined {
+  return SESSION_REVIEW_LABEL.test(label) && label !== FINAL_REVIEW_LABEL
+    ? Number(label.slice('phase-'.length))
+    : undefined;
+}
+
 /**
  * The moment a review directory's place states. The session layout is tested first: a directory
  * `sessions/<slug>/reviews/<label>` is that session's `final-all` or `phase-<N>` review whatever
