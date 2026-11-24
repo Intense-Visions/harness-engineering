@@ -1,8 +1,8 @@
 import { execFileSync } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { FULL_SHA_PATTERN } from '@harness-engineering/types';
 import {
+  FULL_SHA_PATTERN,
   finalReviewBase,
   readRegularFile,
   readReviewReceiptFile,
