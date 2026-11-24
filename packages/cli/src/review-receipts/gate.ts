@@ -130,7 +130,7 @@ function recompute(git: CwdGit, range: Range | undefined, cwd: string): Recomput
 /** A receipt file that was not read: missing, unreadable (with the reason) or outside the project. */
 export type UnreadReceipt = Exclude<ReturnType<typeof readReviewReceiptFile>, { status: 'ok' }>;
 
-/** The gate's report, plus what it loaded, for callers that go on to read the review. */
+/** The gate's report, the receipt's directory, and what the gate read or why it could not. */
 export type GatedReviewReceipt = {
   report: CheckReviewReceiptReport;
   /** The receipt's directory, which its findings paths are relative to. */

@@ -226,10 +226,7 @@ export interface CheckedReceiptResult {
   /** Reviewers the receipt marks required. */
   reviewersRequired: number;
   receipt: ReviewReceipt;
-  /**
-   * The count over the findings files that loaded (tallyReviewFindings). Kept with `loaded` and
-   * `unreadable` for the provenance stamp (unit 3), which prints them per review.
-   */
+  /** The count over the findings files that loaded (tallyReviewFindings). */
   tally: ReviewFindingTally;
   /** Reviewers marked ran whose findings file loaded, and those whose file did not. */
   loaded: string[];

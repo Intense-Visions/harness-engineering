@@ -58,8 +58,8 @@ const notJson: ReceiptUnreadReason = 'not valid JSON';
 
 /**
  * The errno code of a failed read, as the reader writes it: the code when it matches ERRNO_REASON,
- * `UNKNOWN` otherwise. Only the code: the message holds the absolute path, and the reason can
- * reach a PR body.
+ * `UNKNOWN` otherwise. Only the code: the message holds the absolute path, and the reason is
+ * printed.
  */
 export function errnoReason(err: unknown): ReceiptReadProblem {
   const code =
