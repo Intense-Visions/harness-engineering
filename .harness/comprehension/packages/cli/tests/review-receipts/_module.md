@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/tests/review-receipts'
-sourceHash: 'cc9b98aa4df6f45032200d014c49987e08b79614641f34fb3baaaef16b51dbe7'
+sourceHash: '3e6754ee0999415a7cae21eb54ef525b2f188a064fda07f1c4315679a63ed3f0'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent

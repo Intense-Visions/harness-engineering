@@ -25,6 +25,9 @@ beforeEach(() => {
   project = fs.mkdtempSync(path.join(os.tmpdir(), 'mcp-review-receipt-'));
   dir = path.join(project, '.harness', 'sessions', 's1', 'reviews', 'phase-0');
   fs.mkdirSync(dir, { recursive: true });
+  // phase-0's base is the session's starting commit (the receipt gate recomputes it).
+  const state = path.join(project, '.harness', 'sessions', 's1', 'autopilot-state.json');
+  fs.writeFileSync(state, JSON.stringify({ startingCommit: BASE }));
 });
 afterEach(() => fs.rmSync(project, { recursive: true, force: true }));
 

@@ -60,10 +60,17 @@ function write(r: unknown, ids: string[] = FULL, over: Record<string, unknown> =
 }
 const run = (g: CwdGit = git()) => runCheckReviewReceipt({ receiptPath: dir, cwd: tmp, git: g });
 
+/** The session's autopilot-state.json: phase-0's base is its starting commit (fix 1). */
+const startAt = (startingCommit: string | undefined) =>
+  fs.writeFileSync(
+    path.join(tmp, '.harness', 'sessions', 's1', 'autopilot-state.json'),
+    JSON.stringify(startingCommit === undefined ? {} : { startingCommit })
+  );
 beforeEach(() => {
   tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'cli-check-receipt-'));
   dir = path.join(tmp, '.harness', 'sessions', 's1', 'reviews', 'phase-0');
   fs.mkdirSync(dir, { recursive: true });
+  startAt(BASE);
 });
 afterEach(() => {
   vi.restoreAllMocks();
@@ -314,6 +321,7 @@ describe('diff file names git would quote (N2)', () => {
     }
     g('add', '--', ...ODD);
     g('commit', '-q', '--no-verify', '-m', 'odd names');
+    startAt(base);
     return { base, head: g('rev-parse', 'HEAD') };
   }
   function writeExamined(r: { diff: { head: string } }, examinedFiles: string[]) {
@@ -401,6 +409,8 @@ function realRepo(): { g: (...args: string[]) => string; seed: string; mid: stri
   const seed = commit('seed.txt');
   g('update-ref', 'refs/remotes/origin/main', seed);
   const mid = commit('src/a.ts');
+  // A phase review here runs mid..head: the session started at mid (fix 1).
+  startAt(mid);
   return { g, seed, mid, head: commit('src/b.ts') };
 }
 const real = (moment?: 'phase' | 'final' | 'standalone', at = dir) =>
@@ -450,6 +460,10 @@ describe('fix 1: the moment is bound to where the receipt sits', () => {
         else if (directory !== undefined && flag !== undefined && flag !== directory) {
           codes = ['MOMENT_MISMATCH'];
         } else if (expected !== 'phase') codes = ['MOMENT_MISMATCH'];
+        // Fix 1: a phase receipt outside a session has no earlier phase or starting commit to
+        // name its base, so its base is unknown.
+        if (directory !== 'phase' && directory !== 'final')
+          codes = [...codes, 'PHASE_BASE_UNKNOWN'];
         return [name, flag, codes, at] as const;
       })
     );
@@ -463,12 +477,18 @@ describe('fix 1: the moment is bound to where the receipt sits', () => {
     const { mid, head } = realRepo();
     const standalone = path.join(tmp, '.harness', 'reviews', `work-${head}`);
     writeLight(standalone, head, mid);
-    expect(codesOf(real(undefined, standalone))).toEqual(['MOMENT_MISMATCH']);
+    expect(codesOf(real(undefined, standalone))).toEqual(['MOMENT_MISMATCH', 'PHASE_BASE_UNKNOWN']);
   });
   it('the command takes --moment', async () => {
     const { mid, head } = realRepo();
+    // A phase receipt outside a session fails PHASE_BASE_UNKNOWN, so this one says standalone.
     const odd = path.join(tmp, 'x');
     writeLight(odd, head, mid);
+    const light = JSON.parse(fs.readFileSync(path.join(odd, 'receipt.json'), 'utf-8'));
+    fs.writeFileSync(
+      path.join(odd, 'receipt.json'),
+      JSON.stringify({ ...light, moment: 'standalone' })
+    );
     vi.spyOn(console, 'log').mockImplementation(() => {});
     vi.spyOn(console, 'error').mockImplementation(() => {});
     const invoke = async (...args: string[]) => {
@@ -478,7 +498,7 @@ describe('fix 1: the moment is bound to where the receipt sits', () => {
       await program.parseAsync(['node', 'harness', 'check-review-receipt', odd, ...args]);
       return process.exitCode ?? 0;
     };
-    expect(await invoke('--moment', 'phase')).toBe(0);
+    expect(await invoke('--moment', 'standalone')).toBe(0);
     expect(await invoke()).toBe(1);
     expect(await invoke('--moment', 'final')).toBe(1);
   });
@@ -558,11 +578,11 @@ describe('round 3, fix 3: a findings path that is not a regular file', () => {
 
 describe('fix 3: a findings file left from an earlier round does not count at a new head', () => {
   it("fails every reviewer whose file names another head (the reviewers' reproduction)", () => {
-    const { seed, mid, head } = realRepo();
-    write(receipt({ diff: { base: seed, head } }), FULL, { head: mid });
+    const { mid, head } = realRepo();
+    write(receipt({ diff: { base: mid, head } }), FULL, { head: mid, examinedFiles: ['src/b.ts'] });
     const r = real();
     expect(codesOf(r)).toEqual(Array(4).fill('FINDINGS_HEAD_MISMATCH'));
-    write(receipt({ diff: { base: seed, head } }), FULL, { head });
+    write(receipt({ diff: { base: mid, head } }), FULL, { head, examinedFiles: ['src/b.ts'] });
     expect(real().pass).toBe(true);
   });
 });
@@ -604,6 +624,7 @@ describe('fix 4: diff.base is checked as far as git allows', () => {
     const declared = { base: seed, head, baseSource: 'starting-commit' };
     write(receipt({ moment: 'final', diff: declared }), FULL, { head });
     // Round 4, fix 1: only when it is the session's starting commit, which must be known.
+    startAt(undefined);
     expect(codesOf(real())).toEqual(['STARTING_COMMIT_UNKNOWN']);
     const state = path.join(tmp, '.harness', 'sessions', 's1', 'autopilot-state.json');
     fs.writeFileSync(state, JSON.stringify({ startingCommit: seed, phases: [] }));
@@ -636,6 +657,7 @@ describe('fix 4: diff.base is checked as far as git allows', () => {
 describe('V2-8: a renamed file is in the diff under both names', () => {
   it('accepts a reviewer that lists the old path of a renamed file', () => {
     const { g, head: before } = realRepo();
+    startAt(before);
     g('mv', 'src/a.ts', 'src/renamed.ts');
     g('commit', '-q', '--no-verify', '-m', 'rename');
     const head = g('rev-parse', 'HEAD');
@@ -647,6 +669,7 @@ describe('V2-8: a renamed file is in the diff under both names', () => {
 describe('fix 7: a findings file that is a symlink out of the review directory is not read', () => {
   it.skipIf(process.platform === 'win32')('fails the reviewer as having no file', () => {
     const { seed, head } = realRepo();
+    startAt(seed);
     write(receipt({ diff: { base: seed, head } }), FULL, { head });
     const outside = path.join(tmp, 'outside.json');
     fs.renameSync(path.join(dir, 'bug.json'), outside);

@@ -543,6 +543,7 @@ ESCAPED_FROM_STAGES
 ETagStore
 EVIDENCE_SATURATION
 EXTENSION_MAP
+EarlierPhaseReceipt
 EditProposalInput
 EditProposalInputSchema
 EffectivenessSection
@@ -969,6 +970,7 @@ PendingChangeset
 PerClassRates
 PersistedVerdict
 PhaseComplexity
+PhaseReviewBase
 PiBackendDef
 PilotScoringOptions
 PinnedReference
@@ -2143,6 +2145,7 @@ parseUserConfig
 parseVerdictCacheConfig
 pathTraversalRules
 pathsOverlap
+phaseReviewBase
 planCanaryReviewDetectors
 planClumpPR
 planCraftReviewDomains

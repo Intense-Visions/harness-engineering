@@ -783,3 +783,11 @@ describe('unit 1 fix round 1: a review is bound to a clean tracked tree (fix 5)'
     );
   });
 });
+
+describe('unit 1 fix round 1: the phase base is recomputed (fix 1)', () => {
+  it('the receipt rules say the gate recomputes a phase base and only checks a standalone one for ancestry', () => {
+    expect(section(md(), '### Review Receipt')).toMatch(
+      /A `phase` receipt's base is the one harness-autopilot REVIEW step 1 prescribes, and the gate recomputes it from the session's earlier receipts and `startingCommit` \(`PHASE_BASE_MISMATCH`, `PHASE_BASE_UNKNOWN`\)\. A `standalone` receipt's base is only checked to be an ancestor of the head\./
+    );
+  });
+});

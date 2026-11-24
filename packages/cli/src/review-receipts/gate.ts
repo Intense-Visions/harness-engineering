@@ -1,6 +1,5 @@
 import * as path from 'node:path';
 import {
-  FULL_SHA_PATTERN,
   checkReviewerFindingsText,
   escapeTerminalText,
   readRegularFile,
@@ -8,6 +7,7 @@ import {
   reviewGateFailure,
   readReviewReceiptFile,
   expectedReviewMoment,
+  phaseReviewBase,
   sessionDirOfReviewDir,
   validateReviewReceipt,
   type ReviewGateContext,
@@ -17,6 +17,9 @@ import {
 import { REVIEW_MOMENTS, type ReviewMoment, type ReviewReceipt } from '@harness-engineering/types';
 import {
   defaultBranchMergeBase,
+  earlierPhaseReceipt,
+  fields,
+  isSha,
   listDiffFiles,
   resolveRepoRoots,
   runGitIn,
@@ -58,11 +61,6 @@ export interface CheckReviewReceiptReport {
 
 type Range = { base: string; head: string; final: boolean };
 
-const isSha = (v: unknown): v is string => typeof v === 'string' && FULL_SHA_PATTERN.test(v);
-/** The own fields of an unparsed JSON value; none when it is not an object. */
-const fields = (v: unknown): Record<string, unknown> =>
-  v !== null && typeof v === 'object' ? { ...v } : {};
-
 /** The receipt's claimed range, only when both ends are full shas (never pass free text to git). */
 function claimedRange(raw: unknown): Range | undefined {
   const { base, head } = fields(fields(raw).diff);
@@ -75,7 +73,10 @@ function currentHead(git: CwdGit, cwd: string): Pick<ReviewGateContext, 'head'> 
   return { head: tryGit(git, ['rev-parse', 'HEAD'], cwd) ?? '' };
 }
 
-type Recomputed = Omit<ReviewGateContext, 'readFindings' | 'expectedMoment' | 'startingCommit'>;
+type Recomputed = Omit<
+  ReviewGateContext,
+  'readFindings' | 'expectedMoment' | 'startingCommit' | 'phaseBase'
+>;
 
 /**
  * What git says about the claimed range. Git is not asked without a range. It runs at the
@@ -143,10 +144,17 @@ export function gateReviewReceipt(opts: CheckReviewReceiptOptions): GatedReviewR
     const report = { pass: false, receiptPath: read.path, failures, ...counts };
     return { read: false, unread: read, report, dir: read.dir };
   }
-  const startingCommit = sessionStartingCommit(sessionDirOfReviewDir(read.dir));
+  const sessionDir = sessionDirOfReviewDir(read.dir);
+  const startingCommit = sessionStartingCommit(sessionDir);
+  const phaseBase = phaseReviewBase({
+    inSession: sessionDir !== undefined,
+    earlier: sessionDir === undefined ? { status: 'none' } : earlierPhaseReceipt(read.dir),
+    startingCommit,
+  });
   const result = validateReviewReceipt(read.raw, {
     ...recompute(git, read.raw, cwd),
     ...(startingCommit !== undefined && { startingCommit }),
+    phaseBase,
     readFindings: reviewFindingsReaderFor(read.dir),
     expectedMoment: expectedReviewMoment(read.dir, opts.moment),
   });

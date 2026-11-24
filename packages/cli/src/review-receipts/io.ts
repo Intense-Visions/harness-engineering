@@ -1,10 +1,13 @@
 import { execFileSync } from 'node:child_process';
+import * as fs from 'node:fs';
 import * as path from 'node:path';
 import {
   FULL_SHA_PATTERN,
   finalReviewBase,
   readRegularFile,
+  readReviewReceiptFile,
   resolveSessionDir,
+  type EarlierPhaseReceipt,
   type FinalReviewBase,
   type Result,
 } from '@harness-engineering/core';
@@ -105,6 +108,46 @@ export function sessionStartingCommit(sessionDir: string | undefined): string | 
       ? (state as { startingCommit?: unknown }).startingCommit
       : undefined;
   return typeof start === 'string' && FULL_SHA_PATTERN.test(start) ? start : undefined;
+}
+
+export const isSha = (v: unknown): v is string => typeof v === 'string' && FULL_SHA_PATTERN.test(v);
+/** The own fields of an unparsed JSON value; none when it is not an object. */
+export const fields = (v: unknown): Record<string, unknown> =>
+  v !== null && typeof v === 'object' ? { ...v } : {};
+
+/** `phase-N` with N written as the session layout writes it (no leading zeros). */
+const PHASE_LABEL = /^phase-(0|[1-9][0-9]{0,8})$/;
+
+/**
+ * The nearest earlier phase review of the same session that holds a `receipt.json`, read as a
+ * receipt is read (a regular file of at most 5 MB inside the reviews directory). A phase directory
+ * with no receipt is passed over; one whose receipt cannot be read, or holds no full `diff.head`,
+ * is returned with no head, so the caller cannot pass over it. `reviewDir` is `phase-N`.
+ */
+export function earlierPhaseReceipt(reviewDir: string): EarlierPhaseReceipt {
+  const n = PHASE_LABEL.exec(path.basename(reviewDir))?.[1];
+  if (n === undefined) return { status: 'none' };
+  const reviews = path.dirname(reviewDir);
+  let entries: string[];
+  try {
+    entries = fs.readdirSync(reviews);
+  } catch {
+    return { status: 'none' };
+  }
+  const earlier = entries
+    .map((e) => PHASE_LABEL.exec(e)?.[1])
+    .filter((m): m is string => m !== undefined)
+    .map(Number)
+    .filter((m) => m < Number(n))
+    .sort((a, b) => b - a);
+  for (const phase of earlier) {
+    const file = path.join(reviews, `phase-${phase}`, 'receipt.json');
+    const read = readReviewReceiptFile(file, { within: reviews });
+    if (read.status === 'missing') continue;
+    const head = read.status === 'ok' ? fields(fields(read.raw).diff).head : undefined;
+    return { status: 'found', phase, head: isSha(head) ? head : undefined };
+  }
+  return { status: 'none' };
 }
 
 /**

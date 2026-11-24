@@ -61,7 +61,10 @@ a finding id used twice in the review, `blocking` or `advisory` counts that diff
 findings files hold (`COUNTS_MISMATCH`), a head that is not the current HEAD, tracked files
 that differ from HEAD (`WORKTREE_DIRTY`, from `git status --porcelain=v1 -z --untracked-files=no`;
 untracked files do not count, and the self-check applies it when given a range), a base that is not
-an ancestor of the head, a diff range that cannot be computed or changes nothing, and a `final`
+an ancestor of the head, a `phase` receipt whose base is not the `diff.head` of the nearest
+earlier `phase-M` receipt of its session, or the session's starting commit when there is none
+(`PHASE_BASE_MISMATCH`; `PHASE_BASE_UNKNOWN` when neither can be named, including a phase
+receipt outside a session; `phaseReviewBase`), a diff range that cannot be computed or changes nothing, and a `final`
 receipt that is not full, cold, free of prior findings and based at the merge base with the
 default branch (a declared `baseSource: "starting-commit"` is accepted only when no
 default-branch merge base resolves and the base is the session's starting commit, and an unknown
@@ -122,7 +125,8 @@ reviewer findings files and are not in the receipt's counts.
   diff at the current commit. It does not prove the reviewers ran in separate contexts: one
   context that writes four findings files passes.
 - The gate checks, and does not take on trust: the moment (against the review directory, which
-  no flag overrides), the head, a clean tracked tree, each findings file's head, the base's ancestry, the merge base
+  no flag overrides), the head, a clean tracked tree, each findings file's head, the base's ancestry, a phase's
+  base (the previous receipt's head, else the starting commit), the merge base
   of a final review (whatever `baseSource` the receipt declares, while a merge base resolves;
   the session's starting commit when none does), the `light` roster, the reviewer ids, finding-id uniqueness, and the `blocking`
   and `advisory` counts.
@@ -132,7 +136,10 @@ reviewer findings files and are not in the receipt's counts.
   and the `backend`. The merge base is
   taken against the default branch ref as the clone holds it; the gate does not fetch, and the
   session can rewrite those local remote-tracking refs (`git update-ref`) and so move what the
-  gate treats as the merge base: the final base is only as trustworthy as those refs.
+  gate treats as the merge base: the final base is only as trustworthy as those refs. The
+  starting commit (the final base's fallback and the first phase's base) and the earlier
+  receipts (a later phase's base) are the session's own files, so the gate proves the receipts
+  agree with them, not that they are honest.
 - Callers of the MCP tool decide on its `pass` field alone. Through the shared
   response-compaction middleware `failures` is absent on a pass, a single object when there is
   exactly one failure, and an array when there are two or more. The CLI's `--json` output always

@@ -37,6 +37,7 @@ const ctx = (over: Partial<ReviewGateContext> = {}): ReviewGateContext => ({
   expectedMoment: known('phase'),
   baseIsAncestor: true,
   worktreeClean: true,
+  phaseBase: { status: 'resolved', base: BASE, source: 'starting-commit' },
   mergeBase: BASE,
   ...over,
 });

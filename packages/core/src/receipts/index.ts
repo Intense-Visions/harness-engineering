@@ -6,6 +6,8 @@
 export { FULL_SHA_PATTERN } from './schema';
 export { parseReviewReceipt, parseReviewerFindingsFile } from './schema';
 export { finalReviewBase, reviewGateFailure, validateReviewReceipt } from './review-gate';
+export { phaseReviewBase } from './review-gate';
+export type { EarlierPhaseReceipt, PhaseReviewBase } from './review-gate';
 export { checkReviewerFindingsText } from './review-gate';
 export type { ReviewGateContext, ReviewGateFailure, ReviewGateResult } from './review-gate';
 export type { FinalReviewBase } from './review-gate';

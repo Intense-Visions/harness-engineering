@@ -64,6 +64,13 @@ recomputed and the gate compares:
   (`STARTING_COMMIT_UNKNOWN`). One core rule (`finalReviewBase`) and one git resolver decide the
   base for the gate and `harness review-tier --moment final`, which prints it, so a
   writer takes the base from the command and never from a recipe of its own.
+- A phase receipt's base is recomputed too (`phaseReviewBase`): it must be the `diff.head` of
+  the nearest earlier `phase-M` receipt of the same session, else the session's starting commit
+  (`PHASE_BASE_MISMATCH`). A phase that wrote no receipt (it made no commit, or was never
+  reviewed) is passed over, so its commits fall in the next phase's diff; an earlier receipt that
+  cannot be read is not passed over. When no base can be named (no earlier receipt and no
+  starting commit, an unreadable earlier receipt, or a phase receipt outside a session) the gate
+  fails `PHASE_BASE_UNKNOWN`. A standalone review's base stays an ancestry check.
 - The diff's file set comes from `git diff --name-only --no-renames -z <base>..<head>`, using
   the receipt's two SHAs. `-z` makes git print names unquoted, so a path with a non-ASCII
   character or a space compares equal to what a reviewer listed, and `--no-renames` puts a
@@ -112,9 +119,16 @@ never records `full`. Honest capability is what makes the roster check meaningfu
   the set of conditional reviewers (only that every id is a known one), whether a phase was
   entitled to `light`, `coldContext` and `priorFindingsSupplied` (checked for consistency on a
   final receipt, never against what the briefs held), whether a reviewer read the files it lists
-  in `examinedFiles`, and the `backend`. The moment, the base, the `light` roster, the reviewer
-  ids, each findings file's head, and `blocking` and `advisory` are not among the claims: the
-  gate checks each of them.
+  in `examinedFiles`, and the `backend`. The moment, the base (a phase's against the previous
+  receipt or the starting commit, a final's against the merge base), a clean tracked tree, the
+  `light` roster, the reviewer ids, each findings file's head, and `blocking` and `advisory` are
+  not among the claims: the gate checks each of them.
+- **The starting commit and the earlier receipts are the session's own writing.** The final
+  base's fallback and the first phase's base are the `startingCommit` of `autopilot-state.json`,
+  and a later phase's base is an earlier receipt's `diff.head`; the session being checked writes
+  all of them. A session that makes the default branch unresolvable chooses its final base, and
+  one that rewrites an earlier receipt chooses the next phase's base. The gate proves the
+  receipts agree with each other, not that the session's own records are honest.
 - **The final base is only as trustworthy as the clone's remote-tracking refs.** The gate takes
   the default branch's merge base from local refs (`refs/remotes/origin/HEAD`, then
   `origin/main`, then `origin/master`) and does not fetch. Those refs are the session's to

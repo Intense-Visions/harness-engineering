@@ -86,6 +86,97 @@ export interface ReviewGateContext extends FindingsSource {
    * autopilot-state.json holds a full sha. Absent: unknown (no session, or no such field).
    */
   startingCommit?: string;
+  /** The base a phase receipt must have (`phaseReviewBase`). Read for a `phase` receipt only. */
+  phaseBase: PhaseReviewBase;
+}
+
+/** The nearest earlier phase review of the session that has a receipt, as the caller found it. */
+export type EarlierPhaseReceipt =
+  | { status: 'none' }
+  /** `head`: the receipt's `diff.head` when it is a full sha; undefined when it cannot be read. */
+  | { status: 'found'; phase: number; head: string | undefined };
+
+/** The base a phase review must have, or why none can be named. */
+export type PhaseReviewBase =
+  | { status: 'resolved'; base: string; source: 'previous-phase'; phase: number }
+  | { status: 'resolved'; base: string; source: 'starting-commit' }
+  | {
+      status: 'unresolved';
+      reason: 'not-in-session' | 'starting-commit-unknown';
+    }
+  | { status: 'unresolved'; reason: 'earlier-receipt-unreadable'; phase: number };
+
+/**
+ * The one rule for a phase review's base (autopilot REVIEW step 1): the `diff.head` of the
+ * nearest earlier phase review that wrote a receipt, else the session's starting commit. A phase
+ * that wrote no receipt (it made no commit, or was never reviewed) is passed over, so its commits
+ * are in the next phase's diff. An earlier receipt whose head cannot be read is not passed over:
+ * the base is then unknown. Outside a session nothing names a phase base.
+ */
+export function phaseReviewBase(input: {
+  inSession: boolean;
+  earlier: EarlierPhaseReceipt;
+  startingCommit: string | undefined;
+}): PhaseReviewBase {
+  if (!input.inSession) return { status: 'unresolved', reason: 'not-in-session' };
+  const { earlier } = input;
+  if (earlier.status === 'found') {
+    if (earlier.head === undefined) {
+      return { status: 'unresolved', reason: 'earlier-receipt-unreadable', phase: earlier.phase };
+    }
+    return {
+      status: 'resolved',
+      base: earlier.head,
+      source: 'previous-phase',
+      phase: earlier.phase,
+    };
+  }
+  if (input.startingCommit === undefined) {
+    return { status: 'unresolved', reason: 'starting-commit-unknown' };
+  }
+  return { status: 'resolved', base: input.startingCommit, source: 'starting-commit' };
+}
+
+const PHASE_BASE_UNKNOWN_TEXT: Record<
+  Extract<PhaseReviewBase, { status: 'unresolved' }>['reason'],
+  string
+> = {
+  'not-in-session':
+    'the receipt is not in a session review directory, so no earlier phase or starting commit names its base',
+  'starting-commit-unknown':
+    "no earlier phase has a receipt and the session's autopilot-state.json holds no full startingCommit",
+  'earlier-receipt-unreadable':
+    "the nearest earlier phase's receipt.json cannot be read or holds no full diff.head",
+};
+
+/** A phase receipt's base against phaseReviewBase. Standalone and final have their own rules. */
+function phaseBaseFailures(
+  receipt: ReviewReceipt,
+  phaseBase: PhaseReviewBase
+): ReviewGateFailure[] {
+  if (receipt.moment !== 'phase') return [];
+  if (phaseBase.status === 'unresolved') {
+    const at =
+      phaseBase.reason === 'earlier-receipt-unreadable' ? ` (phase-${phaseBase.phase})` : '';
+    return [
+      reviewGateFailure(
+        'PHASE_BASE_UNKNOWN',
+        `the base a phase review must have is unknown: ${PHASE_BASE_UNKNOWN_TEXT[phaseBase.reason]}${at}`
+      ),
+    ];
+  }
+  if (phaseBase.base === receipt.diff.base) return [];
+  const from =
+    phaseBase.source === 'previous-phase'
+      ? `the diff.head of the phase-${phaseBase.phase} receipt`
+      : "the session's starting commit";
+  return [
+    reviewGateFailure(
+      'PHASE_BASE_MISMATCH',
+      `a phase review starts where the previous reviewed phase ended: diff.base must be ` +
+        `${phaseBase.base} (${from}), but is ${receipt.diff.base}`
+    ),
+  ];
 }
 
 /** The base a final review must have, or why there is none to demand. */
@@ -592,6 +683,7 @@ export function validateReviewReceipt(
     ...headFailures(r, context),
     ...worktreeFailures(context.worktreeClean),
     ...baseFailures(r, context),
+    ...phaseBaseFailures(r, context.phaseBase),
     ...rosterFailures(r),
     ...finalFailures(r),
     ...check.failures,

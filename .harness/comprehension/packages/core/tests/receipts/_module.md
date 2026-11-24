@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/tests/receipts'
-sourceHash: 'fbe8f735dcaadb043088a7b99fe3977d88a5461c296f81fcced3a94b99c51aed'
+sourceHash: 'dc7bf768fed81f66c5882a919b0044e608f7d974f287160b6888b680f378a23d'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -12,6 +12,7 @@ members:
     'layout.test.ts',
     'load.test.ts',
     'public-surface.test.ts',
+    'review-gate-phase-base.test.ts',
     'review-gate-round2.test.ts',
     'review-gate-round3.test.ts',
     'review-gate-worktree.test.ts',
@@ -50,7 +51,7 @@ import * as receipts from '../../src/receipts'
 import { resolveReviewBackend } from '../../src/receipts/backend'
 import { ExpectedMoment, REVIEW_RECEIPT_FILENAME, SESSION_REVIEW_LABEL, expectedReviewMoment, reviewMomentOfDir, sessionDirOfReviewDir } from '../../src/receipts/layout'
 import { REVIEW_FILE_MAX_BYTES, readReviewReceiptFile, reviewFindingsReaderFor } from '../../src/receipts/load'
-import { ReviewGateContext, checkReviewerFindingsText, finalReviewBase, validateReviewReceipt } from '../../src/receipts/review-gate'
+import { PhaseReviewBase, ReviewGateContext, checkReviewerFindingsText, finalReviewBase, phaseReviewBase, validateReviewReceipt } from '../../src/receipts/review-gate'
 import { BLOCKING_SEVERITIES, ReceiptFinding, ReviewReceiptSchema, ReviewerFindingsFile, isBlockingSeverity, normalizeReviewPath, parseReviewReceipt, parseReviewerFindingsFile, pathEscapes } from '../../src/receipts/schema'
 import { escapeTerminalText } from '../../src/receipts/terminal-text'
 import { ConditionalSubagent } from '../../src/review/depth-calibrator'

@@ -142,3 +142,71 @@ describe('the review is bound to a clean tracked tree', () => {
     expect(r.failures).toEqual([]);
   });
 });
+
+/**
+ * Fix 1. A phase receipt's base is recomputed: the diff.head of the nearest earlier phase-M
+ * receipt, else the session's starting commit. Partition: first phase at the starting commit, a
+ * narrowed base; a later phase after a reviewed one, at its head and at the starting commit; a
+ * phase after one that wrote no receipt (passed over); an earlier receipt that cannot be read; no
+ * starting commit; a copy outside a session.
+ */
+describe('a phase receipt starts where the previous reviewed phase ended', () => {
+  let mid: string;
+  const earlier = (label: string, body: string) => {
+    const dir = path.join(session(), 'reviews', label);
+    fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(path.join(dir, 'receipt.json'), body);
+  };
+  const codes = (dir: string, moment?: 'phase') =>
+    runCheckReviewReceipt({ receiptPath: dir, cwd: tmp, ...(moment && { moment }) }).failures.map(
+      (f) => f.code
+    );
+  beforeEach(() => {
+    // start -> mid -> head: phase 0 ended at mid, the phase under review ends at head.
+    g('reset', '-q', '--hard', start);
+    mid = commit('mid.ts', 'm\n');
+    head = commit('pkg/sub/b.ts', 'b\n');
+  });
+  it('first phase from the starting commit passes', () => {
+    expect(codes(writeReview('phase-0', start, ['pkg/sub/b.ts']))).toEqual([]);
+  });
+  it('first phase from a narrower base fails PHASE_BASE_MISMATCH', () => {
+    expect(codes(writeReview('phase-0', mid, ['pkg/sub/b.ts']))).toEqual(['PHASE_BASE_MISMATCH']);
+  });
+  it('a later phase from the previous receipt head passes', () => {
+    earlier('phase-0', JSON.stringify({ diff: { base: start, head: mid } }));
+    expect(codes(writeReview('phase-1', mid, ['pkg/sub/b.ts']))).toEqual([]);
+  });
+  it('a later phase from the starting commit fails: the previous receipt decides', () => {
+    earlier('phase-0', JSON.stringify({ diff: { base: start, head: mid } }));
+    const dir = writeReview('phase-1', start, ['pkg/sub/b.ts']);
+    expect(codes(dir)).toEqual(['PHASE_BASE_MISMATCH']);
+  });
+  it('a phase that wrote no receipt is passed over', () => {
+    earlier('phase-0', JSON.stringify({ diff: { base: start, head: mid } }));
+    fs.mkdirSync(path.join(session(), 'reviews', 'phase-1'), { recursive: true });
+    expect(codes(writeReview('phase-2', mid, ['pkg/sub/b.ts']))).toEqual([]);
+  });
+  it('a later phase is never measured against a phase after it', () => {
+    earlier('phase-3', JSON.stringify({ diff: { base: start, head: head } }));
+    expect(codes(writeReview('phase-0', start, ['pkg/sub/b.ts']))).toEqual([]);
+  });
+  it('an earlier receipt that cannot be read makes the base unknown', () => {
+    earlier('phase-0', '{ not json');
+    expect(codes(writeReview('phase-1', mid, ['pkg/sub/b.ts']))).toEqual(['PHASE_BASE_UNKNOWN']);
+  });
+  it('an earlier receipt without a full diff.head makes the base unknown', () => {
+    earlier('phase-0', JSON.stringify({ diff: { head: 'HEAD' } }));
+    expect(codes(writeReview('phase-1', mid, ['pkg/sub/b.ts']))).toEqual(['PHASE_BASE_UNKNOWN']);
+  });
+  it('no earlier receipt and no starting commit: unknown', () => {
+    fs.writeFileSync(path.join(session(), 'autopilot-state.json'), '{}');
+    expect(codes(writeReview('phase-0', start, ['pkg/sub/b.ts']))).toEqual(['PHASE_BASE_UNKNOWN']);
+  });
+  it('a phase receipt copied outside a session: unknown', () => {
+    const dir = writeReview('phase-0', start, ['pkg/sub/b.ts']);
+    const copy = path.join(tmp, '.harness', 'copy');
+    fs.cpSync(dir, copy, { recursive: true });
+    expect(codes(copy, 'phase')).toEqual(['PHASE_BASE_UNKNOWN']);
+  });
+});

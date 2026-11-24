@@ -54,6 +54,7 @@ export const ctx = (
   expectedMoment: { status: 'known', moment },
   baseIsAncestor: true,
   worktreeClean: true,
+  phaseBase: { status: 'resolved', base: BASE, source: 'starting-commit' },
   mergeBase: BASE,
   ...over,
 });

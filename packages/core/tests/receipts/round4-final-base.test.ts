@@ -116,8 +116,12 @@ describe('the gate applies finalReviewBase to a final receipt', () => {
     );
     expect(r.failures[0]?.message).toMatch(/session's starting commit is unknown/);
   });
-  it('a phase receipt is not checked against either', () => {
-    const r = validateReviewReceipt(receipt({ diff: { base: OTHER, head: HEAD } }), ctx());
+  it('a phase receipt is not checked against the final rule (its own base rule is phaseReviewBase)', () => {
+    const phaseBase = { status: 'resolved', base: OTHER, source: 'starting-commit' } as const;
+    const r = validateReviewReceipt(
+      receipt({ diff: { base: OTHER, head: HEAD } }),
+      ctx({ phaseBase })
+    );
     expect(codesOf(r)).toEqual([]);
   });
 });

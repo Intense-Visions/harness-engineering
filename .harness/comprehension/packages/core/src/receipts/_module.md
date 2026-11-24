@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/src/receipts'
-sourceHash: 'a1b17de106bd9559bd7041376cb53280838165e995e35d0c404f71408a1ec7f5'
+sourceHash: '77f3b87a9285f9c9687f15771481e1a69b3b91189d32fc90ad82a9d333ad3100'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -20,9 +20,11 @@ members:
 ## Interface Contract
 
 ```ts
+export EarlierPhaseReceipt
 export FINAL_REVIEW_LABEL
 export FULL_SHA_PATTERN
 export FinalReviewBase
+export PhaseReviewBase
 export REVIEWS_DIRNAME
 export ResolvedReviewBackend
 export ReviewGateContext
@@ -35,6 +37,7 @@ export expectedReviewMoment
 export finalReviewBase
 export parseReviewReceipt
 export parseReviewerFindingsFile
+export phaseReviewBase
 export readRegularFile
 export readReviewReceiptFile
 export resolveReviewBackend

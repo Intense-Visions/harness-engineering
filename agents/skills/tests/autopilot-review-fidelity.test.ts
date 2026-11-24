@@ -727,3 +727,11 @@ describe('unit 1 fix round 1: autopilot instructions, each pinned', () => {
     );
   });
 });
+
+describe('unit 1 fix round 1: the phase base is recomputed (fix 1)', () => {
+  it('REVIEW step 1 says the gate recomputes the phase base and names both codes', () => {
+    expect(section(md(), '### REVIEW')).toMatch(
+      /The gate recomputes this base from the same files: a phase receipt whose `diff\.base` is not it fails `PHASE_BASE_MISMATCH`, and when no base can be named \(no earlier receipt and no `startingCommit`, or an earlier receipt it cannot read\) it fails `PHASE_BASE_UNKNOWN`\./
+    );
+  });
+});
