@@ -16,57 +16,57 @@ describe('checkReviewerFindingsText', () => {
   const rows: Array<
     [string, string | undefined, Parameters<typeof checkReviewerFindingsText>[2], string[]]
   > = [
-    ['absent file', undefined, {}, ['FINDINGS_FILE_MISSING']],
-    ['not JSON', '{', {}, ['FINDINGS_FILE_INVALID']],
-    ['empty object', '{}', {}, ['FINDINGS_FILE_INVALID']],
+    ['absent file', undefined, { ranged: false }, ['FINDINGS_FILE_MISSING']],
+    ['not JSON', '{', { ranged: false }, ['FINDINGS_FILE_INVALID']],
+    ['empty object', '{}', { ranged: false }, ['FINDINGS_FILE_INVALID']],
     [
       'a blocking finding without findingClass',
       withFiles(['src/a.ts'], [{ ...finding('f1'), findingClass: undefined }]),
-      {},
+      { ranged: false },
       ['FINDINGS_FILE_INVALID'],
     ],
-    ['valid, no range', findingsText('bug'), {}, []],
-    ['valid, no examined files', withFiles([]), {}, ['EXAMINED_FILES_EMPTY']],
+    ['valid, no range', findingsText('bug'), { ranged: false }, []],
+    ['valid, no examined files', withFiles([]), { ranged: false }, ['EXAMINED_FILES_EMPTY']],
     [
       'duplicate finding ids in the file',
       findingsText('bug', [finding('f1'), finding('f1')]),
-      {},
+      { ranged: false },
       ['DUPLICATE_FINDING_ID'],
     ],
     [
       'range: diff unknown',
       findingsText('bug'),
-      { head: HEAD, worktreeClean: true, diffFiles: undefined },
+      { ranged: true, head: HEAD, worktreeClean: true, diffFiles: undefined },
       ['DIFF_UNRESOLVED'],
     ],
     [
       'range: empty diff',
       findingsText('bug'),
-      { head: HEAD, worktreeClean: true, diffFiles: [] },
+      { ranged: true, head: HEAD, worktreeClean: true, diffFiles: [] },
       ['EMPTY_DIFF', 'EXAMINED_OUTSIDE_DIFF'],
     ],
     [
       'range: files in the diff, head equal',
       findingsText('bug'),
-      { head: HEAD, worktreeClean: true, diffFiles: ['src/a.ts'] },
+      { ranged: true, head: HEAD, worktreeClean: true, diffFiles: ['src/a.ts'] },
       [],
     ],
     [
       'range: a file outside the diff',
       withFiles(['src/a.ts', 'src/z.ts']),
-      { head: HEAD, worktreeClean: true, diffFiles: ['src/a.ts'] },
+      { ranged: true, head: HEAD, worktreeClean: true, diffFiles: ['src/a.ts'] },
       ['EXAMINED_OUTSIDE_DIFF'],
     ],
     [
       'range: head differs',
       findingsText('bug'),
-      { head: OTHER, worktreeClean: true, diffFiles: ['src/a.ts'] },
+      { ranged: true, head: OTHER, worktreeClean: true, diffFiles: ['src/a.ts'] },
       ['FINDINGS_HEAD_MISMATCH'],
     ],
     [
       'range: a ./ and \\ path normalise to the diff path',
       withFiles(['./src\\a.ts']),
-      { head: HEAD, worktreeClean: true, diffFiles: ['src/a.ts'] },
+      { ranged: true, head: HEAD, worktreeClean: true, diffFiles: ['src/a.ts'] },
       [],
     ],
   ];
@@ -85,16 +85,18 @@ describe('checkReviewerFindingsText', () => {
     'compliance-bug',
   ];
   it.each(KNOWN)('the known reviewer id %j passes', (id) => {
-    expect(codes(findingsText(id), `${id}.json`, {})).toEqual([]);
+    expect(codes(findingsText(id), `${id}.json`, { ranged: false })).toEqual([]);
   });
   it.each(['frontend', 'bugs', 'compliance-bug-2', 'x'])(
     'an unknown reviewer id %j fails UNKNOWN_REVIEWER, as the gate would',
     (id) => {
-      expect(codes(findingsText(id), `${id}.json`, {})).toEqual(['UNKNOWN_REVIEWER']);
+      expect(codes(findingsText(id), `${id}.json`, { ranged: false })).toEqual([
+        'UNKNOWN_REVIEWER',
+      ]);
     }
   );
   it('names the file in every message', () => {
-    const [f] = checkReviewerFindingsText('{', 'x/bug.json', {});
+    const [f] = checkReviewerFindingsText('{', 'x/bug.json', { ranged: false });
     expect(f?.message).toContain('x/bug.json');
   });
 });

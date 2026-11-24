@@ -45,6 +45,12 @@ describe('receipts module surface', () => {
       'compareReviewLabels',
       'reviewMomentOfDir',
       'STARTING_COMMIT_GAP',
+      // Unit 1 fix round 1, fix 14: no consumer outside the module in unit 1 (later units add
+      // what they use), and FULL_SHA_PATTERN is the types package's to export.
+      'FINAL_REVIEW_LABEL',
+      'REVIEWS_DIRNAME',
+      'SESSION_REVIEW_LABEL',
+      'FULL_SHA_PATTERN',
     ]) {
       expect(receipts).not.toHaveProperty(name);
     }

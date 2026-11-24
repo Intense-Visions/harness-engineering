@@ -81,8 +81,15 @@ export const RECEIPT_UNREAD_REASONS = [
   'too large',
 ] as const;
 export type ReceiptUnreadReason = (typeof RECEIPT_UNREAD_REASONS)[number];
-/** An errno code as the reader writes it (`EACCES`, `UNKNOWN`). */
+/**
+ * An errno code as the reader writes it (`EACCES`), the pattern it matches. An error that carries
+ * no code, or one that does not match, is written `UNKNOWN`.
+ */
 export const ERRNO_REASON = '[A-Z][A-Z0-9_]{1,30}';
+/** A reason matching ERRNO_REASON. */
+export type ErrnoReason = Uppercase<string>;
+/** Every reason an unread receipt or findings file carries. */
+export type ReceiptReadProblem = ReceiptUnreadReason | ErrnoReason;
 
 /** Every way the review receipt gate (core `validateReviewReceipt`) can fail. */
 export const REVIEW_GATE_FAILURE_CODES = [

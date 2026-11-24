@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/types/src'
-sourceHash: '57a34b5bb86cd7d573a9f60893b5351a87320a141074c59bc9ca2a919d328a6f'
+sourceHash: '398e0b7027f168b16a65d3ee14cdf2eb4e97fb513df756dd0361670018ced43c'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -150,6 +150,7 @@ export EffectivenessSection
 export EmitSkillProposalInput
 export EmitSkillProposalInputSchema
 export Err
+export ErrnoReason
 export EscalationConfig
 export EscapedFrom
 export ExternalTicket
@@ -327,6 +328,7 @@ export REVIEW_GATE_FAILURE_CODES
 export REVIEW_MOMENTS
 export REVIEW_TIERS
 export REVIEW_TIER_DEMOTIONS
+export ReceiptReadProblem
 export ReceiptUnreadReason
 export ReindexStats
 export RequiredStrategySection

@@ -10,6 +10,7 @@ import {
   phaseReviewBase,
   sessionDirOfReviewDir,
   validateReviewReceipt,
+  type FindingsFileRange,
   type ReviewGateContext,
   type ReviewGateFailure,
   type ReviewGateResult,
@@ -217,12 +218,17 @@ export function runCheckFindingsFile(opts: {
   const text = 'text' in read ? read.text : undefined;
   const top = resolveRepoRoots(git, cwd)?.top ?? cwd;
   const commit = (ref: string) => resolveCommit(git, ref, top);
-  let range = {};
+  let range: FindingsFileRange = { ranged: false };
   if (opts.base !== undefined && opts.head !== undefined) {
     const base = commit(opts.base);
     const head = commit(opts.head);
     const diffFiles = base && head ? listDiffFiles(git, base, head, top) : undefined;
-    range = { head: head ?? opts.head, diffFiles, worktreeClean: worktreeClean(git, top) };
+    range = {
+      ranged: true,
+      head: head ?? opts.head,
+      diffFiles,
+      worktreeClean: worktreeClean(git, top),
+    };
   }
   const failures = checkReviewerFindingsText(text, opts.findingsPath, range);
   return { pass: failures.length === 0, findingsPath: file, failures };

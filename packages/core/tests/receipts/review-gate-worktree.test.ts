@@ -28,16 +28,20 @@ describe('the self-check: tracked files must equal HEAD when a range is given', 
   const codes = (range: Parameters<typeof checkReviewerFindingsText>[2]) =>
     checkReviewerFindingsText(findingsText('bug'), 'bug.json', range).map((f) => f.code);
   it.each([
-    ['no range', {}, []],
-    ['range, clean', { head: HEAD, diffFiles: ['src/a.ts'], worktreeClean: true }, []],
+    ['no range', { ranged: false }, []],
+    [
+      'range, clean',
+      { ranged: true, head: HEAD, diffFiles: ['src/a.ts'], worktreeClean: true },
+      [],
+    ],
     [
       'range, dirty',
-      { head: HEAD, diffFiles: ['src/a.ts'], worktreeClean: false },
+      { ranged: true, head: HEAD, diffFiles: ['src/a.ts'], worktreeClean: false },
       ['WORKTREE_DIRTY'],
     ],
     [
       'range, unknown',
-      { head: HEAD, diffFiles: ['src/a.ts'], worktreeClean: undefined },
+      { ranged: true, head: HEAD, diffFiles: ['src/a.ts'], worktreeClean: undefined },
       ['WORKTREE_DIRTY'],
     ],
   ] as const)('%s', (_n, range, expected) => {

@@ -2,11 +2,10 @@ import { describe, it, expect } from 'vitest';
 import {
   BLOCKING_SEVERITIES,
   isBlockingSeverity,
-  normalizeReviewPath,
-  pathEscapes,
   parseReviewReceipt,
   parseReviewerFindingsFile,
 } from '../../src/receipts/schema';
+import { normalizeReviewPath, pathEscapes } from '../../src/receipts/paths';
 
 const BASE = 'a'.repeat(40);
 const HEAD = 'b'.repeat(40);

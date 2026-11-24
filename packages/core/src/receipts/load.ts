@@ -1,7 +1,12 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import {
+  ERRNO_REASON,
+  type ReceiptReadProblem,
+  type ReceiptUnreadReason,
+} from '@harness-engineering/types';
 import { REVIEW_RECEIPT_FILENAME } from './layout';
-import { pathEscapes } from './schema';
+import { pathEscapes } from './paths';
 
 /** No receipt or findings file is read past this size. */
 export const REVIEW_FILE_MAX_BYTES = 5 * 1024 * 1024;
@@ -10,7 +15,7 @@ export type ReviewReceiptFileRead =
   | { status: 'ok'; path: string; dir: string; raw: unknown }
   | { status: 'missing'; path: string; dir: string }
   /** `reason`: an errno code (ERRNO_REASON) or a RECEIPT_UNREAD_REASONS entry. Never a path. */
-  | { status: 'unreadable'; path: string; dir: string; reason: string }
+  | { status: 'unreadable'; path: string; dir: string; reason: ReceiptReadProblem }
   /** The path leads out of the project it was confined to (`within`). Nothing was read. */
   | { status: 'outside'; path: string; dir: string };
 
@@ -44,7 +49,23 @@ function isInside(root: string, target: string): boolean {
   return rel !== '' && !pathEscapes(rel);
 }
 
-export type BoundedRead = { text: string } | { problem: string; absent: boolean };
+export type BoundedRead = { text: string } | { problem: ReceiptReadProblem; absent: boolean };
+
+const ERRNO = new RegExp(`^${ERRNO_REASON}$`);
+const notAFile: ReceiptUnreadReason = 'not a regular file';
+const tooLarge: ReceiptUnreadReason = 'too large';
+const notJson: ReceiptUnreadReason = 'not valid JSON';
+
+/**
+ * The errno code of a failed read, as the reader writes it: the code when it matches ERRNO_REASON,
+ * `UNKNOWN` otherwise. Only the code: the message holds the absolute path, and the reason can
+ * reach a PR body.
+ */
+export function errnoReason(err: unknown): ReceiptReadProblem {
+  const code =
+    err !== null && typeof err === 'object' ? (err as { code?: unknown }).code : undefined;
+  return typeof code === 'string' && ERRNO.test(code) ? (code as Uppercase<string>) : 'UNKNOWN';
+}
 
 /**
  * Read a regular file of at most `maxBytes`. Anything else (a FIFO, a device, a directory) is
@@ -53,13 +74,12 @@ export type BoundedRead = { text: string } | { problem: string; absent: boolean 
 export function readRegularFile(file: string, maxBytes = REVIEW_FILE_MAX_BYTES): BoundedRead {
   try {
     const stat = fs.statSync(file);
-    if (!stat.isFile()) return { problem: 'not a regular file', absent: false };
-    if (stat.size > maxBytes) return { problem: 'too large', absent: false };
+    if (!stat.isFile()) return { problem: notAFile, absent: false };
+    if (stat.size > maxBytes) return { problem: tooLarge, absent: false };
     return { text: fs.readFileSync(file, 'utf-8') };
   } catch (err) {
-    const code = (err as NodeJS.ErrnoException).code ?? 'unreadable';
-    // The errno code only: the message holds the absolute path, and the reason reaches a PR body.
-    return { problem: code, absent: code === 'ENOENT' || code === 'ENOTDIR' };
+    const problem = errnoReason(err);
+    return { problem, absent: problem === 'ENOENT' || problem === 'ENOTDIR' };
   }
 }
 
@@ -84,7 +104,7 @@ export function readReviewReceiptFile(
   try {
     return { status: 'ok', ...at, raw: JSON.parse(read.text) };
   } catch {
-    return { status: 'unreadable', ...at, reason: 'not valid JSON' };
+    return { status: 'unreadable', ...at, reason: notJson };
   }
 }
 

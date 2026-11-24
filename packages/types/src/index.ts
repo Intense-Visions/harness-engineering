@@ -579,7 +579,7 @@ export type {
   ResolvedAutonomy,
 } from './autonomy';
 
-// --- Shift-left pipeline fidelity: review receipts, provenance, attribution ---
+// --- Shift-left pipeline fidelity: review receipts and finding attribution fields ---
 export {
   REVIEW_MOMENTS,
   REVIEW_TIERS,
@@ -608,4 +608,6 @@ export type {
   FindingClass,
   ReviewGateFailureCode,
   ReceiptUnreadReason,
+  ErrnoReason,
+  ReceiptReadProblem,
 } from './pipeline-receipts';

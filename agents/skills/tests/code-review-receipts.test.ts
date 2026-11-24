@@ -565,22 +565,32 @@ describe('review round 3: craft, dispatched mode and the reviewer self-check (A6
       severity: 'suggestion',
       title: 'x',
     };
-    const range = { head: file.head, diffFiles: file.examinedFiles, worktreeClean: true };
+    const range = {
+      ranged: true,
+      head: file.head,
+      diffFiles: file.examinedFiles,
+      worktreeClean: true,
+    } as const;
     // The example passes; each listed code is produced by one input.
     expect(checkReviewerFindingsText(example, 'bug.json', range)).toEqual([]);
     const raised = new Set<string>();
     const add = (text: string | undefined, r: Parameters<typeof checkReviewerFindingsText>[2]) =>
       checkReviewerFindingsText(text, 'bug.json', r).forEach((f) => raised.add(f.code));
-    add(undefined, {});
-    add('{', {});
-    add(JSON.stringify({ ...file, examinedFiles: [] }), {});
-    add(JSON.stringify({ ...file, findings: [finding, finding] }), {});
-    add(example, { head: file.head, diffFiles: undefined, worktreeClean: true });
-    add(example, { head: file.head, diffFiles: [], worktreeClean: true });
-    add(example, { head: '1'.repeat(40), diffFiles: file.examinedFiles, worktreeClean: true });
+    add(undefined, { ranged: false });
+    add('{', { ranged: false });
+    add(JSON.stringify({ ...file, examinedFiles: [] }), { ranged: false });
+    add(JSON.stringify({ ...file, findings: [finding, finding] }), { ranged: false });
+    add(example, { ranged: true, head: file.head, diffFiles: undefined, worktreeClean: true });
+    add(example, { ranged: true, head: file.head, diffFiles: [], worktreeClean: true });
+    add(example, {
+      ranged: true,
+      head: '1'.repeat(40),
+      diffFiles: file.examinedFiles,
+      worktreeClean: true,
+    });
     add(example, { ...range, worktreeClean: false });
-    add(JSON.stringify({ ...file, reviewerId: 'not-a-reviewer' }), {});
-    add(example, { head: file.head, diffFiles: ['other.ts'], worktreeClean: true });
+    add(JSON.stringify({ ...file, reviewerId: 'not-a-reviewer' }), { ranged: false });
+    add(example, { ranged: true, head: file.head, diffFiles: ['other.ts'], worktreeClean: true });
     expect([...raised].sort()).toEqual([...named].sort());
     expect(named).toHaveLength(10);
   });

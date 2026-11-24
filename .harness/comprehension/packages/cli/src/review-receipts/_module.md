@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/review-receipts'
-sourceHash: '9c1074b21edee8ea18f35b533649c7f869a19e9caa99a43d3a185509d5e9f113'
+sourceHash: 'f358e7ba48d901c19b060303e1d7cfeb0dbbeb79ccc1ab28a0d1869aa4985bfe'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -40,8 +40,8 @@ export worktreeClean
 
 ```
 import { CwdGit, earlierPhaseReceipt, fields, isSha, listDiffFiles, resolveCommit, resolveRepoRoots, reviewMergeBase, runGitIn, sessionStartingCommit, tryGit, worktreeClean } from './io'
-import { EarlierPhaseReceipt, FULL_SHA_PATTERN, FinalReviewBase, Result, ReviewGateContext, ReviewGateFailure, ReviewGateResult, StandaloneReviewBase, checkReviewerFindingsText, escapeTerminalText, expectedReviewMoment, finalReviewBase, phaseReviewBase, readRegularFile, readReviewReceiptFile, resolveSessionDir, reviewFindingsReaderFor, reviewGateFailure, sessionDirOfReviewDir, standaloneReviewBase, validateReviewReceipt } from '@harness-engineering/core'
-import { REVIEW_MOMENTS, ReviewMoment, ReviewReceipt } from '@harness-engineering/types'
+import { EarlierPhaseReceipt, FinalReviewBase, FindingsFileRange, Result, ReviewGateContext, ReviewGateFailure, ReviewGateResult, StandaloneReviewBase, checkReviewerFindingsText, escapeTerminalText, expectedReviewMoment, finalReviewBase, phaseReviewBase, readRegularFile, readReviewReceiptFile, resolveSessionDir, reviewFindingsReaderFor, reviewGateFailure, sessionDirOfReviewDir, standaloneReviewBase, validateReviewReceipt } from '@harness-engineering/core'
+import { FULL_SHA_PATTERN, REVIEW_MOMENTS, ReviewMoment, ReviewReceipt } from '@harness-engineering/types'
 import { execFileSync } from 'node:child_process'
 import * as fs from 'node:fs'
 import * as path from 'node:path'

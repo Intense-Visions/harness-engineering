@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/src/review'
-sourceHash: 'f717429c3e73162bda8f3f62843b368b3163a512e1bdc06cc03227535bf61c94'
+sourceHash: 'baa91d4fd2c0a3ecee501d9b455519dc29c00a0493676609c887b4e0b37900b4'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -186,7 +186,7 @@ import { defineLayer, validateDependencies } from '../constraints/dependencies'
 import { agentsMapSectionFindings, validateAgentsMap } from '../context/agents-map'
 import { checkDocCoverage } from '../context/doc-coverage'
 import { clumpingFromConfig, resolveSeamClumpPolicy } from '../fleet/clumping'
-import { posix } from '../receipts/schema'
+import { posix } from '../receipts/paths'
 import { parseSecurityConfig } from '../security/config'
 import { parseHarnessIgnore } from '../security/harness-ignore'
 import { SecurityScanner } from '../security/scanner'

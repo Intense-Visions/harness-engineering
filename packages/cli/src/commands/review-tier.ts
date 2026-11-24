@@ -132,7 +132,14 @@ function readConfiguredBackend(file: string | undefined): Result<ReviewBackend |
   if (review === undefined) return Ok(undefined);
   const parsed = ReviewConfigSchema.safeParse(review);
   if (parsed.success) return Ok(parsed.data.backend);
-  return fail(`review.backend must be one of ${REVIEW_BACKENDS.join(', ')} in ${file}`);
+  // Each issue under its own key: only a bad `backend` is a backend error.
+  const issues = parsed.error.issues.map((i) => {
+    const key = ['review', ...i.path.map(String)].join('.');
+    return key === 'review.backend'
+      ? `review.backend must be one of ${REVIEW_BACKENDS.join(', ')}`
+      : `${key}: ${i.message}`;
+  });
+  return fail(`invalid review config in ${file}: ${issues.join('; ')}`);
 }
 
 /**

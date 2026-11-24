@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/tests/receipts'
-sourceHash: '6ca9ee14ba9fb7fbfb2ac32e201f0271f9984492370461e9987890ae7402a690'
+sourceHash: '770c7c4b0a06f08297d12883af8e5ed7b411c0906017e54643284e77374074c8'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -51,14 +51,15 @@ export record
 import * as receipts from '../../src/receipts'
 import { resolveReviewBackend } from '../../src/receipts/backend'
 import { ExpectedMoment, REVIEW_RECEIPT_FILENAME, SESSION_REVIEW_LABEL, expectedReviewMoment, reviewMomentOfDir, sessionDirOfReviewDir } from '../../src/receipts/layout'
-import { REVIEW_FILE_MAX_BYTES, readReviewReceiptFile, reviewFindingsReaderFor } from '../../src/receipts/load'
+import { REVIEW_FILE_MAX_BYTES, errnoReason, readRegularFile, readReviewReceiptFile, reviewFindingsReaderFor } from '../../src/receipts/load'
+import { normalizeReviewPath, pathEscapes } from '../../src/receipts/paths'
 import { PhaseReviewBase, ReviewGateContext, checkReviewerFindingsText, finalReviewBase, phaseReviewBase, validateReviewReceipt } from '../../src/receipts/review-gate'
-import { BLOCKING_SEVERITIES, ReceiptFinding, ReviewReceiptSchema, ReviewerFindingsFile, isBlockingSeverity, normalizeReviewPath, parseReviewReceipt, parseReviewerFindingsFile, pathEscapes } from '../../src/receipts/schema'
+import { BLOCKING_SEVERITIES, ReceiptFinding, ReviewReceiptSchema, ReviewerFindingsFile, isBlockingSeverity, parseReviewReceipt, parseReviewerFindingsFile } from '../../src/receipts/schema'
 import { escapeTerminalText } from '../../src/receipts/terminal-text'
 import { ConditionalSubagent } from '../../src/review/depth-calibrator'
 import { ReviewFinding } from '../../src/review/types/fan-out'
 import { BASE, FULL, HEAD, OTHER, START, codesOf, ctx, finding, findingsText, receipt, record } from './round4-helpers'
-import { CONDITIONAL_REVIEWER_IDS, FULL_TIER_REVIEWER_IDS, LIGHT_TIER_REVIEWER_ID, REVIEW_MOMENTS, ReviewMoment, ReviewReceipt } from '@harness-engineering/types'
+import { CONDITIONAL_REVIEWER_IDS, FULL_TIER_REVIEWER_IDS, LIGHT_TIER_REVIEWER_ID, RECEIPT_UNREAD_REASONS, REVIEW_MOMENTS, ReviewMoment, ReviewReceipt } from '@harness-engineering/types'
 import { execFileSync } from 'node:child_process'
 import * as fs from 'node:fs'
 import * as os from 'node:os'

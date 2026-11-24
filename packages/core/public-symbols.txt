@@ -571,6 +571,7 @@ EntropyError
 EntropyReport
 EntryScore
 Err
+ErrnoReason
 EscalationConfig
 EscapedFrom
 EstimatorCoefficients
@@ -588,7 +589,6 @@ ExternalTicketState
 ExtractStatic
 FACTOR_WEIGHTS
 FAILURE_CATEGORIES
-FINAL_REVIEW_LABEL
 FINDING_CLASSES
 FLEET_CLAIM_VERSION
 FLEET_CONTEXT_BUDGET_VERSION
@@ -631,6 +631,7 @@ FindingInvariant
 FindingLifecycle
 FindingLifecycleSchema
 FindingSeverity
+FindingsFileRange
 FingerprintCollision
 FingerprintFileResult
 FingerprintedUnit
@@ -1091,7 +1092,6 @@ REHEARSAL_WEIGHTS
 REJECTED_FILENAME
 REQUIRED_SECTIONS
 REQUIRED_STRATEGY_SECTIONS
-REVIEWS_DIRNAME
 REVIEW_BACKENDS
 REVIEW_BASE_SOURCES
 REVIEW_GATE_FAILURE_CODES
@@ -1114,6 +1114,7 @@ ReadAutoDecisionsOptions
 ReadCommitsOptions
 ReadOverrideResult
 ReadPnyonServeTokenDeps
+ReceiptReadProblem
 ReceiptUnreadReason
 ReconcileResult
 RecordAutoDecisionOptions
@@ -1285,7 +1286,6 @@ SECURITY_SCAN_GLOB
 SENTINEL_HISTORY_RELPATH
 SERVE_TOKEN_CREDENTIAL_KEY
 SESSIONS_DEFAULTS
-SESSION_REVIEW_LABEL
 SESSION_SECTION_NAMES
 SEVERITY_WEIGHTS
 SIGNAL_CATEGORY_MAP

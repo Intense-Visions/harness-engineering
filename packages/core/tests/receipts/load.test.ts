@@ -3,8 +3,11 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { execFileSync } from 'node:child_process';
+import { RECEIPT_UNREAD_REASONS } from '@harness-engineering/types';
 import {
   REVIEW_FILE_MAX_BYTES,
+  errnoReason,
+  readRegularFile,
   readReviewReceiptFile,
   reviewFindingsReaderFor,
 } from '../../src/receipts/load';
@@ -227,5 +230,45 @@ describe('readReviewReceiptFile: confined to a project', () => {
     fs.symlinkSync(tmp, alias);
     const viaAlias = path.join(alias, 'reviews', 'phase-0');
     expect(readReviewReceiptFile(viaAlias, { within: alias }).status).toBe('ok');
+  });
+});
+
+/**
+ * Fix 14. The reason an unread receipt carries is one of RECEIPT_UNREAD_REASONS or an errno code
+ * matching ERRNO_REASON; an error that carries no code (or a code that is not one) is `UNKNOWN`,
+ * never a free-form word. Partition: an errno code; no code; a code that is not an errno code.
+ */
+describe('readRegularFile: the unread reason vocabulary', () => {
+  const reasonFor = (err: unknown) => errnoReason(err);
+  it.each<[string, unknown, string]>([
+    ['an errno code', Object.assign(new Error('denied'), { code: 'EACCES' }), 'EACCES'],
+    ['no code', new Error('odd'), 'UNKNOWN'],
+    [
+      'a code that is not an errno code',
+      Object.assign(new Error('x'), { code: 'not/an errno' }),
+      'UNKNOWN',
+    ],
+    ['a thrown non-error', 'boom', 'UNKNOWN'],
+  ])('%s', (_n, err, reason) => {
+    expect(reasonFor(err)).toBe(reason);
+  });
+  it('every non-errno reason the reader writes is in RECEIPT_UNREAD_REASONS', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'unread-'));
+    try {
+      const big = path.join(dir, 'big.json');
+      fs.writeFileSync(big, 'x'.repeat(20));
+      const tooLarge = readRegularFile(big, 10);
+      const notFile = readRegularFile(dir);
+      for (const r of [tooLarge, notFile]) {
+        expect(
+          'problem' in r && (RECEIPT_UNREAD_REASONS as readonly string[]).includes(r.problem)
+        ).toBe(true);
+      }
+      fs.writeFileSync(path.join(dir, 'receipt.json'), '{');
+      const read = readReviewReceiptFile(dir);
+      expect(read.status === 'unreadable' && read.reason).toBe('not valid JSON');
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
   });
 });

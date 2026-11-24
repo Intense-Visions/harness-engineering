@@ -8,26 +8,15 @@ import {
   type ReviewerRecord,
 } from '@harness-engineering/types';
 import type { ExpectedMoment } from './layout';
+import { normalizeReviewPath, pathEscapes } from './paths';
 import {
-  normalizeReviewPath,
   parseReviewReceipt,
   parseReviewerFindingsFile,
-  pathEscapes,
   tallyReviewFindings,
   type ReviewFindingTally,
   type ReviewerFindingsFile,
 } from './schema';
 
-/**
- * The review receipt gate (spec D3, D4). The receipt is a set of claims. The caller recomputes
- * what it can (current HEAD, the diff's file set, the base's ancestry, each reviewer's findings
- * file) and passes it in as `context`; this function compares, and recounts `blocking` and
- * `advisory` from the findings files it loaded. It is pure and reads no environment, so it passes
- * or fails identically with no model credential.
- *
- * What it cannot prove: that reviewers ran in separate contexts. One context that deliberately
- * writes four files passes.
- */
 /** One failure of the review receipt gate. */
 export interface ReviewGateFailure {
   code: ReviewGateFailureCode;
@@ -44,10 +33,6 @@ export function reviewGateFailure(
   return reviewerId === undefined ? { code, message } : { code, reviewerId, message };
 }
 
-/**
- * The findings half of the review receipt gate: each reviewer's findings file, read through the
- * caller's reader, parsed, and compared with the receipt and the recomputed diff.
- */
 /** What the findings half of the gate reads: the recomputed diff and the findings files. */
 export interface FindingsSource {
   /** `git diff --name-only -z <base>..<head>` (unquoted names). undefined: could not compute. */
@@ -241,7 +226,10 @@ export interface CheckedReceiptResult {
   /** Reviewers the receipt marks required. */
   reviewersRequired: number;
   receipt: ReviewReceipt;
-  /** The count over the findings files that loaded (tallyReviewFindings). */
+  /**
+   * The count over the findings files that loaded (tallyReviewFindings). Kept with `loaded` and
+   * `unreadable` for the provenance stamp (unit 3), which prints them per review.
+   */
   tally: ReviewFindingTally;
   /** Reviewers marked ran whose findings file loaded, and those whose file did not. */
   loaded: string[];
@@ -600,6 +588,10 @@ export interface FindingsCheck {
   diffSet: ReadonlySet<string> | undefined;
 }
 
+/**
+ * The findings half of the review receipt gate: each reviewer's findings file, read through the
+ * caller's reader, parsed, and compared with the receipt and the recomputed diff.
+ */
 export function checkFindings(receipt: ReviewReceipt, context: FindingsSource): FindingsCheck {
   const diffSet =
     context.diffFiles === undefined
@@ -652,14 +644,18 @@ function countFailures(
   ];
 }
 
-/** The range a single findings file is checked against: the reviewed head and the diff's files. */
-export interface FindingsFileRange {
-  head?: string;
-  /** Present (possibly undefined: git could not say) only when a range was given. */
-  diffFiles?: readonly string[] | undefined;
-  /** With a range: whether the tracked files equal HEAD (undefined: git could not say). */
-  worktreeClean?: boolean | undefined;
-}
+/** What a single findings file is checked against: nothing, or a range (`--base`, `--head`). */
+export type FindingsFileRange =
+  | { ranged: false }
+  | {
+      ranged: true;
+      /** The resolved head the file must name. */
+      head: string;
+      /** `git diff --name-only -z <base>..<head>`; undefined: git could not say. */
+      diffFiles: readonly string[] | undefined;
+      /** Whether the tracked files equal HEAD; undefined: git could not say. */
+      worktreeClean: boolean | undefined;
+    };
 
 /**
  * One reviewer findings file checked on its own, with the gate's parser and rules (a reviewer's
@@ -687,22 +683,21 @@ export function checkReviewerFindingsText(
   const parsed = parseReviewerFindingsFile(json);
   if (!parsed.ok) return invalid(`is not a findings file: ${parsed.error.message}`);
   const file = parsed.value;
-  const ranged = 'diffFiles' in range;
   const diffSet =
-    ranged && range.diffFiles !== undefined
+    range.ranged && range.diffFiles !== undefined
       ? new Set(range.diffFiles.map(normalizeReviewPath))
       : undefined;
   const out: ReviewGateFailure[] = [];
   const unknown = unknownReviewer(file.reviewerId);
   if (unknown !== undefined) out.push(unknown);
-  if (ranged && diffSet === undefined) {
+  if (range.ranged && diffSet === undefined) {
     out.push(reviewGateFailure('DIFF_UNRESOLVED', 'could not compute the file set of the range'));
   } else if (diffSet?.size === 0) {
     out.push(reviewGateFailure('EMPTY_DIFF', 'the range changes no files'));
   }
-  if (ranged) out.push(...worktreeFailures(range.worktreeClean));
+  if (range.ranged) out.push(...worktreeFailures(range.worktreeClean));
   const self = { id: file.reviewerId, required: true, ran: true, findingsPath: name };
-  out.push(...contentFailures(self, file, ranged ? (range.head ?? file.head) : file.head, diffSet));
+  out.push(...contentFailures(self, file, range.ranged ? range.head : file.head, diffSet));
   const repeated = repeatedIds(file.findings.map((f) => f.id));
   if (repeated.length > 0) {
     out.push(
@@ -715,6 +710,16 @@ export function checkReviewerFindingsText(
   return out;
 }
 
+/**
+ * The review receipt gate (spec D3, D4). The receipt is a set of claims. The caller recomputes
+ * what it can (current HEAD, the working tree, the diff's file set, the base's ancestry, the
+ * phase and final bases, each reviewer's findings file) and passes it in as `context`; this
+ * function compares, and recounts `blocking` and `advisory` from the findings files it loaded. It
+ * is pure and reads no environment, so it passes or fails identically with no model credential.
+ *
+ * What it cannot prove: that reviewers ran in separate contexts. One context that deliberately
+ * writes four files passes.
+ */
 export function validateReviewReceipt(
   receipt: unknown,
   context: ReviewGateContext

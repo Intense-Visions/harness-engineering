@@ -210,3 +210,16 @@ describe('fix 8: the gate takes the same --target for a final receipt', () => {
     expect(codes(writeFinal(c[Number(base[1])]!), target)).toEqual(expected);
   });
 });
+
+describe('fix 14: an invalid review config key is reported under its own name', () => {
+  it.each<[string, unknown, RegExp]>([
+    ['backend', { review: { backend: 'cloud' } }, /review\.backend/],
+    ['model_tiers', { review: { model_tiers: 'bogus' } }, /review\.model_tiers/],
+  ])('%s', (key, config, message) => {
+    fs.writeFileSync(path.join(tmp, 'harness.config.json'), JSON.stringify(config));
+    const out = run({ moment: 'standalone' });
+    expect(out.ok).toBe(false);
+    expect(!out.ok && out.error.message).toMatch(message);
+    if (key !== 'backend') expect(!out.ok && out.error.message).not.toMatch(/review\.backend/);
+  });
+});

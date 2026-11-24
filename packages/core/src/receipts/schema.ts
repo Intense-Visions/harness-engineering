@@ -8,12 +8,13 @@ import {
   REVIEW_MOMENTS,
   REVIEW_TIER_DEMOTIONS,
   REVIEW_TIERS,
+  Ok,
+  Err,
   type EscapedFrom,
   type FindingClass,
+  type Result,
   type ReviewReceipt,
 } from '@harness-engineering/types';
-import type { Result } from '../shared/result';
-import { Ok, Err } from '../shared/result';
 
 /** Severities that block a review. `suggestion` is advisory. */
 export const BLOCKING_SEVERITIES = ['critical', 'important'] as const;
@@ -27,20 +28,6 @@ function isBlockingFinding(f: ReceiptFinding): f is BlockingReceiptFinding {
   return (
     isBlockingSeverity(f.severity) && f.findingClass !== undefined && f.escapedFrom !== undefined
   );
-}
-
-/** Project-relative POSIX form, so a path written on win32 compares equal to git's output. */
-export function normalizeReviewPath(p: string): string {
-  return p.replace(/\\/g, '/').replace(/^\.\//, '');
-}
-
-/**
- * The one path-escape rule: a path meant to be relative to a root leaves it when it is absolute,
- * drive-qualified or holds a `..` segment. `..name` is a file name, not an escape.
- */
-export function pathEscapes(relative: string): boolean {
-  const p = relative.replace(/\\/g, '/');
-  return p.startsWith('/') || /^[A-Za-z]:/.test(p) || p.split('/').includes('..');
 }
 
 /** Drops the pass-through index signature a loose object infers, leaving the declared fields. */
@@ -66,8 +53,6 @@ export type ReviewerFindingsFile = Omit<z.infer<typeof ReviewerFindingsFileSchem
   findings: ReceiptFinding[];
 };
 
-/** A resolved commit id (defined in types). The only form of a sha git is asked about. */
-export { FULL_SHA_PATTERN };
 /** A reviewer id is also a file stem (`<id>.json`), so it must be path-safe. */
 export const REVIEWER_ID_PATTERN = /^[a-z][a-z0-9-]*$/;
 const reviewerId = z.string().regex(REVIEWER_ID_PATTERN, 'must match ^[a-z][a-z0-9-]*$');

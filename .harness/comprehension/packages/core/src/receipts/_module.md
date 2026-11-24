@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/src/receipts'
-sourceHash: 'e1b47e862d65a21021ecd858fbd2b7b85342afd20d527a4a48d32115e24c65c2'
+sourceHash: '8f7ae5fa18701321891c5782cf1c4fe6ddaddb0dc5e851df9097226a057fd85a'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -11,6 +11,7 @@ members:
     'index.ts',
     'layout.ts',
     'load.ts',
+    'paths.ts',
     'review-gate.ts',
     'schema.ts',
     'terminal-text.ts',
@@ -21,16 +22,13 @@ members:
 
 ```ts
 export EarlierPhaseReceipt
-export FINAL_REVIEW_LABEL
-export FULL_SHA_PATTERN
 export FinalReviewBase
+export FindingsFileRange
 export PhaseReviewBase
-export REVIEWS_DIRNAME
 export ResolvedReviewBackend
 export ReviewGateContext
 export ReviewGateFailure
 export ReviewGateResult
-export SESSION_REVIEW_LABEL
 export StandaloneReviewBase
 export checkReviewerFindingsText
 export escapeTerminalText
@@ -52,10 +50,10 @@ export validateReviewReceipt
 ## Dependency Slice
 
 ```
-import { Err, Ok, Result } from '../shared/result'
 import { ExpectedMoment, REVIEW_RECEIPT_FILENAME } from './layout'
-import { ReviewFindingTally, ReviewerFindingsFile, normalizeReviewPath, parseReviewReceipt, parseReviewerFindingsFile, pathEscapes, tallyReviewFindings } from './schema'
-import { CONDITIONAL_REVIEWER_IDS, ESCAPED_FROM_STAGES, EscapedFrom, FINDING_CLASSES, FULL_SHA_PATTERN, FULL_TIER_REVIEWER_IDS, FindingClass, LIGHT_TIER_REVIEWER_ID, REVIEW_BACKENDS, REVIEW_BASE_SOURCES, REVIEW_MOMENTS, REVIEW_TIERS, REVIEW_TIER_DEMOTIONS, ReviewBackend, ReviewBaseSource, ReviewGateFailureCode, ReviewMoment, ReviewReceipt, ReviewTier, ReviewerRecord } from '@harness-engineering/types'
+import { normalizeReviewPath, pathEscapes } from './paths'
+import { ReviewFindingTally, ReviewerFindingsFile, parseReviewReceipt, parseReviewerFindingsFile, tallyReviewFindings } from './schema'
+import { CONDITIONAL_REVIEWER_IDS, ERRNO_REASON, ESCAPED_FROM_STAGES, Err, EscapedFrom, FINDING_CLASSES, FULL_SHA_PATTERN, FULL_TIER_REVIEWER_IDS, FindingClass, LIGHT_TIER_REVIEWER_ID, Ok, REVIEW_BACKENDS, REVIEW_BASE_SOURCES, REVIEW_MOMENTS, REVIEW_TIERS, REVIEW_TIER_DEMOTIONS, ReceiptReadProblem, ReceiptUnreadReason, Result, ReviewBackend, ReviewBaseSource, ReviewGateFailureCode, ReviewMoment, ReviewReceipt, ReviewTier, ReviewerRecord } from '@harness-engineering/types'
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import { z } from 'zod'
