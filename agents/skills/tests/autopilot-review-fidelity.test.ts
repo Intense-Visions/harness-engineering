@@ -844,3 +844,11 @@ describe('unit 1 fix round 1: a spent fix budget with a red mechanical phase', (
     );
   });
 });
+
+describe('unit 1 fix round 2: suggestions folded in', () => {
+  it('DONE step 3 says what an absent or unreadable final receipt means', () => {
+    expect(section(md(), '### DONE')).toMatch(
+      /When that receipt is absent, unreadable or holds no full `diff\.head` \(FINAL_REVIEW was left by an override of `RECEIPT_MISSING` or `RECEIPT_INVALID`\), every commit of the branch is unreviewed/
+    );
+  });
+});
