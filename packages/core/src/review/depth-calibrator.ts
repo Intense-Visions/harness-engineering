@@ -157,12 +157,12 @@ function keywordMatches(keyword: string, haystack: string): boolean {
  * Return the set of unique risk keywords matched in the diff + commit message.
  */
 export function detectRiskKeywords(diff: DiffInfo, commitMessage: string): string[] {
-  const haystack = buildHaystack(diff, commitMessage);
-  const matched: string[] = [];
-  for (const keyword of RISK_KEYWORDS) {
-    if (keywordMatches(keyword, haystack)) matched.push(keyword);
-  }
-  return matched;
+  return matchRiskKeywords(buildHaystack(diff, commitMessage));
+}
+
+/** The risk keywords a text holds, in RISK_KEYWORDS order. */
+export function matchRiskKeywords(haystack: string): string[] {
+  return RISK_KEYWORDS.filter((keyword) => keywordMatches(keyword, haystack));
 }
 
 /**

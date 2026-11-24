@@ -177,6 +177,8 @@ const DIR_COMMENTS = {
   security: 'Security module for secret detection and vulnerability scanning.',
   ci: 'CI module for integrating with continuous integration systems.',
   review: 'Review pipeline module for automated code review workflows.',
+  receipts:
+    'Pipeline receipts — typed review receipts and the credential-free gate that recomputes them (shift-left pipeline fidelity).',
   roadmap: 'Roadmap module for parsing, serializing, and syncing project roadmaps.',
   comprehension:
     'Comprehension module — per-module compiled comprehension units (unit model, source-hash provenance, markdown store, IO/provider-injected compiler).',

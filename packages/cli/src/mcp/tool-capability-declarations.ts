@@ -43,6 +43,7 @@ export const TOOL_CAPABILITY_DECLARATIONS: Readonly<Record<string, ToolCapabilit
   analyze_diff: { scopes: ['read'] },
   request_peer_review: { scopes: ['read'] }, // returns a review request; no fs write
   check_phase_gate: { scopes: ['read'] },
+  check_review_receipt: { scopes: ['read', 'exec'] }, // reads receipt + findings files; execFileSync git rev-parse / git diff --name-only
   validate_cross_check: { scopes: ['read'] },
   query_graph: { scopes: ['read'] },
   search_similar: { scopes: ['read'] },

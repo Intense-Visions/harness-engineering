@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/tests/review'
-sourceHash: 'a9aeae93eb4196d8ded7737b6155ada2a71a3a0a460b1c20859bb860e3de1b4e'
+sourceHash: 'afe706ec8b55c84184ed0c2d594e2009db15e54199b0c4479c1596d9bcb142ef'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -29,6 +29,7 @@ members:
     'model-tier-resolver.test.ts',
     'parallel-groups.test.ts',
     'pipeline-orchestrator.test.ts',
+    'tier-selector.test.ts',
     'trust-score.test.ts',
     'two-stage.test.ts',
     'validate-findings.test.ts',
@@ -64,6 +65,7 @@ import { generateRubric } from '../../src/review/meta-judge'
 import { DEFAULT_PROVIDER_TIERS, resolveModelTier } from '../../src/review/model-tier-resolver'
 import { findParallelGroups } from '../../src/review/parallel-groups'
 import { attachGuardianCoverage, runReviewPipeline } from '../../src/review/pipeline-orchestrator'
+import { SelectReviewTierInput, collectPackageEntryPoints, selectReviewTier } from '../../src/review/tier-selector'
 import { computeTrustScores, getTrustLevel } from '../../src/review/trust-score'
 import { STAGE_DOMAINS, splitBundlesByStage, stageDomains } from '../../src/review/two-stage'
 import { ContextBundle, ContextFile, ContextScopeOptions, DiffInfo, GraphAdapter, GraphNode, MechanicalCheckOptions, MechanicalCheckResult, MechanicalFinding, ModelTierConfig, PipelineFlags, PrMetadata, ReviewDomain, ReviewFinding, Rubric } from '../../src/review/types'

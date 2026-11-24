@@ -699,9 +699,10 @@ Configures code review orchestration, including which AI models to use at differ
 
 ### ReviewConfig Object
 
-| Field         | Type              | Required | Description                            |
-| ------------- | ----------------- | -------- | -------------------------------------- |
-| `model_tiers` | `ModelTierConfig` | No       | Custom model tier mappings for reviews |
+| Field         | Type                      | Required | Description                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| ------------- | ------------------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `model_tiers` | `ModelTierConfig`         | No       | Custom model tier mappings for reviews                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| `backend`     | `"agent"` \| `"pipeline"` | No       | Backend for a `full` review. Default `"agent"`: the reviewing session dispatches one reviewer per record. `"pipeline"` runs the coded review pipeline (the `run_code_review` tool); if no runner resolves, the review runs on the agent backend and its receipt records `backend: "agent"`. A `light` review always runs on the agent backend, whatever this key says (the rule is in `resolveReviewBackend`, so `harness review-tier` and every other caller resolve it the same way). `harness review-tier` reads the key from the `harness.config.json` at the top of the git repository (or from the file the global `-c` option names), not from the nearest one above the working directory, so a subdirectory with its own config does not change the backend; outside a repository it reads the nearest config. Any other value is an error (exit 1). |
 
 ### ModelTierConfig Object
 
@@ -716,6 +717,7 @@ Configures code review orchestration, including which AI models to use at differ
 ```json
 {
   "review": {
+    "backend": "agent",
     "model_tiers": {
       "fast": "claude-haiku-4",
       "standard": "claude-sonnet-4",
@@ -842,6 +844,13 @@ them automatically at their review moments — `harness-autopilot` at `after:REV
 `skillHooks` entry**: it is an additional default layer resolved by
 `resolveReviewHooksWithCraft` from `@harness-engineering/core`, and a project in which
 nothing activates gets byte-identical behaviour to `resolveSkillHooks` alone.
+
+One review resolves craft once. For a review that `harness-autopilot` runs, autopilot is the
+host: craft resolves at `after:REVIEW` or `after:FINAL_REVIEW` and its output is written to
+`hook-<name>.json` in the review directory. `harness-code-review`'s `after:mechanical` point
+resolves craft only for a run that owns its review (a standalone `/harness:code-review`), not
+for a reviewer autopilot dispatched and not when autopilot runs the mechanical phase itself.
+Configured `skillHooks` entries for `after:mechanical` run in every case.
 
 (Canary's deterministic test detectors auto-wire the same way at autopilot's two review
 events. That layer is documented in `harness-autopilot`'s SKILL.md rather than here, so

@@ -23,6 +23,7 @@ import { createCheckHarnessStrengthCommand } from './check-harness-strength';
 import { createCheckOperationalDriftCommand } from './check-operational-drift';
 import { createCheckPerfCommand } from './check-perf';
 import { createCheckPhaseGateCommand } from './check-phase-gate';
+import { createCheckReviewReceiptCommand } from './check-review-receipt';
 import { createCheckSecurityCommand } from './check-security';
 import { createCheckVocabularyCommand } from './check-vocabulary';
 import { createCICommand } from './ci';
@@ -89,6 +90,7 @@ import { createRecommendCommand } from './recommend';
 import { createRehearseCommand } from './rehearse';
 import { createReleaseInventoryCommand } from './release-inventory';
 import { createReviewCiCommand } from './review-ci';
+import { createReviewTierCommand } from './review-tier';
 import { createReworkCommand } from './rework';
 import { createRoadmapCommand } from './roadmap';
 import { createRollbackCommand } from './rollback';
@@ -146,6 +148,7 @@ export const commandCreators: Array<() => Command> = [
   createCheckOperationalDriftCommand,
   createCheckPerfCommand,
   createCheckPhaseGateCommand,
+  createCheckReviewReceiptCommand,
   createCheckSecurityCommand,
   createCheckVocabularyCommand,
   createCICommand,
@@ -212,6 +215,7 @@ export const commandCreators: Array<() => Command> = [
   createRehearseCommand,
   createReleaseInventoryCommand,
   createReviewCiCommand,
+  createReviewTierCommand,
   createReworkCommand,
   createRoadmapCommand,
   createRollbackCommand,

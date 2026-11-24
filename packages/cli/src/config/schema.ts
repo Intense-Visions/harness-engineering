@@ -6,6 +6,7 @@ import {
   PatternConfigSchema,
 } from '@harness-engineering/core';
 import { skipDirGlobs } from '@harness-engineering/graph';
+import { REVIEW_BACKENDS } from '@harness-engineering/types';
 import { BackendDefSchema, RoutingConfigSchema } from '@harness-engineering/orchestrator';
 import { IngestConfigSchema } from './ingest-schema.js';
 import { AnalysisConfigSchema, DepsConfigSchema } from './analysis-schema.js';
@@ -568,6 +569,13 @@ export const ModelTierConfigSchema = z.object({
 export const ReviewConfigSchema = z.object({
   /** Custom model tier mappings for reviewers */
   model_tiers: ModelTierConfigSchema.optional(),
+  /**
+   * Backend for a `full` review: `"agent"` (the default; the reviewing session dispatches one
+   * reviewer per record) or `"pipeline"` (the coded `runReviewPipeline`). When `"pipeline"` is
+   * set and no runner resolves, the review runs on the agent backend and its receipt records
+   * `backend: "agent"`.
+   */
+  backend: z.enum(REVIEW_BACKENDS).optional(),
 });
 
 /**

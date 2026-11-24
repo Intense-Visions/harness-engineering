@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/tests/integration'
-sourceHash: '71c00d3dddcbe649bf41ef530def7e1d19c7f8807493407b6349ce3cc1608d2a'
+sourceHash: '8dd961c2443332a1cefec66e7c0ee48afb411e6b3ebe2f9c3d151c9d4a059c12'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -25,6 +25,7 @@ members:
     'planning-skills-commit-artifacts.test.ts',
     'pulse-run.integration.test.ts',
     'recommendation-pipeline.test.ts',
+    'round4-findings-self-check.test.ts',
     'skill-catalog-consistency.test.ts',
     'tier0-catalog-consistency.test.ts',
   ]
@@ -62,7 +63,7 @@ import { ALLOWED_FIELD_KEYS, CRAFT_REVIEW_DOMAINS, CRAFT_REVIEW_EVENTS_BY_HOST, 
 import * as core from '@harness-engineering/core'
 import { PulseAdapter, SanitizedResult } from '@harness-engineering/types'
 import * as fs from 'fs'
-import { spawnSync } from 'node:child_process'
+import { execFileSync, spawnSync } from 'node:child_process'
 import fs, { mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import * as fs from 'node:fs'
 import os, { tmpdir } from 'node:os'

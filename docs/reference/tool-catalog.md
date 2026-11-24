@@ -4,7 +4,7 @@
 
 Canonical, regenerated-and-gated reference for every shipped MCP tool and skill. Unlike the summary in [MCP Tools Reference](./mcp-tools.md), this catalog serializes each tool’s **full live input schema** and each skill’s **full declared contract**, so a divergence between a definition’s real schema and its documentation is caught by `pnpm run generate:tool-catalog:check` in CI rather than drifting silently.
 
-## MCP Tools (116)
+## MCP Tools (117)
 
 Every shipped MCP tool, booted live from the built server, with its full input schema. A drift between a tool’s real schema and this catalog fails the build.
 
@@ -709,6 +709,41 @@ Verify implementation-to-spec mappings: checks that each implementation file has
   },
   "required": [
     "path"
+  ],
+  "type": "object"
+}
+```
+
+### `check_review_receipt`
+
+Gate a review receipt: recomputes HEAD, the diff file set, the base and every reviewer findings file, checks the receipt is for the review its directory names, and treats the receipt fields as claims. Returns { pass, reviewersRun, reviewersRequired } plus `failures`, whose shape varies: `failures` is absent on a pass, a single object {code, reviewerId?, message} when there is exactly one failure, and an array of them when there are two or more. Gate on `pass` alone: pass:false (including RECEIPT_MISSING) means the review state may not be left. Needs no model credential.
+
+**Input schema:**
+
+```json
+{
+  "properties": {
+    "moment": {
+      "description": "Which review this is, for a receipt directory that does not say (phase-N, final-all and a directory under .harness/reviews each do). Contradicting the directory fails the gate",
+      "enum": [
+        "phase",
+        "final",
+        "standalone"
+      ],
+      "type": "string"
+    },
+    "path": {
+      "description": "Path to project root",
+      "type": "string"
+    },
+    "receipt": {
+      "description": "Path to receipt.json or to the review directory holding it, absolute or relative to path. It must be inside path",
+      "type": "string"
+    }
+  },
+  "required": [
+    "path",
+    "receipt"
   ],
   "type": "object"
 }

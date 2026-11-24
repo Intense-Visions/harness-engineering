@@ -136,6 +136,8 @@ export const ALL_MCP_TOOLS: string[] = [
   'emit_skill_proposal',
   // Trusted Autonomy Mode Phase 2 — append-only auto-decision log
   'record_auto_decision',
+  // Shift-left pipeline fidelity Phase 1 — the review receipt gate
+  'check_review_receipt',
   // design-pipeline #2 — component-anatomy audit (ANAT-D* findings)
   'audit_anatomy',
   // design-pipeline #6 — design-craft LLM-judgment skill (CRITIQUE / POLISH / BENCHMARK)

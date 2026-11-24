@@ -57,17 +57,20 @@ phases:
     description: Execute state machine — assess, plan, execute, verify, review per phase
     required: true
   - name: final_review
-    description: Project-wide code review of cumulative changes before PR offer
+    description: Cold, full review of the whole change from the merge base (one dispatch per reviewer, no prior findings, a gated receipt); any later commit returns here
     required: true
   - name: complete
     description: Final summary and PR offering
     required: true
 state:
   persistent: true
+  # What the skill writes. `harness skill run` also reads this list: it loads the first entry that
+  # exists as a literal path as prior state. A pattern with `*` never loads.
   files:
     - .harness/sessions/*/autopilot-state.json
     - .harness/sessions/*/state.json
     - .harness/sessions/*/handoff.json
+    - .harness/sessions/*/reviews/*/*.json
     - .harness/learnings.md
     - .harness/failures.md
 depends_on:

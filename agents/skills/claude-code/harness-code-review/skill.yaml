@@ -15,6 +15,7 @@ platforms:
 tools:
   - Bash
   - Read
+  - Write
   - Glob
   - Grep
   - emit_interaction
@@ -51,6 +52,18 @@ cli:
     - name: commit-range
       description: "Git commit range for diff scope (e.g., abc123..HEAD)"
       required: false
+    - name: review-dir
+      description: "Review directory named by a dispatching session. When set, this run writes only its findings file there; the dispatching session writes the receipt and gates it"
+      required: false
+    - name: moment
+      description: "Which review this is, named with review-dir: phase or final (a direct run is standalone)"
+      required: false
+    - name: reviewer
+      description: "Reviewer id, named with review-dir: compliance-bug for the one reviewer of a light review, or one domain of a full review (compliance, bug, security, architecture, adversarial, typescript-strict, frontend-races). It names the findings file to write"
+      required: false
+    - name: head
+      description: "The reviewed commit as a 40-character sha, named with review-dir; written as head in the findings file"
+      required: false
 mcp:
   tool: run_skill
   input:
@@ -60,8 +73,12 @@ type: rigid
 tier: 2
 catalog_tier: 0
 state:
+  # Not persistent: nothing is loaded back into a later run. The files are what a run writes:
+  # a receipt and one findings file per reviewer.
   persistent: false
-  files: []
+  files:
+    - .harness/reviews/*/*.json
+    - .harness/sessions/*/reviews/*/*.json
 depends_on: []
 addresses:
   - signal: high-complexity
@@ -72,6 +89,7 @@ capabilities:
   tools:
     - Bash
     - Read
+    - Write
     - Glob
     - Grep
     - emit_interaction

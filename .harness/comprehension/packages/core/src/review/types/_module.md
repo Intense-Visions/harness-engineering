@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/src/review/types'
-sourceHash: 'da4078c882f69a069bba3447596bf1f0ddb0e16479bc1e6efb880ff7ea5c7133'
+sourceHash: '18a0a7028d3c95333f9a47ad43bf5460a498df3e91701500c54bfe4671ebcb2a'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -32,4 +32,5 @@ import { ReviewFinding } from './fan-out'
 import { EvidenceCoverageReport, MechanicalCheckResult } from './mechanical'
 import { Rubric } from './meta-judge'
 import { ClumpedCommentReport, GitHubInlineComment, PrMetadata, ReviewAssessment, ReviewStrength } from './output'
+import { EscapedFrom, FindingClass } from '@harness-engineering/types'
 ```

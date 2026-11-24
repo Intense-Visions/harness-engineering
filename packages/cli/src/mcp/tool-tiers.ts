@@ -72,6 +72,8 @@ const STANDARD_EXTRA: readonly string[] = [
   'emit_skill_proposal',
   // Trusted Autonomy Mode Phase 2 — skills record auto-taken decisions (D6)
   'record_auto_decision',
+  // Shift-left pipeline fidelity Phase 1 — autopilot and code-review gate reviews with it
+  'check_review_receipt',
 ];
 
 export const STANDARD_TOOL_NAMES: readonly string[] = [...CORE_TOOL_NAMES, ...STANDARD_EXTRA];

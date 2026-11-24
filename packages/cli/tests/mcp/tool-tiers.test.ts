@@ -29,6 +29,11 @@ describe('CORE_TOOL_NAMES', () => {
 });
 
 describe('STANDARD_TOOL_NAMES', () => {
+  it('exposes check_review_receipt in standard but not core (autopilot gates REVIEW with it)', () => {
+    expect(STANDARD_TOOL_NAMES).toContain('check_review_receipt');
+    expect(CORE_TOOL_NAMES).not.toContain('check_review_receipt');
+  });
+
   it('exposes record_auto_decision in standard but not core (spec: tier standard)', () => {
     expect(STANDARD_TOOL_NAMES).toContain('record_auto_decision');
     expect(CORE_TOOL_NAMES).not.toContain('record_auto_decision');

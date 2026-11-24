@@ -1,0 +1,123 @@
+import { describe, it, expect } from 'vitest';
+import { finalReviewBase, validateReviewReceipt } from '../../src/receipts/review-gate';
+import { BASE, HEAD, OTHER, START, codesOf, ctx, receipt } from './round4-helpers';
+
+/**
+ * Round 4, fix 1. The final review's base. Inputs: the default-branch merge base {resolves,
+ * unresolved}, the declared baseSource {absent, merge-base, starting-commit}, the session's
+ * starting commit {unknown, the declared base, another commit}. Rows where two sources disagree
+ * are the point: a declared starting commit is accepted only when it IS the session's.
+ */
+describe('finalReviewBase: the one rule for the base a final review must have', () => {
+  it.each([
+    [BASE, undefined, { status: 'resolved', base: BASE, baseSource: 'merge-base' }],
+    [BASE, START, { status: 'resolved', base: BASE, baseSource: 'merge-base' }],
+    [undefined, START, { status: 'resolved', base: START, baseSource: 'starting-commit' }],
+    [undefined, undefined, { status: 'unresolved', reason: 'starting-commit-unknown' }],
+  ] as const)('merge base %s, starting commit %s', (mergeBase, startingCommit, expected) => {
+    expect(finalReviewBase(mergeBase, startingCommit)).toEqual(expected);
+  });
+});
+
+type Row = [
+  name: string,
+  mergeBase: string | undefined,
+  base: string,
+  baseSource: 'merge-base' | 'starting-commit' | undefined,
+  startingCommit: string | undefined,
+  codes: string[],
+];
+const rows: Row[] = [
+  ['merge base resolves, base is it', BASE, BASE, undefined, undefined, []],
+  [
+    'merge base resolves, base is it, declared starting-commit',
+    BASE,
+    BASE,
+    'starting-commit',
+    START,
+    [],
+  ],
+  [
+    'merge base resolves, base differs',
+    BASE,
+    OTHER,
+    undefined,
+    undefined,
+    ['FINAL_BASE_NOT_MERGE_BASE'],
+  ],
+  [
+    'merge base resolves, base is the starting commit (sources disagree: merge base wins)',
+    BASE,
+    START,
+    'starting-commit',
+    START,
+    ['FINAL_BASE_NOT_MERGE_BASE'],
+  ],
+  [
+    'unresolved, starting-commit equals the session start',
+    undefined,
+    START,
+    'starting-commit',
+    START,
+    [],
+  ],
+  [
+    'unresolved, starting-commit is another commit (the one-commit final review)',
+    undefined,
+    OTHER,
+    'starting-commit',
+    START,
+    ['FINAL_BASE_NOT_MERGE_BASE'],
+  ],
+  [
+    'unresolved, starting-commit declared, the starting commit is unknown',
+    undefined,
+    START,
+    'starting-commit',
+    undefined,
+    ['STARTING_COMMIT_UNKNOWN'],
+  ],
+  ['unresolved, no baseSource', undefined, START, undefined, START, ['FINAL_BASE_NOT_MERGE_BASE']],
+  [
+    'unresolved, baseSource merge-base',
+    undefined,
+    START,
+    'merge-base',
+    START,
+    ['FINAL_BASE_NOT_MERGE_BASE'],
+  ],
+];
+
+describe('the gate applies finalReviewBase to a final receipt', () => {
+  it.each(rows)('%s', (_name, mergeBase, base, baseSource, startingCommit, codes) => {
+    const diff = { base, head: HEAD, ...(baseSource !== undefined && { baseSource }) };
+    const r = validateReviewReceipt(
+      receipt({ moment: 'final', diff }),
+      ctx({ mergeBase, ...(startingCommit !== undefined && { startingCommit }) }, 'final')
+    );
+    expect(codesOf(r)).toEqual(codes);
+  });
+  it('names the session starting commit when a declared starting commit is another', () => {
+    const diff = { base: OTHER, head: HEAD, baseSource: 'starting-commit' };
+    const r = validateReviewReceipt(
+      receipt({ moment: 'final', diff }),
+      ctx({ mergeBase: undefined, startingCommit: START }, 'final')
+    );
+    expect(r.failures[0]?.message).toBe(
+      `a final review starts at the merge base, but diff.base is ${OTHER} and the default ` +
+        `branch could not be resolved, so the base must be the session's starting commit ${START}`
+    );
+  });
+  it('says why the starting commit is unknown', () => {
+    const diff = { base: OTHER, head: HEAD, baseSource: 'starting-commit' };
+    const r = validateReviewReceipt(
+      receipt({ moment: 'final', diff }),
+      ctx({ mergeBase: undefined }, 'final')
+    );
+    expect(r.failures[0]?.message).toMatch(/session's starting commit is unknown/);
+  });
+  it('a phase receipt is not checked against either', () => {
+    const r = validateReviewReceipt(receipt({ diff: { base: OTHER, head: HEAD } }), ctx());
+    expect(codesOf(r)).toEqual([]);
+  });
+});

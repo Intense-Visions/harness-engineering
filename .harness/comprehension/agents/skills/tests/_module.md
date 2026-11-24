@@ -1,14 +1,16 @@
 ---
 schemaVersion: 1
 module: 'agents/skills/tests'
-sourceHash: 'ee3a8648c29249522ca391be5114430ae88ae398ee9bd19d76a1af172179fae0'
+sourceHash: 'c00f4b22797b9d331d4ff0f0d598b6b80991725d2ddd3834196409de63b24dbd'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
 members:
   [
     'autonomy-wiring.test.ts',
+    'autopilot-review-fidelity.test.ts',
     'bug-fleet-verify-provenance.test.ts',
+    'code-review-receipts.test.ts',
     'fleet-clump-lane-unit.test.ts',
     'fleet-command-gated-lane-isolation.test.ts',
     'harness-compound.test.ts',
@@ -23,6 +25,7 @@ members:
     'pause-protocol.test.ts',
     'platform-parity.test.ts',
     'references.test.ts',
+    'review-json-examples.test.ts',
     'schema.test.ts',
     'schema.ts',
     'structure.test.ts',
@@ -44,9 +47,12 @@ export SUMMARY_STEP
 export SkillMetadataSchema
 export WORKFLOW_SKILLS
 export canonicalMarkerLine
+export gateFailureRows
 export isPausePhrase
+export md
 export pauseMarkerViolations
 export scanSkill
+export section
 ```
 
 ## Dependency Slice
@@ -54,15 +60,17 @@ export scanSkill
 ```
 import { MARKER_WINDOW, PAUSE_PREAMBLE, PAUSE_PREAMBLE_HEADING, START_STEP, SUMMARY_STEP, WORKFLOW_SKILLS, marker, pauseMarkerViolations, scanSkill } from './pause-markers'
 import { ALLOWED_PLATFORMS, SkillMetadataSchema } from './schema'
-import { BEHAVIORAL_REQUIRED_SECTIONS, CompoundLockHeldError, KNOWLEDGE_REQUIRED_SECTIONS, RIGID_SECTIONS, acquireCompoundLock } from '@harness-engineering/core'
-import { existsSync, readFileSync, readdirSync } from 'fs'
+import { BEHAVIORAL_REQUIRED_SECTIONS, CompoundLockHeldError, KNOWLEDGE_REQUIRED_SECTIONS, REVIEW_GATE_FAILURE_CODES, RIGID_SECTIONS, acquireCompoundLock, checkReviewerFindingsText, parseReviewReceipt, parseReviewerFindingsFile, selectReviewTier } from '@harness-engineering/core'
+import { spawnSync } from 'child_process'
+import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'fs'
 import { glob } from 'glob'
 import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
-import { dirname, relative, resolve } from 'path'
+import { tmpdir } from 'os'
+import { dirname, join, relative, resolve } from 'path'
 import { fileURLToPath } from 'url'
 import { describe, expect, it } from 'vitest'
-import { parse } from 'yaml'
+import { parse, parseYaml } from 'yaml'
 import { z } from 'zod'
 ```

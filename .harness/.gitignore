@@ -4,6 +4,7 @@ graph/
 debug/
 interactions/
 sessions/
+reviews/
 streams/
 workspaces/
 state.json

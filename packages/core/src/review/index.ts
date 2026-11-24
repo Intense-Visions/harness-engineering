@@ -190,3 +190,17 @@ export { splitBundlesByStage, stageDomains } from './two-stage';
 
 // Phase 1 (required-review-ci): CI review contract
 export * from './ci';
+
+// Shift-left pipeline fidelity: per-phase review tier selection (spec D5)
+export {
+  selectReviewTier,
+  collectPackageEntryPoints,
+  PHASE_COMPLEXITIES,
+  REVIEW_RIGORS,
+} from './tier-selector';
+export type {
+  SelectReviewTierInput,
+  ReviewTierSelection,
+  PhaseComplexity,
+  ReviewRigor,
+} from './tier-selector';
