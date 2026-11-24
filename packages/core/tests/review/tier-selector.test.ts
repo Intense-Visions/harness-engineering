@@ -263,3 +263,12 @@ describe('round 3, fix 16: risk keywords in commit messages, identity trailers e
     expect(selection.reasons).toEqual(['risk-keyword:session']);
   });
 });
+
+describe('round 2: an entry point under a directory whose name holds a line terminator', () => {
+  it.each(['pkg\rx/src/index.ts', 'pkg\nx/src/index.ts', 'a b/src/index.ts'])('%j', (f) => {
+    expect(
+      selectReviewTier({ moment: 'phase', changedFiles: [f], diffText: '', commitMessages: [] })
+        .reasons
+    ).toEqual([`entry-point:${f}`]);
+  });
+});

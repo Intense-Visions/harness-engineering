@@ -519,3 +519,33 @@ describe('round 3, fix 16: a light review runs on the agent backend whatever is 
     expect(out.backend).toMatchObject(backend);
   });
 });
+
+/** Review round 2: inputs the tier must read whole, and output that must print inert. */
+describe('round 2: control bytes in messages, paths and the output', () => {
+  it('a 0x1F byte in a commit message hides no risk keyword after it (bug-2)', () => {
+    commit({ 'src/a.ts': 'export const a = 1;\n' }, 'add x\x1f rotates the webhook secret');
+    expect(ok().reasons).toEqual(expect.arrayContaining(['risk-keyword:webhook']));
+  });
+  it.skipIf(process.platform === 'win32')(
+    'a src/index.ts under a directory whose name holds CR or LF is an entry point',
+    () => {
+      commit({ 'pkg\r\nx/src/index.ts': 'export {};\n' });
+      expect(ok({ complexity: 'low', rigor: 'standard' }).tier).toBe('full');
+    }
+  );
+  it('every reason and the target print through the terminal escape', () => {
+    const ESC = '\u001b';
+    const lines = formatReviewTier(
+      {
+        moment: 'final',
+        tier: 'full',
+        reasons: [`entry-point:x${ESC}[2KReview tier: light/src/index.ts`],
+        backend: { backend: 'agent', degraded: false },
+        baseUnresolved: 'target-unresolved',
+      },
+      `origin/x${ESC}[8m`
+    ).join('\n');
+    expect(lines).not.toContain(ESC);
+    expect(lines).toContain('\\u{001B}');
+  });
+});

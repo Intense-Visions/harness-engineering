@@ -36,8 +36,8 @@ export interface ReviewTierSelection {
   reasons: string[];
 }
 
-/** `src/index.ts` directly under a package root (or the repo root); not a nested `src/x/index.ts`. */
-const PACKAGE_INDEX = /^(?:.*\/)?src\/index\.ts$/;
+/** `src/index.ts` directly under a package root (or the repo root); not a nested `src/x/index.ts`. `s`: a directory name may hold CR or LF. */
+const PACKAGE_INDEX = /^(?:.*\/)?src\/index\.ts$/s;
 
 function leaves(value: unknown, out: string[]): void {
   if (typeof value === 'string') out.push(value);

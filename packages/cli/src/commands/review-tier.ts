@@ -7,6 +7,7 @@ import {
   PHASE_COMPLEXITIES,
   REVIEW_RIGORS,
   collectPackageEntryPoints,
+  escapeTerminalText as inert,
   resolveReviewBackend,
   selectReviewTier,
   type PhaseComplexity,
@@ -199,15 +200,18 @@ function readDiffText(git: CwdGit, range: string, top: string): string | undefin
   }
 }
 
-/** Every commit message of the range and, beside each, the trailer lines git identifies in it. */
+/**
+ * Every commit message of the range and, beside each, the trailer lines git identifies in it.
+ * `-z` ends each commit with NUL and the format puts NUL between message and trailers: git never
+ * stores a NUL in a message, so no message text can move into the trailers slot.
+ */
 function commitsOf(git: CwdGit, range: string, top: string) {
-  const commits = git(['log', '--format=%B%x1f%(trailers:only)%x00', range], top)
-    .split('\0')
-    .map((entry) => entry.split('\x1f'));
+  const fields = git(['log', '-z', '--format=%B%x00%(trailers:only)', range], top).split('\0');
+  const commitMessages = fields.filter((_, i) => i % 2 === 0);
   return {
-    commitMessages: commits.map(([message = '']) => message),
-    commitTrailers: commits.map(([, trailers = '']) =>
-      trailers.split('\n').filter((l) => l !== '')
+    commitMessages,
+    commitTrailers: commitMessages.map((_, i) =>
+      (fields[2 * i + 1] ?? '').split('\n').filter((l) => l !== '')
     ),
   };
 }
@@ -319,14 +323,15 @@ function baseLine(r: ReviewTierResult, target: string | undefined): string[] {
   if (r.moment === 'phase') return [];
   if ('baseUnresolved' in r) {
     const why = UNRESOLVED_TEXT[r.baseUnresolved];
-    const text = r.baseUnresolved === 'target-unresolved' ? `--target "${target}" ${why}` : why;
+    const text =
+      r.baseUnresolved === 'target-unresolved' ? `--target "${inert(target ?? '')}" ${why}` : why;
     return [`Review base: unresolved (${text})`];
   }
   const rule =
     r.moment === 'final'
       ? 'the gate requires exactly this base'
       : 'for a standalone review the gate checks only that the base is an ancestor of the head';
-  const against = r.target === undefined ? '' : `, against ${r.target}`;
+  const against = r.target === undefined ? '' : `, against ${inert(r.target)}`;
   return [`Review base: ${r.base} (${r.baseSource}${against}; ${rule})`];
 }
 
@@ -371,11 +376,13 @@ export function runReviewTier(opts: ReviewTierOptions): Result<ReviewTierResult,
     tier: tiered.value.tier,
   });
   const tag = configured.value === undefined ? {} : { configured: configured.value };
-  return Ok({ ...tiered.value, backend: { ...backend, ...tag } } as ReviewTierResult);
+  return Ok({ ...tiered.value, backend: { ...backend, ...tag } });
 }
 
+/** The text output. Reasons carry changed paths and the target is the caller's: both print inert. */
 export function formatReviewTier(r: ReviewTierResult, target?: string): string[] {
-  const why = r.reasons.length > 0 ? ` (${r.reasons.join(', ')})` : ' (no rule for full holds)';
+  const reasons = r.reasons.map(inert).join(', ');
+  const why = r.reasons.length > 0 ? ` (${reasons})` : ' (no rule for full holds)';
   const b = r.backend;
   const note = b.reason === undefined ? '' : ` (${b.degraded ? 'DEGRADED: ' : ''}${b.reason})`;
   return [
