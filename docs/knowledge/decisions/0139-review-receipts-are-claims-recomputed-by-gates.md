@@ -51,6 +51,10 @@ recomputed and the gate compares:
   the CLI and the MCP tool.
 - HEAD comes from `git rev-parse HEAD`, not from the receipt. A receipt whose `diff.head` is not
   the current HEAD fails (`HEAD_MISMATCH`), so a commit made after a review makes it stale.
+- The working tree comes from `git status --porcelain=v1 -z --untracked-files=no`: a receipt is
+  bound to a commit, but reviewers and the mechanical checks read the working tree, so the gate,
+  and the reviewer self-check when it is given a range, fail (`WORKTREE_DIRTY`) when tracked
+  files differ from HEAD. Untracked files, such as the review directory, do not count.
 - The base is checked with git: `diff.base` must be an ancestor of `diff.head`
   (`DIFF_BASE_NOT_ANCESTOR`), and for a final review it must be the merge base with the default
   branch (`FINAL_BASE_NOT_MERGE_BASE`), whatever `baseSource` the receipt declares. `baseSource:

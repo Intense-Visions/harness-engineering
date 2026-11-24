@@ -563,7 +563,7 @@ describe('review round 3: craft, dispatched mode and the reviewer self-check (A6
       severity: 'suggestion',
       title: 'x',
     };
-    const range = { head: file.head, diffFiles: file.examinedFiles };
+    const range = { head: file.head, diffFiles: file.examinedFiles, worktreeClean: true };
     // The example passes; each listed code is produced by one input.
     expect(checkReviewerFindingsText(example, 'bug.json', range)).toEqual([]);
     const raised = new Set<string>();
@@ -573,13 +573,14 @@ describe('review round 3: craft, dispatched mode and the reviewer self-check (A6
     add('{', {});
     add(JSON.stringify({ ...file, examinedFiles: [] }), {});
     add(JSON.stringify({ ...file, findings: [finding, finding] }), {});
-    add(example, { head: file.head, diffFiles: undefined });
-    add(example, { head: file.head, diffFiles: [] });
-    add(example, { head: '1'.repeat(40), diffFiles: file.examinedFiles });
+    add(example, { head: file.head, diffFiles: undefined, worktreeClean: true });
+    add(example, { head: file.head, diffFiles: [], worktreeClean: true });
+    add(example, { head: '1'.repeat(40), diffFiles: file.examinedFiles, worktreeClean: true });
+    add(example, { ...range, worktreeClean: false });
     add(JSON.stringify({ ...file, reviewerId: 'not-a-reviewer' }), {});
-    add(example, { head: file.head, diffFiles: ['other.ts'] });
+    add(example, { head: file.head, diffFiles: ['other.ts'], worktreeClean: true });
     expect([...raised].sort()).toEqual([...named].sort());
-    expect(named).toHaveLength(9);
+    expect(named).toHaveLength(10);
   });
 });
 
@@ -771,6 +772,14 @@ describe('unit 1 fix round 1: identity trailers are compared by key and value (f
   it('states that spacing git normalises does not keep an identity trailer in the match', () => {
     expect(section(md(), '#### Review tier and dispatch')).toMatch(
       /A trailer of the message is matched to git's by its key and value as git parses them, not by its line text, so a trailer whose spacing git normalises \(`Signed-off-by :  A` prints as `Signed-off-by: A`\) is still left out\./
+    );
+  });
+});
+
+describe('unit 1 fix round 1: a review is bound to a clean tracked tree (fix 5)', () => {
+  it('code-review says to commit or discard before the review', () => {
+    expect(section(md(), '### Review Receipt')).toMatch(
+      /commit or discard every change to a tracked file before the review starts \(`git status --porcelain --untracked-files=no` prints nothing\); the gate fails `WORKTREE_DIRTY` otherwise\./
     );
   });
 });

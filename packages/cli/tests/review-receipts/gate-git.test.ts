@@ -100,3 +100,45 @@ describe('the diff file set is repository-relative from any directory', () => {
     expect(r.failures).toEqual([]);
   });
 });
+
+/**
+ * Fix 5. Partition of the working tree: clean; a tracked file modified; a change staged; a tracked
+ * file deleted; only an untracked file; only an ignored file. Both modes; the self-check checks
+ * the tree only when a range binds the file to a head.
+ */
+describe('the review is bound to a clean tracked tree', () => {
+  const rows: Array<[string, () => void, boolean]> = [
+    ['clean', () => {}, true],
+    ['a tracked file modified', () => put('root.ts', 'edited\n'), false],
+    [
+      'a change staged',
+      () => {
+        put('root.ts', 'staged\n');
+        g('add', '--', 'root.ts');
+      },
+      false,
+    ],
+    ['a tracked file deleted', () => fs.rmSync(path.join(tmp, 'root.ts')), false],
+    ['only an untracked file', () => put('new.ts', 'n\n'), true],
+    ['only an ignored file', () => put('.harness/x.json', '{}'), true],
+  ];
+  it.each(rows)('receipt gate: %s', (_n, change, clean) => {
+    const dir = writeReview('phase-0', start, ['pkg/sub/b.ts']);
+    change();
+    const r = runCheckReviewReceipt({ receiptPath: dir, cwd: tmp });
+    expect(r.failures.map((f) => f.code)).toEqual(clean ? [] : ['WORKTREE_DIRTY']);
+  });
+  it.each(rows)('self-check with a range: %s', (_n, change, clean) => {
+    const dir = writeReview('phase-0', start, ['pkg/sub/b.ts']);
+    change();
+    const findingsPath = path.join(dir, 'bug.json');
+    const r = runCheckFindingsFile({ findingsPath, base: start, head, cwd: tmp });
+    expect(r.failures.map((f) => f.code)).toEqual(clean ? [] : ['WORKTREE_DIRTY']);
+  });
+  it('self-check without a range does not look at the tree', () => {
+    const dir = writeReview('phase-0', start, ['pkg/sub/b.ts']);
+    put('root.ts', 'edited\n');
+    const r = runCheckFindingsFile({ findingsPath: path.join(dir, 'bug.json'), cwd: tmp });
+    expect(r.failures).toEqual([]);
+  });
+});

@@ -70,6 +70,11 @@ export function repeatedIds(ids: readonly string[]): string[] {
 export interface ReviewGateContext extends FindingsSource {
   /** `git rev-parse HEAD`, resolved by the caller. Empty when git could not resolve it. */
   head: string;
+  /**
+   * `git status --porcelain=v1 -z --untracked-files=no` printed nothing: the tracked files equal
+   * HEAD. undefined: git could not say. Untracked files (the review directory itself) do not count.
+   */
+  worktreeClean: boolean | undefined;
   /** Which review this is expected to be (`expectedReviewMoment`). */
   expectedMoment: ExpectedMoment;
   /** `git merge-base --is-ancestor <base> <head>` succeeded. */
@@ -173,6 +178,20 @@ function headFailures(receipt: ReviewReceipt, context: ReviewGateContext): Revie
       `the receipt reviewed ${receipt.diff.head} but HEAD ${now}; the review is stale`
     ),
   ];
+}
+
+/**
+ * A receipt is bound to one commit, but reviewers and the mechanical checks read the working tree:
+ * a tree whose tracked files differ from HEAD was not what the receipt says was reviewed.
+ */
+function worktreeFailures(worktreeClean: boolean | undefined): ReviewGateFailure[] {
+  if (worktreeClean === true) return [];
+  const message =
+    worktreeClean === false
+      ? 'tracked files differ from HEAD, so the review read a tree that is not the reviewed ' +
+        'commit; commit or discard the changes, then review again'
+      : 'could not tell whether the tracked files equal HEAD (git status failed)';
+  return [reviewGateFailure('WORKTREE_DIRTY', message)];
 }
 
 function baseFailures(receipt: ReviewReceipt, context: ReviewGateContext): ReviewGateFailure[] {
@@ -499,6 +518,8 @@ export interface FindingsFileRange {
   head?: string;
   /** Present (possibly undefined: git could not say) only when a range was given. */
   diffFiles?: readonly string[] | undefined;
+  /** With a range: whether the tracked files equal HEAD (undefined: git could not say). */
+  worktreeClean?: boolean | undefined;
 }
 
 /**
@@ -540,6 +561,7 @@ export function checkReviewerFindingsText(
   } else if (diffSet?.size === 0) {
     out.push(reviewGateFailure('EMPTY_DIFF', 'the range changes no files'));
   }
+  if (ranged) out.push(...worktreeFailures(range.worktreeClean));
   const self = { id: file.reviewerId, required: true, ran: true, findingsPath: name };
   out.push(...contentFailures(self, file, ranged ? (range.head ?? file.head) : file.head, diffSet));
   const repeated = repeatedIds(file.findings.map((f) => f.id));
@@ -568,6 +590,7 @@ export function validateReviewReceipt(
   const failures = [
     ...momentFailures(r, context.expectedMoment),
     ...headFailures(r, context),
+    ...worktreeFailures(context.worktreeClean),
     ...baseFailures(r, context),
     ...rosterFailures(r),
     ...finalFailures(r),

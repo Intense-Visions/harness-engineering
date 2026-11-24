@@ -36,37 +36,37 @@ describe('checkReviewerFindingsText', () => {
     [
       'range: diff unknown',
       findingsText('bug'),
-      { head: HEAD, diffFiles: undefined },
+      { head: HEAD, worktreeClean: true, diffFiles: undefined },
       ['DIFF_UNRESOLVED'],
     ],
     [
       'range: empty diff',
       findingsText('bug'),
-      { head: HEAD, diffFiles: [] },
+      { head: HEAD, worktreeClean: true, diffFiles: [] },
       ['EMPTY_DIFF', 'EXAMINED_OUTSIDE_DIFF'],
     ],
     [
       'range: files in the diff, head equal',
       findingsText('bug'),
-      { head: HEAD, diffFiles: ['src/a.ts'] },
+      { head: HEAD, worktreeClean: true, diffFiles: ['src/a.ts'] },
       [],
     ],
     [
       'range: a file outside the diff',
       withFiles(['src/a.ts', 'src/z.ts']),
-      { head: HEAD, diffFiles: ['src/a.ts'] },
+      { head: HEAD, worktreeClean: true, diffFiles: ['src/a.ts'] },
       ['EXAMINED_OUTSIDE_DIFF'],
     ],
     [
       'range: head differs',
       findingsText('bug'),
-      { head: OTHER, diffFiles: ['src/a.ts'] },
+      { head: OTHER, worktreeClean: true, diffFiles: ['src/a.ts'] },
       ['FINDINGS_HEAD_MISMATCH'],
     ],
     [
       'range: a ./ and \\ path normalise to the diff path',
       withFiles(['./src\\a.ts']),
-      { head: HEAD, diffFiles: ['src/a.ts'] },
+      { head: HEAD, worktreeClean: true, diffFiles: ['src/a.ts'] },
       [],
     ],
   ];

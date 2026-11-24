@@ -22,6 +22,7 @@ const git =
   (files: string[] = ['src/a.ts'], head = HEAD): CwdGit =>
   (args) => {
     if (args[0] === 'rev-parse') return head;
+    if (args[0] === 'status') return '';
     if (args[0] === 'merge-base') return args[1] === '--is-ancestor' ? '' : BASE;
     if (args[0] === 'symbolic-ref') return 'origin/main';
     if (args[0] === 'diff') {
@@ -130,6 +131,7 @@ describe('runCheckReviewReceipt', () => {
       ['rev-parse', 'HEAD'],
       ['diff', '--name-only', '--no-renames', '-z', `${BASE}..${HEAD}`],
       ['merge-base', '--is-ancestor', BASE, HEAD],
+      ['status', '--porcelain=v1', '-z', '--untracked-files=no'],
     ]);
     write({ ...receipt(), diff: { base: '--output=/tmp/x', head: HEAD } });
     const unsafe: string[][] = [];

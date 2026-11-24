@@ -22,6 +22,7 @@ import {
   runGitIn,
   sessionStartingCommit,
   tryGit,
+  worktreeClean,
   type CwdGit,
 } from './io';
 
@@ -84,7 +85,13 @@ type Recomputed = Omit<ReviewGateContext, 'readFindings' | 'expectedMoment' | 's
 function recompute(git: CwdGit, raw: unknown, from: string): Recomputed {
   const range = claimedRange(raw);
   if (range === undefined) {
-    return { head: '', diffFiles: undefined, baseIsAncestor: false, mergeBase: undefined };
+    return {
+      head: '',
+      diffFiles: undefined,
+      baseIsAncestor: false,
+      mergeBase: undefined,
+      worktreeClean: undefined,
+    };
   }
   const cwd = resolveRepoRoots(git, from)?.top ?? from;
   const { base, head } = range;
@@ -93,6 +100,7 @@ function recompute(git: CwdGit, raw: unknown, from: string): Recomputed {
     diffFiles: listDiffFiles(git, base, head, cwd),
     baseIsAncestor: tryGit(git, ['merge-base', '--is-ancestor', base, head], cwd) !== undefined,
     mergeBase: range.final ? defaultBranchMergeBase(git, head, cwd) : undefined,
+    worktreeClean: worktreeClean(git, cwd),
   };
 }
 
@@ -163,7 +171,8 @@ export interface CheckFindingsFileReport {
 
 /**
  * A reviewer's self-check: one findings file with the gate's parser and, given `--base` and
- * `--head`, against that range (`git diff -z`) and that head. Works from any directory of a
+ * `--head`, against that range (`git diff -z`), that head and a working tree whose tracked files
+ * equal HEAD. Works from any directory of a
  * repository, and with a released CLI, because it needs nothing but this command.
  */
 export function runCheckFindingsFile(opts: {
@@ -186,7 +195,7 @@ export function runCheckFindingsFile(opts: {
     const base = commit(opts.base);
     const head = commit(opts.head);
     const diffFiles = base && head ? listDiffFiles(git, base, head, top) : undefined;
-    range = { head: head ?? opts.head, diffFiles };
+    range = { head: head ?? opts.head, diffFiles, worktreeClean: worktreeClean(git, top) };
   }
   const failures = checkReviewerFindingsText(text, opts.findingsPath, range);
   return { pass: failures.length === 0, findingsPath: file, failures };

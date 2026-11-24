@@ -58,7 +58,9 @@ contradicts the directory fails `MOMENT_MISMATCH`), a required reviewer that did
 reviewer listed twice, a reviewer id that is not a known reviewer (`UNKNOWN_REVIEWER`), a
 findings file that is absent, invalid, shared, written under another reviewer's id, written at another head, empty of examined files or outside the recomputed diff,
 a finding id used twice in the review, `blocking` or `advisory` counts that differ from what the
-findings files hold (`COUNTS_MISMATCH`), a head that is not the current HEAD, a base that is not
+findings files hold (`COUNTS_MISMATCH`), a head that is not the current HEAD, tracked files
+that differ from HEAD (`WORKTREE_DIRTY`, from `git status --porcelain=v1 -z --untracked-files=no`;
+untracked files do not count, and the self-check applies it when given a range), a base that is not
 an ancestor of the head, a diff range that cannot be computed or changes nothing, and a `final`
 receipt that is not full, cold, free of prior findings and based at the merge base with the
 default branch (a declared `baseSource: "starting-commit"` is accepted only when no
@@ -120,7 +122,7 @@ reviewer findings files and are not in the receipt's counts.
   diff at the current commit. It does not prove the reviewers ran in separate contexts: one
   context that writes four findings files passes.
 - The gate checks, and does not take on trust: the moment (against the review directory, which
-  no flag overrides), the head, each findings file's head, the base's ancestry, the merge base
+  no flag overrides), the head, a clean tracked tree, each findings file's head, the base's ancestry, the merge base
   of a final review (whatever `baseSource` the receipt declares, while a merge base resolves;
   the session's starting commit when none does), the `light` roster, the reviewer ids, finding-id uniqueness, and the `blocking`
   and `advisory` counts.

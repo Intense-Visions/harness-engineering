@@ -53,6 +53,7 @@ export const ctx = (
   readFindings: (p) => findingsText(p.replace(/\.json$/, '')),
   expectedMoment: { status: 'known', moment },
   baseIsAncestor: true,
+  worktreeClean: true,
   mergeBase: BASE,
   ...over,
 });

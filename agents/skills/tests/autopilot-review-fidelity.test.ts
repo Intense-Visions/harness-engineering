@@ -718,3 +718,12 @@ describe('round 4: the review-fidelity instructions of review round 4 are each p
     );
   });
 });
+
+describe('unit 1 fix round 1: autopilot instructions, each pinned', () => {
+  const records = () => section(md(), '### Review records');
+  it('fix 5: commit or discard tracked changes before a review', () => {
+    expect(records()).toMatch(
+      /Before step 1 of REVIEW and of FINAL_REVIEW, commit or discard every change to a tracked file: `git status --porcelain --untracked-files=no` must print nothing\. The gate fails `WORKTREE_DIRTY` when tracked files differ from HEAD/
+    );
+  });
+});

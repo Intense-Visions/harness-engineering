@@ -52,6 +52,16 @@ export function listDiffFiles(
     .filter((s) => s !== '');
 }
 
+/**
+ * Whether the tracked files equal HEAD: `git status --porcelain=v1 -z --untracked-files=no`
+ * prints nothing. Untracked files (a review directory, session state) do not count. undefined:
+ * git could not say. Run it at the repository top.
+ */
+export function worktreeClean(git: CwdGit, top: string): boolean | undefined {
+  const status = tryGit(git, ['status', '--porcelain=v1', '-z', '--untracked-files=no'], top);
+  return status === undefined ? undefined : status === '';
+}
+
 export interface RepoRoots {
   /** Top level of the worktree `cwd` is in: sessions, config and diff paths are under it. */
   top: string;

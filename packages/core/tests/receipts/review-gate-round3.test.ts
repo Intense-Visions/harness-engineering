@@ -36,6 +36,7 @@ const ctx = (over: Partial<ReviewGateContext> = {}): ReviewGateContext => ({
   readFindings: (p) => file(p.replace(/\.json$/, '')),
   expectedMoment: known('phase'),
   baseIsAncestor: true,
+  worktreeClean: true,
   mergeBase: BASE,
   ...over,
 });
