@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/tests/shared'
-sourceHash: '9c9267af77e3d8481731342006445bc95c6f9ae4594853dd901d8634742ecbcd'
+sourceHash: 'b09eecfad747a34f623b100032df59e09251a739dfc818dad6e8c7e7976f5b99'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -13,6 +13,7 @@ members:
     'port.test.ts',
     'result.test.ts',
     'session-slug.test.ts',
+    'unsafe-text.test.ts',
   ]
 ---
 
@@ -25,6 +26,7 @@ members:
 ## Dependency Slice
 
 ```
+import { isUnsafeLogChar } from '../../src/autonomy/decision-schema'
 import { validateOverrideSlug } from '../../src/autonomy/paths'
 import { DEFAULT_FIND_FILES_IGNORE } from '../../src/index'
 import { BaseError, FeedbackError, ValidationError, createError } from '../../src/shared/errors'
@@ -32,6 +34,7 @@ import { fileExists, findFiles, readFileContent } from '../../src/shared/fs-util
 import { WHATWG_BAD_PORTS, assertPortUsable, isBadPort } from '../../src/shared/port'
 import { Err, Ok, Result, isErr, isOk } from '../../src/shared/result'
 import { sessionSlugError } from '../../src/shared/session-slug'
+import { escapeTerminalText, isUnsafeTextChar } from '../../src/shared/unsafe-text'
 import { resolveSessionDir } from '../../src/state/session-resolver'
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'

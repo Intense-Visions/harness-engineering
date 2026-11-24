@@ -8,7 +8,7 @@ import {
   type ReviewerRecord,
 } from '@harness-engineering/types';
 import type { ExpectedMoment } from './layout';
-import { normalizeReviewPath, pathEscapes } from './paths';
+import { normalizeReviewPath, pathEscapes } from '../shared/review-paths';
 import {
   parseReviewReceipt,
   parseReviewerFindingsFile,

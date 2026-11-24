@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/tests/receipts'
-sourceHash: '71a695fd706006b6e64cfaa1ceb896df53081aa85d1f5565df69d3b3e41ca1c8'
+sourceHash: '5c2ece61d6eb7795c876b82f33f42f783b660e347334448100ca0cc34ed8fa70'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -25,7 +25,6 @@ members:
     'schema-types.test.ts',
     'schema.test.ts',
     'session-review-label.test.ts',
-    'terminal-text.test.ts',
   ]
 ---
 
@@ -52,12 +51,11 @@ import * as receipts from '../../src/receipts'
 import { resolveReviewBackend } from '../../src/receipts/backend'
 import { ExpectedMoment, REVIEW_RECEIPT_FILENAME, SESSION_REVIEW_LABEL, expectedReviewMoment, reviewMomentOfDir, sessionDirOfReviewDir } from '../../src/receipts/layout'
 import { REVIEW_FILE_MAX_BYTES, errnoReason, readRegularFile, readReviewReceiptFile, reviewFindingsReaderFor } from '../../src/receipts/load'
-import { normalizeReviewPath, pathEscapes } from '../../src/receipts/paths'
 import { PhaseReviewBase, ReviewGateContext, checkReviewerFindingsText, finalReviewBase, phaseReviewBase, validateReviewReceipt } from '../../src/receipts/review-gate'
 import { BLOCKING_SEVERITIES, ReceiptFinding, ReviewReceiptSchema, ReviewerFindingsFile, isBlockingSeverity, parseReviewReceipt, parseReviewerFindingsFile } from '../../src/receipts/schema'
-import { escapeTerminalText } from '../../src/receipts/terminal-text'
 import { ConditionalSubagent } from '../../src/review/depth-calibrator'
 import { ReviewFinding } from '../../src/review/types/fan-out'
+import { normalizeReviewPath, pathEscapes } from '../../src/shared/review-paths'
 import { BASE, FULL, HEAD, OTHER, START, codesOf, ctx, finding, findingsText, receipt, record } from './round4-helpers'
 import { CONDITIONAL_REVIEWER_IDS, FULL_TIER_REVIEWER_IDS, LIGHT_TIER_REVIEWER_ID, RECEIPT_UNREAD_REASONS, REVIEW_MOMENTS, ReviewMoment, ReviewReceipt } from '@harness-engineering/types'
 import { execFileSync } from 'node:child_process'

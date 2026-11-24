@@ -1,5 +1,5 @@
 import type { ReviewTier } from '@harness-engineering/types';
-import { normalizeReviewPath as posix } from '../receipts/paths';
+import { normalizeReviewPath as posix } from '../shared/review-paths';
 import { matchRiskKeywords } from './depth-calibrator';
 
 export const PHASE_COMPLEXITIES = ['low', 'medium', 'high'] as const;

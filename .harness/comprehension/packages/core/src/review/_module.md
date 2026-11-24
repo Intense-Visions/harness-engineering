@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/src/review'
-sourceHash: '678fb5b0eb50c861ea222f936aeddfef6b051e57d026eba1cfae069c48672791'
+sourceHash: '56245f0501988e8fc39aef476d1252d69c276c2c4b43b7b687d38cae4b90c1a0'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -186,13 +186,13 @@ import { defineLayer, validateDependencies } from '../constraints/dependencies'
 import { agentsMapSectionFindings, validateAgentsMap } from '../context/agents-map'
 import { checkDocCoverage } from '../context/doc-coverage'
 import { clumpingFromConfig, resolveSeamClumpPolicy } from '../fleet/clumping'
-import { posix } from '../receipts/paths'
 import { parseSecurityConfig } from '../security/config'
 import { parseHarnessIgnore } from '../security/harness-ignore'
 import { SecurityScanner } from '../security/scanner'
 import { fileExists, findFiles, readFileContent, relativePosix } from '../shared/fs-utils'
 import { TypeScriptParser } from '../shared/parsers'
 import { Ok, Result } from '../shared/result'
+import { posix } from '../shared/review-paths'
 import { readSessionSection } from '../state/session-sections'
 import { runAdversarialAgent } from './agents/adversarial-agent'
 import { runArchitectureAgent } from './agents/architecture-agent'

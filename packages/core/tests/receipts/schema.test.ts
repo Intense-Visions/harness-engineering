@@ -5,7 +5,7 @@ import {
   parseReviewReceipt,
   parseReviewerFindingsFile,
 } from '../../src/receipts/schema';
-import { normalizeReviewPath, pathEscapes } from '../../src/receipts/paths';
+import { normalizeReviewPath, pathEscapes } from '../../src/shared/review-paths';
 
 const BASE = 'a'.repeat(40);
 const HEAD = 'b'.repeat(40);

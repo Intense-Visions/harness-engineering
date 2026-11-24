@@ -6,7 +6,7 @@ import {
   type ReceiptUnreadReason,
 } from '@harness-engineering/types';
 import { REVIEW_RECEIPT_FILENAME } from './layout';
-import { pathEscapes } from './paths';
+import { pathEscapes } from '../shared/review-paths';
 
 /** No receipt or findings file is read past this size. */
 export const REVIEW_FILE_MAX_BYTES = 5 * 1024 * 1024;
