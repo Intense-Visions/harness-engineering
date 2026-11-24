@@ -160,11 +160,15 @@ export function gateReviewReceipt(opts: CheckReviewReceiptOptions): GatedReviewR
   const { cwd = process.cwd(), git = runGitIn } = opts;
   const target = path.resolve(cwd, opts.receiptPath);
   const read = readReviewReceiptFile(target, opts.confine ? { within: cwd } : {});
-  const counts = { reviewersRun: 0, reviewersRequired: 0 };
   if (read.status !== 'ok') {
     const failures = [failureFor(read)];
-    const report = { pass: false, receiptPath: read.path, failures, ...counts };
-    return { read: false, unread: read, report, dir: read.dir };
+    const report = { pass: false, receiptPath: read.path, failures, reviewersRun: 0 };
+    return {
+      read: false,
+      unread: read,
+      report: { ...report, reviewersRequired: 0 },
+      dir: read.dir,
+    };
   }
   const sessionDir = sessionDirOfReviewDir(read.dir);
   const startingCommit = sessionStartingCommit(sessionDir);
@@ -181,17 +185,26 @@ export function gateReviewReceipt(opts: CheckReviewReceiptOptions): GatedReviewR
     readFindings: reviewFindingsReaderFor(read.dir),
     expectedMoment: expectedReviewMoment(read.dir, opts.moment),
   });
+  const report = reportOf(result, read.path, recomputed.mergeBaseWith);
+  return { read: true, result, report, dir: read.dir };
+}
+
+/** The report of a receipt that was read: what the gate found, and what the receipt says it is. */
+function reportOf(
+  result: ReviewGateResult,
+  receiptPath: string,
+  mergeBaseWith: string | undefined
+): CheckReviewReceiptReport {
   const { pass, failures } = result;
-  const at = { pass, receiptPath: read.path, failures };
-  if (!result.checked) return { read: true, result, report: { ...at, ...counts }, dir: read.dir };
+  const at = { pass, receiptPath, failures };
+  if (!result.checked) return { ...at, reviewersRun: 0, reviewersRequired: 0 };
   const { reviewersRun, reviewersRequired, receipt } = result;
   const { moment, tier, backend } = receipt;
-  const from = moment === 'final' ? recomputed.mergeBaseWith : undefined;
-  const report = {
+  const from = moment === 'final' ? mergeBaseWith : undefined;
+  return {
     ...{ ...at, reviewersRun, reviewersRequired, moment, tier, backend },
     ...(from !== undefined && { finalBaseFrom: from }),
   };
-  return { read: true, result, report, dir: read.dir };
 }
 
 /**
