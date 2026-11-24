@@ -644,6 +644,67 @@ describe('runSecurityAgent()', () => {
     expect(runSecurityAgent(bundle).length).toBe(0);
   });
 
+  // ---- capwell#3311: a `NAME=` that sits INSIDE another quoted string (a grep
+  // pattern) is followed by that string's CLOSING quote. Read as an opening
+  // quote with no close, it captured ` apps/mobile/.env.local | cut -d= -f2)`
+  // as a literal secret. ----
+
+  const GREP_KEY_LINE =
+    "KEY=$(grep -E '^EXPO_PUBLIC_JUNCTION_SANDBOX_API_KEY=' apps/mobile/.env.local | cut -d= -f2)";
+
+  it.each([
+    ['docs/runbooks/junction-device-testing.md', ['```bash', GREP_KEY_LINE, '```'].join('\n')],
+    ['scripts/key.sh', GREP_KEY_LINE],
+    ['scripts/key.sh', `TOKEN=$(grep "^TOKEN=" .env | cut -d= -f2-)`],
+  ])('does NOT flag a NAME= inside a quoted grep pattern in %s (capwell#3311)', (path, content) => {
+    const bundle = makeBundle({
+      changedFiles: [{ path, content, reason: 'changed', lines: content.split('\n').length }],
+    });
+    expect(runSecurityAgent(bundle)).toEqual([]);
+  });
+
+  it('STILL flags an unterminated literal that opens outside any string', () => {
+    const bundle = makeBundle({
+      changedFiles: [
+        {
+          path: 'deploy/run.sh',
+          content: 'export API_KEY="sk-live-0123456789abcdef',
+          reason: 'changed',
+          lines: 1,
+        },
+      ],
+    });
+    expect(runSecurityAgent(bundle).length).toBe(1);
+  });
+
+  it('STILL flags a closed literal embedded in another quoted string', () => {
+    const bundle = makeBundle({
+      changedFiles: [
+        {
+          path: 'deploy/run.sh',
+          content: `echo "API_KEY='hunter2hunter2hunter2'" >> .env`,
+          reason: 'changed',
+          lines: 1,
+        },
+      ],
+    });
+    expect(runSecurityAgent(bundle).length).toBe(1);
+  });
+
+  it('STILL flags a later literal on a line whose first match is a grep pattern', () => {
+    const bundle = makeBundle({
+      changedFiles: [
+        {
+          path: 'deploy/run.sh',
+          content: `grep '^TOKEN=' .env; PASSWORD="hunter2hunter2hunter2"`,
+          reason: 'changed',
+          lines: 1,
+        },
+      ],
+    });
+    expect(runSecurityAgent(bundle).length).toBe(1);
+  });
+
   // The other direction: widening extraction must not create a blind spot.
 
   it('STILL flags a literal secret in a shell file', () => {
