@@ -71,22 +71,55 @@ export function collectPackageEntryPoints(pkg: unknown, packageDir = ''): string
  */
 const IDENTITY_TRAILER = /^(?:[A-Za-z0-9-]+-by|cc|change-id|claude-session):/i;
 
+/** One trailer as lines: its key line and the continuation lines folded under it. */
+type TrailerLines = string[];
+
+/** Lines grouped into trailers: a line that starts with whitespace continues the one before it. */
+function groupTrailers(lines: readonly string[]): TrailerLines[] {
+  const out: TrailerLines[] = [];
+  for (const line of lines) {
+    const last = out[out.length - 1];
+    if (/^\s/.test(line) && last !== undefined) last.push(line);
+    else out.push([line]);
+  }
+  return out;
+}
+
+/**
+ * A trailer by its parsed key and value, as git parses it: the key is the text before the first
+ * colon, trimmed and compared without case; the value is the rest with the continuation lines
+ * unfolded and every run of whitespace read as one space. undefined: the line holds no colon.
+ */
+function trailerKey(lines: TrailerLines): string | undefined {
+  const [first = '', ...more] = lines;
+  const colon = first.indexOf(':');
+  if (colon < 0) return undefined;
+  const key = first.slice(0, colon).trim().toLowerCase();
+  const value = [first.slice(colon + 1), ...more].join(' ').replace(/\s+/g, ' ').trim();
+  return `${key}:${value}`;
+}
+
 /**
  * A commit message without its identity trailers. `trailers` holds the trailer lines git itself
- * identified in the message (`%(trailers:only)`), continuation lines included; nothing is read
- * as a trailer because of how it looks. Only the closing block of the message is touched.
+ * identified in the message (`%(trailers:only)`), continuation lines included, in git's own
+ * printed form, which normalises spacing ("Signed-off-by :  A" prints as "Signed-off-by: A").
+ * A trailer of the message's closing block is dropped when its key and value equal those of an
+ * identity trailer git reported; nothing is read as a trailer because of how it looks.
  */
 function withoutIdentityTrailers(message: string, trailers: readonly string[]): string {
   const dropped = new Set<string>();
-  let identity = false;
-  for (const line of trailers) {
-    if (!/^\s/.test(line)) identity = IDENTITY_TRAILER.test(line);
-    if (identity) dropped.add(line);
+  for (const trailer of groupTrailers(trailers)) {
+    const key = trailerKey(trailer);
+    if (key !== undefined && IDENTITY_TRAILER.test(trailer[0] ?? '')) dropped.add(key);
   }
   if (dropped.size === 0) return message;
   const lines = message.trimEnd().split('\n');
   const block = lines.map((line) => line.trim()).lastIndexOf('') + 1;
-  return lines.filter((line, i) => i < block || !dropped.has(line)).join('\n');
+  const kept = groupTrailers(lines.slice(block)).filter((t) => {
+    const key = trailerKey(t);
+    return key === undefined || !dropped.has(key);
+  });
+  return [...lines.slice(0, block), ...kept.flat()].join('\n');
 }
 
 function riskKeywordReasons(input: PhaseTierInput): string[] {

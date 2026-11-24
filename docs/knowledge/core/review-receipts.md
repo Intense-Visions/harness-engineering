@@ -29,7 +29,8 @@ conditional reviewer the depth calibration activates (`adversarial`, `typescript
 (`packages/core/src/review/tier-selector.ts`) makes a phase `full` when its diff, a changed path
 or any commit message of its range matches a risk keyword (the diff is read as text whatever git
 attributes say; of the trailers git identifies in a message, only identity trailers are left
-out, by the rule `IDENTITY_TRAILER` in that file, which the `harness-code-review` skill states;
+out, by the rule `IDENTITY_TRAILER` in that file, which the `harness-code-review` skill states,
+compared by the key and value git parses rather than by line text;
 every other trailer is matched), the diff touches a package entry point (a package's `src/index.ts`, or a file named by
 a `package.json` `main`, `bin` or `exports` field; a renamed one counts under its old path), the
 phase's assessed complexity is `high`, or the rigor is `thorough`. It returns `full` for every

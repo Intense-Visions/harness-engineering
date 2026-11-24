@@ -766,3 +766,11 @@ describe('unit 1 fix round 1: the self-check reviewer id and mode flags (fix 11)
     );
   });
 });
+
+describe('unit 1 fix round 1: identity trailers are compared by key and value (fix 12)', () => {
+  it('states that spacing git normalises does not keep an identity trailer in the match', () => {
+    expect(section(md(), '#### Review tier and dispatch')).toMatch(
+      /A trailer of the message is matched to git's by its key and value as git parses them, not by its line text, so a trailer whose spacing git normalises \(`Signed-off-by :  A` prints as `Signed-off-by: A`\) is still left out\./
+    );
+  });
+});

@@ -475,6 +475,12 @@ describe('round 3, fix 16: trailers are identified by git, and only identity tra
       `docs: notes\n\nRotates the cookie.\n\n${SESSION}`,
       ['risk-keyword:cookie'],
     ],
+    // Fix 12: git normalises a trailer's spacing when it prints it; it is still left out.
+    [
+      'identity trailers with odd spacing',
+      'docs: notes\n\nBody.\n\nSigned-off-by :   Auth  Bot <x@y.z>\nReviewed-by:Token Team <t@x.y>',
+      [],
+    ],
     ['no trailer', 'docs: notes', []],
     [
       'the same sentence without a key',

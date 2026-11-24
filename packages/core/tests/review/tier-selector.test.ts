@@ -196,6 +196,44 @@ describe('round 3, fix 16: risk keywords in commit messages, identity trailers e
       [COAUTHOR],
       ['risk-keyword:auth', 'risk-keyword:token'],
     ],
+    // Fix 12: git prints the trailers it parsed in its own normal form ("Key: value"), which
+    // need not be the message's text. They are compared by key and value, not by line.
+    [
+      'an identity trailer with a space before the colon (git prints it without)',
+      'docs: tidy\n\nSigned-off-by :   Auth  Bot <x@y.z>',
+      ['Signed-off-by: Auth  Bot <x@y.z>'],
+      [],
+    ],
+    [
+      'an identity trailer with no space after the colon',
+      'docs: tidy\n\nReviewed-by:Auth Team <a@b.c>',
+      ['Reviewed-by: Auth Team <a@b.c>'],
+      [],
+    ],
+    [
+      'an identity trailer with a tab after the colon and trailing spaces',
+      'docs: tidy\n\nCo-Authored-By:\tToken Bot <t@x.y>   ',
+      ['Co-Authored-By: Token Bot <t@x.y>'],
+      [],
+    ],
+    [
+      'a folded identity trailer with odd spacing: its continuation goes with it',
+      'docs: tidy\n\nCo-Authored-By :  Auth Bot\n   and the token team',
+      ['Co-Authored-By: Auth Bot', '   and the token team'],
+      [],
+    ],
+    [
+      'a line with an identity key whose value git did not report is still matched',
+      'docs: tidy\n\nReviewed-by: Auth Team\nReviewed-by: Token Team',
+      ['Reviewed-by: Auth Team'],
+      ['risk-keyword:token'],
+    ],
+    [
+      'a non-identity trailer with odd spacing is still matched',
+      'docs: tidy\n\nSecurity :  token check first',
+      ['Security: token check first'],
+      ['risk-keyword:token'],
+    ],
     ['a one-line message', 'auth: rework', [], ['risk-keyword:auth']],
     [
       'a message with no keyword anywhere',
