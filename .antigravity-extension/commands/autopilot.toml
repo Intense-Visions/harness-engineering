@@ -414,7 +414,7 @@ REVIEW and FINAL_REVIEW share the rules in this section. The fields of the recei
 
 **After a fix.** A review that runs again for the same phase, or again as the final review, after a fix commit runs at the new head. Dispatch **every** required reviewer again with the same briefs, carrying no finding from the review before; a reviewer whose findings were all fixed still runs. Each reviewer rewrites its findings file and this session rewrites `receipt.json`. No file of the review before is reused: its `head` is the old commit, and the gate fails it (`FINDINGS_HEAD_MISMATCH`). `{base}` stays the same for a phase review. For the final review, resolve it again (FINAL_REVIEW step 2): it is the merge base every time, so a review after a fix reads the whole change again and never the fix alone.
 
-**Overrides.** A review state left over a failed receipt gate, or over blocking findings, records the human's decision in `decisions[]`: the state (`REVIEW` or `FINAL_REVIEW`), for `REVIEW` the phase (its 0-based position, the `N` of `phase-N`), what was overridden (every failure code the gate raised, or the blocking findings), and the human's rationale. A gate or findings override is always the human's: both are `gate` pauses and never auto-resolve.
+**Overrides.** A review state left over a failed receipt gate, or over blocking findings, records the human's decision in `decisions[]`: the state (`REVIEW` or `FINAL_REVIEW`), for `REVIEW` the phase (its 0-based position, the `N` of `phase-N`), what was overridden (every failure code the gate raised, or the blocking findings), and the human's rationale. A gate or findings override is always the human's and never auto-resolves.
 
 ---
 
