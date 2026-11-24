@@ -66,7 +66,8 @@ contradicts the directory fails `MOMENT_MISMATCH`), a required reviewer that did
 reviewer listed twice, a reviewer id that is not a known reviewer (`UNKNOWN_REVIEWER`), a
 findings file that is absent, invalid, shared, written under another reviewer's id, written at another head, empty of examined files or outside the recomputed diff,
 a finding id used twice in the review, `blocking` or `advisory` counts that differ from what the
-findings files hold (`COUNTS_MISMATCH`), a head that is not the current HEAD, tracked files
+findings files hold (`COUNTS_MISMATCH`), a head that is not the current HEAD (git runs at the
+top of the worktree that holds the receipt, whatever the caller's directory), tracked files
 that differ from HEAD (`WORKTREE_DIRTY`, from `git status --porcelain=v1 -z --untracked-files=no`;
 untracked files do not count, and the self-check applies it when given a range), a base that is not
 an ancestor of the head, a `phase` receipt whose base is not the `diff.head` of the nearest

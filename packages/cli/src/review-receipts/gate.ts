@@ -168,8 +168,9 @@ export function gateReviewReceipt(opts: CheckReviewReceiptOptions): GatedReviewR
   const sessionDir = sessionDirOfReviewDir(read.dir);
   const startingCommit = sessionStartingCommit(sessionDir);
   const range = claimedRange(read.raw);
-  // Git is asked only about a claimed range (never about free text), at the repository top.
-  const top = range === undefined ? cwd : (resolveRepoRoots(git, cwd)?.top ?? cwd);
+  // Git is asked only about a claimed range (never about free text), at the top of the worktree
+  // that holds the receipt, whatever the caller's directory: its HEAD and tree are the reviewed ones.
+  const top = range === undefined ? cwd : (resolveRepoRoots(git, read.dir)?.top ?? cwd);
   const reachable = (sha: string) =>
     range !== undefined && isAncestor(git, sha, range.head, top) === true;
   const phaseBase = phaseReviewBase({

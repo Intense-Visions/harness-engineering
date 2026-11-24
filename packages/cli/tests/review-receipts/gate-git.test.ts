@@ -4,6 +4,7 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { runCheckFindingsFile, runCheckReviewReceipt } from '../../src/review-receipts/gate';
+import { handleCheckReviewReceipt } from '../../src/mcp/tools/review-receipt';
 
 /**
  * The receipt gate and the reviewer self-check against real git, for defects that are about git
@@ -238,5 +239,74 @@ describe('a phase receipt starts where the previous reviewed phase ended', () =>
     const copy = path.join(tmp, '.harness', 'copy');
     fs.cpSync(dir, copy, { recursive: true });
     expect(codes(copy, 'phase')).toEqual(['PHASE_BASE_UNKNOWN']);
+  });
+});
+
+/**
+ * Round 2, fix 4 (bug-1). The gate asks git in the receipt's repository, not the caller's: a lane
+ * worktree under the main checkout (as `_wt/` is here) is gated against its own HEAD and tree.
+ * Partition: the lane clean from the main checkout's cwd (CLI and MCP tool), and the lane dirty
+ * while the main checkout is clean.
+ */
+describe('round 2: the gate runs git in the worktree that holds the receipt', () => {
+  let lane: string;
+  let laneHead: string;
+  const lg = (...args: string[]) =>
+    execFileSync('git', ['-c', 'user.name=t', '-c', 'user.email=t@example.com', ...args], {
+      cwd: lane,
+      encoding: 'utf-8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+    }).trim();
+  const laneReview = () => {
+    const dir = path.join(lane, '.harness', 'sessions', 's1', 'reviews', 'phase-0');
+    fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(
+      path.join(lane, '.harness', 'sessions', 's1', 'autopilot-state.json'),
+      JSON.stringify({ startingCommit: head })
+    );
+    const file = (id: string) => ({
+      schemaVersion: 1,
+      reviewerId: id,
+      head: laneHead,
+      examinedFiles: ['lane.ts'],
+      findings: [],
+    });
+    for (const id of FULL) fs.writeFileSync(path.join(dir, `${id}.json`), JSON.stringify(file(id)));
+    const receipt = {
+      schemaVersion: 1,
+      moment: 'phase',
+      tier: 'full',
+      backend: 'agent',
+      diff: { base: head, head: laneHead },
+      coldContext: true,
+      priorFindingsSupplied: false,
+      reviewers: FULL.map((id) => ({ id, required: true, ran: true, findingsPath: `${id}.json` })),
+      blocking: 0,
+      advisory: 0,
+    };
+    fs.writeFileSync(path.join(dir, 'receipt.json'), JSON.stringify(receipt));
+    return dir;
+  };
+  beforeEach(() => {
+    lane = path.join(tmp, '_wt', 'lane');
+    g('worktree', 'add', '-q', '-b', 'lane', lane, head);
+    fs.writeFileSync(path.join(lane, 'lane.ts'), 'l\n');
+    lg('add', '--', 'lane.ts');
+    lg('commit', '-q', '--no-verify', '-m', 'lane');
+    laneHead = lg('rev-parse', 'HEAD');
+  });
+  it('a clean lane receipt passes when the gate runs from the main checkout', () => {
+    const r = runCheckReviewReceipt({ receiptPath: laneReview(), cwd: tmp });
+    expect(r.failures).toEqual([]);
+  });
+  it('the MCP tool, with path the main checkout, gates the lane against the lane', async () => {
+    const res = await handleCheckReviewReceipt({ path: tmp, receipt: laneReview() });
+    expect(JSON.parse(res.content[0]?.text ?? '{}')).toMatchObject({ pass: true });
+  });
+  it('a dirty lane fails WORKTREE_DIRTY though the main checkout is clean', () => {
+    const dir = laneReview();
+    fs.writeFileSync(path.join(lane, 'lane.ts'), 'edited\n');
+    const r = runCheckReviewReceipt({ receiptPath: dir, cwd: tmp });
+    expect(r.failures.map((f) => f.code)).toEqual(['WORKTREE_DIRTY']);
   });
 });
