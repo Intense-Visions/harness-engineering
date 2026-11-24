@@ -73,6 +73,26 @@ describe('checkReviewerFindingsText', () => {
   it.each(rows)('%s', (_name, text, range, expected) => {
     expect(codes(text, 'bug.json', range)).toEqual(expected);
   });
+  /** Fix 11: the reviewer id, checked as the gate checks it. Each known id, an unknown one. */
+  const KNOWN = [
+    'compliance',
+    'bug',
+    'security',
+    'architecture',
+    'adversarial',
+    'typescript-strict',
+    'frontend-races',
+    'compliance-bug',
+  ];
+  it.each(KNOWN)('the known reviewer id %j passes', (id) => {
+    expect(codes(findingsText(id), `${id}.json`, {})).toEqual([]);
+  });
+  it.each(['frontend', 'bugs', 'compliance-bug-2', 'x'])(
+    'an unknown reviewer id %j fails UNKNOWN_REVIEWER, as the gate would',
+    (id) => {
+      expect(codes(findingsText(id), `${id}.json`, {})).toEqual(['UNKNOWN_REVIEWER']);
+    }
+  );
   it('names the file in every message', () => {
     const [f] = checkReviewerFindingsText('{', 'x/bug.json', {});
     expect(f?.message).toContain('x/bug.json');

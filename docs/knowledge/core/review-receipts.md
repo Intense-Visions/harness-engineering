@@ -71,8 +71,8 @@ MB. The codes are `REVIEW_GATE_FAILURE_CODES`, a literal union defined in
 [--moment phase|final|standalone]` (the path is `receipt.json` or its directory, and a path that
 does not exist and does not end in `.json` is read as a directory; exit 0 on a pass, exit 1 on a
 failure), with one more mode:
-`--findings <file> [--base <sha> --head <sha>]` checks one reviewer findings file with the gate's parser and diff (a reviewer's
-self-check, which needs only the CLI), and the `check_review_receipt` MCP tool (`path` is the project root,
+`--findings <file> [--base <sha> --head <sha>]` checks one reviewer findings file with the gate's parser, reviewer-id rule and diff (a reviewer's
+self-check, which needs only the CLI; a flag the chosen mode does not read, `--base`/`--head` with a receipt path or `--moment` with `--findings`, exits 1), and the `check_review_receipt` MCP tool (`path` is the project root,
 `receipt` the review directory, which must be inside it by real path, so a symlink that leads
 out is refused; a `moment` outside the three values returns `GATE_ERROR`). It needs no model
 credential.

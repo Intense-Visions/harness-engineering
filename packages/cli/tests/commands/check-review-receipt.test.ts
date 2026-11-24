@@ -234,6 +234,46 @@ describe('harness check-review-receipt', () => {
     expect(out).toMatch(/EXAMINED_OUTSIDE_DIFF/);
     expect(out).not.toMatch(RAW);
   });
+  /**
+   * Fix 11: a flag the chosen mode does not read is an error (exit 1), never silently ignored.
+   * Partition: receipt mode with --base, --head, both; --findings with --moment; and the flags
+   * each mode does read, as controls.
+   */
+  it.each([
+    ['receipt mode with --base', ['--base', BASE], /--base and --head apply to --findings only/],
+    ['receipt mode with --head', ['--head', HEAD], /--base and --head apply to --findings only/],
+    ['receipt mode with both', ['--base', BASE, '--head', HEAD], /apply to --findings only/],
+  ])('fix 11: %s exits 1 and runs no gate', async (_n, flags, message) => {
+    write(receipt());
+    const out = await invoke(['check-review-receipt', dir, ...flags]);
+    expect(process.exitCode).toBe(1);
+    expect(out).toMatch(message);
+    expect(out).not.toMatch(/review receipt gate:/);
+  });
+  it('fix 11: --findings with --moment exits 1 and checks no file', async () => {
+    const f = path.join(tmp, 'f.json');
+    fs.writeFileSync(f, findingsFile('bug'));
+    const out = await invoke(['check-review-receipt', '--findings', f, '--moment', 'final']);
+    expect(process.exitCode).toBe(1);
+    expect(out).toMatch(/--moment applies to a receipt path only/);
+    expect(out).not.toMatch(/findings file check:/);
+  });
+  it('fix 11 (control): receipt mode with --moment and --findings with a range still run', async () => {
+    write(receipt());
+    const a = await invoke(['check-review-receipt', dir, '--moment', 'phase']);
+    expect(a).toMatch(/review receipt gate: PASS/);
+    const f = path.join(dir, 'bug.json');
+    const b = await invoke([
+      'check-review-receipt',
+      '--findings',
+      f,
+      '--base',
+      BASE,
+      '--head',
+      HEAD,
+    ]);
+    expect(b).toMatch(/findings file check: PASS/);
+  });
   it('emits one JSON document under --json, with the verdict agreeing with the exit code', async () => {
     write(receipt(), ['compliance']);
     const out = await invoke(['--json', 'check-review-receipt', dir]);

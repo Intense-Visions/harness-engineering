@@ -59,6 +59,17 @@ function runFindings(opts: CheckFlags, deps: CheckReviewReceiptDeps, json: boole
   process.exitCode = report.pass ? ExitCode.SUCCESS : ExitCode.VALIDATION_FAILED;
 }
 
+/** A flag the chosen mode would not read: an error, never silently ignored. */
+function flagsTheModeIgnores(opts: CheckFlags): string | undefined {
+  if (opts.findings === undefined && (opts.base !== undefined || opts.head !== undefined)) {
+    return '--base and --head apply to --findings only; a receipt names its own range';
+  }
+  if (opts.findings !== undefined && opts.moment !== undefined) {
+    return '--moment applies to a receipt path only; --findings checks one file, not a review';
+  }
+  return undefined;
+}
+
 /** Injected inputs for tests; production uses the process cwd and real git. */
 export interface CheckReviewReceiptDeps {
   cwd?: () => string;
@@ -92,6 +103,12 @@ export function createCheckReviewReceiptCommand(deps: CheckReviewReceiptDeps = {
       const modes = [receiptPath, opts.findings].filter((m) => m !== undefined);
       if (modes.length !== 1) {
         logger.error('give exactly one of: a receipt path or --findings');
+        process.exitCode = ExitCode.VALIDATION_FAILED;
+        return;
+      }
+      const ignored = flagsTheModeIgnores(opts);
+      if (ignored !== undefined) {
+        logger.error(ignored);
         process.exitCode = ExitCode.VALIDATION_FAILED;
         return;
       }

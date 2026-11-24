@@ -576,9 +576,10 @@ describe('review round 3: craft, dispatched mode and the reviewer self-check (A6
     add(example, { head: file.head, diffFiles: undefined });
     add(example, { head: file.head, diffFiles: [] });
     add(example, { head: '1'.repeat(40), diffFiles: file.examinedFiles });
+    add(JSON.stringify({ ...file, reviewerId: 'not-a-reviewer' }), {});
     add(example, { head: file.head, diffFiles: ['other.ts'] });
     expect([...raised].sort()).toEqual([...named].sort());
-    expect(named).toHaveLength(8);
+    expect(named).toHaveLength(9);
   });
 });
 
@@ -748,6 +749,20 @@ describe('unit 1 fix round 1: code-review instructions, each pinned', () => {
   it('fix 9: a directory inside a session is read by the session rule before the standalone one', () => {
     expect(receipt()).toMatch(
       /the gate reads any directory directly under `\.harness\/reviews\/` as a standalone review, except one inside a session \(`sessions\/<slug>\/reviews\/<label>`\), which it reads by the session rule first\. A session slug that starts with a dot is refused\./
+    );
+  });
+});
+
+describe('unit 1 fix round 1: the self-check reviewer id and mode flags (fix 11)', () => {
+  const receipt = () => section(md(), '### Review Receipt');
+  it('the self-check prints UNKNOWN_REVIEWER for an id the gate would reject', () => {
+    expect(receipt()).toMatch(
+      /`UNKNOWN_REVIEWER` \(a `reviewerId` that is not a known reviewer, which the gate would reject\)/
+    );
+  });
+  it('a flag the mode does not read is an error', () => {
+    expect(receipt()).toMatch(
+      /A flag the mode does not read is an error, never ignored: `--moment` with `--findings` exits 1, and so do `--base` or `--head` with a receipt path\./
     );
   });
 });

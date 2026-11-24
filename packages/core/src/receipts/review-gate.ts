@@ -266,20 +266,24 @@ const KNOWN_REVIEWER_IDS: ReadonlySet<string> = new Set([
   LIGHT_TIER_REVIEWER_ID,
 ]);
 
+/** UNKNOWN_REVIEWER for an id outside KNOWN_REVIEWER_IDS: the one check the gate and the self-check share. */
+function unknownReviewer(id: string): ReviewGateFailure | undefined {
+  if (KNOWN_REVIEWER_IDS.has(id)) return undefined;
+  const known = [...KNOWN_REVIEWER_IDS].join(', ');
+  return reviewGateFailure(
+    'UNKNOWN_REVIEWER',
+    `reviewer "${id}" is not a known reviewer (${known})`,
+    id
+  );
+}
+
 function rosterFailures(receipt: ReviewReceipt): ReviewGateFailure[] {
   const required = receipt.reviewers.filter((r) => r.required);
   const out = tierFailures(receipt, required);
   const seen = new Set<string>();
   for (const r of receipt.reviewers) {
-    if (!KNOWN_REVIEWER_IDS.has(r.id)) {
-      out.push(
-        reviewGateFailure(
-          'UNKNOWN_REVIEWER',
-          `reviewer "${r.id}" is not a known reviewer (${[...KNOWN_REVIEWER_IDS].join(', ')})`,
-          r.id
-        )
-      );
-    }
+    const unknown = unknownReviewer(r.id);
+    if (unknown !== undefined) out.push(unknown);
     if (seen.has(r.id)) {
       out.push(reviewGateFailure('DUPLICATE_REVIEWER', `reviewer "${r.id}" is listed twice`, r.id));
     }
@@ -499,7 +503,8 @@ export interface FindingsFileRange {
 
 /**
  * One reviewer findings file checked on its own, with the gate's parser and rules (a reviewer's
- * self-check before it reports). Without a range: shape, examined files and unique ids. With one
+ * self-check before it reports). Without a range: shape, a known reviewer id, examined files and
+ * unique ids. With one
  * (`diffFiles` present): also the head and that every examined file is in the diff.
  */
 export function checkReviewerFindingsText(
@@ -528,6 +533,8 @@ export function checkReviewerFindingsText(
       ? new Set(range.diffFiles.map(normalizeReviewPath))
       : undefined;
   const out: ReviewGateFailure[] = [];
+  const unknown = unknownReviewer(file.reviewerId);
+  if (unknown !== undefined) out.push(unknown);
   if (ranged && diffSet === undefined) {
     out.push(reviewGateFailure('DIFF_UNRESOLVED', 'could not compute the file set of the range'));
   } else if (diffSet?.size === 0) {
