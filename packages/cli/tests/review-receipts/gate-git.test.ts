@@ -5,6 +5,7 @@ import * as path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { runCheckFindingsFile, runCheckReviewReceipt } from '../../src/review-receipts/gate';
 import { handleCheckReviewReceipt } from '../../src/mcp/tools/review-receipt';
+import { listDiffFiles, runGitIn } from '../../src/review-receipts/io';
 
 /**
  * The receipt gate and the reviewer self-check against real git, for defects that are about git
@@ -308,5 +309,23 @@ describe('round 2: the gate runs git in the worktree that holds the receipt', ()
     fs.writeFileSync(path.join(lane, 'lane.ts'), 'edited\n');
     const r = runCheckReviewReceipt({ receiptPath: dir, cwd: tmp });
     expect(r.failures.map((f) => f.code)).toEqual(['WORKTREE_DIRTY']);
+  });
+});
+
+/**
+ * Round 2 (typescript-strict): `-z` output is split as git printed it. Trimming the whole output
+ * rewrote a first changed path that starts with whitespace, so a reviewer listing the real path
+ * failed EXAMINED_OUTSIDE_DIFF.
+ */
+describe('round 2: a changed path that starts with a space is listed as git printed it', () => {
+  it('listDiffFiles and the gate keep the leading space', () => {
+    const lead = commit(' lead.ts', 'x\n');
+    expect(listDiffFiles(runGitIn, head, lead, tmp)).toEqual([' lead.ts']);
+    head = lead;
+    const r = runCheckReviewReceipt({
+      receiptPath: writeReview('phase-0', start, [' lead.ts']),
+      cwd: tmp,
+    });
+    expect(r.failures).toEqual([]);
   });
 });

@@ -15,8 +15,9 @@ import {
 } from '@harness-engineering/core';
 
 /**
- * Injectable git seam: trimmed stdout of `git <args>` run in `cwd`. No shell. Named apart from
- * `CwdGit` in ../git/merge-driver-setup, which runs in a fixed directory and returns nothing.
+ * Injectable git seam: stdout of `git <args>` run in `cwd`, less one trailing newline (never
+ * trimmed: a `-z` path may start or end with whitespace). No shell. Named apart from `CwdGit` in
+ * ../git/merge-driver-setup, which runs in a fixed directory and returns nothing.
  */
 export type CwdGit = (args: string[], cwd: string) => string;
 
@@ -28,7 +29,7 @@ export const runGitIn: CwdGit = (args, cwd) =>
     stdio: ['ignore', 'pipe', 'pipe'],
   })
     .toString()
-    .trim();
+    .replace(/\r?\n$/, '');
 
 export function tryGit(git: CwdGit, args: string[], cwd: string): string | undefined {
   try {
