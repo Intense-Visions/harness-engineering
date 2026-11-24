@@ -70,9 +70,12 @@ findings files hold (`COUNTS_MISMATCH`), a head that is not the current HEAD, tr
 that differ from HEAD (`WORKTREE_DIRTY`, from `git status --porcelain=v1 -z --untracked-files=no`;
 untracked files do not count, and the self-check applies it when given a range), a base that is not
 an ancestor of the head, a `phase` receipt whose base is not the `diff.head` of the nearest
-earlier `phase-M` receipt of its session, or the session's starting commit when there is none
-(`PHASE_BASE_MISMATCH`; `PHASE_BASE_UNKNOWN` when neither can be named, including a phase
-receipt outside a session; `phaseReviewBase`), a diff range that cannot be computed or changes nothing, and a `final`
+earlier usable `phase-M` receipt of its session, or the session's starting commit when there is
+none (`PHASE_BASE_MISMATCH`; an earlier receipt that cannot be read, or whose `diff.head` a
+rebase left off the branch, is passed over, which only widens the review; `PHASE_BASE_UNKNOWN`
+when no base can be named, including a starting commit that is not an ancestor of the head,
+which after a rebase the session replaces with its new starting commit, and a phase receipt
+outside a session; `phaseReviewBase`), a diff range that cannot be computed or changes nothing, and a `final`
 receipt that is not full, cold, free of prior findings and based at the merge base with the
 default branch (a declared `baseSource: "starting-commit"` is accepted only when no
 default-branch merge base resolves and the base is the session's starting commit, and an unknown
@@ -134,7 +137,7 @@ reviewer findings files and are not in the receipt's counts.
   context that writes four findings files passes.
 - The gate checks, and does not take on trust: the moment (against the review directory, which
   no flag overrides), the head, a clean tracked tree, each findings file's head, the base's ancestry, a phase's
-  base (the previous receipt's head, else the starting commit), the merge base
+  base (the previous usable receipt's head, else the starting commit), the merge base
   of a final review (whatever `baseSource` the receipt declares, while a merge base resolves;
   the session's starting commit when none does), the `light` roster, the reviewer ids, finding-id uniqueness, and the `blocking`
   and `advisory` counts.

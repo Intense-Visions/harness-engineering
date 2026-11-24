@@ -82,11 +82,13 @@ export interface ReviewGateContext extends FindingsSource {
   phaseBase: PhaseReviewBase;
 }
 
-/** The nearest earlier phase review of the session that has a receipt, as the caller found it. */
+/**
+ * The nearest earlier phase review of the session whose receipt the caller could use: one it could
+ * read, holding a full `diff.head` that is an ancestor of the head under review.
+ */
 export type EarlierPhaseReceipt =
   | { status: 'none' }
-  /** `head`: the receipt's `diff.head` when it is a full sha; undefined when it cannot be read. */
-  | { status: 'found'; phase: number; head: string | undefined };
+  | { status: 'found'; phase: number; head: string };
 
 /** The base a phase review must have, or why none can be named. */
 export type PhaseReviewBase =
@@ -94,37 +96,35 @@ export type PhaseReviewBase =
   | { status: 'resolved'; base: string; source: 'starting-commit' }
   | {
       status: 'unresolved';
-      reason: 'not-in-session' | 'starting-commit-unknown';
-    }
-  | { status: 'unresolved'; reason: 'earlier-receipt-unreadable'; phase: number };
+      reason: 'not-in-session' | 'starting-commit-unknown' | 'starting-commit-not-ancestor';
+    };
 
 /**
  * The one rule for a phase review's base (autopilot REVIEW step 1): the `diff.head` of the
- * nearest earlier phase review that wrote a receipt, else the session's starting commit. A phase
- * that wrote no receipt (it made no commit, or was never reviewed) is passed over, so its commits
- * are in the next phase's diff. An earlier receipt whose head cannot be read is not passed over:
- * the base is then unknown. Outside a session nothing names a phase base.
+ * nearest earlier phase review with a usable receipt, else the session's starting commit. An
+ * earlier phase with no receipt, an unreadable one, or one whose head is not an ancestor of the
+ * head under review (a rebase rewrote it) is passed over: passing over only widens the review. A
+ * starting commit that is not an ancestor of the head names no base. Outside a session nothing
+ * names a phase base.
  */
 export function phaseReviewBase(input: {
   inSession: boolean;
   earlier: EarlierPhaseReceipt;
   startingCommit: string | undefined;
+  /** `git merge-base --is-ancestor <startingCommit> <head>` succeeded. */
+  startingCommitIsAncestor: boolean;
 }): PhaseReviewBase {
   if (!input.inSession) return { status: 'unresolved', reason: 'not-in-session' };
   const { earlier } = input;
   if (earlier.status === 'found') {
-    if (earlier.head === undefined) {
-      return { status: 'unresolved', reason: 'earlier-receipt-unreadable', phase: earlier.phase };
-    }
-    return {
-      status: 'resolved',
-      base: earlier.head,
-      source: 'previous-phase',
-      phase: earlier.phase,
-    };
+    const { head: base, phase } = earlier;
+    return { status: 'resolved', base, source: 'previous-phase', phase };
   }
   if (input.startingCommit === undefined) {
     return { status: 'unresolved', reason: 'starting-commit-unknown' };
+  }
+  if (!input.startingCommitIsAncestor) {
+    return { status: 'unresolved', reason: 'starting-commit-not-ancestor' };
   }
   return { status: 'resolved', base: input.startingCommit, source: 'starting-commit' };
 }
@@ -136,9 +136,11 @@ const PHASE_BASE_UNKNOWN_TEXT: Record<
   'not-in-session':
     'the receipt is not in a session review directory, so no earlier phase or starting commit names its base',
   'starting-commit-unknown':
-    "no earlier phase has a receipt and the session's autopilot-state.json holds no full startingCommit",
-  'earlier-receipt-unreadable':
-    "the nearest earlier phase's receipt.json cannot be read or holds no full diff.head",
+    "no earlier phase has a usable receipt and the session's autopilot-state.json holds no full startingCommit",
+  'starting-commit-not-ancestor':
+    "no earlier phase has a usable receipt and the session's startingCommit is not an ancestor of " +
+    'the head; after a rebase, record the new starting commit (the merge base with the branch ' +
+    'this one merges into) in autopilot-state.json, and the next phase review covers everything since it',
 };
 
 /** A phase receipt's base against phaseReviewBase. Standalone and final have their own rules. */
@@ -148,12 +150,10 @@ function phaseBaseFailures(
 ): ReviewGateFailure[] {
   if (receipt.moment !== 'phase') return [];
   if (phaseBase.status === 'unresolved') {
-    const at =
-      phaseBase.reason === 'earlier-receipt-unreadable' ? ` (phase-${phaseBase.phase})` : '';
     return [
       reviewGateFailure(
         'PHASE_BASE_UNKNOWN',
-        `the base a phase review must have is unknown: ${PHASE_BASE_UNKNOWN_TEXT[phaseBase.reason]}${at}`
+        `the base a phase review must have is unknown: ${PHASE_BASE_UNKNOWN_TEXT[phaseBase.reason]}`
       ),
     ];
   }

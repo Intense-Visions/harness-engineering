@@ -121,12 +121,33 @@ export const fields = (v: unknown): Record<string, unknown> =>
 const PHASE_LABEL = /^phase-(0|[1-9][0-9]{0,8})$/;
 
 /**
- * The nearest earlier phase review of the same session that holds a `receipt.json`, read as a
- * receipt is read (a regular file of at most 5 MB inside the reviews directory). A phase directory
- * with no receipt is passed over; one whose receipt cannot be read, or holds no full `diff.head`,
- * is returned with no head, so the caller cannot pass over it. `reviewDir` is `phase-N`.
+ * `git merge-base --is-ancestor <ancestor> <of>`: true, false (git exits 1), or undefined when git
+ * cannot say (a missing object, no git).
  */
-export function earlierPhaseReceipt(reviewDir: string): EarlierPhaseReceipt {
+export function isAncestor(
+  git: CwdGit,
+  ancestor: string,
+  of: string,
+  cwd: string
+): boolean | undefined {
+  try {
+    git(['merge-base', '--is-ancestor', ancestor, of], cwd);
+    return true;
+  } catch (err) {
+    return (err as { status?: unknown }).status === 1 ? false : undefined;
+  }
+}
+
+/**
+ * The nearest earlier phase review of the same session with a usable receipt: read as a receipt
+ * is read (a regular file of at most 5 MB inside the reviews directory), holding a full
+ * `diff.head` that `reachable` accepts (an ancestor of the head under review). Any other earlier
+ * phase is passed over, which only widens the review. `reviewDir` is `phase-N`.
+ */
+export function earlierPhaseReceipt(
+  reviewDir: string,
+  reachable: (head: string) => boolean
+): EarlierPhaseReceipt {
   const n = PHASE_LABEL.exec(path.basename(reviewDir))?.[1];
   if (n === undefined) return { status: 'none' };
   const reviews = path.dirname(reviewDir);
@@ -145,9 +166,8 @@ export function earlierPhaseReceipt(reviewDir: string): EarlierPhaseReceipt {
   for (const phase of earlier) {
     const file = path.join(reviews, `phase-${phase}`, 'receipt.json');
     const read = readReviewReceiptFile(file, { within: reviews });
-    if (read.status === 'missing') continue;
     const head = read.status === 'ok' ? fields(fields(read.raw).diff).head : undefined;
-    return { status: 'found', phase, head: isSha(head) ? head : undefined };
+    if (isSha(head) && reachable(head)) return { status: 'found', phase, head };
   }
   return { status: 'none' };
 }

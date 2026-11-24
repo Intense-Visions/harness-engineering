@@ -135,6 +135,8 @@ describe('runCheckReviewReceipt', () => {
     });
     expect(calls).toEqual([
       ['rev-parse', '--show-toplevel'],
+      // phase-0's base: the session's starting commit, which must be an ancestor of the head
+      ['merge-base', '--is-ancestor', BASE, HEAD],
       ['rev-parse', 'HEAD'],
       ['diff', '--name-only', '--no-renames', '-z', `${BASE}..${HEAD}`],
       ['merge-base', '--is-ancestor', BASE, HEAD],

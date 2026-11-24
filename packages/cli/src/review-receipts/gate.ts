@@ -19,6 +19,7 @@ import { REVIEW_MOMENTS, type ReviewMoment, type ReviewReceipt } from '@harness-
 import {
   earlierPhaseReceipt,
   fields,
+  isAncestor,
   isSha,
   listDiffFiles,
   resolveCommit,
@@ -105,8 +106,7 @@ type Recomputed = Omit<
  * repository top, so the diff is listed repository-relative whatever the caller's directory and
  * diff config (`diff.relative`), which is how reviewers are told to list it.
  */
-function recompute(git: CwdGit, raw: unknown, from: string): Recomputed {
-  const range = claimedRange(raw);
+function recompute(git: CwdGit, range: Range | undefined, cwd: string): Recomputed {
   if (range === undefined) {
     return {
       head: '',
@@ -116,7 +116,6 @@ function recompute(git: CwdGit, raw: unknown, from: string): Recomputed {
       worktreeClean: undefined,
     };
   }
-  const cwd = resolveRepoRoots(git, from)?.top ?? from;
   const { base, head } = range;
   return {
     ...currentHead(git, cwd),
@@ -168,12 +167,19 @@ export function gateReviewReceipt(opts: CheckReviewReceiptOptions): GatedReviewR
   }
   const sessionDir = sessionDirOfReviewDir(read.dir);
   const startingCommit = sessionStartingCommit(sessionDir);
+  const range = claimedRange(read.raw);
+  // Git is asked only about a claimed range (never about free text), at the repository top.
+  const top = range === undefined ? cwd : (resolveRepoRoots(git, cwd)?.top ?? cwd);
+  const reachable = (sha: string) =>
+    range !== undefined && isAncestor(git, sha, range.head, top) === true;
   const phaseBase = phaseReviewBase({
     inSession: sessionDir !== undefined,
-    earlier: sessionDir === undefined ? { status: 'none' } : earlierPhaseReceipt(read.dir),
+    earlier:
+      sessionDir === undefined ? { status: 'none' } : earlierPhaseReceipt(read.dir, reachable),
     startingCommit,
+    startingCommitIsAncestor: startingCommit !== undefined && reachable(startingCommit),
   });
-  const recomputed = recompute(git, read.raw, cwd);
+  const recomputed = recompute(git, range, top);
   const result = validateReviewReceipt(read.raw, {
     ...recomputed,
     ...(startingCommit !== undefined && { startingCommit }),

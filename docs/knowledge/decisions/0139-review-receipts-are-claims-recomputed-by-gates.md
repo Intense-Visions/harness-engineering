@@ -67,10 +67,13 @@ recomputed and the gate compares:
 - A phase receipt's base is recomputed too (`phaseReviewBase`): it must be the `diff.head` of
   the nearest earlier `phase-M` receipt of the same session, else the session's starting commit
   (`PHASE_BASE_MISMATCH`). A phase that wrote no receipt (it made no commit, or was never
-  reviewed) is passed over, so its commits fall in the next phase's diff; an earlier receipt that
-  cannot be read is not passed over. When no base can be named (no earlier receipt and no
-  starting commit, an unreadable earlier receipt, or a phase receipt outside a session) the gate
-  fails `PHASE_BASE_UNKNOWN`. A standalone review's base stays an ancestry check.
+  reviewed) is passed over, so its commits fall in the next phase's diff, and so is an earlier
+  receipt that cannot be read or whose `diff.head` is not an ancestor of the head (a rebase
+  rewrote it): the base falls to the next earlier usable receipt, else the starting commit.
+  Passing over only ever widens the review. When no base can be named (no usable earlier receipt
+  and no starting commit, a starting commit that is not an ancestor of the head, or a phase
+  receipt outside a session) the gate fails `PHASE_BASE_UNKNOWN`; after a rebase the session
+  records its new starting commit, and the next phase review covers everything since it. A standalone review's base stays an ancestry check.
 - The diff's file set comes from `git diff --name-only --no-renames -z <base>..<head>`, using
   the receipt's two SHAs. `-z` makes git print names unquoted, so a path with a non-ASCII
   character or a space compares equal to what a reviewer listed, and `--no-renames` puts a

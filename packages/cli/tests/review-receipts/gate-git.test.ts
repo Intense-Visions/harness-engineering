@@ -147,8 +147,9 @@ describe('the review is bound to a clean tracked tree', () => {
  * Fix 1. A phase receipt's base is recomputed: the diff.head of the nearest earlier phase-M
  * receipt, else the session's starting commit. Partition: first phase at the starting commit, a
  * narrowed base; a later phase after a reviewed one, at its head and at the starting commit; a
- * phase after one that wrote no receipt (passed over); an earlier receipt that cannot be read; no
- * starting commit; a copy outside a session.
+ * phase after one that wrote no receipt (passed over); an earlier receipt that cannot be read or
+ * whose head a rebase left off the branch (passed over, round 2); a starting commit off the
+ * branch; no starting commit; a copy outside a session.
  */
 describe('a phase receipt starts where the previous reviewed phase ended', () => {
   let mid: string;
@@ -191,13 +192,42 @@ describe('a phase receipt starts where the previous reviewed phase ended', () =>
     earlier('phase-3', JSON.stringify({ diff: { base: start, head: head } }));
     expect(codes(writeReview('phase-0', start, ['pkg/sub/b.ts']))).toEqual([]);
   });
-  it('an earlier receipt that cannot be read makes the base unknown', () => {
-    earlier('phase-0', '{ not json');
-    expect(codes(writeReview('phase-1', mid, ['pkg/sub/b.ts']))).toEqual(['PHASE_BASE_UNKNOWN']);
+  it.each([
+    ['cannot be read', '{ not json'],
+    ['holds no full diff.head', JSON.stringify({ diff: { head: 'HEAD' } })],
+  ])('round 2: an earlier receipt that %s is passed over to the starting commit', (_n, body) => {
+    earlier('phase-0', body);
+    expect(codes(writeReview('phase-1', start, ['pkg/sub/b.ts']))).toEqual([]);
+    expect(codes(writeReview('phase-1', mid, ['pkg/sub/b.ts']))).toEqual(['PHASE_BASE_MISMATCH']);
   });
-  it('an earlier receipt without a full diff.head makes the base unknown', () => {
-    earlier('phase-0', JSON.stringify({ diff: { head: 'HEAD' } }));
-    expect(codes(writeReview('phase-1', mid, ['pkg/sub/b.ts']))).toEqual(['PHASE_BASE_UNKNOWN']);
+  it('round 2: an unreadable receipt is passed over to the next earlier readable one', () => {
+    earlier('phase-0', JSON.stringify({ diff: { base: start, head: mid } }));
+    earlier('phase-1', '{ not json');
+    expect(codes(writeReview('phase-2', mid, ['pkg/sub/b.ts']))).toEqual([]);
+  });
+  /** A commit off the reviewed branch: what an earlier receipt's head becomes after a rebase. */
+  const offBranch = () => {
+    g('checkout', '-q', '-b', 'side', start);
+    const side = commit('side.ts', 's\n');
+    g('checkout', '-q', '-');
+    return side;
+  };
+  it('round 2: after a rebase an earlier receipt whose head is not an ancestor is passed over', () => {
+    earlier('phase-0', JSON.stringify({ diff: { base: start, head: offBranch() } }));
+    expect(codes(writeReview('phase-1', start, ['pkg/sub/b.ts']))).toEqual([]);
+  });
+  it('round 2: a starting commit that is not an ancestor fails PHASE_BASE_UNKNOWN: record the new one', () => {
+    const side = offBranch();
+    fs.writeFileSync(
+      path.join(session(), 'autopilot-state.json'),
+      JSON.stringify({ startingCommit: side })
+    );
+    const r = runCheckReviewReceipt({
+      receiptPath: writeReview('phase-0', start, ['pkg/sub/b.ts']),
+      cwd: tmp,
+    });
+    expect(r.failures.map((f) => f.code)).toEqual(['PHASE_BASE_UNKNOWN']);
+    expect(r.failures[0]?.message).toMatch(/record the new starting commit/);
   });
   it('no earlier receipt and no starting commit: unknown', () => {
     fs.writeFileSync(path.join(session(), 'autopilot-state.json'), '{}');
