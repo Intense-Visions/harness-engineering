@@ -167,8 +167,7 @@ Gate a review receipt: recompute HEAD, the diff file set, the base and every rev
 
 **Options:**
 
-- `--findings` — A reviewer's self-check: validate one findings file with the gate's parser (with --base and --head, also that its head is --head and every examined file is in that diff)
-- `--target` — The branch a final review's base is the merge base with, such as a stacked PR base (default: the default branch). Read for a final receipt only
+- `--findings` — A reviewer's self-check: validate one findings file with the gate's parser (with --base and --head, also that its head is --head, the working tree is at --head and every examined file is in that diff)
 - `--base` — With --findings: base of the reviewed range
 - `--head` — With --findings: head of the reviewed range
 - `--moment` — Which review this is, for a directory that does not say (phase-N, final-all and a directory directly under .harness/reviews each do). Contradicting the directory fails the gate
@@ -628,7 +627,7 @@ Run the tiered code-review gate (floor + optional LLM runner) for CI
 
 ### `harness review-tier`
 
-Compute the review tier (light or full) and backend for one review: risk keywords in the diff and the range's commit messages (identity trailers such as Signed-off-by excluded), package entry points, complexity and rigor decide a phase; final and standalone are always full, and for them it prints the base the receipt gate will demand (base, baseSource). Exits 1 when the tier cannot be computed (with --json, prints {"error": ...})
+Compute the review tier (light or full) and backend for one review: risk keywords in the diff and the range's commit messages (identity trailers such as Signed-off-by excluded), package entry points, complexity and rigor decide a phase; final and standalone are always full. For a final review it prints the base the receipt gate will demand, and for a standalone review the advised base, the default-branch merge base, which the gate checks only for ancestry (base, baseSource). Exits 1 when the tier cannot be computed (with --json, prints {"error": ...})
 
 **Options:**
 
@@ -636,7 +635,7 @@ Compute the review tier (light or full) and backend for one review: risk keyword
 - `--base` — Base of the reviewed range (required for a phase review)
 - `--head` — Head of the reviewed range (required for a phase review; final and standalone default to HEAD)
 - `--session` — Autopilot session (--moment final only): a final review's base is its starting commit when no default branch resolves
-- `--target` — The branch a final or standalone review merges into, such as a stacked PR base: the base is the merge base with it instead of the default branch
+- `--target` — The remote-tracking branch a final or standalone review merges into, such as a stacked PR base (origin/parent): the base is the merge base with it instead of the default branch. A final receipt records the full ref printed as diff.target
 - `--complexity` — The phase's assessed complexity
 - `--rigor` — Rigor level of the run
 - `--pipeline-runner` — This session can run the coded review pipeline (the run_code_review tool is callable)

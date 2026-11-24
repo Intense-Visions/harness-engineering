@@ -65,7 +65,6 @@ Gate a review receipt: recomputes HEAD, the diff file set, the base and every re
 
 - `path` (string, required) — Path to project root
 - `receipt` (string, required) — Path to receipt.json or to the review directory holding it, absolute or relative to path. It must be inside path
-- `target` (string, optional) — The branch a final review's base is the merge base with, such as a stacked PR base. Default: the default branch. Read for a final receipt only
 - `moment` (string, optional) — Which review this is, for a receipt directory that does not say (phase-N, final-all and a directory directly under .harness/reviews each do). Contradicting the directory fails the gate
 
 ### `check_task_independence`

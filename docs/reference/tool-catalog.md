@@ -739,10 +739,6 @@ Gate a review receipt: recomputes HEAD, the diff file set, the base and every re
     "receipt": {
       "description": "Path to receipt.json or to the review directory holding it, absolute or relative to path. It must be inside path",
       "type": "string"
-    },
-    "target": {
-      "description": "The branch a final review's base is the merge base with, such as a stacked PR base. Default: the default branch. Read for a final receipt only",
-      "type": "string"
     }
   },
   "required": [
