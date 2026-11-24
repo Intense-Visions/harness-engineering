@@ -114,8 +114,10 @@ never records `full`. Honest capability is what makes the roster check meaningfu
 
 ## Consequences
 
-- A degraded review now fails a gate or shows on the PR as `light`; it cannot pass as `full`
-  unless a session writes a false receipt on purpose.
+- A degraded review now fails a gate, or its receipt records `tier: light`; a `light` receipt
+  below a computed `full` records the demotion (`demotion: "no-subagent-tool"`) and fails the
+  gate (`TIER_DEMOTED`) unless it declares it. It cannot pass as `full` unless a session writes a
+  false receipt on purpose.
 - **What the gate cannot prove:** that reviewers ran in separate contexts. One context that
   deliberately writes four findings files passes.
 - These things a receipt says stay claims in Phase 1 because the gate does not recompute them:
