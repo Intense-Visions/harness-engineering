@@ -1,11 +1,20 @@
 ---
 schemaVersion: 1
 module: 'packages/core/src/receipts'
-sourceHash: '271a247b63c84aab49997d792940ce3dfb26f3a8ae8b0537aa876ce27ab99218'
+sourceHash: 'eb1ee4e0686d8eac010bf2ce07824f6c6c242c80fe50f85b40c70a460e886830'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
-members: ['backend.ts', 'index.ts', 'layout.ts', 'load.ts', 'review-gate.ts', 'schema.ts']
+members:
+  [
+    'backend.ts',
+    'index.ts',
+    'layout.ts',
+    'load.ts',
+    'review-gate.ts',
+    'schema.ts',
+    'terminal-text.ts',
+  ]
 ---
 
 ## Interface Contract
@@ -21,6 +30,7 @@ export ReviewGateFailure
 export ReviewGateResult
 export SESSION_REVIEW_LABEL
 export checkReviewerFindingsText
+export escapeTerminalText
 export expectedReviewMoment
 export finalReviewBase
 export parseReviewReceipt

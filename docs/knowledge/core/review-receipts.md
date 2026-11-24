@@ -140,6 +140,10 @@ reviewer findings files and are not in the receipt's counts.
   merged by file or line. The gate fails a receipt whose `blocking` or `advisory` differs, and
   requires finding ids to be unique across the review. A finding the review's own validation
   step later discarded stays in its reviewer's file, so it is still counted.
+- The gate's text output prints every string that a receipt, a findings file or a path can
+  carry through one helper, `escapeTerminalText`: control characters, DEL, the C1 controls, bidi
+  controls and invisible format characters are printed as `\u{XXXX}`, so a receipt cannot
+  repaint a `FAIL` line as `PASS`. `--json` prints the strings JSON-encoded, unchanged otherwise.
 - Hook findings (canary detectors, craft domains) are outside the receipt and its counts.
 - The reviewer self-check (`harness check-review-receipt --findings`) sees one file: ids
   repeated across two reviewers' files are found only by the gate.
@@ -157,6 +161,7 @@ reviewer findings files and are not in the receipt's counts.
 | [load.ts](../../../packages/core/src/receipts/load.ts)                                | Reads a receipt; the findings reader confined to the review directory                      |
 | [layout.ts](../../../packages/core/src/receipts/layout.ts)                            | Review directory names, `expectedReviewMoment` (the one precedence rule)                   |
 | [backend.ts](../../../packages/core/src/receipts/backend.ts)                          | `resolveReviewBackend`                                                                     |
+| [terminal-text.ts](../../../packages/core/src/receipts/terminal-text.ts)              | `escapeTerminalText`, the one rule for gate text output                                    |
 | [tier-selector.ts](../../../packages/core/src/review/tier-selector.ts)                | `selectReviewTier`                                                                         |
 | [gate.ts](../../../packages/cli/src/review-receipts/gate.ts)                          | `gateReviewReceipt`: recomputes HEAD, the diff and the base, runs gate                     |
 | [io.ts](../../../packages/cli/src/review-receipts/io.ts)                              | The git seam; `resolveRepoRoots`; `resolveFinalReviewBase`                                 |

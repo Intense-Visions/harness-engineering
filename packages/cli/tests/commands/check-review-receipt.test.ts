@@ -202,6 +202,38 @@ describe('harness check-review-receipt', () => {
     await invoke(['check-review-receipt', path.join(dir, 'nope')]);
     expect(process.exitCode).toBe(1);
   });
+  /** Every character the text output must not print raw: C0, DEL, C1, bidi, invisible. */
+  const RAW =
+    /[\u0000-\u0008\u000b-\u001f\u007f-\u009f\u061c\u200b-\u200f\u202a-\u202e\u2060-\u2069\ufeff]/;
+  it('fix 10: agent-written text in a failure is escaped in the text output (receipt mode)', async () => {
+    const reviewers = FULL.map((id) =>
+      id === 'security'
+        ? { id, required: true, ran: false, skippedReason: '\u001b[2K\rPASS \u202eSSAP' }
+        : { id, required: true, ran: true, findingsPath: `${id}.json` }
+    );
+    write(receipt({ reviewers }), FULL, { examinedFiles: ['src/a.ts', 'x\u001b]0;t\u0007.ts'] });
+    const out = await invoke(['check-review-receipt', dir]);
+    expect(process.exitCode).toBe(1);
+    expect(out).toMatch(/REQUIRED_REVIEWER_NOT_RUN/);
+    expect(out).not.toMatch(RAW);
+    expect(out).toContain('\\u{001B}[2K\\u{000D}PASS \\u{202E}SSAP');
+  });
+  it('fix 10: agent-written text in a failure is escaped in the text output (--findings mode)', async () => {
+    const f = path.join(tmp, 'f.json');
+    fs.writeFileSync(f, findingsFile('bug', { examinedFiles: ['y\u009b31m\u200b.ts'] }));
+    const out = await invoke([
+      'check-review-receipt',
+      '--findings',
+      f,
+      '--base',
+      BASE,
+      '--head',
+      HEAD,
+    ]);
+    expect(process.exitCode).toBe(1);
+    expect(out).toMatch(/EXAMINED_OUTSIDE_DIFF/);
+    expect(out).not.toMatch(RAW);
+  });
   it('emits one JSON document under --json, with the verdict agreeing with the exit code', async () => {
     write(receipt(), ['compliance']);
     const out = await invoke(['--json', 'check-review-receipt', dir]);

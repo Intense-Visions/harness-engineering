@@ -1913,6 +1913,7 @@ enforceFindingIntegrity
 enforceLeafContextBudget
 ensureIdentity
 ensureWaypointEmitter
+escapeTerminalText
 estimateCompressionValue
 estimateTokens
 evaluateClassifier

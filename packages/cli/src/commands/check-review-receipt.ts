@@ -3,6 +3,7 @@ import { logger } from '../output/logger';
 import { ExitCode } from '../utils/errors';
 import {
   REVIEW_MOMENTS,
+  escapeTerminalText as inert,
   runCheckFindingsFile,
   runCheckReviewReceipt,
   type CheckReviewReceiptReport,
@@ -10,6 +11,10 @@ import {
   type ReviewMoment,
 } from '../review-receipts/gate';
 
+/**
+ * The text output. Every string a receipt, a findings file or a path can carry is printed through
+ * escapeTerminalText, so control, DEL, bidi and invisible characters are shown, not acted on.
+ */
 export function formatCheckReviewReceipt(report: CheckReviewReceiptReport): string[] {
   const what =
     report.tier === undefined
@@ -19,8 +24,8 @@ export function formatCheckReviewReceipt(report: CheckReviewReceiptReport): stri
   if (report.pass) return [`review receipt gate: PASS${what}: ${ran}`];
   return [
     `review receipt gate: FAIL${what}: ${ran}`,
-    `  receipt: ${report.receiptPath}`,
-    ...report.failures.map((f) => `  - [${f.code}] ${f.message}`),
+    `  receipt: ${inert(report.receiptPath)}`,
+    ...report.failures.map((f) => `  - [${f.code}] ${inert(f.message)}`),
   ];
 }
 
@@ -46,10 +51,10 @@ function runFindings(opts: CheckFlags, deps: CheckReviewReceiptDeps, json: boole
     ...(deps.git !== undefined && { git: deps.git }),
   });
   if (json) console.log(JSON.stringify(report, null, 2));
-  else if (report.pass) logger.info(`findings file check: PASS: ${report.findingsPath}`);
+  else if (report.pass) logger.info(`findings file check: PASS: ${inert(report.findingsPath)}`);
   else {
-    logger.error(`findings file check: FAIL: ${report.findingsPath}`);
-    for (const f of report.failures) logger.error(`  - [${f.code}] ${f.message}`);
+    logger.error(`findings file check: FAIL: ${inert(report.findingsPath)}`);
+    for (const f of report.failures) logger.error(`  - [${f.code}] ${inert(f.message)}`);
   }
   process.exitCode = report.pass ? ExitCode.SUCCESS : ExitCode.VALIDATION_FAILED;
 }

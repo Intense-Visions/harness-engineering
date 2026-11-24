@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/tests/receipts'
-sourceHash: 'd40aa9fff300ca94c10e1bd44388b4eaced1a295bb5eaa9bfacdc3bb3ee79c5e'
+sourceHash: 'd21cf88bb702a0c384cec6e58b365838c4e8cca9528c65f4fb5ca877b8a6baee'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -22,6 +22,7 @@ members:
     'round4-stamp-inert.test.ts',
     'schema-types.test.ts',
     'schema.test.ts',
+    'terminal-text.test.ts',
   ]
 ---
 
@@ -50,6 +51,7 @@ import { ExpectedMoment, REVIEW_RECEIPT_FILENAME, SESSION_REVIEW_LABEL, expected
 import { REVIEW_FILE_MAX_BYTES, readReviewReceiptFile, reviewFindingsReaderFor } from '../../src/receipts/load'
 import { ReviewGateContext, checkReviewerFindingsText, finalReviewBase, validateReviewReceipt } from '../../src/receipts/review-gate'
 import { BLOCKING_SEVERITIES, ReceiptFinding, ReviewReceiptSchema, ReviewerFindingsFile, isBlockingSeverity, normalizeReviewPath, parseReviewReceipt, parseReviewerFindingsFile, pathEscapes } from '../../src/receipts/schema'
+import { escapeTerminalText } from '../../src/receipts/terminal-text'
 import { ConditionalSubagent } from '../../src/review/depth-calibrator'
 import { ReviewFinding } from '../../src/review/types/fan-out'
 import { BASE, FULL, HEAD, OTHER, START, codesOf, ctx, finding, findingsText, receipt, record } from './round4-helpers'

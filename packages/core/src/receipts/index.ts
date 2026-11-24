@@ -9,6 +9,7 @@ export { finalReviewBase, reviewGateFailure, validateReviewReceipt } from './rev
 export { checkReviewerFindingsText } from './review-gate';
 export type { ReviewGateContext, ReviewGateFailure, ReviewGateResult } from './review-gate';
 export type { FinalReviewBase } from './review-gate';
+export { escapeTerminalText } from './terminal-text';
 export { resolveReviewBackend } from './backend';
 export type { ResolvedReviewBackend } from './backend';
 export { FINAL_REVIEW_LABEL, REVIEWS_DIRNAME, SESSION_REVIEW_LABEL } from './layout';

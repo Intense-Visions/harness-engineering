@@ -2,6 +2,7 @@ import * as path from 'node:path';
 import {
   FULL_SHA_PATTERN,
   checkReviewerFindingsText,
+  escapeTerminalText,
   readRegularFile,
   reviewFindingsReaderFor,
   reviewGateFailure,
@@ -24,7 +25,7 @@ import {
   type CwdGit,
 } from './io';
 
-export { REVIEW_MOMENTS };
+export { REVIEW_MOMENTS, escapeTerminalText };
 export type { CwdGit, ReviewGateFailure, ReviewMoment };
 
 export interface CheckReviewReceiptOptions {
