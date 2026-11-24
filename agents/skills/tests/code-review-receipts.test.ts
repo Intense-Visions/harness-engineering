@@ -489,7 +489,11 @@ describe('review round 3: craft, dispatched mode and the reviewer self-check (A6
     expect(text).toMatch(/\*\*Only a run that owns its review resolves craft here\.\*\*/);
     expect(text).toMatch(/do NOT resolve craft at `after:mechanical`/);
     expect(text).toMatch(/writes their output to `hook-<name>\.json` in the review directory/);
-    expect(text).toMatch(/only the craft auto-wiring\s+moves to the host/);
+    expect(text).toMatch(/Only the craft auto-wiring moves to the host/);
+    // Round 2, fix 3: the configured hooks are the orchestrating session's, never the reviewer's.
+    expect(text).toMatch(
+      /run by the session that\s+orchestrates the review: a dispatched reviewer cannot dispatch, so in dispatched mode you run\s+none of them/
+    );
   });
   it('A7: one test decides dispatched mode, and the two dispatched reviewers are told apart', () => {
     const text = tiers();
@@ -744,7 +748,7 @@ describe('round 4: code-review instructions of review round 4 are each pinned', 
     );
     // Fix 8: a stacked branch names its target, and the gate is given the same one.
     expect(text).toMatch(
-      /`--target <ref>` names the branch the reviewed branch merges into when that is not the default branch \(a stacked PR's base, such as `origin\/feat\/parent`\): the base is then the merge base with that ref, resolved with `git rev-parse --verify --end-of-options`, and the gate must be given the same `--target`\./
+      /`--target <ref>` names the remote-tracking branch the reviewed branch merges into when that is not the default branch \(a stacked PR's base, such as `origin\/feat\/parent`\): the base is then the merge base with that ref\. Only a ref under `refs\/remotes\/` is accepted; a sha, a HEAD-relative name, a local branch or a tag gives `Review base: unresolved`\. The command prints the full ref \(`target` in JSON\), and a final receipt records it as `diff\.target`, which the gate reads\./
     );
     expect(text).toMatch(
       /`review\.backend` in the repository top's `harness\.config\.json` \(or the file the global `-c` option names\) is `"agent"` \(the default\) or `"pipeline"`; any other value is an error \(exit 1\)/

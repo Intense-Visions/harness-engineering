@@ -299,8 +299,9 @@ for the `{ wired, skipped, expected, files }` split. The full contract lives in 
   review: it resolves the craft domains once, at its own `after:REVIEW` or `after:FINAL_REVIEW`,
   and writes their output to `hook-<name>.json` in the review directory. Resolving them here as
   well would critique the same diff twice. The project's configured `skillHooks` for
-  `after:mechanical` (the paragraph above) still run in both cases; only the craft auto-wiring
-  moves to the host.
+  `after:mechanical` (the paragraph above) still run in both cases, run by the session that
+  orchestrates the review: a dispatched reviewer cannot dispatch, so in dispatched mode you run
+  none of them. Only the craft auto-wiring moves to the host.
 - **Report the denominator, including skips** — "craft domains: 2/3 activated, 1 skipped:
   unsupported-language" — in the same report as the hook denominator. A surprising `0/M` renders
   as `0/M`, never as silence.

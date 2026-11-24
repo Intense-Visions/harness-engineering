@@ -457,7 +457,7 @@ describe('review round 2: moment, tier, base and commits after the final review 
     );
     expect(text).toMatch(/`DIFF_BASE_NOT_ANCESTOR`/);
     expect(text).toMatch(
-      /it fails unless `diff\.base` is the base of step 2 \(`FINAL_BASE_NOT_MERGE_BASE`, `STARTING_COMMIT_UNKNOWN`\)/
+      /it fails unless `diff\.base` is the base of step 2 \(`FINAL_BASE_NOT_MERGE_BASE`, `STARTING_COMMIT_UNKNOWN`; `TARGET_UNRESOLVED` when the recorded `diff\.target` is not a remote-tracking branch that resolves\)/
     );
     expect(text).toMatch(
       /When the command prints `Review base: unresolved \(<why>\)` \(`baseUnresolved` in JSON\) no base the gate would accept is known/
@@ -609,7 +609,7 @@ describe('review round 3: hooks, reviewer self-check and tier (A6 to A10)', () =
     );
     expect(text).toMatch(/Never resolve craft at both points for one review/);
     expect(text).toMatch(
-      /the project's configured `skillHooks` for `harness-code-review` at `after:mechanical` run there/
+      /the project's configured `skillHooks` for `harness-code-review` at `after:mechanical` are run by this session/
     );
   });
   it('A7: every reviewer brief tells the reviewer to validate its findings file before returning', () => {
@@ -701,7 +701,7 @@ describe('round 4: the review-fidelity instructions of review round 4 are each p
   const final = () => section(md(), '### FINAL_REVIEW');
   it('a phase base passes over a phase that was skipped or never reviewed', () => {
     expect(review()).toMatch(
-      /`\{base\}` is the `diff\.head` of the receipt of the nearest earlier phase that has one, passing over a phase that was skipped or whose review wrote no receipt, and `startingCommit` when no earlier phase has a receipt/
+      /`\{base\}` is the `diff\.head` of the receipt of the nearest earlier phase that has a usable one, passing over a phase that was skipped or whose review wrote no receipt, a receipt that cannot be read, and a receipt whose `diff\.head` is not an ancestor of HEAD \(a rebase rewrote it\), and `startingCommit` when no earlier phase has a usable receipt/
     );
   });
   it('review.backend is read from the repository top, and an invalid value is an error', () => {
@@ -731,7 +731,7 @@ describe('unit 1 fix round 1: autopilot instructions, each pinned', () => {
 describe('unit 1 fix round 1: the phase base is recomputed (fix 1)', () => {
   it('REVIEW step 1 says the gate recomputes the phase base and names both codes', () => {
     expect(section(md(), '### REVIEW')).toMatch(
-      /The gate recomputes this base from the same files: a phase receipt whose `diff\.base` is not it fails `PHASE_BASE_MISMATCH`, and when no base can be named \(no earlier receipt and no `startingCommit`, or an earlier receipt it cannot read\) it fails `PHASE_BASE_UNKNOWN`\./
+      /The gate recomputes this base from the same files: a phase receipt whose `diff\.base` is not it fails `PHASE_BASE_MISMATCH`, and when no base can be named \(no usable earlier receipt and no `startingCommit`, or a `startingCommit` that is not an ancestor of HEAD\) it fails `PHASE_BASE_UNKNOWN`\./
     );
   });
 });
@@ -763,10 +763,45 @@ describe('unit 1 fix round 1: a demotion to light is visible (fix 3)', () => {
   });
 });
 
-describe('unit 1 fix round 1: a stacked branch names its target (fix 8)', () => {
-  it('FINAL_REVIEW step 2 passes --target to the tier command and to the gate', () => {
-    expect(section(md(), '### FINAL_REVIEW')).toMatch(
-      /When this branch's PR targets another unmerged branch rather than the default branch \(a stacked PR\), add `--target <that branch's remote-tracking ref>` to this command and the same `--target` to the gate below/
+describe('unit 1 fix round 2: a stacked branch records its target in the receipt (fix 1)', () => {
+  const final = () => section(md(), '### FINAL_REVIEW');
+  it('FINAL_REVIEW step 2 passes --target to the tier command and records the full ref as diff.target', () => {
+    expect(final()).toMatch(
+      /When this branch's PR targets another unmerged branch rather than the default branch \(a stacked PR\), add `--target <that branch's remote-tracking ref>` \(such as `origin\/feat\/parent`; a sha, a HEAD-relative name, a local branch or a tag is refused\) to this command, and record the full ref it prints \(`target` in JSON, `against refs\/remotes\/…` on the `Review base:` line\) as `diff\.target` in the receipt\./
+    );
+    expect(final()).toMatch(
+      /the gate reads the target from the receipt, so the gate step below takes no flag for it/
+    );
+  });
+  it('the gate step passes no --target', () => {
+    expect(md()).not.toMatch(/check-review-receipt[^`\n]*--target/);
+  });
+});
+
+describe('unit 1 fix round 2: after a rebase, record the new starting commit (fix 2)', () => {
+  it('REVIEW step 1 says what to record after a rebase, taken from review-tier', () => {
+    expect(section(md(), '### REVIEW')).toMatch(
+      /\*\*After a rebase\*\* \(the branch was rebased onto its target, as when the unit below it merged\), the old `startingCommit` and the earlier receipts' heads are off the branch: record the new starting commit in `autopilot-state\.json`: the merge base with the default branch, or with the target branch of a stacked branch, as the `Review base:` line of `harness review-tier --moment final` \(with the same `--target` as FINAL_REVIEW step 2\) prints it, a full 40-character sha\. The next phase review covers everything since it\./
+    );
+  });
+});
+
+describe('unit 1 fix round 2: after:mechanical skill hooks run in the dispatching session (fix 3)', () => {
+  const records = () => section(md(), '### Review records');
+  it('the orchestrating session runs them for both tiers; a light reviewer never does', () => {
+    expect(records()).toMatch(
+      /the project's configured `skillHooks` for `harness-code-review` at `after:mechanical` are run by this session, the one that orchestrates the review, for both tiers: a dispatched reviewer cannot dispatch, so a `light` reviewer never runs them/
+    );
+    expect(records()).not.toMatch(/at `after:mechanical` run there as that skill describes/);
+  });
+  it('their findings stay outside the receipt and its counts', () => {
+    expect(records()).toMatch(
+      /Their output goes to `hook-<hook name>\.json` in the review directory, and their findings stay outside the receipt and its `blocking` and `advisory` counts/
+    );
+  });
+  it('the light brief tells the reviewer not to run them', () => {
+    expect(section(md(), '### REVIEW')).toMatch(
+      /Run no `skillHooks` of harness-code-review: the dispatching session runs them\./
     );
   });
 });
