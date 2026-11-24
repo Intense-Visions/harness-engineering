@@ -866,3 +866,14 @@ describe('unit 1 fix round 1: the prose reviewer list is the contract list', () 
     );
   });
 });
+
+describe('unit 1 fix round 2: a standalone base is advice (compliance-3)', () => {
+  it('the integration bullet says the gate checks a standalone base only for ancestry', () => {
+    expect(md()).toMatch(
+      /for a final review the base the receipt gate will demand, and for a standalone review the advised base, the default-branch merge base, which the gate checks only for ancestry\./
+    );
+    expect(md()).not.toMatch(
+      /for a standalone or final review the base the receipt gate will demand/
+    );
+  });
+});

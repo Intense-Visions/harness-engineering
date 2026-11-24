@@ -443,8 +443,10 @@ export function createReviewTierCommand(deps: ReviewTierDeps = {}): Command {
       'Compute the review tier (light or full) and backend for one review: risk keywords in the ' +
         "diff and the range's commit messages (identity trailers such as Signed-off-by excluded), " +
         'package entry points, ' +
-        'complexity and rigor decide a phase; final and standalone are always full, and for them ' +
-        'it prints the base the receipt gate will demand (base, baseSource). ' +
+        'complexity and rigor decide a phase; final and standalone are always full. For a final ' +
+        'review it prints the base the receipt gate will demand, and for a standalone review the ' +
+        'advised base, the default-branch merge base, which the gate checks only for ancestry ' +
+        '(base, baseSource). ' +
         'Exits 1 when the tier cannot be computed (with --json, prints {"error": ...})'
     )
     .addOption(

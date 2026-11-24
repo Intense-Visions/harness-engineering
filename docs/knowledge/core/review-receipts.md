@@ -37,8 +37,9 @@ phase's assessed complexity is `high`, or the rigor is `thorough`. It returns `f
 final and standalone review. `harness review-tier` is its caller: the command runs git from the
 repository top level and reads `review.backend` from the `harness.config.json` there, so it
 answers the same from any directory; it gathers the diff, the range's commit messages and the
-package entry points, applies the selector and prints the tier with its reasons. For a final or
-standalone review it also prints the base the receipt gate will demand, from the gate's own
+package entry points, applies the selector and prints the tier with its reasons. For a final
+review it also prints the base the receipt gate will demand, and for a standalone review the
+advised base (the gate checks a standalone base only for ancestry), from the gate's own
 resolver (`--session` supplies the starting commit; `--target <ref>` names the remote-tracking
 branch a stacked branch merges into, and the final receipt records the full ref it prints as
 `diff.target`, which the gate reads). A standalone review takes its base from
