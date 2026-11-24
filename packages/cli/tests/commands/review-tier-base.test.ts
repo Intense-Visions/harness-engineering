@@ -9,6 +9,7 @@ import {
   type ReviewTierOptions,
 } from '../../src/commands/review-tier';
 import { runCheckReviewReceipt } from '../../src/review-receipts/gate';
+import { formatCheckReviewReceipt } from '../../src/commands/check-review-receipt';
 
 /**
  * Fixes 7 and 8, against real git. History: c0 is origin/main; c1 and c2 are a parent unit's
@@ -117,13 +118,13 @@ describe('fix 8: --target names the branch a stacked branch merges into', () => 
       'final, --target origin/parent',
       () => (withMain(), withParent()),
       { moment: 'final', session: 's1', target: 'origin/parent' },
-      { base: 'c2', baseSource: 'merge-base' },
+      { base: 'c2', baseSource: 'merge-base', target: 'refs/remotes/origin/parent' },
     ],
     [
       'final, --target with no origin/main',
       withParent,
       { moment: 'final', target: 'origin/parent' },
-      { base: 'c2', baseSource: 'merge-base' },
+      { base: 'c2', baseSource: 'merge-base', target: 'refs/remotes/origin/parent' },
     ],
     [
       'standalone, --target origin/parent',
@@ -143,9 +144,18 @@ describe('fix 8: --target names the branch a stacked branch merges into', () => 
       { moment: 'final', target: '--output=x' },
       { baseUnresolved: 'target-unresolved' },
     ],
+    // Round 2 (security, adversarial): only a remote-tracking branch can name the final base.
+    ...(['HEAD~1', 'c1', 'work', 'refs/heads/work', 'v1', 'origin/parent~1'] as const).map(
+      (target): [string, () => void, Omit<ReviewTierOptions, 'cwd'>, Record<string, unknown>] => [
+        `final, --target ${target} (not a remote-tracking branch)`,
+        () => (withMain(), withParent(), g('tag', 'v1', c[1]!)),
+        { moment: 'final', session: 's1', target },
+        { baseUnresolved: 'target-unresolved' },
+      ]
+    ),
   ])('%s', (_n, setup, opts, expected) => {
     setup();
-    const out = run(opts);
+    const out = run(opts.target === 'c1' ? { ...opts, target: c[1]! } : opts);
     const want = Object.fromEntries(
       Object.entries(expected).map(([k, v]) => [
         k,
@@ -156,11 +166,18 @@ describe('fix 8: --target names the branch a stacked branch merges into', () => 
   });
   it('the unresolved text names the target', () => {
     expect(text({ moment: 'final', target: 'origin/nope' })).toMatch(/--target "origin\/nope"/);
+    expect(text({ moment: 'final', target: 'HEAD~1' })).toMatch(/remote-tracking branch/);
+  });
+  it('the base line names the full target ref', () => {
+    withParent();
+    expect(text({ moment: 'final', session: 's1', target: 'origin/parent' })).toContain(
+      `Review base: ${c[2]} (merge-base, against refs/remotes/origin/parent;`
+    );
   });
 });
 
-describe('fix 8: the gate takes the same --target for a final receipt', () => {
-  function writeFinal(base: string) {
+describe('round 2: the gate reads the target from the final receipt (diff.target)', () => {
+  function writeFinal(base: string, target?: string) {
     const dir = path.join(sessionDir(), 'reviews', 'final-all');
     fs.mkdirSync(dir, { recursive: true });
     const head = c[4]!;
@@ -169,7 +186,7 @@ describe('fix 8: the gate takes the same --target for a final receipt', () => {
       moment: 'final',
       tier: 'full',
       backend: 'agent',
-      diff: { base, head },
+      diff: { base, head, ...(target !== undefined && { target }) },
       coldContext: true,
       priorFindingsSupplied: false,
       reviewers: FULL.map((id) => ({ id, required: true, ran: true, findingsPath: `${id}.json` })),
@@ -189,25 +206,39 @@ describe('fix 8: the gate takes the same --target for a final receipt', () => {
     }
     return dir;
   }
-  const codes = (dir: string, target?: string) =>
-    runCheckReviewReceipt({ receiptPath: dir, cwd: tmp, ...(target && { target }) }).failures.map(
-      (f) => f.code
-    );
+  const gate = (dir: string) => runCheckReviewReceipt({ receiptPath: dir, cwd: tmp });
+  const codes = (dir: string) => gate(dir).failures.map((f) => f.code);
+  const P = 'refs/remotes/origin/parent';
   it.each<[string, string, string | undefined, string[]]>([
-    ['based at the target merge base, with --target', 'c2', 'origin/parent', []],
+    ['based at the target merge base, with diff.target', 'c2', P, []],
     [
-      'based at the target merge base, without --target',
+      'based at the target merge base, without diff.target',
       'c2',
       undefined,
       ['FINAL_BASE_NOT_MERGE_BASE'],
     ],
-    ['based at origin/main, with --target', 'c0', 'origin/parent', ['FINAL_BASE_NOT_MERGE_BASE']],
-    ['based at origin/main, without --target', 'c0', undefined, []],
-    ['--target unresolvable', 'c2', 'origin/nope', ['TARGET_UNRESOLVED']],
+    ['based at origin/main, with diff.target', 'c0', P, ['FINAL_BASE_NOT_MERGE_BASE']],
+    ['based at origin/main, without diff.target', 'c0', undefined, []],
+    ['diff.target does not resolve', 'c2', 'refs/remotes/origin/nope', ['TARGET_UNRESOLVED']],
+    ['diff.target is a short name', 'c2', 'origin/parent', ['TARGET_UNRESOLVED']],
+    ['diff.target is a local branch', 'c3', 'refs/heads/work', ['TARGET_UNRESOLVED']],
+    ['diff.target is HEAD-relative (the one-commit repro)', 'c3', 'HEAD~1', ['TARGET_UNRESOLVED']],
+    ['diff.target is a sha', 'c3', 'c3', ['TARGET_UNRESOLVED']],
   ])('%s', (_n, base, target, expected) => {
     withMain();
     withParent();
-    expect(codes(writeFinal(c[Number(base[1])]!), target)).toEqual(expected);
+    const t = target === 'c3' ? c[3]! : target;
+    expect(codes(writeFinal(c[Number(base[1])]!, t))).toEqual(expected);
+  });
+  it('the PASS line names the ref the final base was measured against', () => {
+    withMain();
+    withParent();
+    const withTarget = formatCheckReviewReceipt(gate(writeFinal(c[2]!, P)));
+    expect(withTarget[0]).toMatch(
+      /^review receipt gate: PASS .*final base: merge base with refs\/remotes\/origin\/parent/
+    );
+    const noTarget = formatCheckReviewReceipt(gate(writeFinal(c[0]!)));
+    expect(noTarget[0]).toMatch(/final base: merge base with origin\/main/);
   });
 });
 

@@ -44,14 +44,19 @@ label never removes a finding and never lowers its severity.
 
 A branch stacked on another unmerged branch (its PR targets that branch, not the default branch)
 would otherwise be reviewed from the default branch's merge base, so its final review would also
-cover the parent's commits, and keep covering them after the parent squash-merges. Both
-`harness review-tier --moment final` and `harness check-review-receipt` (and the
-`check_review_receipt` tool's `target`) take `--target <ref>`: the base is then the merge base
-with that ref, resolved with `git rev-parse --verify --end-of-options`, instead of the default
-branch's. The default stays `origin/HEAD`, `origin/main`, `origin/master`. A `--target` that
-does not resolve fails `TARGET_UNRESOLVED` and never falls back to the starting commit. The writer
-and the gate must be given the same ref; the receipt does not record it, so a later gate run
-without it measures against the default branch. The unit PRs of the shift-left fidelity stack
+cover the parent's commits, and keep covering them after the parent squash-merges.
+`harness review-tier --moment final --target <ref>` takes the remote-tracking branch the PR
+targets: only a ref that `git rev-parse --symbolic-full-name --end-of-options` resolves under
+`refs/remotes/`, never a sha, a HEAD-relative name, a local branch or a tag, which would let the
+session base its final review on its own last commit. The base is then the merge base with that
+ref instead of the default branch's, and the command prints the full ref. The receipt records it
+as `diff.target` (a final receipt only), and the gate reads it from there: the receipt is the one
+source, so no gate run can measure against a different ref, and the gate's PASS line names the
+ref it measured against. The default stays `origin/HEAD`, `origin/main`, `origin/master`. A
+`diff.target` that is not a remote-tracking branch that resolves fails `TARGET_UNRESOLVED` and
+never falls back to the starting commit. The target is the session's choice among
+remote-tracking refs, which the session can rewrite: it has the same trust as the
+default-branch base, no more. The unit PRs of the shift-left fidelity stack
 use it: each unit's final review is based at the merge base with the unit below it.
 
 ### Full (D5)

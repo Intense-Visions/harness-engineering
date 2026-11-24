@@ -39,8 +39,9 @@ repository top level and reads `review.backend` from the `harness.config.json` t
 answers the same from any directory; it gathers the diff, the range's commit messages and the
 package entry points, applies the selector and prints the tier with its reasons. For a final or
 standalone review it also prints the base the receipt gate will demand, from the gate's own
-resolver (`--session` supplies the starting commit; `--target <ref>` names the branch a stacked
-branch merges into, and the gate takes the same flag). A standalone review takes its base from
+resolver (`--session` supplies the starting commit; `--target <ref>` names the remote-tracking
+branch a stacked branch merges into, and the final receipt records the full ref it prints as
+`diff.target`, which the gate reads). A standalone review takes its base from
 the range it reviews; the command prints the default-branch merge base as advice and, when none
 resolves, says to name the range (`no-default-branch`), never to pass `--session`, which applies
 to the final moment only. The skills run the command and use its
@@ -142,7 +143,9 @@ reviewer findings files and are not in the receipt's counts.
   `priorFindingsSupplied`, whether a reviewer read the files it lists in `examinedFiles`,
   `computedTier` and `tierReasons` (what the session says the tier command printed), and the
   `backend`. The merge base is
-  taken against the default branch ref as the clone holds it; the gate does not fetch, and the
+  taken against the default branch ref as the clone holds it, or against the receipt's
+  `diff.target`, a remote-tracking branch the session chose (a sha, a HEAD-relative name, a local
+  branch or a tag fails `TARGET_UNRESOLVED`); the gate does not fetch, and the
   session can rewrite those local remote-tracking refs (`git update-ref`) and so move what the
   gate treats as the merge base: the final base is only as trustworthy as those refs. The
   starting commit (the final base's fallback and the first phase's base) and the earlier

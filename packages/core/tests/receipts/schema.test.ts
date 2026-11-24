@@ -42,6 +42,22 @@ const file = (findings: unknown[]) => ({
 });
 
 describe('review receipt schema', () => {
+  it.each([
+    ['final', true],
+    ['phase', false],
+    ['standalone', false],
+  ])(
+    'diff.target (the stacked branch a final base is measured against) on a %s receipt: valid %s',
+    (moment, valid) => {
+      const T = 'refs/remotes/origin/parent';
+      const r = parseReviewReceipt(
+        receipt({ moment, diff: { base: BASE, head: HEAD, target: T } })
+      );
+      expect(r.ok).toBe(valid);
+      if (r.ok) expect(r.value.diff.target).toBe(T);
+      else expect(r.error.message).toMatch(/diff\.target: .*final/);
+    }
+  );
   it('accepts a well-formed receipt and keeps diff.baseSource', () => {
     const r = parseReviewReceipt(
       receipt({ diff: { base: BASE, head: HEAD, baseSource: 'starting-commit' } })

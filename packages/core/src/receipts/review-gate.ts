@@ -65,13 +65,13 @@ export interface ReviewGateContext extends FindingsSource {
   /** `git merge-base --is-ancestor <base> <head>` succeeded. */
   baseIsAncestor: boolean;
   /**
-   * `git merge-base <ref> <head>` for the branch the review merges into: `--target` when the
-   * caller names one, else the default branch. undefined: none resolved.
+   * `git merge-base <ref> <head>` for the branch the review merges into: the receipt's
+   * `diff.target` when it names one, else the default branch. undefined: none resolved.
    */
   mergeBase: string | undefined;
   /** The ref `mergeBase` was taken against, for messages. Absent: the default branch. */
   mergeBaseWith?: string;
-  /** A `--target` the caller named that resolves to no commit with a merge base with the head. */
+  /** The receipt's `diff.target` when it is no remote-tracking branch with a merge base with the head. */
   targetUnresolved?: string;
   /**
    * The session's starting commit, for a receipt in a session review directory whose
@@ -318,8 +318,8 @@ function finalBaseFailure(
   if (context.targetUnresolved !== undefined) {
     return reviewGateFailure(
       'TARGET_UNRESOLVED',
-      `--target "${context.targetUnresolved}" does not resolve to a commit that has a merge base ` +
-        `with ${receipt.diff.head}, so the final base cannot be checked`
+      `diff.target "${context.targetUnresolved}" is not a remote-tracking branch (a full ref ` +
+        `under refs/remotes/) with a merge base with ${receipt.diff.head}, so the final base cannot be checked`
     );
   }
   const demanded = finalReviewBase(context.mergeBase, context.startingCommit);

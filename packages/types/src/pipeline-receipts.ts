@@ -62,8 +62,11 @@ export interface ReviewReceipt {
   /** Set only when `tier` is `light` and `computedTier` is `full`: why the review ran lower. */
   demotion?: ReviewTierDemotion;
   backend: ReviewBackend;
-  /** Resolved 40-character SHAs. */
-  diff: { base: string; head: string; baseSource?: ReviewBaseSource };
+  /**
+   * Resolved 40-character SHAs. `target`, on a final receipt only: the remote-tracking branch
+   * (full ref, `refs/remotes/...`) a stacked branch merges into; its merge base is the final base.
+   */
+  diff: { base: string; head: string; baseSource?: ReviewBaseSource; target?: string };
   coldContext: boolean;
   priorFindingsSupplied: boolean;
   reviewers: ReviewerRecord[];

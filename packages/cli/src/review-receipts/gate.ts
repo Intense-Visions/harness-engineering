@@ -47,11 +47,6 @@ export interface CheckReviewReceiptOptions {
   moment?: ReviewMoment;
   /** Refuse a receipt path that leaves `cwd` (the MCP tool, whose arguments are unvalidated). */
   confine?: boolean;
-  /**
-   * The branch a final review's base is the merge base with (a stacked branch's parent). Read for
-   * a final receipt only; default: the default branch (origin/HEAD, origin/main, origin/master).
-   */
-  target?: string;
 }
 
 export interface CheckReviewReceiptReport {
@@ -64,30 +59,35 @@ export interface CheckReviewReceiptReport {
   moment?: ReviewReceipt['moment'];
   tier?: ReviewReceipt['tier'];
   backend?: ReviewReceipt['backend'];
+  /** A final receipt: the ref whose merge base its base was checked against (absent: none resolved). */
+  finalBaseFrom?: string;
 }
 
-type Range = { base: string; head: string; final: boolean };
+type Range = { base: string; head: string; final: boolean; target: unknown };
 
 /** The receipt's claimed range, only when both ends are full shas (never pass free text to git). */
 function claimedRange(raw: unknown): Range | undefined {
-  const { base, head } = fields(fields(raw).diff);
+  const { base, head, target } = fields(fields(raw).diff);
   if (!isSha(base) || !isSha(head)) return undefined;
-  return { base, head, final: fields(raw).moment === 'final' };
+  return { base, head, final: fields(raw).moment === 'final', target };
 }
 
-/** The merge base a final receipt is checked against (`--target`, else the default branch). */
+/**
+ * The merge base a final receipt is checked against: its `diff.target`, which must be the full
+ * name of a remote-tracking branch, else the default branch.
+ */
 function finalMergeBase(
   git: CwdGit,
   range: Range,
-  cwd: string,
-  target: string | undefined
+  cwd: string
 ): Pick<ReviewGateContext, 'mergeBase' | 'mergeBaseWith' | 'targetUnresolved'> {
   if (!range.final) return { mergeBase: undefined };
+  const target = typeof range.target === 'string' ? range.target : undefined;
   const lookup = reviewMergeBase(git, range.head, cwd, target);
-  if (lookup.status === 'resolved')
+  if (lookup.status === 'resolved' && (target === undefined || lookup.with === target))
     return { mergeBase: lookup.mergeBase, mergeBaseWith: lookup.with };
   if (lookup.status === 'none') return { mergeBase: undefined };
-  return { mergeBase: undefined, targetUnresolved: lookup.target };
+  return { mergeBase: undefined, targetUnresolved: String(target) };
 }
 
 /** HEAD, resolved by git; empty when it cannot be resolved. */
@@ -105,7 +105,7 @@ type Recomputed = Omit<
  * repository top, so the diff is listed repository-relative whatever the caller's directory and
  * diff config (`diff.relative`), which is how reviewers are told to list it.
  */
-function recompute(git: CwdGit, raw: unknown, from: string, target?: string): Recomputed {
+function recompute(git: CwdGit, raw: unknown, from: string): Recomputed {
   const range = claimedRange(raw);
   if (range === undefined) {
     return {
@@ -122,7 +122,7 @@ function recompute(git: CwdGit, raw: unknown, from: string, target?: string): Re
     ...currentHead(git, cwd),
     diffFiles: listDiffFiles(git, base, head, cwd),
     baseIsAncestor: tryGit(git, ['merge-base', '--is-ancestor', base, head], cwd) !== undefined,
-    ...finalMergeBase(git, range, cwd, target),
+    ...finalMergeBase(git, range, cwd),
     worktreeClean: worktreeClean(git, cwd),
   };
 }
@@ -173,8 +173,9 @@ export function gateReviewReceipt(opts: CheckReviewReceiptOptions): GatedReviewR
     earlier: sessionDir === undefined ? { status: 'none' } : earlierPhaseReceipt(read.dir),
     startingCommit,
   });
+  const recomputed = recompute(git, read.raw, cwd);
   const result = validateReviewReceipt(read.raw, {
-    ...recompute(git, read.raw, cwd, opts.target),
+    ...recomputed,
     ...(startingCommit !== undefined && { startingCommit }),
     phaseBase,
     readFindings: reviewFindingsReaderFor(read.dir),
@@ -185,7 +186,11 @@ export function gateReviewReceipt(opts: CheckReviewReceiptOptions): GatedReviewR
   if (!result.checked) return { read: true, result, report: { ...at, ...counts }, dir: read.dir };
   const { reviewersRun, reviewersRequired, receipt } = result;
   const { moment, tier, backend } = receipt;
-  const report = { ...at, reviewersRun, reviewersRequired, moment, tier, backend };
+  const from = moment === 'final' ? recomputed.mergeBaseWith : undefined;
+  const report = {
+    ...{ ...at, reviewersRun, reviewersRequired, moment, tier, backend },
+    ...(from !== undefined && { finalBaseFrom: from }),
+  };
   return { read: true, result, report, dir: read.dir };
 }
 

@@ -15,6 +15,11 @@ describe('runtime schemas match their contract types', () => {
   it('ReviewReceiptSchema is ReviewReceipt', () => {
     expectTypeOf<z.infer<typeof ReviewReceiptSchema>>().toEqualTypeOf<ReviewReceipt>();
   });
+  it('a receipt diff holds exactly base, head, baseSource and target', () => {
+    expectTypeOf<keyof ReviewReceipt['diff']>().toEqualTypeOf<
+      'base' | 'head' | 'baseSource' | 'target'
+    >();
+  });
   it('ReviewerFindingsFile, derived from its schema, has exactly the five documented fields', () => {
     // ReceiptFinding is derived the same way; finding-compat.test.ts pins its seven fields.
     expectTypeOf<keyof ReviewerFindingsFile>().toEqualTypeOf<

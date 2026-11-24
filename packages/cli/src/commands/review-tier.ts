@@ -30,6 +30,7 @@ import {
   listDiffFiles,
   resolveCommit,
   resolveFinalReviewBase,
+  remoteTrackingRef,
   resolveRepoRoots,
   resolveStandaloneReviewBase,
   runGitIn,
@@ -91,7 +92,8 @@ export type StandaloneBaseUnresolved =
 
 /** The base a review is measured from, and the head it was resolved for; or why none resolved. */
 type ReviewBaseFields<U, S> =
-  | { base: string; baseSource: S; head: string }
+  /** `target`: the full name of the remote-tracking branch `--target` named; record it as `diff.target`. */
+  | { base: string; baseSource: S; head: string; target?: string }
   | { baseUnresolved: U; head?: string };
 
 /** A final review: always full, with the base the gate will demand. */
@@ -271,10 +273,12 @@ function reviewBaseOf(
     return { moment: opts.moment, ...tier, baseUnresolved: 'head-unresolved' };
   }
   const at = { cwd: top, head, git, target: opts.target };
+  const ref = opts.target === undefined ? undefined : remoteTrackingRef(git, opts.target, top);
+  const target = ref === undefined ? {} : { target: ref };
   if (opts.moment === 'standalone') {
     const r = resolveStandaloneReviewBase(at);
     return r.status === 'resolved'
-      ? { moment: 'standalone', ...tier, head, base: r.base, baseSource: r.baseSource }
+      ? { moment: 'standalone', ...tier, head, base: r.base, baseSource: r.baseSource, ...target }
       : { moment: 'standalone', ...tier, head, baseUnresolved: r.reason };
   }
   const start = startOf(opts.session, git, cwd);
@@ -282,7 +286,7 @@ function reviewBaseOf(
     return { moment: 'final', ...tier, head, baseUnresolved: 'session-invalid' };
   const r = resolveFinalReviewBase({ ...at, startingCommit: start.startingCommit });
   return r.status === 'resolved'
-    ? { moment: 'final', ...tier, head, base: r.base, baseSource: r.baseSource }
+    ? { moment: 'final', ...tier, head, base: r.base, baseSource: r.baseSource, ...target }
     : { moment: 'final', ...tier, head, baseUnresolved: r.reason };
 }
 
@@ -304,7 +308,8 @@ const UNRESOLVED_TEXT: Record<FinalBaseUnresolved | StandaloneBaseUnresolved, st
   'no-default-branch':
     'no default-branch merge base: name the range to review explicitly (a commit-range argument; ' +
     'its first commit is the base), or pass --target with the branch this one merges into',
-  'target-unresolved': 'is not a commit that has a merge base with the head',
+  'target-unresolved':
+    'is not a remote-tracking branch (such as origin/parent) that has a merge base with the head',
   'head-unresolved': 'the head could not be resolved to a commit',
   'session-invalid': 'the --session value is not a valid session name',
 };
@@ -321,7 +326,7 @@ function baseLine(r: ReviewTierResult, target: string | undefined): string[] {
     r.moment === 'final'
       ? 'the gate requires exactly this base'
       : 'for a standalone review the gate checks only that the base is an ancestor of the head';
-  const against = target === undefined ? '' : `, against --target ${target}`;
+  const against = r.target === undefined ? '' : `, against ${r.target}`;
   return [`Review base: ${r.base} (${r.baseSource}${against}; ${rule})`];
 }
 
@@ -451,7 +456,7 @@ export function createReviewTierCommand(deps: ReviewTierDeps = {}): Command {
     )
     .option(
       '--target <ref>',
-      'The branch a final or standalone review merges into, such as a stacked PR base: the base is the merge base with it instead of the default branch'
+      'The remote-tracking branch a final or standalone review merges into, such as a stacked PR base (origin/parent): the base is the merge base with it instead of the default branch. A final receipt records the full ref printed as diff.target'
     )
     .addOption(
       new Option('--complexity <level>', "The phase's assessed complexity").choices([

@@ -163,20 +163,30 @@ export function resolveCommit(
   return tryGit(git, args, cwd) || undefined;
 }
 
+/**
+ * `ref` as the full name of a remote-tracking branch (`refs/remotes/...`), or undefined: a sha, a
+ * HEAD-relative name, a local branch and a tag name no remote-tracking branch.
+ */
+export function remoteTrackingRef(git: CwdGit, ref: string, cwd: string): string | undefined {
+  const args = ['rev-parse', '--verify', '--quiet', '--symbolic-full-name', '--end-of-options'];
+  const full = tryGit(git, [...args, ref], cwd);
+  return full !== undefined && /^refs\/remotes\//.test(full) ? full : undefined;
+}
+
 /** The merge base a final or standalone review is measured from, and the ref it came from. */
 export type MergeBaseLookup =
   | { status: 'resolved'; mergeBase: string; with: string }
-  /** No default branch resolved (no `--target` was named). */
+  /** No default branch resolved (no target was named). */
   | { status: 'none' }
-  /** `--target` was named and resolves to no commit with a merge base with the head. */
+  /** The target is no remote-tracking branch with a merge base with the head. */
   | { status: 'target-unresolved'; target: string };
 
 /**
  * `git merge-base <ref> <head>` for the branch the review merges into. With `target` (a stacked
- * branch's parent, `--target`) that ref, resolved with `rev-parse --verify --end-of-options`, and
- * nothing else. Without it the default branch: origin/HEAD's target, else origin/main, else
- * origin/master, the first for which git answers. These are local remote-tracking refs, so the
- * answer is only as current as the clone's refs.
+ * branch's parent) that remote-tracking branch (`remoteTrackingRef`), and nothing else. Without it
+ * the default branch: origin/HEAD's target, else origin/main, else origin/master, the first for
+ * which git answers. These are local remote-tracking refs, which the session can rewrite, so the
+ * answer is only as current, and as trustworthy, as the clone's refs.
  */
 export function reviewMergeBase(
   git: CwdGit,
@@ -185,10 +195,10 @@ export function reviewMergeBase(
   target?: string
 ): MergeBaseLookup {
   if (target !== undefined) {
-    const sha = resolveCommit(git, target, cwd);
-    const base = sha === undefined ? undefined : tryGit(git, ['merge-base', sha, head], cwd);
-    return base
-      ? { status: 'resolved', mergeBase: base, with: target }
+    const ref = remoteTrackingRef(git, target, cwd);
+    const base = ref && tryGit(git, ['merge-base', '--end-of-options', ref, head], cwd);
+    return ref && base
+      ? { status: 'resolved', mergeBase: base, with: ref }
       : { status: 'target-unresolved', target };
   }
   const named = tryGit(
@@ -206,7 +216,7 @@ export function reviewMergeBase(
 const mergeBaseOf = (lookup: MergeBaseLookup): string | undefined =>
   lookup.status === 'resolved' ? lookup.mergeBase : undefined;
 
-/** A final review's base, or why none can be demanded (including an unresolvable `--target`). */
+/** A final review's base, or why none can be demanded (including an unresolvable target). */
 export type FinalBaseOutcome =
   | FinalReviewBase
   | { status: 'unresolved'; reason: 'target-unresolved' };

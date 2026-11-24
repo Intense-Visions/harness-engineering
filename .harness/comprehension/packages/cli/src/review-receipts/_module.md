@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/review-receipts'
-sourceHash: '0178f511dad2e179ff31a0e25fcb8191d4a8b9ee6f464f2d543a6b9deb9d70ac'
+sourceHash: '66d891a55f8cf4e5837bd712a9b042fe46c21b0a2b8c1a47d47232ea75953fab'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -22,6 +22,7 @@ export gateReviewReceipt
 export isSha
 export listDiffFiles
 export readSessionStateText
+export remoteTrackingRef
 export resolveCommit
 export resolveFinalReviewBase
 export resolveRepoRoots

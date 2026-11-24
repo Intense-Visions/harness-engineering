@@ -16,10 +16,16 @@ import {
  * escapeTerminalText, so control, DEL, bidi and invisible characters are shown, not acted on.
  */
 export function formatCheckReviewReceipt(report: CheckReviewReceiptReport): string[] {
+  const finalBase =
+    report.moment !== 'final'
+      ? ''
+      : report.finalBaseFrom === undefined
+        ? "; final base: the session's starting commit (no default branch resolved)"
+        : `; final base: merge base with ${inert(report.finalBaseFrom)}`;
   const what =
     report.tier === undefined
       ? ''
-      : ` (${report.moment} review, tier ${report.tier}, backend ${report.backend})`;
+      : ` (${report.moment} review, tier ${report.tier}, backend ${report.backend}${finalBase})`;
   const ran = `${report.reviewersRun}/${report.reviewersRequired} required reviewers ran and wrote a readable findings file`;
   if (report.pass) return [`review receipt gate: PASS${what}: ${ran}`];
   return [
@@ -31,7 +37,6 @@ export function formatCheckReviewReceipt(report: CheckReviewReceiptReport): stri
 
 interface CheckFlags {
   moment?: ReviewMoment;
-  target?: string;
   findings?: string;
   base?: string;
   head?: string;
@@ -68,9 +73,6 @@ function flagsTheModeIgnores(opts: CheckFlags): string | undefined {
   if (opts.findings !== undefined && opts.moment !== undefined) {
     return '--moment applies to a receipt path only; --findings checks one file, not a review';
   }
-  if (opts.findings !== undefined && opts.target !== undefined) {
-    return '--target applies to a receipt path only; --findings checks one file, not a review';
-  }
   return undefined;
 }
 
@@ -92,10 +94,6 @@ export function createCheckReviewReceiptCommand(deps: CheckReviewReceiptDeps = {
       '--findings <file>',
       "A reviewer's self-check: validate one findings file with the gate's parser (with --base " +
         'and --head, also that its head is --head and every examined file is in that diff)'
-    )
-    .option(
-      '--target <ref>',
-      "The branch a final review's base is the merge base with, such as a stacked PR base (default: the default branch). Read for a final receipt only"
     )
     .option('--base <sha>', 'With --findings: base of the reviewed range')
     .option('--head <sha>', 'With --findings: head of the reviewed range')
@@ -124,7 +122,6 @@ export function createCheckReviewReceiptCommand(deps: CheckReviewReceiptDeps = {
       const report = runCheckReviewReceipt({
         receiptPath: receiptPath as string,
         ...(opts.moment !== undefined && { moment: opts.moment }),
-        ...(opts.target !== undefined && { target: opts.target }),
         ...(deps.cwd !== undefined && { cwd: deps.cwd() }),
         ...(deps.git !== undefined && { git: deps.git }),
       });

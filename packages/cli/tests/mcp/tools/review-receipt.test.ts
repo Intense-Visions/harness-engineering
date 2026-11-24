@@ -73,6 +73,13 @@ describe('check_review_receipt', () => {
     expect(checkReviewReceiptDefinition.name).toBe('check_review_receipt');
     expect(checkReviewReceiptDefinition.inputSchema.required).toEqual(['path', 'receipt']);
   });
+  it('takes no target: a final receipt records its own (diff.target)', () => {
+    expect(Object.keys(checkReviewReceiptDefinition.inputSchema.properties ?? {})).toEqual([
+      'path',
+      'receipt',
+      'moment',
+    ]);
+  });
   it('returns pass:true for a passing receipt given relative to the project root', async () => {
     write(true);
     const r = await handleCheckReviewReceipt(

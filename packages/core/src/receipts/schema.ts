@@ -81,6 +81,7 @@ export const ReviewReceiptSchema = z
       base: sha,
       head: sha,
       baseSource: z.enum(REVIEW_BASE_SOURCES).exactOptional(),
+      target: z.string().min(1).exactOptional(),
     }),
     coldContext: z.boolean(),
     priorFindingsSupplied: z.boolean(),
@@ -96,6 +97,10 @@ export const ReviewReceiptSchema = z
         path: ['demotion'],
         message: 'demotion is set only when tier is light and computedTier is full',
       });
+    }
+    if (r.diff.target !== undefined && r.moment !== 'final') {
+      const message = 'target is set only on a final receipt';
+      ctx.addIssue({ code: 'custom', path: ['diff', 'target'], message });
     }
   });
 
