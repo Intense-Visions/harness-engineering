@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   REVIEW_MOMENTS,
   REVIEW_TIERS,
+  REVIEW_TIER_DEMOTIONS,
   REVIEW_BACKENDS,
   REVIEW_BASE_SOURCES,
   FULL_TIER_REVIEWER_IDS,
@@ -16,6 +17,7 @@ describe('pipeline receipt contract', () => {
   it('pins the review vocabularies', () => {
     expect(REVIEW_MOMENTS).toEqual(['phase', 'final', 'standalone']);
     expect(REVIEW_TIERS).toEqual(['light', 'full']);
+    expect(REVIEW_TIER_DEMOTIONS).toEqual(['no-subagent-tool']);
     expect(REVIEW_BACKENDS).toEqual(['agent', 'pipeline']);
     expect(REVIEW_BASE_SOURCES).toEqual(['merge-base', 'starting-commit']);
   });

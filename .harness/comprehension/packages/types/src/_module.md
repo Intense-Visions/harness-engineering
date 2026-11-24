@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/types/src'
-sourceHash: '07d89913f3bc8a6ac592003a4b7762795a5315da4c8722beddce7b587a107869'
+sourceHash: '8918684fbd57683b250135c5747af1afb5b4df946837fe025d1740028ee33eea'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -326,6 +326,7 @@ export REVIEW_BASE_SOURCES
 export REVIEW_GATE_FAILURE_CODES
 export REVIEW_MOMENTS
 export REVIEW_TIERS
+export REVIEW_TIER_DEMOTIONS
 export ReceiptUnreadReason
 export ReindexStats
 export RequiredStrategySection
@@ -346,6 +347,7 @@ export ReviewGateFailureCode
 export ReviewMoment
 export ReviewReceipt
 export ReviewTier
+export ReviewTierDemotion
 export ReviewerRecord
 export Roadmap
 export RoadmapAutoTriageConfig

@@ -1098,6 +1098,7 @@ REVIEW_GATE_FAILURE_CODES
 REVIEW_MOMENTS
 REVIEW_RIGORS
 REVIEW_TIERS
+REVIEW_TIER_DEMOTIONS
 RIGID_SECTIONS
 RISK_KEYWORDS
 ROADMAP_READ_ALLOWLIST
@@ -1206,6 +1207,7 @@ ReviewStage
 ReviewStrength
 ReviewSubagent
 ReviewTier
+ReviewTierDemotion
 ReviewTierSelection
 ReviewerRecord
 ReworkClassification

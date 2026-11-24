@@ -153,12 +153,14 @@ describe('review receipt (SC1, SC3)', () => {
         'backend',
         'blocking',
         'coldContext',
+        'computedTier',
         'diff',
         'moment',
         'priorFindingsSupplied',
         'reviewers',
         'schemaVersion',
         'tier',
+        'tierReasons',
       ].sort()
     );
     expect(r.diff.base).toMatch(/^[0-9a-f]{40}$/);
@@ -788,6 +790,19 @@ describe('unit 1 fix round 1: the phase base is recomputed (fix 1)', () => {
   it('the receipt rules say the gate recomputes a phase base and only checks a standalone one for ancestry', () => {
     expect(section(md(), '### Review Receipt')).toMatch(
       /A `phase` receipt's base is the one harness-autopilot REVIEW step 1 prescribes, and the gate recomputes it from the session's earlier receipts and `startingCommit` \(`PHASE_BASE_MISMATCH`, `PHASE_BASE_UNKNOWN`\)\. A `standalone` receipt's base is only checked to be an ancestor of the head\./
+    );
+  });
+});
+
+describe('unit 1 fix round 1: a demotion to light is visible (fix 3)', () => {
+  it('a session that cannot fan out records the computed tier and the demotion', () => {
+    expect(section(md(), '#### Review tier and dispatch')).toMatch(
+      /when that was `full` it also records `demotion: "no-subagent-tool"` and says in its output that the review ran below its computed tier\. A `light` receipt whose `computedTier` is `full` and that carries no demotion fails `TIER_DEMOTED`\./
+    );
+  });
+  it('the receipt fields say when a demotion is valid', () => {
+    expect(section(md(), '### Review Receipt')).toMatch(
+      /`demotion` is set only when `tier` is `light` and `computedTier` is `full`, and its one value is `no-subagent-tool`/
     );
   });
 });

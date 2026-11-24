@@ -413,6 +413,23 @@ function rosterFailures(receipt: ReviewReceipt): ReviewGateFailure[] {
   return out;
 }
 
+/**
+ * A `light` receipt whose recorded computed tier is `full` ran below what the tier command
+ * printed. That is allowed only for the one demotion a session states (`no-subagent-tool`).
+ */
+function demotionFailures(receipt: ReviewReceipt): ReviewGateFailure[] {
+  if (receipt.tier !== 'light' || receipt.computedTier !== 'full') return [];
+  if (receipt.demotion !== undefined) return [];
+  const why = (receipt.tierReasons ?? []).join(', ') || 'no reasons recorded';
+  return [
+    reviewGateFailure(
+      'TIER_DEMOTED',
+      `the receipt is tier light, but the tier command computed full (${why}); a light review ` +
+        'of a full phase is allowed only with demotion "no-subagent-tool"'
+    ),
+  ];
+}
+
 function finalFailures(receipt: ReviewReceipt): ReviewGateFailure[] {
   if (receipt.moment !== 'final') return [];
   const out: ReviewGateFailure[] = [];
@@ -685,6 +702,7 @@ export function validateReviewReceipt(
     ...baseFailures(r, context),
     ...phaseBaseFailures(r, context.phaseBase),
     ...rosterFailures(r),
+    ...demotionFailures(r),
     ...finalFailures(r),
     ...check.failures,
   ];

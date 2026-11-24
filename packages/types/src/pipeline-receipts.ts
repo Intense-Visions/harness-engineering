@@ -10,6 +10,13 @@ export type ReviewMoment = (typeof REVIEW_MOMENTS)[number];
 export const REVIEW_TIERS = ['light', 'full'] as const;
 export type ReviewTier = (typeof REVIEW_TIERS)[number];
 
+/**
+ * Why a review ran below the tier the tier command computed. The only one: a session with no
+ * subagent-spawning tool cannot fan out, so it runs `light`.
+ */
+export const REVIEW_TIER_DEMOTIONS = ['no-subagent-tool'] as const;
+export type ReviewTierDemotion = (typeof REVIEW_TIER_DEMOTIONS)[number];
+
 export const REVIEW_BACKENDS = ['agent', 'pipeline'] as const;
 export type ReviewBackend = (typeof REVIEW_BACKENDS)[number];
 
@@ -48,6 +55,12 @@ export interface ReviewReceipt {
   schemaVersion: 1;
   moment: ReviewMoment;
   tier: ReviewTier;
+  /** The tier `harness review-tier` printed for this review, recorded by the session. */
+  computedTier?: ReviewTier;
+  /** The reasons it printed for that tier (empty for `light`). */
+  tierReasons?: string[];
+  /** Set only when `tier` is `light` and `computedTier` is `full`: why the review ran lower. */
+  demotion?: ReviewTierDemotion;
   backend: ReviewBackend;
   /** Resolved 40-character SHAs. */
   diff: { base: string; head: string; baseSource?: ReviewBaseSource };
@@ -83,6 +96,7 @@ export const REVIEW_GATE_FAILURE_CODES = [
   'REQUIRED_REVIEWER_NOT_RUN',
   'CORE_REVIEWER_MISSING',
   'LIGHT_TIER_ROSTER',
+  'TIER_DEMOTED',
   'DUPLICATE_REVIEWER',
   'UNKNOWN_REVIEWER',
   'FINAL_NOT_FULL',

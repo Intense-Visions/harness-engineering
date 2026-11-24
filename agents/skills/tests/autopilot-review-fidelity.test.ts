@@ -735,3 +735,30 @@ describe('unit 1 fix round 1: the phase base is recomputed (fix 1)', () => {
     );
   });
 });
+
+describe('unit 1 fix round 1: a demotion to light is visible (fix 3)', () => {
+  const review = () => section(md(), '### REVIEW');
+  it('the demotion is a marked judgment pause with a recommendation', () => {
+    expect(review()).toMatch(
+      /_Pause point \(judgment\): resolve per the Pause Protocol\._ <!-- pause: judgment -->\n\*\*A demotion is a decision, never silent\.\*\* When step 1 computed `full` and this session has no subagent-spawning tool, report the computed tier and its reasons and ask "run light \/ stop" \(recommendation: `run light`/
+    );
+  });
+  it('the decision and the receipt both record the demotion, and the gate fails without it', () => {
+    expect(review()).toMatch(
+      /record the decision in `decisions\[\]` \(the state, the phase, `demotion: no-subagent-tool`, the computed reasons, and who decided\) and record `demotion: "no-subagent-tool"` in the receipt: a `light` receipt whose `computedTier` is `full` fails `TIER_DEMOTED` without it\./
+    );
+  });
+  it('every receipt records the computed tier and reasons', () => {
+    expect(review()).toMatch(
+      /`computedTier` and `tierReasons` as step 1 printed them \(`tier` and `reasons` in `--json`; the `Review tier:` line otherwise\)/
+    );
+  });
+  it('PHASE_COMPLETE and DONE name the demoted reviews', () => {
+    expect(section(md(), '### PHASE_COMPLETE')).toMatch(
+      /when it ran `light` below a computed `full` \(`demotion: "no-subagent-tool"`\), that demotion with its reasons/
+    );
+    expect(section(md(), '### DONE')).toMatch(
+      /every review demoted to `light` below a computed `full` \(with its reasons\)/
+    );
+  });
+});

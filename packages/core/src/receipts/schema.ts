@@ -6,6 +6,7 @@ import {
   REVIEW_BACKENDS,
   REVIEW_BASE_SOURCES,
   REVIEW_MOMENTS,
+  REVIEW_TIER_DEMOTIONS,
   REVIEW_TIERS,
   type EscapedFrom,
   type FindingClass,
@@ -82,22 +83,36 @@ export const ReviewerRecordSchema = z.object({
   skippedReason: z.string().min(1).exactOptional(),
 });
 
-export const ReviewReceiptSchema = z.object({
-  schemaVersion: z.literal(1),
-  moment: z.enum(REVIEW_MOMENTS),
-  tier: z.enum(REVIEW_TIERS),
-  backend: z.enum(REVIEW_BACKENDS),
-  diff: z.object({
-    base: sha,
-    head: sha,
-    baseSource: z.enum(REVIEW_BASE_SOURCES).exactOptional(),
-  }),
-  coldContext: z.boolean(),
-  priorFindingsSupplied: z.boolean(),
-  reviewers: z.array(ReviewerRecordSchema).min(1),
-  blocking: count,
-  advisory: count,
-});
+export const ReviewReceiptSchema = z
+  .object({
+    schemaVersion: z.literal(1),
+    moment: z.enum(REVIEW_MOMENTS),
+    tier: z.enum(REVIEW_TIERS),
+    computedTier: z.enum(REVIEW_TIERS).exactOptional(),
+    tierReasons: z.array(z.string().min(1)).exactOptional(),
+    demotion: z.enum(REVIEW_TIER_DEMOTIONS).exactOptional(),
+    backend: z.enum(REVIEW_BACKENDS),
+    diff: z.object({
+      base: sha,
+      head: sha,
+      baseSource: z.enum(REVIEW_BASE_SOURCES).exactOptional(),
+    }),
+    coldContext: z.boolean(),
+    priorFindingsSupplied: z.boolean(),
+    reviewers: z.array(ReviewerRecordSchema).min(1),
+    blocking: count,
+    advisory: count,
+  })
+  .superRefine((r, ctx) => {
+    // A demotion says a review ran below its computed tier, so it is valid only on one.
+    if (r.demotion !== undefined && !(r.tier === 'light' && r.computedTier === 'full')) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['demotion'],
+        message: 'demotion is set only when tier is light and computedTier is full',
+      });
+    }
+  });
 
 export const ReceiptFindingSchema = z
   .looseObject({

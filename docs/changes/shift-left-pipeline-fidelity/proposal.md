@@ -114,6 +114,9 @@ interface ReviewReceipt {
   schemaVersion: 1;
   moment: ReviewMoment;
   tier: ReviewTier;
+  computedTier?: ReviewTier; // what harness review-tier printed for this review
+  tierReasons?: string[]; // the reasons it printed
+  demotion?: 'no-subagent-tool'; // only when tier is light and computedTier is full
   backend: 'agent' | 'pipeline';
   // resolved 40-character SHAs; baseSource says how the base was resolved
   diff: { base: string; head: string; baseSource?: 'merge-base' | 'starting-commit' };
@@ -200,6 +203,7 @@ The final review is always `full`. `--fast` does not lower the final tier. `harn
 - `round` is not 1 + the `round-R/` archives beside the receipt, or `priorRounds` does not list exactly the archived rounds with the head and blocking count of each archive's receipt;
 - a reviewer marked `ran: true` has no findings file, an invalid one, one shared with or written for another reviewer, one written at another head, or one whose examined files are empty or not a subset of the diff's files;
 - a finding id is used twice in the review, or `blocking` or `advisory` differs from what the findings files hold;
+- `tier` is `light`, the recorded `computedTier` is `full`, and the receipt carries no `demotion: "no-subagent-tool"` (`TIER_DEMOTED`);
 - `diff.head` is not the current `HEAD`, `diff.base` is not an ancestor of it, or the range cannot be computed or changes no files;
 - `moment` is `final` and the tier is not `full`, `coldContext` is false, `priorFindingsSupplied` is true, or `diff.base` is not the merge base with the default branch (`diff.baseSource: "starting-commit"` is accepted only when no default branch resolves and `diff.base` is the session's starting commit; an unknown starting commit fails `STARTING_COMMIT_UNKNOWN`).
 

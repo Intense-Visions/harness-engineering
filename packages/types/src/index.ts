@@ -583,6 +583,7 @@ export type {
 export {
   REVIEW_MOMENTS,
   REVIEW_TIERS,
+  REVIEW_TIER_DEMOTIONS,
   REVIEW_BACKENDS,
   REVIEW_BASE_SOURCES,
   FULL_TIER_REVIEWER_IDS,
@@ -598,6 +599,7 @@ export {
 export type {
   ReviewMoment,
   ReviewTier,
+  ReviewTierDemotion,
   ReviewBackend,
   ReviewBaseSource,
   ReviewerRecord,

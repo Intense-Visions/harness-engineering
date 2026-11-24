@@ -119,7 +119,10 @@ never records `full`. Honest capability is what makes the roster check meaningfu
   the set of conditional reviewers (only that every id is a known one), whether a phase was
   entitled to `light`, `coldContext` and `priorFindingsSupplied` (checked for consistency on a
   final receipt, never against what the briefs held), whether a reviewer read the files it lists
-  in `examinedFiles`, and the `backend`. The moment, the base (a phase's against the previous
+  in `examinedFiles`, `computedTier` and `tierReasons` (what the session says the tier command
+  printed), and the `backend`. A `light` receipt whose recorded `computedTier` is `full` fails
+  (`TIER_DEMOTED`) unless it carries `demotion: "no-subagent-tool"`, so the one sanctioned
+  demotion is visible on the receipt. The moment, the base (a phase's against the previous
   receipt or the starting commit, a final's against the merge base), a clean tracked tree, the
   `light` roster, the reviewer ids, each findings file's head, and `blocking` and `advisory` are
   not among the claims: the gate checks each of them.

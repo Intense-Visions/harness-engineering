@@ -43,7 +43,10 @@ resolver (`--session` supplies the starting commit). The skills run the command 
 output, the final base included. A diff too large for git's output buffer is `full`
 (`diff-too-large`). It exits 1 when it cannot compute a tier (an unresolvable range, an empty
 diff, no repository) and never falls back to `light`. A session
-that cannot dispatch subagents runs `light` and says so, whatever the command printed.
+that cannot dispatch subagents runs `light` and says so, whatever the command printed: the
+receipt records the computed tier and reasons (`computedTier`, `tierReasons`), and a `light`
+receipt whose computed tier is `full` fails `TIER_DEMOTED` unless it carries
+`demotion: "no-subagent-tool"`, which autopilot records as a decision.
 
 This "review tier" is separate from three other tiers in the review code: the depth tier
 (Quick, Standard, Deep) that activates conditional reviewers, the model tier (`fast`,
@@ -132,8 +135,9 @@ reviewer findings files and are not in the receipt's counts.
   and `advisory` counts.
 - These stay claims: that reviewers ran in separate contexts, the conditional-reviewer set
   (beyond every id being known), a phase's entitlement to `light`, `coldContext` and
-  `priorFindingsSupplied`, whether a reviewer read the files it lists in `examinedFiles`, the
-  and the `backend`. The merge base is
+  `priorFindingsSupplied`, whether a reviewer read the files it lists in `examinedFiles`,
+  `computedTier` and `tierReasons` (what the session says the tier command printed), and the
+  `backend`. The merge base is
   taken against the default branch ref as the clone holds it; the gate does not fetch, and the
   session can rewrite those local remote-tracking refs (`git update-ref`) and so move what the
   gate treats as the merge base: the final base is only as trustworthy as those refs. The
