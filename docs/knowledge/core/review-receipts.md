@@ -178,19 +178,19 @@ reviewer findings files and are not in the receipt's counts.
 
 ## Source
 
-| File                                                                                  | Holds                                                                                      |
-| ------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
-| [pipeline-receipts.ts](../../../packages/types/src/pipeline-receipts.ts)              | Contract types: receipt, reviewer record, the failure codes                                |
-| [schema.ts](../../../packages/core/src/receipts/schema.ts)                            | Zod validators for both files; `tallyReviewFindings`, the counting rule                    |
-| [review-gate.ts](../../../packages/core/src/receipts/review-gate.ts)                  | `validateReviewReceipt`, `finalReviewBase`, `checkReviewerFindingsText` (the self-check)   |
-| [load.ts](../../../packages/core/src/receipts/load.ts)                                | Reads a receipt; the findings reader confined to the review directory                      |
-| [paths.ts](../../../packages/core/src/receipts/paths.ts)                              | `normalizeReviewPath`, `pathEscapes`: the path rules the gate and the tier selector share  |
-| [layout.ts](../../../packages/core/src/receipts/layout.ts)                            | Review directory names, `expectedReviewMoment` (the one precedence rule)                   |
-| [backend.ts](../../../packages/core/src/receipts/backend.ts)                          | `resolveReviewBackend`                                                                     |
-| [terminal-text.ts](../../../packages/core/src/receipts/terminal-text.ts)              | `escapeTerminalText`, the one rule for gate text output                                    |
-| [tier-selector.ts](../../../packages/core/src/review/tier-selector.ts)                | `selectReviewTier`                                                                         |
-| [gate.ts](../../../packages/cli/src/review-receipts/gate.ts)                          | `gateReviewReceipt`: recomputes HEAD, the diff and the base, runs gate                     |
-| [io.ts](../../../packages/cli/src/review-receipts/io.ts)                              | The git seam; `resolveRepoRoots`; `resolveFinalReviewBase`                                 |
-| [check-review-receipt.ts](../../../packages/cli/src/commands/check-review-receipt.ts) | `harness check-review-receipt`: the command over that gate                                 |
-| [review-tier.ts](../../../packages/cli/src/commands/review-tier.ts)                   | `harness review-tier`: the tier, its reasons, the backend and the final or standalone base |
-| [review-receipt.ts](../../../packages/cli/src/mcp/tools/review-receipt.ts)            | The `check_review_receipt` MCP tool                                                        |
+| File                                                                                  | Holds                                                                                                                                       |
+| ------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| [pipeline-receipts.ts](../../../packages/types/src/pipeline-receipts.ts)              | Contract types: receipt, reviewer record, the failure codes                                                                                 |
+| [schema.ts](../../../packages/core/src/receipts/schema.ts)                            | Zod validators for both files; `tallyReviewFindings`, the counting rule                                                                     |
+| [review-gate.ts](../../../packages/core/src/receipts/review-gate.ts)                  | `validateReviewReceipt`, `finalReviewBase`, `checkReviewerFindingsText` (the self-check)                                                    |
+| [load.ts](../../../packages/core/src/receipts/load.ts)                                | Reads a receipt; the findings reader confined to the review directory                                                                       |
+| [review-paths.ts](../../../packages/core/src/shared/review-paths.ts)                  | `normalizeReviewPath`, `pathEscapes`: the path rules the gate and the tier selector share (a shared leaf)                                   |
+| [layout.ts](../../../packages/core/src/receipts/layout.ts)                            | Review directory names, `expectedReviewMoment` (the one precedence rule)                                                                    |
+| [backend.ts](../../../packages/core/src/receipts/backend.ts)                          | `resolveReviewBackend`                                                                                                                      |
+| [unsafe-text.ts](../../../packages/core/src/shared/unsafe-text.ts)                    | The one unsafe-character rule (exported from receipts as `escapeTerminalText`), shared with the auto-decision log; ZWNJ and ZWJ are allowed |
+| [tier-selector.ts](../../../packages/core/src/review/tier-selector.ts)                | `selectReviewTier`                                                                                                                          |
+| [gate.ts](../../../packages/cli/src/review-receipts/gate.ts)                          | `gateReviewReceipt`: recomputes HEAD, the diff and the base, runs gate                                                                      |
+| [io.ts](../../../packages/cli/src/review-receipts/io.ts)                              | The git seam; `resolveRepoRoots`; `resolveFinalReviewBase`                                                                                  |
+| [check-review-receipt.ts](../../../packages/cli/src/commands/check-review-receipt.ts) | `harness check-review-receipt`: the command over that gate                                                                                  |
+| [review-tier.ts](../../../packages/cli/src/commands/review-tier.ts)                   | `harness review-tier`: the tier, its reasons, the backend and the final or standalone base                                                  |
+| [review-receipt.ts](../../../packages/cli/src/mcp/tools/review-receipt.ts)            | The `check_review_receipt` MCP tool                                                                                                         |

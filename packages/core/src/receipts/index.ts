@@ -12,7 +12,7 @@ export type { ReviewGateContext, ReviewGateFailure, ReviewGateResult } from './r
 export type { FindingsFileRange } from './review-gate';
 export type { FinalReviewBase, StandaloneReviewBase } from './review-gate';
 export { standaloneReviewBase } from './review-gate';
-export { escapeTerminalText } from './terminal-text';
+export { escapeUnsafeText as escapeTerminalText } from '../shared/unsafe-text';
 export { resolveReviewBackend } from './backend';
 export type { ResolvedReviewBackend } from './backend';
 export { expectedReviewMoment } from './layout';

@@ -1,5 +1,9 @@
 import { describe, it, expect } from 'vitest';
-import { escapeTerminalText } from '../../src/receipts/terminal-text';
+import {
+  escapeUnsafeText as escapeTerminalText,
+  isUnsafeTextChar,
+} from '../../src/shared/unsafe-text';
+import { isUnsafeLogChar } from '../../src/autonomy/decision-schema';
 
 /**
  * Partition of what the gate prints from receipts and findings files: empty, plain, letters
@@ -12,6 +16,9 @@ describe('escapeTerminalText', () => {
     ['letters outside ASCII', 'src/\u00e9/\u65e5\u672c.ts', 'src/\u00e9/\u65e5\u672c.ts'],
     ['an emoji', 'ok \u{1F642}', 'ok \u{1F642}'],
     ['the character after a range (U+00A0)', '\u00a0', '\u00a0'],
+    // Round 2: one rule with the auto-decision log, which allows ZWNJ and ZWJ (review N1).
+    ['Persian ZWNJ', '\u0645\u06cc\u200c\u062e', '\u0645\u06cc\u200c\u062e'],
+    ['an emoji ZWJ sequence', '\u{1F469}\u200d\u{1F4BB}', '\u{1F469}\u200d\u{1F4BB}'],
   ])('%s is unchanged', (_n, input, out) => {
     expect(escapeTerminalText(input)).toBe(out);
   });
@@ -35,5 +42,15 @@ describe('escapeTerminalText', () => {
     ['line separator', '\u2028', '\\u{2028}'],
   ])('%s is escaped', (_n, input, out) => {
     expect(escapeTerminalText(input)).toBe(out);
+  });
+});
+
+describe('one unsafe-character rule (review round 2, architecture-3)', () => {
+  it('the auto-decision log and the receipt gate agree on every code point', () => {
+    for (let cp = 0; cp <= 0x30000; cp++) {
+      if (isUnsafeLogChar(cp, false) !== isUnsafeTextChar(cp)) {
+        throw new Error(`U+${cp.toString(16)} differs`);
+      }
+    }
   });
 });
