@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/review-receipts'
-sourceHash: '8eefa236c103314c8a67bf459f161c7476227a03554f6ba18214b955a068a84e'
+sourceHash: 'a224327d208d732cecf40e093ce3f4fe4543dce4fdac2cf02c54fc1cb0140f25'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -32,7 +32,7 @@ export tryGit
 ## Dependency Slice
 
 ```
-import { CwdGit, defaultBranchMergeBase, listDiffFiles, runGitIn, sessionStartingCommit, tryGit } from './io'
+import { CwdGit, defaultBranchMergeBase, listDiffFiles, resolveRepoRoots, runGitIn, sessionStartingCommit, tryGit } from './io'
 import { FULL_SHA_PATTERN, FinalReviewBase, Result, ReviewGateContext, ReviewGateFailure, ReviewGateResult, checkReviewerFindingsText, expectedReviewMoment, finalReviewBase, readRegularFile, readReviewReceiptFile, resolveSessionDir, reviewFindingsReaderFor, reviewGateFailure, sessionDirOfReviewDir, validateReviewReceipt } from '@harness-engineering/core'
 import { REVIEW_MOMENTS, ReviewMoment, ReviewReceipt } from '@harness-engineering/types'
 import { execFileSync } from 'node:child_process'

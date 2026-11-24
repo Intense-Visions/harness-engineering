@@ -34,7 +34,9 @@ export function tryGit(git: CwdGit, args: string[], cwd: string): string | undef
 }
 
 /**
- * The files `<base>..<head>` changes, or undefined when git cannot say. Asked for with `-z`:
+ * The files `<base>..<head>` changes, or undefined when git cannot say. Run it at the repository
+ * top (`resolveRepoRoots`): from a subdirectory a user's `diff.relative` config would list paths
+ * relative to that directory. Asked for with `-z`:
  * without it git quotes and octal-escapes any path holding a non-ASCII byte (`core.quotepath`),
  * so `é.ts` would come back as `"\303\251.ts"` and match nothing a reviewer listed. Renames are
  * listed as both paths, so a rename of an entry point or of a file a reviewer read is in the set.

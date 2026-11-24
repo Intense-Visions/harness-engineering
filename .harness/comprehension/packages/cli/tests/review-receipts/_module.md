@@ -1,11 +1,11 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/tests/review-receipts'
-sourceHash: '113f8a0ceca2ef9b7a407ed0dbe4712eb4f616859e66fa7ad1dd053ca0b447f9'
+sourceHash: '33c14924a37c57fce9ada60e89055427a9d8dd53b027075d8ba7d21eaa72b5c8'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
-members: ['io.test.ts']
+members: ['gate-git.test.ts', 'io.test.ts']
 ---
 
 ## Interface Contract
@@ -17,7 +17,11 @@ members: ['io.test.ts']
 ## Dependency Slice
 
 ```
+import { runCheckFindingsFile, runCheckReviewReceipt } from '../../src/review-receipts/gate'
 import { CwdGit, sessionDirFrom } from '../../src/review-receipts/io'
+import { execFileSync } from 'node:child_process'
+import * as fs from 'node:fs'
+import * as os from 'node:os'
 import * as path from 'node:path'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 ```

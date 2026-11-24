@@ -126,6 +126,7 @@ describe('runCheckReviewReceipt', () => {
       return git()(args, tmp);
     });
     expect(calls).toEqual([
+      ['rev-parse', '--show-toplevel'],
       ['rev-parse', 'HEAD'],
       ['diff', '--name-only', '--no-renames', '-z', `${BASE}..${HEAD}`],
       ['merge-base', '--is-ancestor', BASE, HEAD],

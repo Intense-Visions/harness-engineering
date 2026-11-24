@@ -17,6 +17,7 @@ import { REVIEW_MOMENTS, type ReviewMoment, type ReviewReceipt } from '@harness-
 import {
   defaultBranchMergeBase,
   listDiffFiles,
+  resolveRepoRoots,
   runGitIn,
   sessionStartingCommit,
   tryGit,
@@ -74,12 +75,17 @@ function currentHead(git: CwdGit, cwd: string): Pick<ReviewGateContext, 'head'> 
 
 type Recomputed = Omit<ReviewGateContext, 'readFindings' | 'expectedMoment' | 'startingCommit'>;
 
-/** What git says about the claimed range. Git is not asked without a range. */
-function recompute(git: CwdGit, raw: unknown, cwd: string): Recomputed {
+/**
+ * What git says about the claimed range. Git is not asked without a range. It runs at the
+ * repository top, so the diff is listed repository-relative whatever the caller's directory and
+ * diff config (`diff.relative`), which is how reviewers are told to list it.
+ */
+function recompute(git: CwdGit, raw: unknown, from: string): Recomputed {
   const range = claimedRange(raw);
   if (range === undefined) {
     return { head: '', diffFiles: undefined, baseIsAncestor: false, mergeBase: undefined };
   }
+  const cwd = resolveRepoRoots(git, from)?.top ?? from;
   const { base, head } = range;
   return {
     ...currentHead(git, cwd),
@@ -170,14 +176,15 @@ export function runCheckFindingsFile(opts: {
   const file = path.resolve(cwd, opts.findingsPath);
   const read = readRegularFile(file);
   const text = 'text' in read ? read.text : undefined;
+  const top = resolveRepoRoots(git, cwd)?.top ?? cwd;
   const commit = (ref: string) =>
-    tryGit(git, ['rev-parse', '--verify', '--quiet', '--end-of-options', `${ref}^{commit}`], cwd) ||
+    tryGit(git, ['rev-parse', '--verify', '--quiet', '--end-of-options', `${ref}^{commit}`], top) ||
     undefined;
   let range = {};
   if (opts.base !== undefined && opts.head !== undefined) {
     const base = commit(opts.base);
     const head = commit(opts.head);
-    const diffFiles = base && head ? listDiffFiles(git, base, head, cwd) : undefined;
+    const diffFiles = base && head ? listDiffFiles(git, base, head, top) : undefined;
     range = { head: head ?? opts.head, diffFiles };
   }
   const failures = checkReviewerFindingsText(text, opts.findingsPath, range);
