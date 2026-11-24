@@ -50,8 +50,8 @@ This "review tier" is separate from three other tiers in the review code: the de
 ([Tiered Review Degradation](./tiered-review-degradation.md)).
 
 **Receipt gate.** `validateReviewReceipt` fails on a receipt whose `moment` is not the one its
-directory states (`phase-N` with no leading zeros, `final-all`, or a directory under `.harness/reviews/`; the
-directory decides, and `--moment` is read only for a directory that states none, so a flag that
+directory states (`phase-N` with no leading zeros, `final-all`, or a directory directly under
+`.harness/reviews/`, the session layout tested first; the directory decides, and `--moment` is read only for a directory that states none, so a flag that
 contradicts the directory fails `MOMENT_MISMATCH`), a required reviewer that did not run, a
 `full` roster missing a core reviewer, a `light` roster that is not exactly `compliance-bug`, a
 reviewer listed twice, a reviewer id that is not a known reviewer (`UNKNOWN_REVIEWER`), a
@@ -106,7 +106,11 @@ invalid. The rubric is
 | Standalone | `.harness/reviews/<branch>-<head sha>/`       |
 
 All three are ignored by git: they are machine-local. `N` in `phase-N` is the phase's 0-based
-position. Review hooks write `hook-<name>.json` files into the same directory; they are not
+position. A standalone directory is one level directly under `.harness/reviews/`: in its name each
+run of characters outside `[A-Za-z0-9._-]` in the branch is replaced by `-` and any leading or
+trailing `-` or `.` is removed, so the branch part is a single path segment. A directory inside a
+session (`sessions/<slug>/reviews/<label>`) is read by the session rule first, and a session slug
+that starts with a dot is refused. Review hooks write `hook-<name>.json` files into the same directory; they are not
 reviewer findings files and are not in the receipt's counts.
 
 ## Limits

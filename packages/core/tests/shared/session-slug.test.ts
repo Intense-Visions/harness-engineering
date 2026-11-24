@@ -9,6 +9,9 @@ const RESERVED = ['CON', 'con', 'PRN', 'AUX', 'NUL', 'nul.json', 'COM1', 'com9',
 const PATHY = ['', '   ', '..', '../x', 'a/b', 'a\\b', 'C:x'];
 // N2(a): dot-only names are `.`/`..`-like path segments; padded names differ invisibly.
 const DOT_OR_PADDED = ['.', '...', '....', ' s1', 's1 ', '\ts1', 's1\n'];
+// A slug that starts with a dot is a hidden path segment, and `.harness` as a slug would put a
+// `.harness/reviews/` pair inside a session (review receipts read that pair as standalone).
+const DOT_LEADING = ['.hidden', '.harness', '.s1'];
 const consumers: Array<[string, (s: unknown) => boolean]> = [
   ['sessionSlugError', (s) => sessionSlugError(s) === null],
   ['validateOverrideSlug', (s) => validateOverrideSlug(s as string).ok],
@@ -21,6 +24,9 @@ describe.each(consumers)('%s', (_name, ok) => {
   it.each(DOT_OR_PADDED)('rejects dot-only / whitespace-padded slug %j', (slug) =>
     expect(ok(slug)).toBe(false)
   );
+  it.each(DOT_LEADING)('rejects a slug that starts with a dot %j', (slug) =>
+    expect(ok(slug)).toBe(false)
+  );
   it.each([[undefined], [null], [42], [{}], [['s1']]])('rejects non-string %j', (slug) =>
     expect(ok(slug)).toBe(false)
   );
@@ -31,7 +37,7 @@ describe.each(consumers)('%s', (_name, ok) => {
     'COM10',
     'LPT',
     'my.slug',
-    '.hidden',
+    's1.',
     'a b',
   ])('accepts ordinary slug %j (positive control)', (slug) => expect(ok(slug)).toBe(true));
 });

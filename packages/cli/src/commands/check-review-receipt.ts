@@ -79,7 +79,7 @@ export function createCheckReviewReceiptCommand(deps: CheckReviewReceiptDeps = {
       new Option(
         '--moment <moment>',
         'Which review this is, for a directory that does not say (phase-N, final-all and a ' +
-          'directory under .harness/reviews each do). Contradicting the directory fails the gate'
+          'directory directly under .harness/reviews each do). Contradicting the directory fails the gate'
       ).choices([...REVIEW_MOMENTS])
     )
     .action((receiptPath: string | undefined, opts: CheckFlags, cmd: Command) => {

@@ -17,17 +17,27 @@ export const FINAL_REVIEW_LABEL = 'final-all';
 export const SESSION_REVIEW_LABEL = /^(?:final-all|phase-(?:0|[1-9][0-9]{0,8}))$/;
 
 /**
- * The moment a review directory's place states: `.harness/reviews/<name>` is a standalone review,
- * `final-all` the final review, `phase-<N>` a phase review. undefined: the place does not say.
+ * The moment a review directory's place states. The session layout is tested first: a directory
+ * `sessions/<slug>/reviews/<label>` is that session's `final-all` or `phase-<N>` review whatever
+ * the slug is, so a session whose slug is `.harness` cannot turn its final review into a
+ * standalone one. Then `.harness/reviews/<name>` is a standalone review, and a bare `final-all`
+ * or `phase-<N>` the final or a phase review. undefined: the place does not say.
  */
 export function reviewMomentOfDir(dir: string): ReviewMoment | undefined {
-  const [label = '', parent, grand] = dir
+  const labelMoment = (label: string): ReviewMoment =>
+    label === FINAL_REVIEW_LABEL ? 'final' : 'phase';
+  if (sessionDirOfReviewDir(dir) !== undefined) return labelMoment(lastSegments(dir)[0] ?? '');
+  const [label = '', parent, grand] = lastSegments(dir);
+  if (parent === REVIEWS_DIRNAME && grand === '.harness') return 'standalone';
+  return SESSION_REVIEW_LABEL.test(label) ? labelMoment(label) : undefined;
+}
+
+/** The path's segments, last first, on either separator. */
+function lastSegments(dir: string): string[] {
+  return dir
     .split(/[\\/]+/)
     .filter(Boolean)
     .reverse();
-  if (parent === REVIEWS_DIRNAME && grand === '.harness') return 'standalone';
-  if (!SESSION_REVIEW_LABEL.test(label)) return undefined;
-  return label === FINAL_REVIEW_LABEL ? 'final' : 'phase';
 }
 
 /**

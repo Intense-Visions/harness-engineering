@@ -138,7 +138,8 @@ function momentFailures(receipt: ReviewReceipt, expected: ExpectedMoment): Revie
         reviewGateFailure(
           'MOMENT_UNKNOWN',
           'the receipt directory does not say which review this is (phase-N, final-all, or a ' +
-            'directory under .harness/reviews); state it with --moment'
+            'directory directly under .harness/reviews, named for the branch sanitised to one ' +
+            'path segment and the head sha); state it with --moment'
         ),
       ];
     case 'conflict':

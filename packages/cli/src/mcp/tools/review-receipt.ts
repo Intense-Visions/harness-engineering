@@ -35,7 +35,7 @@ export const checkReviewReceiptDefinition: ToolDefinition = {
         type: 'string',
         enum: [...REVIEW_MOMENTS],
         description:
-          'Which review this is, for a receipt directory that does not say (phase-N, final-all and a directory under .harness/reviews each do). Contradicting the directory fails the gate',
+          'Which review this is, for a receipt directory that does not say (phase-N, final-all and a directory directly under .harness/reviews each do). Contradicting the directory fails the gate',
       },
     },
     required: ['path', 'receipt'],

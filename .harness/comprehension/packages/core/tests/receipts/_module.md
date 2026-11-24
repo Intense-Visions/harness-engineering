@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/tests/receipts'
-sourceHash: 'e26e143707319aeb4c6a84f202e03bedfb5eb79106523f4eebfc90bb3a30db90'
+sourceHash: 'd40aa9fff300ca94c10e1bd44388b4eaced1a295bb5eaa9bfacdc3bb3ee79c5e'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -46,7 +46,7 @@ export record
 ```
 import * as receipts from '../../src/receipts'
 import { resolveReviewBackend } from '../../src/receipts/backend'
-import { ExpectedMoment, REVIEW_RECEIPT_FILENAME, SESSION_REVIEW_LABEL, expectedReviewMoment, reviewMomentOfDir } from '../../src/receipts/layout'
+import { ExpectedMoment, REVIEW_RECEIPT_FILENAME, SESSION_REVIEW_LABEL, expectedReviewMoment, reviewMomentOfDir, sessionDirOfReviewDir } from '../../src/receipts/layout'
 import { REVIEW_FILE_MAX_BYTES, readReviewReceiptFile, reviewFindingsReaderFor } from '../../src/receipts/load'
 import { ReviewGateContext, checkReviewerFindingsText, finalReviewBase, validateReviewReceipt } from '../../src/receipts/review-gate'
 import { BLOCKING_SEVERITIES, ReceiptFinding, ReviewReceiptSchema, ReviewerFindingsFile, isBlockingSeverity, normalizeReviewPath, parseReviewReceipt, parseReviewerFindingsFile, pathEscapes } from '../../src/receipts/schema'

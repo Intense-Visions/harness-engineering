@@ -34,7 +34,7 @@ export interface CheckReviewReceiptOptions {
   git?: CwdGit;
   /**
    * Which review the caller says this is. It counts only where the receipt's directory states
-   * nothing (`final-all`, `phase-N` and a directory under `.harness/reviews` each state one);
+   * nothing (`final-all`, `phase-N` and a directory directly under `.harness/reviews` each state one);
    * a caller that contradicts the directory fails the gate.
    */
   moment?: ReviewMoment;

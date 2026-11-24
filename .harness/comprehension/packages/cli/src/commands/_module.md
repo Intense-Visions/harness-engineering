@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/commands'
-sourceHash: '3f0c9c793fbd184ceb72db72c260f5b15f0867e9acf9b547062cd51d362816fb'
+sourceHash: 'ad4353ca23907243a2cdf1cf2c12d09411c3829da133fc57ae682af0391b54bd'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent

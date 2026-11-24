@@ -43,10 +43,20 @@ describe('sessionDirFrom', () => {
       expect(sessionDirFrom(at('/repo'), '/repo', slug).ok).toBe(true);
     }
   );
-  it.each(['', '   ', 'a..b', '..', '.', 'a/b', 'a\\b', 'C:x', ' padded', 'padded ', 'NUL'])(
-    'refuses the slug %j, as core does',
-    (slug) => {
-      expect(sessionDirFrom(at('/repo'), '/repo', slug).ok).toBe(false);
-    }
-  );
+  it.each([
+    '',
+    '   ',
+    'a..b',
+    '..',
+    '.',
+    'a/b',
+    'a\\b',
+    'C:x',
+    ' padded',
+    'padded ',
+    'NUL',
+    '.harness',
+  ])('refuses the slug %j, as core does', (slug) => {
+    expect(sessionDirFrom(at('/repo'), '/repo', slug).ok).toBe(false);
+  });
 });
