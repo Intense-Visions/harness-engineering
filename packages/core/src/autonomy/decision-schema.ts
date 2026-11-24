@@ -5,8 +5,7 @@ import {
   type AutoDecision,
   type AutoDecisionInput,
 } from '@harness-engineering/types';
-import type { Result } from '../shared/result';
-import { Ok, Err } from '../shared/result';
+import { Ok, Err, type Result } from '../shared/result';
 import { isUnsafeTextChar } from '../shared/unsafe-text';
 
 /** Per-field caps. Typical entries stay far below MAX_AUTO_DECISION_LINE_BYTES (decision-log). */
