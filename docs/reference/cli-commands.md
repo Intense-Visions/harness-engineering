@@ -168,9 +168,10 @@ Gate a review receipt: recompute HEAD, the diff file set, the base and every rev
 **Options:**
 
 - `--findings` — A reviewer's self-check: validate one findings file with the gate's parser (with --base and --head, also that its head is --head and every examined file is in that diff)
+- `--target` — The branch a final review's base is the merge base with, such as a stacked PR base (default: the default branch). Read for a final receipt only
 - `--base` — With --findings: base of the reviewed range
 - `--head` — With --findings: head of the reviewed range
-- `--moment` — Which review this is, for a directory that does not say (phase-N, final-all and a directory under .harness/reviews each do). Contradicting the directory fails the gate
+- `--moment` — Which review this is, for a directory that does not say (phase-N, final-all and a directory directly under .harness/reviews each do). Contradicting the directory fails the gate
 
 ### `harness check-security`
 
@@ -634,7 +635,8 @@ Compute the review tier (light or full) and backend for one review: risk keyword
 - `--moment` — Which review this is (default: "phase")
 - `--base` — Base of the reviewed range (required for a phase review)
 - `--head` — Head of the reviewed range (required for a phase review; final and standalone default to HEAD)
-- `--session` — Autopilot session: a final review's base is its starting commit when no default branch resolves
+- `--session` — Autopilot session (--moment final only): a final review's base is its starting commit when no default branch resolves
+- `--target` — The branch a final or standalone review merges into, such as a stacked PR base: the base is the merge base with it instead of the default branch
 - `--complexity` — The phase's assessed complexity
 - `--rigor` — Rigor level of the run
 - `--pipeline-runner` — This session can run the coded review pipeline (the run_code_review tool is callable)

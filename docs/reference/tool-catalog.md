@@ -724,7 +724,7 @@ Gate a review receipt: recomputes HEAD, the diff file set, the base and every re
 {
   "properties": {
     "moment": {
-      "description": "Which review this is, for a receipt directory that does not say (phase-N, final-all and a directory under .harness/reviews each do). Contradicting the directory fails the gate",
+      "description": "Which review this is, for a receipt directory that does not say (phase-N, final-all and a directory directly under .harness/reviews each do). Contradicting the directory fails the gate",
       "enum": [
         "phase",
         "final",
@@ -738,6 +738,10 @@ Gate a review receipt: recomputes HEAD, the diff file set, the base and every re
     },
     "receipt": {
       "description": "Path to receipt.json or to the review directory holding it, absolute or relative to path. It must be inside path",
+      "type": "string"
+    },
+    "target": {
+      "description": "The branch a final review's base is the merge base with, such as a stacked PR base. Default: the default branch. Read for a final receipt only",
       "type": "string"
     }
   },
