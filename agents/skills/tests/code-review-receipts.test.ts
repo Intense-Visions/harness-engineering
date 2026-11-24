@@ -1,6 +1,6 @@
 // agents/skills/tests/code-review-receipts.test.ts
 //
-// Shift-left pipeline fidelity, Phase 1: harness-code-review emits receipts and attribution.
+// Shift-left pipeline fidelity, Phase 1 (unit 1): harness-code-review emits receipts and gates them.
 
 import { describe, it, expect } from 'vitest';
 import { readFileSync, existsSync, mkdtempSync, rmSync, writeFileSync } from 'fs';
@@ -241,9 +241,9 @@ describe('review receipt (SC1, SC3)', () => {
   });
 });
 
-describe('attribution recording (SC7, SC8)', () => {
+describe('the gate in Harness Integration (SC8)', () => {
   const receipt = () => section(md(), '### Review Receipt');
-  it('records only after the gate passes, and says a gate-failed review records nothing', () => {
+  it('states no rule that records anything before the gate passes', () => {
     const text = receipt();
     // The rule is stated once: no sentence says "only then" beside one that says "also on failure".
     expect(text).not.toMatch(/When the gate passes, and only then, run/);
@@ -316,7 +316,7 @@ describe('review round 2: what the gate now checks (A1, A2, A10)', () => {
     );
     expect(when.get('DIFF_BASE_NOT_ANCESTOR')).toMatch(/is not an ancestor of `diff\.head`/);
   });
-  it('A3, A9: rounds are recorded and hook files are never counted', () => {
+  it('A9: hook files are never counted', () => {
     const text = receipt();
     expect(text).toMatch(
       /Files written by review hooks \(`hook-<name>\.json`\) are not reviewer findings files: they are never listed in `reviewers` and never counted in `blocking` or `advisory`/
@@ -750,7 +750,7 @@ describe('round 4: code-review instructions of review round 4 are each pinned', 
       /`review\.backend` in the repository top's `harness\.config\.json` \(or the file the global `-c` option names\) is `"agent"` \(the default\) or `"pipeline"`; any other value is an error \(exit 1\)/
     );
   });
-  it('rounds are archived with the CLI and checked; reviewer ids are known ids', () => {
+  it('reviewer ids are known ids', () => {
     const text = receipt();
     expect(text).toMatch(
       /- Every reviewer `id` is a known reviewer: `compliance`, `bug`, `security`, `architecture`, `adversarial`, `typescript-strict`, `frontend-races` or `compliance-bug`\. Any other id fails `UNKNOWN_REVIEWER`/
@@ -824,6 +824,27 @@ describe('unit 1 fix round 1: a demotion to light is visible (fix 3)', () => {
   it('the receipt fields say when a demotion is valid', () => {
     expect(section(md(), '### Review Receipt')).toMatch(
       /`demotion` is set only when `tier` is `light` and `computedTier` is `full`, and its one value is `no-subagent-tool`/
+    );
+  });
+});
+
+describe('unit 1 fix round 1: no later-unit promise, the pipeline files, cold honesty (fixes 4, 13)', () => {
+  const tiers = () => section(md(), '#### Review tier and dispatch');
+  it('fix 13: dispatched mode and the single-context run promise no attribution step', () => {
+    expect(tiers()).toMatch(/writes no receipt, runs no gate and skips Review Acceptance;/);
+    expect(tiers()).toMatch(
+      /then its own receipt \(`tier: "light"`, that single reviewer\) and gate\./
+    );
+    expect(md()).not.toMatch(/records no attribution|gate and attribution/);
+  });
+  it('fix 13: the pipeline backend writes a findings file for every required reviewer', () => {
+    expect(tiers()).toMatch(
+      /Every required reviewer gets a file, with `"findings": \[\]` when its domain returned nothing: a required reviewer without one is `ran: false`, and the gate fails\./
+    );
+  });
+  it('fix 4: a review run again after a fix in one context is not cold', () => {
+    expect(tiers()).toMatch(
+      /A review it runs again after a fix is in a context that has seen the earlier findings, so that receipt records `coldContext: false` and `priorFindingsSupplied: true`\./
     );
   });
 });

@@ -81,7 +81,7 @@ describe('REVIEW: tier, fan-out, receipt, gate (SC1, SC2)', () => {
     expect(text).toMatch(/The rules below describe what the command computes/);
     expect(text).toMatch(/apply them by hand only when the CLI is unavailable/);
     expect(text).toMatch(
-      /If the command exits non-zero, it could not compute a tier \(an unresolvable `\{base\}` or `\{head\}`, a range git cannot list\): do not assume `light`/
+      /If the command exits non-zero on a range that does change files, it could not compute a tier \(an unresolvable `\{base\}` or `\{head\}`, a range git cannot list\): do not assume `light`/
     );
     // Round 4: a diff too large to read is full, never light and never an error.
     expect(text).toMatch(
@@ -398,7 +398,7 @@ describe('review round 2: Review records (A1, A3, A6, A7, A9)', () => {
       .find((l) => l.includes('compliance-bug.json, as'));
     expect(light).toMatch(/Run its Phase 2 \(MECHANICAL\) and Phase 3 \(CONTEXT\) yourself/);
   });
-  it('round 4: an attempt that wrote no receipt keeps its round, so earlier decisions never apply to the next receipt', () => {
+  it('round 4: no sentence numbers a review directory with no receipt as round 1', () => {
     const text = records();
     expect(md()).not.toMatch(/round 1 when the directory holds no receipt/);
   });
@@ -646,7 +646,7 @@ describe('review round 3: hooks, reviewer self-check and tier (A6 to A10)', () =
     expect(review()).toMatch(/This is not dispatched mode: nothing dispatched this session/);
     expect(review()).not.toMatch(/Follow harness-code-review in dispatched mode in this session/);
   });
-  it('A8, round 4: each record call is a new run, and runs of one review at one head merge as a union', () => {
+  it('A8, round 4: no sentence says a review run supersedes another', () => {
     expect(md()).not.toMatch(/supersed/i);
   });
   it('A10: content is read as text, identity trailers only are excluded, light is the agent backend', () => {
@@ -709,7 +709,7 @@ describe('round 4: the review-fidelity instructions of review round 4 are each p
       /it reads `review\.backend` from the repository top's `harness\.config\.json`, or from the file the global `-c` option names \(default `"agent"`; any other value is an error, exit 1\)/
     );
   });
-  it('the reviewer ids, round codes and the self-check of a session without subagents', () => {
+  it('the reviewer ids and the self-check of a session without subagents', () => {
     expect(review()).toMatch(
       /Every reviewer id is one of the known reviewers \(the core four, the three conditional reviewers, `compliance-bug`\); any other id fails `UNKNOWN_REVIEWER`/
     );
@@ -767,6 +767,37 @@ describe('unit 1 fix round 1: a stacked branch names its target (fix 8)', () => 
   it('FINAL_REVIEW step 2 passes --target to the tier command and to the gate', () => {
     expect(section(md(), '### FINAL_REVIEW')).toMatch(
       /When this branch's PR targets another unmerged branch rather than the default branch \(a stacked PR\), add `--target <that branch's remote-tracking ref>` to this command and the same `--target` to the gate below/
+    );
+  });
+});
+
+describe('unit 1 fix round 1: the empty phase, cold-context honesty, phase numbering (fixes 2, 4, 13)', () => {
+  const review = () => section(md(), '### REVIEW');
+  const final = () => section(md(), '### FINAL_REVIEW');
+  it('fix 2: a phase that changed nothing is not reviewed, and the next base is unchanged', () => {
+    expect(review()).toMatch(
+      /\*\*An empty phase is not reviewed\.\*\* When `\{base\}` equals `\{head\}`, or `git diff --name-only --no-renames -z \{base\}\.\.\{head\}` prints nothing, the phase made no change and there is nothing to review: run no review and write no receipt, record in `decisions\[\]` that the phase review was skipped as empty/
+    );
+    expect(review()).toMatch(
+      /The next phase's base is unchanged, because a phase that wrote no receipt is passed over\. `harness review-tier` exits 1 on such a range \(`changes no files`\); that exit is this case, never a range to fix\./
+    );
+  });
+  it('fix 4: a session that reviewed in its own context after seeing findings is not cold', () => {
+    expect(review()).toMatch(
+      /when this session reviewed in its own context \(no subagent-spawning tool\) and has seen the findings of any earlier review, which it always has after a fix, `coldContext: false` and `priorFindingsSupplied: true`/
+    );
+    expect(final()).toMatch(
+      /A session that reviews in its own context has seen the phase reviews' findings, so it records `coldContext: false` and `priorFindingsSupplied: true` here;/
+    );
+  });
+  it('fix 13: Phase N in prompts is the 0-based review-directory number; spec headings are 1-based', () => {
+    expect(review()).toMatch(
+      /`Phase \{N\}` in every prompt and report below is that same 0-based number, matching the review directory; the spec's `### Phase N:` headings are numbered from 1, so the spec's Phase 1 is `Phase 0` and `phase-0` here\./
+    );
+  });
+  it('fix 13: the pipeline backend writes a file for every required reviewer', () => {
+    expect(review()).toMatch(
+      /Every required reviewer gets a file, with `findings: \[\]` when its domain returned nothing\./
     );
   });
 });

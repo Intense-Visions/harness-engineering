@@ -177,6 +177,7 @@ reviewer findings files and are not in the receipt's counts.
 | [schema.ts](../../../packages/core/src/receipts/schema.ts)                            | Zod validators for both files; `tallyReviewFindings`, the counting rule                    |
 | [review-gate.ts](../../../packages/core/src/receipts/review-gate.ts)                  | `validateReviewReceipt`, `finalReviewBase`, `checkReviewerFindingsText` (the self-check)   |
 | [load.ts](../../../packages/core/src/receipts/load.ts)                                | Reads a receipt; the findings reader confined to the review directory                      |
+| [paths.ts](../../../packages/core/src/receipts/paths.ts)                              | `normalizeReviewPath`, `pathEscapes`: the path rules the gate and the tier selector share  |
 | [layout.ts](../../../packages/core/src/receipts/layout.ts)                            | Review directory names, `expectedReviewMoment` (the one precedence rule)                   |
 | [backend.ts](../../../packages/core/src/receipts/backend.ts)                          | `resolveReviewBackend`                                                                     |
 | [terminal-text.ts](../../../packages/core/src/receipts/terminal-text.ts)              | `escapeTerminalText`, the one rule for gate text output                                    |

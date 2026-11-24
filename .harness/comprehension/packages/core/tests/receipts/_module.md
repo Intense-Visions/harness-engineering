@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/tests/receipts'
-sourceHash: '770c7c4b0a06f08297d12883af8e5ed7b411c0906017e54643284e77374074c8'
+sourceHash: 'fb15fef71ee2ebaa2433d32c9a48dd31f3ec3e227efdb44e0a68b6822d44b7cb'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -22,9 +22,9 @@ members:
     'round4-findings-check.test.ts',
     'round4-helpers.ts',
     'round4-reviewer-ids.test.ts',
-    'round4-stamp-inert.test.ts',
     'schema-types.test.ts',
     'schema.test.ts',
+    'session-review-label.test.ts',
     'terminal-text.test.ts',
   ]
 ---
