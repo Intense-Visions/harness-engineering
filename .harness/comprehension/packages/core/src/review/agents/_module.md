@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/src/review/agents'
-sourceHash: '5d920efedbca599cabb5553a59f176471b41fd8bf3c2aa5eaf20f67b898ffdf5'
+sourceHash: '63aea59f77724ba4d7b02718fa50f36ba1e525a22431c2ca8daf275f5749a96c'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -45,7 +45,7 @@ export runTypescriptStrictAgent
 ## Dependency Slice
 
 ```
-import { isReferenceOnlySecretValue } from '../../security/secret-reference'
+import { isReferenceOnlySecretValue, quoteClosesEnclosingString } from '../../security/secret-reference'
 import { scoreRelevance } from '../../state/learnings-content'
 import { makeFindingId } from '../constants'
 import { ContextBundle, ReviewAgentDescriptor, ReviewConfidence, ReviewDomain, ReviewFinding, ReviewSubagent } from '../types'

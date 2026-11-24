@@ -1,6 +1,9 @@
 import type { ContextBundle, ReviewFinding, ReviewAgentDescriptor } from '../types';
 import { makeFindingId } from '../constants';
-import { isReferenceOnlySecretValue } from '../../security/secret-reference';
+import {
+  isReferenceOnlySecretValue,
+  quoteClosesEnclosingString,
+} from '../../security/secret-reference';
 
 export const SECURITY_DESCRIPTOR: ReviewAgentDescriptor = {
   domain: 'security',
@@ -26,28 +29,9 @@ const EVAL_PATTERN = /\beval\s*\(|new\s+Function\s*\(/;
  * `isReferenceOnlySecretValue`.
  */
 const SECRET_PATTERNS = [
-  /(?:api[_-]?key|secret|password|token|private[_-]?key)\s*=\s*(?:"((?:\\.|[^"\\]){8,})(")?|'((?:\\.|[^'\\]){8,})(')?)/gi,
+  /(?:api[_-]?key|secret|password|token|private[_-]?key)\s*=\s*(?:"((?:\\.|[^"\\]){8,})|'((?:\\.|[^'\\]){8,}))/gi,
   /["']((?:sk|pk|api|key|secret|token|password)[-_][a-zA-Z0-9]{10,})["']/gi,
 ];
-
-/**
- * True when `index` falls inside a quoted string that opened earlier on the
- * line. Tracks `'`/`"` (backslash-escaped quotes don't count; inside single
- * quotes nothing is escaped, as in shell). Heuristic, single-line only.
- */
-function isInsideOpenQuote(text: string, index: number): boolean {
-  let open: '"' | "'" | null = null;
-  for (let i = 0; i < index; i++) {
-    const c = text[i];
-    if (c === '\\' && open !== "'") {
-      i++;
-      continue;
-    }
-    if (open === null && (c === '"' || c === "'")) open = c;
-    else if (c === open) open = null;
-  }
-  return open !== null;
-}
 
 /**
  * Return the captured secret VALUE for the first matching pattern, or `null`
@@ -62,25 +46,19 @@ function isInsideOpenQuote(text: string, index: number): boolean {
  * was reported as a hardcoded secret (capwell#1372). Two branches means two
  * groups, hence the `m[1] ?? m[2]` — only one can be defined per match.
  *
- * The closing quote stays optional so an unterminated string is still scanned
- * rather than silently skipped, with one exception (capwell#3311): when
- * `NAME=` itself sits inside an already-open string, as in
- * `grep '^API_KEY=' .env`, the quote after `=` is that string's CLOSE, not a
- * value's open, so an unterminated match there is skipped and scanning moves
- * on to the next match on the line. A closed literal still counts even when
- * embedded in another string (`echo "API_KEY='…'" >> .env`).
+ * The closing quote stays optional, so an unterminated string is still
+ * scanned. A match whose quote merely closes an enclosing string
+ * (`grep '^API_KEY=' .env`, capwell#3311) is skipped, and the line is
+ * rescanned just past its start so a later real literal is still found.
  */
 function matchSecretValue(text: string): string | null {
   for (const pattern of SECRET_PATTERNS) {
     pattern.lastIndex = 0;
     for (let m = pattern.exec(text); m; m = pattern.exec(text)) {
-      // Pattern 1: groups 1/3 are the value, 2/4 its optional closing quote.
-      // Pattern 2 requires both quotes, so it has no unterminated case.
-      const value = m[1] ?? m[3] ?? '';
-      const closed = pattern !== SECRET_PATTERNS[0] || m[2] !== undefined || m[4] !== undefined;
-      if (closed || !isInsideOpenQuote(text, m.index)) return value;
-      // A skipped unterminated match runs to end of line; rescan just past its
-      // start so a real `NAME="…"` later on the line is not swallowed.
+      const valueQuote = m[1] !== undefined ? '"' : m[2] !== undefined ? "'" : undefined;
+      // Pattern 2 opens with its quote, so `valueQuote` is undefined there.
+      if (pattern !== SECRET_PATTERNS[0] || !quoteClosesEnclosingString(text, m.index, valueQuote))
+        return m[1] ?? m[2] ?? '';
       pattern.lastIndex = m.index + 1;
     }
   }
