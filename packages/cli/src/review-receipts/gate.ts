@@ -11,6 +11,7 @@ import {
   sessionDirOfReviewDir,
   validateReviewReceipt,
   type FindingsFileRange,
+  type PhaseReviewBase,
   type ReviewGateContext,
   type ReviewGateFailure,
   type ReviewGateResult,
@@ -168,18 +169,10 @@ export function gateReviewReceipt(opts: CheckReviewReceiptOptions): GatedReviewR
   const sessionDir = sessionDirOfReviewDir(read.dir);
   const startingCommit = sessionStartingCommit(sessionDir);
   const range = claimedRange(read.raw);
-  // Git is asked only about a claimed range (never about free text), at the top of the worktree
-  // that holds the receipt, whatever the caller's directory: its HEAD and tree are the reviewed ones.
+  // Git runs at the top of the worktree that holds the receipt, whatever the caller's directory:
+  // its HEAD and tree are the reviewed ones.
   const top = range === undefined ? cwd : (resolveRepoRoots(git, read.dir)?.top ?? cwd);
-  const reachable = (sha: string) =>
-    range !== undefined && isAncestor(git, sha, range.head, top) === true;
-  const phaseBase = phaseReviewBase({
-    inSession: sessionDir !== undefined,
-    earlier:
-      sessionDir === undefined ? { status: 'none' } : earlierPhaseReceipt(read.dir, reachable),
-    startingCommit,
-    startingCommitIsAncestor: startingCommit !== undefined && reachable(startingCommit),
-  });
+  const phaseBase = phaseBaseOf(git, { dir: read.dir, sessionDir, startingCommit, range, top });
   const recomputed = recompute(git, range, top);
   const result = validateReviewReceipt(read.raw, {
     ...recomputed,
@@ -199,6 +192,32 @@ export function gateReviewReceipt(opts: CheckReviewReceiptOptions): GatedReviewR
     ...(from !== undefined && { finalBaseFrom: from }),
   };
   return { read: true, result, report, dir: read.dir };
+}
+
+/**
+ * A phase receipt's base (core `phaseReviewBase`): an earlier receipt's head or the starting
+ * commit, each usable only as an ancestor of the claimed head. Git is asked only about a claimed
+ * range, never about free text.
+ */
+function phaseBaseOf(
+  git: CwdGit,
+  at: {
+    dir: string;
+    sessionDir?: string | undefined;
+    startingCommit?: string | undefined;
+    range?: Range | undefined;
+    top: string;
+  }
+): PhaseReviewBase {
+  const { range, startingCommit, sessionDir } = at;
+  const reachable = (sha: string) =>
+    range !== undefined && isAncestor(git, sha, range.head, at.top) === true;
+  return phaseReviewBase({
+    inSession: sessionDir !== undefined,
+    earlier: sessionDir === undefined ? { status: 'none' } : earlierPhaseReceipt(at.dir, reachable),
+    startingCommit,
+    startingCommitIsAncestor: startingCommit !== undefined && reachable(startingCommit),
+  });
 }
 
 export function runCheckReviewReceipt(opts: CheckReviewReceiptOptions): CheckReviewReceiptReport {

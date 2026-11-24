@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/tests/review-receipts'
-sourceHash: 'b061737892a261e48c6aebb6405162fe244c9b4443283d7422c0e16f3b595fb2'
+sourceHash: 'a6c22522daf8ae07f7e4763dbe5e54c14dce7038b559fb67cb0d8c3fb33059bc'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -19,7 +19,7 @@ members: ['gate-git.test.ts', 'io.test.ts']
 ```
 import { handleCheckReviewReceipt } from '../../src/mcp/tools/review-receipt'
 import { runCheckFindingsFile, runCheckReviewReceipt } from '../../src/review-receipts/gate'
-import { CwdGit, sessionDirFrom } from '../../src/review-receipts/io'
+import { CwdGit, listDiffFiles, runGitIn, sessionDirFrom } from '../../src/review-receipts/io'
 import { execFileSync } from 'node:child_process'
 import * as fs from 'node:fs'
 import * as os from 'node:os'
