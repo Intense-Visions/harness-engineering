@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/src/receipts'
-sourceHash: '32390e4dd9e991fe37503a3e0ec0027f7f3d5bd2e714d33917a193d0a7bf0b44'
+sourceHash: 'e1b47e862d65a21021ecd858fbd2b7b85342afd20d527a4a48d32115e24c65c2'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -31,6 +31,7 @@ export ReviewGateContext
 export ReviewGateFailure
 export ReviewGateResult
 export SESSION_REVIEW_LABEL
+export StandaloneReviewBase
 export checkReviewerFindingsText
 export escapeTerminalText
 export expectedReviewMoment
@@ -44,6 +45,7 @@ export resolveReviewBackend
 export reviewFindingsReaderFor
 export reviewGateFailure
 export sessionDirOfReviewDir
+export standaloneReviewBase
 export validateReviewReceipt
 ```
 

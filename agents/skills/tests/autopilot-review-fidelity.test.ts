@@ -762,3 +762,11 @@ describe('unit 1 fix round 1: a demotion to light is visible (fix 3)', () => {
     );
   });
 });
+
+describe('unit 1 fix round 1: a stacked branch names its target (fix 8)', () => {
+  it('FINAL_REVIEW step 2 passes --target to the tier command and to the gate', () => {
+    expect(section(md(), '### FINAL_REVIEW')).toMatch(
+      /When this branch's PR targets another unmerged branch rather than the default branch \(a stacked PR\), add `--target <that branch's remote-tracking ref>` to this command and the same `--target` to the gate below/
+    );
+  });
+});

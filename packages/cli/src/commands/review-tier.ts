@@ -28,13 +28,16 @@ import { logger } from '../output/logger';
 import { ExitCode } from '../utils/errors';
 import {
   listDiffFiles,
+  resolveCommit,
   resolveFinalReviewBase,
   resolveRepoRoots,
+  resolveStandaloneReviewBase,
   runGitIn,
   sessionDirFrom,
   sessionStartingCommit,
-  tryGit,
   type CwdGit,
+  type FinalBaseOutcome,
+  type StandaloneBaseOutcome,
 } from '../review-receipts/io';
 
 export interface ReviewTierOptions {
@@ -48,6 +51,8 @@ export interface ReviewTierOptions {
   pipelineRunner?: boolean;
   /** The autopilot session, whose starting commit is a final review's base when no default branch resolves. */
   session?: string;
+  /** The branch a final or standalone review merges into (a stacked branch's parent). */
+  target?: string;
   /** Config file to read `review.backend` from. Default: the repository top's harness.config.json. */
   configPath?: string;
   cwd?: string;
@@ -59,26 +64,55 @@ export interface ReviewTierBackend extends ResolvedReviewBackend {
   configured?: ReviewBackend;
 }
 
-export interface ReviewTierResult {
-  moment: ReviewMoment;
+interface TierFields {
   tier: ReviewTier;
   /** Why the tier is `full`. Empty for `light`. */
   reasons: string[];
   backend: ReviewTierBackend;
-  /**
-   * A phase review: the resolved range. A final or standalone review: the base the gate will
-   * demand (`baseSource` says how it was resolved) and the head it was resolved for.
-   */
-  base?: string;
-  head?: string;
-  changedFiles?: number;
-  baseSource?: ReviewBaseSource;
-  /** A final or standalone review whose base cannot be resolved: why. */
-  baseUnresolved?: 'starting-commit-unknown' | 'head-unresolved' | 'session-invalid';
 }
 
+/** A phase review: the tier of the resolved range. */
+export interface PhaseTierResult extends TierFields {
+  moment: 'phase';
+  base: string;
+  head: string;
+  changedFiles: number;
+}
+
+/** Why a final review's base is unresolved. */
+export type FinalBaseUnresolved =
+  | Extract<FinalBaseOutcome, { status: 'unresolved' }>['reason']
+  | 'head-unresolved'
+  | 'session-invalid';
+/** Why a standalone review's base is unresolved. */
+export type StandaloneBaseUnresolved =
+  | Extract<StandaloneBaseOutcome, { status: 'unresolved' }>['reason']
+  | 'head-unresolved';
+
+/** The base a review is measured from, and the head it was resolved for; or why none resolved. */
+type ReviewBaseFields<U, S> =
+  | { base: string; baseSource: S; head: string }
+  | { baseUnresolved: U; head?: string };
+
+/** A final review: always full, with the base the gate will demand. */
+export type FinalTierResult = TierFields & { moment: 'final' } & ReviewBaseFields<
+    FinalBaseUnresolved,
+    ReviewBaseSource
+  >;
+/** A standalone review: always full, with the advised base (the gate checks only ancestry). */
+export type StandaloneTierResult = TierFields & { moment: 'standalone' } & ReviewBaseFields<
+    StandaloneBaseUnresolved,
+    'merge-base'
+  >;
+
+export type ReviewTierResult = PhaseTierResult | FinalTierResult | StandaloneTierResult;
+
 /** The tier, before the backend is resolved for it. */
-type Tiered = Omit<ReviewTierResult, 'backend'>;
+type Tiered = ReviewTierResult extends infer R
+  ? R extends unknown
+    ? Omit<R, 'backend'>
+    : never
+  : never;
 
 const fail = (message: string) => Err(new Error(message));
 
@@ -129,13 +163,6 @@ function packageEntryPoints(git: CwdGit, top: string): string[] {
     }
   }
   return out;
-}
-
-/** A user-supplied ref as a commit sha. The ref can never be read as an option. */
-function resolveCommit(git: CwdGit, ref: string | undefined, top: string): string | undefined {
-  if (ref === undefined) return undefined;
-  const args = ['rev-parse', '--verify', '--quiet', '--end-of-options', `${ref}^{commit}`];
-  return tryGit(git, args, top) || undefined;
 }
 
 const unresolvedEnd = (given: string | undefined): string =>
@@ -220,27 +247,36 @@ function selectionOf(
   });
 }
 
-type ReviewBaseFields = Pick<ReviewTierResult, 'base' | 'head' | 'baseSource' | 'baseUnresolved'>;
-
 /**
- * The base the gate will demand of a final review (resolveFinalReviewBase, the gate's own
- * resolver), or the merge base for a standalone review. `--head` defaults to HEAD.
+ * The base the gate will demand of a final review (resolveFinalReviewBase, over the gate's own
+ * merge-base lookup), or the base advised for a standalone review (resolveStandaloneReviewBase:
+ * the merge base, never a session's starting commit). `--head` defaults to HEAD.
  */
-function reviewBaseOf(opts: ReviewTierOptions, git: CwdGit, cwd: string): ReviewBaseFields {
+function reviewBaseOf(
+  opts: ReviewTierOptions & { moment: 'final' | 'standalone' },
+  git: CwdGit,
+  cwd: string
+): Tiered {
+  const tier = { ...selectReviewTier({ moment: opts.moment }) };
   const top = resolveRepoRoots(git, cwd)?.top;
   const head = top === undefined ? undefined : resolveCommit(git, opts.head ?? 'HEAD', top);
-  if (top === undefined || head === undefined) return { baseUnresolved: 'head-unresolved' };
-  const start =
-    opts.moment === 'final' ? startOf(opts.session, git, cwd) : { startingCommit: undefined };
-  if ('invalid' in start) return { head, baseUnresolved: 'session-invalid' };
-  const resolved = resolveFinalReviewBase({
-    cwd: top,
-    head,
-    startingCommit: start.startingCommit,
-    git,
-  });
-  if (resolved.status === 'unresolved') return { head, baseUnresolved: resolved.reason };
-  return { head, base: resolved.base, baseSource: resolved.baseSource };
+  if (top === undefined || head === undefined) {
+    return { moment: opts.moment, ...tier, baseUnresolved: 'head-unresolved' };
+  }
+  const at = { cwd: top, head, git, target: opts.target };
+  if (opts.moment === 'standalone') {
+    const r = resolveStandaloneReviewBase(at);
+    return r.status === 'resolved'
+      ? { moment: 'standalone', ...tier, head, base: r.base, baseSource: r.baseSource }
+      : { moment: 'standalone', ...tier, head, baseUnresolved: r.reason };
+  }
+  const start = startOf(opts.session, git, cwd);
+  if ('invalid' in start)
+    return { moment: 'final', ...tier, head, baseUnresolved: 'session-invalid' };
+  const r = resolveFinalReviewBase({ ...at, startingCommit: start.startingCommit });
+  return r.status === 'resolved'
+    ? { moment: 'final', ...tier, head, base: r.base, baseSource: r.baseSource }
+    : { moment: 'final', ...tier, head, baseUnresolved: r.reason };
 }
 
 /** The session's starting commit, when `--session` names one; invalid when it is not a session name. */
@@ -254,24 +290,46 @@ function startOf(
   return dir.ok ? { startingCommit: sessionStartingCommit(dir.value) } : { invalid: true };
 }
 
-const UNRESOLVED_TEXT: Record<NonNullable<ReviewTierResult['baseUnresolved']>, string> = {
+const UNRESOLVED_TEXT: Record<FinalBaseUnresolved | StandaloneBaseUnresolved, string> = {
   'starting-commit-unknown':
-    "no default-branch merge base, and the session's starting commit is unknown: pass --session",
+    "no default-branch merge base, and the session's starting commit is unknown: pass --session " +
+    'with the autopilot session, or --target with the branch this one merges into',
+  'no-default-branch':
+    'no default-branch merge base: name the range to review explicitly (a commit-range argument; ' +
+    'its first commit is the base), or pass --target with the branch this one merges into',
+  'target-unresolved': 'is not a commit that has a merge base with the head',
   'head-unresolved': 'the head could not be resolved to a commit',
   'session-invalid': 'the --session value is not a valid session name',
 };
 
 /** What the gate will demand of the review's base. Phase reviews print their range instead. */
-function baseLine(r: ReviewTierResult): string[] {
+function baseLine(r: ReviewTierResult, target: string | undefined): string[] {
   if (r.moment === 'phase') return [];
-  if (r.baseUnresolved !== undefined) {
-    return [`Review base: unresolved (${UNRESOLVED_TEXT[r.baseUnresolved]})`];
+  if ('baseUnresolved' in r) {
+    const why = UNRESOLVED_TEXT[r.baseUnresolved];
+    const text = r.baseUnresolved === 'target-unresolved' ? `--target "${target}" ${why}` : why;
+    return [`Review base: unresolved (${text})`];
   }
   const rule =
     r.moment === 'final'
       ? 'the gate requires exactly this base'
       : 'for a standalone review the gate checks only that the base is an ancestor of the head';
-  return [`Review base: ${r.base} (${r.baseSource}; ${rule})`];
+  const against = target === undefined ? '' : `, against --target ${target}`;
+  return [`Review base: ${r.base} (${r.baseSource}${against}; ${rule})`];
+}
+
+/** A flag the moment does not read: an error, never silently ignored. */
+function flagsTheMomentIgnores(opts: ReviewTierOptions): string | undefined {
+  if (opts.session !== undefined && opts.moment !== 'final') {
+    return '--session applies to --moment final only: a standalone review takes its base from the range it reviews';
+  }
+  if (opts.base !== undefined && opts.moment !== 'phase') {
+    return '--base applies to --moment phase only: a final or standalone base is computed';
+  }
+  if (opts.target !== undefined && opts.moment === 'phase') {
+    return '--target applies to --moment final and standalone only';
+  }
+  return undefined;
 }
 
 /**
@@ -282,6 +340,8 @@ function baseLine(r: ReviewTierResult): string[] {
  */
 export function runReviewTier(opts: ReviewTierOptions): Result<ReviewTierResult, Error> {
   const { cwd = process.cwd(), git = runGitIn } = opts;
+  const ignored = flagsTheMomentIgnores(opts);
+  if (ignored !== undefined) return fail(ignored);
   const configured = readConfiguredBackend(configFileFor(opts, git, cwd));
   if (!configured.ok) return configured;
   let tiered: Result<Tiered, Error>;
@@ -290,8 +350,7 @@ export function runReviewTier(opts: ReviewTierOptions): Result<ReviewTierResult,
     if (!roots) return fail('not inside a git repository: a phase tier is computed from a diff');
     tiered = phaseResult(opts, git, roots.top);
   } else {
-    const moment = opts.moment;
-    tiered = Ok({ moment, ...selectReviewTier({ moment }), ...reviewBaseOf(opts, git, cwd) });
+    tiered = Ok(reviewBaseOf({ ...opts, moment: opts.moment }, git, cwd));
   }
   if (!tiered.ok) return tiered;
   const backend = resolveReviewBackend({
@@ -300,14 +359,18 @@ export function runReviewTier(opts: ReviewTierOptions): Result<ReviewTierResult,
     tier: tiered.value.tier,
   });
   const tag = configured.value === undefined ? {} : { configured: configured.value };
-  return Ok({ ...tiered.value, backend: { ...backend, ...tag } });
+  return Ok({ ...tiered.value, backend: { ...backend, ...tag } } as ReviewTierResult);
 }
 
-export function formatReviewTier(r: ReviewTierResult): string[] {
+export function formatReviewTier(r: ReviewTierResult, target?: string): string[] {
   const why = r.reasons.length > 0 ? ` (${r.reasons.join(', ')})` : ' (no rule for full holds)';
   const b = r.backend;
   const note = b.reason === undefined ? '' : ` (${b.degraded ? 'DEGRADED: ' : ''}${b.reason})`;
-  return [`Review tier: ${r.tier}${why}`, `Review backend: ${b.backend}${note}`, ...baseLine(r)];
+  return [
+    `Review tier: ${r.tier}${why}`,
+    `Review backend: ${b.backend}${note}`,
+    ...baseLine(r, target),
+  ];
 }
 
 /** Injected inputs for tests. */
@@ -324,6 +387,7 @@ interface ReviewTierFlags {
   rigor?: ReviewRigor;
   pipelineRunner?: boolean;
   session?: string;
+  target?: string;
 }
 
 /**
@@ -344,6 +408,7 @@ function optionsFrom(
     ...(flags.complexity !== undefined && { complexity: flags.complexity }),
     ...(flags.rigor !== undefined && { rigor: flags.rigor }),
     ...(flags.session !== undefined && { session: flags.session }),
+    ...(flags.target !== undefined && { target: flags.target }),
     ...(deps.cwd !== undefined && { cwd: deps.cwd() }),
     ...(deps.git !== undefined && { git: deps.git }),
   };
@@ -375,7 +440,11 @@ export function createReviewTierCommand(deps: ReviewTierDeps = {}): Command {
     )
     .option(
       '--session <slug>',
-      "Autopilot session: a final review's base is its starting commit when no default branch resolves"
+      "Autopilot session (--moment final only): a final review's base is its starting commit when no default branch resolves"
+    )
+    .option(
+      '--target <ref>',
+      'The branch a final or standalone review merges into, such as a stacked PR base: the base is the merge base with it instead of the default branch'
     )
     .addOption(
       new Option('--complexity <level>', "The phase's assessed complexity").choices([
@@ -402,6 +471,6 @@ export function createReviewTierCommand(deps: ReviewTierDeps = {}): Command {
         console.log(JSON.stringify(out.value, null, 2));
         return;
       }
-      for (const line of formatReviewTier(out.value)) console.log(line);
+      for (const line of formatReviewTier(out.value, flags.target)) console.log(line);
     });
 }

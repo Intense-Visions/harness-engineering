@@ -720,10 +720,21 @@ describe('round 4: code-review instructions of review round 4 are each pinned', 
       /A diff too large for git's output buffer gives `full` with the reason `diff-too-large`, never `light`/
     );
     expect(text).toMatch(
-      /For a standalone or final review it also prints the base the receipt gate will demand, from the gate's own resolver/
+      /For a final review it also prints the base the receipt gate will demand, from the gate's own resolver/
+    );
+    // Unit 1 fix round 1, fix 7: a standalone review takes its base from its range; --session is final-only.
+    expect(text).toMatch(
+      /A standalone review takes its `diff\.base` from the range it reviews: a `commit-range` argument names that range, and its first commit is the base\./
     );
     expect(text).toMatch(
-      /A standalone review of a branch takes its `diff\.base` from that line, unless a `commit-range` argument names the range to review; for a standalone review the gate checks only that the base is an ancestor of the head/
+      /when none resolves it prints `Review base: unresolved \(no default-branch merge base: name the range to review explicitly …\)`: then pass the range as a `commit-range` argument/
+    );
+    expect(text).toMatch(
+      /`--session` applies to `--moment final` only and is an error with any other moment, as `--base` is with any moment but `phase`\./
+    );
+    // Fix 8: a stacked branch names its target, and the gate is given the same one.
+    expect(text).toMatch(
+      /`--target <ref>` names the branch the reviewed branch merges into when that is not the default branch \(a stacked PR's base, such as `origin\/feat\/parent`\): the base is then the merge base with that ref, resolved with `git rev-parse --verify --end-of-options`, and the gate must be given the same `--target`\./
     );
     expect(text).toMatch(
       /`review\.backend` in the repository top's `harness\.config\.json` \(or the file the global `-c` option names\) is `"agent"` \(the default\) or `"pipeline"`; any other value is an error \(exit 1\)/

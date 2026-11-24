@@ -79,8 +79,15 @@ export interface ReviewGateContext extends FindingsSource {
   expectedMoment: ExpectedMoment;
   /** `git merge-base --is-ancestor <base> <head>` succeeded. */
   baseIsAncestor: boolean;
-  /** `git merge-base origin/<default branch> <head>`. undefined: no default branch resolved. */
+  /**
+   * `git merge-base <ref> <head>` for the branch the review merges into: `--target` when the
+   * caller names one, else the default branch. undefined: none resolved.
+   */
   mergeBase: string | undefined;
+  /** The ref `mergeBase` was taken against, for messages. Absent: the default branch. */
+  mergeBaseWith?: string;
+  /** A `--target` the caller named that resolves to no commit with a merge base with the head. */
+  targetUnresolved?: string;
   /**
    * The session's starting commit, for a receipt in a session review directory whose
    * autopilot-state.json holds a full sha. Absent: unknown (no session, or no such field).
@@ -184,8 +191,24 @@ export type FinalReviewBase =
   | { status: 'resolved'; base: string; baseSource: ReviewBaseSource }
   | { status: 'unresolved'; reason: 'starting-commit-unknown' };
 
+/** The base a standalone review is advised to take, or why none resolves. */
+export type StandaloneReviewBase =
+  | { status: 'resolved'; base: string; baseSource: 'merge-base' }
+  | { status: 'unresolved'; reason: 'no-default-branch' };
+
 /**
- * The one rule for a final review's base (spec D9, ADR 0140): the merge base with the default
+ * A standalone review's base: the merge base with the branch it merges into when one resolves.
+ * It is advice: the review takes its base from the range it reviews, and the gate checks only
+ * that the base is an ancestor of the head. No session, so no starting-commit fallback.
+ */
+export function standaloneReviewBase(mergeBase: string | undefined): StandaloneReviewBase {
+  return mergeBase === undefined
+    ? { status: 'unresolved', reason: 'no-default-branch' }
+    : { status: 'resolved', base: mergeBase, baseSource: 'merge-base' };
+}
+
+/**
+ * The one rule for a final review's base (spec D12 and D27, ADR 0140): the merge base with the default
  * branch when one resolves; otherwise the session's starting commit; otherwise none can be
  * demanded. The gate applies it; `harness review-tier --moment final` prints it.
  */
@@ -304,6 +327,13 @@ function finalBaseFailure(
   context: ReviewGateContext
 ): ReviewGateFailure | undefined {
   const { base, baseSource } = receipt.diff;
+  if (context.targetUnresolved !== undefined) {
+    return reviewGateFailure(
+      'TARGET_UNRESOLVED',
+      `--target "${context.targetUnresolved}" does not resolve to a commit that has a merge base ` +
+        `with ${receipt.diff.head}, so the final base cannot be checked`
+    );
+  }
   const demanded = finalReviewBase(context.mergeBase, context.startingCommit);
   const starts = 'a final review starts at the merge base, but diff.base is';
   if (demanded.status === 'resolved' && demanded.base === base) {
@@ -317,7 +347,8 @@ function finalBaseFailure(
         : '';
     return reviewGateFailure(
       'FINAL_BASE_NOT_MERGE_BASE',
-      `${starts} ${base} and the merge base with the default branch is ${context.mergeBase}${declared}`
+      `${starts} ${base} and the merge base with ${context.mergeBaseWith ?? 'the default branch'} ` +
+        `is ${context.mergeBase}${declared}`
     );
   }
   if (baseSource !== 'starting-commit') {

@@ -34,8 +34,15 @@ function commit(files: Record<string, string>, message = 'chore: tidy'): string 
 let base: string;
 const config = (c: unknown) =>
   fs.writeFileSync(path.join(tmp, 'harness.config.json'), JSON.stringify(c));
+/** A phase review gets the fixture range; --base is an error for final and standalone (fix 7). */
 const run = (over: Partial<ReviewTierOptions> = {}) =>
-  runReviewTier({ moment: 'phase', base, head: g('rev-parse', 'HEAD'), cwd: tmp, ...over });
+  runReviewTier({
+    moment: 'phase',
+    ...((over.moment ?? 'phase') === 'phase' && { base }),
+    head: g('rev-parse', 'HEAD'),
+    cwd: tmp,
+    ...over,
+  });
 /** The successful result, or a thrown error naming why it was not one. */
 function ok(over: Partial<ReviewTierOptions> = {}) {
   const out = run(over);

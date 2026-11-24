@@ -16,12 +16,13 @@ import {
 } from '@harness-engineering/core';
 import { REVIEW_MOMENTS, type ReviewMoment, type ReviewReceipt } from '@harness-engineering/types';
 import {
-  defaultBranchMergeBase,
   earlierPhaseReceipt,
   fields,
   isSha,
   listDiffFiles,
+  resolveCommit,
   resolveRepoRoots,
+  reviewMergeBase,
   runGitIn,
   sessionStartingCommit,
   tryGit,
@@ -45,6 +46,11 @@ export interface CheckReviewReceiptOptions {
   moment?: ReviewMoment;
   /** Refuse a receipt path that leaves `cwd` (the MCP tool, whose arguments are unvalidated). */
   confine?: boolean;
+  /**
+   * The branch a final review's base is the merge base with (a stacked branch's parent). Read for
+   * a final receipt only; default: the default branch (origin/HEAD, origin/main, origin/master).
+   */
+  target?: string;
 }
 
 export interface CheckReviewReceiptReport {
@@ -68,6 +74,21 @@ function claimedRange(raw: unknown): Range | undefined {
   return { base, head, final: fields(raw).moment === 'final' };
 }
 
+/** The merge base a final receipt is checked against (`--target`, else the default branch). */
+function finalMergeBase(
+  git: CwdGit,
+  range: Range,
+  cwd: string,
+  target: string | undefined
+): Pick<ReviewGateContext, 'mergeBase' | 'mergeBaseWith' | 'targetUnresolved'> {
+  if (!range.final) return { mergeBase: undefined };
+  const lookup = reviewMergeBase(git, range.head, cwd, target);
+  if (lookup.status === 'resolved')
+    return { mergeBase: lookup.mergeBase, mergeBaseWith: lookup.with };
+  if (lookup.status === 'none') return { mergeBase: undefined };
+  return { mergeBase: undefined, targetUnresolved: lookup.target };
+}
+
 /** HEAD, resolved by git; empty when it cannot be resolved. */
 function currentHead(git: CwdGit, cwd: string): Pick<ReviewGateContext, 'head'> {
   return { head: tryGit(git, ['rev-parse', 'HEAD'], cwd) ?? '' };
@@ -83,7 +104,7 @@ type Recomputed = Omit<
  * repository top, so the diff is listed repository-relative whatever the caller's directory and
  * diff config (`diff.relative`), which is how reviewers are told to list it.
  */
-function recompute(git: CwdGit, raw: unknown, from: string): Recomputed {
+function recompute(git: CwdGit, raw: unknown, from: string, target?: string): Recomputed {
   const range = claimedRange(raw);
   if (range === undefined) {
     return {
@@ -100,7 +121,7 @@ function recompute(git: CwdGit, raw: unknown, from: string): Recomputed {
     ...currentHead(git, cwd),
     diffFiles: listDiffFiles(git, base, head, cwd),
     baseIsAncestor: tryGit(git, ['merge-base', '--is-ancestor', base, head], cwd) !== undefined,
-    mergeBase: range.final ? defaultBranchMergeBase(git, head, cwd) : undefined,
+    ...finalMergeBase(git, range, cwd, target),
     worktreeClean: worktreeClean(git, cwd),
   };
 }
@@ -152,7 +173,7 @@ export function gateReviewReceipt(opts: CheckReviewReceiptOptions): GatedReviewR
     startingCommit,
   });
   const result = validateReviewReceipt(read.raw, {
-    ...recompute(git, read.raw, cwd),
+    ...recompute(git, read.raw, cwd, opts.target),
     ...(startingCommit !== undefined && { startingCommit }),
     phaseBase,
     readFindings: reviewFindingsReaderFor(read.dir),
@@ -195,9 +216,7 @@ export function runCheckFindingsFile(opts: {
   const read = readRegularFile(file);
   const text = 'text' in read ? read.text : undefined;
   const top = resolveRepoRoots(git, cwd)?.top ?? cwd;
-  const commit = (ref: string) =>
-    tryGit(git, ['rev-parse', '--verify', '--quiet', '--end-of-options', `${ref}^{commit}`], top) ||
-    undefined;
+  const commit = (ref: string) => resolveCommit(git, ref, top);
   let range = {};
   if (opts.base !== undefined && opts.head !== undefined) {
     const base = commit(opts.base);

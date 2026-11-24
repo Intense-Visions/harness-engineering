@@ -1490,6 +1490,7 @@ StaleConstraint
 StaleReference
 StalenessEntry
 StalenessReport
+StandaloneReviewBase
 StaticExtraction
 StepExecutor
 StepOutcome
@@ -2327,6 +2328,7 @@ spearmanRankCorrelation
 spillIfNeeded
 splitBundlesByStage
 stageDomains
+standaloneReviewBase
 suggestCategory
 summarizeAutoDecisions
 summarizeLeafSpend

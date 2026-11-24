@@ -7,8 +7,10 @@ import {
   readRegularFile,
   readReviewReceiptFile,
   resolveSessionDir,
+  standaloneReviewBase,
   type EarlierPhaseReceipt,
   type FinalReviewBase,
+  type StandaloneReviewBase,
   type Result,
 } from '@harness-engineering/core';
 
@@ -150,12 +152,45 @@ export function earlierPhaseReceipt(reviewDir: string): EarlierPhaseReceipt {
   return { status: 'none' };
 }
 
+/** A user-supplied ref as a commit sha. The ref can never be read as an option. */
+export function resolveCommit(
+  git: CwdGit,
+  ref: string | undefined,
+  cwd: string
+): string | undefined {
+  if (ref === undefined) return undefined;
+  const args = ['rev-parse', '--verify', '--quiet', '--end-of-options', `${ref}^{commit}`];
+  return tryGit(git, args, cwd) || undefined;
+}
+
+/** The merge base a final or standalone review is measured from, and the ref it came from. */
+export type MergeBaseLookup =
+  | { status: 'resolved'; mergeBase: string; with: string }
+  /** No default branch resolved (no `--target` was named). */
+  | { status: 'none' }
+  /** `--target` was named and resolves to no commit with a merge base with the head. */
+  | { status: 'target-unresolved'; target: string };
+
 /**
- * `git merge-base origin/<default branch> <head>`: the default branch is origin/HEAD's target,
- * else origin/main, else origin/master, the first for which git answers. undefined: none does.
- * These are local remote-tracking refs, so the answer is only as current as the clone's refs.
+ * `git merge-base <ref> <head>` for the branch the review merges into. With `target` (a stacked
+ * branch's parent, `--target`) that ref, resolved with `rev-parse --verify --end-of-options`, and
+ * nothing else. Without it the default branch: origin/HEAD's target, else origin/main, else
+ * origin/master, the first for which git answers. These are local remote-tracking refs, so the
+ * answer is only as current as the clone's refs.
  */
-export function defaultBranchMergeBase(git: CwdGit, head: string, cwd: string): string | undefined {
+export function reviewMergeBase(
+  git: CwdGit,
+  head: string,
+  cwd: string,
+  target?: string
+): MergeBaseLookup {
+  if (target !== undefined) {
+    const sha = resolveCommit(git, target, cwd);
+    const base = sha === undefined ? undefined : tryGit(git, ['merge-base', sha, head], cwd);
+    return base
+      ? { status: 'resolved', mergeBase: base, with: target }
+      : { status: 'target-unresolved', target };
+  }
   const named = tryGit(
     git,
     ['symbolic-ref', '--quiet', '--short', 'refs/remotes/origin/HEAD'],
@@ -163,21 +198,50 @@ export function defaultBranchMergeBase(git: CwdGit, head: string, cwd: string): 
   );
   for (const ref of [named, 'origin/main', 'origin/master']) {
     const base = ref ? tryGit(git, ['merge-base', '--end-of-options', ref, head], cwd) : undefined;
-    if (base) return base;
+    if (base && ref) return { status: 'resolved', mergeBase: base, with: ref };
   }
-  return undefined;
+  return { status: 'none' };
 }
 
+const mergeBaseOf = (lookup: MergeBaseLookup): string | undefined =>
+  lookup.status === 'resolved' ? lookup.mergeBase : undefined;
+
+/** A final review's base, or why none can be demanded (including an unresolvable `--target`). */
+export type FinalBaseOutcome =
+  | FinalReviewBase
+  | { status: 'unresolved'; reason: 'target-unresolved' };
+
 /**
- * The base a final review must have (core `finalReviewBase` over the default-branch merge base
- * and the session's starting commit). The gate and `harness review-tier` both use this.
+ * The base a final review must have: core `finalReviewBase` over the merge base (`reviewMergeBase`)
+ * and the session's starting commit. The gate takes its merge base from the same lookup, and
+ * `harness review-tier --moment final` prints this.
  */
 export function resolveFinalReviewBase(opts: {
   cwd: string;
   head: string;
   startingCommit?: string | undefined;
+  target?: string | undefined;
   git?: CwdGit;
-}): FinalReviewBase {
-  const mergeBase = defaultBranchMergeBase(opts.git ?? runGitIn, opts.head, opts.cwd);
-  return finalReviewBase(mergeBase, opts.startingCommit);
+}): FinalBaseOutcome {
+  const lookup = reviewMergeBase(opts.git ?? runGitIn, opts.head, opts.cwd, opts.target);
+  if (lookup.status === 'target-unresolved')
+    return { status: 'unresolved', reason: 'target-unresolved' };
+  return finalReviewBase(mergeBaseOf(lookup), opts.startingCommit);
+}
+
+/** A standalone review's advised base (core `standaloneReviewBase`), or why none resolves. */
+export type StandaloneBaseOutcome =
+  | StandaloneReviewBase
+  | { status: 'unresolved'; reason: 'target-unresolved' };
+
+export function resolveStandaloneReviewBase(opts: {
+  cwd: string;
+  head: string;
+  target?: string | undefined;
+  git?: CwdGit;
+}): StandaloneBaseOutcome {
+  const lookup = reviewMergeBase(opts.git ?? runGitIn, opts.head, opts.cwd, opts.target);
+  if (lookup.status === 'target-unresolved')
+    return { status: 'unresolved', reason: 'target-unresolved' };
+  return standaloneReviewBase(mergeBaseOf(lookup));
 }

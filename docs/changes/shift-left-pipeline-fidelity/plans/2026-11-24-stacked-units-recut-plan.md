@@ -1035,7 +1035,7 @@ Report the diff output and the tag shas.
 
 ### After the cut: findings and PRs
 
-For each unit in order: apply Part E's findings as fix commits on the unit's branch, rerun its gate, and restack the units above it (`git rebase --onto <unit N new tip> <unit N old tip> <unit N+1 branch>`). A rebase onto a stack never needs `--force` on the reference branch. Pushing and opening PRs is irreversible, and the owner decides when (base per unit as given above; body `Part of #2686`). A unit whose base is not `main` gets no CI until its base merges and GitHub retargets it.
+For each unit in order: apply Part E's findings as fix commits on the unit's branch, rerun its gate, and restack the units above it (`git rebase --onto <unit N new tip> <unit N old tip> <unit N+1 branch>`). A rebase onto a stack never needs `--force` on the reference branch. Pushing and opening PRs is irreversible, and the owner decides when (base per unit as given above; body `Part of #2686`). A unit whose base is not `main` gets no CI until its base merges and GitHub retargets it. While a unit's base is the unit below it, its final review passes `--target <that unit's remote-tracking branch>` to `harness review-tier --moment final` and to `harness check-review-receipt` (ADR 0140, Stacked branches), so the review covers that unit's commits only.
 
 ---
 

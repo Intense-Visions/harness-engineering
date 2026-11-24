@@ -39,7 +39,11 @@ repository top level and reads `review.backend` from the `harness.config.json` t
 answers the same from any directory; it gathers the diff, the range's commit messages and the
 package entry points, applies the selector and prints the tier with its reasons. For a final or
 standalone review it also prints the base the receipt gate will demand, from the gate's own
-resolver (`--session` supplies the starting commit). The skills run the command and use its
+resolver (`--session` supplies the starting commit; `--target <ref>` names the branch a stacked
+branch merges into, and the gate takes the same flag). A standalone review takes its base from
+the range it reviews; the command prints the default-branch merge base as advice and, when none
+resolves, says to name the range (`no-default-branch`), never to pass `--session`, which applies
+to the final moment only. The skills run the command and use its
 output, the final base included. A diff too large for git's output buffer is `full`
 (`diff-too-large`). It exits 1 when it cannot compute a tier (an unresolvable range, an empty
 diff, no repository) and never falls back to `light`. A session

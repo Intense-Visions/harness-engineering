@@ -259,6 +259,44 @@ describe('harness check-review-receipt', () => {
     expect(out).toMatch(message);
     expect(out).not.toMatch(/review receipt gate:/);
   });
+  it('fix 11: --findings with --target exits 1 and checks no file', async () => {
+    const f = path.join(tmp, 'f.json');
+    fs.writeFileSync(f, findingsFile('bug'));
+    const out = await invoke(['check-review-receipt', '--findings', f, '--target', 'origin/x']);
+    expect(process.exitCode).toBe(1);
+    expect(out).toMatch(/--target applies to a receipt path only/);
+  });
+  it('fix 8: --target reaches the gate as the ref a final base is measured against', async () => {
+    const calls: string[][] = [];
+    const program = new Command().option('--json');
+    program.addCommand(
+      createCheckReviewReceiptCommand({
+        cwd: () => tmp,
+        git: (args, at) => (calls.push(args), git()(args, at)),
+      })
+    );
+    dir = path.join(path.dirname(dir), 'final-all');
+    fs.mkdirSync(dir);
+    write(receipt({ moment: 'final' }));
+    vi.spyOn(console, 'log').mockImplementation(() => {});
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    await program.parseAsync([
+      'node',
+      'harness',
+      'check-review-receipt',
+      dir,
+      '--target',
+      'origin/p',
+    ]);
+    expect(calls).toContainEqual([
+      'rev-parse',
+      '--verify',
+      '--quiet',
+      '--end-of-options',
+      'origin/p^{commit}',
+    ]);
+    expect(calls.some((a) => a[0] === 'symbolic-ref')).toBe(false);
+  });
   it('fix 11: --findings with --moment exits 1 and checks no file', async () => {
     const f = path.join(tmp, 'f.json');
     fs.writeFileSync(f, findingsFile('bug'));

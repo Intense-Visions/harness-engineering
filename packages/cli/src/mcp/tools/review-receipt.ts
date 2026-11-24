@@ -31,6 +31,11 @@ export const checkReviewReceiptDefinition: ToolDefinition = {
         description:
           'Path to receipt.json or to the review directory holding it, absolute or relative to path. It must be inside path',
       },
+      target: {
+        type: 'string',
+        description:
+          "The branch a final review's base is the merge base with, such as a stacked PR base. Default: the default branch. Read for a final receipt only",
+      },
       moment: {
         type: 'string',
         enum: [...REVIEW_MOMENTS],
@@ -64,11 +69,15 @@ export async function handleCheckReviewReceipt(
     if (input.moment !== undefined && moment === undefined) {
       return gateError(`moment must be one of ${REVIEW_MOMENTS.join(', ')}`);
     }
+    if (input.target !== undefined && typeof input.target !== 'string') {
+      return gateError('target must be a string');
+    }
     const report = runCheckReviewReceipt({
       receiptPath: input.receipt,
       cwd: sanitizePath(input.path),
       confine: true,
       ...(moment !== undefined && { moment }),
+      ...(typeof input.target === 'string' && { target: input.target }),
       ...(deps.git !== undefined && { git: deps.git }),
     });
     return { content: [{ type: 'text' as const, text: JSON.stringify(report) }] };

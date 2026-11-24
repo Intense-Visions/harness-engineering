@@ -31,6 +31,7 @@ export function formatCheckReviewReceipt(report: CheckReviewReceiptReport): stri
 
 interface CheckFlags {
   moment?: ReviewMoment;
+  target?: string;
   findings?: string;
   base?: string;
   head?: string;
@@ -67,6 +68,9 @@ function flagsTheModeIgnores(opts: CheckFlags): string | undefined {
   if (opts.findings !== undefined && opts.moment !== undefined) {
     return '--moment applies to a receipt path only; --findings checks one file, not a review';
   }
+  if (opts.findings !== undefined && opts.target !== undefined) {
+    return '--target applies to a receipt path only; --findings checks one file, not a review';
+  }
   return undefined;
 }
 
@@ -88,6 +92,10 @@ export function createCheckReviewReceiptCommand(deps: CheckReviewReceiptDeps = {
       '--findings <file>',
       "A reviewer's self-check: validate one findings file with the gate's parser (with --base " +
         'and --head, also that its head is --head and every examined file is in that diff)'
+    )
+    .option(
+      '--target <ref>',
+      "The branch a final review's base is the merge base with, such as a stacked PR base (default: the default branch). Read for a final receipt only"
     )
     .option('--base <sha>', 'With --findings: base of the reviewed range')
     .option('--head <sha>', 'With --findings: head of the reviewed range')
@@ -116,6 +124,7 @@ export function createCheckReviewReceiptCommand(deps: CheckReviewReceiptDeps = {
       const report = runCheckReviewReceipt({
         receiptPath: receiptPath as string,
         ...(opts.moment !== undefined && { moment: opts.moment }),
+        ...(opts.target !== undefined && { target: opts.target }),
         ...(deps.cwd !== undefined && { cwd: deps.cwd() }),
         ...(deps.git !== undefined && { git: deps.git }),
       });
