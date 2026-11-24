@@ -572,6 +572,7 @@ describe('review round 3: craft, dispatched mode and the reviewer self-check (A6
     const range = {
       ranged: true,
       head: file.head,
+      worktreeHead: file.head,
       diffFiles: file.examinedFiles,
       worktreeClean: true,
     } as const;
@@ -584,19 +585,15 @@ describe('review round 3: craft, dispatched mode and the reviewer self-check (A6
     add('{', { ranged: false });
     add(JSON.stringify({ ...file, examinedFiles: [] }), { ranged: false });
     add(JSON.stringify({ ...file, findings: [finding, finding] }), { ranged: false });
-    add(example, { ranged: true, head: file.head, diffFiles: undefined, worktreeClean: true });
-    add(example, { ranged: true, head: file.head, diffFiles: [], worktreeClean: true });
-    add(example, {
-      ranged: true,
-      head: '1'.repeat(40),
-      diffFiles: file.examinedFiles,
-      worktreeClean: true,
-    });
+    add(example, { ...range, diffFiles: undefined });
+    add(example, { ...range, diffFiles: [] });
+    add(example, { ...range, head: '1'.repeat(40), worktreeHead: '1'.repeat(40) });
+    add(example, { ...range, worktreeHead: '2'.repeat(40) });
     add(example, { ...range, worktreeClean: false });
     add(JSON.stringify({ ...file, reviewerId: 'not-a-reviewer' }), { ranged: false });
-    add(example, { ranged: true, head: file.head, diffFiles: ['other.ts'], worktreeClean: true });
+    add(example, { ...range, diffFiles: ['other.ts'] });
     expect([...raised].sort()).toEqual([...named].sort());
-    expect(named).toHaveLength(10);
+    expect(named).toHaveLength(11);
   });
 });
 

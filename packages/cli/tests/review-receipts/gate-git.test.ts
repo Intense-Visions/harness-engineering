@@ -329,3 +329,41 @@ describe('round 2: a changed path that starts with a space is listed as git prin
     expect(r.failures).toEqual([]);
   });
 });
+
+/** Round 2 (adversarial, typescript-strict): the self-check's range, and what git could not say. */
+describe('round 2: the self-check binds the reviewer worktree to --head', () => {
+  const bug = () => path.join(writeReview('phase-0', start, ['pkg/sub/b.ts']), 'bug.json');
+  it('a reviewer worktree at another commit fails HEAD_MISMATCH', () => {
+    const findingsPath = bug();
+    g('checkout', '-q', '--detach', start);
+    const r = runCheckFindingsFile({ findingsPath, base: start, head, cwd: tmp });
+    expect(r.failures.map((f) => f.code)).toEqual(['HEAD_MISMATCH']);
+  });
+  it.each([
+    ['--head', { base: 'HEAD~1', head: 'nosuchref' }],
+    ['--base', { base: 'nosuchref', head: 'HEAD' }],
+  ])('an unresolvable %s is one failure that says it does not resolve', (flag, range) => {
+    const r = runCheckFindingsFile({ findingsPath: bug(), ...range, cwd: tmp });
+    expect(r.failures).toEqual([
+      expect.objectContaining({
+        code: 'DIFF_UNRESOLVED',
+        message: `${flag} "nosuchref" does not resolve to a commit`,
+      }),
+    ]);
+  });
+  it('the receipt gate reports a git error on ancestry as DIFF_UNRESOLVED, not as not-an-ancestor', () => {
+    const dir = writeReview('phase-0', start, ['pkg/sub/b.ts']);
+    const r = runCheckReviewReceipt({
+      receiptPath: dir,
+      cwd: tmp,
+      git: (args, cwd) => {
+        if (args[1] === '--is-ancestor') {
+          throw Object.assign(new Error('fatal: bad object'), { status: 128 });
+        }
+        return runGitIn(args, cwd);
+      },
+    });
+    expect(r.failures.map((f) => f.code)).toContain('DIFF_UNRESOLVED');
+    expect(r.failures.map((f) => f.code)).not.toContain('DIFF_BASE_NOT_ANCESTOR');
+  });
+});

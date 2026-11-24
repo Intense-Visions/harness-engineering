@@ -112,7 +112,7 @@ function recompute(git: CwdGit, range: Range | undefined, cwd: string): Recomput
     return {
       head: '',
       diffFiles: undefined,
-      baseIsAncestor: false,
+      baseIsAncestor: undefined,
       mergeBase: undefined,
       worktreeClean: undefined,
     };
@@ -121,7 +121,7 @@ function recompute(git: CwdGit, range: Range | undefined, cwd: string): Recomput
   return {
     ...currentHead(git, cwd),
     diffFiles: listDiffFiles(git, base, head, cwd),
-    baseIsAncestor: tryGit(git, ['merge-base', '--is-ancestor', base, head], cwd) !== undefined,
+    baseIsAncestor: isAncestor(git, base, head, cwd),
     ...finalMergeBase(git, range, cwd),
     worktreeClean: worktreeClean(git, cwd),
   };
@@ -253,11 +253,20 @@ export function runCheckFindingsFile(opts: {
   if (opts.base !== undefined && opts.head !== undefined) {
     const base = commit(opts.base);
     const head = commit(opts.head);
-    const diffFiles = base && head ? listDiffFiles(git, base, head, top) : undefined;
+    const unresolved = base === undefined ? ['--base', opts.base] : ['--head', opts.head];
+    if (base === undefined || head === undefined) {
+      const why = `${unresolved[0]} "${unresolved[1]}" does not resolve to a commit`;
+      return {
+        pass: false,
+        findingsPath: file,
+        failures: [reviewGateFailure('DIFF_UNRESOLVED', why)],
+      };
+    }
     range = {
       ranged: true,
-      head: head ?? opts.head,
-      diffFiles,
+      head,
+      worktreeHead: tryGit(git, ['rev-parse', 'HEAD'], top),
+      diffFiles: listDiffFiles(git, base, head, top),
       worktreeClean: worktreeClean(git, top),
     };
   }

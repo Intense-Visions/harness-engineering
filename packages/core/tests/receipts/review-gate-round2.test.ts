@@ -129,6 +129,11 @@ describe('fix 4: diff.base is checked as far as git allows', () => {
     const r = validateReviewReceipt(receipt(), ctx({ baseIsAncestor: false }));
     expect(codes(r)).toEqual(['DIFF_BASE_NOT_ANCESTOR']);
   });
+  it('round 2: git could not say whether it is an ancestor: DIFF_UNRESOLVED, not a claim it is not', () => {
+    const r = validateReviewReceipt(receipt(), ctx({ baseIsAncestor: undefined }));
+    expect(codes(r)).toEqual(['DIFF_UNRESOLVED']);
+    expect(r.failures[0]?.message).toMatch(/could not tell whether/);
+  });
   it('fails a final receipt whose base is not the merge base with the default branch', () => {
     const final = receipt({ moment: 'final' });
     const r = validateReviewReceipt(

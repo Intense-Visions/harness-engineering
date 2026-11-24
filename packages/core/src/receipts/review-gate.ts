@@ -62,8 +62,8 @@ export interface ReviewGateContext extends FindingsSource {
   worktreeClean: boolean | undefined;
   /** Which review this is expected to be (`expectedReviewMoment`). */
   expectedMoment: ExpectedMoment;
-  /** `git merge-base --is-ancestor <base> <head>` succeeded. */
-  baseIsAncestor: boolean;
+  /** `git merge-base --is-ancestor <base> <head>`: true, false, or undefined (git could not say). */
+  baseIsAncestor: boolean | undefined;
   /**
    * `git merge-base <ref> <head>` for the branch the review merges into: the receipt's
    * `diff.target` when it names one, else the default branch. undefined: none resolved.
@@ -299,10 +299,13 @@ function worktreeFailures(worktreeClean: boolean | undefined): ReviewGateFailure
 function baseFailures(receipt: ReviewReceipt, context: ReviewGateContext): ReviewGateFailure[] {
   const { base, head } = receipt.diff;
   const out: ReviewGateFailure[] = [];
-  if (!context.baseIsAncestor) {
+  if (context.baseIsAncestor === false) {
     out.push(
       reviewGateFailure('DIFF_BASE_NOT_ANCESTOR', `diff.base ${base} is not an ancestor of ${head}`)
     );
+  } else if (context.baseIsAncestor === undefined) {
+    const why = `could not tell whether diff.base ${base} is an ancestor of ${head} (git failed)`;
+    out.push(reviewGateFailure('DIFF_UNRESOLVED', why));
   }
   if (receipt.moment !== 'final') return out;
   const failure = finalBaseFailure(receipt, context);
@@ -651,6 +654,8 @@ export type FindingsFileRange =
       ranged: true;
       /** The resolved head the file must name. */
       head: string;
+      /** `git rev-parse HEAD` where the reviewer read the files; undefined: git could not say. */
+      worktreeHead: string | undefined;
       /** `git diff --name-only -z <base>..<head>`; undefined: git could not say. */
       diffFiles: readonly string[] | undefined;
       /** Whether the tracked files equal HEAD; undefined: git could not say. */
@@ -694,6 +699,11 @@ export function checkReviewerFindingsText(
     out.push(reviewGateFailure('DIFF_UNRESOLVED', 'could not compute the file set of the range'));
   } else if (diffSet?.size === 0) {
     out.push(reviewGateFailure('EMPTY_DIFF', 'the range changes no files'));
+  }
+  if (range.ranged && range.worktreeHead !== range.head) {
+    const at = range.worktreeHead ?? 'an unresolved commit';
+    const why = `the working tree is at ${at}, not --head ${range.head}, so the files read are not the reviewed ones`;
+    out.push(reviewGateFailure('HEAD_MISMATCH', why));
   }
   if (range.ranged) out.push(...worktreeFailures(range.worktreeClean));
   const self = { id: file.reviewerId, required: true, ran: true, findingsPath: name };

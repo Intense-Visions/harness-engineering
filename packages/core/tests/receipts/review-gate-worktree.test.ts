@@ -31,17 +31,35 @@ describe('the self-check: tracked files must equal HEAD when a range is given', 
     ['no range', { ranged: false }, []],
     [
       'range, clean',
-      { ranged: true, head: HEAD, diffFiles: ['src/a.ts'], worktreeClean: true },
+      {
+        ranged: true,
+        head: HEAD,
+        worktreeHead: HEAD,
+        diffFiles: ['src/a.ts'],
+        worktreeClean: true,
+      },
       [],
     ],
     [
       'range, dirty',
-      { ranged: true, head: HEAD, diffFiles: ['src/a.ts'], worktreeClean: false },
+      {
+        ranged: true,
+        head: HEAD,
+        worktreeHead: HEAD,
+        diffFiles: ['src/a.ts'],
+        worktreeClean: false,
+      },
       ['WORKTREE_DIRTY'],
     ],
     [
       'range, unknown',
-      { ranged: true, head: HEAD, diffFiles: ['src/a.ts'], worktreeClean: undefined },
+      {
+        ranged: true,
+        head: HEAD,
+        worktreeHead: HEAD,
+        diffFiles: ['src/a.ts'],
+        worktreeClean: undefined,
+      },
       ['WORKTREE_DIRTY'],
     ],
   ] as const)('%s', (_n, range, expected) => {

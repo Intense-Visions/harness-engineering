@@ -93,7 +93,7 @@ export function createCheckReviewReceiptCommand(deps: CheckReviewReceiptDeps = {
     .option(
       '--findings <file>',
       "A reviewer's self-check: validate one findings file with the gate's parser (with --base " +
-        'and --head, also that its head is --head and every examined file is in that diff)'
+        'and --head, also that its head is --head, the working tree is at --head and every examined file is in that diff)'
     )
     .option('--base <sha>', 'With --findings: base of the reviewed range')
     .option('--head <sha>', 'With --findings: head of the reviewed range')
