@@ -848,3 +848,20 @@ describe('unit 1 fix round 1: no later-unit promise, the pipeline files, cold ho
     );
   });
 });
+
+describe('unit 1 fix round 1: the prose reviewer list is the contract list', () => {
+  it('names exactly the full-tier, conditional and light reviewer ids of the types package', async () => {
+    const types = await import('@harness-engineering/core');
+    const listed = /- Every reviewer `id` is a known reviewer: ([^.]*)\./.exec(
+      section(md(), '### Review Receipt')
+    )?.[1];
+    const named = [...(listed ?? '').matchAll(/`([a-z-]+)`/g)].map((m) => m[1]);
+    expect(named.sort()).toEqual(
+      [
+        ...types.FULL_TIER_REVIEWER_IDS,
+        ...types.CONDITIONAL_REVIEWER_IDS,
+        types.LIGHT_TIER_REVIEWER_ID,
+      ].sort()
+    );
+  });
+});

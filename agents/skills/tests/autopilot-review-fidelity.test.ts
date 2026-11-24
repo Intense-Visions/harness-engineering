@@ -801,3 +801,11 @@ describe('unit 1 fix round 1: the empty phase, cold-context honesty, phase numbe
     );
   });
 });
+
+describe('unit 1 fix round 1: a spent fix budget with a red mechanical phase', () => {
+  it('offers stop and says how a hand-made fix resumes', () => {
+    expect(section(md(), '### FINAL_REVIEW')).toMatch(
+      /When that budget is already spent, `fix` is not offered: report the failing checks and that the budget is spent, and offer `stop`; a fix the human commits by hand, followed by a resume, re-enters FINAL_REVIEW at step 1\./
+    );
+  });
+});

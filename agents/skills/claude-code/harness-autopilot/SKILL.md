@@ -508,7 +508,7 @@ All review output for the phase lives in `{sessionDir}/reviews/phase-{N}/`. The 
    - the receipt records `moment: "final"`, `tier: "full"`, `coldContext: true`, `priorFindingsSupplied: false`. These are claims about what was done, not settings: if any brief did carry earlier findings, record `priorFindingsSupplied: true` and `coldContext: false`, and the gate fails. A session that reviews in its own context has seen the phase reviews' findings, so it records `coldContext: false` and `priorFindingsSupplied: true` here;
    - the receipt records `computedTier: "full"` and `tierReasons` as step 2 printed them;
    - a session with no subagent-spawning tool cannot produce a `full` review. It records `tier: "light"` and `demotion: "no-subagent-tool"` as REVIEW step 3 says, the final gate fails (`FINAL_NOT_FULL`), and the gate stop below applies. It never records `full`;
-   - a failed mechanical phase is handled as REVIEW step 3 says: no reviewer, no receipt, no gate override, and the question "fix / stop", where `fix` dispatches harness-task-executor as step 5 below does and counts against the same fix budget.
+   - a failed mechanical phase is handled as REVIEW step 3 says: no reviewer, no receipt, no gate override, and the question "fix / stop", where `fix` dispatches harness-task-executor as step 5 below does and counts against the same fix budget. When that budget is already spent, `fix` is not offered: report the failing checks and that the budget is spent, and offer `stop`; a fix the human commits by hand, followed by a resume, re-enters FINAL_REVIEW at step 1.
 
    ```
    subagent_type: "<reviewer persona>"
