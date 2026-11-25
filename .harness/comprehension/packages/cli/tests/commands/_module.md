@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/tests/commands'
-sourceHash: '1347254f48e2765779f924c7c333a85db806520f2255ac598d4a1520984da1c4'
+sourceHash: 'c19272951c0251a3b5600fb0753d6005a5a037362479213164a4358d8405b28f'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -175,6 +175,7 @@ members:
     'review-ci-local-adapter.test.ts',
     'review-ci.test.ts',
     'review-receipt-registration.test.ts',
+    'review-round3-suggestions.test.ts',
     'review-tier-base.test.ts',
     'review-tier.test.ts',
     'rollback.test.ts',

@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/review-receipts'
-sourceHash: 'a0b34db2e4b8c003301391562cd3f06f54d2576253de621e22d2c86eed3ec5d0'
+sourceHash: '4216ee10b29874180052798e71da670d2fa282c3bc941bee473842ca80492ca0'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -16,7 +16,6 @@ export REVIEW_MOMENTS
 export ReviewGateFailure
 export ReviewMoment
 export earlierPhaseReceipt
-export escapeTerminalText
 export fields
 export gateReviewReceipt
 export isAncestor
@@ -43,7 +42,7 @@ export worktreeClean
 
 ```
 import { CwdGit, earlierPhaseReceipt, fields, isAncestor, isSha, listDiffFiles, resolveCommit, resolveRepoRoots, reviewMergeBase, runGitIn, sessionStartingCommit, tryGit, worktreeClean } from './io'
-import { EarlierPhaseReceipt, FULL_SHA_PATTERN, FinalReviewBase, FindingsFileRange, PhaseReviewBase, REVIEWS_DIRNAME, REVIEW_RECEIPT_FILENAME, Result, ReviewGateContext, ReviewGateFailure, ReviewGateResult, StandaloneReviewBase, checkReviewerFindingsText, escapeTerminalText, expectedReviewMoment, finalReviewBase, parseReviewReceipt, phaseOfReviewLabel, phaseReviewBase, readRegularFile, readReviewReceiptFile, resolveSessionDir, reviewFindingsReaderFor, reviewGateFailure, sessionDirOfReviewDir, standaloneReviewBase, validateReviewReceipt } from '@harness-engineering/core'
+import { EarlierPhaseReceipt, FULL_SHA_PATTERN, FinalReviewBase, FindingsFileRange, PhaseReviewBase, REVIEWS_DIRNAME, REVIEW_RECEIPT_FILENAME, Result, ReviewGateContext, ReviewGateFailure, ReviewGateResult, StandaloneReviewBase, checkReviewerFindingsText, expectedReviewMoment, finalReviewBase, parseReviewReceipt, phaseOfReviewLabel, phaseReviewBase, readRegularFile, readReviewReceiptFile, resolveSessionDir, reviewFindingsReaderFor, reviewGateFailure, sessionDirOfReviewDir, standaloneReviewBase, validateReviewReceipt } from '@harness-engineering/core'
 import { REVIEW_MOMENTS, ReviewMoment, ReviewReceipt } from '@harness-engineering/types'
 import { execFileSync } from 'node:child_process'
 import * as fs from 'node:fs'

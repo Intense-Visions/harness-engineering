@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/src/receipts'
-sourceHash: '7b9bcf3aed0e39f6f193dcbf97b120757c923ae4568c52aa5e6bf8b6e2fde3bf'
+sourceHash: '65909a803252b0b94049da4b7783539323cae34ceeef14d72af6cffa31317433'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
