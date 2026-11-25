@@ -84,7 +84,10 @@ export const ReviewReceiptSchema = z
       base: sha,
       head: sha,
       baseSource: z.enum(REVIEW_BASE_SOURCES).exactOptional(),
-      target: z.string().min(1).exactOptional(),
+      target: z
+        .string()
+        .regex(/^refs\/remotes\/./, 'must be a full remote-tracking ref (refs/remotes/...)')
+        .exactOptional(),
     }),
     coldContext: z.boolean(),
     priorFindingsSupplied: z.boolean(),

@@ -384,12 +384,14 @@ function tierFailures(receipt: ReviewReceipt, required: ReviewerRecord[]): Revie
         )
       );
     case 'light': {
-      if (required.length === 1 && required[0]?.id === LIGHT_TIER_REVIEWER_ID) return [];
-      const listed = required.map((r) => r.id).join(', ') || 'none';
+      // Exactly one reviewer, required: a light receipt lists nothing else, required or not.
+      const all = receipt.reviewers;
+      if (all.length === 1 && required[0]?.id === LIGHT_TIER_REVIEWER_ID) return [];
+      const listed = all.map((r) => `${r.id}${r.required ? '' : ' (not required)'}`).join(', ');
       return [
         reviewGateFailure(
           'LIGHT_TIER_ROSTER',
-          `tier light requires exactly the reviewer "${LIGHT_TIER_REVIEWER_ID}"; the receipt requires: ${listed}`
+          `tier light lists exactly the reviewer "${LIGHT_TIER_REVIEWER_ID}", required; the receipt lists: ${listed}`
         ),
       ];
     }

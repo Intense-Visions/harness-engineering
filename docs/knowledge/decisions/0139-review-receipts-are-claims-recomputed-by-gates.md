@@ -61,7 +61,8 @@ recomputed and the gate compares:
   files differ from HEAD. Untracked files, such as the review directory, do not count.
 - The base is checked with git: `diff.base` must be an ancestor of `diff.head`
   (`DIFF_BASE_NOT_ANCESTOR`), and for a final review it must be the merge base with the default
-  branch (`FINAL_BASE_NOT_MERGE_BASE`), whatever `baseSource` the receipt declares. `baseSource:
+  branch, or with the remote-tracking branch its `diff.target` names (ADR 0140, Stacked branches;
+  a full `refs/remotes/` ref, any other form an invalid receipt) (`FINAL_BASE_NOT_MERGE_BASE`), whatever `baseSource` the receipt declares. `baseSource:
 "starting-commit"` is accepted only when the gate cannot resolve a default-branch merge base
   itself and `diff.base` is the session's starting commit (the `startingCommit` of the session's
   `autopilot-state.json`); when that commit is unknown the gate fails
@@ -94,7 +95,7 @@ recomputed and the gate compares:
   shared with another reviewer, an empty examined-files list, or an examined file outside the
   diff fails.
 - A `full` receipt must list `compliance`, `bug`, `security` and `architecture` as required. A
-  `light` receipt must list exactly one required reviewer, `compliance-bug`. A reviewer listed
+  `light` receipt must list exactly one reviewer, `compliance-bug`, required, and no other. A reviewer listed
   twice fails, a reviewer id that is not a known reviewer fails (`UNKNOWN_REVIEWER`), and so
   does a required reviewer with `ran: false`.
 - A blocking (`critical` or `important`) finding without `findingClass` and `escapedFrom` makes
@@ -161,8 +162,9 @@ session that sets out to deceive it.
   one that rewrites an earlier receipt chooses the next phase's base. The gate proves the
   receipts agree with each other, not that the session's own records are honest.
 - **The final base is only as trustworthy as the clone's remote-tracking refs.** The gate takes
-  the default branch's merge base from local refs (`refs/remotes/origin/HEAD`, then
-  `origin/main`, then `origin/master`) and does not fetch. Those refs are the session's to
+  the default branch's merge base from local refs (`refs/remotes/origin/HEAD`'s target, then
+  `refs/remotes/origin/main`, then `refs/remotes/origin/master`, always by full name so a local
+  branch named `origin/main` cannot shadow them) and does not fetch. Those refs are the session's to
   rewrite: `git update-ref refs/remotes/origin/main HEAD~1` moves what the gate treats as the
   merge base, and a one-commit final review then passes. Proving the base would need a network
   fetch, which a credential-free gate does not do.

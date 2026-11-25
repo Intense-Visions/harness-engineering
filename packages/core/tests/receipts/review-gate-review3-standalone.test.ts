@@ -41,3 +41,30 @@ describe('fix 5: a standalone review is always computed full', () => {
     ]);
   });
 });
+
+describe('suggestion: the light roster is exactly compliance-bug', () => {
+  it('an extra reviewer that is not required fails LIGHT_TIER_ROSTER', () => {
+    const r = receipt({
+      tier: 'light',
+      reviewers: [record('compliance-bug'), record('security', { required: false, ran: false })],
+    });
+    expect(codesOf(validateReviewReceipt(r, ctx()))).toEqual(['LIGHT_TIER_ROSTER']);
+  });
+  it('positive control: compliance-bug alone passes', () => {
+    const r = receipt({ tier: 'light', reviewers: [record('compliance-bug')] });
+    expect(codesOf(validateReviewReceipt(r, ctx()))).toEqual([]);
+  });
+});
+
+describe('suggestion: diff.target is a full refs/remotes/ ref', () => {
+  it.each(['origin/parent', 'refs/heads/parent', 'HEAD~1'])(
+    '%s is an invalid receipt',
+    (target) => {
+      const r = receipt({
+        moment: 'final',
+        diff: { base: 'a'.repeat(40), head: 'b'.repeat(40), target },
+      });
+      expect(codesOf(validateReviewReceipt(r, ctx({}, 'final')))).toEqual(['RECEIPT_INVALID']);
+    }
+  );
+});

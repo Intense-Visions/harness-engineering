@@ -39,7 +39,9 @@ phase's assessed complexity is `high`, or the rigor is `thorough`. It returns `f
 final and standalone review. `harness review-tier` is its caller: the command runs git from the
 repository top level and reads `review.backend` from the `harness.config.json` there, so it
 answers the same from any directory; it gathers the diff, the range's commit messages and the
-package entry points, applies the selector and prints the tier with its reasons. For a final
+package entry points, applies the selector and prints the tier with its reasons. A flag the moment does not read is
+an error (`--complexity`, `--rigor` and `--base` for a final or standalone review, `--session`
+for a phase or standalone one, `--target` for a phase), and an error message is printed inert. For a final
 review it also prints the base the receipt gate will demand, and for a standalone review the
 advised base (the gate checks a standalone base only for ancestry), from the gate's own
 resolver (`--session` supplies the starting commit; `--target <ref>` names the remote-tracking
@@ -67,7 +69,7 @@ This "review tier" is separate from three other tiers in the review code: the de
 directory states (`phase-N` with no leading zeros, `final-all`, or a directory directly under
 `.harness/reviews/`, the session layout tested first; the directory decides, and `--moment` is read only for a directory that states none, so a flag that
 contradicts the directory fails `MOMENT_MISMATCH`), a required reviewer that did not run, a
-`full` roster missing a core reviewer, a `light` roster that is not exactly `compliance-bug`, a
+`full` roster missing a core reviewer, a `light` roster that is not exactly `compliance-bug` (no other reviewer listed, required or not), a
 reviewer listed twice, a reviewer id that is not a known reviewer (`UNKNOWN_REVIEWER`), a
 findings file that is absent, invalid, shared, written under another reviewer's id, written at another head or for another base (`FINDINGS_BASE_MISMATCH`), empty of examined files or outside the recomputed diff,
 a finding id used twice in the review, `blocking` or `advisory` counts that differ from what the
@@ -157,8 +159,9 @@ reviewer findings files and are not in the receipt's counts.
   `computedTier` and `tierReasons` (what the session says the tier command printed), and the
   `backend`. The merge base is
   taken against the default branch ref as the clone holds it, or against the receipt's
-  `diff.target`, a remote-tracking branch the session chose (a sha, a HEAD-relative name, a local
-  branch or a tag fails `TARGET_UNRESOLVED`, and the branch's own upstream or a remote-tracking
+  `diff.target`, a remote-tracking branch the session chose (the receipt schema requires a full
+  `refs/remotes/` ref, so a sha, a HEAD-relative name, a local branch or a tag is an invalid
+  receipt; one that does not resolve fails `TARGET_UNRESOLVED`, and the branch's own upstream or a remote-tracking
   branch of its name fails `TARGET_OWN_BRANCH`); the gate does not fetch, and the
   session can rewrite those local remote-tracking refs (`git update-ref`) and so move what the
   gate treats as the merge base: the final base is only as trustworthy as those refs. The

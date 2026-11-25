@@ -315,7 +315,7 @@ describe('review round 2: what the gate now checks (A1, A2, A10)', () => {
     expect(text).toMatch(/and the base is an ancestor of the head/);
     const when = gateFailureRows(text);
     expect(when.get('FINAL_BASE_NOT_MERGE_BASE')).toMatch(
-      /`diff\.base` is not the merge base with the default branch, whatever `diff\.baseSource` says; or a default branch resolves and `diff\.baseSource` is `starting-commit`; or no default branch resolves and `diff\.baseSource` is not `starting-commit`/
+      /`diff\.base` is not the merge base with the default branch \(with the `diff\.target` branch when the receipt names one\), whatever `diff\.baseSource` says; or a default branch resolves and `diff\.baseSource` is `starting-commit`; or no default branch resolves and `diff\.baseSource` is not `starting-commit`/
     );
     expect(when.get('DIFF_BASE_NOT_ANCESTOR')).toMatch(/is not an ancestor of `diff\.head`/);
   });
@@ -896,6 +896,19 @@ describe('unit 1 review round 3, fix 5: a light standalone review is a demotion'
   it('TIER_DEMOTED covers a light standalone receipt whether or not computedTier is recorded', () => {
     expect(gateFailureRows(section(md(), '### Review Receipt')).get('TIER_DEMOTED')).toMatch(
       /or the review is standalone \(always computed `full`, whatever `computedTier` says or whether it is there\), `tier` is `light` and there is no `demotion`/
+    );
+  });
+});
+
+describe('unit 1 review round 3, suggestions: the final base and the light roster', () => {
+  it('the receipt fields name diff.target as the final base when present', () => {
+    expect(section(md(), '### Review Receipt')).toMatch(
+      /A `final` receipt's base must be the merge base with the default branch, or with the branch its `diff\.target` names/
+    );
+  });
+  it('a light receipt lists no other reviewer', () => {
+    expect(section(md(), '### Review Receipt')).toMatch(
+      /A `light` receipt requires exactly one reviewer, `compliance-bug`, and lists no other reviewer, required or not\./
     );
   });
 });

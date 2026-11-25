@@ -221,10 +221,17 @@ describe('round 2: the gate reads the target from the final receipt (diff.target
     ['based at origin/main, with diff.target', 'c0', P, ['FINAL_BASE_NOT_MERGE_BASE']],
     ['based at origin/main, without diff.target', 'c0', undefined, []],
     ['diff.target does not resolve', 'c2', 'refs/remotes/origin/nope', ['TARGET_UNRESOLVED']],
-    ['diff.target is a short name', 'c2', 'origin/parent', ['TARGET_UNRESOLVED']],
-    ['diff.target is a local branch', 'c3', 'refs/heads/work', ['TARGET_UNRESOLVED']],
-    ['diff.target is HEAD-relative (the one-commit repro)', 'c3', 'HEAD~1', ['TARGET_UNRESOLVED']],
-    ['diff.target is a sha', 'c3', 'c3', ['TARGET_UNRESOLVED']],
+    // Review round 3: the receipt schema requires a full refs/remotes/ ref.
+    ['diff.target is a short name', 'c2', 'origin/parent', ['RECEIPT_INVALID']],
+    ['diff.target is a local branch', 'c3', 'refs/heads/work', ['RECEIPT_INVALID']],
+    ['diff.target is HEAD-relative (the one-commit repro)', 'c3', 'HEAD~1', ['RECEIPT_INVALID']],
+    ['diff.target is a sha', 'c3', 'c3', ['RECEIPT_INVALID']],
+    [
+      'diff.target is a remote ref that does not resolve',
+      'c3',
+      'refs/remotes/x/y',
+      ['TARGET_UNRESOLVED'],
+    ],
   ])('%s', (_n, base, target, expected) => {
     withMain();
     withParent();
@@ -239,7 +246,7 @@ describe('round 2: the gate reads the target from the final receipt (diff.target
       /^review receipt gate: PASS .*final base: merge base with refs\/remotes\/origin\/parent/
     );
     const noTarget = formatCheckReviewReceipt(gate(writeFinal(c[0]!)));
-    expect(noTarget[0]).toMatch(/final base: merge base with origin\/main/);
+    expect(noTarget[0]).toMatch(/final base: merge base with refs\/remotes\/origin\/main/);
   });
 });
 

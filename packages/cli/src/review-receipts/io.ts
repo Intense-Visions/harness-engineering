@@ -21,8 +21,8 @@ import {
 
 /**
  * Injectable git seam: stdout of `git <args>` run in `cwd`, less one trailing newline (never
- * trimmed: a `-z` path may start or end with whitespace). No shell. Named apart from `CwdGit` in
- * ../git/merge-driver-setup, which runs in a fixed directory and returns nothing.
+ * trimmed: a `-z` path may start or end with whitespace). No shell. Named apart from `GitRunner`
+ * in ../git/merge-driver-setup, which runs in a fixed directory and returns nothing.
  */
 export type CwdGit = (args: string[], cwd: string) => string;
 
@@ -224,8 +224,8 @@ export function isOwnBranchRef(git: CwdGit, ref: string, cwd: string): boolean {
 /**
  * `git merge-base <ref> <head>` for the branch the review merges into. With `target` (a stacked
  * branch's parent) that remote-tracking branch (`remoteTrackingRef`), and nothing else. Without it
- * the default branch: origin/HEAD's target, else origin/main, else origin/master, the first for
- * which git answers. These are local remote-tracking refs, which the session can rewrite, so the
+ * the default branch: origin/HEAD's target, else origin/main, else origin/master, each by its full
+ * `refs/remotes/` name, the first for which git answers. These are local remote-tracking refs, which the session can rewrite, so the
  * answer is only as current, and as trustworthy, as the clone's refs.
  */
 export function reviewMergeBase(
@@ -243,12 +243,10 @@ export function reviewMergeBase(
       ? { status: 'resolved', mergeBase: base, with: ref }
       : { status: 'target-unresolved', target };
   }
-  const named = tryGit(
-    git,
-    ['symbolic-ref', '--quiet', '--short', 'refs/remotes/origin/HEAD'],
-    cwd
-  );
-  for (const ref of [named, 'origin/main', 'origin/master']) {
+  // Full ref names: a local branch named `origin/main` would shadow the short name.
+  const named = tryGit(git, ['symbolic-ref', '--quiet', 'refs/remotes/origin/HEAD'], cwd);
+  const followed = named !== undefined && /^refs\/remotes\//.test(named) ? named : undefined;
+  for (const ref of [followed, 'refs/remotes/origin/main', 'refs/remotes/origin/master']) {
     const base = ref ? tryGit(git, ['merge-base', '--end-of-options', ref, head], cwd) : undefined;
     if (base && ref) return { status: 'resolved', mergeBase: base, with: ref };
   }

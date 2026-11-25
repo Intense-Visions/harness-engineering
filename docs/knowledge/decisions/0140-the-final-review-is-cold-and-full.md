@@ -27,8 +27,9 @@ The final review covers `merge-base(origin/<default branch>, HEAD)..HEAD`. No re
 carries a prior finding, a per-phase summary, or a coherence-only focus. If the default branch
 cannot be resolved, the base is autopilot's `startingCommit` and the receipt records
 `diff.baseSource: "starting-commit"`. The
-gate resolves the default branch as `refs/remotes/origin/HEAD`, then `origin/main`, then
-`origin/master`. Autopilot does not resolve the base itself: it takes the base and its source
+gate resolves the default branch as the target of `refs/remotes/origin/HEAD`, then
+`refs/remotes/origin/main`, then `refs/remotes/origin/master`, by full name so a local branch
+named `origin/main` cannot shadow them. Autopilot does not resolve the base itself: it takes the base and its source
 from `harness review-tier --moment final --session <slug>`, which runs the gate's own resolver
 and rule, so the writer and the gate cannot disagree. The declaration is not a switch: the gate
 accepts it only when it resolves no merge base itself and `diff.base` is the session's starting
@@ -56,9 +57,9 @@ The base is then the merge base with that
 ref instead of the default branch's, and the command prints the full ref. The receipt records it
 as `diff.target` (a final receipt only), and the gate reads it from there: the receipt is the one
 source, so no gate run can measure against a different ref, and the gate's PASS line names the
-ref it measured against. The default stays `origin/HEAD`, `origin/main`, `origin/master`. A
-`diff.target` that is not a remote-tracking branch that resolves fails `TARGET_UNRESOLVED` and
-never falls back to the starting commit. The target is still the session's choice among the
+ref it measured against. The default stays `origin/HEAD`, `origin/main`, `origin/master`. The
+receipt schema requires `diff.target` to be a full `refs/remotes/` ref (any other form is an
+invalid receipt), and one that does not resolve fails `TARGET_UNRESOLVED` and never falls back to the starting commit. The target is still the session's choice among the
 other remote-tracking refs, and those refs are local and rewritable (`git update-ref`): a session
 that names a branch it does not merge into, or moves a ref, chooses its own base. That is a
 forging route the gate does not close (ADR 0139, Threat model); refusing the branch's own

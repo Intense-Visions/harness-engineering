@@ -1,9 +1,9 @@
 import { Command, Option } from 'commander';
 import { logger } from '../output/logger';
 import { ExitCode } from '../utils/errors';
+import { escapeTerminalText as inert } from '@harness-engineering/core';
 import {
   REVIEW_MOMENTS,
-  escapeTerminalText as inert,
   runCheckFindingsFile,
   runCheckReviewReceipt,
   type CheckReviewReceiptReport,

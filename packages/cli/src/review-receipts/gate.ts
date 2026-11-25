@@ -1,7 +1,6 @@
 import * as path from 'node:path';
 import {
   checkReviewerFindingsText,
-  escapeTerminalText,
   readRegularFile,
   reviewFindingsReaderFor,
   reviewGateFailure,
@@ -33,7 +32,7 @@ import {
   type CwdGit,
 } from './io';
 
-export { REVIEW_MOMENTS, escapeTerminalText };
+export { REVIEW_MOMENTS };
 export type { CwdGit, ReviewGateFailure, ReviewMoment };
 
 export interface CheckReviewReceiptOptions {

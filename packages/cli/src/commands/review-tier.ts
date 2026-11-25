@@ -346,17 +346,46 @@ function baseLine(r: ReviewTierResult, target: string | undefined): string[] {
 }
 
 /** A flag the moment does not read: an error, never silently ignored. */
+const MOMENT_FLAGS: ReadonlyArray<{
+  flag: string;
+  set: (o: ReviewTierOptions) => boolean;
+  reads: readonly ReviewMoment[];
+  why: string;
+}> = [
+  {
+    flag: '--session',
+    set: (o) => o.session !== undefined,
+    reads: ['final'],
+    why: '--session applies to --moment final only: a standalone review takes its base from the range it reviews',
+  },
+  {
+    flag: '--base',
+    set: (o) => o.base !== undefined,
+    reads: ['phase'],
+    why: '--base applies to --moment phase only: a final or standalone base is computed',
+  },
+  {
+    flag: '--target',
+    set: (o) => o.target !== undefined,
+    reads: ['final', 'standalone'],
+    why: '--target applies to --moment final and standalone only',
+  },
+  {
+    flag: '--complexity',
+    set: (o) => o.complexity !== undefined,
+    reads: ['phase'],
+    why: '--complexity applies to --moment phase only: a final or standalone review is always full',
+  },
+  {
+    flag: '--rigor',
+    set: (o) => o.rigor !== undefined,
+    reads: ['phase'],
+    why: '--rigor applies to --moment phase only: a final or standalone review is always full',
+  },
+];
+
 function flagsTheMomentIgnores(opts: ReviewTierOptions): string | undefined {
-  if (opts.session !== undefined && opts.moment !== 'final') {
-    return '--session applies to --moment final only: a standalone review takes its base from the range it reviews';
-  }
-  if (opts.base !== undefined && opts.moment !== 'phase') {
-    return '--base applies to --moment phase only: a final or standalone base is computed';
-  }
-  if (opts.target !== undefined && opts.moment === 'phase') {
-    return '--target applies to --moment final and standalone only';
-  }
-  return undefined;
+  return MOMENT_FLAGS.find((f) => f.set(opts) && !f.reads.includes(opts.moment))?.why;
 }
 
 /**
@@ -494,7 +523,8 @@ export function createReviewTierCommand(deps: ReviewTierDeps = {}): Command {
       if (!out.ok) {
         // A JSON consumer gets an object on stdout on failure too, never an empty stream.
         if (globalOpts.json) console.log(JSON.stringify({ error: out.error.message }, null, 2));
-        else logger.error(out.error.message);
+        // The message can carry --base/--head and git's or the config's error text: print it inert.
+        else logger.error(inert(out.error.message));
         process.exitCode = ExitCode.VALIDATION_FAILED;
         return;
       }

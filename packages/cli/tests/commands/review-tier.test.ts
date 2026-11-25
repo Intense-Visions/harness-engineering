@@ -117,10 +117,13 @@ describe('runReviewTier: final and standalone are always full', () => {
       value: { moment, tier: 'full', reasons: [`moment:${moment}`] },
     });
   });
-  it('--fast does not lower the final review', () => {
+  it('--fast does not lower the final review: a rigor or complexity given for it is an error', () => {
     commit({ 'src/a.ts': 'export const a = 1;\n' });
-    expect(ok({ moment: 'final', rigor: 'fast', complexity: 'low' }).tier).toBe('full');
-    expect(ok({ moment: 'standalone', rigor: 'fast' }).tier).toBe('full');
+    expect(ok({ moment: 'final' }).tier).toBe('full');
+    expect(ok({ moment: 'standalone' }).tier).toBe('full');
+    // Review round 3: a flag the moment does not read is an error, never silently ignored.
+    expect(run({ moment: 'final', rigor: 'fast', complexity: 'low' }).ok).toBe(false);
+    expect(run({ moment: 'standalone', rigor: 'fast' }).ok).toBe(false);
   });
 });
 
@@ -237,15 +240,13 @@ describe('harness review-tier', () => {
       changedFiles: 1,
     });
   });
-  it('--moment final --rigor fast is full, and --pipeline-runner is passed through', async () => {
+  it('--moment final is full, and --pipeline-runner is passed through', async () => {
     config({ review: { backend: 'pipeline' } });
     const { out } = await invoke([
       '--json',
       'review-tier',
       '--moment',
       'final',
-      '--rigor',
-      'fast',
       '--pipeline-runner',
     ]);
     expect(JSON.parse(out)).toMatchObject({
