@@ -7,7 +7,7 @@
 // fetch, open-PR cross-check) lives in the member skill layer that CALLS
 // these; this module only decides whether an item is claimed elsewhere.
 
-import { isLeaseLive, parseClaimComment } from './index';
+import { isLeaseLive, parseClaimComment } from './claim';
 
 /**
  * Why SELECT drops a candidate. Mirrors roadmap-fleet's `crossCheck`

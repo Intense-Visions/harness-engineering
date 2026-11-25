@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/tests/commands'
-sourceHash: '6c6bd631dbd1842c7c343ee4582da62ae42d8b57d1e24616efbed912a24751bb'
+sourceHash: '957475e7efca5b04849ff94e2570b24181016c40af6c735ff9c016ecfb1d2ece'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -37,6 +37,7 @@ members:
     'check-deps-cov544b.test.ts',
     'check-deps-cycle-chain.test.ts',
     'check-deps-err-swallow.test.ts',
+    'check-deps-fresh-scaffold.test.ts',
     'check-deps-no-layers-cycle.test.ts',
     'check-deps-skipped-abstention.test.ts',
     'check-deps-unparseable-files.test.ts',
@@ -433,6 +434,7 @@ import { getToolDefinitions } from '../../src/mcp/index'
 import { getToolDefinitions } from '../../src/mcp/server'
 import { NETWORK_TOOL_NAMES, deriveScope, deriveToolCapabilities, deriveToolCapability } from '../../src/mcp/tool-capabilities'
 import { TOOL_CAPABILITY_DECLARATIONS } from '../../src/mcp/tool-capability-declarations'
+import { handleCheckDependencies } from '../../src/mcp/tools/architecture'
 import { runAnatomyAudit, runComponentAnatomyAudit } from '../../src/mcp/tools/audit-anatomy'
 import { runAuditBrand } from '../../src/mcp/tools/audit-brand'
 import { handleRecordAutoDecision } from '../../src/mcp/tools/auto-decision'

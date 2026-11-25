@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/src/ci'
-sourceHash: '0794a19adaaae66a4f6ddc2b239b1b36dbc7b448da113b3604d5496bea1cba89'
+sourceHash: '3163222265141e6053caea18601417defa73b6f280fb90a5b32c4fab869e23ee'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -68,7 +68,7 @@ import { validateDependencies } from '../constraints/dependencies'
 import { assessDepsCoverage } from '../constraints/deps-coverage'
 import { resolveDepsSettings, toLayerConfig } from '../constraints/layer-config'
 import { ResolvedConstraintPacks, resolveConstraintPacks } from '../constraints/packs'
-import { validateAgentsMap } from '../context/agents-map'
+import { agentsMapSectionFindings, validateAgentsMap } from '../context/agents-map'
 import { checkDocCoverage } from '../context/doc-coverage'
 import { EntropyAnalyzer } from '../entropy/analyzer'
 import { DriftConfig } from '../entropy/types'
