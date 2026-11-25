@@ -129,8 +129,13 @@ function recompute(git: CwdGit, range: Range | undefined, cwd: string): Recomput
   };
 }
 
-/** A receipt file that was not read: missing, unreadable (with the reason) or outside the project. */
-export type UnreadReceipt = Exclude<ReturnType<typeof readReviewReceiptFile>, { status: 'ok' }>;
+/**
+ * A receipt that was not gated: missing, unreadable (with the reason), outside the project, or in
+ * another git repository than the caller's (`outside-repo`, with both repository tops).
+ */
+export type UnreadReceipt =
+  | Exclude<ReturnType<typeof readReviewReceiptFile>, { status: 'ok' }>
+  | { status: 'outside-repo'; path: string; dir: string; callerTop?: string; receiptTop?: string };
 
 /** The gate's report, the receipt's directory, and what the gate read or why it could not. */
 export type GatedReviewReceipt = {
@@ -150,7 +155,20 @@ function failureFor(unread: UnreadReceipt): ReviewGateFailure {
         'RECEIPT_INVALID',
         `review receipt at ${unread.path} is unreadable: ${unread.reason}`
       );
+    case 'outside-repo':
+      return reviewGateFailure(
+        'RECEIPT_OUTSIDE_REPO',
+        `the receipt is in the repository at ${unread.receiptTop ?? '(none)'}, but the gate runs ` +
+          `in ${unread.callerTop ?? '(no repository)'}; run it from the worktree that holds the receipt`
+      );
   }
+}
+
+/** A gate result for a receipt it did not check. */
+function notGated(unread: UnreadReceipt): GatedReviewReceipt {
+  const failures = [failureFor(unread)];
+  const report = { pass: false, receiptPath: unread.path, failures, reviewersRun: 0 };
+  return { read: false, unread, report: { ...report, reviewersRequired: 0 }, dir: unread.dir };
 }
 
 /**
@@ -162,22 +180,23 @@ export function gateReviewReceipt(opts: CheckReviewReceiptOptions): GatedReviewR
   const { cwd = process.cwd(), git = runGitIn } = opts;
   const target = path.resolve(cwd, opts.receiptPath);
   const read = readReviewReceiptFile(target, opts.confine ? { within: cwd } : {});
-  if (read.status !== 'ok') {
-    const failures = [failureFor(read)];
-    const report = { pass: false, receiptPath: read.path, failures, reviewersRun: 0 };
-    return {
-      read: false,
-      unread: read,
-      report: { ...report, reviewersRequired: 0 },
-      dir: read.dir,
+  if (read.status !== 'ok') return notGated(read);
+  // Git runs at the top of the worktree that holds the receipt, and that must be the caller's: a
+  // receipt in another worktree, or under a repository planted in the review directory, would be
+  // checked against that repository's HEAD, tree and history.
+  const callerTop = resolveRepoRoots(git, cwd)?.top;
+  const receiptTop = resolveRepoRoots(git, read.dir)?.top;
+  if (callerTop !== receiptTop) {
+    const tops = {
+      ...(callerTop !== undefined && { callerTop }),
+      ...(receiptTop !== undefined && { receiptTop }),
     };
+    return notGated({ status: 'outside-repo', path: read.path, dir: read.dir, ...tops });
   }
   const sessionDir = sessionDirOfReviewDir(read.dir);
   const startingCommit = sessionStartingCommit(sessionDir);
   const range = claimedRange(read.raw);
-  // Git runs at the top of the worktree that holds the receipt, whatever the caller's directory:
-  // its HEAD and tree are the reviewed ones.
-  const top = range === undefined ? cwd : (resolveRepoRoots(git, read.dir)?.top ?? cwd);
+  const top = receiptTop ?? cwd;
   const phaseBase = phaseBaseOf(git, { dir: read.dir, sessionDir, startingCommit, range, top });
   const recomputed = recompute(git, range, top);
   const result = validateReviewReceipt(read.raw, {

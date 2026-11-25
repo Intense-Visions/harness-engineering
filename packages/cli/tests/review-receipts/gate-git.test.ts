@@ -304,19 +304,50 @@ describe('round 2: the gate runs git in the worktree that holds the receipt', ()
     lg('commit', '-q', '--no-verify', '-m', 'lane');
     laneHead = lg('rev-parse', 'HEAD');
   });
-  it('a clean lane receipt passes when the gate runs from the main checkout', () => {
-    const r = runCheckReviewReceipt({ receiptPath: laneReview(), cwd: tmp });
+  it('a clean lane receipt passes when the gate runs from the lane', () => {
+    const r = runCheckReviewReceipt({ receiptPath: laneReview(), cwd: lane });
     expect(r.failures).toEqual([]);
   });
-  it('the MCP tool, with path the main checkout, gates the lane against the lane', async () => {
-    const res = await handleCheckReviewReceipt({ path: tmp, receipt: laneReview() });
+  it('the MCP tool, with path the lane, gates the lane against the lane', async () => {
+    const res = await handleCheckReviewReceipt({ path: lane, receipt: laneReview() });
     expect(JSON.parse(res.content[0]?.text ?? '{}')).toMatchObject({ pass: true });
   });
   it('a dirty lane fails WORKTREE_DIRTY though the main checkout is clean', () => {
     const dir = laneReview();
     fs.writeFileSync(path.join(lane, 'lane.ts'), 'edited\n');
-    const r = runCheckReviewReceipt({ receiptPath: dir, cwd: tmp });
+    const r = runCheckReviewReceipt({ receiptPath: dir, cwd: path.join(lane, '.harness') });
     expect(r.failures.map((f) => f.code)).toEqual(['WORKTREE_DIRTY']);
+  });
+  // Review round 3, fix 3: the gate resolves the repository from the caller's directory and from
+  // the receipt's, and refuses a receipt that is not in the caller's.
+  it('a lane receipt gated from the main checkout fails RECEIPT_OUTSIDE_REPO', () => {
+    const r = runCheckReviewReceipt({ receiptPath: laneReview(), cwd: tmp });
+    expect(r.failures.map((f) => f.code)).toEqual(['RECEIPT_OUTSIDE_REPO']);
+    expect(r.pass).toBe(false);
+  });
+  it('the MCP tool, with path the main checkout, refuses the lane receipt', async () => {
+    const res = await handleCheckReviewReceipt({ path: tmp, receipt: laneReview() });
+    expect(JSON.parse(res.content[0]?.text ?? '{}')).toMatchObject({
+      pass: false,
+      failures: [{ code: 'RECEIPT_OUTSIDE_REPO' }],
+    });
+  });
+});
+
+/**
+ * Review round 3, fix 3 (security): a repository planted inside the review directory would make
+ * the gate take HEAD, the tree and the diff from fake history.
+ */
+describe('review round 3: a nested repository under the review directory', () => {
+  it('fails RECEIPT_OUTSIDE_REPO', () => {
+    const dir = writeReview('phase-0', start, ['pkg/sub/b.ts']);
+    execFileSync('git', ['init', '-q'], { cwd: dir, stdio: 'ignore' });
+    const r = runCheckReviewReceipt({ receiptPath: dir, cwd: tmp });
+    expect(r.failures.map((f) => f.code)).toEqual(['RECEIPT_OUTSIDE_REPO']);
+  });
+  it('positive control: the same review without the nested repository passes', () => {
+    const dir = writeReview('phase-0', start, ['pkg/sub/b.ts']);
+    expect(runCheckReviewReceipt({ receiptPath: dir, cwd: tmp }).failures).toEqual([]);
   });
 });
 

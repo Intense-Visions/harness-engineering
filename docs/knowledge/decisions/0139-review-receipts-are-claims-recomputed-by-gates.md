@@ -49,6 +49,10 @@ recomputed and the gate compares:
   gate fails (`MOMENT_UNKNOWN`); the check is never skipped. One function,
   `expectedReviewMoment` in `packages/core/src/receipts/layout.ts`, holds that precedence for
   the CLI and the MCP tool.
+- Git runs in the repository that holds the receipt, and that must be the caller's: the gate
+  resolves the repository top from the caller's directory and from the receipt's and fails
+  `RECEIPT_OUTSIDE_REPO` when they differ, so a receipt in another worktree, or under a
+  repository planted in the review directory, is not checked against that repository's history.
 - HEAD comes from `git rev-parse HEAD`, not from the receipt. A receipt whose `diff.head` is not
   the current HEAD fails (`HEAD_MISMATCH`), so a commit made after a review makes it stale.
 - The working tree comes from `git status --porcelain=v1 -z --untracked-files=no`: a receipt is

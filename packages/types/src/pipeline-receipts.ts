@@ -98,6 +98,7 @@ export type ReceiptReadProblem = ReceiptUnreadReason | ErrnoReason;
 export const REVIEW_GATE_FAILURE_CODES = [
   'RECEIPT_MISSING',
   'RECEIPT_INVALID',
+  'RECEIPT_OUTSIDE_REPO',
   'GATE_ERROR',
   'MOMENT_MISMATCH',
   'MOMENT_UNKNOWN',

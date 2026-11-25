@@ -141,8 +141,11 @@ describe('runCheckReviewReceipt', () => {
       calls.push(args);
       return git()(args, tmp);
     });
+    // The repository from the caller's directory and from the receipt's (review round 3, fix 3).
+    const TOP = ['rev-parse', '--show-toplevel'];
     expect(calls).toEqual([
-      ['rev-parse', '--show-toplevel'],
+      TOP,
+      TOP,
       // phase-0's base: the session's starting commit, which must be an ancestor of the head
       ['merge-base', '--is-ancestor', BASE, HEAD],
       ['rev-parse', 'HEAD'],
@@ -156,7 +159,8 @@ describe('runCheckReviewReceipt', () => {
       unsafe.push(args);
       return git()(args, tmp);
     });
-    expect(unsafe).toEqual([]);
+    // Only the repository lookups, which carry no receipt text.
+    expect(unsafe).toEqual([TOP, TOP]);
     expect(r.failures.map((f) => f.code)).toEqual(['RECEIPT_INVALID']);
   });
   it('fails closed when git cannot run', () => {
@@ -589,8 +593,10 @@ describe('round 3, fix 4: git is asked about a claimed range only when both ends
     ['a numeric base', receipt({ diff: { base: 7, head: HEAD } })],
     ['a base that is an array holding a sha', receipt({ diff: { base: [BASE], head: HEAD } })],
     ['a head that is an array holding a sha', receipt({ diff: { base: BASE, head: [HEAD] } })],
-  ])('%s: RECEIPT_INVALID and git is never called', (_name, raw) => {
-    expect(asked(raw)).toEqual({ calls: [], codes: ['RECEIPT_INVALID'] });
+  ])('%s: RECEIPT_INVALID and git is asked nothing about it', (_name, raw) => {
+    // The two repository lookups (review round 3, fix 3) carry no receipt text.
+    const top = ['rev-parse', '--show-toplevel'];
+    expect(asked(raw)).toEqual({ calls: [top, top], codes: ['RECEIPT_INVALID'] });
   });
   it('two sha strings: git is asked', () => {
     const { calls, codes } = asked(receipt());

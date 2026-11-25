@@ -70,7 +70,8 @@ reviewer listed twice, a reviewer id that is not a known reviewer (`UNKNOWN_REVI
 findings file that is absent, invalid, shared, written under another reviewer's id, written at another head or for another base (`FINDINGS_BASE_MISMATCH`), empty of examined files or outside the recomputed diff,
 a finding id used twice in the review, `blocking` or `advisory` counts that differ from what the
 findings files hold (`COUNTS_MISMATCH`), a head that is not the current HEAD (git runs at the
-top of the worktree that holds the receipt, whatever the caller's directory), tracked files
+top of the worktree that holds the receipt, which must be the caller's: a receipt in another
+worktree, or under a repository planted in the review directory, fails `RECEIPT_OUTSIDE_REPO`), tracked files
 that differ from HEAD (`WORKTREE_DIRTY`, from `git status --porcelain=v1 -z --untracked-files=no`;
 untracked files do not count, and the self-check applies it when given a range), a base that is not
 an ancestor of the head, a `phase` receipt whose base is not the `diff.head` of the nearest
