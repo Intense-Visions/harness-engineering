@@ -516,7 +516,7 @@ describe('review round 3: craft, dispatched mode and the reviewer self-check (A6
   });
   it('A7, round 4: every reviewer brief carries the CLI self-check, and the section gives the command', () => {
     expect(tiers()).toMatch(
-      /and to run `harness check-review-receipt --findings <file> --base <base> --head <head>` on the file before returning and correct what it reports \(Reviewer findings files\)/
+      /and to run `harness check-review-receipt --findings <file> --base <base> --head <head>` on the file before returning, correcting the file only for a code about its content/
     );
     expect(tiers()).toMatch(
       /to list in `examinedFiles` only files that `git diff --name-only --no-renames -z <base>\.\.<head>` prints/
@@ -925,6 +925,21 @@ describe('unit 1 review round 4, fix 5: review-tier names the head and refuses a
   it('the tier paragraph states the Review head: line and the empty-final exit', () => {
     expect(md()).toMatch(
       /With a base it also prints `Review head: <sha>`, the commit the base was computed at; a final range that changes no files exits 1 \(`the final range <base>\.\.<head> is empty \(it changes no files\)`\), which harness-autopilot FINAL_REVIEW step 2 records as a final review skipped as empty\./
+    );
+  });
+});
+
+describe('unit 1 review round 4, fix 4: the self-check loop stops on a range or tree code', () => {
+  it('the self-check paragraph separates file codes from range and tree codes', () => {
+    const receipt = section(md(), '### Review Receipt');
+    expect(receipt).toMatch(
+      /Correct the file and run it again only for a code about the file's content \(`FINDINGS_FILE_MISSING`, `FINDINGS_FILE_INVALID`, `UNKNOWN_REVIEWER`, `EXAMINED_FILES_EMPTY`, `DUPLICATE_FINDING_ID`, `FINDINGS_HEAD_MISMATCH`, `FINDINGS_BASE_MISMATCH`, `EXAMINED_OUTSIDE_DIFF`\), until it passes\. For `HEAD_MISMATCH`, `WORKTREE_DIRTY`, `EMPTY_DIFF`, `DIFF_UNRESOLVED` or any other code that is not about the file's content, do not edit the file: stop and report the code to the session that dispatched you, which owns the range and the tree\./
+    );
+    expect(receipt).not.toMatch(/Correct the file and run it again until it passes/);
+  });
+  it('the brief paragraph says the same', () => {
+    expect(md()).toMatch(
+      /and to run `harness check-review-receipt --findings <file> --base <base> --head <head>` on the file before returning, correcting the file only for a code about its content and otherwise stopping to report the code \(Reviewer findings files, self-check\)/
     );
   });
 });

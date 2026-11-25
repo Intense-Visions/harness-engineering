@@ -623,7 +623,7 @@ describe('review round 3: hooks, reviewer self-check and tier (A6 to A10)', () =
     expect(briefs).toHaveLength(3);
     for (const brief of briefs) {
       expect(brief).toMatch(
-        /Before you return, run harness check-review-receipt --findings \{sessionDir\}\/reviews\/(?:phase-\{N\}|final-all)\/(?:compliance-bug|\{reviewerId\})\.json --base \{base\} --head \{head\}, correct what it reports until it prints PASS, and state its result\./
+        /Before you return, run harness check-review-receipt --findings \{sessionDir\}\/reviews\/(?:phase-\{N\}|final-all)\/(?:compliance-bug|\{reviewerId\})\.json --base \{base\} --head \{head\}\. If it reports a code about the file's content, correct the file/
       );
       expect(brief).toContain(
         'examinedFiles lists only files that git diff --name-only --no-renames -z {base}..{head} prints and that you read'
@@ -917,6 +917,21 @@ describe('unit 1 review round 4, fix 5: an empty final review is skipped and rec
     expect(done).toMatch(/`finalReview\.status` \(`passed`, `overridden` or `skipped-empty`\)/);
     expect(done).toMatch(
       /When the final review was skipped as empty, count from the head its decision recorded: `git rev-list --count <that head>\.\.HEAD`\./
+    );
+  });
+});
+
+describe('unit 1 review round 4, fix 4: a reviewer never edits its file for a range or tree code', () => {
+  const RULE =
+    "If it reports a code about the file's content, correct the file and run it again until it prints PASS. If it reports HEAD_MISMATCH, WORKTREE_DIRTY, EMPTY_DIFF, DIFF_UNRESOLVED or any other code that is not about the file's content, do not edit the file: stop and report the code to the dispatching session. State the result.";
+  it('every reviewer brief (REVIEW light and full, FINAL_REVIEW) carries the rule', () => {
+    const count = md().split(RULE).length - 1;
+    expect(count).toBe(3);
+    expect(md()).not.toMatch(/correct what it reports until it prints PASS/);
+  });
+  it('Review records, Who writes what, states it', () => {
+    expect(section(md(), '### Review records')).toMatch(
+      /The reviewer corrects its file only for a code about the file's content; for `HEAD_MISMATCH`, `WORKTREE_DIRTY`, `EMPTY_DIFF`, `DIFF_UNRESOLVED` or any other code that is not about the file's content it edits nothing and reports the code to this session, which fixes the range or the tree \(Clean tree; REVIEW step 1; FINAL_REVIEW step 2\) and dispatches the reviewer again\./
     );
   });
 });
