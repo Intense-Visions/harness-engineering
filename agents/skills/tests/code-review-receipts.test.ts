@@ -981,3 +981,49 @@ describe('unit 1 review round 4, fix 9: the dispatched-mode arguments carry the 
     );
   });
 });
+
+describe('unit 1 review round 4, fixes 6-8: the spec, changeset and docs match the gate', () => {
+  const ROOT = resolve(SKILL_DIR, '..', '..', '..', '..');
+  const read = (p: string) => readFileSync(resolve(ROOT, p), 'utf-8');
+  const SPEC = 'docs/changes/shift-left-pipeline-fidelity/proposal.md';
+  const GATE_DOCS = [
+    SPEC,
+    'AGENTS.md',
+    'docs/knowledge/core/review-receipts.md',
+    'docs/knowledge/decisions/0139-review-receipts-are-claims-recomputed-by-gates.md',
+    '.changeset/review-fidelity-receipts.md',
+  ];
+  it('the spec types the findings file base and names the round 3-4 codes', () => {
+    const spec = read(SPEC);
+    expect(spec).toMatch(
+      /interface ReviewerFindingsFile \{[^}]*\n {2}base: string; \/\/ the base of the range the reviewer was given; must equal the receipt's diff\.base/
+    );
+    for (const code of [
+      'FINDINGS_BASE_MISMATCH',
+      'TARGET_OWN_BRANCH',
+      'RECEIPT_OUTSIDE_REPO',
+      'FINDINGS_PATH_INVALID',
+      'GATE_ERROR',
+    ])
+      expect(spec, code).toContain(`\`${code}\``);
+    expect(spec).toMatch(/or while the review is standalone \(always computed `full`/);
+    expect(spec).toMatch(/\| Unit 1 review rounds 3 and 4: a findings file carries `base`/);
+  });
+  it('the changeset states the worktree rule, the findings base and the target rule', () => {
+    const cs = read('.changeset/review-fidelity-receipts.md');
+    expect(cs).toMatch(/a receipt in another worktree or repository fails `RECEIPT_OUTSIDE_REPO`/);
+    expect(cs).toContain('`FINDINGS_BASE_MISMATCH`');
+    expect(cs).toContain('`TARGET_OWN_BRANCH`');
+    expect(cs).not.toMatch(/whatever the caller's directory/);
+  });
+  it('every doc with the gate list documents the empty-phase (or empty-final) exit', () => {
+    for (const doc of GATE_DOCS.filter((d) => !d.startsWith('.changeset')))
+      expect(read(doc), doc).toMatch(
+        /without\s+a\s+passing\s+receipt,\s+a\s+human\s+override,\s+or\s+a\s+recorded\s+empty-phase\s+\(or\s+empty-final\)\s+skip/
+      );
+  });
+  it('the SHA-256 object format is stated as unsupported', () => {
+    for (const doc of ['AGENTS.md', 'docs/knowledge/core/review-receipts.md'])
+      expect(read(doc), doc).toMatch(/SHA-256 object format (?:are|is) not\s+supported/);
+  });
+});

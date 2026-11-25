@@ -91,8 +91,10 @@ accepted only when no default-branch merge base resolves and its base is the ses
 commit, and fails `STARTING_COMMIT_UNKNOWN` when that commit is unknown). A receipt is a final receipt because
 it sits in `final-all/`, not because it says so and not because of a flag: one there that
 declares another moment fails `MOMENT_MISMATCH`, and so does `--moment phase` passed for it.
-Autopilot may not leave FINAL_REVIEW without a passing receipt unless the human overrides; an
-override is recorded in `decisions[]`.
+Autopilot may not leave FINAL_REVIEW without a passing receipt, a human override, or a recorded
+empty-final skip: when `harness review-tier --moment final` reports the final range empty (it
+changes no files), nothing is reviewed, no receipt is written, and the skip is recorded in
+`decisions[]`, as is an override.
 
 ### One commit, one final review
 

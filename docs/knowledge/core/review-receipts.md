@@ -71,7 +71,7 @@ directory states (`phase-N` with no leading zeros, `final-all`, or a directory d
 contradicts the directory fails `MOMENT_MISMATCH`), a required reviewer that did not run, a
 `full` roster missing a core reviewer, a `light` roster that is not exactly `compliance-bug` (no other reviewer listed, required or not), a
 reviewer listed twice, a reviewer id that is not a known reviewer (`UNKNOWN_REVIEWER`), a
-findings file that is absent, invalid, shared, written under another reviewer's id, written at another head or for another base (`FINDINGS_BASE_MISMATCH`), empty of examined files or outside the recomputed diff,
+findings file that is absent, invalid, shared, outside the receipt directory (`FINDINGS_PATH_INVALID`), written under another reviewer's id, written at another head or for another base (`FINDINGS_BASE_MISMATCH`), empty of examined files or outside the recomputed diff,
 a finding id used twice in the review, `blocking` or `advisory` counts that differ from what the
 findings files hold (`COUNTS_MISMATCH`), a head that is not the current HEAD (git runs at the
 top of the worktree that holds the receipt, which must be the caller's: a receipt in another
@@ -85,14 +85,19 @@ rebase left off the branch, is passed over, which only widens the review; `PHASE
 when no base can be named, including a starting commit that is not an ancestor of the head,
 which after a rebase the session replaces with its new starting commit, and a phase receipt
 outside a session; `phaseReviewBase`), a diff range that cannot be computed or changes nothing, and a `final`
-receipt that is not full, cold, free of prior findings and based at the merge base with the
-default branch (a declared `baseSource: "starting-commit"` is accepted only when no
+receipt that is not full, cold, free of prior findings and based at the merge base with its
+`diff.target` or, without one, the default branch (`TARGET_UNRESOLVED`, `TARGET_OWN_BRANCH`; a declared `baseSource: "starting-commit"` is accepted only when no
 default-branch merge base resolves and the base is the session's starting commit, and an unknown
 starting commit fails `STARTING_COMMIT_UNKNOWN`; when a merge base resolves, the base must be that
 commit). One rule (`finalReviewBase`) and one resolver serve the gate and
 `harness review-tier`. A missing
 receipt fails, and so does a receipt or findings file that is not a regular file of at most 5
-MB. The codes are `REVIEW_GATE_FAILURE_CODES`, a literal union defined in
+MB; the MCP tool alone fails `GATE_ERROR` on a missing or invalid argument. Autopilot may not
+leave REVIEW or FINAL_REVIEW without a passing receipt, a human override, or a recorded
+empty-phase (or empty-final) skip: a range that changes no files is not reviewed, no receipt is
+written, the skip is a decision in `decisions[]`, and the next phase's base passes over it.
+Repositories in the SHA-256 object format are not supported: every sha the receipt, a findings
+file and the session state hold is a 40-character SHA-1 id. The codes are `REVIEW_GATE_FAILURE_CODES`, a literal union defined in
 `packages/types/src/pipeline-receipts.ts`. Surfaces: `harness check-review-receipt [path]
 [--moment phase|final|standalone]` (the path is `receipt.json` or its directory, and a path that
 does not exist and does not end in `.json` is read as a directory; exit 0 on a pass, exit 1 on a

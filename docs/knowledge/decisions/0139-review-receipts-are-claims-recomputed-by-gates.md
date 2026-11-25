@@ -105,7 +105,16 @@ recomputed and the gate compares:
   by location). A receipt whose counts differ fails (`COUNTS_MISMATCH`), and a finding id used
   twice in a review fails (`DUPLICATE_FINDING_ID`).
 
-A missing receipt fails (`RECEIPT_MISSING`). The gate reads no environment variable and calls no
+A missing receipt fails (`RECEIPT_MISSING`), and so does an unreadable or invalid one
+(`RECEIPT_INVALID`); the MCP tool alone fails `GATE_ERROR` on a missing or invalid argument. A
+`light` receipt below a computed `full`, and any `light` standalone receipt, fails
+`TIER_DEMOTED` without `demotion: "no-subagent-tool"`. The final-review rules (`FINAL_NOT_FULL`,
+`FINAL_NOT_COLD`, `FINAL_PRIOR_FINDINGS`, and the target rules `TARGET_UNRESOLVED` and
+`TARGET_OWN_BRANCH`) are ADR 0140's. Autopilot may not leave REVIEW or FINAL_REVIEW without a
+passing receipt, a human override, or a recorded empty-phase (or empty-final) skip: a range that
+changes no files is not reviewed and writes no receipt, the skip is recorded in `decisions[]`,
+and the next phase's base passes over it. Repositories in the SHA-256 object format are not
+supported: every sha the gate accepts is a 40-character SHA-1 id. The gate reads no environment variable and calls no
 model, so it passes or fails identically everywhere. It is exposed as `harness
 check-review-receipt [path] [--moment phase|final|standalone]` (exit 0 on a pass, exit 1 on any
 failure; `--moment` is for a directory that states no moment), whose
