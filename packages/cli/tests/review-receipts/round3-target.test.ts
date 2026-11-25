@@ -8,7 +8,8 @@ import { runReviewTier } from '../../src/commands/review-tier';
 
 /**
  * Review round 3, fix 1, against real git: a final review's --target / diff.target may not be the
- * branch under review itself (its upstream, or a remote-tracking branch of the same name). Its
+ * branch under review itself (a configured remote's branch of the same name; round 4 dropped the
+ * upstream rule, see round4-target.test.ts). Its
  * merge base with the head is the branch's own last pushed commit, so the review would cover
  * only the commits since the last push.
  */
@@ -87,11 +88,12 @@ beforeEach(() => {
 afterEach(() => fs.rmSync(root, { recursive: true, force: true }));
 
 describe('fix 1: the gate refuses the branch under review as diff.target', () => {
-  it("the branch's own upstream fails TARGET_OWN_BRANCH (the reviewer repro)", () => {
+  it('the same-name remote-tracking branch (here also the upstream) fails TARGET_OWN_BRANCH', () => {
     writeFinal(pushed, head, 'refs/remotes/origin/feat', ['f3.txt']);
     expect(codes()).toEqual(['TARGET_OWN_BRANCH']);
   });
   it('a remote-tracking branch of the same name on another remote fails too', () => {
+    g('remote', 'add', 'mirror', path.join(root, 'remote.git'));
     g('update-ref', 'refs/remotes/mirror/feat', pushed);
     writeFinal(pushed, head, 'refs/remotes/mirror/feat', ['f3.txt']);
     expect(codes()).toEqual(['TARGET_OWN_BRANCH']);

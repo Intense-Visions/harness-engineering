@@ -62,6 +62,8 @@ export interface CheckReviewReceiptReport {
   backend?: ReviewReceipt['backend'];
   /** A final receipt: the ref whose merge base its base was checked against (absent: none resolved). */
   finalBaseFrom?: string;
+  /** A final receipt whose `diff.target` gives no base: the target, as the receipt names it. */
+  finalTargetRefused?: string;
 }
 
 type Range = { base: string; head: string; final: boolean; target: unknown };
@@ -216,7 +218,7 @@ export function gateReviewReceipt(opts: CheckReviewReceiptOptions): GatedReviewR
     readFindings: reviewFindingsReaderFor(read.dir),
     expectedMoment: expectedReviewMoment(read.dir, opts.moment),
   });
-  const report = reportOf(result, read.path, recomputed.mergeBaseWith);
+  const report = reportOf(result, read.path, recomputed);
   return { read: true, result, report, dir: read.dir };
 }
 
@@ -224,17 +226,20 @@ export function gateReviewReceipt(opts: CheckReviewReceiptOptions): GatedReviewR
 function reportOf(
   result: ReviewGateResult,
   receiptPath: string,
-  mergeBaseWith: string | undefined
+  final: Pick<Recomputed, 'mergeBaseWith' | 'targetOwnBranch' | 'targetUnresolved'>
 ): CheckReviewReceiptReport {
   const { pass, failures } = result;
   const at = { pass, receiptPath, failures };
   if (!result.checked) return { ...at, reviewersRun: 0, reviewersRequired: 0 };
   const { reviewersRun, reviewersRequired, receipt } = result;
   const { moment, tier, backend } = receipt;
-  const from = moment === 'final' ? mergeBaseWith : undefined;
+  const isFinal = moment === 'final';
+  const from = isFinal ? final.mergeBaseWith : undefined;
+  const refused = isFinal ? (final.targetOwnBranch ?? final.targetUnresolved) : undefined;
   return {
     ...{ ...at, reviewersRun, reviewersRequired, moment, tier, backend },
     ...(from !== undefined && { finalBaseFrom: from }),
+    ...(refused !== undefined && { finalTargetRefused: refused }),
   };
 }
 

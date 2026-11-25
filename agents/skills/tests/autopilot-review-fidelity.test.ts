@@ -771,7 +771,7 @@ describe('unit 1 fix round 2: a stacked branch records its target in the receipt
   const final = () => section(md(), '### FINAL_REVIEW');
   it('FINAL_REVIEW step 2 passes --target to the tier command and records the full ref as diff.target', () => {
     expect(final()).toMatch(
-      /When this branch's PR targets another unmerged branch rather than the default branch \(a stacked PR\), add `--target <that branch's remote-tracking ref>` \(such as `origin\/feat\/parent`; a sha, a HEAD-relative name, a local branch or a tag is refused, and so is this branch's own upstream or any remote-tracking branch with this branch's name, whose merge base is this branch's last pushed commit\) to this command, and record the full ref it prints \(`target` in JSON, `against refs\/remotes\/…` on the `Review base:` line\) as `diff\.target` in the receipt\./
+      /When this branch's PR targets another unmerged branch rather than the default branch \(a stacked PR\), add `--target <that branch's remote-tracking ref>` \(such as `origin\/feat\/parent`; a sha, a HEAD-relative name, a local branch or a tag is refused, and so is this branch's own remote-tracking branch, exactly `refs\/remotes\/<remote>\/<this branch's name>` for a configured remote, whose merge base is this branch's last pushed commit; this branch's upstream is fine when it is the parent, as it is for a branch created with `git checkout -b <branch> origin\/<parent>`\) to this command, and record the full ref it prints \(`target` in JSON, `against refs\/remotes\/…` on the `Review base:` line\) as `diff\.target` in the receipt\./
     );
     expect(final()).toMatch(
       /the gate reads the target from the receipt, so the gate step below takes no flag for it/

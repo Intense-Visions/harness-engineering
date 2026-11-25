@@ -130,8 +130,8 @@ limits, not defects: rewriting the clone's remote-tracking refs (`git update-ref
 final base, hand-editing an earlier receipt or the `startingCommit` of `autopilot-state.json` to
 move a phase's or the final fallback base, fabricating findings files (one context writing every
 reviewer's file), and planting a repository or a worktree for the gate to read. Where a cheap
-check closes a route an honest agent could take by mistake (its own upstream named as the
-target, a findings file left from a review over another range, a receipt read in another
+check closes a route an honest agent could take by mistake (its own remote-tracking branch
+named as the target, a findings file left from a review over another range, a receipt read in another
 repository, an invalid earlier receipt), the gate makes it; it does not try to out-guess a
 session that sets out to deceive it.
 

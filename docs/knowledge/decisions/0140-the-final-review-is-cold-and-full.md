@@ -50,9 +50,15 @@ cover the parent's commits, and keep covering them after the parent squash-merge
 targets: only a ref that `git rev-parse --symbolic-full-name --end-of-options` resolves under
 `refs/remotes/`, never a sha, a HEAD-relative name, a local branch or a tag. That restriction
 alone does not stop a session basing its final review on its own last pushed commit: the
-branch's own upstream is a remote-tracking ref too. So the branch under review is refused as
-its own target: its upstream (`@{upstream}`) and any `refs/remotes/<remote>/<current branch
-name>` fail `TARGET_OWN_BRANCH` at the gate, and `harness review-tier` reports them unresolved.
+branch's own remote-tracking branch is a remote-tracking ref too. So the branch under review is
+refused as its own target: exactly `refs/remotes/<remote>/<current branch name>`, for a remote
+`git remote` lists, fails `TARGET_OWN_BRANCH` at the gate, and `harness review-tier` reports it
+unresolved. The upstream (`@{upstream}`) is not consulted: a stacked branch created with
+`git checkout -b child origin/parent` (or `git worktree add -b child <dir> origin/parent`) tracks
+its parent by git's default, so its upstream is exactly the target its review names (an earlier
+revision refused the upstream and so refused every such stack). The match is exact, not a
+suffix: a branch `gate` stacked on `origin/feat/gate`, or `u2` on `origin/stack/u2`, names
+another branch.
 The base is then the merge base with that
 ref instead of the default branch's, and the command prints the full ref. The receipt records it
 as `diff.target` (a final receipt only), and the gate reads it from there: the receipt is the one
@@ -63,7 +69,7 @@ invalid receipt), and one that does not resolve fails `TARGET_UNRESOLVED` and ne
 other remote-tracking refs, and those refs are local and rewritable (`git update-ref`): a session
 that names a branch it does not merge into, or moves a ref, chooses its own base. That is a
 forging route the gate does not close (ADR 0139, Threat model); refusing the branch's own
-upstream closes the route an honest session could take by mistake. The unit PRs of the shift-left fidelity stack
+remote-tracking branch closes the route an honest session could take by mistake. The unit PRs of the shift-left fidelity stack
 use it: each unit's final review is based at the merge base with the unit below it.
 
 ### Full (D5)

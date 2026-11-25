@@ -73,7 +73,7 @@ export interface ReviewGateContext extends FindingsSource {
   mergeBaseWith?: string;
   /** The receipt's `diff.target` when it is no remote-tracking branch with a merge base with the head. */
   targetUnresolved?: string;
-  /** The receipt's `diff.target` when it is the branch under review (its upstream, or the same name). */
+  /** The receipt's `diff.target` when it is the branch under review (`refs/remotes/<remote>/<its name>`). */
   targetOwnBranch?: string;
   /**
    * The session's starting commit, for a receipt in a session review directory whose
@@ -327,8 +327,8 @@ function finalBaseFailure(
   if (context.targetOwnBranch !== undefined) {
     return reviewGateFailure(
       'TARGET_OWN_BRANCH',
-      `diff.target "${context.targetOwnBranch}" is the branch under review (its upstream, or a ` +
-        'remote-tracking branch of the same name): its merge base is its own last pushed commit; ' +
+      `diff.target "${context.targetOwnBranch}" is the branch under review (a configured ` +
+        "remote's branch of the same name): its merge base is its own last pushed commit; " +
         'name the branch this one merges into'
     );
   }

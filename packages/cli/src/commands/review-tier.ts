@@ -320,8 +320,8 @@ const UNRESOLVED_TEXT: Record<FinalBaseUnresolved | StandaloneBaseUnresolved, st
   'target-unresolved':
     'is not a remote-tracking branch (such as origin/parent) that has a merge base with the head',
   'target-own-branch':
-    'is the branch under review (its upstream, or a remote-tracking branch of the same name), ' +
-    'whose merge base is its own last pushed commit: name the branch this one merges into',
+    "is the branch under review (a configured remote's branch of the same name), whose merge " +
+    'base is its own last pushed commit: name the branch this one merges into',
   'head-unresolved': 'the head could not be resolved to a commit',
   'session-invalid': 'the --session value is not a valid session name',
 };

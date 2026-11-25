@@ -15,13 +15,18 @@ import {
  * The text output. Every string a receipt, a findings file or a path can carry is printed through
  * escapeTerminalText, so control, DEL, bidi and invisible characters are shown, not acted on.
  */
+/** The final-base clause of the header: where the base came from, or the target that gave none. */
+function finalBaseClause(report: CheckReviewReceiptReport): string {
+  if (report.moment !== 'final') return '';
+  if (report.finalTargetRefused !== undefined)
+    return `; final base: none (target ${inert(report.finalTargetRefused)} is refused or unresolved)`;
+  return report.finalBaseFrom === undefined
+    ? "; final base: the session's starting commit (no default branch resolved)"
+    : `; final base: merge base with ${inert(report.finalBaseFrom)}`;
+}
+
 export function formatCheckReviewReceipt(report: CheckReviewReceiptReport): string[] {
-  const finalBase =
-    report.moment !== 'final'
-      ? ''
-      : report.finalBaseFrom === undefined
-        ? "; final base: the session's starting commit (no default branch resolved)"
-        : `; final base: merge base with ${inert(report.finalBaseFrom)}`;
+  const finalBase = finalBaseClause(report);
   const what =
     report.tier === undefined
       ? ''

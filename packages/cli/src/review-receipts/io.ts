@@ -208,17 +208,17 @@ export type MergeBaseLookup =
   | { status: 'target-own-branch'; target: string; ref: string };
 
 /**
- * Whether the remote-tracking ref `ref` is the branch checked out in `cwd` itself: its upstream
- * (`@{upstream}`), or `refs/remotes/<remote>/<current branch name>`. A final review measured from
- * it would start at the branch's own last pushed commit.
+ * Whether the remote-tracking ref `ref` is the branch checked out in `cwd` itself: exactly
+ * `refs/remotes/<r>/<current branch name>` for a remote `r` that `git remote` lists. A final review
+ * measured from it would start at the branch's own last pushed commit. The upstream is not
+ * consulted: a stacked branch's upstream is its parent (git's default for
+ * `git checkout -b child origin/parent`), which is the target such a review names.
  */
 export function isOwnBranchRef(git: CwdGit, ref: string, cwd: string): boolean {
-  const upstream = tryGit(git, ['rev-parse', '--symbolic-full-name', '@{upstream}'], cwd);
-  if (upstream === ref) return true;
   const branch = tryGit(git, ['symbolic-ref', '--quiet', '--short', 'HEAD'], cwd);
   if (!branch) return false;
-  const remote = ref.slice('refs/remotes/'.length, -(branch.length + 1));
-  return ref.endsWith(`/${branch}`) && remote !== '' && !remote.startsWith('/');
+  const remotes = (tryGit(git, ['remote'], cwd) ?? '').split(/\r?\n/).filter((r) => r !== '');
+  return remotes.some((r) => ref === `refs/remotes/${r}/${branch}`);
 }
 
 /**

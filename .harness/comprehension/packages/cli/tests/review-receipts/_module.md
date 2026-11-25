@@ -1,11 +1,11 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/tests/review-receipts'
-sourceHash: '2f15c0e0ab6bdc74e4f34212fe4873114dfa918df5b6301296f9632f170e3b02'
+sourceHash: '60384247e35207d261e564777b87f548688745f530b36ccf0e0c4cbc2fc4d54a'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
-members: ['gate-git.test.ts', 'io.test.ts', 'round3-target.test.ts']
+members: ['gate-git.test.ts', 'io.test.ts', 'round3-target.test.ts', 'round4-target.test.ts']
 ---
 
 ## Interface Contract
@@ -17,10 +17,11 @@ members: ['gate-git.test.ts', 'io.test.ts', 'round3-target.test.ts']
 ## Dependency Slice
 
 ```
+import { formatCheckReviewReceipt } from '../../src/commands/check-review-receipt'
 import { runReviewTier } from '../../src/commands/review-tier'
 import { handleCheckReviewReceipt } from '../../src/mcp/tools/review-receipt'
 import { runCheckFindingsFile, runCheckReviewReceipt } from '../../src/review-receipts/gate'
-import { CwdGit, listDiffFiles, runGitIn, sessionDirFrom } from '../../src/review-receipts/io'
+import { CwdGit, isOwnBranchRef, listDiffFiles, runGitIn, sessionDirFrom } from '../../src/review-receipts/io'
 import { execFileSync } from 'node:child_process'
 import * as fs from 'node:fs'
 import * as os from 'node:os'

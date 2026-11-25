@@ -161,8 +161,9 @@ reviewer findings files and are not in the receipt's counts.
   taken against the default branch ref as the clone holds it, or against the receipt's
   `diff.target`, a remote-tracking branch the session chose (the receipt schema requires a full
   `refs/remotes/` ref, so a sha, a HEAD-relative name, a local branch or a tag is an invalid
-  receipt; one that does not resolve fails `TARGET_UNRESOLVED`, and the branch's own upstream or a remote-tracking
-  branch of its name fails `TARGET_OWN_BRANCH`); the gate does not fetch, and the
+  receipt; one that does not resolve fails `TARGET_UNRESOLVED`, and the branch's own
+  remote-tracking branch, exactly `refs/remotes/<remote>/<its name>` for a configured remote,
+  fails `TARGET_OWN_BRANCH`; its upstream is not consulted, since a stacked branch tracks its parent); the gate does not fetch, and the
   session can rewrite those local remote-tracking refs (`git update-ref`) and so move what the
   gate treats as the merge base: the final base is only as trustworthy as those refs. The
   starting commit (the final base's fallback and the first phase's base) and the earlier
