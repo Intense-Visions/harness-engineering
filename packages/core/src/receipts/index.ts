@@ -4,7 +4,12 @@
  * outside this directory uses is exported.
  */
 export { parseReviewReceipt, parseReviewerFindingsFile } from './schema';
-export { finalReviewBase, reviewGateFailure, validateReviewReceipt } from './review-gate';
+export {
+  finalReviewBase,
+  interruptedArchiveFailure,
+  reviewGateFailure,
+  validateReviewReceipt,
+} from './review-gate';
 export { phaseReviewBase } from './review-gate';
 export type { EarlierPhaseReceipt, PhaseReviewBase } from './review-gate';
 export { checkReviewerFindingsText } from './review-gate';
@@ -19,5 +24,5 @@ export { expectedReviewMoment } from './layout';
 export { sessionDirOfReviewDir } from './layout';
 export { phaseOfReviewLabel, REVIEW_RECEIPT_FILENAME, REVIEWS_DIRNAME } from './layout';
 export { readRegularFile, readReviewReceiptFile, reviewFindingsReaderFor } from './load';
-export { archiveReviewRound, readArchivedRounds } from './rounds';
+export { archiveReviewRound, listInterruptedArchives, readArchivedRounds } from './rounds';
 export type { ArchiveRoundResult } from './rounds';

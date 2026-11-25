@@ -81,8 +81,14 @@ function runArchive(dir: string, deps: CheckReviewReceiptDeps, json: boolean): v
   });
   if (json) console.log(JSON.stringify(out, null, 2));
   else if (out.ok) {
+    const resumed =
+      out.interrupted === 'completed'
+        ? `completed an interrupted archive of round ${out.archived}: `
+        : out.interrupted === 'undone'
+          ? `undid an interrupted archive of round ${out.archived}, then `
+          : '';
     logger.info(
-      `archived round ${out.archived} into round-${out.archived}/; the next review is round ${out.next}`
+      `${resumed}archived round ${out.archived} into round-${out.archived}/; the next review is round ${out.next}`
     );
   } else logger.error(`--archive-round: ${inert(out.error)}`);
   process.exitCode = out.ok ? ExitCode.SUCCESS : ExitCode.VALIDATION_FAILED;
@@ -129,7 +135,11 @@ export function createCheckReviewReceiptCommand(deps: CheckReviewReceiptDeps = {
       '--archive-round <review-dir>',
       "Before a fix round: move the review directory's ended round (its receipt.json and every " +
         'other file in it) into round-R/ (R = 1 + the rounds already archived) and print R and ' +
-        'the next round. Refused without a receipt.json, outside the review layout, or at the head the round reviewed'
+        'the next round. An archive an earlier run left interrupted (.round-R.partial) is ' +
+        'finished, or undone and redone. Refused without a receipt.json, with a receipt.json ' +
+        'that is unreadable or not a regular file, outside the review layout, at the head the ' +
+        'round reviewed, with archives not numbered round-1..round-n, or with a staging ' +
+        'directory that is not the next archive'
     )
     .option('--base <sha>', 'With --findings: base of the reviewed range')
     .option('--head <sha>', 'With --findings: head of the reviewed range')

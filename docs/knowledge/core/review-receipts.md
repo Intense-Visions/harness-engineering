@@ -73,9 +73,11 @@ contradicts the directory fails `MOMENT_MISMATCH`), a required reviewer that did
 `full` roster missing a core reviewer, a `light` roster that is not exactly `compliance-bug` (no other reviewer listed, required or not), a
 reviewer listed twice, a reviewer id that is not a known reviewer (`UNKNOWN_REVIEWER`), a
 `round` that is not 1 + the `round-R/` archives or archives not numbered `round-1` to `round-n`
-(`ROUND_MISMATCH`), `priorRounds` that do not match them (`PRIOR_ROUNDS_MISMATCH`), a round
+(`ROUND_MISMATCH`), `priorRounds` that do not match them (`PRIOR_ROUNDS_MISMATCH`; each prior
+round's blocking count is recounted from its archived findings files), a round
 after the first at the head the round before it reviewed (`ROUND_SAME_HEAD`: only a fix commit
-starts a new round), a findings file that is absent, invalid, shared, outside the receipt directory (`FINDINGS_PATH_INVALID`), written under another reviewer's id, written at another head or for another base (`FINDINGS_BASE_MISMATCH`), empty of examined files or outside the recomputed diff,
+starts a new round), a `.round-R.partial` staging directory an interrupted archive left beside
+the receipt (`ROUND_ARCHIVE_INTERRUPTED`), a findings file that is absent, invalid, shared, outside the receipt directory (`FINDINGS_PATH_INVALID`), written under another reviewer's id, written at another head or for another base (`FINDINGS_BASE_MISMATCH`), empty of examined files or outside the recomputed diff,
 a finding id used twice in the review, `blocking` or `advisory` counts that differ from what the
 findings files hold (`COUNTS_MISMATCH`), a head that is not the current HEAD (git runs at the
 top of the worktree that holds the receipt, which must be the caller's: a receipt in another
@@ -150,14 +152,19 @@ reviewer findings files and are not in the receipt's counts.
 
 **Fix rounds.** Before a fix round the ended round's files are archived into `round-R/` inside
 the review directory by `harness check-review-receipt --archive-round` (core
-`archiveReviewRound`); the gate reads the archived receipts to check `round` and `priorRounds`.
-The command archives only a review directory of the layout above that holds a `receipt.json`
+`archiveReviewRound`); the gate reads the archived receipts and findings files to check `round`
+and `priorRounds`. The command archives only a review directory of the layout above that holds a
+`receipt.json` (a regular file)
 (a round that wrote none, such as a failed mechanical phase, is not a round and keeps its
 number), only when HEAD is no longer the head that receipt reviewed (a fix round needs a fix
 commit; a review run again at the same head stays in its round and overwrites its files), and
 only when the archives present are numbered `round-1` to `round-(R-1)`. It moves the files into
-a staging directory and renames it to `round-R/`, moving everything back on any failure, so a
-round is archived whole or not at all. A standalone directory is named for its head, so a
+a staging directory `.round-R.partial`, `receipt.json` last, and renames it to `round-R/`, moving
+everything back on an error, so an error archives the round whole or not at all. An interruption
+(the process dies) leaves the staging directory: the gate fails `ROUND_ARCHIVE_INTERRUPTED` while
+it exists, and the next `--archive-round` finishes the archive when the staging directory holds
+the receipt, or moves the staged files back (refusing when a name is in both places) and then
+archives. A standalone directory is named for its head, so a
 standalone review after a fix commit is a new directory and needs no archive.
 
 ## Limits

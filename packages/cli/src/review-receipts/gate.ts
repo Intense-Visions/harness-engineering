@@ -2,12 +2,14 @@ import * as path from 'node:path';
 import {
   archiveReviewRound,
   checkReviewerFindingsText,
+  interruptedArchiveFailure,
   readRegularFile,
   reviewFindingsReaderFor,
   reviewGateFailure,
   readReviewReceiptFile,
   expectedReviewMoment,
   phaseReviewBase,
+  listInterruptedArchives,
   readArchivedRounds,
   sessionDirOfReviewDir,
   validateReviewReceipt,
@@ -189,9 +191,17 @@ function receiptRepository(
   return { status: 'outside-repo', path: at.path, dir: at.dir, ...tops };
 }
 
-/** A gate result for a receipt it did not check. */
+/**
+ * A gate result for a receipt it did not check. An archive interrupted after it moved the receipt
+ * is why one may be missing, so a staging directory it left beside a missing or unreadable receipt
+ * is reported too.
+ */
 function notGated(unread: UnreadReceipt): GatedReviewReceipt {
-  const failures = [failureFor(unread)];
+  const local = unread.status === 'missing' || unread.status === 'unreadable';
+  const interrupted = local
+    ? interruptedArchiveFailure(listInterruptedArchives(unread.dir))
+    : undefined;
+  const failures = [failureFor(unread), ...(interrupted === undefined ? [] : [interrupted])];
   const report = { pass: false, receiptPath: unread.path, failures, reviewersRun: 0 };
   return { read: false, unread, report: { ...report, reviewersRequired: 0 }, dir: unread.dir };
 }
@@ -219,6 +229,7 @@ export function gateReviewReceipt(opts: CheckReviewReceiptOptions): GatedReviewR
     ...(startingCommit !== undefined && { startingCommit }),
     phaseBase,
     archivedRounds: readArchivedRounds(read.dir),
+    interruptedArchives: listInterruptedArchives(read.dir),
     readFindings: reviewFindingsReaderFor(read.dir),
     expectedMoment: expectedReviewMoment(read.dir, opts.moment),
   });

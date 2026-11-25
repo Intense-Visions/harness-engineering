@@ -2029,6 +2029,7 @@ ingestUrl
 initWaypointEmitter
 injectionRules
 insecureDefaultsRules
+interruptedArchiveFailure
 invalidateCheckState
 isAbandonedMidWorkflow
 isBadPort
@@ -2060,6 +2061,7 @@ isWholeSnapshotContext
 isoWeek
 latestSnapshot
 listActiveSessions
+listInterruptedArchives
 listProposals
 listPulseAdapters
 listRegisteredTrackerKinds

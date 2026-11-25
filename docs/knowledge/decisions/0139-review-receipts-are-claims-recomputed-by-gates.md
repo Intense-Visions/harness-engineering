@@ -107,15 +107,20 @@ recomputed and the gate compares:
 - The round is counted from the `round-R/` archives beside the receipt (an ended round is
   archived with `harness check-review-receipt --archive-round <review-dir>`): the archives must
   be numbered `round-1` to `round-n` and `round` must be 1 + the archives (`ROUND_MISMATCH`),
-  `priorRounds` must list exactly the archived rounds with the head and blocking count of each
-  archive's own receipt (`PRIOR_ROUNDS_MISMATCH`), and a round after the first whose
+  `priorRounds` must list exactly the archived rounds with the head of each archive's own
+  receipt and the blocking count its own findings files hold (`PRIOR_ROUNDS_MISMATCH`; the
+  archived receipt's `blocking` is a claim, recounted like the current one's), and a round after the first whose
   `diff.head` is the head the round before it reviewed fails (`ROUND_SAME_HEAD`): only a fix
   commit starts a new round, so a review run again at the same head cannot re-roll its blocking
   findings away. The archive command refuses the routes an honest agent could take by mistake:
   a directory with no `receipt.json` (a round that wrote none is not a round), a path that is
   not a review directory of the layout, a HEAD still at the ended round's head, and archives
-  numbered out of sequence. It moves the files through a staging directory and moves them back
-  on any failure, so a round is archived whole or not at all.
+  numbered out of sequence, and a `receipt.json` that is not a regular file. It moves the files
+  through a staging directory, `receipt.json` last, and moves them back on an error, so an
+  error archives the round whole or not at all. An interruption (the process dies) leaves the
+  staging directory `.round-R.partial`: the gate fails `ROUND_ARCHIVE_INTERRUPTED` while one
+  exists, and the next `--archive-round` finishes the archive (the staging directory holds the
+  receipt) or moves the staged files back and archives again.
 
 A missing receipt fails (`RECEIPT_MISSING`), and so does an unreadable or invalid one
 (`RECEIPT_INVALID`); the MCP tool alone fails `GATE_ERROR` on a missing or invalid argument. A

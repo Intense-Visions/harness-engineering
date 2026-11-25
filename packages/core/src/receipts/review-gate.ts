@@ -88,6 +88,11 @@ export interface ReviewGateContext extends FindingsSource {
    * Absent: not read, and the round fields are not checked.
    */
   archivedRounds?: readonly ArchivedRound[];
+  /**
+   * The `.round-*.partial` staging directories beside the receipt: an archive that was
+   * interrupted. Absent or empty: none.
+   */
+  interruptedArchives?: readonly string[];
 }
 
 /**
@@ -388,12 +393,31 @@ function finalBaseFailure(
  */
 function roundFailures(receipt: ReviewReceipt, context: ReviewGateContext): ReviewGateFailure[] {
   const archives = context.archivedRounds;
-  if (archives === undefined) return [];
+  const interrupted = interruptedArchiveFailure(context.interruptedArchives ?? []);
+  if (archives === undefined) return interrupted === undefined ? [] : [interrupted];
   return [
+    interrupted,
     roundNumberFailure(receipt.round ?? 1, archives),
     priorRoundsFailure(receipt, archives),
     sameHeadFailure(receipt, archives),
   ].filter((f): f is ReviewGateFailure => f !== undefined);
+}
+
+/**
+ * An archive interrupted before it finished leaves its staging directory: the ended round is in
+ * neither the review directory nor a `round-R/` archive, so no round number can be trusted until
+ * `--archive-round` finishes or undoes it.
+ */
+export function interruptedArchiveFailure(
+  staging: readonly string[]
+): ReviewGateFailure | undefined {
+  if (staging.length === 0) return undefined;
+  return reviewGateFailure(
+    'ROUND_ARCHIVE_INTERRUPTED',
+    `an archive of a round was interrupted and left ${staging.join(', ')} in the review ` +
+      'directory; run `harness check-review-receipt --archive-round <review-dir>` to finish ' +
+      'or undo it, then gate again'
+  );
 }
 
 function roundNumberFailure(
@@ -418,9 +442,12 @@ function roundNumberFailure(
 const roundText = (p: { round: number; head: string; blocking: number }) =>
   `round ${p.round} at ${p.head}: ${p.blocking} blocking`;
 const archivedText = (a: ArchivedRound) =>
-  'unreadable' in a ? `round ${a.round}: no readable receipt` : roundText(a);
+  'unreadable' in a ? `round ${a.round}: no readable receipt and findings files` : roundText(a);
 
-/** priorRounds against the archived receipts: the same rounds, heads and counts, in any order. */
+/**
+ * priorRounds against the archives: the same rounds, the heads their archived receipts name and
+ * the blocking counts their archived findings files hold, in any order.
+ */
 function priorRoundsFailure(
   receipt: ReviewReceipt,
   archives: readonly ArchivedRound[]
@@ -431,8 +458,8 @@ function priorRoundsFailure(
   if (same && archives.every((a) => !('unreadable' in a))) return undefined;
   return reviewGateFailure(
     'PRIOR_ROUNDS_MISMATCH',
-    'priorRounds must list each archived round with the head and blocking count of its ' +
-      `archived receipt; archived: ${want.join('; ') || 'none'}; listed: ${got.join('; ') || 'none'}`
+    'priorRounds must list each archived round with the head its archived receipt names and the ' +
+      `blocking count its archived findings files hold; archived: ${want.join('; ') || 'none'}; listed: ${got.join('; ') || 'none'}`
   );
 }
 
