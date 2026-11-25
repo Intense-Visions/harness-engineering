@@ -539,12 +539,13 @@ Run the post-execution spec-satisfaction gate (outcome-eval) for CI: judge the c
 
 ### `harness pre-merge-brief`
 
-Compose a senior-facing pre-merge PR brief (diff, review, signals, outcome, "worth your eyes")
+Compose a senior-facing pre-merge PR brief in seven sections: diff summary, review verdict, review provenance (as stated in the PR body), Signal status, outcome-eval, Guardian analysis and "worth your eyes"
 
 **Options:**
 
+- `--pr` — PR to read and comment on (default: from GITHUB_REF, else the branch). Not a number: exit 1
 - `--from` — review-ci --json verdict artifact
-- `--comment` — upsert the brief as a sticky comment on the current branch's PR
+- `--comment` — upsert the brief as a sticky comment on the PR --pr names (else GITHUB_REF's, else the branch's)
 - `--diff` — git range (default: origin/<base>...HEAD)
 - `--head` — head commit sha for the outcome lookup (default: git rev-parse HEAD)
 

@@ -17,6 +17,9 @@ name: Pre-merge Brief
 on:
   pull_request:
     branches: ['{{baseBranch}}']
+    # `edited`: the brief reads the review provenance stamp from the PR body, so a body edit
+    # re-runs it. pull_request (never pull_request_target): the PR's own token scope.
+    types: [opened, synchronize, reopened, edited]
 
 # The brief upserts a single sticky senior-facing PR comment, so the job needs
 # pull-requests: write. review-ci itself only reads the diff.
@@ -62,9 +65,10 @@ jobs:
         continue-on-error: true
         run: harness review-ci --runner {{runner}} --block-on {{blockOn}} --diff "origin/$\{{ github.base_ref }}...HEAD" --out /tmp/review.json
       - name: Post the senior pre-merge brief
-        # Compose the brief (diff summary, review verdict, Signal status,
-        # outcome-eval, and a derived "Worth your eyes") and upsert it as a single
+        # Compose the brief (diff summary, review verdict, review provenance as
+        # stated in the PR body, Signal status, outcome-eval, Guardian analysis and
+        # a derived "Worth your eyes") and upsert it as a single
         # sticky PR comment (upsert by hidden marker). Every section degrades
         # independently, so a missing input renders "unavailable" and never fails
         # the job. Reuses the review-ci artifact above (no second review run).
-        run: harness pre-merge-brief --from /tmp/review.json --diff "origin/$\{{ github.base_ref }}...HEAD" --comment
+        run: harness pre-merge-brief --from /tmp/review.json --diff "origin/$\{{ github.base_ref }}...HEAD" --pr $\{{ github.event.pull_request.number }} --comment

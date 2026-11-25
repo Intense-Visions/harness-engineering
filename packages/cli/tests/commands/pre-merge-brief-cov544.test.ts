@@ -252,3 +252,23 @@ describe('createPreMergeBriefCommand action (cov544)', () => {
     expect(revParse).toBeUndefined();
   });
 });
+
+describe('defaultPostBrief names the PR when it is known (a pull_request run is on a detached ref)', () => {
+  const post = (pr?: number) => {
+    execFileSyncMock.mockReset();
+    execFileSyncMock.mockImplementation((_cmd: string, args: string[]) =>
+      args.includes('view') ? '{"comments":[]}' : ''
+    );
+    defaultPostBrief('body', pr);
+    return execFileSyncMock.mock.calls.map((c) => c[1] as string[]);
+  };
+  it('passes the number to gh pr view and gh pr comment', () => {
+    expect(post(31)).toEqual([
+      ['pr', 'view', '31', '--json', 'comments'],
+      ['pr', 'comment', '31', '--body-file', '-'],
+    ]);
+  });
+  it('leaves the PR to gh when no number is known', () => {
+    expect(post()[0]).toEqual(['pr', 'view', '--json', 'comments']);
+  });
+});

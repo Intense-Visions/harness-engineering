@@ -632,6 +632,7 @@ FileSkipReason
 FileSpool
 FileSpoolOptions
 FinalReviewBase
+FinalRowCoverage
 FindingClass
 FindingIntegrityAction
 FindingIntegrityReport
@@ -1521,6 +1522,7 @@ StaleConstraint
 StaleReference
 StalenessEntry
 StalenessReport
+StampCoverage
 StampGit
 StampNote
 StampRow
@@ -2253,6 +2255,7 @@ removeProvenance
 renderAutoDecisionSummary
 renderDependencySlice
 renderInterfaceContract
+renderParsedStamp
 renderProvenanceBlock
 renderRetrospectiveMarkdown
 renderServedUnit
@@ -2378,6 +2381,7 @@ spearmanRankCorrelation
 spillIfNeeded
 splitBundlesByStage
 stageDomains
+stampCoverage
 standaloneReviewBase
 suggestCategory
 summarizeAutoDecisions

@@ -94,6 +94,10 @@ describe('ci-pre-merge-brief template', () => {
     expect(briefStep.run).toContain('--comment');
 
     expect(parsed.on.pull_request.branches).toContain('main');
+    // Fix round 1 (unit 4): the brief re-runs when the PR body (its stamp) is edited, on
+    // pull_request (the PR's own token scope), never pull_request_target.
+    expect(parsed.on.pull_request.types).toEqual(['opened', 'synchronize', 'reopened', 'edited']);
+    expect(parsed.on.pull_request_target).toBeUndefined();
 
     // Both harness steps must diff against the PR's real base via the runtime
     // `github.base_ref` expression, NOT the CLI's origin/HEAD fallback (which can
@@ -182,5 +186,27 @@ describe('ci-pre-merge-brief template', () => {
     expect(wf).toBeDefined();
     expect(wf!.content).toContain('name: pre-merge-brief');
     expect(wf!.content).toContain('--runner claude');
+  });
+});
+
+describe('the dogfood required-review workflow (fix round 1, unit 4)', () => {
+  it('re-runs the brief when the PR body (its stamp) is edited, on pull_request only', () => {
+    const wf = yaml.parse(
+      fs.readFileSync(
+        path.resolve(
+          __dirname,
+          '..',
+          '..',
+          '..',
+          '..',
+          '.github',
+          'workflows',
+          'required-review.yml'
+        ),
+        'utf-8'
+      )
+    );
+    expect(wf.on.pull_request.types).toEqual(['opened', 'synchronize', 'reopened', 'edited']);
+    expect(wf.on.pull_request_target).toBeUndefined();
   });
 });

@@ -232,7 +232,22 @@ why a fix committed after the final review sends autopilot back to the final rev
 - **The stamp in a PR body is not authenticated.** It is text in a body the PR author can edit,
   and CI cannot recompute it: the receipts and findings files are ignored by git and exist only
   on the machine that ran the pipeline. Anyone who can edit the body can write any stamp, so a
-  stamp read back out of a PR body is shown as stated, never as verified.
+  stamp read back out of a PR body is shown as stated, never as verified. `harness pre-merge-brief`
+  shows it under the line
+  `_As stated in the PR body by its author; not verified by CI (review receipts are machine-local)._`,
+  which opens its Review provenance section whatever the body holds. It prints the rows and notes
+  it kept, says how many lines it left out, and says whether the stamp covers the PR head: it
+  compares the PR head with the head the `final-all` row reviewed (its Diff cell), whatever that
+  row's Gate cell says, so a final review that passed or was overridden at an older commit reads
+  `Commits after <sha> are not covered.`, and a row with `+N commits not reviewed` is never
+  current. A stamp with no `final-all` row states no final review of the PR. It shows a body it
+  did not read as `conflicting`, `too-large` or `ambiguous` (with the reason), and a stamp it
+  found but could read no line of as found and not read (it may come from another harness
+  version); none of these is `no pipeline review recorded` or a pass. A PR body that could not be
+  read (`gh` failed, or replied with something that is not a pull request) is
+  `unavailable / not configured`. Fitting the brief into one comment never cuts the Review
+  provenance section. `--pr` takes only a positive decimal number within the safe integers;
+  anything else exits 1. The shipped workflows re-run the brief when the PR body is edited.
 - **The reader is best effort.** It follows the CommonMark blocks that hide text, but it does not
   render the page. It looks for the opening marker on a line of its own after an empty line (or
   first), the heading `### Review provenance` on the next line, then the table (its header line,

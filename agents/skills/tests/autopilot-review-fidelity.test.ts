@@ -1280,7 +1280,7 @@ describe('unit 3: review decisions and the provenance stamp', () => {
   // security-hidden-stamp-link-definition: the rule is stated in terms of what renders.
   it('A9: the stamp reader is best effort over an unauthenticated stamp', () => {
     expect(records()).toMatch(
-      /A stamp read back out of a PR body is unauthenticated: anyone who can edit the body can write any stamp, so it is shown as stated, never as verified\. The reader is best effort and does not render the page\./
+      /A stamp read back out of a PR body \(by `harness pre-merge-brief`\) is unauthenticated: anyone who can edit the body can write any stamp, so it is shown as stated, never as verified\. The reader is best effort and does not render the page\./
     );
     expect(records()).toMatch(
       /A body crafted to show one stamp and hide another is not caught in every form/

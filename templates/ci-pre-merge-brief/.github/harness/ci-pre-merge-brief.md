@@ -21,10 +21,12 @@ instead), and it writes these files into an existing project too.
 ## What the brief contains
 
 The upserted comment (one sticky comment per PR, updated in place) assembles, in
-order: a **diff summary**, the **review verdict**, a point-in-time **Signal
-status** snapshot, the **outcome-eval** result, and a derived **"Worth your
-eyes"** section (the union of blocking findings, warn/alert signals, unmet
-outcome criteria, and flagged guardian diff-coverage records).
+order: a **diff summary**, the **review verdict**, the **review provenance**
+stamp as the PR body states it (not verified by CI), a point-in-time **Signal
+status** snapshot, the **outcome-eval** result, the **Guardian diff-coverage**
+analysis, and a derived **"Worth your eyes"** section (the union of blocking
+findings, warn/alert signals, unmet outcome criteria, and flagged guardian
+diff-coverage records).
 
 Every section degrades **independently**: a missing or unavailable input renders
 an "unavailable / not configured" line rather than failing the job. The workflow

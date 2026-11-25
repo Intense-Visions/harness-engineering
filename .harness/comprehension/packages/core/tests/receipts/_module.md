@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/tests/receipts'
-sourceHash: '7f8b4ad00925764fb82312b32b3e20fee18d6e589a22b074989fb891afb4d5ab'
+sourceHash: 'ebe0196f20cbe0ed4c583c38b725231fbda672605b2f2814ce7ec8ed0e1c5021'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -12,6 +12,7 @@ members:
     'finding-compat.test.ts',
     'layout.test.ts',
     'load.test.ts',
+    'pr-stamp-coverage.test.ts',
     'provenance.test.ts',
     'public-surface.test.ts',
     'review-gate-demotion.test.ts',
@@ -63,6 +64,7 @@ export record
 ## Dependency Slice
 
 ```
+import { MARKER, ParsedProvenanceStamp, parseProvenanceStamp, renderProvenanceBlock, stampCoverage } from '../../src/receipts'
 import * as receipts from '../../src/receipts'
 import { resolveReviewBackend } from '../../src/receipts/backend'
 import { ReviewDecisionRecordSchema, jsonObjectFields, readSessionReviewState } from '../../src/receipts/decisions'

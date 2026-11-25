@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/tests/commands'
-sourceHash: '5c0ed048c9b16368d0a20ce65b4c9068cfcb5cb2e0215d0775af55d3888b47f7'
+sourceHash: '4df8881a4d7a6ea7d4a0716c1c518ca18806ca8945ba7b4c085895a1282e8258'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -160,6 +160,7 @@ members:
     'pre-merge-brief-cov544.test.ts',
     'pre-merge-brief-guardian.test.ts',
     'pre-merge-brief-maxbuffer.test.ts',
+    'pre-merge-brief-provenance.test.ts',
     'pre-merge-brief.test.ts',
     'predict.test.ts',
     'proposals-cov544b.test.ts',
@@ -366,7 +367,7 @@ import { GIT_DIFF_MAX_BUFFER, OutcomeEvaluatorLike, buildOutcomeBody, createOutc
 import { createPerfCommand } from '../../src/commands/perf'
 import { createPersonaCommand } from '../../src/commands/persona/index'
 import { createListCommand } from '../../src/commands/persona/list'
-import { BRIEF_MARKER, buildBriefBody, createPreMergeBriefCommand, defaultPostBrief, findOutcomeVerdict, gatherGuardianSafe, gatherSignalsSafe, loadOutcomeStore, readReview, runPreMergeBrief, upsertComment } from '../../src/commands/pre-merge-brief'
+import { BRIEF_LIST_MAX, BRIEF_MARKER, BRIEF_MAX_CHARS, BriefInputs, BriefSection, buildBriefBody, createPreMergeBriefCommand, defaultPostBrief, findOutcomeVerdict, fitComment, gatherGuardianSafe, gatherSignalsSafe, loadOutcomeStore, readReview, runPreMergeBrief, upsertComment } from '../../src/commands/pre-merge-brief'
 import { createPredictCommand, runPredict } from '../../src/commands/predict'
 import { actStatusCommand, createProposalsCommand, runProposalsList, runProposalsReject, runProposalsShow, runProposalsStatus } from '../../src/commands/proposals'
 import { RunGit, createProvenanceCommand, runProvenanceCommand } from '../../src/commands/provenance'
@@ -439,6 +440,7 @@ import { DesignPipelineContext, runDesignPipeline } from '../../src/design-pipel
 import { DocsCraftOutput, DocsFinding } from '../../src/docs-craft/findings/schema.js'
 import { DocsCraftInput, runDocsCraft } from '../../src/docs-craft/index.js'
 import { DriftFinding } from '../../src/drift/findings/finding.js'
+import { resolvePrNumber } from '../../src/github/pr'
 import { createProgram } from '../../src/index'
 import { readMcpConfig, writeMcpEntry, writeOpencodeMcpEntry } from '../../src/integrations/config'
 import { CATALOG_LAST_REVIEWED, INTEGRATION_REGISTRY } from '../../src/integrations/registry'
@@ -499,7 +501,7 @@ import { CraftCommandRun, DEFAULT_CWD, runCraftCommand } from './craft-command-h
 import { llmCalls, runCraftCommand } from './craft-command-harness.js'
 import { parseJsonStdout, runCommand } from './design-command-harness'
 import * as clack from '@clack/prompts'
-import { ArchConfigSchema, CiReviewResult, Collector, ConstraintError, DEFAULT_REMOTE_URL, DiffInfo, Err, GoldenFileChange, GoldenSnapshot, MetricResult, Ok, PROVENANCE_MARKER, RefinementDemandReport, RollbackDecision, RunCiReviewOptions, SECURITY_SCAN_EXTENSIONS, SECURITY_SCAN_GLOB, applyFixes, archiveStream, buildSnapshot, checkTaint, clearTaint, computeRepoKey, createError, createFixes, createModelProposal, createProposal, createStream, detectDeadCode, detectDocDrift, extractBundle, generateSuggestions, listStreams, listTaintedSessions, loadStreamIndex, parseCiReviewVerdict, parseDiff, parseManifest, parseProvenanceStamp, readAdoptionRecords, requestPeerReview, resetWaypointEmitterForTests, runReviewPipeline, sessionOverridePath, setActiveStream, validateAgentConfigs, validateAgentsMap, validateDecisionNumbers, validateKnowledgeMap, validatePulseConfig, validateRoadmapMode, validateSolutionsDir, validateStrategy, writeConfig, writeSessionOverride } from '@harness-engineering/core'
+import { ArchConfigSchema, CiReviewResult, Collector, ConstraintError, DEFAULT_REMOTE_URL, DiffInfo, Err, GoldenFileChange, GoldenSnapshot, MARKER, MetricResult, Ok, PROVENANCE_MARKER, RefinementDemandReport, RollbackDecision, RunCiReviewOptions, SECURITY_SCAN_EXTENSIONS, SECURITY_SCAN_GLOB, applyFixes, archiveStream, buildSnapshot, checkTaint, clearTaint, computeRepoKey, createError, createFixes, createModelProposal, createProposal, createStream, detectDeadCode, detectDocDrift, extractBundle, generateSuggestions, listStreams, listTaintedSessions, loadStreamIndex, parseCiReviewVerdict, parseDiff, parseManifest, parseProvenanceStamp, readAdoptionRecords, renderProvenanceBlock, requestPeerReview, resetWaypointEmitterForTests, runReviewPipeline, sessionOverridePath, setActiveStream, validateAgentConfigs, validateAgentsMap, validateDecisionNumbers, validateKnowledgeMap, validatePulseConfig, validateRoadmapMode, validateSolutionsDir, validateStrategy, writeConfig, writeSessionOverride } from '@harness-engineering/core'
 import '@harness-engineering/graph'
 import { GUARDIAN_ANALYSIS_SCHEMA, GUARDIAN_ANALYSIS_VERSION, GuardianAnalysis, OutcomeVerdict, SkillRegressionFixture, SkillRegressionVerdict } from '@harness-engineering/intelligence'
 import { AnalysisRecord, MockBackend, RunMode, RunResult, SyncMainResult, TaskDefinition, renderAnalysisComment } from '@harness-engineering/orchestrator'

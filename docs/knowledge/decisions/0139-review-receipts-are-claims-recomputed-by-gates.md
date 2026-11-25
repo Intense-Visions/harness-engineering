@@ -235,7 +235,11 @@ session that sets out to deceive it.
   spaces and tabs, as in CommonMark, and the scan is linear in the body's length. A body that
   holds two stamps is `conflicting` and neither is read, and a body over 262144 characters is
   `too-large` and not read. A later reader reports each of the three as a state of its own, never
-  as unstamped and never as a pass. A body crafted to show one stamp and hide another is not
+  as unstamped and never as a pass (`harness pre-merge-brief` is such a reader: it says the stamp
+  is stated in the PR body and not verified, shows each of the three as its own state, and shows a
+  stamp it found but could read no line of as a fourth). Whether a read stamp covers the PR head is
+  decided by its `final-all` row's reviewed head alone, whatever its Gate cell says, and a row with
+  `+N commits not reviewed` never covers it (`stampCoverage`). A body crafted to show one stamp and hide another is not
   defended against in every form: that is forging, which this threat model leaves to the stamp
   being unauthenticated, since whoever can write such a body can write any stamp in plain view.
 - A failed gate can be overridden by the human. Autopilot records the override in `decisions[]`
