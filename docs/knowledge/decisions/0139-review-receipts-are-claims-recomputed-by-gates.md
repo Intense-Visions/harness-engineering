@@ -72,7 +72,8 @@ recomputed and the gate compares:
   the nearest earlier `phase-M` receipt of the same session, else the session's starting commit
   (`PHASE_BASE_MISMATCH`). A phase that wrote no receipt (it made no commit, or was never
   reviewed) is passed over, so its commits fall in the next phase's diff, and so is an earlier
-  receipt that cannot be read or whose `diff.head` is not an ancestor of the head (a rebase
+  receipt that cannot be read, is not a valid phase receipt (the receipt schema, `moment: "phase"`),
+  or whose `diff.head` is not an ancestor of the head (a rebase
   rewrote it): the base falls to the next earlier usable receipt, else the starting commit.
   Passing over only ever widens the review. When no base can be named (no usable earlier receipt
   and no starting commit, a starting commit that is not an ancestor of the head, or a phase

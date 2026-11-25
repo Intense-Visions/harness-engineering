@@ -171,6 +171,21 @@ describe('a phase receipt starts where the previous reviewed phase ended', () =>
     runCheckReviewReceipt({ receiptPath: dir, cwd: tmp, ...(moment && { moment }) }).failures.map(
       (f) => f.code
     );
+  /** An earlier phase's receipt as the review wrote it: a valid phase receipt (review round 3). */
+  const valid = (base: string, to: string, over: Record<string, unknown> = {}) =>
+    JSON.stringify({
+      schemaVersion: 1,
+      moment: 'phase',
+      tier: 'light',
+      backend: 'agent',
+      diff: { base, head: to },
+      coldContext: true,
+      priorFindingsSupplied: false,
+      reviewers: [{ id: 'compliance-bug', required: true, ran: true, findingsPath: 'c.json' }],
+      blocking: 0,
+      advisory: 0,
+      ...over,
+    });
   beforeEach(() => {
     // start -> mid -> head: phase 0 ended at mid, the phase under review ends at head.
     g('reset', '-q', '--hard', start);
@@ -184,21 +199,21 @@ describe('a phase receipt starts where the previous reviewed phase ended', () =>
     expect(codes(writeReview('phase-0', mid, ['pkg/sub/b.ts']))).toEqual(['PHASE_BASE_MISMATCH']);
   });
   it('a later phase from the previous receipt head passes', () => {
-    earlier('phase-0', JSON.stringify({ diff: { base: start, head: mid } }));
+    earlier('phase-0', valid(start, mid));
     expect(codes(writeReview('phase-1', mid, ['pkg/sub/b.ts']))).toEqual([]);
   });
   it('a later phase from the starting commit fails: the previous receipt decides', () => {
-    earlier('phase-0', JSON.stringify({ diff: { base: start, head: mid } }));
+    earlier('phase-0', valid(start, mid));
     const dir = writeReview('phase-1', start, ['pkg/sub/b.ts']);
     expect(codes(dir)).toEqual(['PHASE_BASE_MISMATCH']);
   });
   it('a phase that wrote no receipt is passed over', () => {
-    earlier('phase-0', JSON.stringify({ diff: { base: start, head: mid } }));
+    earlier('phase-0', valid(start, mid));
     fs.mkdirSync(path.join(session(), 'reviews', 'phase-1'), { recursive: true });
     expect(codes(writeReview('phase-2', mid, ['pkg/sub/b.ts']))).toEqual([]);
   });
   it('a later phase is never measured against a phase after it', () => {
-    earlier('phase-3', JSON.stringify({ diff: { base: start, head: head } }));
+    earlier('phase-3', valid(start, head));
     expect(codes(writeReview('phase-0', start, ['pkg/sub/b.ts']))).toEqual([]);
   });
   it.each([
@@ -209,8 +224,18 @@ describe('a phase receipt starts where the previous reviewed phase ended', () =>
     expect(codes(writeReview('phase-1', start, ['pkg/sub/b.ts']))).toEqual([]);
     expect(codes(writeReview('phase-1', mid, ['pkg/sub/b.ts']))).toEqual(['PHASE_BASE_MISMATCH']);
   });
+  // Review round 3, fix 4: an earlier receipt sets the base only when it is a valid phase receipt.
+  it.each([
+    ['is JSON but not a receipt', () => JSON.stringify({ diff: { base: start, head: mid } })],
+    ['is a valid receipt of another moment', () => valid(start, mid, { moment: 'final' })],
+    ['fails the receipt schema', () => valid(start, mid, { tier: 'heavy' })],
+  ])('an earlier receipt that %s is passed over, which only widens the review', (_n, body) => {
+    earlier('phase-0', body());
+    expect(codes(writeReview('phase-1', start, ['pkg/sub/b.ts']))).toEqual([]);
+    expect(codes(writeReview('phase-1', mid, ['pkg/sub/b.ts']))).toEqual(['PHASE_BASE_MISMATCH']);
+  });
   it('round 2: an unreadable receipt is passed over to the next earlier readable one', () => {
-    earlier('phase-0', JSON.stringify({ diff: { base: start, head: mid } }));
+    earlier('phase-0', valid(start, mid));
     earlier('phase-1', '{ not json');
     expect(codes(writeReview('phase-2', mid, ['pkg/sub/b.ts']))).toEqual([]);
   });
@@ -222,7 +247,7 @@ describe('a phase receipt starts where the previous reviewed phase ended', () =>
     return side;
   };
   it('round 2: after a rebase an earlier receipt whose head is not an ancestor is passed over', () => {
-    earlier('phase-0', JSON.stringify({ diff: { base: start, head: offBranch() } }));
+    earlier('phase-0', valid(start, offBranch()));
     expect(codes(writeReview('phase-1', start, ['pkg/sub/b.ts']))).toEqual([]);
   });
   it('round 2: a starting commit that is not an ancestor fails PHASE_BASE_UNKNOWN: record the new one', () => {

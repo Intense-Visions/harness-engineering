@@ -6,6 +6,7 @@ import {
   REVIEWS_DIRNAME,
   REVIEW_RECEIPT_FILENAME,
   finalReviewBase,
+  parseReviewReceipt,
   phaseOfReviewLabel,
   readRegularFile,
   readReviewReceiptFile,
@@ -142,9 +143,10 @@ export function isAncestor(
 
 /**
  * The nearest earlier phase review of the same session with a usable receipt: read as a receipt
- * is read (a regular file of at most 5 MB inside the reviews directory), holding a full
- * `diff.head` that `reachable` accepts (an ancestor of the head under review). Any other earlier
- * phase is passed over, which only widens the review. `reviewDir` is `phase-N`.
+ * is read (a regular file of at most 5 MB inside the reviews directory), valid under the receipt
+ * schema with `moment: "phase"`, and whose `diff.head` `reachable` accepts (an ancestor of the
+ * head under review). Any other earlier phase is passed over, which only widens the review.
+ * `reviewDir` is `phase-N`.
  */
 export function earlierPhaseReceipt(
   reviewDir: string,
@@ -167,8 +169,9 @@ export function earlierPhaseReceipt(
   for (const { label, phase } of earlier) {
     const file = path.join(reviews, label, REVIEW_RECEIPT_FILENAME);
     const read = readReviewReceiptFile(file, { within: reviews });
-    const head = read.status === 'ok' ? fields(fields(read.raw).diff).head : undefined;
-    if (isSha(head) && reachable(head)) return { status: 'found', phase, head };
+    const parsed = read.status === 'ok' ? parseReviewReceipt(read.raw) : undefined;
+    const head = parsed?.ok && parsed.value.moment === 'phase' ? parsed.value.diff.head : undefined;
+    if (head !== undefined && reachable(head)) return { status: 'found', phase, head };
   }
   return { status: 'none' };
 }

@@ -76,7 +76,7 @@ that differ from HEAD (`WORKTREE_DIRTY`, from `git status --porcelain=v1 -z --un
 untracked files do not count, and the self-check applies it when given a range), a base that is not
 an ancestor of the head, a `phase` receipt whose base is not the `diff.head` of the nearest
 earlier usable `phase-M` receipt of its session, or the session's starting commit when there is
-none (`PHASE_BASE_MISMATCH`; an earlier receipt that cannot be read, or whose `diff.head` a
+none (`PHASE_BASE_MISMATCH`; an earlier receipt that cannot be read or is not a valid phase receipt, or whose `diff.head` a
 rebase left off the branch, is passed over, which only widens the review; `PHASE_BASE_UNKNOWN`
 when no base can be named, including a starting commit that is not an ancestor of the head,
 which after a rebase the session replaces with its new starting commit, and a phase receipt

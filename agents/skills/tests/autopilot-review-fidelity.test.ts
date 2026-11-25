@@ -705,7 +705,7 @@ describe('round 4: the review-fidelity instructions of review round 4 are each p
   const final = () => section(md(), '### FINAL_REVIEW');
   it('a phase base passes over a phase that was skipped or never reviewed', () => {
     expect(review()).toMatch(
-      /`\{base\}` is the `diff\.head` of the receipt of the nearest earlier phase that has a usable one, passing over a phase that was skipped or whose review wrote no receipt, a receipt that cannot be read, and a receipt whose `diff\.head` is not an ancestor of HEAD \(a rebase rewrote it\), and `startingCommit` when no earlier phase has a usable receipt/
+      /`\{base\}` is the `diff\.head` of the receipt of the nearest earlier phase that has a usable one, passing over a phase that was skipped or whose review wrote no receipt, a receipt that cannot be read or is not a valid phase receipt, and a receipt whose `diff\.head` is not an ancestor of HEAD \(a rebase rewrote it\), and `startingCommit` when no earlier phase has a usable receipt/
     );
   });
   it('review.backend is read from the repository top, and an invalid value is an error', () => {
