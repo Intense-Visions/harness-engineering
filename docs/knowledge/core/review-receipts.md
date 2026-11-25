@@ -169,21 +169,31 @@ with no row when the expected reviews are unknown, the reason the expected revie
 skipped entries. Rows and notes are assembled in core (`assembleStamp`). The renderer and the
 PR-body parser (`parseProvenanceStamp`, in `stamp-parser.ts`) share that grammar, so the parser
 keeps only rows and notes the renderer can write, an Override cell no longer than the renderer
-writes included. It reads a stamp only as the rendered page shows one: the markers on lines of
-their own, each after an empty line, the heading on the line after the opening marker, outside
-HTML comments, fenced code blocks (a backtick fence's info string holds no backtick) and raw
-HTML blocks (`<script>`, `<pre>`, `<style>`, `<textarea>`, `<?`, `<!X`, `<![CDATA[`); rows only
-under the table's header and rule, and notes only in the list after the table, never a line
+writes included. The parser is a best-effort reader of an unauthenticated stamp: it follows
+the CommonMark blocks that hide text but does not render the page. It takes the markers on lines
+of their own, each after an empty line, the heading on the line after the opening marker,
+outside HTML comments, fenced code blocks (a backtick fence's info string holds no backtick) and
+raw HTML blocks (`<script>`, `<pre>`, `<style>`, `<textarea>`, `<?`, `<!X`, `<![CDATA[`); rows
+only under the table's header and rule, and notes only in the list after the table, never a line
 indented four or more columns (a code block on the page). A marker in a paragraph, a list item, a
-quote or a link reference definition's title is text. It fails closed where it cannot tell what
-the page shows: `<details` or `</details` anywhere before the body's last marker (GitHub shows a
-`<details>` collapsed; a code span, a comment or a code block included), or an HTML comment
-opener there that shares its line with a backtick or leaves a comment open without starting its
-line, makes the body `ambiguous` (with the reason) and nothing is read. A body that shows more
-than one stamp is `conflicting` and none is read; a body over 262144 characters is `too-large`
-and is not read; the scan is linear in the body's length. A later reader of the stamp reports
-`ambiguous`, `conflicting` and `too-large` as states of their own, never as unstamped and never
-as a pass. Autopilot places the stamp in the PR body. The stamp in a PR body is
+quote or a link reference definition's title is text. Blank means spaces and tabs only, as in
+CommonMark (a fence closer followed by a no-break space closes nothing). It fails closed on the
+constructs it knows it cannot place; before the body's last marker each of these makes the body
+`ambiguous` (with the reason) and nothing is read: `<details` or `</details` anywhere (GitHub
+shows a `<details>` collapsed; a code span, a comment or a code block included;
+`details-element`); an HTML comment opener that shares its line with a backtick, leaves a comment
+open without starting its line, or reopens a comment after a `-->` on its line
+(`comment-opener`); a line starting with `<noscript`, `<template`, `<select` or `<rp`, or an HTML
+block of CommonMark type 6 or 7 holding, before the next empty line, a line that opens a fence, a
+raw HTML block or a comment (`html-block`); a fence on the line of a list item or a quote, or a
+line inside a fence, a comment or a raw HTML block less indented than its opener (`container`).
+An ordinary PR body (top-level comments, code fences, lists, headings, tables, images) still
+reads its stamp. A body that holds more than one stamp is `conflicting` and none is read; a body
+over 262144 characters is `too-large` and is not read; the scan is linear in the body's length.
+A later reader of the stamp reports `ambiguous`, `conflicting` and `too-large` as states of their
+own, never as unstamped and never as a pass. A body crafted to show one stamp and hide another
+is not defended against in every form: anyone who can write the body can write any stamp, so the
+stamp is shown as stated, not verified. as a pass. Autopilot places the stamp in the PR body. The stamp in a PR body is
 unauthenticated: CI cannot recompute it, because receipts are machine-local.
 
 **Review decision.** An entry of `decisions[]` in a session's `autopilot-state.json` with
@@ -356,7 +366,7 @@ standalone review after a fix commit is a new directory and needs no archive.
 | [review-paths.ts](../../../packages/core/src/shared/review-paths.ts)                      | `normalizeReviewPath`, `pathEscapes`: the path rules the gate and the tier selector share (a shared leaf)                                   |
 | [layout.ts](../../../packages/core/src/receipts/layout.ts)                                | Review directory names, `expectedReviewMoment` (the one precedence rule)                                                                    |
 | [stamp-grammar.ts](../../../packages/core/src/receipts/stamp-grammar.ts)                  | The stamp's columns, cell grammars, bounds, notes and inert text                                                                            |
-| [stamp-parser.ts](../../../packages/core/src/receipts/stamp-parser.ts)                    | The PR-body parser (`parseProvenanceStamp`): what the rendered page shows, one stamp, a bounded input                                       |
+| [stamp-parser.ts](../../../packages/core/src/receipts/stamp-parser.ts)                    | The PR-body parser (`parseProvenanceStamp`): best effort, fails closed on known constructs, one stamp, linear                               |
 | [decisions.ts](../../../packages/core/src/receipts/decisions.ts)                          | `ReviewDecisionRecordSchema`, `readSessionReviewState` (the one reader of the session state)                                                |
 | [autopilot-session-state.ts](../../../packages/core/src/state/autopilot-session-state.ts) | `AutopilotSessionStateSchema`, `AutopilotPhaseEntrySchema`, `AUTOPILOT_STATE_FILENAME`                                                      |
 | [provenance.ts](../../../packages/core/src/receipts/provenance.ts)                        | Renders the provenance stamp; `assembleStamp`, `buildProvenanceRow`                                                                         |

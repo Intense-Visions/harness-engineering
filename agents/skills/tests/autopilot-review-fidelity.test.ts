@@ -1278,9 +1278,15 @@ describe('unit 3: review decisions and the provenance stamp', () => {
     expect(parseProvenanceStamp(stampOf(bad))?.rows).toHaveLength(0);
   });
   // security-hidden-stamp-link-definition: the rule is stated in terms of what renders.
-  it('A9: a stamp is read back only as a reader of the rendered page sees it', () => {
+  it('A9: the stamp reader is best effort over an unauthenticated stamp', () => {
     expect(records()).toMatch(
-      /A stamp is read back out of a PR body only as a reader of the rendered page sees it: the opening marker on a line of its own after an empty line \(or at the very start\), the heading `### Review provenance` on the next line, the table under it and then its notes, and the closing marker on a line of its own after an empty line, none of it inside an HTML comment, a code block or a raw HTML block\. A marker anywhere else \(in a paragraph, a list item, a quote, a link reference definition\) is text/
+      /A stamp read back out of a PR body is unauthenticated: anyone who can edit the body can write any stamp, so it is shown as stated, never as verified\. The reader is best effort and does not render the page\./
+    );
+    expect(records()).toMatch(
+      /A body crafted to show one stamp and hide another is not caught in every form/
+    );
+    expect(records()).toMatch(
+      /It looks for the opening marker on a line of its own after an empty line \(or at the very start\), the heading `### Review provenance` on the next line, the table under it and then its notes, and the closing marker on a line of its own after an empty line, none of it inside an HTML comment, a code block or a raw HTML block\. A marker anywhere else \(in a paragraph, a list item, a quote, a link reference definition\) is text/
     );
     const text = done();
     expect(text).toMatch(/opening with the heading `### Review provenance`/);

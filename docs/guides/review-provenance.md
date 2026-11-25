@@ -231,26 +231,41 @@ why a fix committed after the final review sends autopilot back to the final rev
 
 - **The stamp in a PR body is not authenticated.** It is text in a body the PR author can edit,
   and CI cannot recompute it: the receipts and findings files are ignored by git and exist only
-  on the machine that ran the pipeline. A stamp is read back out of a PR body only as a reader
-  of the rendered page sees it: the opening marker on a line of its own after an empty line (or
+  on the machine that ran the pipeline. Anyone who can edit the body can write any stamp, so a
+  stamp read back out of a PR body is shown as stated, never as verified.
+- **The reader is best effort.** It follows the CommonMark blocks that hide text, but it does not
+  render the page. It looks for the opening marker on a line of its own after an empty line (or
   first), the heading `### Review provenance` on the next line, then the table (its header line,
   its rule line, then rows) and the notes under it, and the closing marker on a line of its own
-  after an empty line. None of it may sit inside an HTML comment, a fenced code block or a raw
-  HTML block (`<script>`, `<pre>`, `<style>`, `<textarea>`, `<?`, `<!X`, `<![CDATA[`). A marker
-  anywhere else, in a paragraph, a list item, a quote or a link reference definition's title, is
-  text and starts no stamp. A line inside the markers that is not the table or its notes, or is
-  indented four or more columns (a code block on the page, not a table row), is left out and
-  counted.
-- **Where the reader cannot tell what the page shows, it reads nothing.** It does not model
-  `<details>` (GitHub shows one collapsed, or lets the reader collapse it) or code spans: when
-  `<details` or `</details` appears anywhere before the body's last marker, in any case and
-  anywhere (a code span, a comment, a code block included), or an HTML comment opener there
-  shares its line with a backtick or leaves a comment open without starting its line, the body is
-  `ambiguous` and no stamp in it is read. When the body shows more than one stamp, none is read
-  (`conflicting`). A body longer than 262144 characters is not read at all (`too-large`). Each of
-  the three is a state of its own: a later reader of the stamp reports it as such, never as "no
-  stamp" and never as a pass. The reader keeps only rows whose twelve cells each have their
-  column's form and notes that are one of the sentences in the table above.
+  after an empty line, none of it inside an HTML comment, a fenced code block or a raw HTML block
+  (`<script>`, `<pre>`, `<style>`, `<textarea>`, `<?`, `<!X`, `<![CDATA[`). A marker anywhere
+  else, in a paragraph, a list item, a quote or a link reference definition's title, is text and
+  starts no stamp. A line inside the markers that is not the table or its notes, or is indented
+  four or more columns (a code block on the page, not a table row), is left out and counted.
+  Blank means spaces and tabs only, as in CommonMark: a fence closer followed by a no-break space
+  closes nothing. The reader keeps only rows whose twelve cells each have their column's form and
+  notes that are one of the sentences in the table above, and it runs in time linear in the
+  body's length.
+- **It fails closed on the constructs it knows.** The body is `ambiguous` (with a reason) and no
+  stamp in it is read when, before the body's last marker, there is: `<details` or `</details`,
+  in any case and anywhere (a code span, a comment, a code block included; `details-element`);
+  an HTML comment opener that shares its line with a backtick, leaves a comment open without
+  starting its line, or reopens a comment after a `-->` on its line (`comment-opener`); a line
+  starting with `<noscript`, `<template`, `<select` or `<rp`, or an HTML block of CommonMark
+  type 6 or 7 (a block tag such as `<div>`, or a tag alone on its line) holding, before the next
+  empty line, a line that opens a fence, a raw HTML block or a comment (`html-block`); a fence on
+  the line of a list item or a quote, or a line inside a fence, a comment or a raw HTML block that
+  is less indented than its opener, as when a list item ends there (`container`). Ordinary PR
+  bodies still read: top-level comments, code fences, lists (a fence indented with its list item
+  included), headings, tables, images and other HTML alone on a line. When the body holds more
+  than one stamp, none is read (`conflicting`). A body longer than 262144 characters is not read
+  at all (`too-large`). Each of the three is a state of its own: a later reader of the stamp
+  reports it as such, never as "no stamp" and never as a pass.
+- **What the reader does not defend against.** A body crafted to show one stamp and hide another
+  (or to hide part of one: a fence inside the stamp hides a note from the page, and the reader
+  still reads the note) is not caught in every form. That is forging, not a reading error:
+  whoever can write such a body can write any stamp in plain view, which is why the stamp is
+  unauthenticated and shown as stated, not verified.
 - The gate proves that each required reviewer produced its own findings file, written at the
   reviewed commit, over files of the diff. It cannot prove the reviewers ran in separate
   contexts.

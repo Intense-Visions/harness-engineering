@@ -217,18 +217,27 @@ session that sets out to deceive it.
   parses it with the state schema (`AutopilotSessionStateSchema`), field by field, once per
   render, and the stamp says what it could not read; that is all it can do.
 - The stamp in a PR body is unauthenticated. The receipts are ignored by git, so CI has nothing
-  to recompute a stamp from. A reader of a PR body accepts as a stamp only what the rendered page
-  shows as one: a marker pair on lines of their own, each after an empty line, the heading on
-  the line after the opening marker, none of it inside an HTML comment, a code block or a raw
-  HTML block, and from it only the table's rows and its notes, in forms the renderer can write,
-  none indented four or more columns. A marker in a paragraph, a list item, a quote or a link
-  reference definition is text. Where the reader cannot tell what the page shows it fails
-  closed instead of modelling it: `<details` or `</details` anywhere before the body's last
-  marker (in a code span, a comment or a code block too), or an HTML comment opener there that
-  shares its line with a backtick or leaves a comment open without starting its line, makes the
-  body `ambiguous` and nothing is read. A body that shows two stamps is `conflicting` and neither
-  is read, and a body over 262144 characters is `too-large` and not read. A later reader reports
-  each of the three as a state of its own, never as unstamped and never as a pass.
+  to recompute a stamp from, and anyone who can edit the body can write any stamp; a stamp read
+  back out of a body is shown as stated, not verified. The reader of a PR body is best effort: it
+  follows the CommonMark blocks that hide text but does not render the page. It takes as a stamp
+  a marker pair on lines of their own, each after an empty line, the heading on the line after
+  the opening marker, none of it inside an HTML comment, a fenced code block or a raw HTML block,
+  and from it only the table's rows and its notes, in forms the renderer can write, none indented
+  four or more columns; a marker in a paragraph, a list item, a quote or a link reference
+  definition is text. It fails closed on the constructs it knows it cannot place, before the
+  body's last marker: `<details` or `</details` anywhere; an HTML comment opener that shares its
+  line with a backtick, leaves a comment open without starting its line, or reopens a comment
+  after a `-->` on its line; a line starting with `<noscript`, `<template`, `<select` or `<rp`; an
+  HTML block of CommonMark type 6 or 7 holding a line that opens a fence, a raw HTML block or a
+  comment; a fence on the line of a list item or a quote, or a line inside a hidden block less
+  indented than its opener. Each makes the body `ambiguous` and nothing is read; an ordinary PR
+  body (comments, fences, lists, headings, tables, images) still reads its stamp. Blank means
+  spaces and tabs, as in CommonMark, and the scan is linear in the body's length. A body that
+  holds two stamps is `conflicting` and neither is read, and a body over 262144 characters is
+  `too-large` and not read. A later reader reports each of the three as a state of its own, never
+  as unstamped and never as a pass. A body crafted to show one stamp and hide another is not
+  defended against in every form: that is forging, which this threat model leaves to the stamp
+  being unauthenticated, since whoever can write such a body can write any stamp in plain view.
 - A failed gate can be overridden by the human. Autopilot records the override in `decisions[]`
   as a typed record (`kind: "gate"`, with the overridden `codes` and a `rationale`;
   `ReviewDecisionRecord`) and the stamp shows it, so an override is visible on the PR but is not
