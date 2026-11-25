@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/tests/commands'
-sourceHash: '31fcac761096ebfac480f3f6ad99ae4b79fee8161210eeee3343a80be2b1d5a0'
+sourceHash: 'db6c43c1c9f2e2d66768171d5aa0d01f1089972c33209fc67eac57faab80893b'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -174,6 +174,8 @@ members:
     'resolve-skill-sources.test.ts',
     'review-ci-local-adapter.test.ts',
     'review-ci.test.ts',
+    'review-provenance-guide.test.ts',
+    'review-provenance.test.ts',
     'review-receipt-registration.test.ts',
     'review-round3-suggestions.test.ts',
     'review-tier-base.test.ts',
@@ -376,6 +378,7 @@ import { createRehearseCommand } from '../../src/commands/rehearse'
 import '../../src/commands/release-inventory'
 import { GIT_MAX_BUFFER_BYTES, assertKnownRunner, buildDegradedResult, buildDiffInfo, buildReviewBody, createReviewCiCommand, defaultRunGit, emitReviewCi, resolveDiffRange, runReviewCi } from '../../src/commands/review-ci'
 import { createLocalInvoke } from '../../src/commands/review-ci-local-adapter'
+import { createReviewProvenanceCommand, runReviewProvenanceRender } from '../../src/commands/review-provenance'
 import { ReviewTierOptions, createReviewTierCommand, formatReviewTier, runReviewTier } from '../../src/commands/review-tier'
 import '../../src/commands/roadmap'
 import { referencesTargetPr, runRollbackEvaluate, runRollbackSweepCommand, summarizeSweepReport } from '../../src/commands/rollback'
@@ -496,7 +499,7 @@ import { CraftCommandRun, DEFAULT_CWD, runCraftCommand } from './craft-command-h
 import { llmCalls, runCraftCommand } from './craft-command-harness.js'
 import { parseJsonStdout, runCommand } from './design-command-harness'
 import * as clack from '@clack/prompts'
-import { ArchConfigSchema, CiReviewResult, Collector, ConstraintError, DEFAULT_REMOTE_URL, DiffInfo, Err, GoldenFileChange, GoldenSnapshot, MetricResult, Ok, RefinementDemandReport, RollbackDecision, RunCiReviewOptions, SECURITY_SCAN_EXTENSIONS, SECURITY_SCAN_GLOB, applyFixes, archiveStream, buildSnapshot, checkTaint, clearTaint, computeRepoKey, createError, createFixes, createModelProposal, createProposal, createStream, detectDeadCode, detectDocDrift, extractBundle, generateSuggestions, listStreams, listTaintedSessions, loadStreamIndex, parseCiReviewVerdict, parseDiff, parseManifest, readAdoptionRecords, requestPeerReview, resetWaypointEmitterForTests, runReviewPipeline, sessionOverridePath, setActiveStream, validateAgentConfigs, validateAgentsMap, validateDecisionNumbers, validateKnowledgeMap, validatePulseConfig, validateRoadmapMode, validateSolutionsDir, validateStrategy, writeConfig, writeSessionOverride } from '@harness-engineering/core'
+import { ArchConfigSchema, CiReviewResult, Collector, ConstraintError, DEFAULT_REMOTE_URL, DiffInfo, Err, GoldenFileChange, GoldenSnapshot, MetricResult, Ok, PROVENANCE_MARKER, RefinementDemandReport, RollbackDecision, RunCiReviewOptions, SECURITY_SCAN_EXTENSIONS, SECURITY_SCAN_GLOB, applyFixes, archiveStream, buildSnapshot, checkTaint, clearTaint, computeRepoKey, createError, createFixes, createModelProposal, createProposal, createStream, detectDeadCode, detectDocDrift, extractBundle, generateSuggestions, listStreams, listTaintedSessions, loadStreamIndex, parseCiReviewVerdict, parseDiff, parseManifest, parseProvenanceStamp, readAdoptionRecords, requestPeerReview, resetWaypointEmitterForTests, runReviewPipeline, sessionOverridePath, setActiveStream, validateAgentConfigs, validateAgentsMap, validateDecisionNumbers, validateKnowledgeMap, validatePulseConfig, validateRoadmapMode, validateSolutionsDir, validateStrategy, writeConfig, writeSessionOverride } from '@harness-engineering/core'
 import '@harness-engineering/graph'
 import { GUARDIAN_ANALYSIS_SCHEMA, GUARDIAN_ANALYSIS_VERSION, GuardianAnalysis, OutcomeVerdict, SkillRegressionFixture, SkillRegressionVerdict } from '@harness-engineering/intelligence'
 import { AnalysisRecord, MockBackend, RunMode, RunResult, SyncMainResult, TaskDefinition, renderAnalysisComment } from '@harness-engineering/orchestrator'

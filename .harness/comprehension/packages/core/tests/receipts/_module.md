@@ -1,16 +1,18 @@
 ---
 schemaVersion: 1
 module: 'packages/core/tests/receipts'
-sourceHash: '73f5a977eb0f9de8adfd6ab3d717e1df92c5a5600edeaef9dab602b9638c45d8'
+sourceHash: '3278fdaf5e0c7f1b3ba23264ce469b60fc3f0b12f762b588a231a925f59fb801'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
 members:
   [
     'backend.test.ts',
+    'decisions.test.ts',
     'finding-compat.test.ts',
     'layout.test.ts',
     'load.test.ts',
+    'provenance.test.ts',
     'public-surface.test.ts',
     'review-gate-demotion.test.ts',
     'review-gate-phase-base.test.ts',
@@ -21,14 +23,21 @@ members:
     'review-gate-round3.test.ts',
     'review-gate-worktree.test.ts',
     'review-gate.test.ts',
+    'round4-decided-by.test.ts',
     'round4-final-base.test.ts',
     'round4-findings-check.test.ts',
     'round4-helpers.ts',
     'round4-reviewer-ids.test.ts',
     'round4-rounds.test.ts',
+    'round4-stamp-assembly.test.ts',
+    'round4-stamp-inert.test.ts',
+    'round4-unread-decisions.test.ts',
     'schema-types.test.ts',
     'schema.test.ts',
     'session-review-label.test.ts',
+    'session-state.test.ts',
+    'stamp-round3.test.ts',
+    'unit3-findings.test.ts',
   ]
 ---
 
@@ -53,17 +62,21 @@ export record
 ```
 import * as receipts from '../../src/receipts'
 import { resolveReviewBackend } from '../../src/receipts/backend'
-import { ExpectedMoment, REVIEW_RECEIPT_FILENAME, SESSION_REVIEW_LABEL, expectedReviewMoment, isReviewDirectory, phaseOfReviewLabel, reviewMomentOfDir, sessionDirOfReviewDir } from '../../src/receipts/layout'
+import { ReviewDecisionRecordSchema, jsonObjectFields, readSessionReviewState } from '../../src/receipts/decisions'
+import { ExpectedMoment, REVIEW_RECEIPT_FILENAME, SESSION_REVIEW_LABEL, compareReviewLabels, expectedReviewMoment, isReviewDirectory, phaseOfReviewLabel, reviewLabel, reviewMomentOfDir, sessionDirOfReviewDir } from '../../src/receipts/layout'
 import { REVIEW_FILE_MAX_BYTES, errnoReason, readRegularFile, readReviewReceiptFile, reviewFindingsReaderFor } from '../../src/receipts/load'
-import { PhaseReviewBase, ReviewGateContext, checkReviewerFindingsText, finalReviewBase, phaseReviewBase, validateReviewReceipt } from '../../src/receipts/review-gate'
+import { MARKER, NO_PIPELINE_REVIEW, PROVENANCE_MARKER, ProvenanceRow, ProvenanceRowInput, ReviewDirRead, STARTING_COMMIT_GAP, StampRow, UnreadReviewRow, assembleStamp, buildProvenanceRow, parseProvenanceStamp, renderProvenanceBlock } from '../../src/receipts/provenance'
+import { CheckedReceiptResult, PhaseReviewBase, ReviewGateContext, checkReviewerFindingsText, finalReviewBase, phaseReviewBase, validateReviewReceipt } from '../../src/receipts/review-gate'
 import { ArchiveRoundIo, archiveReviewRound, listArchivedRounds, listInterruptedArchives, readArchivedRounds } from '../../src/receipts/rounds'
-import { BLOCKING_SEVERITIES, ReceiptFinding, ReviewReceiptSchema, ReviewerFindingsFile, isBlockingSeverity, parseReviewReceipt, parseReviewerFindingsFile } from '../../src/receipts/schema'
+import { BLOCKING_SEVERITIES, BlockingReceiptFinding, ReceiptFinding, ReviewReceiptSchema, ReviewerFindingsFile, isBlockingSeverity, parseReviewReceipt, parseReviewerFindingsFile } from '../../src/receipts/schema'
+import { HEADER, NO_PIPELINE_REVIEW, OVERRIDE_CELL_MAX, RULE, STAMP_COLUMNS, STAMP_LIMITS, STAMP_NOTES, StampNote, StampNoteId, inert, isInert, noteText, parseProvenanceStamp, parseStampRow } from '../../src/receipts/stamp-grammar'
 import { ConditionalSubagent } from '../../src/review/depth-calibrator'
 import { ReviewDomain } from '../../src/review/types/context'
 import { ReviewFinding, ReviewSubagent } from '../../src/review/types/fan-out'
 import { normalizeReviewPath, pathEscapes } from '../../src/shared/review-paths'
+import { AutopilotSessionStateSchema } from '../../src/state/autopilot-session-state'
 import { BASE, FULL, HEAD, OTHER, START, codesOf, ctx, finding, findingsText, receipt, record } from './round4-helpers'
-import { ArchivedRound, CONDITIONAL_REVIEWER_IDS, FULL_TIER_REVIEWER_IDS, LIGHT_TIER_REVIEWER_ID, PIPELINE_DOMAINS_OUTSIDE_RECEIPT, RECEIPT_UNREAD_REASONS, REVIEW_MOMENTS, ReviewMoment, ReviewReceipt } from '@harness-engineering/types'
+import { ArchivedRound, AutopilotPhaseEntry, AutopilotSessionState, CONDITIONAL_REVIEWER_IDS, ESCAPED_FROM_STAGES, FINDING_CLASSES, FULL_TIER_REVIEWER_IDS, LIGHT_TIER_REVIEWER_ID, PIPELINE_DOMAINS_OUTSIDE_RECEIPT, RECEIPT_UNREAD_REASONS, REVIEW_DECIDERS, REVIEW_DECISION_KINDS, REVIEW_GATE_FAILURE_CODES, REVIEW_MOMENTS, ReviewDecider, ReviewDecisionRecord, ReviewGateFailureCode, ReviewMoment, ReviewReceipt } from '@harness-engineering/types'
 import { execFileSync } from 'node:child_process'
 import * as fs from 'node:fs'
 import * as os from 'node:os'

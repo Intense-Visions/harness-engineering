@@ -1784,6 +1784,18 @@ Score a recovery attempt against a fixture (0-100 + pass/partial/fail tier)
 
 Print one fixture manifest: what was planted, the expected fix, and the rubric
 
+## Review-provenance Commands
+
+Show which reviews ran for a pipeline session: tier, reviewers run of required, diff range, coverage, gate result
+
+### `harness review-provenance render`
+
+Print the Markdown provenance stamp for a session, for the PR body: one row per review the session calls for and per review directory, MISSING for one that never ran. Re-runs the receipt gate for each review (a reviewed head may be an ancestor of HEAD)
+
+**Options:**
+
+- `--session` — Session whose review receipts to read
+
 ## Roadmap Commands
 
 Roadmap management

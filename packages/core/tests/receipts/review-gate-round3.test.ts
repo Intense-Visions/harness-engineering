@@ -176,16 +176,33 @@ describe('a final receipt base against the default-branch merge base', () => {
   });
 });
 
-/** The head rule, decided in core: HEAD {the reviewed head, another commit, unresolved}. */
+/**
+ * The head rule, decided in core. Input partition: HEAD {the reviewed head, another commit,
+ * unresolved} x reviewedHeadInHistory {absent (the review-state rule), true, false}.
+ */
 describe('the reviewed head against HEAD', () => {
   it.each([
-    [HEAD, []],
-    [OTHER, ['HEAD_MISMATCH']],
-    ['', ['HEAD_MISMATCH']],
-  ])('HEAD %s -> %j', (head, expected) => {
-    expect(codes(validateReviewReceipt(receipt(), ctx({ head })))).toEqual(expected);
+    [HEAD, undefined, []],
+    [HEAD, true, []],
+    [HEAD, false, []],
+    [OTHER, undefined, ['HEAD_MISMATCH']],
+    [OTHER, false, ['HEAD_MISMATCH']],
+    [OTHER, true, []],
+    ['', undefined, ['HEAD_MISMATCH']],
+    ['', false, ['HEAD_MISMATCH']],
+    ['', true, ['HEAD_MISMATCH']],
+  ])('HEAD %s, in history %s -> %j', (head, reviewedHeadInHistory, expected) => {
+    const context = ctx({
+      head,
+      ...(reviewedHeadInHistory !== undefined && { reviewedHeadInHistory }),
+    });
+    expect(codes(validateReviewReceipt(receipt(), context))).toEqual(expected);
   });
 });
+
+/**
+ * Fix 4. The result is one of two states, told apart by `checked`: a receipt that did not parse
+ * (nothing was checked, so there are no counts to read) or one that was checked.
 
 /**
  * Fix 4. The result is one of two states, told apart by `checked`: a receipt that did not parse

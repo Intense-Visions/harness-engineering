@@ -83,8 +83,9 @@ describe('autopilot, Review records, Fix rounds', () => {
     expect(rounds()).toMatch(
       /when HEAD has moved since the review, re-run all whatever the codes, as a fix round \(Fix rounds: archive the ended round first\)/
     );
-    expect(paragraph(autopilot(), '**Overrides.**')).toMatch(
-      /the round of this review: 1 \+ the `round-R\/` archives in its review directory \(the receipt's `round` when it has one that passed the round check; an override applies only to that round's receipt\)/
+    // Unit 3: the round rule lives in Decision records, for overrides and dismissals alike.
+    expect(paragraph(autopilot(), '- `round` is the round of the review')).toMatch(
+      /`round` is the round of the review the decision was taken in: 1 \+ the `round-R\/` archives in its review directory, which is the receipt's `round` when it has one that passed the round check\. Write it on every record\. A decision applies only to the receipt of its own round/
     );
   });
   it('an interrupted archive is finished or undone by the next --archive-round; the gate fails until then', () => {

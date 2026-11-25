@@ -1,7 +1,9 @@
 import { describe, it, expect } from 'vitest';
 import {
   REVIEW_RECEIPT_FILENAME,
+  compareReviewLabels,
   phaseOfReviewLabel,
+  reviewLabel,
   reviewMomentOfDir,
   sessionDirOfReviewDir,
 } from '../../src/receipts/layout';
@@ -9,6 +11,30 @@ import {
 describe('review artifact layout', () => {
   it('names the receipt file', () => {
     expect(REVIEW_RECEIPT_FILENAME).toBe('receipt.json');
+  });
+  it('labels a phase review by its index and the final review as final-all', () => {
+    expect(reviewLabel('phase', 0)).toBe('phase-0');
+    expect(reviewLabel('phase', '2')).toBe('phase-2');
+    // Round 4: phase-N only, N without leading zeros.
+    expect(reviewLabel('phase', '2b')).toBeUndefined();
+    expect(reviewLabel('phase', '02')).toBeUndefined();
+    expect(reviewLabel('final')).toBe('final-all');
+  });
+  it.each(['../x', 'a/b', '', ' 1', '<!-- x -->'])('has no label for phase %j', (phase) => {
+    expect(reviewLabel('phase', phase)).toBeUndefined();
+  });
+  it('has no label for a phase that was not given', () => {
+    expect(reviewLabel('phase')).toBeUndefined();
+  });
+  it('orders phases numerically, then the final review, then anything else', () => {
+    const labels = ['final-all', 'phase-10', 'zz', 'phase-2', 'phase-0'];
+    expect([...labels].sort(compareReviewLabels)).toEqual([
+      'phase-0',
+      'phase-2',
+      'phase-10',
+      'final-all',
+      'zz',
+    ]);
   });
 });
 

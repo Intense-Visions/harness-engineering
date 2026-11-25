@@ -94,3 +94,26 @@ export function expectedReviewMoment(dir: string, stated?: ReviewMoment): Expect
     return { status: 'conflict', directory, stated };
   return { status: 'known', moment: directory };
 }
+
+/** The review label of a moment, or undefined when the phase is not a safe path segment. */
+export function reviewLabel(
+  moment: 'phase' | 'final',
+  phase?: string | number
+): string | undefined {
+  const label = moment === 'final' ? FINAL_REVIEW_LABEL : `phase-${phase ?? ''}`;
+  return SESSION_REVIEW_LABEL.test(label) ? label : undefined;
+}
+
+/** Sort order for stamp rows: phases in numeric order, then the final review, then the rest. */
+export function compareReviewLabels(a: string, b: string): number {
+  const rank = (label: string): [number, number] => {
+    const phase = phaseOfReviewLabel(label);
+    if (phase !== undefined) return [0, phase];
+    return [label === FINAL_REVIEW_LABEL ? 1 : 2, 0];
+  };
+  const [ga, na] = rank(a);
+  const [gb, nb] = rank(b);
+  if (ga !== gb) return ga - gb;
+  if (na !== nb) return na - nb;
+  return a < b ? -1 : a > b ? 1 : 0;
+}

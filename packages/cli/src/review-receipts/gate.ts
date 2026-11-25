@@ -8,6 +8,7 @@ import {
   reviewGateFailure,
   readReviewReceiptFile,
   expectedReviewMoment,
+  jsonObjectFields,
   phaseReviewBase,
   listInterruptedArchives,
   readArchivedRounds,
@@ -23,7 +24,6 @@ import {
 import { REVIEW_MOMENTS, type ReviewMoment, type ReviewReceipt } from '@harness-engineering/types';
 import {
   earlierPhaseReceipt,
-  fields,
   isAncestor,
   isSha,
   listDiffFiles,
@@ -53,6 +53,17 @@ export interface CheckReviewReceiptOptions {
   moment?: ReviewMoment;
   /** Refuse a receipt path that leaves `cwd` (the MCP tool, whose arguments are unvalidated). */
   confine?: boolean;
+  /**
+   * `equal` (default): the reviewed head must be HEAD, as a review state requires. `ancestor`:
+   * HEAD or a commit in its history (git confirms), as the provenance stamp accepts for a review
+   * of an earlier commit of the branch.
+   */
+  headRule?: 'equal' | 'ancestor';
+  /**
+   * The session state the caller already read (`readSessionReviewState`). Given, the gate does not
+   * read autopilot-state.json again, so one stamp is built from one read of it.
+   */
+  session?: { startingCommit?: string | undefined };
 }
 
 export interface CheckReviewReceiptReport {
@@ -75,9 +86,10 @@ type Range = { base: string; head: string; final: boolean; target: unknown };
 
 /** The receipt's claimed range, only when both ends are full shas (never pass free text to git). */
 function claimedRange(raw: unknown): Range | undefined {
-  const { base, head, target } = fields(fields(raw).diff);
+  const receipt = jsonObjectFields(raw) ?? {};
+  const { base, head, target } = jsonObjectFields(receipt.diff) ?? {};
   if (!isSha(base) || !isSha(head)) return undefined;
-  return { base, head, final: fields(raw).moment === 'final', target };
+  return { base, head, final: receipt.moment === 'final', target };
 }
 
 /**
@@ -100,9 +112,19 @@ function finalMergeBase(
   return { mergeBase: undefined, targetUnresolved: String(target) };
 }
 
-/** HEAD, resolved by git; empty when it cannot be resolved. */
-function currentHead(git: CwdGit, cwd: string): Pick<ReviewGateContext, 'head'> {
-  return { head: tryGit(git, ['rev-parse', 'HEAD'], cwd) ?? '' };
+/**
+ * HEAD, resolved by git; empty when it cannot be resolved. Under the `ancestor` rule, also whether
+ * the reviewed head is in HEAD's history.
+ */
+function currentHead(
+  git: CwdGit,
+  reviewed: string,
+  cwd: string,
+  rule: 'equal' | 'ancestor'
+): Pick<ReviewGateContext, 'head' | 'reviewedHeadInHistory'> {
+  const head = tryGit(git, ['rev-parse', 'HEAD'], cwd) ?? '';
+  if (rule === 'equal' || head === '') return { head };
+  return { head, reviewedHeadInHistory: isAncestor(git, reviewed, head, cwd) === true };
 }
 
 type Recomputed = Omit<
@@ -115,7 +137,12 @@ type Recomputed = Omit<
  * repository top, so the diff is listed repository-relative whatever the caller's directory and
  * diff config (`diff.relative`), which is how reviewers are told to list it.
  */
-function recompute(git: CwdGit, range: Range | undefined, cwd: string): Recomputed {
+function recompute(
+  git: CwdGit,
+  range: Range | undefined,
+  cwd: string,
+  rule: 'equal' | 'ancestor'
+): Recomputed {
   if (range === undefined) {
     return {
       head: '',
@@ -127,7 +154,7 @@ function recompute(git: CwdGit, range: Range | undefined, cwd: string): Recomput
   }
   const { base, head } = range;
   return {
-    ...currentHead(git, cwd),
+    ...currentHead(git, head, cwd, rule),
     diffFiles: listDiffFiles(git, base, head, cwd),
     baseIsAncestor: isAncestor(git, base, head, cwd),
     ...finalMergeBase(git, range, cwd),
@@ -219,11 +246,12 @@ export function gateReviewReceipt(opts: CheckReviewReceiptOptions): GatedReviewR
   const repo = receiptRepository(git, cwd, read);
   if ('status' in repo) return notGated(repo);
   const sessionDir = sessionDirOfReviewDir(read.dir);
-  const startingCommit = sessionStartingCommit(sessionDir);
+  const startingCommit =
+    opts.session === undefined ? sessionStartingCommit(sessionDir) : opts.session.startingCommit;
   const range = claimedRange(read.raw);
   const top = repo.top ?? cwd;
   const phaseBase = phaseBaseOf(git, { dir: read.dir, sessionDir, startingCommit, range, top });
-  const recomputed = recompute(git, range, top);
+  const recomputed = recompute(git, range, top, opts.headRule ?? 'equal');
   const result = validateReviewReceipt(read.raw, {
     ...recomputed,
     ...(startingCommit !== undefined && { startingCommit }),

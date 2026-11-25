@@ -57,6 +57,11 @@ export interface ReviewGateContext extends FindingsSource {
   /** `git rev-parse HEAD`, resolved by the caller. Empty when git could not resolve it. */
   head: string;
   /**
+   * Whether git confirms the reviewed head is in HEAD's history. Supplied only by a caller that
+   * accepts an earlier commit of the branch (the provenance stamp); a review state leaves it out.
+   */
+  reviewedHeadInHistory?: boolean;
+  /**
    * `git status --porcelain=v1 -z --untracked-files=no` printed nothing: the tracked files equal
    * HEAD. undefined: git could not say. Untracked files (the review directory itself) do not count.
    */
@@ -247,6 +252,8 @@ export interface CheckedReceiptResult {
    */
   loaded: string[];
   notLoaded: string[];
+  /** Diff files a required reviewer examined, over the diff's files. Shown, never gated. */
+  coverage?: { examined: number; files: number };
 }
 
 export type ReviewGateResult = InvalidReceiptResult | CheckedReceiptResult;
@@ -283,7 +290,7 @@ function momentFailures(receipt: ReviewReceipt, expected: ExpectedMoment): Revie
 
 function headFailures(receipt: ReviewReceipt, context: ReviewGateContext): ReviewGateFailure[] {
   const reviewed = receipt.diff.head;
-  if (context.head !== '' && reviewed === context.head) {
+  if (context.head !== '' && (reviewed === context.head || context.reviewedHeadInHistory)) {
     return [];
   }
   const now = context.head === '' ? 'could not be resolved' : `is ${context.head}`;
@@ -791,6 +798,23 @@ function countFailures(
   ];
 }
 
+/** Diff files that a required reviewer whose file loaded lists as examined. */
+function coverageOf(
+  receipt: ReviewReceipt,
+  check: FindingsCheck
+): { examined: number; files: number } | undefined {
+  const { diffSet, files } = check;
+  if (diffSet === undefined) return undefined;
+  const examined = new Set<string>();
+  for (const r of receipt.reviewers.filter((x) => x.required)) {
+    for (const f of files.get(r.id)?.examinedFiles ?? []) {
+      const p = normalizeReviewPath(f);
+      if (diffSet.has(p)) examined.add(p);
+    }
+  }
+  return { examined: examined.size, files: diffSet.size };
+}
+
 /** What a single findings file is checked against: nothing, or a range (`--base`, `--head`). */
 export type FindingsFileRange =
   | { ranged: false }
@@ -874,7 +898,7 @@ export function checkReviewerFindingsText(
  * is pure and reads no environment, so it passes or fails identically with no model credential.
  *
  * What it cannot prove: that reviewers ran in separate contexts. One context that deliberately
- * writes four files passes.
+ * writes four files passes. The stamp makes the claim visible.
  */
 export function validateReviewReceipt(
   receipt: unknown,
@@ -903,6 +927,7 @@ export function validateReviewReceipt(
     ...check.failures,
   ];
   const required = r.reviewers.filter((x) => x.required);
+  const coverage = coverageOf(r, check);
   return {
     checked: true,
     pass: failures.length === 0,
@@ -913,5 +938,6 @@ export function validateReviewReceipt(
     tally: tallyReviewFindings([...check.files.values()]),
     loaded: [...check.files.keys()],
     notLoaded: check.notLoaded,
+    ...(coverage !== undefined && { coverage }),
   };
 }

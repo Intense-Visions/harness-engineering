@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/commands'
-sourceHash: '2610c6bb104ddd5e22b172377385bc48283427f586b1719f8a6c215fda9946ef'
+sourceHash: '1a1750c88f1357c644a46442729ecf42432064e040ff871e5470e1ee60ad36d1'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -96,6 +96,7 @@ members:
     'release-inventory.ts',
     'review-ci-local-adapter.ts',
     'review-ci.ts',
+    'review-provenance.ts',
     'review-tier.ts',
     'rework.test.ts',
     'rework.ts',
@@ -144,6 +145,7 @@ export GIT_DIFF_MAX_BUFFER
 export GIT_MAX_BUFFER_BYTES
 export INGEST_TOKEN_ENV
 export OUTCOME_BLOCK_ON_LEVELS
+export ReviewProvenanceReport
 export SCOPED_WALKERS
 export SKILL_REGRESSION_BLOCK_ON
 export ScanConfigFileResult
@@ -254,6 +256,7 @@ export createRecommendCommand
 export createRehearseCommand
 export createReleaseInventoryCommand
 export createReviewCiCommand
+export createReviewProvenanceCommand
 export createReviewTierCommand
 export createReworkCommand
 export createRollbackCommand
@@ -409,6 +412,7 @@ export runProvenanceCommand
 export runRecommend
 export runReleaseInventory
 export runReviewCi
+export runReviewProvenanceRender
 export runReviewTier
 export runReworkCommand
 export runRollbackEvaluate
@@ -502,6 +506,7 @@ import { findDependentsOf, resolveVersion } from '../registry/resolver'
 import { cleanupTempDir, extractTarball, placeSkillContent, removeSkillContent } from '../registry/tarball'
 import { CheckReviewReceiptReport, CwdGit, REVIEW_MOMENTS, ReviewMoment, runArchiveReviewRound, runCheckFindingsFile, runCheckReviewReceipt } from '../review-receipts/gate'
 import { CwdGit, FinalBaseOutcome, StandaloneBaseOutcome, listDiffFiles, remoteTrackingRef, resolveCommit, resolveFinalReviewBase, resolveRepoRoots, resolveStandaloneReviewBase, runGitIn, sessionDirFrom, sessionStartingCommit } from '../review-receipts/io'
+import { CwdGit, runReviewProvenanceRender } from '../review-receipts/provenance'
 import { appendRollbackEvent, linkRollbackEventToGraph } from '../rollback/breadcrumb'
 import { ComposeGhSeam, ROLLBACK_LABEL, composeRevertPr } from '../rollback/compose'
 import { createNodeRollbackIO } from '../rollback/io'
@@ -646,6 +651,7 @@ import { createRehearseCommand } from './rehearse'
 import { RunGit, createFsPort, createGitPort, createReleaseInventoryCommand, runReleaseInventory } from './release-inventory'
 import { GIT_MAX_BUFFER_BYTES, RunGit, buildDiffInfo, createReviewCiCommand, defaultRunGit, resolveDiffRange } from './review-ci'
 import { createLocalInvoke } from './review-ci-local-adapter'
+import { createReviewProvenanceCommand } from './review-provenance'
 import { createReviewTierCommand } from './review-tier'
 import { createReworkCommand, runReworkCommand } from './rework'
 import { createRoadmapCommand } from './roadmap'
@@ -683,7 +689,7 @@ import { ChangedSurface, SCOPED_WALKERS, deriveChangedSurface, filterToDesignSur
 import { createVerifyCommand, runVerify } from './verify'
 import { createWaypointCommand } from './waypoint'
 import * as clack from '@clack/prompts'
-import { ABSTENTION_PLACEHOLDER, AUTO_DECISIONS_FILE, AdjustedForecast, AgentConfigValidation, AllowanceFilteredDiff, AnnotationIssue, ArchAllowance, ArchAllowanceSchema, ArchBaseline, ArchBaselineManager, ArchConfig, ArchConfigSchema, ArchDiffResult, ArchMetricCategory, AuditResult, BaselineManager, BlueprintGenerator, BranchingConfig, Bundle, BundleSchema, CI_ASSESSMENTS, COMPREHENSION_ROOT, CiBlockOn, CiReviewResult, ComprehensionStore, ConflictReport, ConstraintNodeStore, Contributions, CriticalPathResolver, DEFAULT_RELEASE_INVENTORY_THRESHOLDS, DEFAULT_REMOTE_URL, DeploymentExitCode, DeploymentFsPort, DeploymentGateConfig, DeploymentGateResult, DepsCoverageGap, DetectStaleResult, DiffInfo, DriftConfig, DuplicationConfig, DuplicationReport, EntropyAnalyzer, EntropyConfig, Err, HarnessStrengthAuditor, InjectionFinding, ListProposalsOptions, LocalEndpointInvoke, Lockfile, LockfilePackage, MetricResult, ModelDriftResult, Ok, OsvAdvisory, OsvCheckResult, PHASE_COMPLEXITIES, PROVENANCE_TRAILER_KEYS, PatternConfig, PhaseComplexity, PredictionEngine, PredictionResult, PredictionWarning, ProjectScanner, Proposal, ProposalStatus, ProtectedRegion, ProvenanceShapeResult, REVIEW_RIGORS, RUNNER_PRESETS, RawBackendsMap, RecoveryRecordSchema, RehearsalManifest, RehearsalScore, ReleaseChannel, ReleaseInventoryFsPort, ReleaseInventoryGitPort, ReleaseInventoryResult, ReleaseInventoryThresholds, ReleaseTag, ResolvedReviewBackend, Result, ReviewRigor, ReworkReport, RoadmapMeta, RollbackDecision, RollbackIO, RunCiReviewOptions, RunnerId, SECURITY_SCAN_DEFAULT_IGNORE, SECURITY_SCAN_GLOB, ScanConfigFileResult, ScanConfigFinding, ScanConfigResult, SecurityFinding, SecurityScanner, SecuritySeverity, SecurityTimelineManager, SentinelRecord, Severity, SpecImpactEstimator, StrengthFinding, TimelineManager, TimelineSnapshot, TrendLine, TrendResult, TypeScriptParser, UnparsedFile, UnreleasedCommit, Violation, acknowledgeModelDrift, addProvenance, agentsMapSectionFindings, applyFixes, archAllowanceSlug, archAllowancesDir, assessDepsCoverage, buildCiReviewVerdict, buildSnapshot, checkDocCoverage, checkRoadmapAggregateDrift, checkRoadmapHealth, checkTaint, classifyRevert, clearTaint, collectPackageEntryPoints, computeOverallSeverity, computeReleaseInventory, computeRework, computeScanExitCode, createFixes, createNodeComprehensionIO, createNodeModuleSourceReader, createNodeRoadmapIO, createOsvClient, createTrackerClient, deepMergeConstraints, deriveDeploymentExitCode, detectCircularDepsInFiles, detectDeadCode, detectDeploymentSurface, detectDocDrift, detectRoadmapStorageMode, detectStaleConstraints, diff, evaluateDeploymentGate, evaluateModelSentinel, evaluateReleaseInventory, extractBundle, filterDiffByAllowances, findFixture, generateAgentsMap, generateSuggestions, getProposal, hasUnacknowledgedMaterialDrift, inert, invalidateCheckState, isWholeSnapshotContext, listProposals, listTaintedSessions, loadArchAllowances, loadCatalog, loadProjectRoadmapMode, loadTrackerClientConfigFromProject, loadTrackerSyncConfig, mapInjectionFindings, mapSecurityFindings, needsMergeOursDriverWarning, parseDiff, parseFileRegions, parseManifest, parseRoadmap, parseSecurityConfig, plannedIssuesFromExternalIds, readLockfile, readSentinelHistory, regenerate, removeContributions, removeProvenance, resolveArchBaseline, resolveDepsSettings, resolveReviewBackend, resolveRoadmapStore, roadmapSourceExists, runAll, runCiReview, scanForInjection, scoreRecovery, selectReviewTier, serializeMeta, sortMetricResults, suppressMarkdownStructureFindings, toLayerConfig, toUnavailableCheck, unparsedFileGaps, updateProposal, validateAgentConfigs, validateAgentsMap, validateBranchName, validateDecisionNumbers, validateDependencies, validateKnowledgeMap, validateProvenanceTrailer, validatePulseConfig, validateRoadmapMode, validateSolutionsDir, validateStrategy, writeArchAllowance, writeConfig, writeLockfile } from '@harness-engineering/core'
+import { ABSTENTION_PLACEHOLDER, AUTO_DECISIONS_FILE, AdjustedForecast, AgentConfigValidation, AllowanceFilteredDiff, AnnotationIssue, ArchAllowance, ArchAllowanceSchema, ArchBaseline, ArchBaselineManager, ArchConfig, ArchConfigSchema, ArchDiffResult, ArchMetricCategory, AuditResult, AutopilotSessionState, BaselineManager, BlueprintGenerator, BranchingConfig, Bundle, BundleSchema, CI_ASSESSMENTS, COMPREHENSION_ROOT, CiBlockOn, CiReviewResult, ComprehensionStore, ConflictReport, ConstraintNodeStore, Contributions, CriticalPathResolver, DEFAULT_RELEASE_INVENTORY_THRESHOLDS, DEFAULT_REMOTE_URL, DeploymentExitCode, DeploymentFsPort, DeploymentGateConfig, DeploymentGateResult, DepsCoverageGap, DetectStaleResult, DiffInfo, DriftConfig, DuplicationConfig, DuplicationReport, EntropyAnalyzer, EntropyConfig, Err, HarnessStrengthAuditor, InjectionFinding, ListProposalsOptions, LocalEndpointInvoke, Lockfile, LockfilePackage, MetricResult, ModelDriftResult, Ok, OsvAdvisory, OsvCheckResult, PHASE_COMPLEXITIES, PROVENANCE_TRAILER_KEYS, PatternConfig, PhaseComplexity, PredictionEngine, PredictionResult, PredictionWarning, ProjectScanner, Proposal, ProposalStatus, ProtectedRegion, ProvenanceShapeResult, REVIEW_RIGORS, RUNNER_PRESETS, RawBackendsMap, RecoveryRecordSchema, RehearsalManifest, RehearsalScore, ReleaseChannel, ReleaseInventoryFsPort, ReleaseInventoryGitPort, ReleaseInventoryResult, ReleaseInventoryThresholds, ReleaseTag, ResolvedReviewBackend, Result, ReviewRigor, ReworkReport, RoadmapMeta, RollbackDecision, RollbackIO, RunCiReviewOptions, RunnerId, SECURITY_SCAN_DEFAULT_IGNORE, SECURITY_SCAN_GLOB, ScanConfigFileResult, ScanConfigFinding, ScanConfigResult, SecurityFinding, SecurityScanner, SecuritySeverity, SecurityTimelineManager, SentinelRecord, Severity, SpecImpactEstimator, StrengthFinding, TimelineManager, TimelineSnapshot, TrendLine, TrendResult, TypeScriptParser, UnparsedFile, UnreleasedCommit, Violation, acknowledgeModelDrift, addProvenance, agentsMapSectionFindings, applyFixes, archAllowanceSlug, archAllowancesDir, assessDepsCoverage, buildCiReviewVerdict, buildSnapshot, checkDocCoverage, checkRoadmapAggregateDrift, checkRoadmapHealth, checkTaint, classifyRevert, clearTaint, collectPackageEntryPoints, computeOverallSeverity, computeReleaseInventory, computeRework, computeScanExitCode, createFixes, createNodeComprehensionIO, createNodeModuleSourceReader, createNodeRoadmapIO, createOsvClient, createTrackerClient, deepMergeConstraints, deriveDeploymentExitCode, detectCircularDepsInFiles, detectDeadCode, detectDeploymentSurface, detectDocDrift, detectRoadmapStorageMode, detectStaleConstraints, diff, evaluateDeploymentGate, evaluateModelSentinel, evaluateReleaseInventory, extractBundle, filterDiffByAllowances, findFixture, generateAgentsMap, generateSuggestions, getProposal, hasUnacknowledgedMaterialDrift, inert, invalidateCheckState, isWholeSnapshotContext, listProposals, listTaintedSessions, loadArchAllowances, loadCatalog, loadProjectRoadmapMode, loadTrackerClientConfigFromProject, loadTrackerSyncConfig, mapInjectionFindings, mapSecurityFindings, needsMergeOursDriverWarning, parseDiff, parseFileRegions, parseManifest, parseRoadmap, parseSecurityConfig, plannedIssuesFromExternalIds, readLockfile, readSentinelHistory, regenerate, removeContributions, removeProvenance, resolveArchBaseline, resolveDepsSettings, resolveReviewBackend, resolveRoadmapStore, roadmapSourceExists, runAll, runCiReview, scanForInjection, scoreRecovery, selectReviewTier, serializeMeta, sortMetricResults, suppressMarkdownStructureFindings, toLayerConfig, toUnavailableCheck, unparsedFileGaps, updateProposal, validateAgentConfigs, validateAgentsMap, validateBranchName, validateDecisionNumbers, validateDependencies, validateKnowledgeMap, validateProvenanceTrailer, validatePulseConfig, validateRoadmapMode, validateSolutionsDir, validateStrategy, writeArchAllowance, writeConfig, writeLockfile } from '@harness-engineering/core'
 import { CraftFindingRecord, DEFAULT_SKIP_DIRS, DesignConstraintAdapter, GraphStore, KnowledgePipelineResult, NodeType, skipDirGlobs } from '@harness-engineering/graph'
 import { AbandonedSkill, AnalysisProvider, FailingSkill, GuardianAnalysis, OpenAICompatibleAnalysisProvider, OutcomeVerdict, SkillEffectivenessScore, SkillRegressionFixture, SkillRegressionVerdict, guardianFileLines, guardianFlags, readGuardianAnalyses, summarizeGuardian } from '@harness-engineering/intelligence'
 import { AgentDispatcher, AnalysisRecord, BUILT_IN_TASKS, CheckCommandRunner, CheckScriptRunner, CommandExecutor, FlightRecorder, MAINTENANCE_CHECK_MAX_BUFFER, MAINTENANCE_CHECK_TIMEOUT_MS, MaintenanceReporter, Orchestrator, PersistedOutputEntry, RunMode, RunRecord, RunResult, SyncMainResult, TaskDefinition, TaskOutputStore, TaskRunner, TaskSelectionFilter, UnitVerdict, WorkflowLoader, createAgentDispatcher, defaultFetchModels, defaultSyncMain, discoverCandidates, launchTUI, loadPublishedIndex, makeBackendResolver, migrateAgentConfig, renderAnalysisComment, runHarnessCheck, savePublishedIndex, selectTasks } from '@harness-engineering/orchestrator'

@@ -435,6 +435,10 @@ describe('review round 3: moment, base, phases and the mechanical exit (A1, A2, 
     );
   });
   it('A2: the N of a review directory is the 0-based phase position a decision record carries', () => {
+    expect(md()).toMatch(
+      /`\{N\}` is the phase's 0-based position in the session's `phases\[\]` list, the same number a review decision record carries as `phase`: the first phase's review is in `phase-0`/
+    );
+    expect(md()).toMatch(/The provenance stamp prints the earlier totals\./);
     expect(section(md(), '## Argument Resolution')).toMatch(
       /where `\{N\}` is the phase's 0-based position, so `phase-0` for the first phase/
     );

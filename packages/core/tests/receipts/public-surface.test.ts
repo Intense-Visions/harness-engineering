@@ -13,6 +13,14 @@ describe('receipts module surface', () => {
     'reviewFindingsReaderFor',
     // Round 2 (architecture-1): the CLI reads the session layout from here, not a copy.
     'phaseOfReviewLabel',
+    // Unit 3: the provenance stamp and the one reader of autopilot-state.json.
+    'noteText',
+    'readSessionReviewState',
+    'jsonObjectFields',
+    'assembleStamp',
+    'buildProvenanceRow',
+    'renderProvenanceBlock',
+    'parseProvenanceStamp',
   ])('exports %s as a function', (name) => {
     expect(typeof (receipts as Record<string, unknown>)[name]).toBe('function');
   });
@@ -21,6 +29,9 @@ describe('receipts module surface', () => {
       REVIEW_RECEIPT_FILENAME: 'receipt.json',
       REVIEWS_DIRNAME: 'reviews',
     });
+  });
+  it('exports the marker (unit 3)', () => {
+    expect(receipts.PROVENANCE_MARKER).toBe('<!-- harness:review-provenance -->');
   });
   // Only names that exist at this head: an assertion about an absent name passes vacuously.
   it('does not publish module-internal helpers', () => {
@@ -44,6 +55,14 @@ describe('receipts module surface', () => {
       'FINAL_REVIEW_LABEL',
       'SESSION_REVIEW_LABEL',
       'FULL_SHA_PATTERN',
+      // Unit 3: internal to the stamp, or published by their owner (the state module).
+      'reviewLabel',
+      'compareReviewLabels',
+      'MISSING_REVIEW',
+      'STAMP_CELL_GRAMMAR',
+      'STARTING_COMMIT_GAP',
+      'AutopilotSessionStateSchema',
+      'AUTOPILOT_STATE_FILENAME',
     ]) {
       expect(receipts).not.toHaveProperty(name);
     }

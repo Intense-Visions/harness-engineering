@@ -23,6 +23,7 @@ AUTONOMY_OVERRIDE_BUSY
 AUTONOMY_RAISE_REJECTED
 AUTONOMY_SESSION_NOT_FOUND
 AUTONOMY_SOURCES
+AUTOPILOT_STATE_FILENAME
 AUTO_DECISIONS_FILE
 AUTO_DECISION_AUDIT_STATUSES
 AUTO_DECISION_INVALID
@@ -158,6 +159,10 @@ AutonomySetting
 AutonomySettingSchema
 AutonomySource
 AutonomyUserConfig
+AutopilotPhaseEntry
+AutopilotPhaseEntrySchema
+AutopilotSessionState
+AutopilotSessionStateSchema
 BASELINE
 BEHAVIORAL_REQUIRED_SECTIONS
 BUG_DETECTION_DESCRIPTOR
@@ -583,6 +588,7 @@ EvidenceMismatchAction
 ExclusionSet
 ExecFileLike
 ExecutorHealth
+ExpectedUnknown
 Export
 ExportMap
 ExternalSyncOptions
@@ -893,6 +899,7 @@ ModuleSizeCollector
 ModuleSourceReader
 MonolithStore
 MonolithStoreOptions
+NO_PIPELINE_REVIEW
 NamedLocalModelStatus
 NewFeatureInput
 NoOpExecutor
@@ -928,6 +935,7 @@ OpenAIBackendDef
 OpenAICacheAdapter
 OptionalStrategySection
 OrchestratorResult
+OrphanDecision
 OrphanedDep
 OsvAdvisory
 OsvCheckResult
@@ -950,6 +958,7 @@ PII_FIELD_DENYLIST
 PII_LINE_RE
 PII_TOKENS
 PIPELINE_DOMAINS_OUTSIDE_RECEIPT
+PROVENANCE_MARKER
 PROVENANCE_TRAILER_KEYS
 PROVENANCE_TRAILER_VERSION
 PackedEnvelope
@@ -960,6 +969,7 @@ ParallelizationPlan
 ParallelizationWave
 ParseError
 ParsedFile
+ParsedProvenanceStamp
 ParsedSection
 ParsedStrategyDoc
 ParserLookup
@@ -1098,6 +1108,8 @@ REQUIRED_STRATEGY_SECTIONS
 REVIEWS_DIRNAME
 REVIEW_BACKENDS
 REVIEW_BASE_SOURCES
+REVIEW_DECIDERS
+REVIEW_DECISION_KINDS
 REVIEW_GATE_FAILURE_CODES
 REVIEW_MOMENTS
 REVIEW_RECEIPT_FILENAME
@@ -1196,7 +1208,12 @@ ReviewChecklist
 ReviewComment
 ReviewConfidence
 ReviewContext
+ReviewDecider
+ReviewDecisionKind
+ReviewDecisionRecord
+ReviewDecisionRecordSchema
 ReviewDepth
+ReviewDirRead
 ReviewDomain
 ReviewFinding
 ReviewGateContext
@@ -1383,6 +1400,7 @@ SessionBudgetSignal
 SessionEntry
 SessionEntryStatus
 SessionOverrideFileSchema
+SessionReviewState
 SessionSearchConfig
 SessionSearchMatch
 SessionSearchResult
@@ -1496,6 +1514,7 @@ StaleConstraint
 StaleReference
 StalenessEntry
 StalenessReport
+StampRow
 StandaloneReviewBase
 StaticExtraction
 StepExecutor
@@ -1725,6 +1744,7 @@ asStrategyDoc
 assembleCandidateReport
 assembleReport
 assembleRoadmap
+assembleStamp
 assertLeafWithinBudget
 assertPortUsable
 assertRegeneratedRoundTrip
@@ -1760,6 +1780,7 @@ buildMdlReport
 buildMetabolismReport
 buildProjectContext
 buildProvenanceReport
+buildProvenanceRow
 buildSnapshot
 buildSpendLedgerFromTelemetry
 buildTaskGraph
@@ -2059,6 +2080,7 @@ isUpdateCheckEnabled
 isValidUlid
 isWholeSnapshotContext
 isoWeek
+jsonObjectFields
 latestSnapshot
 listActiveSessions
 listInterruptedArchives
@@ -2112,6 +2134,7 @@ normalizeSince
 normalizeSpanText
 normalizeTokens
 normalizeViolationPattern
+noteText
 overlayClumpPolicy
 paginate
 pairedSourceCandidates
@@ -2141,6 +2164,7 @@ parseManifest
 parseMeta
 parseOwnerRepoFromRemoteUrl
 parseProtectedRegions
+parseProvenanceStamp
 parseProvenanceTrailer
 parseReferencedIssues
 parseReviewReceipt
@@ -2191,6 +2215,7 @@ readRegularFile
 readReviewReceiptFile
 readSentinelHistory
 readSessionOverride
+readSessionReviewState
 readSessionSection
 readSessionSections
 readShardDir
@@ -2215,6 +2240,7 @@ removeProvenance
 renderAutoDecisionSummary
 renderDependencySlice
 renderInterfaceContract
+renderProvenanceBlock
 renderRetrospectiveMarkdown
 renderServedUnit
 renderSynthesisMarkdown

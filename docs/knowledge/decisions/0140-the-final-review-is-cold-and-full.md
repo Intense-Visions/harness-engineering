@@ -26,7 +26,7 @@ match, and it is cold.
 The final review covers `merge-base(origin/<default branch>, HEAD)..HEAD`. No reviewer brief
 carries a prior finding, a per-phase summary, or a coherence-only focus. If the default branch
 cannot be resolved, the base is autopilot's `startingCommit` and the receipt records
-`diff.baseSource: "starting-commit"`. The
+`diff.baseSource: "starting-commit"`, which the stamp shows as `(base: starting-commit)`. The
 gate resolves the default branch as the target of `refs/remotes/origin/HEAD`, then
 `refs/remotes/origin/main`, then `refs/remotes/origin/master`, by full name so a local branch
 named `origin/main` cannot shadow them. Autopilot does not resolve the base itself: it takes the base and its source
@@ -94,7 +94,23 @@ declares another moment fails `MOMENT_MISMATCH`, and so does `--moment phase` pa
 Autopilot may not leave FINAL_REVIEW without a passing receipt, a human override, or a recorded
 empty-final skip: when `harness review-tier --moment final` reports the final range empty (it
 changes no files), nothing is reviewed, no receipt is written, and the skip is recorded in
-`decisions[]`, as is an override.
+`decisions[]`, as is an override; an override is a typed record and is shown on the stamp.
+
+### Passed means nothing was set aside
+
+A blocking finding of the final review ends one of three ways: fixed, overridden by the human,
+or dismissed. Dismissal is a `judgment` pause (the human answers in supervised mode; in trusted
+mode the session's recommendation is taken only when the blind-then-refute self-audit ran and
+agreed, and the human answers when the session cannot spawn the auditor or audit is off), never
+the orchestrating session's own decision. Each decision records who took it (`decidedBy`), and
+the stamp prints it. The status the final review ends with is decided from every review decision
+recorded for it, in every round, not from the last round alone: `passed` only when there is
+none; `passed-with-dismissals` when a blocking finding was dismissed in any round, even when a
+later round did not raise it again; `overridden` when its receipt gate or its blocking findings
+were overridden in any round, even when the overridden gate's review then had no blocking
+finding. The DONE summary lists dismissals beside overrides. Fixes at FINAL_REVIEW and at
+OUTCOME_EVAL share one budget of three attempts; when it is spent, only override and stop are
+offered, and a spent budget is never a reason to dismiss.
 
 ### One commit, one final review
 
@@ -104,11 +120,14 @@ new head and the receipt records `round` and `priorRounds`. The round is 1 + the
 archives in `final-all/` (each ended round is archived with `harness check-review-receipt
 --archive-round` after the fix commit), and the gate checks both fields against them, so an
 attempt that wrote no receipt keeps its round, and a round at the head the round before it
-reviewed fails `ROUND_SAME_HEAD`.
+reviewed fails `ROUND_SAME_HEAD`. If commits follow the reviewed head anyway, the stamp's final
+row ends `, +N commits not reviewed` after its gate result, whether that result is a pass, a
+failure or an overridden failure.
 
 ## Consequences
 
-- "Reviewed" on a pipeline-built PR means a cold, full review of the whole change.
+- "Reviewed" on a pipeline-built PR means a cold, full review of the whole change. The
+  provenance stamp states it per PR.
 - The final review costs more than before: every reviewer reads the whole diff.
 - A session that cannot dispatch subagents cannot produce a `full` review. Its final receipt
   records `light`, the final gate fails, and the run ends in a human override or a halt. There

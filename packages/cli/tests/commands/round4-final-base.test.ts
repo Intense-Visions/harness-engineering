@@ -5,6 +5,7 @@ import * as path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { runCheckReviewReceipt } from '../../src/review-receipts/gate';
 import { resolveFinalReviewBase } from '../../src/review-receipts/io';
+import { runReviewProvenanceRender } from '../../src/commands/review-provenance';
 import { formatReviewTier, runReviewTier } from '../../src/commands/review-tier';
 
 /**
@@ -121,6 +122,14 @@ describe('fix 1: a starting-commit base must be the session starting commit', ()
     const elsewhere = path.join(tmp, 'copy');
     writeReview(elsewhere, commits[START]!, commits[HEAD]!, ['f2.txt']);
     expect(codes(elsewhere, 'final')).toEqual(['STARTING_COMMIT_UNKNOWN']);
+  });
+  it('the stamp applies the same check to the final row', () => {
+    writeState({ startingCommit: commits[START], phases: [] });
+    writeReview(finalDir(), commits[MID]!, commits[HEAD]!, ['f5.txt']);
+    const out = runReviewProvenanceRender({ session: 's1', cwd: tmp });
+    expect(out.ok && out.value.block).toMatch(
+      /\| final-all \| final \|.*FAIL: FINAL_BASE_NOT_MERGE_BASE/
+    );
   });
 });
 

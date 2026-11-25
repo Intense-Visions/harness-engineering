@@ -177,3 +177,64 @@ export const FINDING_CLASSES = [
   'other',
 ] as const;
 export type FindingClass = (typeof FINDING_CLASSES)[number];
+
+export const REVIEW_DECISION_KINDS = ['gate', 'findings', 'dismissed'] as const;
+export type ReviewDecisionKind = (typeof REVIEW_DECISION_KINDS)[number];
+
+/**
+ * Who took a review decision: the human; the agent after a blind-then-refute self-audit agreed
+ * (`audited`); or the agent with no audit (`unaudited`).
+ */
+export const REVIEW_DECIDERS = ['human', 'audited', 'unaudited'] as const;
+export type ReviewDecider = (typeof REVIEW_DECIDERS)[number];
+
+/**
+ * A review decision in autopilot's `decisions[]`: the human let a review state be left over a
+ * failed receipt gate (`gate`) or over blocking findings (`findings`), or blocking findings were
+ * set aside as not applying (`dismissed`). Other fields of the entry are not read.
+ */
+export interface ReviewDecisionRecord {
+  state: 'REVIEW' | 'FINAL_REVIEW';
+  /** The phase's 0-based position in `phases[]`. Required for `REVIEW`. */
+  phase?: number | string;
+  kind: ReviewDecisionKind;
+  rationale: string;
+  /** `gate`: the failure codes that were overridden. */
+  codes?: ReviewGateFailureCode[];
+  /** `dismissed`: the ids of the blocking findings set aside. */
+  findingIds?: string[];
+  /**
+   * Who decided. Required when written; `unknown` is only what the session reader gives a record
+   * written before the field existed (no `decidedBy` key at all).
+   */
+  decidedBy: ReviewDecider | 'unknown';
+  /**
+   * The round of the review the decision was taken in (the receipt's `round`). Default 1. A
+   * decision applies only to the receipt of the same round.
+   */
+  round?: number;
+}
+
+/**
+ * One entry of `phases[]` in a session's `autopilot-state.json`, as far as code reads it; other
+ * fields pass through. A phase is identified by its 0-based position in the list. That number is
+ * the `N` of its review directory `phase-N` and the `phase` of a review decision record.
+ */
+export interface AutopilotPhaseEntry {
+  /** Optional. When present it must be the entry's 0-based position in `phases[]`. */
+  index?: number;
+  name: string;
+  status?: string;
+  planPath?: string | null;
+  complexity?: string;
+}
+
+/** The part of `autopilot-state.json` that code reads. Other fields pass through. */
+export interface AutopilotSessionState {
+  specPath?: string;
+  /** The commit the session started from: the base of the first phase. A full sha. */
+  startingCommit?: string;
+  phases?: AutopilotPhaseEntry[];
+  /** Mixed entries; a review decision among them is a `ReviewDecisionRecord`. */
+  decisions?: unknown[];
+}

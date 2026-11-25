@@ -596,6 +596,8 @@ export {
   RECEIPT_UNREAD_REASONS,
   ERRNO_REASON,
   FULL_SHA_PATTERN,
+  REVIEW_DECISION_KINDS,
+  REVIEW_DECIDERS,
 } from './pipeline-receipts';
 export type {
   ReviewMoment,
@@ -613,4 +615,9 @@ export type {
   ReceiptReadProblem,
   ReviewPriorRound,
   ArchivedRound,
+  ReviewDecisionKind,
+  ReviewDecider,
+  ReviewDecisionRecord,
+  AutopilotPhaseEntry,
+  AutopilotSessionState,
 } from './pipeline-receipts';

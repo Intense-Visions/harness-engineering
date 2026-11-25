@@ -5,7 +5,7 @@ import * as path from 'path';
 import * as readline from 'readline';
 import { execFileSync } from 'child_process';
 import chalk from 'chalk';
-import type { Result } from '@harness-engineering/core';
+import type { AutopilotSessionState, Result } from '@harness-engineering/core';
 import { Ok, Err } from '@harness-engineering/core';
 import { DEFAULT_SKIP_DIRS } from '@harness-engineering/graph';
 import { logger } from '../output/logger';
@@ -99,12 +99,7 @@ function walk(dir: string, predicate: (p: string) => boolean): string[] {
   return out;
 }
 
-interface AutopilotState {
-  specPath?: string;
-  phases?: Array<{ planPath?: string }>;
-}
-
-function extractAutopilotTopic(state: AutopilotState): string | null {
+function extractAutopilotTopic(state: AutopilotSessionState): string | null {
   const match = (state.specPath ?? '').match(/^docs\/changes\/([^/]+)\/proposal\.md$/);
   return match?.[1] ?? null;
 }
@@ -116,7 +111,9 @@ function buildAutopilotMap(cwd: string): Map<string, string> {
 
   for (const session of listDirs(sessionsDir)) {
     if (!session.startsWith('changes--')) continue;
-    const state = readJson<AutopilotState>(path.join(sessionsDir, session, 'autopilot-state.json'));
+    const state = readJson<AutopilotSessionState>(
+      path.join(sessionsDir, session, 'autopilot-state.json')
+    );
     if (!state) continue;
     const topic = extractAutopilotTopic(state);
     if (!topic) continue;

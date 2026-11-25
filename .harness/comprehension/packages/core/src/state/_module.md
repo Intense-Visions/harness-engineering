@@ -1,12 +1,13 @@
 ---
 schemaVersion: 1
 module: 'packages/core/src/state'
-sourceHash: '7307f97998447f67259c05ecab2520bf417adfc1bd08ffe904be539ccc58af95'
+sourceHash: 'beb07ea8cd10f45de201d523369b10b5e0b3c2b42c03c7c8432b4d9afac7c893'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
 members:
   [
+    'autopilot-session-state.ts',
     'constants.ts',
     'failures.ts',
     'graph-staleness.ts',
@@ -36,9 +37,12 @@ members:
 ## Interface Contract
 
 ```ts
+export AUTOPILOT_STATE_FILENAME
 export AppendLearningResult
 export ArchiveHooks
 export ArchiveSessionOptions
+export AutopilotPhaseEntrySchema
+export AutopilotSessionStateSchema
 export BudgetedLearningsOptions
 export DEFAULT_SPILL_THRESHOLD_BYTES
 export DEFAULT_STATE
@@ -151,7 +155,7 @@ import { resolveStreamPath } from './stream-resolver'
 import { DEFAULT_STREAM_INDEX, StreamIndex, StreamIndexSchema, StreamInfo } from './stream-types'
 import { GateConfigSchema, GateResult, Handoff, HandoffSchema } from './types'
 import { GraphNode, GraphStore, NodeType } from '@harness-engineering/graph'
-import { SESSION_SECTION_NAMES, SessionEntry, SessionSectionName, SessionSections } from '@harness-engineering/types'
+import { FULL_SHA_PATTERN, SESSION_SECTION_NAMES, SessionEntry, SessionSectionName, SessionSections } from '@harness-engineering/types'
 import { execSync } from 'child_process'
 import * as crypto from 'crypto'
 import * as fs from 'fs'

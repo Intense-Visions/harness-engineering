@@ -1,6 +1,12 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import type { Roadmap, RoadmapFeature, FeatureStatus, Result } from '@harness-engineering/types';
+import type {
+  AutopilotSessionState,
+  Roadmap,
+  RoadmapFeature,
+  FeatureStatus,
+  Result,
+} from '@harness-engineering/types';
 import { Ok } from '@harness-engineering/types';
 import { isRegression } from './status-rank';
 import * as eventSourcing from '../state/event-sourcing';
@@ -28,16 +34,6 @@ export interface SyncOptions {
 
 type TaskStatus = 'pending' | 'in_progress' | 'complete';
 
-interface AutopilotPhase {
-  name: string;
-  planPath: string | null;
-  status: string;
-}
-
-interface AutopilotState {
-  phases?: AutopilotPhase[];
-}
-
 /**
  * Is `planPath` the same plan as `featurePlan`, allowing for the relative-vs-
  * repo-rooted forms the two sources write?
@@ -62,7 +58,7 @@ function collectAutopilotStatuses(
 ): void {
   try {
     const raw = fs.readFileSync(autopilotPath, 'utf-8');
-    const autopilot: AutopilotState = JSON.parse(raw);
+    const autopilot: AutopilotSessionState = JSON.parse(raw);
     if (!autopilot.phases) return;
 
     const linkedPhases = autopilot.phases.filter((phase) =>

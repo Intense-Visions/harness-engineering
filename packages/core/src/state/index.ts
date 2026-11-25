@@ -170,3 +170,14 @@ export type { ArchiveHooks, ArchiveSessionOptions } from './session-archive';
  * skill-lifecycle telemetry stream now lives CLI-side (metrics/skill-events.jsonl, GH-580 D5).
  */
 export * as eventSourcing from './event-sourcing';
+
+/**
+ * The part of a session's `autopilot-state.json` that code reads: the file name and the schema
+ * (types: AutopilotSessionState, AutopilotPhaseEntry). The review receipts read it through
+ * `readSessionReviewState`.
+ */
+export {
+  AUTOPILOT_STATE_FILENAME,
+  AutopilotPhaseEntrySchema,
+  AutopilotSessionStateSchema,
+} from './autopilot-session-state';

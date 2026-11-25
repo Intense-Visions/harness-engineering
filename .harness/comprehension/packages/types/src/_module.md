@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/types/src'
-sourceHash: 'b9346c34c09d1613b9fc4e2236b0ec113be5eeb67286e61fd8bad6baf1a538bd'
+sourceHash: 'e39ebe124ce23b4f5f4b82ed9f2e1eca476cc7ce44d075d1472a7f621254d453'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -90,6 +90,8 @@ export AutonomySessionOverride
 export AutonomySetting
 export AutonomySource
 export AutonomyUserConfig
+export AutopilotPhaseEntry
+export AutopilotSessionState
 export BackendCapabilities
 export BackendCapabilityRegistry
 export BackendDef
@@ -326,6 +328,8 @@ export RECEIPT_UNREAD_REASONS
 export REQUIRED_STRATEGY_SECTIONS
 export REVIEW_BACKENDS
 export REVIEW_BASE_SOURCES
+export REVIEW_DECIDERS
+export REVIEW_DECISION_KINDS
 export REVIEW_GATE_FAILURE_CODES
 export REVIEW_MOMENTS
 export REVIEW_TIERS
@@ -347,6 +351,9 @@ export RetrospectionProposalsResponse
 export RetrospectionProposalsResponseSchema
 export ReviewBackend
 export ReviewBaseSource
+export ReviewDecider
+export ReviewDecisionKind
+export ReviewDecisionRecord
 export ReviewGateFailureCode
 export ReviewMoment
 export ReviewPriorRound

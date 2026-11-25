@@ -181,7 +181,7 @@ session that sets out to deceive it.
   gate (`TIER_DEMOTED`) unless it declares it. It cannot pass as `full` unless a session writes a
   false receipt on purpose.
 - **What the gate cannot prove:** that reviewers ran in separate contexts. One context that
-  deliberately writes four findings files passes.
+  deliberately writes four findings files passes. The provenance stamp makes the claim visible.
 - These things a receipt says stay claims in Phase 1 because the gate does not recompute them:
   the set of conditional reviewers (only that every id is a known one), whether a phase was
   entitled to `light`, `coldContext` and `priorFindingsSupplied` (checked for consistency on a
@@ -210,8 +210,39 @@ session that sets out to deceive it.
   rewrite: `git update-ref refs/remotes/origin/main HEAD~1` moves what the gate treats as the
   merge base, and a one-commit final review then passes. Proving the base would need a network
   fetch, which a credential-free gate does not do.
-- A failed gate can be overridden by the human. Autopilot records the override in `decisions[]`,
-  so an override is recorded but is not prevented.
+- The session state the stamp reads (`phases[]`, `decisions[]` and `startingCommit` in
+  `autopilot-state.json`) is the agent's own writing. One reader (`readSessionReviewState`)
+  parses it with the state schema (`AutopilotSessionStateSchema`), field by field, once per
+  render, and the stamp says what it could not read; that is all it can do.
+- The stamp in a PR body is unauthenticated. The receipts are ignored by git, so CI has nothing
+  to recompute a stamp from. A reader of a PR body accepts as a stamp only what the rendered page
+  shows as one: a marker pair on lines of their own, each after an empty line, the heading on
+  the line after the opening marker, none of it inside an HTML comment, a code block or a raw
+  HTML block, and from it only the table's rows and its notes, in forms the renderer can write.
+  A marker in a paragraph, a list item, a quote or a link reference definition is text.
+- A failed gate can be overridden by the human. Autopilot records the override in `decisions[]`
+  as a typed record (`kind: "gate"`, with the overridden `codes` and a `rationale`;
+  `ReviewDecisionRecord`) and the stamp shows it, so an override is visible on the PR but is not
+  prevented. A blocking finding the session set aside without a fix is recorded the same way
+  (`kind: "dismissed"`), and only after a `judgment` pause: the session that ran the executors
+  does not dismiss a blocking finding on its own word. In trusted mode that pause resolves
+  without the human only when the blind-then-refute self-audit ran and agreed; when the session
+  cannot spawn the auditor, or audit is off, the human answers. Every decision carries the round
+  it was taken in and applies to that round only, and who took it (`decidedBy`: `human`,
+  `audited` or `unaudited`), which the stamp prints beside it; a dismissal that is not the
+  human's or audited is flagged in the Blocking cell, and a record written with no `decidedBy`
+  reads as `decider unknown` with a note. `decidedBy` is a claim: the stamp shows who the session
+  says decided. A decision the stamp cannot parse makes it say so, never `none` (on a row with
+  no receipt too), and one that belongs to no review is named in a note. Only a decision's
+  declared fields are read; anything else written beside it never reaches the stamp.
+- The stamp does not repeat the receipt's word. `review-provenance render` runs the gate again
+  for each review and prints the result, with one rule relaxed: the reviewed head may be an
+  ancestor of HEAD, because a phase review is followed by later commits. A review state still
+  gates with the head required to be HEAD. For the final review the stamp also counts the
+  commits made after the reviewed head, and prints the count whether the gate passed, failed or
+  was overridden. A review directory without a readable receipt is a row that says so, and shows
+  the decisions recorded for it. After a rebase, an amend or a squash the reviewed commits are
+  gone from the branch and every row fails `HEAD_MISMATCH`.
 - MCP callers decide on the tool result's `pass` field alone. Through the shared
   response-compaction middleware `failures` is absent on a pass, a single object when there is
   exactly one failure, and an array when there are two or more, so its shape is not a contract

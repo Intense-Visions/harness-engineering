@@ -1,12 +1,23 @@
 ---
 schemaVersion: 1
 module: 'packages/core/src/receipts'
-sourceHash: '8848e9a649bc90977927fa04b0408967fa83962c94d956ff03e0e536b3b317f6'
+sourceHash: 'f8e9b66c63c77c1846b538e0fbf353d1024c6084002ddc4a0fa97686e1af6cfb'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
 members:
-  ['backend.ts', 'index.ts', 'layout.ts', 'load.ts', 'review-gate.ts', 'rounds.ts', 'schema.ts']
+  [
+    'backend.ts',
+    'decisions.ts',
+    'index.ts',
+    'layout.ts',
+    'load.ts',
+    'provenance.ts',
+    'review-gate.ts',
+    'rounds.ts',
+    'schema.ts',
+    'stamp-grammar.ts',
+  ]
 ---
 
 ## Interface Contract
@@ -14,23 +25,37 @@ members:
 ```ts
 export ArchiveRoundResult
 export EarlierPhaseReceipt
+export ExpectedUnknown
 export FinalReviewBase
 export FindingsFileRange
+export NO_PIPELINE_REVIEW
+export OrphanDecision
+export PROVENANCE_MARKER
+export ParsedProvenanceStamp
 export PhaseReviewBase
 export REVIEWS_DIRNAME
 export REVIEW_RECEIPT_FILENAME
 export ResolvedReviewBackend
+export ReviewDecisionRecordSchema
+export ReviewDirRead
 export ReviewGateContext
 export ReviewGateFailure
 export ReviewGateResult
+export SessionReviewState
+export StampRow
 export StandaloneReviewBase
 export archiveReviewRound
+export assembleStamp
+export buildProvenanceRow
 export checkReviewerFindingsText
 export escapeTerminalText
 export expectedReviewMoment
 export finalReviewBase
 export interruptedArchiveFailure
+export jsonObjectFields
 export listInterruptedArchives
+export noteText
+export parseProvenanceStamp
 export parseReviewReceipt
 export parseReviewerFindingsFile
 export phaseOfReviewLabel
@@ -38,6 +63,8 @@ export phaseReviewBase
 export readArchivedRounds
 export readRegularFile
 export readReviewReceiptFile
+export readSessionReviewState
+export renderProvenanceBlock
 export resolveReviewBackend
 export reviewFindingsReaderFor
 export reviewGateFailure
@@ -50,10 +77,14 @@ export validateReviewReceipt
 
 ```
 import { normalizeReviewPath, pathEscapes } from '../shared/review-paths'
-import { ExpectedMoment, REVIEW_RECEIPT_FILENAME, isReviewDirectory } from './layout'
+import { AutopilotPhaseEntrySchema, AutopilotSessionStateSchema } from '../state/autopilot-session-state'
+import { SessionReviewState } from './decisions'
+import { ExpectedMoment, FINAL_REVIEW_LABEL, REVIEW_RECEIPT_FILENAME, SESSION_REVIEW_LABEL, compareReviewLabels, isReviewDirectory, reviewLabel } from './layout'
 import { errnoReason, readReviewReceiptFile, reviewFindingsReaderFor } from './load'
+import { CheckedReceiptResult } from './review-gate'
 import { ReviewFindingTally, ReviewerFindingsFile, parseReviewReceipt, parseReviewerFindingsFile, tallyReviewFindings } from './schema'
-import { ArchivedRound, CONDITIONAL_REVIEWER_IDS, ERRNO_REASON, ESCAPED_FROM_STAGES, Err, EscapedFrom, FINDING_CLASSES, FULL_SHA_PATTERN, FULL_TIER_REVIEWER_IDS, FindingClass, LIGHT_TIER_REVIEWER_ID, Ok, REVIEW_BACKENDS, REVIEW_BASE_SOURCES, REVIEW_MOMENTS, REVIEW_TIERS, REVIEW_TIER_DEMOTIONS, ReceiptReadProblem, ReceiptUnreadReason, Result, ReviewBackend, ReviewBaseSource, ReviewGateFailureCode, ReviewMoment, ReviewReceipt, ReviewTier, ReviewerRecord } from '@harness-engineering/types'
+import { MISSING_REVIEW, NO_PIPELINE_REVIEW, PROVENANCE_MARKER, ParsedProvenanceStamp, SESSION_REVIEW_LABEL, STAMP_COLUMNS, STAMP_HEADING, STAMP_LIMITS, STAMP_TABLE_HEADER, STAMP_TABLE_RULE, StampCells, StampNote, UNREAD_REASON, compareReviewLabels, countsText, inert, listed, noteText, parseProvenanceStamp, plural } from './stamp-grammar'
+import { ArchivedRound, CONDITIONAL_REVIEWER_IDS, ERRNO_REASON, ESCAPED_FROM_STAGES, Err, EscapedFrom, FINDING_CLASSES, FULL_SHA_PATTERN, FULL_TIER_REVIEWER_IDS, FindingClass, LIGHT_TIER_REVIEWER_ID, Ok, RECEIPT_UNREAD_REASONS, REVIEW_BACKENDS, REVIEW_BASE_SOURCES, REVIEW_DECIDERS, REVIEW_DECISION_KINDS, REVIEW_GATE_FAILURE_CODES, REVIEW_MOMENTS, REVIEW_TIERS, REVIEW_TIER_DEMOTIONS, ReceiptReadProblem, ReceiptUnreadReason, Result, ReviewBackend, ReviewBaseSource, ReviewDecisionKind, ReviewDecisionRecord, ReviewGateFailureCode, ReviewMoment, ReviewPriorRound, ReviewReceipt, ReviewTier, ReviewerRecord } from '@harness-engineering/types'
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import { z } from 'zod'

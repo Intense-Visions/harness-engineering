@@ -8,8 +8,16 @@ import type {
 import type { ConditionalSubagent } from '../../src/review/depth-calibrator';
 import type { ReviewDomain } from '../../src/review/types/context';
 import type { ReviewSubagent } from '../../src/review/types/fan-out';
-import type { ReviewReceipt } from '@harness-engineering/types';
+import type {
+  AutopilotPhaseEntry,
+  AutopilotSessionState,
+  ReviewDecider,
+  ReviewDecisionRecord,
+  ReviewReceipt,
+} from '@harness-engineering/types';
 import type { ReviewReceiptSchema, ReviewerFindingsFile } from '../../src/receipts/schema';
+import type { ReviewDecisionRecordSchema } from '../../src/receipts/decisions';
+import type { AutopilotSessionStateSchema } from '../../src/state/autopilot-session-state';
 
 /**
  * The runtime schemas and the contract types in packages/types (which has no zod) are written
@@ -17,6 +25,8 @@ import type { ReviewReceiptSchema, ReviewerFindingsFile } from '../../src/receip
  * added, removed, retyped or made optional on one side only. That is what lets the parsers
  * return schema output with no cast.
  */
+type Known<T> = { [K in keyof T as string extends K ? never : K]: T[K] };
+
 describe('runtime schemas match their contract types', () => {
   it('ReviewReceiptSchema is ReviewReceipt', () => {
     expectTypeOf<z.infer<typeof ReviewReceiptSchema>>().toEqualTypeOf<ReviewReceipt>();
@@ -47,5 +57,22 @@ describe('runtime schemas match their contract types', () => {
     type Outside = (typeof PIPELINE_DOMAINS_OUTSIDE_RECEIPT)[number];
     expectTypeOf<ReviewSubagent>().toEqualTypeOf<ReceiptReviewer | Outside>();
     expectTypeOf<ReviewDomain>().toEqualTypeOf<(typeof FULL_TIER_REVIEWER_IDS)[number] | Outside>();
+  });
+  it('AutopilotSessionStateSchema is AutopilotSessionState plus pass-through fields', () => {
+    type Inferred = z.infer<typeof AutopilotSessionStateSchema>;
+    type Phase = Known<NonNullable<Inferred['phases']>[number]>;
+    expectTypeOf<Phase>().toEqualTypeOf<AutopilotPhaseEntry>();
+    type Top = Omit<Known<Inferred>, 'phases'> & { phases?: AutopilotPhaseEntry[] };
+    expectTypeOf<{ [K in keyof Top]: Top[K] }>().toEqualTypeOf<AutopilotSessionState>();
+  });
+  it('ReviewDecisionRecordSchema is ReviewDecisionRecord as written, with no pass-through', () => {
+    type Inferred = z.infer<typeof ReviewDecisionRecordSchema>;
+    // A written record's decidedBy is one of REVIEW_DECIDERS; `unknown` is only what the
+    // session reader gives a record written before the field existed.
+    type Written = Omit<ReviewDecisionRecord, 'decidedBy'> & { decidedBy: ReviewDecider };
+    expectTypeOf<{ [K in keyof Inferred]: Inferred[K] }>().toEqualTypeOf<{
+      [K in keyof Written]: Written[K];
+    }>();
+    expectTypeOf<Inferred>().toExtend<ReviewDecisionRecord>();
   });
 });

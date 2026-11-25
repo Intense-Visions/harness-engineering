@@ -5,6 +5,8 @@ import {
   REVIEW_TIER_DEMOTIONS,
   REVIEW_BACKENDS,
   REVIEW_BASE_SOURCES,
+  REVIEW_DECISION_KINDS,
+  REVIEW_DECIDERS,
   FULL_TIER_REVIEWER_IDS,
   CONDITIONAL_REVIEWER_IDS,
   LIGHT_TIER_REVIEWER_ID,
@@ -21,6 +23,8 @@ describe('pipeline receipt contract', () => {
     expect(REVIEW_TIER_DEMOTIONS).toEqual(['no-subagent-tool']);
     expect(REVIEW_BACKENDS).toEqual(['agent', 'pipeline']);
     expect(REVIEW_BASE_SOURCES).toEqual(['merge-base', 'starting-commit']);
+    expect(REVIEW_DECISION_KINDS).toEqual(['gate', 'findings', 'dismissed']);
+    expect(REVIEW_DECIDERS).toEqual(['human', 'audited', 'unaudited']);
   });
   it('names the four full-tier reviewers, the three conditional ones and the light one', () => {
     expect(FULL_TIER_REVIEWER_IDS).toEqual(['compliance', 'bug', 'security', 'architecture']);
