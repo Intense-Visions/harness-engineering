@@ -5,8 +5,8 @@ import * as path from 'path';
 import * as readline from 'readline';
 import { execFileSync } from 'child_process';
 import chalk from 'chalk';
-import type { AutopilotSessionState, Result } from '@harness-engineering/core';
-import { Ok, Err } from '@harness-engineering/core';
+import type { Result } from '@harness-engineering/core';
+import { AUTOPILOT_STATE_FILENAME, Ok, Err } from '@harness-engineering/core';
 import { DEFAULT_SKIP_DIRS } from '@harness-engineering/graph';
 import { logger } from '../output/logger';
 import { CLIError, ExitCode } from '../utils/errors';
@@ -99,9 +99,22 @@ function walk(dir: string, predicate: (p: string) => boolean): string[] {
   return out;
 }
 
-function extractAutopilotTopic(state: AutopilotSessionState): string | null {
-  const match = (state.specPath ?? '').match(/^docs\/changes\/([^/]+)\/proposal\.md$/);
+/** autopilot-state.json as parsed: unvalidated, so each field read here is checked here. */
+type UnvalidatedSessionState = { specPath?: unknown; phases?: unknown };
+
+function extractAutopilotTopic(state: UnvalidatedSessionState): string | null {
+  const specPath = typeof state.specPath === 'string' ? state.specPath : '';
+  const match = specPath.match(/^docs\/changes\/([^/]+)\/proposal\.md$/);
   return match?.[1] ?? null;
+}
+
+/** The string `planPath` of each `phases[]` entry that has one. */
+function planPathsOf(state: UnvalidatedSessionState): string[] {
+  const phases: unknown[] = Array.isArray(state.phases) ? state.phases : [];
+  return phases.flatMap((phase) => {
+    const planPath = (phase as { planPath?: unknown } | null)?.planPath;
+    return typeof planPath === 'string' && planPath !== '' ? [planPath] : [];
+  });
 }
 
 function buildAutopilotMap(cwd: string): Map<string, string> {
@@ -111,15 +124,13 @@ function buildAutopilotMap(cwd: string): Map<string, string> {
 
   for (const session of listDirs(sessionsDir)) {
     if (!session.startsWith('changes--')) continue;
-    const state = readJson<AutopilotSessionState>(
-      path.join(sessionsDir, session, 'autopilot-state.json')
+    const state = readJson<UnvalidatedSessionState | null>(
+      path.join(sessionsDir, session, AUTOPILOT_STATE_FILENAME)
     );
-    if (!state) continue;
+    if (!state || typeof state !== 'object') continue;
     const topic = extractAutopilotTopic(state);
     if (!topic) continue;
-    for (const phase of state.phases ?? []) {
-      if (phase.planPath) map.set(phase.planPath, topic);
-    }
+    for (const planPath of planPathsOf(state)) map.set(planPath, topic);
   }
   return map;
 }

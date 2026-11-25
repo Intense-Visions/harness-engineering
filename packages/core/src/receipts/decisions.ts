@@ -1,10 +1,12 @@
 import { z } from 'zod';
 import {
+  FULL_SHA_PATTERN,
   REVIEW_DECIDERS,
   REVIEW_DECISION_KINDS,
   REVIEW_GATE_FAILURE_CODES,
+  REVIEW_SKIP_REASONS,
+  type ReadReviewDecision,
   type ReviewDecisionKind,
-  type ReviewDecisionRecord,
 } from '@harness-engineering/types';
 import { FINAL_REVIEW_LABEL, reviewLabel } from './layout';
 import {
@@ -17,23 +19,32 @@ const ids = z.array(z.string().min(1)).min(1);
 /** A code that is not a gate failure code makes the decision unreadable, never a silent no-op. */
 const codes = z.array(z.enum(REVIEW_GATE_FAILURE_CODES)).min(1);
 
+/** The fields of every kind. Keys a kind does not declare are dropped. */
+const fields = {
+  state: z.enum(REVIEW_STATES),
+  phase: z.union([z.number(), z.string()]).exactOptional(),
+  rationale: z.string().min(1),
+  round: z.number().int().positive().exactOptional(),
+  decidedBy: z.enum(REVIEW_DECIDERS),
+};
+
 /**
- * A review decision. A plain object: keys it does not declare are dropped, so nothing an agent
- * wrote beside a decision is carried into a stamp row or its JSON.
+ * A review decision, one shape per kind: a `gate` override names its codes, a dismissal its
+ * finding ids, a skip its reason (and, for an empty range, may name the head it was empty at).
+ * Plain objects: keys a kind does not declare are dropped, so nothing an agent wrote beside a
+ * decision is carried into a stamp row or its JSON.
  */
-export const ReviewDecisionRecordSchema = z
-  .object({
-    state: z.enum(REVIEW_STATES),
-    phase: z.union([z.number(), z.string()]).exactOptional(),
-    kind: z.enum(REVIEW_DECISION_KINDS),
-    rationale: z.string().min(1),
-    codes: codes.exactOptional(),
-    findingIds: ids.exactOptional(),
-    round: z.number().int().positive().exactOptional(),
-    decidedBy: z.enum(REVIEW_DECIDERS),
-  })
-  .refine((d) => d.kind !== 'gate' || d.codes !== undefined, 'a gate override names its codes')
-  .refine((d) => d.kind !== 'dismissed' || d.findingIds !== undefined, 'a dismissal names ids');
+export const ReviewDecisionRecordSchema = z.discriminatedUnion('kind', [
+  z.object({ ...fields, kind: z.literal('gate'), codes }),
+  z.object({ ...fields, kind: z.literal('findings') }),
+  z.object({ ...fields, kind: z.literal('dismissed'), findingIds: ids }),
+  z.object({
+    ...fields,
+    kind: z.literal('skipped'),
+    reason: z.enum(REVIEW_SKIP_REASONS),
+    head: z.string().regex(FULL_SHA_PATTERN).exactOptional(),
+  }),
+]);
 
 /**
  * The own fields of an unparsed JSON value when it is a JSON object; undefined for anything else,
@@ -59,7 +70,7 @@ export interface SessionReviewState {
   /** False when the state file is absent or malformed, or a review decision in it is. */
   decisionsReadable: boolean;
   /** Review decisions by review label, in the order they were taken. */
-  decisions: ReadonlyMap<string, ReviewDecisionRecord[]>;
+  decisions: ReadonlyMap<string, ReadReviewDecision[]>;
   /** The reviews the session's phase list calls for, then the final review. undefined: unknown. */
   expected: string[] | undefined;
   /** Set exactly when `expected` is undefined. */
@@ -102,7 +113,7 @@ type Entry =
   | { is: 'other' }
   | { is: 'orphan'; orphan: OrphanDecision }
   | { is: 'unreadable' }
-  | { is: 'decision'; label: string; record: ReviewDecisionRecord; legacy: boolean };
+  | { is: 'decision'; label: string; record: ReadReviewDecision; legacy: boolean };
 
 /** A review-kind entry under a state that is not a review state. */
 function orphanOf(entry: Record<string, unknown>): Entry {
@@ -123,7 +134,7 @@ function decisionOf(entry: Record<string, unknown>): Entry {
     legacy ? { ...entry, decidedBy: 'human' } : entry
   );
   if (!parsed.success) return { is: 'unreadable' };
-  const record: ReviewDecisionRecord = legacy
+  const record: ReadReviewDecision = legacy
     ? { ...parsed.data, decidedBy: 'unknown' }
     : parsed.data;
   const label = reviewLabel(record.state === 'REVIEW' ? 'phase' : 'final', record.phase);
@@ -144,7 +155,7 @@ type Decisions = Pick<
 >;
 
 /** Add one classified entry to what has been read. */
-function sortEntry(out: Decisions & { decisions: Map<string, ReviewDecisionRecord[]> }, e: Entry) {
+function addEntry(out: Decisions & { decisions: Map<string, ReadReviewDecision[]> }, e: Entry) {
   if (e.is === 'unreadable') out.decisionsReadable = false;
   else if (e.is === 'orphan') out.orphans.push(e.orphan);
   else if (e.is === 'decision') {
@@ -154,17 +165,17 @@ function sortEntry(out: Decisions & { decisions: Map<string, ReviewDecisionRecor
 }
 
 /** Sort `decisions[]` into review decisions by label, orphans, and whether all of it was readable. */
-function readDecisions(listed: unknown): Decisions {
+function readDecisions(entries: unknown): Decisions {
   const out = {
     decisionsReadable: true,
-    decisions: new Map<string, ReviewDecisionRecord[]>(),
+    decisions: new Map<string, ReadReviewDecision[]>(),
     orphans: [] as OrphanDecision[],
     legacyDecisions: 0,
   };
-  if (listed === undefined) return out;
-  const parsed = shape.decisions.safeParse(listed);
+  if (entries === undefined) return out;
+  const parsed = shape.decisions.safeParse(entries);
   if (!parsed.success) return { ...out, decisionsReadable: false };
-  for (const entry of parsed.data ?? []) sortEntry(out, classify(entry));
+  for (const entry of parsed.data ?? []) addEntry(out, classify(entry));
   return out;
 }
 

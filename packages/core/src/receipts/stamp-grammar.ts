@@ -8,6 +8,7 @@ import {
   REVIEW_DECISION_KINDS,
   REVIEW_GATE_FAILURE_CODES,
   REVIEW_MOMENTS,
+  REVIEW_SKIP_REASONS,
   REVIEW_TIERS,
 } from '@harness-engineering/types';
 import { FINAL_REVIEW_LABEL, SESSION_REVIEW_LABEL, compareReviewLabels } from './layout';
@@ -19,7 +20,8 @@ export { FINAL_REVIEW_LABEL, SESSION_REVIEW_LABEL, compareReviewLabels };
  * note templates from here, and the PR-body parser accepts a line only when it matches the cell
  * grammar below. The cell forms the renderer formats by hand (Diff, Gate, Blocking, Override) are
  * restated here as patterns, so the round trip ("whatever the renderer writes, the parser
- * accepts") is held by tests, not by construction. A PR body is text nobody vouches for.
+ * accepts") is held by tests, not by construction. A PR body is text nobody vouches for; the
+ * parser that finds a stamp in one is stamp-parser.ts.
  */
 export const PROVENANCE_MARKER = '<!-- harness:review-provenance -->';
 export const NO_PIPELINE_REVIEW = 'no pipeline review recorded';
@@ -62,6 +64,8 @@ export const STAMP_LIMITS = {
   rows: 50,
   notes: 20,
   total: 30000,
+  /** Characters of text the parser reads at all: a longer text is refused unread. */
+  input: 262144,
 } as const;
 
 /**
@@ -159,9 +163,10 @@ const orDash = (pattern: string) => new RegExp(`^(?:-|${pattern})$`);
 const INERT_TOKEN = '(?:[^;&|]|&(?!#\\d{1,5};)|&#\\d{1,5};)';
 const inertText = (tokens: number) => `${INERT_TOKEN}{1,${tokens}}`;
 const DECIDER = `\\((?:${alt(REVIEW_DECIDERS)}|decider unknown)\\)`;
+const SKIP_REASON = `(?:${alt(REVIEW_SKIP_REASONS)})`;
 /** One decision as the Override cell writes it (provenance.ts `decisionText`). */
 const DECISION =
-  `(?:gate \\(${CODE}(?:, ${CODE})*${MORE}\\)|findings|dismissed ${inertText(400)}) ` +
+  `(?:gate \\(${CODE}(?:, ${CODE})*${MORE}\\)|findings|skipped \\(${SKIP_REASON}\\)|dismissed ${inertText(400)}) ` +
   `${DECIDER}: ${inertText(STAMP_LIMITS.rationale + 1)}`;
 /** The longest text one written-out decision can be: its kind, ids or codes, decider, rationale. */
 const LONGEST_DECISION =
@@ -177,18 +182,30 @@ const LONGEST_DECISION =
   1;
 /** The longest Override cell the renderer can write: the counts, every decision, `+N more`. */
 export const OVERRIDE_CELL_MAX =
-  '999999 overrides, 999999 dismissals, 999999 from other rounds: '.length +
+  'unknown, at least 999999 overrides, 999999 dismissals, 999999 skips, 999999 from other rounds: '
+    .length +
   (LONGEST_DECISION + 2) * STAMP_LIMITS.decisions +
   '+999999 more'.length;
 /**
- * The Override cell: its counts, then at most STAMP_LIMITS.decisions decisions separated by `; `
- * and `+N more`, each in the renderer's own form, and no longer in all than the renderer can
- * write (OVERRIDE_CELL_MAX). `inert` encodes `;` in free text, so the separators are unambiguous.
+ * The Override cell: its counts (floors after `unknown, at least` when some decision of the
+ * session could not be read), then at most STAMP_LIMITS.decisions decisions separated by `; ` and
+ * `+N more`, each in the renderer's own form, and no longer in all than the renderer can write
+ * (OVERRIDE_CELL_MAX). `inert` encodes `;` in free text, so the separators are unambiguous.
  */
 const OVERRIDE_CELL = new RegExp(
-  `^(?=.{1,${OVERRIDE_CELL_MAX}}$)(?:-|none|unknown|\\d+ overrides?, \\d+ dismissals?(?:, \\d+ from other rounds)?` +
+  `^(?=.{1,${OVERRIDE_CELL_MAX}}$)(?:-|none|unknown|(?:unknown, at least )?\\d+ overrides?, \\d+ dismissals?(?:, \\d+ skips?)?(?:, \\d+ from other rounds)?` +
     `(?:: ${DECISION}(?:; ${DECISION}){0,${STAMP_LIMITS.decisions - 1}}(?:; \\+\\d+ more)?)?)$`
 );
+
+/** The Gate cell of a review whose receipt was not read (provenance.ts `unreadGate`). */
+const UNREAD_GATE = [
+  MISSING_REVIEW,
+  'receipt missing',
+  'receipt invalid',
+  `receipt unreadable \\(${UNREAD_REASON}\\)`,
+  'receipt outside repository',
+  'receipt outside project',
+].join('|');
 
 /** What each cell of a stamp row may hold. The Gate cell is built from the failure-code list. */
 export const STAMP_CELL_GRAMMAR: Record<StampColumn, RegExp> = {
@@ -203,8 +220,8 @@ export const STAMP_CELL_GRAMMAR: Record<StampColumn, RegExp> = {
   ),
   Coverage: orDash('\\d+/\\d+ files|unknown'),
   Gate: new RegExp(
-    `^(?:(?:${MISSING_REVIEW}|receipt missing|receipt invalid|receipt unreadable \\(${UNREAD_REASON}\\))(?: \\(overridden\\))?|` +
-      `(?:pass at [0-9a-f]{7}|FAIL: ${CODE}(?:, ${CODE})*${MORE}(?: \\(overridden\\))?)${UNREVIEWED})$`
+    `^(?:(?:${UNREAD_GATE})(?: \\(overridden\\))?|skipped \\(${SKIP_REASON}\\)|` +
+      `pass at [0-9a-f]{7}|FAIL: ${CODE}(?:, ${CODE})*${MORE}(?: \\(overridden\\))?)${UNREVIEWED}$`
   ),
   Blocking: orDash(
     '(?:at least )?\\d+(?: \\(\\d+ dismissed(?:, \\d+ unaudited)?(?:, \\d+ decider unknown)?\\))?' +
@@ -235,6 +252,8 @@ export const STAMP_NOTES = {
     'decision provenance unknown: {n} review decisions were recorded without decidedBy',
   'orphan-label':
     'orphan decision: {n} recorded for {label}, which is not a review of this session',
+  'decision-no-row':
+    'decision without a row: {n} recorded for {label}, which has no review directory; whether the session calls for that review is unknown',
   'orphan-state':
     'orphan decision: kind {kind} recorded under state {state}, which is not a review state',
 } as const;
@@ -292,216 +311,4 @@ export function parseStampRow(line: string): StampCells | undefined {
   const fits = STAMP_COLUMNS.every((column) => STAMP_CELL_GRAMMAR[column].test(cells[column]));
   // Every other cell is fixed vocabulary; the Override cell is the one that carries free text.
   return fits && isInert(cells.Override) ? cells : undefined;
-}
-
-export interface ParsedProvenanceStamp {
-  /** Table rows that have the stamp's shape, verbatim. */
-  rows: string[];
-  /** List lines under the table that are one of the renderer's notes, verbatim. */
-  notes: string[];
-  /** Lines inside the markers that are neither, or are outside the table and its notes, left out. */
-  dropped: number;
-  /** Stamp lines left out because the stamp holds more rows, notes or text than it may. */
-  omitted: number;
-  /** Rows for a review whose receipt was gated (a `pass at` or a `FAIL:` Gate cell). */
-  reviewed: number;
-  /** The review and abbreviated commit of every `pass at` row, in row order. */
-  passedAt: Array<{ review: string; sha: string }>;
-  /** Every final-all row: its Gate cell and the abbreviated head its Diff cell names. */
-  finalRows: Array<{ gate: string; head?: string }>;
-}
-
-/**
- * Markdown and HTML that a rendered page does not show as blocks of its own and that may hold a
- * blank line: an HTML comment, a fenced code block, and an HTML block of CommonMark types 1, 3, 4
- * and 5 (`<script>`, `<pre>`, `<style>`, `<textarea>`, `<?`, `<!X`, `<![CDATA[`), each until its
- * terminator. A marker inside one is not a marker.
- */
-const RAW_BLOCKS: ReadonlyArray<{ open: RegExp; close: RegExp }> = [
-  {
-    open: /^ {0,3}<(?:script|pre|style|textarea)(?=[\s>]|$)/i,
-    close: /<\/(?:script|pre|style|textarea)>/i,
-  },
-  { open: /^ {0,3}<\?/, close: /\?>/ },
-  { open: /^ {0,3}<![A-Za-z]/, close: />/ },
-  { open: /^ {0,3}<!\[CDATA\[/, close: /\]\]>/ },
-];
-const FENCE = /^ {0,3}(`{3,}|~{3,})/;
-
-type Hidden =
-  | { in: 'none' }
-  | { in: 'comment' }
-  | { in: 'fence'; fence: string }
-  | { in: 'raw'; close: RegExp };
-
-/**
- * Whether a line leaves an HTML comment open. `<!-->` and `<!--->` are whole (empty) comments,
- * as in CommonMark.
- */
-function opensComment(line: string): boolean {
-  const left = line.replace(/<!--(?:>|->|[\s\S]*?-->)/g, '');
-  return left.includes('<!--');
-}
-
-/** Where a line that starts outside any hidden block leaves the scan. */
-function stepFree(line: string): Hidden {
-  const fence = FENCE.exec(line)?.[1];
-  if (fence !== undefined) return { in: 'fence', fence };
-  const raw = RAW_BLOCKS.find((b) => b.open.test(line));
-  if (raw !== undefined)
-    return raw.close.test(line) ? { in: 'none' } : { in: 'raw', close: raw.close };
-  return opensComment(line) ? { in: 'comment' } : { in: 'none' };
-}
-
-/** The line that closes a fence: the same character, at least as many, nothing else. */
-function closesFence(fence: string, line: string): boolean {
-  const char = fence.startsWith('`') ? '`' : '~';
-  return new RegExp(`^ {0,3}${char}{${fence.length},}\\s*$`).test(line);
-}
-
-/** Where a line leaves the hidden state it starts in. */
-function step(state: Hidden, line: string): Hidden {
-  if (state.in === 'none') return stepFree(line);
-  if (state.in === 'fence') return closesFence(state.fence, line) ? { in: 'none' } : state;
-  if (state.in === 'raw') return state.close.test(line) ? { in: 'none' } : state;
-  const end = line.indexOf('-->');
-  return end >= 0 && !opensComment(line.slice(end + 3)) ? { in: 'none' } : state;
-}
-
-/**
- * The line numbers of the markers a reader of the rendered page sees as a block of their own: a
- * line that is exactly the marker, at column 0, after an empty line (or first), and not inside
- * an HTML comment, a fenced code block or a raw HTML block (RAW_BLOCKS). A marker anywhere else
- * (in a paragraph, a list item, a quote, a link reference definition's title, a code block) is
- * text, not a marker.
- */
-function visibleMarkers(lines: readonly string[]): number[] {
-  const out: number[] = [];
-  let state: Hidden = { in: 'none' };
-  for (const [i, line] of lines.entries()) {
-    const free = state.in === 'none';
-    if (free && line === PROVENANCE_MARKER && (i === 0 || (lines[i - 1] ?? '').trim() === '')) {
-      out.push(i);
-      continue;
-    }
-    state = step(state, line);
-  }
-  return out;
-}
-
-/** HTML comments, which a rendered page hides; each stands for a line break. */
-const HTML_COMMENT = /<!--(?:>|->|[\s\S]*?(?:-->|$))/g;
-
-/**
- * The lines of the last stamp a reader of the rendered page sees, or undefined. A stamp is two
- * neighbouring visible markers (visibleMarkers) of which the first is followed directly by the
- * heading line. HTML comments inside it are removed, each leaving a line break.
- */
-function stampLines(body: string): string[] | undefined {
-  const lines = body
-    .replace(/\r\n?/g, '\n')
-    .split('\n')
-    .map((l) => l.trimEnd());
-  const markers = visibleMarkers(lines);
-  for (let k = markers.length - 2; k >= 0; k--) {
-    const open = markers[k] as number;
-    const close = markers[k + 1] as number;
-    if (lines[open + 1] !== STAMP_HEADING) continue;
-    const inside = lines
-      .slice(open + 2, close)
-      .join('\n')
-      .replace(HTML_COMMENT, '\n');
-    return inside.split('\n').map((l) => l.trim());
-  }
-  return undefined;
-}
-
-/** Keep a stamp line unless its list or the stamp as a whole is full; an omitted line is counted. */
-function keep(out: ParsedProvenanceStamp, list: string[], max: number, line: string): boolean {
-  const size = [...out.rows, ...out.notes].reduce((n, l) => n + l.length, 0);
-  if (list.length >= max || size + line.length > STAMP_LIMITS.total) {
-    out.omitted++;
-    return false;
-  }
-  list.push(line);
-  return true;
-}
-
-function readRow(out: ParsedProvenanceStamp, line: string, cells: StampCells): void {
-  if (!keep(out, out.rows, STAMP_LIMITS.rows, line)) return;
-  if (cells.Review === FINAL_REVIEW_LABEL) {
-    const head = /\.\.([0-9a-f]{7})/.exec(cells.Diff)?.[1];
-    out.finalRows.push({ gate: cells.Gate, ...(head !== undefined && { head }) });
-  }
-  const pass = /^pass at ([0-9a-f]{7})/.exec(cells.Gate)?.[1];
-  if (pass !== undefined) out.passedAt.push({ review: cells.Review, sha: pass });
-  if (pass !== undefined || cells.Gate.startsWith('FAIL:')) out.reviewed++;
-}
-
-/** The stamp's lines as blocks: runs of non-empty lines between empty ones. */
-function blocksOf(lines: readonly string[]): string[][] {
-  const blocks: string[][] = [[]];
-  for (const line of lines) {
-    if (line === '') blocks.push([]);
-    else blocks.at(-1)?.push(line);
-  }
-  return blocks.filter((b) => b.length > 0);
-}
-
-/**
- * Read a block in order: each line `accept` takes, up to the first it does not (that line and the
- * rest of the block are dropped: what follows a broken table or list is not shown as its rows).
- */
-function readBlock(
-  out: ParsedProvenanceStamp,
-  block: readonly string[],
-  accept: (line: string) => boolean
-) {
-  for (const [i, line] of block.entries()) {
-    if (line.length > STAMP_LIMITS.line) {
-      out.omitted++;
-      continue;
-    }
-    if (!accept(line)) {
-      out.dropped += block.length - i;
-      return;
-    }
-  }
-}
-
-/**
- * Read a stamp out of text nobody vouches for (a PR body). Only what a reader of the rendered
- * page sees as the stamp is read (stampLines): its first block is the table (the header line, the
- * rule line, then rows) or the no-review line, and its second block, if any, the notes. A line
- * is kept only when the renderer could have written it (the cell grammar, the note templates),
- * within fixed bounds; everything else, any other block included, is counted and left out.
- * undefined: the text holds no stamp.
- */
-export function parseProvenanceStamp(text: string): ParsedProvenanceStamp | undefined {
-  const lines = stampLines(text);
-  if (lines === undefined) return undefined;
-  const out: ParsedProvenanceStamp = {
-    rows: [],
-    notes: [],
-    dropped: 0,
-    omitted: 0,
-    reviewed: 0,
-    passedAt: [],
-    finalRows: [],
-  };
-  const [first = [], second = [], ...rest] = blocksOf(lines);
-  const noReview = first.length === 1 && first[0] === `_${NO_PIPELINE_REVIEW}._`;
-  if (!noReview && first[0] === STAMP_TABLE_HEADER && first[1] === STAMP_TABLE_RULE) {
-    readBlock(out, first.slice(2), (line) => {
-      const cells = parseStampRow(line);
-      if (cells !== undefined) readRow(out, line, cells);
-      return cells !== undefined;
-    });
-  } else if (!noReview) out.dropped += first.length;
-  readBlock(out, second, (line) => {
-    if (isStampNoteLine(line)) keep(out, out.notes, STAMP_LIMITS.notes, line);
-    return isStampNoteLine(line);
-  });
-  out.dropped += rest.reduce((n, b) => n + b.length, 0);
-  return out;
 }

@@ -1,7 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import type { ReviewDecisionRecord } from '@harness-engineering/types';
 import {
-  PROVENANCE_MARKER as MARKER,
   assembleStamp,
   buildProvenanceRow,
   renderProvenanceBlock,
@@ -12,9 +11,10 @@ import {
   STAMP_LIMITS,
   STAMP_TABLE_HEADER as HEADER,
   STAMP_TABLE_RULE as RULE,
-  parseProvenanceStamp,
+  PROVENANCE_MARKER as MARKER,
   parseStampRow,
 } from '../../src/receipts/stamp-grammar';
+import { parseProvenanceStamp } from '../../src/receipts/stamp-parser';
 import { jsonObjectFields, readSessionReviewState } from '../../src/receipts/decisions';
 import { AutopilotSessionStateSchema } from '../../src/state/autopilot-session-state';
 import type { CheckedReceiptResult } from '../../src/receipts/review-gate';
@@ -32,6 +32,7 @@ function row(review: string, pass: boolean, decisions: ReviewDecisionRecord[] = 
     failures: pass ? [] : [{ code: 'REQUIRED_REVIEWER_NOT_RUN', message: 'm' }],
     reviewersRun: pass ? 4 : 2,
     reviewersRequired: 4,
+    round: 1,
     receipt: {
       schemaVersion: 1,
       moment: review === 'final-all' ? 'final' : 'phase',
@@ -89,9 +90,9 @@ describe('security-hidden-stamp-link-definition: only a stamp the rendered page 
     expect(parsed?.rows[0]).toContain('FAIL: REQUIRED_REVIEWER_NOT_RUN');
     expect(parsed?.passedAt).toEqual([]);
   });
-  it('the control: a second stamp that renders is the one read (the last visible pair)', () => {
+  it('the control: a second stamp that renders makes both unread (fix round 1: conflicting)', () => {
     const parsed = parseProvenanceStamp(`${REAL}\n\n${forged.join('\n')}`);
-    expect(parsed?.passedAt).toEqual([{ review: 'final-all', sha: 'e4f5a6b' }]);
+    expect(parsed).toMatchObject({ status: 'conflicting', stamps: 2, passedAt: [], rows: [] });
   });
   it('rows a link definition hides below the table are not rows', () => {
     const body = REAL.replace(`\n\n${MARKER}`, `\n\n[r]: /x "\n${PASS_ROW}\n"\n\n${MARKER}`);

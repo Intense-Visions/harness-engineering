@@ -28,8 +28,19 @@ export { archiveReviewRound, listInterruptedArchives, readArchivedRounds } from 
 export type { ArchiveRoundResult } from './rounds';
 export { ReviewDecisionRecordSchema, jsonObjectFields, readSessionReviewState } from './decisions';
 export type { ExpectedUnknown, OrphanDecision, SessionReviewState } from './decisions';
-export { NO_PIPELINE_REVIEW, PROVENANCE_MARKER } from './provenance';
 export { assembleStamp, buildProvenanceRow, renderProvenanceBlock } from './provenance';
-export type { ReviewDirRead, StampRow } from './provenance';
-export { noteText, parseProvenanceStamp } from './stamp-grammar';
-export type { ParsedProvenanceStamp } from './stamp-grammar';
+export type {
+  CommitsAfter,
+  ProvenanceRow,
+  ProvenanceRowInput,
+  ReviewDirRead,
+  StampRow,
+  StampSessionState,
+  UnreadReview,
+  UnreadReviewRow,
+  UnreviewedCommits,
+} from './provenance';
+export { NO_PIPELINE_REVIEW, PROVENANCE_MARKER, noteText } from './stamp-grammar';
+export type { StampNote } from './stamp-grammar';
+export { parseProvenanceStamp } from './stamp-parser';
+export type { ParsedProvenanceStamp } from './stamp-parser';

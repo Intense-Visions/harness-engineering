@@ -13,6 +13,7 @@ import type {
   AutopilotSessionState,
   ReviewDecider,
   ReviewDecisionRecord,
+  ReadReviewDecision,
   ReviewReceipt,
 } from '@harness-engineering/types';
 import type { ReviewReceiptSchema, ReviewerFindingsFile } from '../../src/receipts/schema';
@@ -65,14 +66,21 @@ describe('runtime schemas match their contract types', () => {
     type Top = Omit<Known<Inferred>, 'phases'> & { phases?: AutopilotPhaseEntry[] };
     expectTypeOf<{ [K in keyof Top]: Top[K] }>().toEqualTypeOf<AutopilotSessionState>();
   });
-  it('ReviewDecisionRecordSchema is ReviewDecisionRecord as written, with no pass-through', () => {
+  it('ReviewDecisionRecordSchema is ReviewDecisionRecord as written, one shape per kind', () => {
     type Inferred = z.infer<typeof ReviewDecisionRecordSchema>;
     // A written record's decidedBy is one of REVIEW_DECIDERS; `unknown` is only what the
-    // session reader gives a record written before the field existed.
-    type Written = Omit<ReviewDecisionRecord, 'decidedBy'> & { decidedBy: ReviewDecider };
-    expectTypeOf<{ [K in keyof Inferred]: Inferred[K] }>().toEqualTypeOf<{
-      [K in keyof Written]: Written[K];
-    }>();
+    // session reader gives a record written before the field existed (ReadReviewDecision).
+    type ByKind<T, K> = Extract<T, { kind: K }>;
+    type Same<K> = { [P in keyof ByKind<Inferred, K>]: ByKind<Inferred, K>[P] };
+    type Want<K> = {
+      [P in keyof ByKind<ReviewDecisionRecord, K>]: ByKind<ReviewDecisionRecord, K>[P];
+    };
+    expectTypeOf<Same<'gate'>>().toEqualTypeOf<Want<'gate'>>();
+    expectTypeOf<Same<'findings'>>().toEqualTypeOf<Want<'findings'>>();
+    expectTypeOf<Same<'dismissed'>>().toEqualTypeOf<Want<'dismissed'>>();
+    expectTypeOf<Same<'skipped'>>().toEqualTypeOf<Want<'skipped'>>();
     expectTypeOf<Inferred>().toExtend<ReviewDecisionRecord>();
+    expectTypeOf<ReviewDecisionRecord>().toExtend<ReadReviewDecision>();
+    expectTypeOf<ReviewDecisionRecord['decidedBy']>().toEqualTypeOf<ReviewDecider>();
   });
 });

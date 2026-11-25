@@ -1,11 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import type { ReviewDecisionRecord } from '@harness-engineering/types';
 import { ReviewDecisionRecordSchema, readSessionReviewState } from '../../src/receipts/decisions';
-import {
-  buildProvenanceRow,
-  parseProvenanceStamp,
-  renderProvenanceBlock,
-} from '../../src/receipts/provenance';
+import { buildProvenanceRow, renderProvenanceBlock } from '../../src/receipts/provenance';
+import { parseProvenanceStamp } from '../../src/receipts/stamp-parser';
 import { noteText } from '../../src/receipts/stamp-grammar';
 import type { CheckedReceiptResult } from '../../src/receipts/review-gate';
 import type { BlockingReceiptFinding } from '../../src/receipts/schema';
@@ -89,6 +86,7 @@ const result = (ids: string[]): CheckedReceiptResult => ({
   failures: [],
   reviewersRun: 4,
   reviewersRequired: 4,
+  round: 1,
   receipt: {
     schemaVersion: 1,
     moment: 'phase',

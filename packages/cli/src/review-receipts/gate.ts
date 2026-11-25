@@ -54,9 +54,11 @@ export interface CheckReviewReceiptOptions {
   /** Refuse a receipt path that leaves `cwd` (the MCP tool, whose arguments are unvalidated). */
   confine?: boolean;
   /**
-   * `equal` (default): the reviewed head must be HEAD, as a review state requires. `ancestor`:
-   * HEAD or a commit in its history (git confirms), as the provenance stamp accepts for a review
-   * of an earlier commit of the branch.
+   * `equal` (default): the reviewed head must be HEAD and the tracked files must equal it, as a
+   * review state requires. `ancestor`: HEAD or a commit in its history (git confirms), as the
+   * provenance stamp accepts for a review of an earlier commit of the branch; the working tree is
+   * then not checked (WORKTREE_DIRTY is never raised), because the tree the stamp is rendered in
+   * is not the tree any of those reviews read. `check-review-receipt` keeps both checks.
    */
   headRule?: 'equal' | 'ancestor';
   /**
@@ -158,7 +160,7 @@ function recompute(
     diffFiles: listDiffFiles(git, base, head, cwd),
     baseIsAncestor: isAncestor(git, base, head, cwd),
     ...finalMergeBase(git, range, cwd),
-    worktreeClean: worktreeClean(git, cwd),
+    worktreeClean: rule === 'ancestor' ? 'not-checked' : worktreeClean(git, cwd),
   };
 }
 

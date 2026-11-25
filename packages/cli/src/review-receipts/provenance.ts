@@ -5,14 +5,13 @@ import {
   REVIEWS_DIRNAME,
   assembleStamp,
   noteText,
-  phaseOfReviewLabel,
   readSessionReviewState,
   renderProvenanceBlock,
   type Result,
   type ReviewDirRead,
   type StampRow,
 } from '@harness-engineering/core';
-import { gateReviewReceipt, type CwdGit } from './gate';
+import { gateReviewReceipt, type CwdGit, type UnreadReceipt } from './gate';
 import {
   isDirectory,
   listDirectoryEntries,
@@ -28,9 +27,9 @@ export interface ReviewProvenanceReport {
   session: string;
   reviewsDir: string;
   /**
-   * One entry per review, in stamp order: a reviewed row, `{ review, unread }` for a directory
-   * whose receipt could not be read, with the decisions recorded for it (status `absent`: an
-   * expected review with no directory, the MISSING row).
+   * One entry per review, in stamp order: a reviewed row, or `{ review, unread }` for a review
+   * whose receipt was not read, with the decisions recorded for it (status `absent`: an expected
+   * review with no directory, the MISSING row; `skipped`: a review a `skipped` decision covers).
    */
   rows: StampRow[];
   /** What the stamp says under the table, as printed. */
@@ -46,16 +45,35 @@ interface StampEnv {
   startingCommit: string | undefined;
 }
 
-/** Commits HEAD holds after the head the final review read. `unavailable` is never zero. */
-function commitsAfter(head: string, env: StampEnv): number | 'unavailable' {
-  const count = tryGit(env.git, ['rev-list', '--count', `${head}..HEAD`], env.cwd) ?? '';
+/** Commits HEAD holds after `from`. `unavailable` is never zero. */
+function commitsAfter(from: string, env: StampEnv): number | 'unavailable' {
+  const count = tryGit(env.git, ['rev-list', '--count', `${from}..HEAD`], env.cwd) ?? '';
   return /^\d+$/.test(count) ? Number(count) : 'unavailable';
+}
+
+/** Why a receipt the gate did not read is not on the stamp, each status as its own row state. */
+function unreadOf(unread: UnreadReceipt): Extract<ReviewDirRead, { unread: unknown }>['unread'] {
+  switch (unread.status) {
+    case 'missing':
+      return { status: 'missing' };
+    case 'unreadable':
+      return { status: 'unreadable', reason: unread.reason };
+    case 'outside-repo':
+      return { status: 'outside-repo' };
+    case 'outside':
+      return { status: 'outside' };
+    default: {
+      const never: never = unread;
+      return never;
+    }
+  }
 }
 
 /**
  * One review directory, gated again at render time so the row never presents an ungated review
- * as clean. The `ancestor` head rule: a phase receipt reviewed an earlier commit of this branch,
- * and that is not a failure on the PR. The gate is handed the state the render already read.
+ * as clean. The `ancestor` head rule: a review of an earlier commit of this branch is not a
+ * failure on the PR, and the working tree the stamp is rendered in is not checked (it is not the
+ * tree the review read). The gate is handed the state the render already read.
  */
 function readReviewDir(label: string, reviewDir: string, env: StampEnv): ReviewDirRead {
   const gated = gateReviewReceipt({
@@ -65,16 +83,10 @@ function readReviewDir(label: string, reviewDir: string, env: StampEnv): ReviewD
     headRule: 'ancestor',
     session: { startingCommit: env.startingCommit },
   });
-  if (!gated.read) {
-    const { unread } = gated;
-    if (unread.status === 'unreadable') return { review: label, unread };
-    return { review: label, unread: { status: 'missing' } };
-  }
+  if (!gated.read) return { review: label, unread: unreadOf(gated.unread) };
   const result = gated.result;
   if (!result.checked) return { review: label, unread: { status: 'invalid' } };
-  // Labels reach here already checked by assembleStamp: one that is no phase is final-all.
-  if (phaseOfReviewLabel(label) !== undefined) return { review: label, result };
-  return { review: label, result, unreviewedCommits: commitsAfter(result.receipt.diff.head, env) };
+  return { review: label, result };
 }
 
 /**
@@ -98,8 +110,11 @@ export function runReviewProvenanceRender(opts: {
   const dirs = listDirectoryEntries(reviewsDir);
   const state = readSessionReviewState(stateText);
   const env = { cwd, git, startingCommit: state.startingCommit };
-  const { rows, notes } = assembleStamp(state, dirs, (label) =>
-    readReviewDir(label, path.join(reviewsDir, label), env)
+  const { rows, notes } = assembleStamp(
+    state,
+    dirs,
+    (label) => readReviewDir(label, path.join(reviewsDir, label), env),
+    (from) => commitsAfter(from, env)
   );
   const block = renderProvenanceBlock(rows, notes);
   return Ok({ session: opts.session, reviewsDir, rows, notes: notes.map(noteText), block });

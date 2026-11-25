@@ -336,6 +336,7 @@ CommentedCodeBlock
 CommitFormat
 CommitHistoryEntry
 CommitValidation
+CommitsAfter
 CompactionPipeline
 CompactionStrategy
 CompetingClaim
@@ -1066,6 +1067,8 @@ ProtectedRegion
 ProtectedRegionMap
 ProtectionScope
 ProvenanceReport
+ProvenanceRow
+ProvenanceRowInput
 ProvenanceShapeFinding
 ProvenanceShapeIssueCode
 ProvenanceShapeResult
@@ -1114,6 +1117,7 @@ REVIEW_GATE_FAILURE_CODES
 REVIEW_MOMENTS
 REVIEW_RECEIPT_FILENAME
 REVIEW_RIGORS
+REVIEW_SKIP_REASONS
 REVIEW_TIERS
 REVIEW_TIER_DEMOTIONS
 RIGID_SECTIONS
@@ -1131,6 +1135,7 @@ ReadAutoDecisionsOptions
 ReadCommitsOptions
 ReadOverrideResult
 ReadPnyonServeTokenDeps
+ReadReviewDecision
 ReceiptReadProblem
 ReceiptUnreadReason
 ReconcileResult
@@ -1227,6 +1232,7 @@ ReviewPipelineResult
 ReviewPriorRound
 ReviewReceipt
 ReviewRigor
+ReviewSkipReason
 ReviewStage
 ReviewStrength
 ReviewSubagent
@@ -1514,7 +1520,9 @@ StaleConstraint
 StaleReference
 StalenessEntry
 StalenessReport
+StampNote
 StampRow
+StampSessionState
 StandaloneReviewBase
 StaticExtraction
 StepExecutor
@@ -1630,7 +1638,10 @@ UlidFactoryOptions
 UnexplainedConstraint
 UnfoldResult
 UnparsedFile
+UnreadReview
+UnreadReviewRow
 UnreleasedCommit
+UnreviewedCommits
 UnusedImport
 UpdateCheckState
 UsageRecord

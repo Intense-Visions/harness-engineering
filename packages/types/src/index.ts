@@ -598,6 +598,7 @@ export {
   FULL_SHA_PATTERN,
   REVIEW_DECISION_KINDS,
   REVIEW_DECIDERS,
+  REVIEW_SKIP_REASONS,
 } from './pipeline-receipts';
 export type {
   ReviewMoment,
@@ -618,6 +619,8 @@ export type {
   ReviewDecisionKind,
   ReviewDecider,
   ReviewDecisionRecord,
+  ReadReviewDecision,
+  ReviewSkipReason,
   AutopilotPhaseEntry,
   AutopilotSessionState,
 } from './pipeline-receipts';

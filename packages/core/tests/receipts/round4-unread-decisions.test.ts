@@ -2,10 +2,10 @@ import { describe, it, expect } from 'vitest';
 import type { ReviewDecisionRecord } from '@harness-engineering/types';
 import {
   assembleStamp,
-  parseProvenanceStamp,
   renderProvenanceBlock,
   type UnreadReviewRow,
 } from '../../src/receipts/provenance';
+import { parseProvenanceStamp } from '../../src/receipts/stamp-parser';
 import { readSessionReviewState } from '../../src/receipts/decisions';
 
 /**

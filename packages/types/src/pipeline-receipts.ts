@@ -178,8 +178,15 @@ export const FINDING_CLASSES = [
 ] as const;
 export type FindingClass = (typeof FINDING_CLASSES)[number];
 
-export const REVIEW_DECISION_KINDS = ['gate', 'findings', 'dismissed'] as const;
+export const REVIEW_DECISION_KINDS = ['gate', 'findings', 'dismissed', 'skipped'] as const;
 export type ReviewDecisionKind = (typeof REVIEW_DECISION_KINDS)[number];
+
+/**
+ * Why a review was not run: its range changed no files (`empty`), or the phase was dropped from
+ * the plan (`dropped`, the entry kept with `status: "skipped"`).
+ */
+export const REVIEW_SKIP_REASONS = ['empty', 'dropped'] as const;
+export type ReviewSkipReason = (typeof REVIEW_SKIP_REASONS)[number];
 
 /**
  * Who took a review decision: the human; the agent after a blind-then-refute self-audit agreed
@@ -188,32 +195,39 @@ export type ReviewDecisionKind = (typeof REVIEW_DECISION_KINDS)[number];
 export const REVIEW_DECIDERS = ['human', 'audited', 'unaudited'] as const;
 export type ReviewDecider = (typeof REVIEW_DECIDERS)[number];
 
-/**
- * A review decision in autopilot's `decisions[]`: the human let a review state be left over a
- * failed receipt gate (`gate`) or over blocking findings (`findings`), or blocking findings were
- * set aside as not applying (`dismissed`). Other fields of the entry are not read.
- */
-export interface ReviewDecisionRecord {
+/** The fields every review decision has. `D` is who may be named as having taken it. */
+interface ReviewDecisionFields<D extends string> {
   state: 'REVIEW' | 'FINAL_REVIEW';
   /** The phase's 0-based position in `phases[]`. Required for `REVIEW`. */
   phase?: number | string;
-  kind: ReviewDecisionKind;
   rationale: string;
-  /** `gate`: the failure codes that were overridden. */
-  codes?: ReviewGateFailureCode[];
-  /** `dismissed`: the ids of the blocking findings set aside. */
-  findingIds?: string[];
+  /** Who decided. */
+  decidedBy: D;
   /**
-   * Who decided. Required when written; `unknown` is only what the session reader gives a record
-   * written before the field existed (no `decidedBy` key at all).
-   */
-  decidedBy: ReviewDecider | 'unknown';
-  /**
-   * The round of the review the decision was taken in (the receipt's `round`). Default 1. A
-   * decision applies only to the receipt of the same round.
+   * The round of the review the decision was taken in: 1 + the `round-R/` archives of its review
+   * directory. Default 1. A decision applies only to the receipt of the same round.
    */
   round?: number;
 }
+
+/**
+ * A review decision in autopilot's `decisions[]`, as written: the human let a review state be
+ * left over a failed receipt gate (`gate`, naming the failure codes) or over blocking findings
+ * (`findings`); blocking findings were set aside as not applying (`dismissed`, naming their ids);
+ * or the review was not run (`skipped`, with why, and for an empty range the head it was found
+ * empty at). Other fields of the entry are not read.
+ */
+export type ReviewDecisionRecord<D extends string = ReviewDecider> =
+  | (ReviewDecisionFields<D> & { kind: 'gate'; codes: ReviewGateFailureCode[] })
+  | (ReviewDecisionFields<D> & { kind: 'findings' })
+  | (ReviewDecisionFields<D> & { kind: 'dismissed'; findingIds: string[] })
+  | (ReviewDecisionFields<D> & { kind: 'skipped'; reason: ReviewSkipReason; head?: string });
+
+/**
+ * A review decision as the session reader gives it: one written before `decidedBy` existed (no
+ * such key at all) reads as decided by `unknown`. Never written.
+ */
+export type ReadReviewDecision = ReviewDecisionRecord<ReviewDecider | 'unknown'>;
 
 /**
  * One entry of `phases[]` in a session's `autopilot-state.json`, as far as code reads it; other

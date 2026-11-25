@@ -5,7 +5,7 @@ import {
   type ProvenanceRow,
   type ReviewDirRead,
 } from '../../src/receipts/provenance';
-import type { CheckedReceiptResult } from '../../src/receipts/review-gate';
+import type { CheckedReceiptResult, PhaseReviewBase } from '../../src/receipts/review-gate';
 
 /**
  * Round 4, fix 13. The stamp's rows and notes are assembled in core. The continuity check
@@ -14,8 +14,10 @@ import type { CheckedReceiptResult } from '../../src/receipts/review-gate';
  */
 const sha = (c: string) => c.repeat(40);
 const START = sha('0');
-const result = (base: string, head: string): CheckedReceiptResult => ({
+const result = (base: string, head: string, phaseBase?: PhaseReviewBase): CheckedReceiptResult => ({
   checked: true,
+  round: 1,
+  ...(phaseBase !== undefined && { phaseBase }),
   pass: true,
   failures: [],
   reviewersRun: 1,
@@ -36,7 +38,19 @@ const result = (base: string, head: string): CheckedReceiptResult => ({
   loaded: [],
   notLoaded: [],
 });
-type Dir = ['ok', string, string] | ['unread'] | ['absent'];
+/** A reviewed phase: its range and the base the gate demanded of it (phaseReviewBase). */
+type Dir = ['ok', string, string, PhaseReviewBase] | ['unread'] | ['absent'];
+const fromPhase = (phase: number, base: string): PhaseReviewBase => ({
+  status: 'resolved',
+  base,
+  source: 'previous-phase',
+  phase,
+});
+const fromStart = (base = START): PhaseReviewBase => ({
+  status: 'resolved',
+  base,
+  source: 'starting-commit',
+});
 function assemble(dirs: Dir[]) {
   const state = readSessionReviewState(
     JSON.stringify({ startingCommit: START, phases: dirs.map((_, i) => ({ name: `P${i}` })) })
@@ -45,23 +59,28 @@ function assemble(dirs: Dir[]) {
   const read = (label: string): ReviewDirRead => {
     const d = dirs[Number(label.slice('phase-'.length))]!;
     return d[0] === 'ok'
-      ? { review: label, result: result(d[1], d[2]) }
+      ? { review: label, result: result(d[1], d[2], d[3]) }
       : { review: label, unread: { status: 'missing' } };
   };
   return assembleStamp(state, { labels, skipped: 0 }, read);
 }
 const gaps = (dirs: Dir[]) =>
   assemble(dirs)
-    .rows.filter((r): r is ProvenanceRow => typeof r !== 'string' && 'receipt' in r)
+    .rows.filter((r): r is ProvenanceRow => 'receipt' in r)
     .map((r) => [r.review, r.gapAfter ?? null]);
 
-describe('assembleStamp: the gap check', () => {
+/**
+ * Fix round 1 (bug-gap-ignores-reachability, adversarial-gap-uses-receipt-gate-passes-over): the
+ * gap is the gate's own phase-base rule, read from the gate's result, so an earlier receipt the
+ * gate passed over (off the branch after a rebase, not a valid phase receipt) is passed over here.
+ */
+describe("assembleStamp: the gap check is the gate's phase base", () => {
   const rows: Array<[string, Dir[], Array<[string, string | null]>]> = [
     [
       'continuous phases',
       [
-        ['ok', START, sha('a')],
-        ['ok', sha('a'), sha('b')],
+        ['ok', START, sha('a'), fromStart()],
+        ['ok', sha('a'), sha('b'), fromPhase(0, sha('a'))],
       ],
       [
         ['phase-0', null],
@@ -70,14 +89,14 @@ describe('assembleStamp: the gap check', () => {
     ],
     [
       'phase-0 not at the starting commit',
-      [['ok', sha('9'), sha('a')]],
+      [['ok', sha('9'), sha('a'), fromStart()]],
       [['phase-0', 'starting-commit']],
     ],
     [
       'a phase that skips the previous head',
       [
-        ['ok', START, sha('a')],
-        ['ok', sha('9'), sha('b')],
+        ['ok', START, sha('a'), fromStart()],
+        ['ok', sha('9'), sha('b'), fromPhase(0, sha('a'))],
       ],
       [
         ['phase-0', null],
@@ -85,33 +104,32 @@ describe('assembleStamp: the gap check', () => {
       ],
     ],
     [
-      'after a MISSING phase: compared with the nearest earlier reviewed head (gap)',
-      [['ok', START, sha('a')], ['absent'], ['ok', sha('b'), sha('c')]],
+      'after a MISSING phase: the nearest earlier usable receipt',
+      [
+        ['ok', START, sha('a'), fromStart()],
+        ['absent'],
+        ['ok', sha('b'), sha('c'), fromPhase(0, sha('a'))],
+      ],
       [
         ['phase-0', null],
         ['phase-2', 'phase-0'],
       ],
     ],
     [
-      'after a MISSING phase: no gap when it starts where the last reviewed phase ended',
-      [['ok', START, sha('a')], ['absent'], ['ok', sha('a'), sha('c')]],
+      'after a rebase: phase-0 is off the branch, the new starting commit is the base, no gap',
+      [
+        ['ok', sha('1'), sha('a'), fromStart(sha('1'))],
+        ['ok', sha('7'), sha('c'), fromStart(sha('7'))],
+      ],
       [
         ['phase-0', null],
-        ['phase-2', null],
+        ['phase-1', null],
       ],
     ],
     [
-      'after an unread phase: compared with the nearest earlier reviewed head',
-      [['ok', START, sha('a')], ['unread'], ['ok', sha('b'), sha('c')]],
-      [
-        ['phase-0', null],
-        ['phase-2', 'phase-0'],
-      ],
-    ],
-    [
-      'no earlier phase was reviewed: compared with the starting commit',
-      [['absent'], ['ok', sha('b'), sha('c')]],
-      [['phase-1', 'starting-commit']],
+      'no base could be named: no gap is claimed (the gate fails PHASE_BASE_UNKNOWN)',
+      [['ok', sha('b'), sha('c'), { status: 'unresolved', reason: 'starting-commit-unknown' }]],
+      [['phase-0', null]],
     ],
   ];
   it.each(rows)('%s', (_name, dirs, expected) => {
@@ -119,11 +137,6 @@ describe('assembleStamp: the gap check', () => {
   });
   it('the rows include MISSING and unread rows in order, and the final review', () => {
     const out = assemble([['ok', START, sha('a')], ['absent'], ['unread']]);
-    expect(out.rows.map((r) => (typeof r === 'string' ? r : r.review))).toEqual([
-      'phase-0',
-      'phase-1',
-      'phase-2',
-      'final-all',
-    ]);
+    expect(out.rows.map((r) => r.review)).toEqual(['phase-0', 'phase-1', 'phase-2', 'final-all']);
   });
 });

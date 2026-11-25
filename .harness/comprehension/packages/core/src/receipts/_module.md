@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/src/receipts'
-sourceHash: 'f8e9b66c63c77c1846b538e0fbf353d1024c6084002ddc4a0fa97686e1af6cfb'
+sourceHash: '15b01742667c626539583cc4c8c59ad988da096bcfdbf7525699e49b86de8b3f'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -17,6 +17,7 @@ members:
     'rounds.ts',
     'schema.ts',
     'stamp-grammar.ts',
+    'stamp-parser.ts',
   ]
 ---
 
@@ -24,6 +25,7 @@ members:
 
 ```ts
 export ArchiveRoundResult
+export CommitsAfter
 export EarlierPhaseReceipt
 export ExpectedUnknown
 export FinalReviewBase
@@ -33,6 +35,8 @@ export OrphanDecision
 export PROVENANCE_MARKER
 export ParsedProvenanceStamp
 export PhaseReviewBase
+export ProvenanceRow
+export ProvenanceRowInput
 export REVIEWS_DIRNAME
 export REVIEW_RECEIPT_FILENAME
 export ResolvedReviewBackend
@@ -42,8 +46,13 @@ export ReviewGateContext
 export ReviewGateFailure
 export ReviewGateResult
 export SessionReviewState
+export StampNote
 export StampRow
+export StampSessionState
 export StandaloneReviewBase
+export UnreadReview
+export UnreadReviewRow
+export UnreviewedCommits
 export archiveReviewRound
 export assembleStamp
 export buildProvenanceRow
@@ -83,8 +92,8 @@ import { ExpectedMoment, FINAL_REVIEW_LABEL, REVIEW_RECEIPT_FILENAME, SESSION_RE
 import { errnoReason, readReviewReceiptFile, reviewFindingsReaderFor } from './load'
 import { CheckedReceiptResult } from './review-gate'
 import { ReviewFindingTally, ReviewerFindingsFile, parseReviewReceipt, parseReviewerFindingsFile, tallyReviewFindings } from './schema'
-import { MISSING_REVIEW, NO_PIPELINE_REVIEW, PROVENANCE_MARKER, ParsedProvenanceStamp, SESSION_REVIEW_LABEL, STAMP_COLUMNS, STAMP_HEADING, STAMP_LIMITS, STAMP_TABLE_HEADER, STAMP_TABLE_RULE, StampCells, StampNote, UNREAD_REASON, compareReviewLabels, countsText, inert, listed, noteText, parseProvenanceStamp, plural } from './stamp-grammar'
-import { ArchivedRound, CONDITIONAL_REVIEWER_IDS, ERRNO_REASON, ESCAPED_FROM_STAGES, Err, EscapedFrom, FINDING_CLASSES, FULL_SHA_PATTERN, FULL_TIER_REVIEWER_IDS, FindingClass, LIGHT_TIER_REVIEWER_ID, Ok, RECEIPT_UNREAD_REASONS, REVIEW_BACKENDS, REVIEW_BASE_SOURCES, REVIEW_DECIDERS, REVIEW_DECISION_KINDS, REVIEW_GATE_FAILURE_CODES, REVIEW_MOMENTS, REVIEW_TIERS, REVIEW_TIER_DEMOTIONS, ReceiptReadProblem, ReceiptUnreadReason, Result, ReviewBackend, ReviewBaseSource, ReviewDecisionKind, ReviewDecisionRecord, ReviewGateFailureCode, ReviewMoment, ReviewPriorRound, ReviewReceipt, ReviewTier, ReviewerRecord } from '@harness-engineering/types'
+import { FINAL_REVIEW_LABEL, MISSING_REVIEW, NO_PIPELINE_REVIEW, PROVENANCE_MARKER, SESSION_REVIEW_LABEL, STAMP_COLUMNS, STAMP_HEADING, STAMP_LIMITS, STAMP_TABLE_HEADER, STAMP_TABLE_RULE, StampCells, StampNote, UNREAD_REASON, compareReviewLabels, countsText, inert, isStampNoteLine, listed, noteText, parseStampRow, plural } from './stamp-grammar'
+import { ArchivedRound, CONDITIONAL_REVIEWER_IDS, ERRNO_REASON, ESCAPED_FROM_STAGES, Err, EscapedFrom, FINDING_CLASSES, FULL_SHA_PATTERN, FULL_TIER_REVIEWER_IDS, FindingClass, LIGHT_TIER_REVIEWER_ID, Ok, RECEIPT_UNREAD_REASONS, REVIEW_BACKENDS, REVIEW_BASE_SOURCES, REVIEW_DECIDERS, REVIEW_DECISION_KINDS, REVIEW_GATE_FAILURE_CODES, REVIEW_MOMENTS, REVIEW_SKIP_REASONS, REVIEW_TIERS, REVIEW_TIER_DEMOTIONS, ReadReviewDecision, ReceiptReadProblem, ReceiptUnreadReason, Result, ReviewBackend, ReviewBaseSource, ReviewDecisionKind, ReviewGateFailureCode, ReviewMoment, ReviewPriorRound, ReviewReceipt, ReviewSkipReason, ReviewTier, ReviewerRecord } from '@harness-engineering/types'
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import { z } from 'zod'

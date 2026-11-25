@@ -1,18 +1,25 @@
 import { describe, it, expect } from 'vitest';
 import {
-  NO_PIPELINE_REVIEW,
-  PROVENANCE_MARKER,
   buildProvenanceRow,
-  parseProvenanceStamp,
   renderProvenanceBlock,
   type ProvenanceRowInput,
 } from '../../src/receipts/provenance';
+import { NO_PIPELINE_REVIEW, PROVENANCE_MARKER } from '../../src/receipts/stamp-grammar';
+import { parseProvenanceStamp } from '../../src/receipts/stamp-parser';
 import type { BlockingReceiptFinding } from '../../src/receipts/schema';
 import type {
   ReviewDecisionRecord,
   ReviewGateFailureCode,
   ReviewReceipt,
 } from '@harness-engineering/types';
+
+/** An expected review with no directory: the MISSING row. */
+const absent = (review: string) => ({
+  review,
+  unread: { status: 'absent' as const },
+  decisions: [],
+  decisionsReadable: true,
+});
 
 const BASE = 'a1b2c3d' + '0'.repeat(33);
 const HEAD = 'e4f5a6b' + '1'.repeat(33);
@@ -66,6 +73,7 @@ const build = (review: string, over: Over = {}) => {
       reviewersRun: 4 - notLoaded.length,
       reviewersRequired: 4,
       receipt: receipt(r),
+      round: r?.round ?? 1,
       tally: { blocking: findings, advisory: 0 },
       loaded: [],
       notLoaded,
@@ -233,7 +241,7 @@ describe('renderProvenanceBlock', () => {
 
 describe('fix 10: the stamp shows the reviews it expected and did not find', () => {
   it('renders a label with no row as MISSING, in the order given', () => {
-    const block = renderProvenanceBlock([build('phase-0'), 'phase-1', 'final-all']);
+    const block = renderProvenanceBlock([build('phase-0'), absent('phase-1'), absent('final-all')]);
     expect(cellsOf(block, 'phase-1')).toEqual([
       'phase-1',
       '-',
@@ -252,7 +260,7 @@ describe('fix 10: the stamp shows the reviews it expected and did not find', () 
     expect(block.indexOf('| phase-1 |')).toBeLessThan(block.indexOf('| final-all |'));
   });
   it('a stamp of MISSING rows only is a table, not the "no review" sentence', () => {
-    const block = renderProvenanceBlock(['phase-0', 'final-all']);
+    const block = renderProvenanceBlock([absent('phase-0'), absent('final-all')]);
     expect(block).not.toContain(NO_PIPELINE_REVIEW);
     expect(parseProvenanceStamp(block)).toMatchObject({ reviewed: 0 });
     expect(parseProvenanceStamp(block)?.rows).toHaveLength(2);

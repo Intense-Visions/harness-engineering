@@ -10,6 +10,7 @@ import {
   runReviewProvenanceRender,
 } from '../../src/commands/review-provenance';
 import type { CwdGit } from '../../src/review-receipts/io';
+import { runCheckReviewReceipt } from '../../src/review-receipts/gate';
 
 const BASE = 'a1b2c3d' + '0'.repeat(33);
 const HEAD = 'e4f5a6b' + '1'.repeat(33);
@@ -55,6 +56,20 @@ function review(label: string, over: ReviewOver = {}) {
   });
   fs.writeFileSync(path.join(dir, 'receipt.json'), JSON.stringify(receipt));
   return dir;
+}
+/**
+ * Archive round 1 beside a review's receipt, as `--archive-round` leaves it: the gate counts a
+ * review's round as 1 + its `round-R/` archives (fix round 1: the stamp keys decisions on that).
+ */
+function archiveRound1(dir: string, blockingCount: number) {
+  const current = JSON.parse(fs.readFileSync(path.join(dir, 'receipt.json'), 'utf-8'));
+  delete current.round;
+  delete current.priorRounds;
+  fs.mkdirSync(path.join(dir, 'round-1'));
+  fs.writeFileSync(
+    path.join(dir, 'round-1', 'receipt.json'),
+    JSON.stringify({ ...current, diff: { base: BASE, head: BASE }, blocking: blockingCount })
+  );
 }
 const blocking = (id = 'b1') => ({
   id,
@@ -467,9 +482,10 @@ describe('fix 12: coverage is shown, not gated', () => {
 describe('fix 13: fix rounds stay visible', () => {
   it('shows the round and the blocking totals of earlier rounds', () => {
     state(1);
-    review('phase-0', {
+    const dir = review('phase-0', {
       receipt: { round: 2, priorRounds: [{ round: 1, head: BASE, blocking: 3 }] },
     });
+    archiveRound1(dir, 3);
     expect(cellsOf(render().block, 'phase-0')[8]).toBe('0; round 2; round 1: 3 blocking');
   });
 });
@@ -567,11 +583,13 @@ describe('harness review-provenance render', () => {
     );
     expect(doc.rows[0]).toMatchObject({ review: 'phase-0', receipt: { tier: 'light' } });
     // Round 4, fix 7: a MISSING row is an object carrying the review's decisions.
+    // Fix round 1: a final row with no receipt counts the commits after the starting commit.
     expect(doc.rows[1]).toEqual({
       review: 'final-all',
       unread: { status: 'absent' },
       decisions: [],
       decisionsReadable: true,
+      unreviewedCommits: 0,
     });
     expect(doc.notes).toEqual([]);
   });
@@ -711,11 +729,14 @@ describe('round 3, fix 10: the first phase starts at the starting commit', () =>
     ['another commit', OTHER, 'a1b2c3d..e4f5a6b (gap: base is not the session starting commit)'],
     ['a short sha', OTHER.slice(0, 7), 'a1b2c3d..e4f5a6b'],
   ])('starting commit %s', (_name, start, diff) => {
+    // The gate demands the starting commit only when it is an ancestor of the head.
+    git = fakeGit(HEAD, [HEAD, BASE, OTHER]);
     withStart(start);
     review('phase-0');
     expect(cellsOf(render().block, 'phase-0')[5]).toBe(diff);
   });
   it('round 4: with no earlier reviewed phase, a later phase is compared with the starting commit', () => {
+    git = fakeGit(HEAD, [HEAD, BASE, OTHER]);
     withStart(OTHER);
     review('phase-1');
     expect(cellsOf(render().block, 'phase-1')[5]).toBe(
@@ -758,8 +779,14 @@ describe('round 3, fix 6: decisions are matched by label and round', () => {
   it('the same decisions recorded for round 2 do apply', () => {
     const round2 = { state: 'REVIEW', phase: 0, rationale: 'r', round: 2 };
     state(1, [{ ...round2, kind: 'dismissed', findingIds: ['b1'] }]);
-    review('phase-0', { findings: [blocking('b1')], receipt: { round: 2 } });
-    expect(cellsOf(render().block, 'phase-0')[8]).toBe('1 (1 dismissed); round 2');
+    const dir = review('phase-0', {
+      findings: [blocking('b1')],
+      receipt: { round: 2, priorRounds: [{ round: 1, head: BASE, blocking: 1 }] },
+    });
+    archiveRound1(dir, 1);
+    expect(cellsOf(render().block, 'phase-0')[8]).toBe(
+      '1 (1 dismissed); round 2; round 1: 1 blocking'
+    );
   });
 });
 
@@ -827,5 +854,55 @@ describe('unit 3: render --json survives a decision with a deeply nested extra k
     expect(out.rows[0].decisions).toEqual([
       { state: 'REVIEW', phase: 0, kind: 'findings', rationale: 'ok', decidedBy: 'human' },
     ]);
+  });
+});
+
+/** Unit 3, fix round 1, at the command. */
+describe('unit 3 fix round 1: render', () => {
+  /** fakeGit, with tracked files that differ from HEAD. */
+  const dirtyGit = (): CwdGit => {
+    const inner = fakeGit();
+    return (args, cwd) => (args[0] === 'status' ? ' M a.ts\0' : inner(args, cwd));
+  };
+  it('a dirty working tree does not fail rows: render does not check the tree', () => {
+    state(1);
+    review('phase-0');
+    git = dirtyGit();
+    expect(cellsOf(render().block, 'phase-0')[7]).toBe('pass at e4f5a6b');
+  });
+  it('the control: check-review-receipt still fails WORKTREE_DIRTY on the same tree', () => {
+    state(1);
+    const dir = review('phase-0');
+    const report = runCheckReviewReceipt({ receiptPath: dir, cwd: tmp, git: dirtyGit() });
+    expect(report.failures.map((f) => f.code)).toContain('WORKTREE_DIRTY');
+  });
+  it('a phase skipped as empty and a dropped phase render as skipped, not MISSING', () => {
+    const skip = { kind: 'skipped', rationale: 'r', decidedBy: 'human', state: 'REVIEW' };
+    state(3, [
+      { ...skip, phase: 1, reason: 'empty', head: HEAD },
+      { ...skip, phase: 2, reason: 'dropped' },
+    ]);
+    review('phase-0');
+    const block = render().block;
+    expect(cellsOf(block, 'phase-1')[7]).toBe('skipped (empty)');
+    expect(cellsOf(block, 'phase-2')[7]).toBe('skipped (dropped)');
+    expect(parseProvenanceStamp(block)?.rows).toHaveLength(4);
+  });
+  it('an overridden missing final receipt counts the commits after the starting commit', () => {
+    state(1, [
+      {
+        state: 'FINAL_REVIEW',
+        kind: 'gate',
+        codes: ['RECEIPT_MISSING'],
+        rationale: 'reviewer crashed',
+        decidedBy: 'human',
+      },
+    ]);
+    review('phase-0');
+    fs.mkdirSync(path.join(session, 'reviews', 'final-all'));
+    git = fakeGit(HEAD, [HEAD, BASE], 2);
+    expect(cellsOf(render().block, 'final-all')[7]).toBe(
+      'receipt missing (overridden), +2 commits not reviewed'
+    );
   });
 });

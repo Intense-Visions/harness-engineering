@@ -5,21 +5,24 @@ import {
   REVIEW_DECIDERS,
   REVIEW_DECISION_KINDS,
   REVIEW_GATE_FAILURE_CODES,
+  REVIEW_SKIP_REASONS,
+  type ReadReviewDecision,
   type ReviewDecisionRecord,
   type ReviewGateFailureCode,
   type ReviewReceipt,
 } from '@harness-engineering/types';
 import {
-  PROVENANCE_MARKER as MARKER,
   STARTING_COMMIT_GAP,
   buildProvenanceRow,
-  parseProvenanceStamp,
   renderProvenanceBlock,
   type ProvenanceRowInput,
   type StampRow,
+  type UnreadReview,
 } from '../../src/receipts/provenance';
 import type { BlockingReceiptFinding } from '../../src/receipts/schema';
+import { parseProvenanceStamp } from '../../src/receipts/stamp-parser';
 import {
+  PROVENANCE_MARKER as MARKER,
   NO_PIPELINE_REVIEW,
   STAMP_COLUMNS,
   STAMP_LIMITS,
@@ -33,6 +36,14 @@ import {
   type StampNote,
   type StampNoteId,
 } from '../../src/receipts/stamp-grammar';
+
+/** An expected review with no directory: the MISSING row. */
+const absent = (review: string) => ({
+  review,
+  unread: { status: 'absent' as const },
+  decisions: [],
+  decisionsReadable: true,
+});
 
 const NO_REVIEW = `_${NO_PIPELINE_REVIEW}._`;
 const BASE = 'a1b2c3d' + '0'.repeat(33);
@@ -76,6 +87,7 @@ const build = (review: string, over: Over = {}) => {
       reviewersRun: 4,
       reviewersRequired: 4,
       receipt: receipt(r),
+      round: r?.round ?? 1,
       tally: { blocking: findings, advisory: 0 },
       loaded: [],
       notLoaded,
@@ -304,22 +316,32 @@ describe('fix 6: a decision applies to the receipt of its own round only', () =>
  * receipt, a receipt that is not a receipt, and each unreadable reason the reader can give.
  */
 describe('fix 9: a review directory without a readable receipt is a row', () => {
+  const unread = (u: UnreadReview): StampRow => ({
+    review: 'phase-1',
+    unread: u,
+    decisions: [],
+    decisionsReadable: true,
+  });
   it.each<[string, StampRow, string]>([
-    ['no directory', 'phase-1', 'MISSING'],
-    ['no receipt', { review: 'phase-1', unread: { status: 'missing' } }, 'receipt missing'],
-    ['an invalid receipt', { review: 'phase-1', unread: { status: 'invalid' } }, 'receipt invalid'],
+    ['no directory', absent('phase-1'), 'MISSING'],
+    ['no receipt', unread({ status: 'missing' }), 'receipt missing'],
+    ['an invalid receipt', unread({ status: 'invalid' }), 'receipt invalid'],
     ...['EACCES', 'EISDIR', 'ELOOP', 'not valid JSON', 'not a regular file', 'too large'].map(
       (reason): [string, StampRow, string] => [
         reason,
-        { review: 'phase-1', unread: { status: 'unreadable', reason } },
+        unread({ status: 'unreadable', reason }),
         `receipt unreadable (${reason})`,
       ]
     ),
     [
       'a reason that is not one the reader gives',
-      { review: 'phase-1', unread: { status: 'unreadable', reason: 'see https://x @y' } },
+      unread({ status: 'unreadable', reason: 'see https://x @y' }),
       'receipt unreadable (UNKNOWN)',
     ],
+    ['in another repository', unread({ status: 'outside-repo' }), 'receipt outside repository'],
+    ['outside the project', unread({ status: 'outside' }), 'receipt outside project'],
+    ['skipped as empty', unread({ status: 'skipped', reason: 'empty' }), 'skipped (empty)'],
+    ['dropped', unread({ status: 'skipped', reason: 'dropped' }), 'skipped (dropped)'],
   ])('%s -> Gate cell %s, every other cell a dash', (_name, row, gate) => {
     const block = renderProvenanceBlock([row]);
     const line = block.split('\n').find((l) => l.startsWith('| phase-1 |')) ?? '';
@@ -330,7 +352,14 @@ describe('fix 9: a review directory without a readable receipt is a row', () => 
     expect(parseProvenanceStamp(block)?.rows).toHaveLength(1);
   });
   it('a final review directory without a receipt is a row too', () => {
-    const block = renderProvenanceBlock([{ review: 'final-all', unread: { status: 'missing' } }]);
+    const block = renderProvenanceBlock([
+      {
+        review: 'final-all',
+        unread: { status: 'missing' },
+        decisions: [],
+        decisionsReadable: true,
+      },
+    ]);
     expect(block).toContain('| final-all | - | - | - | - | - | - | receipt missing |');
   });
 });
@@ -422,6 +451,7 @@ const ALL_NOTES: StampNote[] = [
   note('decisions-unreadable'),
   note('decisions-legacy', { n: 2 }),
   note('orphan-label', { n: 1, label: 'phase-9' }),
+  note('decision-no-row', { n: 2, label: 'phase-3' }),
   note('orphan-state', { kind: 'gate', state: 'PHASE_COMPLETE' }),
 ];
 
@@ -434,7 +464,7 @@ describe('fix 11: a note is one of the renderer templates or it is not a note', 
     expect(ALL_NOTES.map((n) => n.id).sort()).toEqual(Object.keys(STAMP_NOTES).sort());
   });
   it.each(ALL_NOTES)('renders and reads back $id', (n) => {
-    const parsed = parseProvenanceStamp(renderProvenanceBlock(['phase-0'], [n]));
+    const parsed = parseProvenanceStamp(renderProvenanceBlock([absent('phase-0')], [n]));
     expect(parsed?.notes).toEqual([`- ${noteText(n)}`]);
     expect(parsed?.dropped).toBe(0);
   });
@@ -467,27 +497,35 @@ describe('fix 11: a note is one of the renderer templates or it is not a note', 
  * one stamp, five; a stamp inside an HTML comment; a hidden stamp after a visible one; an
  * unclosed comment before a stamp; CRLF line ends.
  */
-describe('fix 11: the last complete visible marker pair that opens a stamp is the stamp', () => {
+/**
+ * Fix round 1 (security-details-hidden-stamp-read): more than one visible stamp is `conflicting`,
+ * and none of them is read, where the last one used to win.
+ */
+describe('fix 11: the one visible marker pair that opens a stamp is the stamp', () => {
   const stamp = (label: string) => renderProvenanceBlock([build(label)]);
   const A = stamp('phase-0');
   const B = stamp('phase-1');
-  const labels = (body: string) =>
-    parseProvenanceStamp(body)?.rows.map((r) => r.split('|')[1]?.trim());
-  it.each<[string, string, string[] | undefined]>([
+  const labels = (body: string) => {
+    const parsed = parseProvenanceStamp(body);
+    if (parsed?.status === 'conflicting') return `conflicting ${parsed.stamps}`;
+    return parsed?.rows.map((r) => r.split('|')[1]?.trim());
+  };
+  it.each<[string, string, string[] | string | undefined]>([
     ['no marker', 'just a description', undefined],
     ['one marker', `quote: ${MARKER} is the marker`, undefined],
     ['two markers: a stamp', A, ['phase-0']],
     ['two markers with nothing of a stamp between', `${MARKER} hello ${MARKER}`, undefined],
     ['three: one quoted before the stamp', `quote: ${MARKER} is the marker\n\n${A}`, ['phase-0']],
     ['three: one dangling after the stamp', `${A}\n\ntrailing ${MARKER}`, ['phase-0']],
-    ['four: two stamps, the last wins', `${A}\n\n${B}`, ['phase-1']],
+    ['four: two stamps, none is read', `${A}\n\n${B}`, 'conflicting 2'],
     [
       'four: a quoted marker on each side of one stamp',
       `q ${MARKER}\n\n${A}\n\nq ${MARKER}`,
       ['phase-0'],
     ],
-    ['five: a quoted marker, then two stamps', `q ${MARKER}\n\n${A}\n\n${B}`, ['phase-1']],
-    ['five: two stamps, then a dangling marker', `${A}\n\n${B}\n\nq ${MARKER}`, ['phase-1']],
+    ['five: a quoted marker, then two stamps', `q ${MARKER}\n\n${A}\n\n${B}`, 'conflicting 2'],
+    ['five: two stamps, then a dangling marker', `${A}\n\n${B}\n\nq ${MARKER}`, 'conflicting 2'],
+    ['six: three stamps', `${A}\n\n${B}\n\n${A}`, 'conflicting 3'],
     // A marker that does not start a block of its own (the line before it is not empty) is text.
     ['a stamp glued to the line before it', `q ${MARKER}\n${A}`, undefined],
     ['the later of two glued stamps', `${A}\n${B}`, ['phase-0']],
@@ -544,8 +582,13 @@ describe('fix 11: the last complete visible marker pair that opens a stamp is th
     const block = renderProvenanceBlock([
       build('phase-0'),
       build('phase-1', { fail: ['HEAD_MISMATCH'] }),
-      'phase-2',
-      { review: 'final-all', unread: { status: 'missing' } },
+      absent('phase-2'),
+      {
+        review: 'final-all',
+        unread: { status: 'missing' },
+        decisions: [],
+        decisionsReadable: true,
+      },
     ]);
     expect(parseProvenanceStamp(block)).toMatchObject({
       reviewed: 2,
@@ -580,7 +623,7 @@ describe('fix 11: the parser bounds rows, notes and size, and counts what it lea
   it.each([
     [STAMP_LIMITS.notes, 0],
     [STAMP_LIMITS.notes + 1, 1],
-    [30000, 30000 - STAMP_LIMITS.notes],
+    [3000, 3000 - STAMP_LIMITS.notes],
   ])('%i notes: %i omitted', (n, omitted) => {
     const parsed = parseProvenanceStamp(notesBody(Array.from({ length: n }, () => aNote)));
     expect(parsed).toMatchObject({ omitted, dropped: 0 });
@@ -682,34 +725,51 @@ describe('fix 8: whatever the renderer writes, the parser accepts (300 seeded ca
     const text = (max: number) => Array.from({ length: int(max) }, () => pick(NASTY)).join('');
     const some = <T>(xs: readonly T[], max: number) =>
       Array.from({ length: int(max + 1) }, () => pick(xs));
-    const aDecision = (): ReviewDecisionRecord => {
+    const aDecision = (): ReadReviewDecision => {
       const kind = pick(REVIEW_DECISION_KINDS);
-      return {
+      const base = {
         state: pick(['REVIEW', 'FINAL_REVIEW'] as const),
-        kind,
         rationale: text(400) || 'r',
         decidedBy: pick([...REVIEW_DECIDERS, 'unknown'] as const),
-        ...(kind === 'gate' && {
-          codes: [pick(REVIEW_GATE_FAILURE_CODES), ...some(REVIEW_GATE_FAILURE_CODES, 30)],
-        }),
-        ...(kind === 'dismissed' && {
-          findingIds: [text(60) || 'f', ...some(['bug-1', text(80) || 'x'], 12)],
-        }),
         ...(next() < 0.5 && { round: 1 + int(3) }),
       };
+      switch (kind) {
+        case 'gate':
+          return {
+            ...base,
+            kind,
+            codes: [pick(REVIEW_GATE_FAILURE_CODES), ...some(REVIEW_GATE_FAILURE_CODES, 30)],
+          };
+        case 'dismissed':
+          return {
+            ...base,
+            kind,
+            findingIds: [text(60) || 'f', ...some(['bug-1', text(80) || 'x'], 12)],
+          };
+        case 'skipped':
+          return { ...base, kind, reason: pick(REVIEW_SKIP_REASONS) };
+        case 'findings':
+          return { ...base, kind };
+      }
     };
+    const anUnreadRow = (label: string, final: boolean): StampRow => ({
+      review: label,
+      unread: pick<UnreadReview>([
+        { status: 'absent' },
+        { status: 'missing' },
+        { status: 'invalid' },
+        { status: 'outside-repo' },
+        { status: 'outside' },
+        { status: 'skipped', reason: pick(REVIEW_SKIP_REASONS) },
+        { status: 'unreadable', reason: pick(['EACCES', 'not valid JSON', text(20)]) },
+      ]),
+      decisions: Array.from({ length: int(4) }, aDecision),
+      decisionsReadable: next() < 0.8,
+      ...(final && next() < 0.7 && { unreviewedCommits: pick([0, 1, 7, 'unavailable'] as const) }),
+    });
     const aRow = (i: number): StampRow => {
       const label = i === 0 ? 'final-all' : `phase-${i}`;
-      const shape = int(10);
-      if (shape === 0) return label;
-      if (shape === 1) {
-        const unread = pick<Exclude<StampRow, string | { receipt: unknown }>['unread']>([
-          { status: 'missing' },
-          { status: 'invalid' },
-          { status: 'unreadable', reason: pick(['EACCES', 'not valid JSON', text(20)]) },
-        ]);
-        return { review: label, unread };
-      }
+      if (int(10) <= 1) return anUnreadRow(label, i === 0);
       const blocking = Array.from({ length: int(5) }, (_, n) => ({
         ...finding(`${text(10)}-${n}`),
         findingClass: pick(FINDING_CLASSES),

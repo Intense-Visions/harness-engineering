@@ -64,8 +64,10 @@ export interface ReviewGateContext extends FindingsSource {
   /**
    * `git status --porcelain=v1 -z --untracked-files=no` printed nothing: the tracked files equal
    * HEAD. undefined: git could not say. Untracked files (the review directory itself) do not count.
+   * `not-checked`: the caller re-checks a review of a commit already in history (the provenance
+   * stamp), where the tree it runs in is not the tree the review read; no review state passes it.
    */
-  worktreeClean: boolean | undefined;
+  worktreeClean: boolean | 'not-checked' | undefined;
   /** Which review this is expected to be (`expectedReviewMoment`). */
   expectedMoment: ExpectedMoment;
   /** `git merge-base --is-ancestor <base> <head>`: true, false, or undefined (git could not say). */
@@ -254,6 +256,14 @@ export interface CheckedReceiptResult {
   notLoaded: string[];
   /** Diff files a required reviewer examined, over the diff's files. Shown, never gated. */
   coverage?: { examined: number; files: number };
+  /**
+   * The review's round as the gate counts it: 1 + the `round-R/` archives beside the receipt, the
+   * number a decision of this round records. The receipt's own `round` when the archives were not
+   * read.
+   */
+  round: number;
+  /** A phase receipt: the base the gate demanded of it (`phaseReviewBase`). */
+  phaseBase?: PhaseReviewBase;
 }
 
 export type ReviewGateResult = InvalidReceiptResult | CheckedReceiptResult;
@@ -306,8 +316,8 @@ function headFailures(receipt: ReviewReceipt, context: ReviewGateContext): Revie
  * A receipt is bound to one commit, but reviewers and the mechanical checks read the working tree:
  * a tree whose tracked files differ from HEAD was not what the receipt says was reviewed.
  */
-function worktreeFailures(worktreeClean: boolean | undefined): ReviewGateFailure[] {
-  if (worktreeClean === true) return [];
+function worktreeFailures(worktreeClean: boolean | 'not-checked' | undefined): ReviewGateFailure[] {
+  if (worktreeClean === true || worktreeClean === 'not-checked') return [];
   const message =
     worktreeClean === false
       ? 'tracked files differ from HEAD, so the review read a tree that is not the reviewed ' +
@@ -939,5 +949,8 @@ export function validateReviewReceipt(
     loaded: [...check.files.keys()],
     notLoaded: check.notLoaded,
     ...(coverage !== undefined && { coverage }),
+    round:
+      context.archivedRounds === undefined ? (r.round ?? 1) : context.archivedRounds.length + 1,
+    ...(r.moment === 'phase' && { phaseBase: context.phaseBase }),
   };
 }

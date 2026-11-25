@@ -1,6 +1,15 @@
 import { describe, it, expect } from 'vitest';
 import { inert, isInert } from '../../src/receipts/stamp-grammar';
-import { parseProvenanceStamp, renderProvenanceBlock } from '../../src/receipts/provenance';
+import { renderProvenanceBlock } from '../../src/receipts/provenance';
+import { parseProvenanceStamp } from '../../src/receipts/stamp-parser';
+
+/** An expected review with no directory: the MISSING row. */
+const absent = (review: string) => ({
+  review,
+  unread: { status: 'absent' as const },
+  decisions: [],
+  decisionsReadable: true,
+});
 
 /** Round 4, fix 3: free text is inert. (Review labels: session-review-label.test.ts.) */
 /** The reviewer's 40-tag-character payload: "ok" + tag characters spelling the prompt. */
@@ -61,7 +70,7 @@ const sha = (c: string) => c.repeat(40);
 
 describe('renderer and parser agree on the reviewer payloads (no external renderer)', () => {
   it('a row labelled phase-0._www.evil.com is not accepted by the parser', () => {
-    const block = renderProvenanceBlock(['phase-0._www.evil.com']);
+    const block = renderProvenanceBlock([absent('phase-0._www.evil.com')]);
     expect(parseProvenanceStamp(block)?.rows).toEqual([]);
     expect(parseProvenanceStamp(block)?.dropped).toBe(1);
   });
@@ -82,7 +91,7 @@ describe('renderer and parser agree on the reviewer payloads (no external render
     expect(parsed?.dropped).toBe(1);
   });
   it('the same rationale rendered through the renderer is kept and carries no tag character', () => {
-    const block = renderProvenanceBlock(['phase-0']);
+    const block = renderProvenanceBlock([absent('phase-0')]);
     expect(parseProvenanceStamp(block)?.rows).toHaveLength(1);
     expect(/[\u{E0000}-\u{E007F}]/u.test(inert(TAGGED, 120))).toBe(false);
   });

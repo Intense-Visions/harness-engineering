@@ -1,12 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import type {
-  AutopilotSessionState,
-  Roadmap,
-  RoadmapFeature,
-  FeatureStatus,
-  Result,
-} from '@harness-engineering/types';
+import type { Roadmap, RoadmapFeature, FeatureStatus, Result } from '@harness-engineering/types';
 import { Ok } from '@harness-engineering/types';
 import { isRegression } from './status-rank';
 import * as eventSourcing from '../state/event-sourcing';
@@ -47,9 +41,19 @@ function isSamePlan(planPath: string, featurePlan: string): boolean {
   return planPath === featurePlan || planPath.endsWith(`/${featurePlan}`);
 }
 
+/** One `phases[]` entry of an autopilot-state.json as parsed: unvalidated, so every field is checked here. */
+type UnvalidatedPhase = { planPath?: unknown; status?: unknown } | null;
+
+/** The `phases[]` of an autopilot-state.json, parsed but not validated (not the schema's reader). */
+function unvalidatedPhases(raw: string): UnvalidatedPhase[] {
+  const parsed: unknown = JSON.parse(raw);
+  const phases = (parsed as { phases?: unknown } | null)?.phases;
+  return Array.isArray(phases) ? (phases as UnvalidatedPhase[]) : [];
+}
+
 /**
  * Read an autopilot-state.json file and push normalized task statuses for phases
- * linked to the given plan paths. Ignores malformed files.
+ * linked to the given plan paths. Ignores malformed files and entries.
  */
 function collectAutopilotStatuses(
   autopilotPath: string,
@@ -58,21 +62,13 @@ function collectAutopilotStatuses(
 ): void {
   try {
     const raw = fs.readFileSync(autopilotPath, 'utf-8');
-    const autopilot: AutopilotSessionState = JSON.parse(raw);
-    if (!autopilot.phases) return;
-
-    const linkedPhases = autopilot.phases.filter((phase) =>
-      phase.planPath ? featurePlans.some((p) => isSamePlan(phase.planPath!, p)) : false
-    );
-
-    for (const phase of linkedPhases) {
-      if (phase.status === 'complete') {
-        allTaskStatuses.push('complete');
-      } else if (phase.status === 'pending') {
-        allTaskStatuses.push('pending');
-      } else {
-        allTaskStatuses.push('in_progress');
-      }
+    for (const phase of unvalidatedPhases(raw)) {
+      const planPath = phase?.planPath;
+      if (typeof planPath !== 'string' || planPath === '') continue;
+      if (!featurePlans.some((p) => isSamePlan(planPath, p))) continue;
+      if (phase?.status === 'complete') allTaskStatuses.push('complete');
+      else if (phase?.status === 'pending') allTaskStatuses.push('pending');
+      else allTaskStatuses.push('in_progress');
     }
   } catch {
     // Ignore malformed autopilot state files
