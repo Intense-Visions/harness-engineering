@@ -164,6 +164,27 @@ function failureFor(unread: UnreadReceipt): ReviewGateFailure {
   }
 }
 
+/**
+ * The repository the gate runs git in: the top of the worktree that holds the receipt, which must
+ * be the caller's. A receipt in another worktree, or under a repository planted in the review
+ * directory, would otherwise be checked against that repository's HEAD, tree and history.
+ * `top` undefined: neither is in a repository.
+ */
+function receiptRepository(
+  git: CwdGit,
+  cwd: string,
+  at: { path: string; dir: string }
+): { top: string | undefined } | UnreadReceipt {
+  const callerTop = resolveRepoRoots(git, cwd)?.top;
+  const receiptTop = resolveRepoRoots(git, at.dir)?.top;
+  if (callerTop === receiptTop) return { top: receiptTop };
+  const tops = {
+    ...(callerTop !== undefined && { callerTop }),
+    ...(receiptTop !== undefined && { receiptTop }),
+  };
+  return { status: 'outside-repo', path: at.path, dir: at.dir, ...tops };
+}
+
 /** A gate result for a receipt it did not check. */
 function notGated(unread: UnreadReceipt): GatedReviewReceipt {
   const failures = [failureFor(unread)];
@@ -181,22 +202,12 @@ export function gateReviewReceipt(opts: CheckReviewReceiptOptions): GatedReviewR
   const target = path.resolve(cwd, opts.receiptPath);
   const read = readReviewReceiptFile(target, opts.confine ? { within: cwd } : {});
   if (read.status !== 'ok') return notGated(read);
-  // Git runs at the top of the worktree that holds the receipt, and that must be the caller's: a
-  // receipt in another worktree, or under a repository planted in the review directory, would be
-  // checked against that repository's HEAD, tree and history.
-  const callerTop = resolveRepoRoots(git, cwd)?.top;
-  const receiptTop = resolveRepoRoots(git, read.dir)?.top;
-  if (callerTop !== receiptTop) {
-    const tops = {
-      ...(callerTop !== undefined && { callerTop }),
-      ...(receiptTop !== undefined && { receiptTop }),
-    };
-    return notGated({ status: 'outside-repo', path: read.path, dir: read.dir, ...tops });
-  }
+  const repo = receiptRepository(git, cwd, read);
+  if ('status' in repo) return notGated(repo);
   const sessionDir = sessionDirOfReviewDir(read.dir);
   const startingCommit = sessionStartingCommit(sessionDir);
   const range = claimedRange(read.raw);
-  const top = receiptTop ?? cwd;
+  const top = repo.top ?? cwd;
   const phaseBase = phaseBaseOf(git, { dir: read.dir, sessionDir, startingCommit, range, top });
   const recomputed = recompute(git, range, top);
   const result = validateReviewReceipt(read.raw, {
