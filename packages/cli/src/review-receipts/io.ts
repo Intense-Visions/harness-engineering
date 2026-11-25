@@ -2,6 +2,7 @@ import { execFileSync } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import {
+  AUTOPILOT_STATE_FILENAME,
   FULL_SHA_PATTERN,
   REVIEWS_DIRNAME,
   REVIEW_RECEIPT_FILENAME,
@@ -10,6 +11,7 @@ import {
   phaseOfReviewLabel,
   readRegularFile,
   readReviewReceiptFile,
+  readSessionReviewState,
   resolveSessionDir,
   sessionDirOfReviewDir,
   standaloneReviewBase,
@@ -95,33 +97,46 @@ export function sessionDirFrom(git: CwdGit, cwd: string, slug: string): Result<s
 
 /**
  * A session's autopilot-state.json, read as a regular file of at most 5 MB (like a receipt);
- * undefined when it is absent, not a regular file, too large or unreadable.
+ * undefined when it is absent, not a regular file, too large or unreadable. The one read of the
+ * file; core `readSessionReviewState` is the one parser of what the review commands use of it.
  */
 export function readSessionStateText(sessionDir: string): string | undefined {
-  const read = readRegularFile(path.join(sessionDir, 'autopilot-state.json'));
+  const read = readRegularFile(path.join(sessionDir, AUTOPILOT_STATE_FILENAME));
   return 'text' in read ? read.text : undefined;
 }
 
 /** The session's starting commit when its state holds a full sha; undefined: unknown. */
 export function sessionStartingCommit(sessionDir: string | undefined): string | undefined {
   if (sessionDir === undefined) return undefined;
-  let state: unknown;
+  return readSessionReviewState(readSessionStateText(sessionDir)).startingCommit;
+}
+
+/**
+ * A directory's subdirectories by name (`labels`, as core `assembleStamp` takes them) and how
+ * many other entries sit beside them (`skipped`). None when it cannot be read: a session with no
+ * reviews directory ran no review.
+ */
+export function listDirectoryEntries(dir: string): { labels: string[]; skipped: number } {
+  let entries: fs.Dirent[];
   try {
-    state = JSON.parse(readSessionStateText(sessionDir) ?? '');
+    entries = fs.readdirSync(dir, { withFileTypes: true });
   } catch {
-    return undefined;
+    return { labels: [], skipped: 0 };
   }
-  const start =
-    state !== null && typeof state === 'object' && !Array.isArray(state)
-      ? (state as { startingCommit?: unknown }).startingCommit
-      : undefined;
-  return typeof start === 'string' && FULL_SHA_PATTERN.test(start) ? start : undefined;
+  const labels = entries.filter((e) => e.isDirectory()).map((e) => e.name);
+  return { labels, skipped: entries.length - labels.length };
+}
+
+/** Whether `p` is a directory (following links); false when it cannot be read. */
+export function isDirectory(p: string): boolean {
+  try {
+    return fs.statSync(p).isDirectory();
+  } catch {
+    return false;
+  }
 }
 
 export const isSha = (v: unknown): v is string => typeof v === 'string' && FULL_SHA_PATTERN.test(v);
-/** The own fields of an unparsed JSON value; none when it is not an object. */
-export const fields = (v: unknown): Record<string, unknown> =>
-  v !== null && typeof v === 'object' ? { ...v } : {};
 
 /**
  * `git merge-base --is-ancestor <ancestor> <of>`: true, false (git exits 1), or undefined when git

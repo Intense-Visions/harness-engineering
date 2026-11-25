@@ -181,13 +181,15 @@ session that sets out to deceive it.
   gate (`TIER_DEMOTED`) unless it declares it. It cannot pass as `full` unless a session writes a
   false receipt on purpose.
 - **What the gate cannot prove:** that reviewers ran in separate contexts. One context that
-  deliberately writes four findings files passes.
+  deliberately writes four findings files passes. The provenance stamp makes the claim visible.
 - These things a receipt says stay claims in Phase 1 because the gate does not recompute them:
   the set of conditional reviewers (only that every id is a known one), whether a phase was
   entitled to `light`, `coldContext` and `priorFindingsSupplied` (checked for consistency on a
   final receipt, never against what the briefs held), whether a reviewer read the files it lists
   in `examinedFiles`, `computedTier` and `tierReasons` (what the session says the tier command
-  printed), and the `backend`. A `light` receipt whose recorded `computedTier` is `full`, and every `light` standalone
+  printed), the `backend`, and a `skipped` decision with its reason and the head it names (the
+  stamp recomputes an `empty` skip's range at that head and says when it is not empty or cannot
+  be checked; a `dropped` reason is not checked). A `light` receipt whose recorded `computedTier` is `full`, and every `light` standalone
   receipt (a standalone review is always computed `full`, recorded or not), fails
   (`TIER_DEMOTED`) unless it carries `demotion: "no-subagent-tool"`, so the one sanctioned
   demotion is visible on the receipt. The moment, the base (a phase's against the previous
@@ -210,8 +212,66 @@ session that sets out to deceive it.
   rewrite: `git update-ref refs/remotes/origin/main HEAD~1` moves what the gate treats as the
   merge base, and a one-commit final review then passes. Proving the base would need a network
   fetch, which a credential-free gate does not do.
-- A failed gate can be overridden by the human. Autopilot records the override in `decisions[]`,
-  so an override is recorded but is not prevented.
+- The session state the stamp reads (`phases[]`, `decisions[]` and `startingCommit` in
+  `autopilot-state.json`) is the agent's own writing. One reader (`readSessionReviewState`)
+  parses it with the state schema (`AutopilotSessionStateSchema`), field by field, once per
+  render, and the stamp says what it could not read; that is all it can do.
+- The stamp in a PR body is unauthenticated. The receipts are ignored by git, so CI has nothing
+  to recompute a stamp from, and anyone who can edit the body can write any stamp; a stamp read
+  back out of a body is shown as stated, not verified. The reader of a PR body is best effort: it
+  follows the CommonMark blocks that hide text but does not render the page. It takes as a stamp
+  a marker pair on lines of their own, each after an empty line, the heading on the line after
+  the opening marker, none of it inside an HTML comment, a fenced code block or a raw HTML block,
+  and from it only the table's rows and its notes, in forms the renderer can write, none indented
+  four or more columns; a marker in a paragraph, a list item, a quote or a link reference
+  definition is text. It fails closed on the constructs it knows it cannot place, before the
+  body's last marker: `<details` or `</details` anywhere; an HTML comment opener that shares its
+  line with a backtick, leaves a comment open without starting its line, or reopens a comment
+  after a `-->` on its line; a line starting with `<noscript`, `<template`, `<select` or `<rp`; an
+  HTML block of CommonMark type 6 or 7 holding a line that opens a fence, a raw HTML block or a
+  comment; a fence on the line of a list item or a quote, or a line inside a hidden block less
+  indented than its opener. Each makes the body `ambiguous` and nothing is read; an ordinary PR
+  body (comments, fences, lists, headings, tables, images) still reads its stamp. Blank means
+  spaces and tabs, as in CommonMark, and the scan is linear in the body's length. A body that
+  holds two stamps is `conflicting` and neither is read, and a body over 262144 characters is
+  `too-large` and not read. A later reader reports each of the three as a state of its own, never
+  as unstamped and never as a pass. A body crafted to show one stamp and hide another is not
+  defended against in every form: that is forging, which this threat model leaves to the stamp
+  being unauthenticated, since whoever can write such a body can write any stamp in plain view.
+- A failed gate can be overridden by the human. Autopilot records the override in `decisions[]`
+  as a typed record (`kind: "gate"`, with the overridden `codes` and a `rationale`;
+  `ReviewDecisionRecord`) and the stamp shows it, so an override is visible on the PR but is not
+  prevented. A blocking finding the session set aside without a fix is recorded the same way
+  (`kind: "dismissed"`), and only after a `judgment` pause: the session that ran the executors
+  does not dismiss a blocking finding on its own word. In trusted mode that pause resolves
+  without the human only when the blind-then-refute self-audit ran and agreed; when the session
+  cannot spawn the auditor, or audit is off, the human answers. Every decision carries the round
+  it was taken in and applies to that round only, and who took it (`decidedBy`: `human`,
+  `audited` or `unaudited`), which the stamp prints beside it; a dismissal that is not the
+  human's or audited is flagged in the Blocking cell, and a record written with no `decidedBy`
+  reads as `decider unknown` with a note. `decidedBy` is a claim: the stamp shows who the session
+  says decided. A decision the stamp cannot parse makes it say so, never `none` (on a row with
+  no receipt too), and one that belongs to no review is named in a note. Only a decision's
+  declared fields are read; anything else written beside it never reaches the stamp.
+- The stamp does not repeat the receipt's word. `review-provenance render` runs the gate again
+  for each review and prints the result, with two rules relaxed: the reviewed head may be an
+  ancestor of HEAD, because a phase review is followed by later commits, and the working tree is
+  not checked, because the tree the stamp is rendered in is not the tree any of those reviews
+  read. A review state still gates with the head required to be HEAD and a clean tracked tree. A
+  row's decisions are those of the round the gate counts from the `round-R/` archives, never the
+  round the receipt states, and a Diff gap is the gate's own phase-base rule. For the final
+  review the stamp also counts the commits made after the reviewed head, and prints the count
+  whether the gate passed, failed or was overridden, and on a final row with no receipt too:
+  from the base the final gate would demand at HEAD (the merge base with the default branch,
+  else the starting commit), or from the head an empty skip names only when the stamp found that
+  range empty. A review directory without a readable receipt is a row that says so, and shows
+  the decisions recorded for it; a review that was not run by a recorded `skipped` decision says
+  `skipped (empty)` or `skipped (dropped)`, and an `empty` skip whose range the stamp finds not
+  empty, or cannot check, says `skipped (empty; range not empty)` or `skipped (empty;
+unverified)`. After a rebase or a squash the reviewed commits are gone from the branch and the
+  rows it rewrote fail `HEAD_MISMATCH` (a phase row usually also `PHASE_BASE_UNKNOWN`); an amend
+  fails only the rows whose head was the amended commit; a new final review restores the final
+  row only.
 - MCP callers decide on the tool result's `pass` field alone. Through the shared
   response-compaction middleware `failures` is absent on a pass, a single object when there is
   exactly one failure, and an array when there are two or more, so its shape is not a contract

@@ -1,15 +1,16 @@
 ---
 type: business_concept
 domain: core
-tags: [review, receipts, review-tier, stage-attribution, gate, shift-left]
+tags: [review, receipts, review-tier, stage-attribution, gate, provenance-stamp, shift-left]
 ---
 
 # Review Receipts
 
 A review receipt is a typed record of what one review did. A coded gate recomputes it, so a
 review that ran fewer reviewers than it claims fails instead of passing quietly. Contract types
-live in `packages/types/src/pipeline-receipts.ts`; validators and the gate live in
-`packages/core/src/receipts/`. Decisions: ADR
+live in `packages/types/src/pipeline-receipts.ts`; validators, the gate and the provenance
+stamp live in `packages/core/src/receipts/`. The reading guide is
+[Reading Review Provenance](../../guides/review-provenance.md). Decisions: ADR
 [0139](../decisions/0139-review-receipts-are-claims-recomputed-by-gates.md) and ADR
 [0140](../decisions/0140-the-final-review-is-cold-and-full.md).
 
@@ -115,6 +116,127 @@ self-check, which needs only the CLI; a flag the chosen mode does not read, `--b
 out is refused; a `moment` outside the three values returns `GATE_ERROR`). It needs no model
 credential.
 
+**Provenance stamp.** A Markdown block between `<!-- harness:review-provenance -->` markers,
+printed by `harness review-provenance render --session <slug>`. The session is resolved from the
+top level of the worktree, so the command prints the same stamp from any directory, and its
+`autopilot-state.json` is read once per render: that one reading gives the expected reviews,
+the decisions and the starting commit every row is gated with. It has one row per review the
+session's phase list calls for (`MISSING` for one that has no directory) and one per review
+directory that exists: a directory without a readable receipt is a row whose Gate cell says
+`receipt missing`, `receipt invalid`, `receipt unreadable (<reason>)`, `receipt outside
+repository` or `receipt outside project`, and it does not count as reviewed. A review with no
+receipt that a `skipped` decision covers is `skipped (empty)` or `skipped (dropped)` instead;
+for an `empty` skip the stamp recomputes the range at the head the decision names (a phase from
+the base the gate would demand at that head, the final review from the final base there) and
+writes `skipped (empty; range not empty)` when it lists files, `skipped (empty; unverified)` when
+there is no head or git cannot say. Every session calls for a final review, so `final-all` has a
+row even when the phase list cannot be read.
+The twelve columns are Review, Moment, Tier, Backend, Reviewers (findings files that loaded, of
+required), Diff (with `(base: starting-commit)` when declared, and a gap note when a phase's
+base is not the one the gate demands of it: the gate's own phase-base rule, read from the
+gate's result, which passes over a missing, unread or invalid earlier receipt and one whose
+head a rebase took off the branch, and falls back to the session's starting commit), Coverage
+(diff files a required reviewer examined, of the diff's files; shown, never gated), Gate (re-run
+at render time with two differences from `check-review-receipt`: the reviewed head may be an
+ancestor of HEAD, and the working tree is not checked, so `WORKTREE_DIRTY` never appears; at
+most six codes then `+M more`; the final row, whatever its Gate cell says, a receipt-less one
+included, is followed by `, +N commits not reviewed` when commits follow the reviewed head, or,
+with no receipt that was read, the base the final gate would demand at HEAD (the merge base with
+the default branch, else the starting commit; the head a skip names only for a `skipped (empty)`
+cell, whose range was found empty), or `, +? commits not reviewed (count unavailable)`), Blocking (with dismissed findings, flagged `unaudited` or `decider unknown` where
+the dismissal was, `at least N; not loaded: …` when a findings file did not load, and earlier
+rounds below the counted one), By class, Escaped from, and Override (`none`; `unknown` when a decision of the session
+could not be read and none of this review's could, on a row without a receipt too; otherwise the
+number of overrides and dismissals first, then `N skips`, then `N from other rounds`, the whole
+prefixed `unknown, at least` when any decision of the session could not be read, then the
+`gate`, `findings`, `dismissed` and `skipped` decisions of the row's round, each with its
+decider, `(human)`, `(audited)`, `(unaudited)` or `(decider unknown)`, at most six, then `+N
+more`). The row's round is the one the gate counts, 1 + the `round-R/` archives beside the
+receipt, never the round the receipt states. A row without a receipt shows the review's
+decisions too (of 1 + its directory's `round-R/` archives, with the rest counted `from other
+rounds`, when there are any archives; else all of them), and its Gate cell ends `(overridden)` when a `gate` decision names the code it
+fails with (`RECEIPT_MISSING`, `RECEIPT_INVALID`, `RECEIPT_OUTSIDE_REPO` or `GATE_ERROR`). Rows
+are `phase-N` and `final-all` only; any other entry under `reviews/` is skipped and counted. No
+cell is cut without a mark: a rationale over 120 characters ends with `…`. Free text is made
+inert: invisible and control characters are removed, and nothing in it can become markup, a
+URL, a mention, a `#` or `GH-` issue reference (`#12`, `GH-12`) or math (`$`); `;` is encoded
+too, because it separates the decisions of an Override cell. Two kinds of link are not broken,
+because breaking them would break ordinary ids: a bare run of 7 to 40 hex characters (GitHub
+links a commit sha) and a repository's own autolink reference (`ABC-123`). Notes under the table
+are one of ten fixed sentences (`STAMP_NOTES` in `stamp-grammar.ts`): decisions that could not
+be read, decisions recorded without `decidedBy`, an orphan decision, a decision for a review
+with no row when the expected reviews are unknown, the reason the expected reviews are unknown,
+skipped entries. Rows and notes are assembled in core (`assembleStamp`). The renderer and the
+PR-body parser (`parseProvenanceStamp`, in `stamp-parser.ts`) share that grammar, so the parser
+keeps only rows and notes the renderer can write, an Override cell no longer than the renderer
+writes included. The parser is a best-effort reader of an unauthenticated stamp: it follows
+the CommonMark blocks that hide text but does not render the page. It takes the markers on lines
+of their own, each after an empty line, the heading on the line after the opening marker,
+outside HTML comments, fenced code blocks (a backtick fence's info string holds no backtick) and
+raw HTML blocks (`<script>`, `<pre>`, `<style>`, `<textarea>`, `<?`, `<!X`, `<![CDATA[`); rows
+only under the table's header and rule, and notes only in the list after the table, never a line
+indented four or more columns (a code block on the page). A marker in a paragraph, a list item, a
+quote or a link reference definition's title is text. Blank means spaces and tabs only, as in
+CommonMark (a fence closer followed by a no-break space closes nothing). It fails closed on the
+constructs it knows it cannot place; before the body's last marker each of these makes the body
+`ambiguous` (with the reason) and nothing is read: `<details` or `</details` anywhere (GitHub
+shows a `<details>` collapsed; a code span, a comment or a code block included;
+`details-element`); an HTML comment opener that shares its line with a backtick, leaves a comment
+open without starting its line, or reopens a comment after a `-->` on its line
+(`comment-opener`); a line starting with `<noscript`, `<template`, `<select` or `<rp`, or an HTML
+block of CommonMark type 6 or 7 holding, before the next empty line, a line that opens a fence, a
+raw HTML block or a comment (`html-block`); a fence on the line of a list item or a quote, or a
+line inside a fence, a comment or a raw HTML block less indented than its opener (`container`).
+An ordinary PR body (top-level comments, code fences, lists, headings, tables, images) still
+reads its stamp. A body that holds more than one stamp is `conflicting` and none is read; a body
+over 262144 characters is `too-large` and is not read; the scan is linear in the body's length.
+A later reader of the stamp reports `ambiguous`, `conflicting` and `too-large` as states of their
+own, never as unstamped and never as a pass. A body crafted to show one stamp and hide another
+is not defended against in every form: anyone who can write the body can write any stamp, so the
+stamp is shown as stated, not verified. as a pass. Autopilot places the stamp in the PR body. The stamp in a PR body is
+unauthenticated: CI cannot recompute it, because receipts are machine-local.
+
+**Review decision.** An entry of `decisions[]` in a session's `autopilot-state.json` with
+`state` `REVIEW` or `FINAL_REVIEW` and a `kind`: `gate` (a failed receipt gate was overridden;
+carries the `codes`), `findings` (blocking findings were overridden), `dismissed` (blocking
+findings were set aside without a fix; carries the `findingIds`) or `skipped` (the review was
+not run; carries the `reason`, `empty` or `dropped` (a phase only: a final review skipped as
+`dropped` is refused), and for an empty range may carry the `head` it was found empty at). Every kind carries a `rationale`, a `round`: the round of the
+review it was taken in (1 when absent), and `decidedBy`: `human`, `audited` (taken in trusted
+mode after a blind-then-refute self-audit that ran and agreed) or `unaudited`. A record with no
+`decidedBy` key, written before the field existed, reads as decider unknown and is counted in a
+note; any other value, `unknown` included, is unreadable. A decision applies only to the receipt
+of its round, so a round 1 override or dismissal does nothing to a round 2 receipt. `codes` must
+be real failure codes. The type is `ReviewDecisionRecord`, a union with one shape per kind (the
+read type `ReadReviewDecision` adds the `unknown` decider); `readSessionReviewState` parses them
+with `ReviewDecisionRecordSchema`, keyed by review, and keeps only the declared fields. A review
+decision that does not parse is never dropped silently: the stamp says overrides could not be
+read. One that parses and belongs to no review of the session, or sits under a state that is not
+a review state, is an orphan and is named in a note; when the reviews the session calls for are
+unknown, one for a review with no directory is named in its own note instead, not as an orphan.
+In autopilot a dismissal is recorded only after a `judgment` pause: the human answers in
+supervised mode, and in trusted mode the recommendation is taken only when the self-audit ran
+and agreed (`audited`); with no auditor available, or audit off, the human answers. Overrides
+are always the human's; a review skipped as empty is recorded `unaudited` (git found the range
+empty), a dropped phase `human`. A final review ends `passed` only when nothing of it was set
+aside in any round: `passed-with-dismissals` with a dismissal, `overridden` with an override.
+
+**Session state.** The part of `autopilot-state.json` that code reads: `phases[]`, `decisions[]`
+and `startingCommit` (`AutopilotSessionState`, `AutopilotPhaseEntry`; schema
+`AutopilotSessionStateSchema` and the file name `AUTOPILOT_STATE_FILENAME`, exported from
+`packages/core/src/state`). One reader, `readSessionReviewState`, reads every field the review
+commands use with that schema, one field at a time so a fault in one never hides another; the
+CLI reads the file once (a regular file of at most 5 MB) and hands it the text. Three other
+readers of the file are not review commands and do not use the schema: roadmap sync
+(`packages/core/src/roadmap/sync.ts`) and `harness migrate` (`packages/cli/src/commands/migrate.ts`)
+each parse it as unvalidated JSON and check each field they use, and the pre-compact hook
+(`packages/cli/src/hooks/pre-compact-state.js`) reads it for a summary. A phase is
+identified by its 0-based position in `phases[]`. That one number is the entry's `index` when it
+carries one, the `N` of its review directory `phase-N` and the `phase` of a decision record. The
+stamp takes the reviews a session calls for from the positions. An entry that states another
+`index`, or is malformed, makes that set unknown, and the stamp says why instead of guessing.
+`startingCommit` is a full sha or it is not read.
+
 **Escaped-from stage.** Each blocking (`critical` or `important`) finding names the earliest
 stage that should have caught it: `spec`, `plan`, `execution`, `verification`, or `none`. With
 `findingClass` (`stale-claim`, `edge-case`, `weak-test`, `collateral`, `design`, `other`) it is
@@ -194,8 +316,10 @@ standalone review after a fix commit is a new directory and needs no archive.
 - These stay claims: that reviewers ran in separate contexts, the conditional-reviewer set
   (beyond every id being known), a phase's entitlement to `light`, `coldContext` and
   `priorFindingsSupplied`, whether a reviewer read the files it lists in `examinedFiles`,
-  `computedTier` and `tierReasons` (what the session says the tier command printed), and the
-  `backend`. The merge base is
+  `computedTier` and `tierReasons` (what the session says the tier command printed), the
+  `backend`, and a `skipped` decision with its reason and head (the stamp recomputes an `empty`
+  skip's range and says when it is not empty or cannot be checked; a `dropped` reason is not
+  checked). The merge base is
   taken against the default branch ref as the clone holds it, or against the receipt's
   `diff.target`, a remote-tracking branch the session chose (the receipt schema requires a full
   `refs/remotes/` ref, so a sha, a HEAD-relative name, a local branch or a tag is an invalid
@@ -232,20 +356,27 @@ standalone review after a fix commit is a new directory and needs no archive.
 
 ## Source
 
-| File                                                                                  | Holds                                                                                                                                       |
-| ------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| [pipeline-receipts.ts](../../../packages/types/src/pipeline-receipts.ts)              | Contract types: receipt, reviewer record, the failure codes                                                                                 |
-| [schema.ts](../../../packages/core/src/receipts/schema.ts)                            | Zod validators for both files; `tallyReviewFindings`, the counting rule                                                                     |
-| [review-gate.ts](../../../packages/core/src/receipts/review-gate.ts)                  | `validateReviewReceipt`, `finalReviewBase`, `checkReviewerFindingsText` (the self-check)                                                    |
-| [load.ts](../../../packages/core/src/receipts/load.ts)                                | Reads a receipt; the findings reader confined to the review directory                                                                       |
-| [rounds.ts](../../../packages/core/src/receipts/rounds.ts)                            | `archiveReviewRound`, `readArchivedRounds`: the `round-R/` archives of a fix round                                                          |
-| [review-paths.ts](../../../packages/core/src/shared/review-paths.ts)                  | `normalizeReviewPath`, `pathEscapes`: the path rules the gate and the tier selector share (a shared leaf)                                   |
-| [layout.ts](../../../packages/core/src/receipts/layout.ts)                            | Review directory names, `expectedReviewMoment` (the one precedence rule)                                                                    |
-| [backend.ts](../../../packages/core/src/receipts/backend.ts)                          | `resolveReviewBackend`                                                                                                                      |
-| [unsafe-text.ts](../../../packages/core/src/shared/unsafe-text.ts)                    | The one unsafe-character rule (exported from receipts as `escapeTerminalText`), shared with the auto-decision log; ZWNJ and ZWJ are allowed |
-| [tier-selector.ts](../../../packages/core/src/review/tier-selector.ts)                | `selectReviewTier`                                                                                                                          |
-| [gate.ts](../../../packages/cli/src/review-receipts/gate.ts)                          | `gateReviewReceipt`: recomputes HEAD, the diff and the base, runs gate                                                                      |
-| [io.ts](../../../packages/cli/src/review-receipts/io.ts)                              | The git seam; `resolveRepoRoots`; `resolveFinalReviewBase`                                                                                  |
-| [check-review-receipt.ts](../../../packages/cli/src/commands/check-review-receipt.ts) | `harness check-review-receipt`: the command over that gate                                                                                  |
-| [review-tier.ts](../../../packages/cli/src/commands/review-tier.ts)                   | `harness review-tier`: the tier, its reasons, the backend and the final or standalone base                                                  |
-| [review-receipt.ts](../../../packages/cli/src/mcp/tools/review-receipt.ts)            | The `check_review_receipt` MCP tool                                                                                                         |
+| File                                                                                      | Holds                                                                                                                                       |
+| ----------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| [pipeline-receipts.ts](../../../packages/types/src/pipeline-receipts.ts)                  | Contract types: receipt, reviewer record, the failure codes                                                                                 |
+| [schema.ts](../../../packages/core/src/receipts/schema.ts)                                | Zod validators for both files; `tallyReviewFindings`, the counting rule                                                                     |
+| [review-gate.ts](../../../packages/core/src/receipts/review-gate.ts)                      | `validateReviewReceipt`, `finalReviewBase`, `checkReviewerFindingsText` (the self-check)                                                    |
+| [load.ts](../../../packages/core/src/receipts/load.ts)                                    | Reads a receipt; the findings reader confined to the review directory                                                                       |
+| [rounds.ts](../../../packages/core/src/receipts/rounds.ts)                                | `archiveReviewRound`, `readArchivedRounds`: the `round-R/` archives of a fix round                                                          |
+| [review-paths.ts](../../../packages/core/src/shared/review-paths.ts)                      | `normalizeReviewPath`, `pathEscapes`: the path rules the gate and the tier selector share (a shared leaf)                                   |
+| [layout.ts](../../../packages/core/src/receipts/layout.ts)                                | Review directory names, `expectedReviewMoment` (the one precedence rule)                                                                    |
+| [stamp-grammar.ts](../../../packages/core/src/receipts/stamp-grammar.ts)                  | The stamp's columns, cell grammars, bounds, notes and inert text                                                                            |
+| [stamp-parser.ts](../../../packages/core/src/receipts/stamp-parser.ts)                    | The PR-body parser (`parseProvenanceStamp`): best effort, fails closed on known constructs, one stamp, linear                               |
+| [decisions.ts](../../../packages/core/src/receipts/decisions.ts)                          | `ReviewDecisionRecordSchema`, `readSessionReviewState` (the one reader of the session state)                                                |
+| [autopilot-session-state.ts](../../../packages/core/src/state/autopilot-session-state.ts) | `AutopilotSessionStateSchema`, `AutopilotPhaseEntrySchema`, `AUTOPILOT_STATE_FILENAME`                                                      |
+| [provenance.ts](../../../packages/core/src/receipts/provenance.ts)                        | Renders the provenance stamp; `assembleStamp`, `buildProvenanceRow`                                                                         |
+| [backend.ts](../../../packages/core/src/receipts/backend.ts)                              | `resolveReviewBackend`                                                                                                                      |
+| [unsafe-text.ts](../../../packages/core/src/shared/unsafe-text.ts)                        | The one unsafe-character rule (exported from receipts as `escapeTerminalText`), shared with the auto-decision log; ZWNJ and ZWJ are allowed |
+| [tier-selector.ts](../../../packages/core/src/review/tier-selector.ts)                    | `selectReviewTier`                                                                                                                          |
+| [gate.ts](../../../packages/cli/src/review-receipts/gate.ts)                              | `gateReviewReceipt`: recomputes HEAD, the diff and the base, runs gate                                                                      |
+| [io.ts](../../../packages/cli/src/review-receipts/io.ts)                                  | The git seam; `resolveRepoRoots`; `resolveFinalReviewBase`                                                                                  |
+| [check-review-receipt.ts](../../../packages/cli/src/commands/check-review-receipt.ts)     | `harness check-review-receipt`: the command over that gate                                                                                  |
+| [review-tier.ts](../../../packages/cli/src/commands/review-tier.ts)                       | `harness review-tier`: the tier, its reasons, the backend and the final or standalone base                                                  |
+| [review-receipt.ts](../../../packages/cli/src/mcp/tools/review-receipt.ts)                | The `check_review_receipt` MCP tool                                                                                                         |
+| [provenance.ts](../../../packages/cli/src/review-receipts/provenance.ts)                  | `runReviewProvenanceRender`: one read of the session state, each review gated again                                                         |
+| [review-provenance.ts](../../../packages/cli/src/commands/review-provenance.ts)           | `harness review-provenance render`: flags and printing only                                                                                 |

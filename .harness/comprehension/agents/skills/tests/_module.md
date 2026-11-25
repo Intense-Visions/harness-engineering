@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'agents/skills/tests'
-sourceHash: '51f0746e5d458bbf5bc79f8eaf7c610cd48375e5b9600d92bc76f2c0ebd220e7'
+sourceHash: '7fa2854570ffb918cb6cf8efc13979121eac7b6a5a664af1ce2c1edb4f44eaab'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -61,7 +61,7 @@ export section
 ```
 import { MARKER_WINDOW, PAUSE_PREAMBLE, PAUSE_PREAMBLE_HEADING, START_STEP, SUMMARY_STEP, WORKFLOW_SKILLS, marker, pauseMarkerViolations, scanSkill } from './pause-markers'
 import { ALLOWED_PLATFORMS, SkillMetadataSchema } from './schema'
-import { BEHAVIORAL_REQUIRED_SECTIONS, CompoundLockHeldError, KNOWLEDGE_REQUIRED_SECTIONS, REVIEW_GATE_FAILURE_CODES, RIGID_SECTIONS, acquireCompoundLock, checkReviewerFindingsText, parseReviewReceipt, parseReviewerFindingsFile, selectReviewTier } from '@harness-engineering/core'
+import { AutopilotSessionStateSchema, BEHAVIORAL_REQUIRED_SECTIONS, CompoundLockHeldError, KNOWLEDGE_REQUIRED_SECTIONS, PROVENANCE_MARKER, REVIEW_DECIDERS, REVIEW_DECISION_KINDS, REVIEW_GATE_FAILURE_CODES, RIGID_SECTIONS, ReviewDecisionRecordSchema, acquireCompoundLock, checkReviewerFindingsText, noteText, parseProvenanceStamp, parseReviewReceipt, parseReviewerFindingsFile, readSessionReviewState, selectReviewTier } from '@harness-engineering/core'
 import { spawnSync } from 'child_process'
 import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'fs'
 import { glob } from 'glob'

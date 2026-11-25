@@ -134,7 +134,7 @@ export * from './ci';
 export * from './review';
 
 /**
- * Pipeline receipts — typed review receipts and the credential-free gate that recomputes them (shift-left pipeline fidelity).
+ * Pipeline receipts — typed review receipts, the credential-free gate that recomputes them, and the provenance stamp (shift-left pipeline fidelity).
  */
 export * from './receipts';
 

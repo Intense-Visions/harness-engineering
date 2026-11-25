@@ -177,3 +177,78 @@ export const FINDING_CLASSES = [
   'other',
 ] as const;
 export type FindingClass = (typeof FINDING_CLASSES)[number];
+
+export const REVIEW_DECISION_KINDS = ['gate', 'findings', 'dismissed', 'skipped'] as const;
+export type ReviewDecisionKind = (typeof REVIEW_DECISION_KINDS)[number];
+
+/**
+ * Why a review was not run: its range changed no files (`empty`), or the phase was dropped from
+ * the plan (`dropped`, the entry kept with `status: "skipped"`).
+ */
+export const REVIEW_SKIP_REASONS = ['empty', 'dropped'] as const;
+export type ReviewSkipReason = (typeof REVIEW_SKIP_REASONS)[number];
+
+/**
+ * Who took a review decision: the human; the agent after a blind-then-refute self-audit agreed
+ * (`audited`); or the agent with no audit (`unaudited`).
+ */
+export const REVIEW_DECIDERS = ['human', 'audited', 'unaudited'] as const;
+export type ReviewDecider = (typeof REVIEW_DECIDERS)[number];
+
+/** The fields every review decision has. `D` is who may be named as having taken it. */
+interface ReviewDecisionFields<D extends string> {
+  state: 'REVIEW' | 'FINAL_REVIEW';
+  /** The phase's 0-based position in `phases[]`. Required for `REVIEW`. */
+  phase?: number | string;
+  rationale: string;
+  /** Who decided. */
+  decidedBy: D;
+  /**
+   * The round of the review the decision was taken in: 1 + the `round-R/` archives of its review
+   * directory. Default 1. A decision applies only to the receipt of the same round.
+   */
+  round?: number;
+}
+
+/**
+ * A review decision in autopilot's `decisions[]`, as written: the human let a review state be
+ * left over a failed receipt gate (`gate`, naming the failure codes) or over blocking findings
+ * (`findings`); blocking findings were set aside as not applying (`dismissed`, naming their ids);
+ * or the review was not run (`skipped`, with why, and for an empty range the head it was found
+ * empty at). Other fields of the entry are not read.
+ */
+export type ReviewDecisionRecord<D extends string = ReviewDecider> =
+  | (ReviewDecisionFields<D> & { kind: 'gate'; codes: ReviewGateFailureCode[] })
+  | (ReviewDecisionFields<D> & { kind: 'findings' })
+  | (ReviewDecisionFields<D> & { kind: 'dismissed'; findingIds: string[] })
+  | (ReviewDecisionFields<D> & { kind: 'skipped'; reason: ReviewSkipReason; head?: string });
+
+/**
+ * A review decision as the session reader gives it: one written before `decidedBy` existed (no
+ * such key at all) reads as decided by `unknown`. Never written.
+ */
+export type ReadReviewDecision = ReviewDecisionRecord<ReviewDecider | 'unknown'>;
+
+/**
+ * One entry of `phases[]` in a session's `autopilot-state.json`, as far as code reads it; other
+ * fields pass through. A phase is identified by its 0-based position in the list. That number is
+ * the `N` of its review directory `phase-N` and the `phase` of a review decision record.
+ */
+export interface AutopilotPhaseEntry {
+  /** Optional. When present it must be the entry's 0-based position in `phases[]`. */
+  index?: number;
+  name: string;
+  status?: string;
+  planPath?: string | null;
+  complexity?: string;
+}
+
+/** The part of `autopilot-state.json` that code reads. Other fields pass through. */
+export interface AutopilotSessionState {
+  specPath?: string;
+  /** The commit the session started from: the base of the first phase. A full sha. */
+  startingCommit?: string;
+  phases?: AutopilotPhaseEntry[];
+  /** Mixed entries; a review decision among them is a `ReviewDecisionRecord`. */
+  decisions?: unknown[];
+}

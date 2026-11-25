@@ -55,6 +55,16 @@ Let workflow skills run without stopping for approvals, safely:
 
 **Best for:** Users who want brainstorm-to-review runs without babysitting the agent
 
+### [Reading Review Provenance](./review-provenance.md)
+
+Read the review stamp autopilot places in a PR body, and check it:
+
+- What each column means: tier, reviewers run of required, diff range, gate result, overrides
+- Gating a receipt with `harness check-review-receipt`
+- What the stamp does not prove
+
+**Best for:** Reviewers deciding how much to trust a pipeline-built PR
+
 ### [Orchestrator Guide](./orchestrator.md)
 
 Learn how to use the Harness Orchestrator to automate your agent workforce:

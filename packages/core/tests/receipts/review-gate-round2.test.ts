@@ -238,3 +238,21 @@ describe('fix 13: a receipt may record its fix round and earlier rounds', () => 
     expect(codes(validateReviewReceipt(receipt(over), ctx()))).toEqual(['RECEIPT_INVALID']);
   });
 });
+
+describe('fix 12: coverage of the diff by required reviewers is reported, not gated', () => {
+  it('reports the diff files any required reviewer examined over the diff files', () => {
+    const r = validateReviewReceipt(receipt(), ctx());
+    expect(r.pass).toBe(true);
+    expect(r.coverage).toEqual({ examined: 1, files: 2 });
+  });
+  it('does not count a file only a non-required reviewer examined', () => {
+    const reviewers = [...FULL.map(record), { ...record('adversarial'), required: false }];
+    const readFindings = files({ adversarial: { examinedFiles: ['src/b.ts'] } });
+    const r = validateReviewReceipt(receipt({ reviewers }), ctx({ readFindings }));
+    expect(r.coverage).toEqual({ examined: 1, files: 2 });
+  });
+  it('has no coverage when the diff could not be recomputed', () => {
+    const r = validateReviewReceipt(receipt(), ctx({ diffFiles: undefined }));
+    expect(r.coverage).toBeUndefined();
+  });
+});

@@ -57,10 +57,17 @@ export interface ReviewGateContext extends FindingsSource {
   /** `git rev-parse HEAD`, resolved by the caller. Empty when git could not resolve it. */
   head: string;
   /**
+   * Whether git confirms the reviewed head is in HEAD's history. Supplied only by a caller that
+   * accepts an earlier commit of the branch (the provenance stamp); a review state leaves it out.
+   */
+  reviewedHeadInHistory?: boolean;
+  /**
    * `git status --porcelain=v1 -z --untracked-files=no` printed nothing: the tracked files equal
    * HEAD. undefined: git could not say. Untracked files (the review directory itself) do not count.
+   * `not-checked`: the caller re-checks a review of a commit already in history (the provenance
+   * stamp), where the tree it runs in is not the tree the review read; no review state passes it.
    */
-  worktreeClean: boolean | undefined;
+  worktreeClean: boolean | 'not-checked' | undefined;
   /** Which review this is expected to be (`expectedReviewMoment`). */
   expectedMoment: ExpectedMoment;
   /** `git merge-base --is-ancestor <base> <head>`: true, false, or undefined (git could not say). */
@@ -247,6 +254,16 @@ export interface CheckedReceiptResult {
    */
   loaded: string[];
   notLoaded: string[];
+  /** Diff files a required reviewer examined, over the diff's files. Shown, never gated. */
+  coverage?: { examined: number; files: number };
+  /**
+   * The review's round as the gate counts it: 1 + the `round-R/` archives beside the receipt, the
+   * number a decision of this round records. The receipt's own `round` when the archives were not
+   * read.
+   */
+  round: number;
+  /** A phase receipt: the base the gate demanded of it (`phaseReviewBase`). */
+  phaseBase?: PhaseReviewBase;
 }
 
 export type ReviewGateResult = InvalidReceiptResult | CheckedReceiptResult;
@@ -283,7 +300,7 @@ function momentFailures(receipt: ReviewReceipt, expected: ExpectedMoment): Revie
 
 function headFailures(receipt: ReviewReceipt, context: ReviewGateContext): ReviewGateFailure[] {
   const reviewed = receipt.diff.head;
-  if (context.head !== '' && reviewed === context.head) {
+  if (context.head !== '' && (reviewed === context.head || context.reviewedHeadInHistory)) {
     return [];
   }
   const now = context.head === '' ? 'could not be resolved' : `is ${context.head}`;
@@ -299,8 +316,8 @@ function headFailures(receipt: ReviewReceipt, context: ReviewGateContext): Revie
  * A receipt is bound to one commit, but reviewers and the mechanical checks read the working tree:
  * a tree whose tracked files differ from HEAD was not what the receipt says was reviewed.
  */
-function worktreeFailures(worktreeClean: boolean | undefined): ReviewGateFailure[] {
-  if (worktreeClean === true) return [];
+function worktreeFailures(worktreeClean: boolean | 'not-checked' | undefined): ReviewGateFailure[] {
+  if (worktreeClean === true || worktreeClean === 'not-checked') return [];
   const message =
     worktreeClean === false
       ? 'tracked files differ from HEAD, so the review read a tree that is not the reviewed ' +
@@ -791,6 +808,23 @@ function countFailures(
   ];
 }
 
+/** Diff files that a required reviewer whose file loaded lists as examined. */
+function coverageOf(
+  receipt: ReviewReceipt,
+  check: FindingsCheck
+): { examined: number; files: number } | undefined {
+  const { diffSet, files } = check;
+  if (diffSet === undefined) return undefined;
+  const examined = new Set<string>();
+  for (const r of receipt.reviewers.filter((x) => x.required)) {
+    for (const f of files.get(r.id)?.examinedFiles ?? []) {
+      const p = normalizeReviewPath(f);
+      if (diffSet.has(p)) examined.add(p);
+    }
+  }
+  return { examined: examined.size, files: diffSet.size };
+}
+
 /** What a single findings file is checked against: nothing, or a range (`--base`, `--head`). */
 export type FindingsFileRange =
   | { ranged: false }
@@ -874,7 +908,7 @@ export function checkReviewerFindingsText(
  * is pure and reads no environment, so it passes or fails identically with no model credential.
  *
  * What it cannot prove: that reviewers ran in separate contexts. One context that deliberately
- * writes four files passes.
+ * writes four files passes. The stamp makes the claim visible.
  */
 export function validateReviewReceipt(
   receipt: unknown,
@@ -903,6 +937,7 @@ export function validateReviewReceipt(
     ...check.failures,
   ];
   const required = r.reviewers.filter((x) => x.required);
+  const coverage = coverageOf(r, check);
   return {
     checked: true,
     pass: failures.length === 0,
@@ -913,5 +948,9 @@ export function validateReviewReceipt(
     tally: tallyReviewFindings([...check.files.values()]),
     loaded: [...check.files.keys()],
     notLoaded: check.notLoaded,
+    ...(coverage !== undefined && { coverage }),
+    round:
+      context.archivedRounds === undefined ? (r.round ?? 1) : context.archivedRounds.length + 1,
+    ...(r.moment === 'phase' && { phaseBase: context.phaseBase }),
   };
 }

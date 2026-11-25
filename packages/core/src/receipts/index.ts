@@ -26,3 +26,23 @@ export { phaseOfReviewLabel, REVIEW_RECEIPT_FILENAME, REVIEWS_DIRNAME } from './
 export { readRegularFile, readReviewReceiptFile, reviewFindingsReaderFor } from './load';
 export { archiveReviewRound, listInterruptedArchives, readArchivedRounds } from './rounds';
 export type { ArchiveRoundResult } from './rounds';
+export { ReviewDecisionRecordSchema, jsonObjectFields, readSessionReviewState } from './decisions';
+export type { ExpectedUnknown, OrphanDecision, SessionReviewState } from './decisions';
+export { assembleStamp, buildProvenanceRow, renderProvenanceBlock } from './provenance';
+export type {
+  CommitsAfter,
+  ProvenanceRow,
+  ProvenanceRowInput,
+  ReviewDirRead,
+  SkipCheck,
+  StampGit,
+  StampRow,
+  StampSessionState,
+  UnreadReview,
+  UnreadReviewRow,
+  UnreviewedCommits,
+} from './provenance';
+export { NO_PIPELINE_REVIEW, PROVENANCE_MARKER, noteText } from './stamp-grammar';
+export type { StampNote } from './stamp-grammar';
+export { parseProvenanceStamp } from './stamp-parser';
+export type { ParsedProvenanceStamp } from './stamp-parser';
