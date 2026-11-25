@@ -822,7 +822,7 @@ describe('unit 1 fix round 1: the empty phase, cold-context honesty, phase numbe
   const final = () => section(md(), '### FINAL_REVIEW');
   it('fix 2: a phase that changed nothing is not reviewed, and the next base is unchanged', () => {
     expect(review()).toMatch(
-      /\*\*An empty phase is not reviewed\.\*\* When `\{base\}` equals `\{head\}`, or `git diff --name-only --no-renames -z \{base\}\.\.\{head\}` prints nothing, the phase made no change and there is nothing to review: run no review and write no receipt, record in `decisions\[\]` that the phase review was skipped as empty/
+      /\*\*An empty phase is not reviewed\.\*\* When `\{base\}` equals `\{head\}`, or `git diff --name-only --no-renames -z \{base\}\.\.\{head\}` prints nothing, the phase made no change and there is nothing to review: run no review and write no receipt, record in `decisions\[\]` a `skipped` decision \(Review records, Decision records\): `"state": "REVIEW"`, the phase, `"round": 1`, `"kind": "skipped"`, `"reason": "empty"`, `"head": "\{head\}"`, a `rationale` and `"decidedBy": "unaudited"`; the stamp shows the row as `skipped \(empty\)`/
     );
     expect(review()).toMatch(
       /The next phase's base is unchanged, because a phase that wrote no receipt is passed over\. `harness review-tier` exits 1 on such a range \(`changes no files`\); that exit is this case, never a range to fix\./
@@ -912,7 +912,7 @@ describe('unit 1 review round 3, fix 10: entry points from build output', () => 
 describe('unit 1 review round 4, fix 5: an empty final review is skipped and recorded', () => {
   it('FINAL_REVIEW step 2 skips an empty final range with a recorded decision', () => {
     expect(section(md(), '### FINAL_REVIEW')).toMatch(
-      /\*\*An empty final range is not reviewed\.\*\* When the command exits 1 with `the final range <base>\.\.<head> is empty \(it changes no files\)`, the branch changes nothing against its base and there is nothing to review: run no review and write no receipt, record in `decisions\[\]` that the final review was skipped as empty \(the state `FINAL_REVIEW`, that base and that head\), set `finalReview\.status: "skipped-empty"` and go to OUTCOME_EVAL\. That exit is this case, never a range to fix\./
+      /\*\*An empty final range is not reviewed\.\*\* When the command exits 1 with `the final range <base>\.\.<head> is empty \(it changes no files\)`, the branch changes nothing against its base and there is nothing to review: run no review and write no receipt, record in `decisions\[\]` a `skipped` decision: `"state": "FINAL_REVIEW"`, `"round": 1`, `"kind": "skipped"`, `"reason": "empty"`, `"head"` that head, a `rationale` naming that base and `"decidedBy": "unaudited"` \(the stamp's final row is then `skipped \(empty\)`, followed by the commits made after that head\), set `finalReview\.status: "skipped-empty"` and go to OUTCOME_EVAL\. That exit is this case, never a range to fix\./
     );
   });
   it('FINAL_REVIEW step 2 takes {head} from the Review head: line', () => {
@@ -1323,6 +1323,82 @@ describe('unit 3: review decisions and the provenance stamp', () => {
     );
     expect(section(md(), '## Success Criteria')).toMatch(
       /carrying its `round` and `decidedBy`; a dismissal was answered by the human, or in trusted mode taken after a self-audit that ran and agreed \(`audited`\), before it was recorded/
+    );
+  });
+});
+
+/** Unit 3, fix round 1: what the skill says the stamp does, against what the renderer writes. */
+describe('unit 3 fix round 1: skips, rounds, the working tree, hidden and conflicting stamps', () => {
+  const init = () => section(md(), '### INIT');
+  const records = () => section(md(), '### Review records');
+  const done = () => section(md(), '### DONE');
+  const stampOf = (row: string) =>
+    [
+      PROVENANCE_MARKER,
+      '### Review provenance',
+      '',
+      '| Review | Moment | Tier | Backend | Reviewers | Diff | Coverage | Gate | Blocking | By class | Escaped from | Override |',
+      '| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |',
+      row,
+      '',
+      PROVENANCE_MARKER,
+    ].join('\n');
+  it('a dropped phase and an empty review are recorded as skipped decisions', () => {
+    expect(init()).toMatch(
+      /its review is recorded as skipped: a `skipped` decision with `"reason": "dropped"`.*so the stamp shows `skipped \(dropped\)` for it rather than `MISSING`/
+    );
+    expect(records()).toContain('"kind": "skipped"');
+    expect(records()).toMatch(/There are four kinds\./);
+    expect(records()).toMatch(/a review skipped as empty is recorded `"decidedBy": "unaudited"`/);
+    expect(md()).toMatch(
+      /User wants to reorder phases mid-run:\*\* Mark the dropped phases `skipped` in `phases\[\]`, record a `skipped` decision with `"reason": "dropped"` and `"decidedBy": "human"`/
+    );
+  });
+  it('the skipped and unread final forms the skill names are rows the parser keeps', () => {
+    for (const row of [
+      '| phase-1 | - | - | - | - | - | - | skipped (empty) | - | - | - | 0 overrides, 0 dismissals, 1 skip: skipped (empty) (unaudited): no files |',
+      '| phase-2 | - | - | - | - | - | - | skipped (dropped) | - | - | - | 0 overrides, 0 dismissals, 1 skip: skipped (dropped) (human): dropped |',
+      '| final-all | - | - | - | - | - | - | receipt missing (overridden), +3 commits not reviewed | - | - | - | 1 override, 0 dismissals: gate (RECEIPT_MISSING) (human): crashed |',
+      '| final-all | - | - | - | - | - | - | skipped (empty), +1 commit not reviewed | - | - | - | - |',
+      '| phase-0 | - | - | - | - | - | - | receipt outside repository | - | - | - | unknown, at least 0 overrides, 1 dismissal: dismissed b1 (human): x |',
+    ]) {
+      expect(parseProvenanceStamp(stampOf(row))?.rows, row).toHaveLength(1);
+    }
+    expect(records()).toContain('`receipt missing (overridden), +3 commits not reviewed`');
+    expect(records()).toContain('`unknown, at least 1 override, 0 dismissals: …`');
+  });
+  it('the round the stamp keys decisions on is the gate count, not the receipt claim', () => {
+    expect(records()).toMatch(
+      /The stamp picks a row's decisions by the round the gate counts from the archives, never by the `round` the receipt states/
+    );
+  });
+  it('the decision-without-a-row note is quoted in the words the renderer writes', () => {
+    const note = noteText({ id: 'decision-no-row', args: { n: 1, label: 'phase-3' } });
+    expect(records()).toContain(
+      `\`${note.replace('1 recorded for phase-3', 'N recorded for phase-N')}\``
+    );
+  });
+  it('render does not check the working tree, and a rebase leaves the phase rows failing', () => {
+    expect(done()).toMatch(
+      /the working tree is not checked \(`WORKTREE_DIRTY` never appears on the stamp/
+    );
+    expect(done()).toMatch(
+      /That restores only the final row: the earlier phase rows keep `FAIL: HEAD_MISMATCH`/
+    );
+  });
+  it('a stamp inside <details>, or a second visible stamp, is not read', () => {
+    expect(records()).toMatch(/A `<details>` element, open or not, hides what it holds/);
+    expect(records()).toMatch(
+      /A body that shows two stamps is read as conflicting and neither is read/
+    );
+    const row =
+      '| phase-0 | phase | light | agent | 1/1 | 0000001..0000002 | 1/1 files | pass at 0000002 | 0 | none | none | none |';
+    expect(parseProvenanceStamp(`<details>\n\n${stampOf(row)}\n\n</details>`)).toBe(undefined);
+    expect(parseProvenanceStamp(`${stampOf(row)}\n\n${stampOf(row)}`)?.status).toBe('conflicting');
+  });
+  it('the free-text rule names the links it does not break', () => {
+    expect(records()).toMatch(
+      /a bare run of 7 to 40 hex characters and a repository's own autolink reference such as `ABC-123` are left as written/
     );
   });
 });

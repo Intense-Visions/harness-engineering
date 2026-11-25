@@ -123,68 +123,91 @@ top level of the worktree, so the command prints the same stamp from any directo
 the decisions and the starting commit every row is gated with. It has one row per review the
 session's phase list calls for (`MISSING` for one that has no directory) and one per review
 directory that exists: a directory without a readable receipt is a row whose Gate cell says
-`receipt missing`, `receipt invalid` or `receipt unreadable (<reason>)`, and it does not count as
-reviewed. The twelve columns are Review, Moment, Tier, Backend, Reviewers (findings files that
-loaded, of required), Diff (with `(base: starting-commit)` when declared, and a gap note when a
-phase does not start at the head of the nearest earlier phase that was reviewed, passing over a
-missing or unread row, or, with no earlier reviewed phase, at the session's starting commit),
-Coverage (diff files a required reviewer examined, of the diff's files; shown, never gated), Gate
-(re-run at render time with the reviewed head allowed to be an ancestor of HEAD, at most six
-codes then `+M more`; on the final row a pass, a failure and an overridden failure are each
-followed by `, +N commits not reviewed` when commits follow the reviewed head, or `, +? commits
-not reviewed (count unavailable)`), Blocking (with dismissed findings, flagged `unaudited` or
-`decider unknown` where the dismissal was, `at least N; not loaded: …` when a findings file did
-not load, and earlier rounds), By class, Escaped from, and Override (`none`; `unknown` when the
-decisions could not be read, on a row without a receipt too; otherwise the number of overrides
-and dismissals first, then `N from other rounds`, then the `gate`, `findings` and `dismissed`
-decisions of the receipt's round, each with its decider, `(human)`, `(audited)`, `(unaudited)`
-or `(decider unknown)`, at most six, then `+N more`). A row without a receipt shows the review's
+`receipt missing`, `receipt invalid`, `receipt unreadable (<reason>)`, `receipt outside
+repository` or `receipt outside project`, and it does not count as reviewed. A review with no
+receipt that a `skipped` decision covers is `skipped (empty)` or `skipped (dropped)` instead.
+The twelve columns are Review, Moment, Tier, Backend, Reviewers (findings files that loaded, of
+required), Diff (with `(base: starting-commit)` when declared, and a gap note when a phase's
+base is not the one the gate demands of it: the gate's own phase-base rule, read from the
+gate's result, which passes over a missing, unread or invalid earlier receipt and one whose
+head a rebase took off the branch, and falls back to the session's starting commit), Coverage
+(diff files a required reviewer examined, of the diff's files; shown, never gated), Gate (re-run
+at render time with two differences from `check-review-receipt`: the reviewed head may be an
+ancestor of HEAD, and the working tree is not checked, so `WORKTREE_DIRTY` never appears; at
+most six codes then `+M more`; the final row, whatever its Gate cell says, a receipt-less one
+included, is followed by `, +N commits not reviewed` when commits follow the reviewed head, the
+head an empty-skip recorded or the starting commit, or `, +? commits not reviewed (count
+unavailable)`), Blocking (with dismissed findings, flagged `unaudited` or `decider unknown` where
+the dismissal was, `at least N; not loaded: …` when a findings file did not load, and earlier
+rounds), By class, Escaped from, and Override (`none`; `unknown` when a decision of the session
+could not be read and none of this review's could, on a row without a receipt too; otherwise the
+number of overrides and dismissals first, then `N skips`, then `N from other rounds`, the whole
+prefixed `unknown, at least` when any decision of the session could not be read, then the
+`gate`, `findings`, `dismissed` and `skipped` decisions of the row's round, each with its
+decider, `(human)`, `(audited)`, `(unaudited)` or `(decider unknown)`, at most six, then `+N
+more`). The row's round is the one the gate counts, 1 + the `round-R/` archives beside the
+receipt, never the round the receipt states. A row without a receipt shows the review's
 decisions too, and its Gate cell ends `(overridden)` when a `gate` decision names the code it
-fails with (`RECEIPT_MISSING` or `RECEIPT_INVALID`). Rows are `phase-N` and `final-all` only;
-any other entry under `reviews/` is skipped and counted. No cell is cut without a mark: a
-rationale over 120 characters ends with `…`. Free text is made inert: invisible and control
-characters are removed, and nothing in it can become markup, a link, a mention, an issue
-reference (`#12`, `GH-12`) or math (`$`); `;` is encoded too, because it separates the decisions
-of an Override cell. Notes under the table are one of nine fixed sentences (`STAMP_NOTES` in
-`stamp-grammar.ts`): decisions that could not be read, decisions recorded without `decidedBy`,
-an orphan decision, the reason the expected reviews are unknown, skipped entries. Rows and notes
-are assembled in core (`assembleStamp`). The renderer and the PR-body parser
-(`parseProvenanceStamp`) share that grammar, so the parser keeps only rows and notes the renderer
-can write, an Override cell no longer than the renderer writes included. It reads a stamp only
-as the rendered page shows one: the markers on lines of their own, each after an empty line, the
-heading on the line after the opening marker, outside HTML comments, fenced code blocks and raw
-HTML blocks; rows only under the table's header and rule, and notes only in the list after the
-table. A marker in a paragraph, a list item, a quote or a link reference definition's title is
-text. Autopilot places the stamp in the PR body. The stamp in a PR body is unauthenticated: CI
-cannot recompute it, because receipts are machine-local.
+fails with (`RECEIPT_MISSING`, `RECEIPT_INVALID`, `RECEIPT_OUTSIDE_REPO` or `GATE_ERROR`). Rows
+are `phase-N` and `final-all` only; any other entry under `reviews/` is skipped and counted. No
+cell is cut without a mark: a rationale over 120 characters ends with `…`. Free text is made
+inert: invisible and control characters are removed, and nothing in it can become markup, a
+URL, a mention, a `#` or `GH-` issue reference (`#12`, `GH-12`) or math (`$`); `;` is encoded
+too, because it separates the decisions of an Override cell. Two kinds of link are not broken,
+because breaking them would break ordinary ids: a bare run of 7 to 40 hex characters (GitHub
+links a commit sha) and a repository's own autolink reference (`ABC-123`). Notes under the table
+are one of ten fixed sentences (`STAMP_NOTES` in `stamp-grammar.ts`): decisions that could not
+be read, decisions recorded without `decidedBy`, an orphan decision, a decision for a review
+with no row when the expected reviews are unknown, the reason the expected reviews are unknown,
+skipped entries. Rows and notes are assembled in core (`assembleStamp`). The renderer and the
+PR-body parser (`parseProvenanceStamp`, in `stamp-parser.ts`) share that grammar, so the parser
+keeps only rows and notes the renderer can write, an Override cell no longer than the renderer
+writes included. It reads a stamp only as the rendered page shows one: the markers on lines of
+their own, each after an empty line, the heading on the line after the opening marker, outside
+HTML comments, fenced code blocks, raw HTML blocks (`<script>`, `<pre>`, `<style>`,
+`<textarea>`, `<?`, `<!X`, `<![CDATA[`) and `<details>` elements, open or not (GitHub shows one
+collapsed, or lets the reader collapse it); rows only under the table's header and rule, and
+notes only in the list after the table. A marker in a paragraph, a list item, a quote or a link
+reference definition's title is text. A body that shows more than one stamp is `conflicting` and
+none is read; a body over 262144 characters is `too-large` and is not read; the scan is linear
+in the body's length. Autopilot places the stamp in the PR body. The stamp in a PR body is
+unauthenticated: CI cannot recompute it, because receipts are machine-local.
 
 **Review decision.** An entry of `decisions[]` in a session's `autopilot-state.json` with
 `state` `REVIEW` or `FINAL_REVIEW` and a `kind`: `gate` (a failed receipt gate was overridden;
-carries the `codes`), `findings` (blocking findings were overridden) or `dismissed` (blocking
-findings were set aside without a fix; carries the `findingIds`). Every kind carries a
-`rationale`, a `round`: the round of the review it was taken in (1 when absent), and
-`decidedBy`: `human`, `audited` (taken in trusted mode after a blind-then-refute self-audit that
-ran and agreed) or `unaudited`. A record with no `decidedBy` key, written before the field
-existed, reads as decider unknown and is counted in a note; any other value, `unknown`
-included, is unreadable. A decision applies only to the receipt of its round, so a round 1
-override or dismissal does nothing to a round 2 receipt. `codes` must be real failure codes. The
-type is `ReviewDecisionRecord`; `readSessionReviewState` parses them with
-`ReviewDecisionRecordSchema`, keyed by review, and keeps only the declared fields. A review
+carries the `codes`), `findings` (blocking findings were overridden), `dismissed` (blocking
+findings were set aside without a fix; carries the `findingIds`) or `skipped` (the review was
+not run; carries the `reason`, `empty` or `dropped`, and for an empty range may carry the
+`head` it was found empty at). Every kind carries a `rationale`, a `round`: the round of the
+review it was taken in (1 when absent), and `decidedBy`: `human`, `audited` (taken in trusted
+mode after a blind-then-refute self-audit that ran and agreed) or `unaudited`. A record with no
+`decidedBy` key, written before the field existed, reads as decider unknown and is counted in a
+note; any other value, `unknown` included, is unreadable. A decision applies only to the receipt
+of its round, so a round 1 override or dismissal does nothing to a round 2 receipt. `codes` must
+be real failure codes. The type is `ReviewDecisionRecord`, a union with one shape per kind (the
+read type `ReadReviewDecision` adds the `unknown` decider); `readSessionReviewState` parses them
+with `ReviewDecisionRecordSchema`, keyed by review, and keeps only the declared fields. A review
 decision that does not parse is never dropped silently: the stamp says overrides could not be
 read. One that parses and belongs to no review of the session, or sits under a state that is not
-a review state, is an orphan and is named in a note. In autopilot a dismissal is recorded only
-after a `judgment` pause: the human answers in supervised mode, and in trusted mode the
-recommendation is taken only when the self-audit ran and agreed (`audited`); with no auditor
-available, or audit off, the human answers. Overrides are always the human's. A final review
-ends `passed` only when nothing of it was set aside in any round: `passed-with-dismissals` with a
-dismissal, `overridden` with an override.
+a review state, is an orphan and is named in a note; when the reviews the session calls for are
+unknown, one for a review with no directory is named in its own note instead, not as an orphan.
+In autopilot a dismissal is recorded only after a `judgment` pause: the human answers in
+supervised mode, and in trusted mode the recommendation is taken only when the self-audit ran
+and agreed (`audited`); with no auditor available, or audit off, the human answers. Overrides
+are always the human's; a review skipped as empty is recorded `unaudited` (git found the range
+empty), a dropped phase `human`. A final review ends `passed` only when nothing of it was set
+aside in any round: `passed-with-dismissals` with a dismissal, `overridden` with an override.
 
 **Session state.** The part of `autopilot-state.json` that code reads: `phases[]`, `decisions[]`
 and `startingCommit` (`AutopilotSessionState`, `AutopilotPhaseEntry`; schema
 `AutopilotSessionStateSchema` and the file name `AUTOPILOT_STATE_FILENAME`, exported from
 `packages/core/src/state`). One reader, `readSessionReviewState`, reads every field the review
 commands use with that schema, one field at a time so a fault in one never hides another; the
-CLI reads the file once (a regular file of at most 5 MB) and hands it the text. A phase is
+CLI reads the file once (a regular file of at most 5 MB) and hands it the text. Three other
+readers of the file are not review commands and do not use the schema: roadmap sync
+(`packages/core/src/roadmap/sync.ts`) and `harness migrate` (`packages/cli/src/commands/migrate.ts`)
+each parse it as unvalidated JSON and check each field they use, and the pre-compact hook
+(`packages/cli/src/hooks/pre-compact-state.js`) reads it for a summary. A phase is
 identified by its 0-based position in `phases[]`. That one number is the entry's `index` when it
 carries one, the `N` of its review directory `phase-N` and the `phase` of a decision record. The
 stamp takes the reviews a session calls for from the positions. An entry that states another
@@ -317,7 +340,8 @@ standalone review after a fix commit is a new directory and needs no archive.
 | [rounds.ts](../../../packages/core/src/receipts/rounds.ts)                                | `archiveReviewRound`, `readArchivedRounds`: the `round-R/` archives of a fix round                                                          |
 | [review-paths.ts](../../../packages/core/src/shared/review-paths.ts)                      | `normalizeReviewPath`, `pathEscapes`: the path rules the gate and the tier selector share (a shared leaf)                                   |
 | [layout.ts](../../../packages/core/src/receipts/layout.ts)                                | Review directory names, `expectedReviewMoment` (the one precedence rule)                                                                    |
-| [stamp-grammar.ts](../../../packages/core/src/receipts/stamp-grammar.ts)                  | The stamp's columns, cell grammars, bounds, notes and inert text, and the PR-body parser (`parseProvenanceStamp`)                           |
+| [stamp-grammar.ts](../../../packages/core/src/receipts/stamp-grammar.ts)                  | The stamp's columns, cell grammars, bounds, notes and inert text                                                                            |
+| [stamp-parser.ts](../../../packages/core/src/receipts/stamp-parser.ts)                    | The PR-body parser (`parseProvenanceStamp`): what the rendered page shows, one stamp, a bounded input                                       |
 | [decisions.ts](../../../packages/core/src/receipts/decisions.ts)                          | `ReviewDecisionRecordSchema`, `readSessionReviewState` (the one reader of the session state)                                                |
 | [autopilot-session-state.ts](../../../packages/core/src/state/autopilot-session-state.ts) | `AutopilotSessionStateSchema`, `AutopilotPhaseEntrySchema`, `AUTOPILOT_STATE_FILENAME`                                                      |
 | [provenance.ts](../../../packages/core/src/receipts/provenance.ts)                        | Renders the provenance stamp; `assembleStamp`, `buildProvenanceRow`                                                                         |

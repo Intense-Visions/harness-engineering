@@ -154,7 +154,7 @@ describe('the session-state example in INIT is the shape the stamp reads', () =>
   it('every decision example carries a round, and names a phase of the session example', () => {
     const phases = (stateExamples()[0]!.value.phases as Phase[]).map((p) => p.index);
     const decisions = examples().filter(isDecision);
-    expect(decisions).toHaveLength(3);
+    expect(decisions).toHaveLength(4);
     for (const d of decisions) {
       expect(d.value.round, JSON.stringify(d.value)).toEqual(expect.any(Number));
       if (d.value.state === 'REVIEW') expect(phases).toContain(d.value.phase);
@@ -170,10 +170,12 @@ describe('the session-state example in INIT is the shape the stamp reads', () =>
   });
   it('round 4: every decision example carries decidedBy, and the skill writes only human or audited', () => {
     const decisions = examples().filter(isDecision);
-    expect(decisions).toHaveLength(3);
+    expect(decisions).toHaveLength(4);
     for (const d of decisions) {
       expect(REVIEW_DECIDERS, JSON.stringify(d.value)).toContain(d.value.decidedBy);
-      expect(['human', 'audited']).toContain(d.value.decidedBy);
+      // Fix round 1: the one exception is a review skipped as empty, which git decided.
+      const empty = d.value.kind === 'skipped' && d.value.reason === 'empty';
+      expect(empty ? ['unaudited'] : ['human', 'audited']).toContain(d.value.decidedBy);
       // Control: without decidedBy, or with another value, the record schema refuses it.
       const { decidedBy: _by, ...without } = d.value;
       expect(ReviewDecisionRecordSchema.safeParse(without).success).toBe(false);

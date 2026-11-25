@@ -217,9 +217,11 @@ session that sets out to deceive it.
 - The stamp in a PR body is unauthenticated. The receipts are ignored by git, so CI has nothing
   to recompute a stamp from. A reader of a PR body accepts as a stamp only what the rendered page
   shows as one: a marker pair on lines of their own, each after an empty line, the heading on
-  the line after the opening marker, none of it inside an HTML comment, a code block or a raw
-  HTML block, and from it only the table's rows and its notes, in forms the renderer can write.
-  A marker in a paragraph, a list item, a quote or a link reference definition is text.
+  the line after the opening marker, none of it inside an HTML comment, a code block, a raw
+  HTML block or a `<details>` element (open or not), and from it only the table's rows and its
+  notes, in forms the renderer can write. A marker in a paragraph, a list item, a quote or a link
+  reference definition is text. A body that shows two stamps is conflicting and neither is read,
+  and a body over 262144 characters is not read.
 - A failed gate can be overridden by the human. Autopilot records the override in `decisions[]`
   as a typed record (`kind: "gate"`, with the overridden `codes` and a `rationale`;
   `ReviewDecisionRecord`) and the stamp shows it, so an override is visible on the PR but is not
@@ -236,13 +238,19 @@ session that sets out to deceive it.
   no receipt too), and one that belongs to no review is named in a note. Only a decision's
   declared fields are read; anything else written beside it never reaches the stamp.
 - The stamp does not repeat the receipt's word. `review-provenance render` runs the gate again
-  for each review and prints the result, with one rule relaxed: the reviewed head may be an
-  ancestor of HEAD, because a phase review is followed by later commits. A review state still
-  gates with the head required to be HEAD. For the final review the stamp also counts the
-  commits made after the reviewed head, and prints the count whether the gate passed, failed or
-  was overridden. A review directory without a readable receipt is a row that says so, and shows
-  the decisions recorded for it. After a rebase, an amend or a squash the reviewed commits are
-  gone from the branch and every row fails `HEAD_MISMATCH`.
+  for each review and prints the result, with two rules relaxed: the reviewed head may be an
+  ancestor of HEAD, because a phase review is followed by later commits, and the working tree is
+  not checked, because the tree the stamp is rendered in is not the tree any of those reviews
+  read. A review state still gates with the head required to be HEAD and a clean tracked tree. A
+  row's decisions are those of the round the gate counts from the `round-R/` archives, never the
+  round the receipt states, and a Diff gap is the gate's own phase-base rule. For the final
+  review the stamp also counts the commits made after the reviewed head, and prints the count
+  whether the gate passed, failed or was overridden, and on a final row with no receipt too
+  (from the head an empty-skip recorded, else the starting commit). A review directory without a
+  readable receipt is a row that says so, and shows the decisions recorded for it; a review that
+  was not run by a recorded `skipped` decision says `skipped (empty)` or `skipped (dropped)`.
+  After a rebase, an amend or a squash the reviewed commits are gone from the branch and every
+  row fails `HEAD_MISMATCH`; a new final review restores the final row only.
 - MCP callers decide on the tool result's `pass` field alone. Through the shared
   response-compaction middleware `failures` is absent on a pass, a single object when there is
   exactly one failure, and an array when there are two or more, so its shape is not a contract

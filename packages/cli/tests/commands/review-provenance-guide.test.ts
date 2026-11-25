@@ -326,7 +326,7 @@ describe("the note table in the review-provenance guide is the renderer's note l
     return [...guide.slice(start, end).matchAll(/^\| `([^`]+)` +\|/gm)].map((m) => m[1] ?? '');
   }
   it('reads every template from the code (a guard against a regex that reads nothing)', () => {
-    expect(templates()).toHaveLength(9);
+    expect(templates()).toHaveLength(10);
   });
   it("lists exactly the renderer's notes, no more and no fewer", () => {
     expect([...tableNotes()].sort()).toEqual([...templates()].sort());
