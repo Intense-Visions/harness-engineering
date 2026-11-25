@@ -45,12 +45,15 @@ describe('escapeTerminalText', () => {
   });
 });
 
-describe('one unsafe-character rule (review round 2, architecture-3)', () => {
-  it('the auto-decision log and the receipt gate agree on every code point', () => {
+describe('the gate escapes at least what the auto-decision log rejects (review round 3)', () => {
+  it('every code point the log rejects on one line the gate escapes; the log keeps its own rule', () => {
     for (let cp = 0; cp <= 0x30000; cp++) {
-      if (isUnsafeLogChar(cp, false) !== isUnsafeTextChar(cp)) {
-        throw new Error(`U+${cp.toString(16)} differs`);
+      if (isUnsafeLogChar(cp, false) && !isUnsafeTextChar(cp)) {
+        throw new Error(`U+${cp.toString(16)} is rejected by the log but printed raw by the gate`);
       }
     }
+    // The log's rule is main's: the soft hyphen and the word joiner are not in it.
+    expect(isUnsafeLogChar(0x00ad, false)).toBe(false);
+    expect(isUnsafeLogChar(0x2060, false)).toBe(false);
   });
 });

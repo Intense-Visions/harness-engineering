@@ -196,4 +196,10 @@ describe('parseAutoDecisionLine', () => {
       false
     );
   });
+  // Review round 3: the log keeps its own character rule. Lines main stored with these characters
+  // (soft hyphen, Mongolian vowel separator, word joiner, invisible operators) still parse.
+  it.each(['­', '᠎', '⁠', '⁡', '⁤', '⁥'])('a stored line holding U+%s parses as before', (ch) => {
+    const line = JSON.stringify({ ...stored, rationale: `co${ch}operate` });
+    expect(parseAutoDecisionLine(line).ok).toBe(true);
+  });
 });

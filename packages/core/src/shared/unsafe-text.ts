@@ -6,7 +6,8 @@
  * embeddings and overrides, the word joiner, invisible operators and bidi isolates, and the byte
  * order mark. ZERO WIDTH NON-JOINER and JOINER (U+200C/D) are allowed: Persian and other scripts
  * need ZWNJ to spell words and emoji sequences need ZWJ, and neither reorders or hides text on its
- * own. Used by the receipt gate's text output and the auto-decision log. A leaf.
+ * own. Used by the receipt gate's text output; the auto-decision log keeps its own, narrower
+ * rule (autonomy/decision-schema.ts), which this one covers. A leaf.
  */
 const UNSAFE_RANGES: ReadonlyArray<readonly [number, number]> = [
   [0x0000, 0x001f],
