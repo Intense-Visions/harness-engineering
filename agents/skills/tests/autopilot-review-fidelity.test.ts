@@ -6,6 +6,7 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'fs';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
+import { REVIEW_GATE_FAILURE_CODES } from '@harness-engineering/core';
 
 const SKILL = resolve(
   dirname(fileURLToPath(import.meta.url)),
@@ -857,10 +858,10 @@ describe('unit 1 fix round 2: suggestions folded in', () => {
   });
 });
 
-describe('unit 1 review round 3, fix 2: findings files are bound to the base', () => {
-  it('a failure about the range or the tree re-runs every required reviewer, at REVIEW and FINAL_REVIEW', () => {
+describe('unit 1 review round 3, fix 2 (round 4: one Retry table): a failed gate is re-run per code', () => {
+  it('REVIEW and FINAL_REVIEW both send re-run to the Retry table', () => {
     const rule =
-      'When a failure is about the range or the tree rather than one reviewer (a base code: `DIFF_BASE_NOT_ANCESTOR`, `PHASE_BASE_MISMATCH`, `PHASE_BASE_UNKNOWN`, `FINAL_BASE_NOT_MERGE_BASE`, `TARGET_UNRESOLVED`, `TARGET_OWN_BRANCH`, `STARTING_COMMIT_UNKNOWN`; `WORKTREE_DIRTY`; `MOMENT_MISMATCH`, `MOMENT_UNKNOWN`; `HEAD_MISMATCH`), or HEAD has moved, every required reviewer runs again over the corrected range';
+      '`re-run`: act on every failure as the Retry table says (Review records, Retry); when a code there says stop for the human, `re-run` is not offered.';
     expect(section(md(), '### REVIEW')).toContain(rule);
     expect(section(md(), '### FINAL_REVIEW')).toContain(rule);
   });
@@ -933,5 +934,43 @@ describe('unit 1 review round 4, fix 4: a reviewer never edits its file for a ra
     expect(section(md(), '### Review records')).toMatch(
       /The reviewer corrects its file only for a code about the file's content; for `HEAD_MISMATCH`, `WORKTREE_DIRTY`, `EMPTY_DIFF`, `DIFF_UNRESOLVED` or any other code that is not about the file's content it edits nothing and reports the code to this session, which fixes the range or the tree \(Clean tree; REVIEW step 1; FINAL_REVIEW step 2\) and dispatches the reviewer again\./
     );
+  });
+});
+
+describe('unit 1 review round 4, suggestion: one Retry table covers every gate code', () => {
+  const rows = () => {
+    const text = section(md(), '### Review records');
+    const out = new Map<string, string>();
+    for (const line of text.split('\n')) {
+      const m = /^\| `([A-Z_]+)`\s*\| (.+?)\s*\|$/.exec(line);
+      if (m) out.set(m[1]!, m[2]!);
+    }
+    return out;
+  };
+  it('every REVIEW_GATE_FAILURE_CODES code has exactly one row, and no other code does', () => {
+    expect([...rows().keys()].sort()).toEqual([...REVIEW_GATE_FAILURE_CODES].sort());
+  });
+  it('each row starts with one of the actions, or names its own repair', () => {
+    for (const [code, action] of rows()) {
+      expect(action, code).toMatch(
+        /re-run all|re-run named|rewrite receipt|stop for the human|run the gate again|correct the tool call|no review: skip as empty/
+      );
+    }
+  });
+  it('range and tree codes re-run all; receipt-writing slips rewrite the receipt', () => {
+    const r = rows();
+    for (const code of [
+      'HEAD_MISMATCH',
+      'WORKTREE_DIRTY',
+      'DIFF_BASE_NOT_ANCESTOR',
+      'PHASE_BASE_MISMATCH',
+    ])
+      expect(r.get(code), code).toMatch(/re-run all/);
+    for (const code of ['COUNTS_MISMATCH', 'RECEIPT_INVALID', 'DUPLICATE_REVIEWER'])
+      expect(r.get(code), code).toMatch(/^rewrite receipt/);
+    expect(r.get('DUPLICATE_FINDING_ID')).toMatch(
+      /re-run named: the reviewers whose files hold a repeated id/
+    );
+    expect(r.get('EMPTY_DIFF')).toMatch(/skip as empty/);
   });
 });

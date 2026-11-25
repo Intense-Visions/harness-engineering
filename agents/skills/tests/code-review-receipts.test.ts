@@ -741,7 +741,7 @@ describe('round 4: code-review instructions of review round 4 are each pinned', 
     );
     // Unit 1 fix round 1, fix 7: a standalone review takes its base from its range; --session is final-only.
     expect(text).toMatch(
-      /A standalone review takes its `diff\.base` from the range it reviews: a `commit-range` argument names that range, and its first commit is the base\./
+      /A standalone review takes its `diff\.base` from the range it reviews, resolved as Argument Resolution says[^:]*: a `commit-range` argument names that range, and its first commit is the base\./
     );
     expect(text).toMatch(
       /when none resolves it prints `Review base: unresolved \(no default-branch merge base: name the range to review explicitly …\)`: then pass the range as a `commit-range` argument/
@@ -885,9 +885,9 @@ describe('unit 1 fix round 2: a standalone base is advice (compliance-3)', () =>
 });
 
 describe('unit 1 review round 3, fix 2: findings files are bound to the base', () => {
-  it('a gate failure about the range or the tree re-runs every required reviewer', () => {
+  it('a gate failure is re-run per code, by the Retry table harness-autopilot keeps (round 4)', () => {
     expect(section(md(), '### Review Receipt')).toMatch(
-      /`re-run`: dispatch the named reviewers again, or every required reviewer when HEAD has moved or a failure is about the range or the tree rather than one reviewer \(a base code, `WORKTREE_DIRTY`, `MOMENT_MISMATCH`, `MOMENT_UNKNOWN` or `HEAD_MISMATCH`/
+      /`re-run`: act on every failure as the Retry table of harness-autopilot \(Review records, Retry\) says: re-run all, re-run named, rewrite the receipt from the files, or stop for the human\./
     );
   });
 });
@@ -940,6 +940,24 @@ describe('unit 1 review round 4, fix 4: the self-check loop stops on a range or 
   it('the brief paragraph says the same', () => {
     expect(md()).toMatch(
       /and to run `harness check-review-receipt --findings <file> --base <base> --head <head>` on the file before returning, correcting the file only for a code about its content and otherwise stopping to report the code \(Reviewer findings files, self-check\)/
+    );
+  });
+});
+
+describe('unit 1 review round 4, fix 3: a standalone review is of the checked-out head', () => {
+  it('Argument Resolution checks out the range end and replaces a start that is not an ancestor', () => {
+    expect(section(md(), '## Argument Resolution')).toMatch(
+      /A standalone review reviews the checked-out HEAD: when the range's end is not HEAD \(a PR by number, or a range such as `abc123\.\.def456`\), check that end out first, in a worktree of its own \(`git worktree add <dir> <end>`\), and run the review there\. When the range's start is not an ancestor of its end \(`git merge-base --is-ancestor <start> <end>` exits 1, as for `origin\/main\.\.HEAD` after main moved past the fork point\), the base is not the range's start: it is the merge base with the default branch that `harness review-tier --moment standalone` prints on its `Review base:` line\./
+    );
+  });
+  it('the tier paragraph takes the standalone base after that resolution', () => {
+    expect(md()).toMatch(
+      /A standalone review takes its `diff\.base` from the range it reviews, resolved as Argument Resolution says \(its end checked out, a start that is not an ancestor of the end replaced by the merge base\): a `commit-range` argument names that range, and its first commit is the base\./
+    );
+  });
+  it('a standalone gate that fails on the range stops instead of re-running', () => {
+    expect(section(md(), '### Review Receipt')).toMatch(
+      /For a standalone review, `HEAD_MISMATCH`, `DIFF_BASE_NOT_ANCESTOR`, `DIFF_UNRESOLVED` and `EMPTY_DIFF` are not re-run: the range was resolved wrongly or is empty\. Stop and report the code; a later run resolves the range again as Argument Resolution says\. Resolving a range again after it was resolved wrongly is not narrowing it to pass\./
     );
   });
 });

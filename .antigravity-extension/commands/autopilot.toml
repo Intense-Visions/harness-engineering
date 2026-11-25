@@ -418,6 +418,48 @@ REVIEW and FINAL_REVIEW share the rules in this section. The fields of the recei
 
 **Overrides.** A review state left over a failed receipt gate, or over blocking findings, records the human's decision in `decisions[]`: the state (`REVIEW` or `FINAL_REVIEW`), for `REVIEW` the phase (its 0-based position, the `N` of `phase-N`), what was overridden (every failure code the gate raised, or the blocking findings), and the human's rationale. A gate or findings override is always the human's and never auto-resolves.
 
+**Retry.** After a failed receipt gate, `re-run` acts on every failure code as this table says. Four actions: **re-run all** (fix what the row names, then dispatch every required reviewer again over the corrected range, as After a fix says; each findings file records the base and head it was written for, so none from the old range is kept), **re-run named** (dispatch again only the reviewers the failures name, HEAD unchanged), **rewrite receipt** (write `receipt.json` again from the findings files as they stand, changing no finding and no file) and **stop for the human** (no action repairs it: report it and offer `override` or `stop` only). When the failures call for different actions, take the widest: stop for the human, then re-run all, then re-run named, then rewrite receipt; and when HEAD has moved since the review, re-run all whatever the codes. After any action, rewrite the receipt and gate it again. No action changes `tier`, `moment`, a reviewer's `required`, `coldContext`, `priorFindingsSupplied` or the range to make a failing receipt pass.
+
+| Code                         | Action                                                                                                      |
+| ---------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| `RECEIPT_MISSING`            | rewrite receipt (no reviewer file either: re-run all)                                                       |
+| `RECEIPT_INVALID`            | rewrite receipt                                                                                             |
+| `RECEIPT_OUTSIDE_REPO`       | run the gate again from the worktree that holds the receipt; nothing is rewritten                           |
+| `GATE_ERROR`                 | correct the tool call (`path`, `receipt`, `moment`) and gate again; if the tool threw, stop for the human   |
+| `MOMENT_MISMATCH`            | re-run all, with briefs that name the moment the directory states                                           |
+| `MOMENT_UNKNOWN`             | re-run all in the session review directory (`phase-{N}` or `final-all`)                                     |
+| `HEAD_MISMATCH`              | re-run all at the current HEAD                                                                              |
+| `WORKTREE_DIRTY`             | commit or discard every change to a tracked file (Clean tree), then re-run all                              |
+| `REQUIRED_REVIEWER_NOT_RUN`  | re-run named                                                                                                |
+| `CORE_REVIEWER_MISSING`      | stop for the human (a `full` roster without a core reviewer is not repaired by adding a record)             |
+| `LIGHT_TIER_ROSTER`          | stop for the human                                                                                          |
+| `TIER_DEMOTED`               | rewrite receipt with `demotion` when the demotion was decided (REVIEW step 3); otherwise stop for the human |
+| `DUPLICATE_REVIEWER`         | rewrite receipt, one record per reviewer                                                                    |
+| `UNKNOWN_REVIEWER`           | rewrite receipt without the record (an id that is no reviewer, such as `learnings`, has no reviewer record) |
+| `FINAL_NOT_FULL`             | stop for the human (this session cannot run `full`)                                                         |
+| `FINAL_NOT_COLD`             | re-run all, with cold briefs                                                                                |
+| `FINAL_PRIOR_FINDINGS`       | re-run all, with briefs that carry no earlier finding                                                       |
+| `FINAL_BASE_NOT_MERGE_BASE`  | resolve the base again (FINAL_REVIEW step 2), then re-run all                                               |
+| `TARGET_UNRESOLVED`          | name a `--target` that resolves (FINAL_REVIEW step 2), then re-run all                                      |
+| `TARGET_OWN_BRANCH`          | name the branch this one merges into as `--target` (FINAL_REVIEW step 2), then re-run all                   |
+| `STARTING_COMMIT_UNKNOWN`    | record the session's `startingCommit`, resolve the base again, then re-run all                              |
+| `PHASE_BASE_MISMATCH`        | take the phase base again (REVIEW step 1), then re-run all                                                  |
+| `PHASE_BASE_UNKNOWN`         | record the new `startingCommit` (REVIEW step 1, After a rebase), then re-run all                            |
+| `DIFF_BASE_NOT_ANCESTOR`     | resolve the base again (REVIEW step 1 or FINAL_REVIEW step 2), then re-run all                              |
+| `DIFF_UNRESOLVED`            | stop for the human                                                                                          |
+| `EMPTY_DIFF`                 | no review: skip as empty, as REVIEW step 1 or FINAL_REVIEW step 2 says, with its decision recorded          |
+| `FINDINGS_FILE_MISSING`      | re-run named                                                                                                |
+| `FINDINGS_PATH_INVALID`      | rewrite receipt with `findingsPath` as `<reviewerId>.json`                                                  |
+| `FINDINGS_FILE_SHARED`       | rewrite receipt with each reviewer's own `findingsPath`                                                     |
+| `FINDINGS_FILE_INVALID`      | re-run named                                                                                                |
+| `FINDINGS_REVIEWER_MISMATCH` | re-run named                                                                                                |
+| `FINDINGS_HEAD_MISMATCH`     | re-run named                                                                                                |
+| `FINDINGS_BASE_MISMATCH`     | re-run named                                                                                                |
+| `EXAMINED_FILES_EMPTY`       | re-run named                                                                                                |
+| `EXAMINED_OUTSIDE_DIFF`      | re-run named                                                                                                |
+| `DUPLICATE_FINDING_ID`       | re-run named: the reviewers whose files hold a repeated id                                                  |
+| `COUNTS_MISMATCH`            | rewrite receipt                                                                                             |
+
 ---
 
 ### REVIEW
@@ -495,7 +537,7 @@ If a **user-declared** hooked skill cannot be dispatched (typo / not installed),
 **6. Gate the receipt.** Run `harness check-review-receipt {sessionDir}/reviews/phase-{N}` (or the `check_review_receipt` tool; decide on its `pass` field alone, as harness-code-review "Review Receipt" describes: `failures` is absent on a pass, one object for one failure and a list for several). The review directory decides the moment, and nothing a caller passes changes it: `phase-{N}` is a phase review and `final-all` is the final review. A receipt whose `moment` says otherwise fails `MOMENT_MISMATCH`. Pass no `--moment` flag and no `moment` argument for a session review directory: one that agrees with the directory changes nothing, and one that disagrees fails `MOMENT_MISMATCH` (`the receipt directory is the phase review, but --moment says final; the directory decides`). The flag exists for a receipt in a directory that states no moment, such as a copy made elsewhere, which fails `MOMENT_UNKNOWN` without it. A missing receipt fails the gate, as does a required reviewer that did not run, a reviewer id that is not a known reviewer (`UNKNOWN_REVIEWER`), a `light` roster other than the single reviewer `compliance-bug`, a findings file that is absent, invalid, outside the diff or written at another head (`FINDINGS_HEAD_MISMATCH`), a finding id used twice, `blocking` or `advisory` counts that differ from the findings files, a `diff.base` that is not an ancestor of the head or is not the phase base of step 1 (`PHASE_BASE_MISMATCH`, `PHASE_BASE_UNKNOWN`), a HEAD that moved after the review, and tracked files that differ from HEAD (`WORKTREE_DIRTY`). Every code is listed in harness-code-review, "Review Receipt".
 
 _Pause point (gate): resolve per the Pause Protocol._ <!-- pause: gate -->
-If the receipt gate fails, REVIEW may not be left. Report each failure and the reviewer it names, then ask "re-run / override / stop." `re-run`: when every failure names a reviewer and HEAD is unchanged, dispatch the named reviewers again, rewrite the receipt and gate it again. When a failure is about the range or the tree rather than one reviewer (a base code: `DIFF_BASE_NOT_ANCESTOR`, `PHASE_BASE_MISMATCH`, `PHASE_BASE_UNKNOWN`, `FINAL_BASE_NOT_MERGE_BASE`, `TARGET_UNRESOLVED`, `TARGET_OWN_BRANCH`, `STARTING_COMMIT_UNKNOWN`; `WORKTREE_DIRTY`; `MOMENT_MISMATCH`, `MOMENT_UNKNOWN`; `HEAD_MISMATCH`), or HEAD has moved, every required reviewer runs again over the corrected range (Review records, After a fix): each findings file records the base and head it was written for, so none written for the old range can be kept. `override`: record the override in `decisions[]` (Review records, Overrides) with every failure code the gate raised. `stop`: save state and exit.
+If the receipt gate fails, REVIEW may not be left. Report each failure and the reviewer it names, then ask "re-run / override / stop." `re-run`: act on every failure as the Retry table says (Review records, Retry); when a code there says stop for the human, `re-run` is not offered. `override`: record the override in `decisions[]` (Review records, Overrides) with every failure code the gate raised. `stop`: save state and exit.
 
 **7. Decide on the blocking findings:** every blocking finding of the reviewer findings files (the receipt's `blocking`), whatever VALIDATE judged of it, plus the blocking hook findings of step 5.
 
@@ -544,7 +586,7 @@ All review output for the phase lives in `{sessionDir}/reviews/phase-{N}/`. The 
 
    _Pause point (gate): resolve per the Pause Protocol._ <!-- pause: gate -->
 
-   If the receipt gate fails, FINAL_REVIEW may not be left. Report each failure and the reviewer it names, then ask "re-run / override / stop." `re-run`: when every failure names a reviewer and HEAD is unchanged, dispatch the named reviewers again, rewrite the receipt and gate it again. When a failure is about the range or the tree rather than one reviewer (a base code: `DIFF_BASE_NOT_ANCESTOR`, `PHASE_BASE_MISMATCH`, `PHASE_BASE_UNKNOWN`, `FINAL_BASE_NOT_MERGE_BASE`, `TARGET_UNRESOLVED`, `TARGET_OWN_BRANCH`, `STARTING_COMMIT_UNKNOWN`; `WORKTREE_DIRTY`; `MOMENT_MISMATCH`, `MOMENT_UNKNOWN`; `HEAD_MISMATCH`), or HEAD has moved, every required reviewer runs again over the corrected range (Review records, After a fix): each findings file records the base and head it was written for, so none written for the old range can be kept. `override`: record the override in `decisions[]` (Review records, Overrides) with every failure code the gate raised. `stop`: save state and exit.
+   If the receipt gate fails, FINAL_REVIEW may not be left. Report each failure and the reviewer it names, then ask "re-run / override / stop." `re-run`: act on every failure as the Retry table says (Review records, Retry); when a code there says stop for the human, `re-run` is not offered. `override`: record the override in `decisions[]` (Review records, Overrides) with every failure code the gate raised. `stop`: save state and exit.
 
    Then run **each effective `after:FINAL_REVIEW` hook** — `resolveReviewHooksWithCanary(config, "harness-autopilot", "after:FINAL_REVIEW", { canaryPresent, availableSkills })` (configured `skillHooks` plus canary's **installed** deterministic detectors when canary is present; exactly the configured hooks when absent) — over the same `{base}..{head}` diff. Run each by kind; a `skill` hook is dispatched as an extra reviewer:
 
