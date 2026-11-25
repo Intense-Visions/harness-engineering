@@ -8,7 +8,7 @@ description: Autonomous phase execution loop — chains planning, execution, ver
 <context>
 Cognitive mode: constructive-architect
 Type: rigid
-State: persistent (files: .harness/sessions/*/autopilot-state.json, .harness/sessions/*/state.json, .harness/sessions/*/handoff.json, .harness/learnings.md, .harness/failures.md)
+State: persistent (files: .harness/sessions/*/autopilot-state.json, .harness/sessions/*/state.json, .harness/sessions/*/handoff.json, .harness/sessions/*/reviews/*/*.json, .harness/learnings.md, .harness/failures.md)
 </context>
 
 <objective>
@@ -18,7 +18,7 @@ Phases:
 
 - init: Load spec, identify phases, restore state if resuming
 - loop: Execute state machine — assess, plan, execute, verify, review per phase
-- final_review: Project-wide code review of cumulative changes before PR offer
+- final_review: Cold, full review of the whole change from the merge base (one dispatch per reviewer, no prior findings, a gated receipt); any later commit returns here
 - complete: Final summary and PR offering
   </objective>
 

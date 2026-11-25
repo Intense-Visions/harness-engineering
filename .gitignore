@@ -48,6 +48,7 @@ temp/
 **/.harness/graph/
 **/.harness/debug/
 **/.harness/sessions/
+**/.harness/reviews/
 **/.harness/session-taint-*.json
 **/.harness/handoff.json
 **/.harness/align/

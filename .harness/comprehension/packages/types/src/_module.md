@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/types/src'
-sourceHash: 'd163c3bdce16be0993b2e5d114bde175ae3109414d16be90c70e7b1560320e7c'
+sourceHash: '26c2a5bf4e6cd157fe6c55aa22d356e2852239bf3571ac92aaade13251a2a8b4'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -26,6 +26,7 @@ members:
     'metric.ts',
     'notifications.ts',
     'orchestrator.ts',
+    'pipeline-receipts.ts',
     'plan-task.ts',
     'policy.ts',
     'proposals.ts',
@@ -111,6 +112,7 @@ export CIInitOptions
 export CINotifyOptions
 export CINotifyTarget
 export CIPlatform
+export CONDITIONAL_REVIEWER_IDS
 export CapabilityTier
 export CheckScriptDefinition
 export Choice
@@ -140,23 +142,31 @@ export DEFAULT_RETRIEVAL_MODE
 export DEFAULT_SKILL_CONTEXT_BUDGET
 export DailyUsage
 export DenominatedMetric
+export ERRNO_REASON
+export ESCAPED_FROM_STAGES
 export EditProposalInput
 export EditProposalInputSchema
 export EffectivenessSection
 export EmitSkillProposalInput
 export EmitSkillProposalInputSchema
 export Err
+export ErrnoReason
 export EscalationConfig
+export EscapedFrom
 export ExternalTicket
 export ExternalTicketState
 export FAILURE_CATEGORIES
+export FINDING_CLASSES
 export FLEET_CLAIM_VERSION
 export FLEET_CONTEXT_BUDGET_VERSION
 export FLEET_HANDOFF_BLOCKER_REQUIRED_STATUSES
 export FLEET_HANDOFF_RECORD_VERSION
 export FLEET_SPEND_BUDGET_VERSION
+export FULL_SHA_PATTERN
+export FULL_TIER_REVIEWER_IDS
 export FailureCategory
 export FeatureStatus
+export FindingClass
 export FleetBudgetStatus
 export FleetClaim
 export FleetClaimSchema
@@ -194,6 +204,7 @@ export Issue
 export IssueRoutingDecision
 export IssueTrackerClient
 export KnowledgeTrackCategory
+export LIGHT_TIER_REVIEWER_ID
 export LeafBudgetVerdict
 export LeafContextEstimate
 export LeafContextEstimateSchema
@@ -256,6 +267,7 @@ export OptionalStrategySection
 export OsvGuardConfig
 export OutcomeSection
 export OutputRetentionConfig
+export PIPELINE_DOMAINS_OUTSIDE_RECEIPT
 export PiBackendDef
 export PlanTask
 export PlanTaskSchema
@@ -309,7 +321,16 @@ export PulseSkipRecord
 export PulseSourceKind
 export PulseSources
 export PulseWindow
+export RECEIPT_UNREAD_REASONS
 export REQUIRED_STRATEGY_SECTIONS
+export REVIEW_BACKENDS
+export REVIEW_BASE_SOURCES
+export REVIEW_GATE_FAILURE_CODES
+export REVIEW_MOMENTS
+export REVIEW_TIERS
+export REVIEW_TIER_DEMOTIONS
+export ReceiptReadProblem
+export ReceiptUnreadReason
 export ReindexStats
 export RequiredStrategySection
 export ResolutionSource
@@ -323,6 +344,14 @@ export RetrospectionProposalDraft
 export RetrospectionProposalDraftSchema
 export RetrospectionProposalsResponse
 export RetrospectionProposalsResponseSchema
+export ReviewBackend
+export ReviewBaseSource
+export ReviewGateFailureCode
+export ReviewMoment
+export ReviewReceipt
+export ReviewTier
+export ReviewTierDemotion
+export ReviewerRecord
 export Roadmap
 export RoadmapAutoTriageConfig
 export RoadmapConfig

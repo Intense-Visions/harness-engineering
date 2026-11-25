@@ -242,6 +242,7 @@ CODEBOOK_SCHEMA_VERSION
 COMPILER_VERSION
 COMPLIANCE_DESCRIPTOR
 COMPREHENSION_ROOT
+CONDITIONAL_REVIEWER_IDS
 CONDITIONAL_SUBAGENT_DESCRIPTORS
 CONFIDENCE_CEILING_BY_VALIDATION
 CONTEXT_CLASSES
@@ -537,9 +538,12 @@ DuplicationReport
 EFFECTIVE_WINDOW_RATIO
 EMPTY_CHECKPOINT
 EMPTY_SUPPLY_CHAIN
+ERRNO_REASON
+ESCAPED_FROM_STAGES
 ETagStore
 EVIDENCE_SATURATION
 EXTENSION_MAP
+EarlierPhaseReceipt
 EditProposalInput
 EditProposalInputSchema
 EffectivenessSection
@@ -567,7 +571,9 @@ EntropyError
 EntropyReport
 EntryScore
 Err
+ErrnoReason
 EscalationConfig
+EscapedFrom
 EstimatorCoefficients
 EstreeUnavailableError
 EvidenceCoverageReport
@@ -583,12 +589,15 @@ ExternalTicketState
 ExtractStatic
 FACTOR_WEIGHTS
 FAILURE_CATEGORIES
+FINDING_CLASSES
 FLEET_CLAIM_VERSION
 FLEET_CONTEXT_BUDGET_VERSION
 FLEET_HANDOFF_BLOCKER_REQUIRED_STATUSES
 FLEET_HANDOFF_RECORD_VERSION
 FLEET_SPEND_BUDGET_VERSION
 FRONTEND_RACES_DESCRIPTOR
+FULL_SHA_PATTERN
+FULL_TIER_REVIEWER_IDS
 FailingTest
 FailureCategory
 FailureEntry
@@ -613,6 +622,8 @@ FileSink
 FileSkipReason
 FileSpool
 FileSpoolOptions
+FinalReviewBase
+FindingClass
 FindingIntegrityAction
 FindingIntegrityReport
 FindingIntegrityViolation
@@ -620,6 +631,7 @@ FindingInvariant
 FindingLifecycle
 FindingLifecycleSchema
 FindingSeverity
+FindingsFileRange
 FingerprintCollision
 FingerprintFileResult
 FingerprintedUnit
@@ -767,6 +779,7 @@ KNOWLEDGE_TRACK_CATEGORIES
 KnowledgeEntry
 KnowledgeTrackCategory
 LANE_STATE_DIRNAME
+LIGHT_TIER_REVIEWER_ID
 LITELLM_PRICING_URL
 LITERAL_PLACEHOLDER
 LabeledSpendEvent
@@ -930,9 +943,11 @@ OverrideStoreOptions
 OwnershipConflict
 OwnershipOverlap
 PARTIAL_EXTRACTION_PRIORITY_BOOST
+PHASE_COMPLEXITIES
 PII_FIELD_DENYLIST
 PII_LINE_RE
 PII_TOKENS
+PIPELINE_DOMAINS_OUTSIDE_RECEIPT
 PROVENANCE_TRAILER_KEYS
 PROVENANCE_TRAILER_VERSION
 PackedEnvelope
@@ -956,6 +971,8 @@ PeerReviewOptions
 PendingChangeset
 PerClassRates
 PersistedVerdict
+PhaseComplexity
+PhaseReviewBase
 PiBackendDef
 PilotScoringOptions
 PinnedReference
@@ -1068,6 +1085,7 @@ PulseWindow
 QualitySummary
 Question
 QuestionSchema
+RECEIPT_UNREAD_REASONS
 REDACTED
 REENTRANCY_ENV
 REFINEMENT_CONTEXT_CLASSES
@@ -1075,6 +1093,15 @@ REHEARSAL_WEIGHTS
 REJECTED_FILENAME
 REQUIRED_SECTIONS
 REQUIRED_STRATEGY_SECTIONS
+REVIEWS_DIRNAME
+REVIEW_BACKENDS
+REVIEW_BASE_SOURCES
+REVIEW_GATE_FAILURE_CODES
+REVIEW_MOMENTS
+REVIEW_RECEIPT_FILENAME
+REVIEW_RIGORS
+REVIEW_TIERS
+REVIEW_TIER_DEMOTIONS
 RIGID_SECTIONS
 RISK_KEYWORDS
 ROADMAP_READ_ALLOWLIST
@@ -1090,6 +1117,8 @@ ReadAutoDecisionsOptions
 ReadCommitsOptions
 ReadOverrideResult
 ReadPnyonServeTokenDeps
+ReceiptReadProblem
+ReceiptUnreadReason
 ReconcileResult
 RecordAutoDecisionOptions
 RecoveryRecord
@@ -1143,6 +1172,7 @@ ResolveRoadmapStoreOptions
 ResolvedAutonomy
 ResolvedConstraintPacks
 ResolvedCounterMode
+ResolvedReviewBackend
 ResolvedTarget
 ResolvedTokenCounter
 ResourceBudgetConfig
@@ -1158,6 +1188,8 @@ RetrospectiveOptions
 RetrospectiveReport
 ReviewAgentDescriptor
 ReviewAssessment
+ReviewBackend
+ReviewBaseSource
 ReviewChecklist
 ReviewComment
 ReviewConfidence
@@ -1165,12 +1197,23 @@ ReviewContext
 ReviewDepth
 ReviewDomain
 ReviewFinding
+ReviewGateContext
+ReviewGateFailure
+ReviewGateFailureCode
+ReviewGateResult
 ReviewItem
+ReviewMoment
 ReviewOutputOptions
 ReviewPipelineResult
+ReviewReceipt
+ReviewRigor
 ReviewStage
 ReviewStrength
 ReviewSubagent
+ReviewTier
+ReviewTierDemotion
+ReviewTierSelection
+ReviewerRecord
 ReworkClassification
 ReworkReport
 Roadmap
@@ -1321,6 +1364,7 @@ SecurityTrendResult
 SecurityTrendResultSchema
 SeedOptions
 SelectOptions
+SelectReviewTierInput
 SelfReviewConfig
 SemanticCoverage
 SemanticGeneration
@@ -1449,6 +1493,7 @@ StaleConstraint
 StaleReference
 StalenessEntry
 StalenessReport
+StandaloneReviewBase
 StaticExtraction
 StepExecutor
 StepOutcome
@@ -1725,6 +1770,7 @@ checkEvidenceClassConsistency
 checkEvidenceCoverage
 checkOverlap
 checkRankStability
+checkReviewerFindingsText
 checkRoadmapAggregateDrift
 checkRoadmapHealth
 checkTaint
@@ -1749,6 +1795,7 @@ clumpingFromConfig
 clusterViolations
 collectEvents
 collectFileImports
+collectPackageEntryPoints
 collectProvenanceTrailerEntries
 collectSolutionEnforcements
 compareViolations
@@ -1874,6 +1921,7 @@ enforceFindingIntegrity
 enforceLeafContextBudget
 ensureIdentity
 ensureWaypointEmitter
+escapeTerminalText
 estimateCompressionValue
 estimateTokens
 evaluateClassifier
@@ -1887,6 +1935,7 @@ eventIdOf
 eventSourcing
 executeWorkflow
 expand
+expectedReviewMoment
 explainTrackerSyncConfig
 expressRules
 extractBundle
@@ -1902,6 +1951,7 @@ fanOutConditionalSubagents
 fanOutReview
 fetchPublicOutposts
 filterDiffByAllowances
+finalReviewBase
 findBlockedRoadmapCandidates
 findFencedCodeLines
 findFixture
@@ -2087,6 +2137,8 @@ parseOwnerRepoFromRemoteUrl
 parseProtectedRegions
 parseProvenanceTrailer
 parseReferencedIssues
+parseReviewReceipt
+parseReviewerFindingsFile
 parseRoadmap
 parseSections
 parseSecurityConfig
@@ -2099,6 +2151,8 @@ parseUserConfig
 parseVerdictCacheConfig
 pathTraversalRules
 pathsOverlap
+phaseOfReviewLabel
+phaseReviewBase
 planCanaryReviewDetectors
 planClumpPR
 planCraftReviewDomains
@@ -2126,6 +2180,8 @@ readLockfile
 readPendingChangesets
 readPnyonServeToken
 readRawCommits
+readRegularFile
+readReviewReceiptFile
 readSentinelHistory
 readSessionOverride
 readSessionSection
@@ -2183,6 +2239,7 @@ resolveModelTier
 resolveRemoteComprehension
 resolveRemoteComprehensionWithGlobalToken
 resolveReverseStatus
+resolveReviewBackend
 resolveReviewHooksWithCanary
 resolveReviewHooksWithCraft
 resolveRoadmapStore
@@ -2197,6 +2254,8 @@ resolveStreamPath
 resolveThresholds
 resolveTokenCounter
 restoreShards
+reviewFindingsReaderFor
+reviewGateFailure
 roadmapAggregatePath
 roadmapSourceExists
 roadmapToShards
@@ -2240,6 +2299,7 @@ searchSymbols
 secretRules
 securityFindingId
 seedFromStrategy
+selectReviewTier
 selectUnclaimed
 send
 sentinelHistoryPath
@@ -2252,6 +2312,7 @@ serializeStrategyDoc
 serializeUnit
 serveGate
 sessionDirForRaise
+sessionDirOfReviewDir
 sessionOverridePath
 setActiveStream
 setStatus
@@ -2271,6 +2332,7 @@ spearmanRankCorrelation
 spillIfNeeded
 splitBundlesByStage
 stageDomains
+standaloneReviewBase
 suggestCategory
 summarizeAutoDecisions
 summarizeLeafSpend
@@ -2323,6 +2385,7 @@ validatePatternConfig
 validatePlanTasks
 validateProvenanceTrailer
 validatePulseConfig
+validateReviewReceipt
 validateRoadmapFeatureFields
 validateRoadmapMode
 validateSdlcEvent

@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/mcp/tools'
-sourceHash: 'd91e0457f7f4bc9d66350bf4df2d4475d4bbe3fab0c455938e8477edf3a4c730'
+sourceHash: '0b0867c4561eaee5c2f497118003cef7b965485e620e7e611849cbcaa607375b'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -83,6 +83,7 @@ members:
     'refinement-telemetry.ts',
     'review-changes.ts',
     'review-pipeline.ts',
+    'review-receipt.ts',
     'roadmap-auto-sync.ts',
     'roadmap-file-less.ts',
     'roadmap.ts',
@@ -193,6 +194,7 @@ export checkDependenciesDefinition
 export checkDocsDefinition
 export checkPerformanceDefinition
 export checkPhaseGateDefinition
+export checkReviewReceiptDefinition
 export checkTaskIndependenceDefinition
 export checkTraceabilityDefinition
 export cliErgonomicsCraftDefinition
@@ -273,6 +275,7 @@ export handleCheckDependencies
 export handleCheckDocs
 export handleCheckPerformance
 export handleCheckPhaseGate
+export handleCheckReviewReceipt
 export handleCheckTaskIndependence
 export handleCheckTraceability
 export handleCliErgonomicsCraft
@@ -504,6 +507,7 @@ import '../../persona/loader.js'
 import '../../persona/runner.js'
 import '../../persona/skill-executor.js'
 import { DEFAULT_RESPONSIVE_GATE_CONFIG, ResponsiveGateConfig, ResponsiveMetrics } from '../../responsive/index.js'
+import { CwdGit, REVIEW_MOMENTS, ReviewGateFailure, runCheckReviewReceipt } from '../../review-receipts/gate.js'
 import { CollectPromptsOutput, FinalizeSecurityCraftInput, SecurityCraftInput, SecurityCraftMode, SecurityCraftOutput, collectSecurityCraftPrompts, finalizeSecurityCraft, runSecurityCraft } from '../../security-craft/index.js'
 import { craftClumpView } from '../../shared/craft/findings/clumpable.js'
 import { resolveCraftLlmMode } from '../../shared/craft/llm/provider.js'
@@ -523,7 +527,7 @@ import { loadOrRebuildIndex } from '../../skill/index-builder.js'
 import { recommend } from '../../skill/recommendation-engine.js'
 import { loadOrGenerateProfile } from '../../skill/stack-profile.js'
 import { CollectPromptsOutput, FinalizeSpecCraftInput, SpecCraftInput, SpecCraftMode, SpecCraftOutput, collectSpecCraftPrompts, finalizeSpecCraft, runSpecCraft } from '../../spec-craft/index.js'
-import { isAddOnTemplate } from '../../templates/engine.js'
+import { isAddOnTemplate, isNamedAddOnTemplate } from '../../templates/engine.js'
 import { NAMED_TEMPLATE_BLOCK_ON, NAMED_TEMPLATE_DEFAULTS, NAMED_TEMPLATE_RUNNERS, resolveNamedTemplateVars, validateNamedTemplateVars } from '../../templates/named-template-vars.js'
 import { appendFrameworkAgents, ensureComprehensionSearchIgnore, ensureHarnessGitignore, persistToolingConfig } from '../../templates/post-write.js'
 import { TemplateMetadata } from '../../templates/schema.js'

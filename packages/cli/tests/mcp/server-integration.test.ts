@@ -60,6 +60,7 @@ describe('MCP Server Integration', () => {
     expect(names).toContain('emit_skill_proposal');
     // Trusted Autonomy Mode Phase 2 — decision log
     expect(names).toContain('record_auto_decision');
+    expect(names).toContain('check_review_receipt');
     // design-pipeline #2 + #6 coordination commits
     expect(names).toContain('audit_anatomy');
     expect(names).toContain('design_craft');
@@ -128,7 +129,7 @@ describe('MCP Server Integration', () => {
     expect(names).toContain('get_comprehension');
     // comprehension agent-neutral semantic write-back (ADR 0109, slice 2)
     expect(names).toContain('put_comprehension');
-    expect(tools).toHaveLength(116);
+    expect(tools).toHaveLength(117);
   });
 
   it('all tool definitions have inputSchema', () => {

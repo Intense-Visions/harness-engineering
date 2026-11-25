@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/tests/mcp/tools'
-sourceHash: 'd4f067f0dc1d7c1916e694bc59708442e09632e95de57523230e4f3156c81597'
+sourceHash: 'ac79ee3d39a49eef093c0111f0a446831615e32aa1e7e8218e05350b2c21c1d5'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -83,6 +83,7 @@ members:
     'review-changes.test.ts',
     'review-pipeline-config.test.ts',
     'review-pipeline.test.ts',
+    'review-receipt.test.ts',
     'roadmap-add-external-id.test.ts',
     'roadmap-auto-sync.test.ts',
     'roadmap-cov544.test.ts',
@@ -146,7 +147,7 @@ import { runInit } from '../../../src/commands/init'
 import { findConfigFile, loadConfig } from '../../../src/config/loader'
 import { MockLlmProvider } from '../../../src/design-craft/llm/provider.js'
 import { resolveDocsPublishConnector } from '../../../src/docs-publish/index'
-import { wrapWithCompaction } from '../../../src/mcp/middleware/compaction'
+import { applyCompaction, wrapWithCompaction } from '../../../src/mcp/middleware/compaction'
 import { acceptanceEvalDefinition, handleAcceptanceEval, resolveTestContent } from '../../../src/mcp/tools/acceptance-eval.js'
 import { handleManageAdr, manageAdrDefinition } from '../../../src/mcp/tools/adr'
 import { allocateNextNumber, listAdrs } from '../../../src/mcp/tools/adr-store'
@@ -197,6 +198,7 @@ import { handleReviewChanges, reviewChangesDefinition } from '../../../src/mcp/t
 import { reviewChangesDefinition } from '../../../src/mcp/tools/review-changes.js'
 import { handleRunCodeReview, runCodeReviewDefinition } from '../../../src/mcp/tools/review-pipeline'
 import { runCodeReviewDefinition } from '../../../src/mcp/tools/review-pipeline.js'
+import { checkReviewReceiptDefinition, handleCheckReviewReceipt } from '../../../src/mcp/tools/review-receipt'
 import { handleManageRoadmap, manageRoadmapDefinition } from '../../../src/mcp/tools/roadmap'
 import { autoSyncRoadmap, triggerScopedExternalSync } from '../../../src/mcp/tools/roadmap-auto-sync'
 import * as autoSync from '../../../src/mcp/tools/roadmap-auto-sync'
@@ -232,7 +234,7 @@ import { loadOrGenerateProfile } from '../../../src/skill/stack-profile'
 import { TemplateEngine } from '../../../src/templates/engine'
 import { NAMED_TEMPLATE_DEFAULTS } from '../../../src/templates/named-template-vars'
 import { resolveTemplatesDir } from '../../../src/utils/paths'
-import { COMPILER_VERSION, ComprehensionSourceFile, ComprehensionStore, ComprehensionUnit, ConflictError, Err, ExtractStatic, FeaturePatch, HistoryEvent, NewFeatureInput, Ok, PnyonTrackerAdapter, Result, RoadmapTrackerClient, SCHEMA_VERSION, TrackedFeature, compileModule, computeSourceHash, createNodeComprehensionIO, createNodeModuleSourceReader, detectStaleConstraints, loadTrackerConfig, parseDiff, parseRoadmap, resolveAutonomyForSession, roadmapToShards, serializeMeta, serializeShard, sessionOverridePath, writeSessionOverride } from '@harness-engineering/core'
+import { COMPILER_VERSION, ComprehensionSourceFile, ComprehensionStore, ComprehensionUnit, ConflictError, Err, ExtractStatic, FeaturePatch, HistoryEvent, NewFeatureInput, Ok, PnyonTrackerAdapter, REVIEW_GATE_FAILURE_CODES, Result, RoadmapTrackerClient, SCHEMA_VERSION, TrackedFeature, compileModule, computeSourceHash, createNodeComprehensionIO, createNodeModuleSourceReader, detectStaleConstraints, loadTrackerConfig, parseDiff, parseRoadmap, resolveAutonomyForSession, roadmapToShards, serializeMeta, serializeShard, sessionOverridePath, writeSessionOverride } from '@harness-engineering/core'
 import { queryTraceability } from '@harness-engineering/graph'
 import { deriveAcceptanceAuthority } from '@harness-engineering/intelligence'
 import { Err, Ok, Result } from '@harness-engineering/types'

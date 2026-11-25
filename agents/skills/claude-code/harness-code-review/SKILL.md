@@ -16,7 +16,8 @@
 When invoked by autopilot (or with explicit arguments), resolve paths before starting:
 
 1. **Session slug:** If `session-slug` argument provided, set `{sessionDir} = .harness/sessions/<session-slug>/`. Pass to `gather_context({ session: "<session-slug>" })`. All handoff writes go to `{sessionDir}/handoff.json`.
-2. **Commit range:** If `commit-range` argument provided (e.g., `abc123..HEAD`), use as diff scope in Phase 2 MECHANICAL and Phase 7 OUTPUT. Otherwise, auto-detect from git environment.
+2. **Commit range:** If `commit-range` argument provided (e.g., `abc123..HEAD`), use as diff scope in Phase 2 MECHANICAL and Phase 7 OUTPUT. Otherwise, auto-detect from git environment. A standalone review reviews the checked-out HEAD: when the range's end is not HEAD (a PR by number, or a range such as `abc123..def456`), check that end out first, in a worktree of its own (`git worktree add <dir> <end>`), and run the review there. When the range's start is not an ancestor of its end (`git merge-base --is-ancestor <start> <end>` exits 1, as for `origin/main..HEAD` after main moved past the fork point), the base is not the range's start: it is the merge base with the default branch that `harness review-tier --moment standalone` prints on its `Review base:` line.
+3. **Review directory and moment:** If your brief names a `review-dir` (for example `{sessionDir}/reviews/phase-{N}/`, where `{N}` is the phase's 0-based position, so `phase-0` for the first phase), you are a dispatched reviewer. That is the one test for dispatched mode. The brief also names the `moment`, the reviewed `base` and `head` (the `base` and `head` arguments, each a 40-character sha, written as `base` and `head` in your findings file) and your reviewer id. Write only your findings file there. Write no `receipt.json` and do not run the receipt gate; the dispatching session does both. Otherwise this run owns the review: it writes its own receipt and gates it (see Review Receipt).
 
 When no arguments are provided (standalone invocation), session slug is unknown — omit from `gather_context`, fall back to global `.harness/` paths. Diff scope auto-detected.
 
@@ -48,16 +49,16 @@ Phase 1: GATE --> Phase 2: MECHANICAL --> Phase 3: CONTEXT --> Phase 3.5: CALIBR
 Phase 7: OUTPUT <-- Phase 6: DEDUP+MERGE <-- Phase 5: VALIDATE <-- Phase 4: FAN-OUT
 ```
 
-| Phase          | Tier  | Purpose                                            | Exit Condition                                    |
-| -------------- | ----- | -------------------------------------------------- | ------------------------------------------------- |
-| 1. GATE        | fast  | Skip ineligible PRs (CI only)                      | PR eligible, or exit with reason                  |
-| 2. MECHANICAL  | none  | Lint, typecheck, test, sec scan                    | All pass -> continue; any fail -> report and stop |
-| 3. CONTEXT     | fast  | Scope context per review domain                    | Context bundles assembled for each subagent       |
-| 3.5. CALIBRATE | none  | Pick depth tier + activate conditional subagents   | DepthCalibration recorded in PipelineContext      |
-| 4. FAN-OUT     | mixed | Parallel review subagents (4 base + N conditional) | All subagents return ReviewFinding[]              |
-| 5. VALIDATE    | none  | Exclude mechanical dupes, verify                   | Unvalidated findings discarded                    |
-| 6. DEDUP+MERGE | none  | Group, merge, assign severity                      | Deduplicated finding list with merged evidence    |
-| 7. OUTPUT      | none  | Text output or GitHub comments                     | Review delivered, exit code set                   |
+| Phase          | Tier  | Purpose                                                                          | Exit Condition                                    |
+| -------------- | ----- | -------------------------------------------------------------------------------- | ------------------------------------------------- |
+| 1. GATE        | fast  | Skip ineligible PRs (CI only)                                                    | PR eligible, or exit with reason                  |
+| 2. MECHANICAL  | none  | Lint, typecheck, test, sec scan                                                  | All pass -> continue; any fail -> report and stop |
+| 3. CONTEXT     | fast  | Scope context per review domain                                                  | Context bundles assembled for each subagent       |
+| 3.5. CALIBRATE | none  | Pick depth tier + activate conditional subagents                                 | DepthCalibration recorded in PipelineContext      |
+| 4. FAN-OUT     | mixed | Reviewers the review tier calls for (`full`: 4 base + N conditional; `light`: 1) | Every required reviewer returns ReviewFinding[]   |
+| 5. VALIDATE    | none  | Exclude mechanical dupes, verify                                                 | Unvalidated findings discarded                    |
+| 6. DEDUP+MERGE | none  | Group, merge, assign severity                                                    | Deduplicated finding list with merged evidence    |
+| 7. OUTPUT      | none  | Text output or GitHub comments                                                   | Review delivered, exit code set                   |
 
 ### Finding Schema
 
@@ -84,12 +85,21 @@ interface ReviewFinding {
     | 'typescript-strict'
     | 'frontend-races';
   confidence?: 'high' | 'medium' | 'low' | 25 | 50 | 75 | 100;
+  // Attribution: required on every critical or important finding of a review that emits a receipt:
+  findingClass?: 'stale-claim' | 'edge-case' | 'weak-test' | 'collateral' | 'design' | 'other';
+  escapedFrom?: 'spec' | 'plan' | 'execution' | 'verification' | 'none';
 }
 ```
 
-The two optional fields are additive — existing 4 agents leave them
+`subagent` and `confidence` are additive — existing 4 agents leave them
 undefined. Numeric `confidence` values follow the anchored rubric at
 [references/confidence-rubric.md](references/confidence-rubric.md).
+
+`findingClass` and `escapedFrom` are set on every `critical` or `important` finding, by every
+reviewer, following [references/attribution-rubric.md](references/attribution-rubric.md).
+`escapedFrom` names the earliest pipeline stage that should have caught the finding. A findings
+file that holds a `critical` or `important` finding without both labels is invalid and fails
+the receipt gate.
 
 ### Flags
 
@@ -204,7 +214,7 @@ When `sessionSlug` is available, load evidence entries from session state and cr
 
 When no session is available, skip silently. Evidence checking enhances but does not gate reviews.
 
-**Exit:** If harness validate, typecheck, or tests fail, report in Strengths/Issues/Assessment format and stop. Lint warnings and security findings do not stop the pipeline -- recorded for exclusion only.
+**Exit:** If harness validate, typecheck, or tests fail, report in Strengths/Issues/Assessment format and stop. Lint warnings and security findings do not stop the pipeline -- recorded for exclusion only. A review that ends here dispatched no reviewer and writes no receipt, so there is nothing to gate and nothing to record: the red check is the result. In dispatched mode, write no findings file and return a report whose first line is `MECHANICAL FAILED`, followed by each failing check with its output. The session that dispatched you treats that as a red check to fix, not as a reviewer that did not run and not as a failed receipt gate (harness-autopilot, REVIEW step 3).
 
 #### Lifecycle skill hooks — `after:mechanical`
 
@@ -259,6 +269,15 @@ for the `{ wired, skipped, expected, files }` split. The full contract lives in 
 - **One event, so no `alreadyRanFor`.** This host resolves craft once per run; the
   once-per-phase-per-diff de-duplication exists for autopilot's TWO review moments and has no
   counterpart here.
+- **Only a run that owns its review resolves craft here.** In dispatched mode (your brief names a
+  `review-dir`), and when harness-autopilot runs this Phase 2 in its own session for a `full`
+  review, do NOT resolve craft at `after:mechanical`. harness-autopilot is the host of that
+  review: it resolves the craft domains once, at its own `after:REVIEW` or `after:FINAL_REVIEW`,
+  and writes their output to `hook-<name>.json` in the review directory. Resolving them here as
+  well would critique the same diff twice. The project's configured `skillHooks` for
+  `after:mechanical` (the paragraph above) still run in both cases, run by the session that
+  orchestrates the review: a dispatched reviewer cannot dispatch, so in dispatched mode you run
+  none of them. Only the craft auto-wiring moves to the host.
 - **Report the denominator, including skips** — "craft domains: 2/3 activated, 1 skipped:
   unsupported-language" — in the same report as the hook denominator. A surprising `0/M` renders
   as `0/M`, never as silence.
@@ -338,13 +357,13 @@ git log --oneline -5 -- <affected-file>
 
 Use to determine: **Hotspot?** (3+ changes in last 5 commits) **Recently refactored?** **Multiple authors?** **Last change was bugfix?** (yellow flag)
 
-**Exit:** Context bundles assembled for all four domains. Continue to Phase 3.5.
+**Exit:** Context bundles assembled for each domain the review's reviewers cover: all four in a `full` review, compliance and bug detection in a `light` one. Continue to Phase 3.5.
 
 ---
 
 ### Phase 3.5: CALIBRATE DEPTH
 
-**Tier:** none (mechanical) | **Purpose:** Pick a depth tier (Quick/Standard/Deep) from diff size + risk-keyword detection and decide which conditional subagents activate in Phase 4. The existing 4 agents always run; this phase only gates _additional_ work.
+**Tier:** none (mechanical) | **Purpose:** Pick a depth tier (Quick/Standard/Deep) from diff size + risk-keyword detection and decide which conditional subagents activate in Phase 4. In a `full` review the four base reviewers (`compliance`, `bug`, `security`, `architecture`) run whatever this phase decides; the calibration gates only the conditional reviewers. A `light` review runs one reviewer, `compliance-bug`, and no conditional reviewer.
 
 **Inputs:** `DiffInfo`, commit message, optional `--depth quick|standard|deep` override.
 
@@ -370,7 +389,24 @@ Use to determine: **Hotspot?** (3+ changes in last 5 commits) **Recently refacto
 
 ### Phase 4: FAN-OUT
 
-**Tier:** mixed | **Purpose:** Run four parallel review subagents with domain-scoped context. Each produces `ReviewFinding[]`.
+**Tier:** mixed | **Purpose:** Run the reviewers the review tier calls for, each in its own dispatch with domain-scoped context. Each produces `ReviewFinding[]` and writes its own findings file.
+
+#### Review tier and dispatch
+
+| Tier    | Reviewers                                                                                           | Dispatch                                                                                                          |
+| ------- | --------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| `light` | One reviewer, `compliance-bug`, covering compliance and bug detection, after the mechanical checks  | One dispatch, or this session itself                                                                              |
+| `full`  | `compliance`, `bug`, `security`, `architecture`, plus each conditional reviewer Phase 3.5 activates | One dispatch per reviewer, issued by the session running this skill, or the coded pipeline under `review.backend` |
+
+- **Run `harness review-tier` and use its output.** It prints the tier, the reasons for it and the resolved backend (`--json` for JSON): `harness review-tier --moment standalone` for a direct run, and `--base <sha> --head <sha> --complexity <low|medium|high> --rigor <fast|standard|thorough>` for a phase. Add `--pipeline-runner` when the `run_code_review` tool is callable in this session. The command runs git from the repository top level, so it prints the same answer from any directory of the repository; `review.backend` is read from the `harness.config.json` at that top level too. A diff too large for git's output buffer gives `full` with the reason `diff-too-large`, never `light`. It exits 1 when it cannot compute a tier. For a final review it also prints the base the receipt gate will demand, from the gate's own resolver: `Review base: <sha> (merge-base; …)`, `Review base: <sha> (starting-commit; …)` (with `--session`, when no default branch resolves) or `Review base: unresolved (<why>)` (`base`, `baseSource`, `head`, or `baseUnresolved`, in JSON); it takes its base from that line as harness-autopilot FINAL_REVIEW step 2 says. With a base it also prints `Review head: <sha>`, the commit the base was computed at; a final range that changes no files exits 1 (`the final range <base>..<head> is empty (it changes no files)`), which harness-autopilot FINAL_REVIEW step 2 records as a final review skipped as empty. A standalone review takes its `diff.base` from the range it reviews, resolved as Argument Resolution says (its end checked out, a start that is not an ancestor of the end replaced by the merge base): a `commit-range` argument names that range, and its first commit is the base. Without one the command prints the advised base, the merge base with the default branch, and when none resolves it prints `Review base: unresolved (no default-branch merge base: name the range to review explicitly …)`: then pass the range as a `commit-range` argument. The gate checks a standalone base only for ancestry. `--session` applies to `--moment final` only and is an error with any other moment, as `--base` is with any moment but `phase`. `--target <ref>` names the remote-tracking branch the reviewed branch merges into when that is not the default branch (a stacked PR's base, such as `origin/feat/parent`): the base is then the merge base with that ref. Only a ref under `refs/remotes/` is accepted; a sha, a HEAD-relative name, a local branch or a tag gives `Review base: unresolved`. The command prints the full ref (`target` in JSON), and a final receipt records it as `diff.target`, which the gate reads. The rules in this section describe what the command computes and are the fallback when the CLI is unavailable. A session that cannot dispatch runs `light` whatever the command printed (A session that cannot fan out, below).
+- **A standalone run that can dispatch subagents is `full`.** The final review is always `full`. A phase is `full` when its diff, a changed path or any commit message of its range matches a risk keyword ([references/risk-keywords.md](references/risk-keywords.md)), the diff touches a package entry point, the phase's complexity is `high` or the rigor is `thorough`; otherwise it is `light`. The diff's content is read as text whatever git attributes say: a file marked `-diff` or `binary` in a `.gitattributes` file or in `.git/info/attributes` is still matched. Of a commit message's trailers, only identity trailers are left out of the match. This is the one statement of the rule in the skills; the code that applies it is `IDENTITY_TRAILER` in `packages/core/src/review/tier-selector.ts`, and `harness review-tier` is what decides: among the lines git itself identifies as trailers (`git log --format='%(trailers:only)'`), a trailer is an identity trailer when its key ends in `-by` (any such key), or is `Cc`, `Change-Id` or `Claude-Session`, compared without regard to case. A trailer of the message is matched to git's by its key and value as git parses them, not by its line text, so a trailer whose spacing git normalises (`Signed-off-by :  A` prints as `Signed-off-by: A`) is still left out. Every other trailer is matched like the rest of the message, so `Claude-Session:` never forces `full` and a closing `Security: the token check now runs before the cache lookup` line does.
+- **Dispatched mode (D7).** You are in dispatched mode when, and only when, your brief names a `review-dir`. Decide it once, at skill start, by that test alone. A dispatched reviewer writes only its own findings file, validates it (Reviewer findings files, self-check), writes no receipt, runs no gate and skips Review Acceptance; the session that dispatched it does the rest. The reviewer id in the brief says which of two dispatched reviewers you are:
+  - **The dispatched `light` reviewer** (the brief says tier `light`, reviewer id `compliance-bug`): you are the whole review. Run Phase 2 (MECHANICAL) and Phase 3 (CONTEXT) yourself, do the compliance and bug-detection passes yourself, and write one findings file, `compliance-bug.json`. If Phase 2 fails, write no findings file and return the `MECHANICAL FAILED` report Phase 2 describes.
+  - **A per-domain reviewer of a `full` review** (the brief names one of `compliance`, `bug`, `security`, `architecture`, `adversarial`, `typescript-strict`, `frontend-races`): you are one reviewer of several. Run no mechanical check, no context phase and no calibration: the session that dispatched you ran Phases 2, 3 and 3.5 and gave you the context bundle. Review your own domain only (its section of this phase) and write `<reviewerId>.json`.
+- **A session that cannot fan out.** A run whose brief names no `review-dir` owns its review. When its tool list has no subagent-spawning tool it cannot dispatch reviewers, so it runs a single-context `light` review: Phase 2 and Phase 3, the compliance and bug-detection passes, one findings file as `compliance-bug`, and then its own receipt (`tier: "light"`, that single reviewer) and gate. A review it runs again after a fix is in a context that has seen the earlier findings, so that receipt records `coldContext: false` and `priorFindingsSupplied: true`. The receipt records what `harness review-tier` printed (`computedTier`, `tierReasons`); when that was `full` it also records `demotion: "no-subagent-tool"` and says in its output that the review ran below its computed tier. A `light` receipt whose `computedTier` is `full` and that carries no demotion fails `TIER_DEMOTED`. This is not dispatched mode: Review Acceptance still applies to a standalone run. `compliance-bug` is the only reviewer a `light` receipt may require; the gate enforces the id (`LIGHT_TIER_ROSTER`). Never record `full` for a review whose reviewers did not each run in their own dispatch.
+- **Who writes the receipt** follows one rule, the same rule harness-autopilot states: a run given a `review-dir` writes only its findings file, and the session that dispatched it writes the receipt and gates it; a run given none owns its review and does all of it.
+- **Backend.** `review.backend` in the repository top's `harness.config.json` (or the file the global `-c` option names) is `"agent"` (the default) or `"pipeline"`; any other value is an error (exit 1). `harness review-tier` reads it and prints the backend to use, marked `DEGRADED` when the pipeline is configured and no runner resolved. A `light` review always resolves to the agent backend, whatever the key says: the rule is in core (`resolveReviewBackend`), so every caller gets the same answer. With `"pipeline"`, a `full` review calls the `run_code_review` tool, reads every page of its findings (`offset` / `limit`; `findingCount` is the total) and writes one findings file per reviewer from them, grouped by `domain` (and by `subagent` for conditional reviewers). Findings whose `domain` is `learnings` (`PIPELINE_DOMAINS_OUTSIDE_RECEIPT`), and any domain or subagent that is not a receipt reviewer id, are no reviewer's: write no findings file for them and leave them outside the receipt and its counts, as hook findings are; report them in the review output apart from the reviewers' findings. Every required reviewer gets a file, with `"findings": []` when its domain returned nothing: a required reviewer without one is `ran: false`, and the gate fails. The tool sets neither attribution label and reports no per-reviewer file list, so this session sets `findingClass` and `escapedFrom` on each `critical` or `important` finding from the rubric and lists the files of the diff it passed to the tool as `examinedFiles`. If the tool reports `stoppedByMechanical`, the mechanical checks failed: follow the Phase 2 exit rule (no reviewer ran, no receipt is written). If it reports `skipped`, no reviewer ran: record each as `ran: false`. If that tool is not callable in this session, run the agent backend and record `backend: "agent"` in the receipt.
+- **Every reviewer brief** names the reviewer id, the review directory (`review-dir`), the moment, the reviewed base and head as resolved 40-character shas, the diff range, the reviewer's context bundle, the attribution rubric ([references/attribution-rubric.md](references/attribution-rubric.md)) and the path of the findings file to write. It tells the reviewer to write only that file, to set `base` and `head` in it to the reviewed base and head, to list in `examinedFiles` only files that `git diff --name-only --no-renames -z <base>..<head>` prints (the `-z` form gives each path as it is, without the quoting git applies to a non-ASCII name, which is the form the gate compares), to start every finding id with its reviewer id (ids are unique across a review), and to run `harness check-review-receipt --findings <file> --base <base> --head <head>` on the file before returning, correcting the file only for a code about its content and otherwise stopping to report the code (Reviewer findings files, self-check). A reviewer dispatched for one domain reviews that domain only; the session that dispatched it ran MECHANICAL, CONTEXT and CALIBRATE DEPTH and writes the receipt.
 
 **Rigor overrides:**
 
@@ -531,7 +567,7 @@ Constructs failure scenarios that fall _between_ the base 4 agents.
 
 **Output:** `ReviewFinding[]` with `domain: 'bug'`, `subagent: 'frontend-races'`, `confidence: 50|75|100`.
 
-**Exit:** All base agents + active conditional subagents returned findings. Continue to Phase 5.
+**Exit:** Every reviewer the tier calls for returned findings: in a `full` review the four base reviewers plus the active conditional subagents, in a `light` review the one `compliance-bug` reviewer. Continue to Phase 5.
 
 ---
 
@@ -603,7 +639,153 @@ gh api repos/{owner}/{repo}/pulls/{pr}/comments \
   --field path="<file>" --field line=<line>
 ```
 
+### Review Receipt
+
+Every review writes a receipt, so a later reader can see which reviewers ran, over which diff. A receipt is bound to one commit and reviewers read the working tree, so commit or discard every change to a tracked file before the review starts (`git status --porcelain --untracked-files=no` prints nothing); the gate fails `WORKTREE_DIRTY` otherwise. The run that owns the review writes it: a standalone run, or the session that dispatched the reviewers. A dispatched reviewer (its brief names a `review-dir`) writes its findings file, as the next two paragraphs describe, and nothing else in this section is its job.
+
+**Where.** With a session: `{sessionDir}/reviews/<moment>-<phase>/` (`phase-{N}` for a phase review, `final-all` for the final review). `{N}` is the phase's 0-based position : the first phase's review is in `phase-0`. Standalone: `.harness/reviews/<branch>-<head sha>/`, with each run of characters outside `[A-Za-z0-9._-]` in the branch name replaced by `-` and any leading or trailing `-` or `.` removed. Only this skill defines the standalone name; the gate reads any directory directly under `.harness/reviews/` as a standalone review, except one inside a session (`sessions/<slug>/reviews/<label>`), which it reads by the session rule first. The older shapes (`{sessionDir}/phase-{N}-review.json` and `phase-{N}-review-round-{M}.json`) are no longer written, and nothing in this skill or in code reads them; harness-autopilot reads them in one FINAL_REVIEW step when it resumes an older session.
+
+**Reviewer findings files.** Each reviewer writes `<reviewerId>.json` in that directory:
+
+```json
+{
+  "schemaVersion": 1,
+  "reviewerId": "bug",
+  "base": "0000000000000000000000000000000000000001",
+  "head": "0000000000000000000000000000000000000002",
+  "examinedFiles": ["packages/core/src/receipts/review-gate.ts"],
+  "findings": []
+}
+```
+
+`head` is the commit the reviewer read, as a resolved 40-character lowercase sha. It is required, and it must equal the receipt's `diff.head`: a file without it is invalid, and a file left from an earlier round fails the gate (`FINDINGS_HEAD_MISMATCH`). `base` is the base of the range the reviewer was given, a resolved 40-character sha that must equal the receipt's `diff.base`: a file without it is invalid, and a file written for another range fails the gate (`FINDINGS_BASE_MISMATCH`). `examinedFiles` lists the files of the diff the reviewer read, project-relative; a renamed file may be listed under its old or its new path. Context files outside the diff are not listed, and a reviewer that read nothing has not reviewed. `findings` holds `ReviewFinding` objects; every finding id is unique across the whole review, so start each id with the reviewer id. The gate reads a findings file, and a receipt, only when it is a regular file of at most 5 MB inside the review directory.
+
+**Self-check (every reviewer, before returning).** Validate the findings file you wrote with the gate's own reader and parser, so a slip in it is yours to correct and not a failed gate for a human to untangle. One command, with the path of your file and the reviewed range:
+
+```bash
+harness check-review-receipt --findings <review directory>/<reviewerId>.json --base <base sha> --head <head sha>
+```
+
+It reads the file as the gate does (a regular file of at most 5 MB) and parses it with the gate's parser. A flag the mode does not read is an error, never ignored: `--moment` with `--findings` exits 1, and so do `--base` or `--head` with a receipt path. With `--base` and `--head` (both, or neither: one alone exits 1) it also resolves both commits (one that does not resolve is a single `DIFF_UNRESOLVED` failure that says so) and checks that the file's `base` is `--base` and its `head` is `--head`, that your working tree is at `--head` (you read its files), and that every examined file is in `git diff --name-only --no-renames -z <base>..<head>`. It prints `findings file check: PASS: <path>` (exit 0), or `findings file check: FAIL: <path>` and one `- [CODE] message` line per failure (exit 1); `--json` prints `{ pass, findingsPath, failures }`. Correct the file and run it again only for a code about the file's content (`FINDINGS_FILE_MISSING`, `FINDINGS_FILE_INVALID`, `UNKNOWN_REVIEWER`, `EXAMINED_FILES_EMPTY`, `DUPLICATE_FINDING_ID`, `FINDINGS_HEAD_MISMATCH`, `FINDINGS_BASE_MISMATCH`, `EXAMINED_OUTSIDE_DIFF`), until it passes. For `HEAD_MISMATCH`, `WORKTREE_DIRTY`, `EMPTY_DIFF`, `DIFF_UNRESOLVED` or any other code that is not about the file's content, do not edit the file: stop and report the code to the session that dispatched you, which owns the range and the tree. State the result in your report. The codes it can print are the gate's: `FINDINGS_FILE_MISSING` (not a readable regular file), `FINDINGS_FILE_INVALID` (not JSON, or not a findings file: the schema message follows), `UNKNOWN_REVIEWER` (a `reviewerId` that is not a known reviewer, which the gate would reject), `EXAMINED_FILES_EMPTY`, `DUPLICATE_FINDING_ID` (an id repeated within this file; ids repeated across reviewers' files are the gate's to find), and with the range `DIFF_UNRESOLVED`, `EMPTY_DIFF`, `FINDINGS_HEAD_MISMATCH`, `FINDINGS_BASE_MISMATCH`, `HEAD_MISMATCH` (your working tree is not at `--head`), `EXAMINED_OUTSIDE_DIFF` and `WORKTREE_DIRTY` (tracked files differ from HEAD). It needs only the `harness` CLI, so it works from the repository root and with a released CLI. If the command is not found, say so in your report: never report the check as passed when it did not run. List in `examinedFiles` only files that `git diff --name-only --no-renames -z <base>..<head>` prints: with `-z` git prints each path as it is, NUL-separated, where without it a path with a non-ASCII character is quoted and escaped and then fails `EXAMINED_OUTSIDE_DIFF`.
+
+**`receipt.json`.**
+
+```json
+{
+  "schemaVersion": 1,
+  "moment": "standalone",
+  "tier": "full",
+  "computedTier": "full",
+  "tierReasons": ["moment:standalone"],
+  "backend": "agent",
+  "diff": {
+    "base": "0000000000000000000000000000000000000001",
+    "head": "0000000000000000000000000000000000000002"
+  },
+  "coldContext": true,
+  "priorFindingsSupplied": false,
+  "reviewers": [
+    {
+      "id": "compliance",
+      "required": true,
+      "ran": true,
+      "modelTier": "standard",
+      "findingsPath": "compliance.json"
+    },
+    {
+      "id": "bug",
+      "required": true,
+      "ran": true,
+      "modelTier": "strong",
+      "findingsPath": "bug.json"
+    },
+    {
+      "id": "security",
+      "required": true,
+      "ran": true,
+      "modelTier": "strong",
+      "findingsPath": "security.json"
+    },
+    {
+      "id": "architecture",
+      "required": true,
+      "ran": true,
+      "modelTier": "standard",
+      "findingsPath": "architecture.json"
+    },
+    {
+      "id": "frontend-races",
+      "required": false,
+      "ran": false,
+      "skippedReason": "no async-UI signal in the diff"
+    }
+  ],
+  "blocking": 0,
+  "advisory": 0
+}
+```
+
+- `diff.base` and `diff.head` are resolved 40-character SHAs (`git rev-parse`), and the base is an ancestor of the head. A `phase` receipt's base is the one harness-autopilot REVIEW step 1 prescribes, and the gate recomputes it from the session's earlier receipts and `startingCommit` (`PHASE_BASE_MISMATCH`, `PHASE_BASE_UNKNOWN`). A `standalone` receipt's base is only checked to be an ancestor of the head. A `final` receipt's base must be the merge base with the default branch, or with the branch its `diff.target` names (a stacked branch's parent, recorded as the full `refs/remotes/` ref `harness review-tier --target` prints; any other form makes the receipt invalid): take it, and `baseSource`, from `harness review-tier --moment final --session <slug>`, which uses the gate's resolver (harness-autopilot, FINAL_REVIEW step 2). Add `"baseSource": "starting-commit"` to `diff` only when that command printed it: no default-branch merge base resolves and the base is the session's starting commit. The gate accepts the field only in that case, and checks it: when a merge base resolves, the base must be that commit whatever `baseSource` says, and a receipt that declares `starting-commit` fails `FINAL_BASE_NOT_MERGE_BASE`; when none resolves, the base must be the `startingCommit` of the session's `autopilot-state.json`, and a receipt outside a session review directory, or a session that records no full `startingCommit`, fails `STARTING_COMMIT_UNKNOWN`.
+- `moment` is `standalone` for a direct `/harness:code-review` run. Autopilot uses `phase` and `final`. The gate checks it against where the receipt is, and the directory decides: a directory directly under `.harness/reviews/` is a standalone review, a directory named `final-all` is the final review, and one named `phase-N` is a phase review. `--moment <phase|final|standalone>` (the tool's `moment` argument) is read only for a receipt in a directory that states none of these, such as a copy made elsewhere. For a directory that does state a moment the flag changes nothing when it agrees and fails the gate when it disagrees (`MOMENT_MISMATCH`: `the receipt directory is the final review, but --moment says phase; the directory decides`), whatever the receipt itself says.
+- `required` is true for every reviewer the tier and the Phase 3.5 activation set call for. `ran` is true only when that reviewer's findings file exists. `findingsPath` is relative to the receipt's directory. A `light` receipt requires exactly one reviewer, `compliance-bug`, and lists no other reviewer, required or not.
+- `coldContext` is true when no reviewer brief carried findings from an earlier review; `priorFindingsSupplied` is true when one did.
+- `computedTier` and `tierReasons` are the tier and reasons `harness review-tier` printed for this review. `demotion` is set only when `tier` is `light` and `computedTier` is `full` (a standalone or final receipt may leave `computedTier` out: it is always computed `full`), and its one value is `no-subagent-tool` (the session could not dispatch); a demotion on any other receipt makes it invalid.
+- `blocking` and `advisory` are counted from the reviewer findings files as written, one per finding: every `critical` or `important` finding is blocking and every `suggestion` is advisory. Nothing is merged by file or line, so two findings at one location are two findings. The gate recounts both and fails on a mismatch (`COUNTS_MISMATCH`, which prints the counts it found). A finding Phase 5 discarded or downgraded stays in its reviewer's file and in these counts; the validated, merged list is what Phase 7 reports.
+- Every reviewer `id` is a known reviewer: `compliance`, `bug`, `security`, `architecture`, `adversarial`, `typescript-strict`, `frontend-races` or `compliance-bug`. Any other id fails `UNKNOWN_REVIEWER`, listed or required or not.
+- Files written by review hooks (`hook-<name>.json`) are not reviewer findings files: they are never listed in `reviewers` and never counted in `blocking` or `advisory`.
+
+**Gate.** Run `harness check-review-receipt <review directory>` (exit 0 is a pass, exit 1 a failure; `--json` prints the result as JSON; a `--moment` value outside `phase`, `final` and `standalone` is refused by the argument parser, exit 1, before the gate runs), or call the `check_review_receipt` tool with `path` (the project root) and `receipt` (the review directory, which must be inside `path`). The gate recomputes HEAD, the diff's file set, the base's ancestry and, for a final review, the merge base, and it reads each findings file itself; it treats the receipt's own fields as claims. It needs no model credential. It prints a code for each failure. These are all of them:
+
+| Code                         | The gate fails when                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `RECEIPT_MISSING`            | there is no receipt at the path                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| `RECEIPT_INVALID`            | the receipt cannot be read (an errno code, `not a regular file`, `too large` for a file over 5 MB), is not JSON, or does not match the receipt schema                                                                                                                                                                                                                                                                                                            |
+| `RECEIPT_OUTSIDE_REPO`       | the receipt is in another git repository than the one the gate runs in (another worktree, or a repository inside the review directory); run the gate from the worktree that holds the receipt                                                                                                                                                                                                                                                                    |
+| `GATE_ERROR`                 | (the tool only) an argument is missing, `moment` is not one of the three values, `receipt` leads outside `path` (real paths are compared, so a symlink out of the project counts), or the tool threw                                                                                                                                                                                                                                                             |
+| `MOMENT_MISMATCH`            | the receipt's `moment` is not the moment its directory states, or `--moment` contradicts the directory; for a directory that states none, the receipt's `moment` is not what `--moment` states                                                                                                                                                                                                                                                                   |
+| `MOMENT_UNKNOWN`             | the directory states no moment and no `--moment` was given                                                                                                                                                                                                                                                                                                                                                                                                       |
+| `HEAD_MISMATCH`              | `diff.head` is not the current HEAD. A commit made after the review makes the receipt stale: review the new head                                                                                                                                                                                                                                                                                                                                                 |
+| `WORKTREE_DIRTY`             | tracked files differ from HEAD (`git status --porcelain=v1 -z --untracked-files=no` prints something), or git cannot tell; untracked files do not count                                                                                                                                                                                                                                                                                                          |
+| `REQUIRED_REVIEWER_NOT_RUN`  | a reviewer with `required: true` has `ran: false`                                                                                                                                                                                                                                                                                                                                                                                                                |
+| `CORE_REVIEWER_MISSING`      | a `full` receipt lacks `compliance`, `bug`, `security` or `architecture` as a required reviewer                                                                                                                                                                                                                                                                                                                                                                  |
+| `LIGHT_TIER_ROSTER`          | a `light` receipt requires anything other than the single reviewer `compliance-bug`, or lists another reviewer at all                                                                                                                                                                                                                                                                                                                                            |
+| `TIER_DEMOTED`               | `tier` is `light`, `computedTier` is `full`, and the receipt carries no `demotion`; or the review is standalone (always computed `full`, whatever `computedTier` says or whether it is there), `tier` is `light` and there is no `demotion`                                                                                                                                                                                                                      |
+| `DUPLICATE_REVIEWER`         | a reviewer id is listed twice                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| `UNKNOWN_REVIEWER`           | a reviewer id is not a known reviewer (the core four, the three conditional reviewers or `compliance-bug`), whether or not it is required or ran                                                                                                                                                                                                                                                                                                                 |
+| `FINAL_NOT_FULL`             | `moment` is `final` and `tier` is not `full`                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| `FINAL_NOT_COLD`             | `moment` is `final` and `coldContext` is false                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| `FINAL_PRIOR_FINDINGS`       | `moment` is `final` and `priorFindingsSupplied` is true                                                                                                                                                                                                                                                                                                                                                                                                          |
+| `FINAL_BASE_NOT_MERGE_BASE`  | `moment` is `final` and `diff.base` is not the merge base with the default branch (with the `diff.target` branch when the receipt names one), whatever `diff.baseSource` says; or a default branch resolves and `diff.baseSource` is `starting-commit`; or no default branch resolves and `diff.baseSource` is not `starting-commit`; or no default branch resolves, `diff.baseSource` is `starting-commit` and `diff.base` is not the session's starting commit |
+| `TARGET_UNRESOLVED`          | `moment` is `final` and the receipt's `diff.target`, a full ref under `refs/remotes/` (any other form makes the receipt invalid), does not resolve to a branch that has a merge base with the head; it never falls back to the starting commit                                                                                                                                                                                                                   |
+| `TARGET_OWN_BRANCH`          | `moment` is `final` and the receipt's `diff.target` is the branch under review itself, exactly `refs/remotes/<remote>/<its name>` for a configured remote, whose merge base is the branch's own last pushed commit (its upstream is not consulted)                                                                                                                                                                                                               |
+| `STARTING_COMMIT_UNKNOWN`    | `moment` is `final`, no default branch resolves, `diff.baseSource` is `starting-commit`, and the session's starting commit is unknown (the receipt is not in a session review directory, or its `autopilot-state.json` holds no full `startingCommit`)                                                                                                                                                                                                           |
+| `PHASE_BASE_MISMATCH`        | `moment` is `phase` and `diff.base` is not the `diff.head` of the nearest earlier usable `phase-M` receipt of the session (one that cannot be read or is not a valid phase receipt, or whose `diff.head` is not an ancestor of the head, is passed over), or, when there is none, the session's `startingCommit` (harness-autopilot REVIEW step 1)                                                                                                               |
+| `PHASE_BASE_UNKNOWN`         | `moment` is `phase` and no base can be named: no usable earlier receipt and no full `startingCommit`, a `startingCommit` that is not an ancestor of the head (after a rebase, record the new one), or a receipt outside a session review directory                                                                                                                                                                                                               |
+| `DIFF_BASE_NOT_ANCESTOR`     | `diff.base` is not an ancestor of `diff.head`                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| `DIFF_UNRESOLVED`            | git cannot compute the file set of `<base>..<head>`                                                                                                                                                                                                                                                                                                                                                                                                              |
+| `EMPTY_DIFF`                 | `<base>..<head>` changes no files                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| `FINDINGS_FILE_MISSING`      | a reviewer marked `ran: true` names no findings file, or the path is not a regular file of at most 5 MB inside the receipt directory (absent, a directory, a FIFO or device, too large, or a symlink that leads out of it)                                                                                                                                                                                                                                       |
+| `FINDINGS_PATH_INVALID`      | a `findingsPath` is not a relative path that stays inside the receipt directory (absolute, drive-qualified, or holding a `..` segment)                                                                                                                                                                                                                                                                                                                           |
+| `FINDINGS_FILE_SHARED`       | two reviewers name the same findings file                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| `FINDINGS_FILE_INVALID`      | a findings file is not JSON or does not match its schema (no `base` or `head`, or a blocking finding without `findingClass` and `escapedFrom`)                                                                                                                                                                                                                                                                                                                   |
+| `FINDINGS_REVIEWER_MISMATCH` | a findings file's `reviewerId` is not the reviewer that names it                                                                                                                                                                                                                                                                                                                                                                                                 |
+| `FINDINGS_HEAD_MISMATCH`     | a findings file's `head` is not the receipt's `diff.head`                                                                                                                                                                                                                                                                                                                                                                                                        |
+| `FINDINGS_BASE_MISMATCH`     | a findings file's `base` is not the receipt's `diff.base`: it was written for another range                                                                                                                                                                                                                                                                                                                                                                      |
+| `EXAMINED_FILES_EMPTY`       | a findings file has an empty `examinedFiles`                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| `EXAMINED_OUTSIDE_DIFF`      | a findings file lists a file outside the diff                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| `DUPLICATE_FINDING_ID`       | a finding id is used more than once across the review's findings files                                                                                                                                                                                                                                                                                                                                                                                           |
+| `COUNTS_MISMATCH`            | `blocking` or `advisory` differs from what the findings files hold                                                                                                                                                                                                                                                                                                                                                                                               |
+
+The gate does not check that reviewers ran in separate contexts, which conditional reviewers should have been required (only that every id is a known one), whether a phase was entitled to `light`, or whether `coldContext`, `priorFindingsSupplied`, `examinedFiles`, `backend`, `computedTier` and `tierReasons` are true; those stay claims. A recorded `computedTier` of `full` is checked against `tier`. The merge base of a final review comes from the clone's local remote-tracking refs, which the session itself can rewrite, so the final base is only as trustworthy as those refs.
+
+Decide on the tool result's `pass` field alone: `pass: true` is the only passing result. The tool's text may begin with a `<!-- packed ... -->` comment line. `failures` has three shapes: it is absent on a pass, a single object when there is exactly one failure, and a list when there are two or more. Never test `failures` to decide; read it in whichever shape it arrives when reporting.
+
+_Pause point (gate): resolve per the Pause Protocol._ <!-- pause: gate -->
+If the gate fails, the review is not complete. Stop here: report each failure with its code and the reviewer it names, and ask "re-run / stop." Until the human answers, change nothing: do not dispatch a reviewer, rewrite the receipt or run the gate again. `re-run`: act on every failure as the Retry table of harness-autopilot (Review records, Retry) says: re-run all, re-run named, rewrite the receipt from the files, or stop for the human. For a standalone review, `HEAD_MISMATCH`, `DIFF_BASE_NOT_ANCESTOR`, `DIFF_UNRESOLVED` and `EMPTY_DIFF` are not re-run: the range was resolved wrongly or is empty. Stop and report the code; a later run resolves the range again as Argument Resolution says. Resolving a range again after it was resolved wrongly is not narrowing it to pass. `stop`: report the review as not complete. No repair may change `tier`, `moment`, a reviewer's `required`, `coldContext`, `priorFindingsSupplied` or the diff range to make a failing receipt pass; those fields say what was done. Never present a review as done on a failing or missing receipt.
+
 ### Review Acceptance
+
+**Dispatched mode skips this section.** A dispatched reviewer returns its findings and the path of its findings file to the session that dispatched it; that session owns acceptance.
 
 _Pause point (ceremony): resolve per the Pause Protocol._ <!-- pause: ceremony -->
 Ask for acceptance directly in your reply. Do NOT route this through `emit_interaction`, `AskUserQuestion`, or any tool. `emit_interaction` records the prompt but does not display it to the human (the client collapses the call to "Called harness" and the rendered text only returns to the model); `AskUserQuestion` is Claude-Code-only and caps headers at 12 chars / 4 options. Plain text in your own message is the only channel that reliably reaches the human across every tool (Claude Code, Cursor, Codex, Gemini CLI). Present it as:
@@ -771,6 +953,9 @@ compliance|naming|suggestion|Names follow project conventions (check AGENTS.md o
 - **Rigor levels** — `--fast`/`--thorough` control learnings, agent tiers, output. See Rigor Levels table.
 - **`filterByRelevance`** — Phase 3 learnings scoring. Threshold 0.7, budget 1000 tokens.
 - **Session directory** — `.harness/sessions/<slug>/` contains `handoff.json`, `state.json`, `artifacts.json` (spec/plan paths, reviewed file list). Write handoff to session scope when slug is known. Global `.harness/handoff.json` is deprecated for session-aware invocations.
+- **`harness check-review-receipt`** / **`check_review_receipt`** — after Phase 7: gate the review receipt. Fails on a missing receipt, a moment that is not the one the review directory states (the directory decides; `--moment` is only for a directory that states none), a required reviewer that did not run, an unknown reviewer id, a findings file that is absent, invalid, outside the diff or written at another head, counts that differ from the findings files, a base that is not an ancestor of the head (or, for a final review, not the base `harness review-tier` prints), and a stale head. The full list of codes is under Review Receipt. One more mode: `--findings <file> --base <sha> --head <sha>` is a reviewer's self-check of its own findings file.
+- **`harness review-tier`** — before Phase 4: computes the review tier, its reasons and the backend from the diff, every commit message of the range (identity trailers excluded, as Review tier and dispatch states; every other trailer matched), the package entry points, complexity and rigor, for a final review the base the receipt gate will demand, and for a standalone review the advised base, the default-branch merge base, which the gate checks only for ancestry. Use its output; never choose a tier or a final base by hand while the CLI is available.
+- **`review.backend`** — the repository top's `harness.config.json`: `"agent"` (default) or `"pipeline"` for the `full` tier. See Review tier and dispatch.
 
 ## Uncertainty Surfacing
 
@@ -815,7 +1000,7 @@ Do not suppress ambiguous findings. An ambiguous finding surfaced as a question 
 - Security: `api/routes/users.ts` (endpoint), `services/user-service.ts` (data flow)
 - Architecture: import graph showing `routes -> services -> db` layers
 
-**Phase 4 (FAN-OUT):** Four agents in parallel:
+**Phase 4 (FAN-OUT):** This example shows a `full` review (the session can dispatch subagents), so the four base reviewers each run in their own dispatch, in parallel. A `light` review would show one `compliance-bug` reviewer here instead.
 
 - Compliance: 0 findings (spec alignment confirmed)
 - Bug detection: 1 finding (missing duplicate email handling in createUser)

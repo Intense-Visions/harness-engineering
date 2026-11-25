@@ -192,7 +192,7 @@ This runs a **7-phase pipeline**:
 1. **GATE** — Checks if the PR is eligible for review
 2. **MECHANICAL** — Runs lint, typecheck, tests, security scan. If any fail, it reports and stops — no point reviewing code that doesn't compile.
 3. **CONTEXT** — Assembles context per review domain at a 1:1 ratio (200-line diff = ~200 lines of surrounding context from imports, tests, specs, types)
-4. **FAN-OUT** — Dispatches parallel review agents for compliance, bugs, security, and architecture
+4. **FAN-OUT** — Dispatches one review agent each for compliance, bugs, security, and architecture, in parallel. A session that cannot dispatch subagents runs one combined compliance-and-bug reviewer instead and records the review as `light`.
 5. **VALIDATE** — Filters out duplicates and mechanical-only issues
 6. **DEDUP+MERGE** — Groups findings, assigns severity
 7. **OUTPUT** — Delivers a structured report with evidence-based findings

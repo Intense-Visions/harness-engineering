@@ -1,0 +1,15 @@
+{
+  "reason": "shift-left unit 1: review receipt gate core (module-size only)",
+  "categories": {
+    "module-size": 297709
+  },
+  "violationIds": [
+    "0cbdac9182ffd490c82b52af991af685bd9b638d3fe941a77c43ee3904d2fcd0",
+    "582415e5b752c0cd2b067eb0f7e34160478bc8fd7fbbe01836770a1d73cdf02b"
+  ],
+  "violationReasons": {
+    "0cbdac9182ffd490c82b52af991af685bd9b638d3fe941a77c43ee3904d2fcd0": "shift-left unit 1: a coupling-ratio warning the tool reports as new on this branch (packages/cli/src/commands/review-tier.ts or check-review-receipt.ts); listed by the tool, not a category this allowance raises (module-size is the only category)",
+    "582415e5b752c0cd2b067eb0f7e34160478bc8fd7fbbe01836770a1d73cdf02b": "shift-left unit 1: a coupling-ratio warning the tool reports as new on this branch (packages/cli/src/commands/review-tier.ts or check-review-receipt.ts); listed by the tool, not a category this allowance raises (module-size is the only category)"
+  },
+  "createdFrom": "75bf7f700"
+}

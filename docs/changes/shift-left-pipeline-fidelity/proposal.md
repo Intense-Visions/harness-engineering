@@ -1,0 +1,478 @@
+# Shift-Left Pipeline Fidelity
+
+**Keywords:** review-fidelity, fan-out, provenance, stage-attribution, claim-consistency, receipts, phase-gate, shift-left, edge-case-contract, review-learnings
+
+## Overview
+
+### Problem
+
+A PR built through the harness pipeline is reviewed in-pipeline, then reviewed again by a human running `/harness:code-review`, and the second review returns multiple new blocking findings. Three causes are confirmed.
+
+1. **The in-pipeline review is weaker than it claims.**
+   - Autopilot dispatches one `harness-code-reviewer` subagent with a one-line brief (`agents/skills/claude-code/harness-autopilot/SKILL.md:380-387`). That subagent has file, shell and four harness MCP tools and no agent-spawning tool, so it cannot spawn the "four parallel review subagents" that `agents/skills/claude-code/harness-code-review/SKILL.md:371-373` requires. The fan-out collapses into one context.
+   - `FINAL_REVIEW` is briefed "Focus on cross-phase coherence: naming, duplicated utilities, architectural drift" and is handed the prior findings (`harness-autopilot/SKILL.md:426-434`). It is neither a full bug hunt nor a cold read.
+   - Depth tiers do not discriminate: 200 or more changed lines is `deep` (`packages/core/src/review/depth-calibrator.ts:176`), and the tier gates only the three conditional reviewers.
+2. **Nothing upstream checks the two largest miss classes.** Of 25 blocking findings recorded under `.harness/sessions/*/…review*.json` across three feature runs, about 14 are stale claims (a spec, ADR, README, changeset or skill text that contradicts the shipped code or another document) and about 5 are behavioural edge cases. `harness-verification` checks EXISTS, SUBSTANTIVE and WIRED only (`harness-verification/SKILL.md:78-128`).
+3. **The pipeline cannot learn or prove anything.** `.harness/review-learnings.md` has readers (`packages/core/src/context/filter.ts`, `packages/cli/src/mcp/resources/learnings.ts`) and no writer, and the file does not exist. A PR carries no record of which reviews ran. Review artifacts are inconsistent: one five-phase session holds only `phase-0-review.json` and `phase-2a-review-round-1.json`.
+
+The sample is small (three runs, one repository) and is treated as directional. D9 schedules an evidence review against real data.
+
+### Goals
+
+1. **Parity.** A cold `/harness:code-review` on a pipeline-built PR finds no blocking issue the pipeline's final review could have found.
+2. **No silent degradation.** A review that ran fewer reviewers than its tier requires fails its gate.
+3. **Visible provenance.** Every pipeline-built PR shows which reviews ran, at what tier, with how many reviewers of how many expected, over what diff range.
+4. **Earlier catch.** Stale claims are caught at execution or verification; edge cases at planning or execution.
+5. **Measurable leak.** Every blocking finding is tagged with the earliest stage that should have caught it.
+6. **Closed loop.** Stage-attributed findings feed later planning and execution briefs.
+
+### Non-goals
+
+- Making craft-family findings blocking.
+- Changing CI's `required-review` job from advisory to required.
+- Requiring a model credential for any gate.
+- Reducing review cost. Cost is a constraint handled by tiers.
+- Detecting regressions in generated artifacts (2 of 25 findings). It is a candidate for the evidence review.
+
+### Constraints
+
+- Works on Claude Code, Cursor, Codex and Gemini CLI with no API key.
+- Degrades gracefully where a roadmap, graph or canary is absent.
+- Gates recompute evidence and do not trust a receipt's self-reported fields.
+- Every new stop follows the Pause Protocol (`agents/skills/templates/pause-protocol.md`). A failed receipt gate, a failed mechanical phase of a review, a failed CONSISTENT level and a failed edge-case check are `gate` pauses, which stop at every autonomy level. Dismissing a blocking finding is a `judgment` pause: it stops for the human in supervised mode, and in trusted mode it is taken without the human only when the blind-then-refute self-audit ran and agreed; when the session cannot spawn the auditor, or audit is off, it stops for the human (D24). The per-phase tier choice is not a pause: it is computed.
+- The repository's module-size budget is used up. The baseline is 294,695 non-test TypeScript lines and the tolerance is 1 percent, a limit of 297,641. After the fourth fix round of Phase 1 the total is 299,720, which is 2,079 lines over (it was 298,467 after the third). Phase 1 now ships as a stack of unit PRs (`plans/2026-11-24-stacked-units-recut-plan.md`), and the one-branch allowance is not carried into any of them. Each unit is measured against `main` as it stands (`HARNESS_ARCH_BASE_REF`, default `origin/main`), so a unit is measured with every unmerged unit below it. Unit 1 fits on its own (about +2,140 lines against a tolerance of 2,946). A unit above it gets its own allowance file (`.harness/arch/allowances/<branch>.json`) only while the units below it are unmerged and the cumulative total is over tolerance (units 3 to 5, Part D of that plan); after a lower unit merges and the baseline refreshes, the branch is rebased and the allowance deleted if the gate passes without it. Phases 2 to 4 start from that refreshed baseline.
+- Dependency depth and coupling are at their limits. Dependency depth is 699 against a baseline of 693 (limit 699 with the 1 percent tolerance); coupling is 473 against a baseline of 469 (limit 473). Round 4 kept both there by putting new shared constants in `@harness-engineering/types` rather than adding core modules, and reverted a split of `review-gate.ts` that raised the depth to 701. One more module on a long import chain, or one more cross-module import, regresses the arch gate. Measured per unit against `main`, unit 1 adds the two new receipts modules (about +4 depth, within the tolerance of 6) and later units at most +2 more; any unit that exceeds a tolerance while the units below it are unmerged takes an allowance as above, and an error-severity violation is fixed, never allowanced.
+
+### Assumptions
+
+- Runtime is Node.js 22 or later with `git` on the path. `gh` is optional.
+- A review receipt cannot prove that reviewers ran in separate contexts. The gate proves that each required reviewer produced its own findings file over the right files at the right commit. One context that deliberately writes four files would pass. The stamp makes the claim visible and the standalone review measures whether it held.
+- The gate recomputes the head, a clean tracked tree, the diff's file set, the base's ancestry, a phase review's base (the `diff.head` of the nearest earlier phase receipt, else the session's starting commit), a final review's merge base (or, when none resolves, the session's starting commit), the moment (from the review directory, which no flag overrides), the light roster, that every reviewer id is a known one, `round` and `priorRounds` against the `round-R/` archives beside the receipt, finding-id uniqueness and the counts. It reads a receipt or a findings file only when it is a regular file of at most 5 MB. These stay claims: separate contexts, the conditional-reviewer set (beyond every id being known), a phase's entitlement to `light`, `coldContext`, `priorFindingsSupplied`, whether a reviewer read the files it lists in `examinedFiles`, and `backend`. The archives are written by the session, so the round check proves the receipt agrees with them, not that no round was hidden.
+- A stamp in a PR body is text its author wrote. Nothing authenticates it, and CI cannot recompute it, because the receipts and findings files are ignored by git and stay on the machine that ran the pipeline. Readers (`pre-merge-brief`, `review-attribution record`) treat it as a statement and say it is not verified. They recognise a stamp only when a marker pair opens with the stamp's heading outside HTML comments, and keep only what the renderer can write: a row whose twelve cells each match their column's grammar, and a note that is one of the renderer's fixed sentences.
+- The provenance stamp is valid for the history it was rendered on. A rebase, an amend or a squash after the reviews removes the reviewed commits from the branch, and every row then reads `FAIL: HEAD_MISMATCH`.
+- The merge base of a final review is taken against the remote-tracking ref of the default branch as the clone holds it. The gate does not fetch. Those refs are local and the session can rewrite them (`git update-ref refs/remotes/origin/main HEAD~1` makes a one-commit final review pass), so the final base is only as trustworthy as the clone's remote-tracking refs.
+- Attribution is a reviewer's judgment against a rubric, so it is an estimate. The evidence review reads it as a ranking of stages, not as exact counts.
+- The per-PR leak errs high for one known reason: a standalone review has no dismissal record, so a blocking finding its own validation step discarded is still logged against the PR.
+- The session state the stamp reads (`phases[]`, `decisions[]`, `startingCommit` in `autopilot-state.json`) is written by the agent. The stamp parses it with a typed schema and says what it could not read; it cannot tell a phase list that was edited from one that was not.
+- Stale-claim detection finds only claims the plan listed. A claim nobody listed is still caught at review, where it is attributed to `plan`.
+
+## Decisions
+
+| #   | Decision                                                                                                                                                                                                                                                             | Rationale                                                                                                                                                                                                                                      |
+| --- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| D1  | The scope is the whole pipeline: planning, execution, verification, review.                                                                                                                                                                                          | Anything caught earlier is cheaper; a better plan improves execution, which leaves less for review.                                                                                                                                            |
+| D2  | One spec, four phases, each independently shippable.                                                                                                                                                                                                                 | The phases share one attribution taxonomy, which would drift across separate specs.                                                                                                                                                            |
+| D3  | The agent does the work; code checks a typed receipt.                                                                                                                                                                                                                | It enforces with no credential and on every client. Prompt-only instruction is what failed: the fan-out instruction existed and silently did not happen.                                                                                       |
+| D4  | Gates recompute what they can and treat receipt fields as claims.                                                                                                                                                                                                    | A gate that validates only a receipt's shape is prompt-only enforcement with extra files.                                                                                                                                                      |
+| D5  | Review depth is risk-tiered per phase and always full at the final review.                                                                                                                                                                                           | Full fan-out on every phase multiplies cost by the phase count; the final review is where parity with the human's review is decided.                                                                                                           |
+| D6  | The final review is cold: full diff from the merge base, no prior findings in any reviewer brief.                                                                                                                                                                    | The human's review is cold, and it finds more. Prior findings are used only afterwards, to label repeats.                                                                                                                                      |
+| D7  | A reviewer that cannot fan out declares the light tier. It never claims a full review.                                                                                                                                                                               | Capability honesty is what makes Goal 2 (no silent degradation) checkable.                                                                                                                                                                     |
+| D8  | The coded pipeline (`runReviewPipeline`) is an opt-in backend for the full tier, selected by config.                                                                                                                                                                 | It gives identical local and CI review where a runner exists, without making a runner mandatory.                                                                                                                                               |
+| D9  | An evidence review follows the ship: after 10 stamped PRs it reads the attribution data and re-scopes what remains.                                                                                                                                                  | Phases 3 and 4 rest on about seven findings; they ship provisional and are confirmed or changed by data.                                                                                                                                       |
+| D10 | The standalone `/harness:code-review` also emits a receipt and records its blocking findings against the PR's stamp.                                                                                                                                                 | That run is the success measure; without it the leak is an impression.                                                                                                                                                                         |
+| D11 | The moment of a review is bound to its directory: `phase-<N>`, `final-all`, or a directory directly under `.harness/reviews/` (the session layout is tested first). `--moment` is read only for a directory that states none, and contradicting the directory fails. | A receipt in `final-all/` that declared `phase` skipped every final-review rule. The directory is where the caller put the review, so it is not the receipt's own claim, and a flag passed by the same caller must not be one either.          |
+| D12 | The gate checks the diff base: an ancestor of the head at every moment, and the merge base with the default branch for a final review. `baseSource: starting-commit` is accepted only when no merge base resolves and the base is the session's starting commit.     | A receipt that named a later base passed as a review of a narrowed range, including a final review, and declaring `starting-commit` switched the check off.                                                                                    |
+| D13 | Coverage (diff files a required reviewer examined, of the diff's files) is shown on the stamp and is not gated.                                                                                                                                                      | `examinedFiles` is self-reported, so a floor would be met by listing files; a visible number lets a reader see a thin review without pretending to verify it.                                                                                  |
+| D14 | Every blocking finding a reviewer wrote ends as fixed, overridden or dismissed, and overrides and dismissals are typed decision records the stamp parses. Each carries the round it was taken in and applies only to that round's receipt.                           | The counts are over the findings files as written, so a finding the session discarded would otherwise sit on the stamp with no explanation, or leave no trace. A round 1 decision otherwise covered a different failure or finding in round 2. |
+| D15 | A standalone review whose receipt fails its gate is logged as one `not-measured` record; a PR that could not be read is `unknown`, not `unstamped`.                                                                                                                  | The leak measure otherwise drops exactly the reviews that found something, and counts a stamped PR as unstamped whenever `gh` fails.                                                                                                           |
+| D16 | A stamp in a PR body is unauthenticated and is shown as such; CI does not verify it.                                                                                                                                                                                 | The receipts are machine-local, so CI has nothing to recompute a stamp from.                                                                                                                                                                   |
+| D17 | A fix round is a new round of the same review: every required reviewer runs again at the new head, and the receipt records `round` and `priorRounds`.                                                                                                                | A findings file left from the earlier round satisfied the gate at the new head, and the stamp lost what the earlier round found.                                                                                                               |
+| D18 | Any commit after the final review returns to FINAL_REVIEW, and the stamp counts the commits that follow the reviewed head, on a passing, a failing and an overridden final row alike.                                                                                | An OUTCOME_EVAL fix shipped unreviewed while the final row still read as a pass, and an overridden final gate hid every later commit.                                                                                                          |
+| D19 | A phase is identified by its 0-based position in `phases[]`. That one number is `index`, the `N` of `reviews/phase-N/` and the `phase` of a decision record, and the part of `autopilot-state.json` the stamp reads is a typed contract.                             | `MISSING` rows depended on a field no skill wrote and no type defined, and a decision recorded with a spec heading's number attached to the wrong row.                                                                                         |
+| D20 | Dismissing a blocking finding is a `judgment` pause, and a final review in which one was dismissed ends `passed-with-dismissals`, never `passed`.                                                                                                                    | The session that ran the executors could set aside any blocking finding of the final review by its own judgment, at any autonomy level, and record the review as passed.                                                                       |
+| D21 | A failed mechanical phase is a red check, not a receipt-gate failure: no reviewer is dispatched, no receipt is written, and the question is fix or stop.                                                                                                             | The only path offered was the gate's, so a failed typecheck was recorded as a gate override, or had no path at all.                                                                                                                            |
+| D22 | Attribution merges the measured runs of a review at a head as a union, per location. The stamp state of a review only upgrades. Only `full` standalone reviews of stamped PRs are in the per-PR measure.                                                             | Recording a review twice counted both runs' findings; a review recorded before its PR existed stayed `unstamped` for good; a one-reviewer `light` review read as a zero leak.                                                                  |
+| D23 | The stamp cuts nothing silently, and a PR-body reader accepts only what the renderer can write. A review directory without a readable receipt is a row.                                                                                                              | One long rationale pushed later overrides off the stamp; any `- ` line in a PR body was reposted by CI; a review whose receipt was missing had no row.                                                                                         |
+| D24 | Every review decision record says who took it (`decidedBy`: `human`, `audited`, `unaudited`), and the stamp prints it. A dismissal of a blocking finding is taken without the human only when the self-audit ran and agreed.                                         | The Pause Protocol's `unavailable` audit status let a session with no auditor dismiss its own blocking findings, and the stamp could not tell that from a human's dismissal.                                                                   |
+| D25 | The round of a review is 1 + the `round-R/` archives beside it, archived by a CLI command, and the gate checks `round` and `priorRounds` against the archives.                                                                                                       | The round was read off whether the directory held a receipt, so a failed mechanical phase or a crash reset it to 1 and earlier-round decisions applied to the new receipt.                                                                     |
+| D26 | A standalone review is in the per-PR measure only when the PR's stamp covers the PR head: one `final-all` row that passed or was overridden at that head, with no commit after it.                                                                                   | Any reviewed row made a PR `stamped`, so a stamp with no passing final review, or one rendered before later pushes, counted as a measurement.                                                                                                  |
+| D27 | A rule the code applies is stated once in prose and pointed to, or checked against the code by a test: the final-review base comes from `harness review-tier`, the identity-trailer rule from `tier-selector.ts`.                                                    | The final base was a shell recipe in a skill beside a private function in the gate, and the trailer list was written three times and had already drifted.                                                                                      |
+
+## Technical Design
+
+### Shared: receipts and attribution
+
+New types in `packages/types/src/pipeline-receipts.ts`, with Zod validators in `packages/core/src/receipts/`.
+
+```ts
+type ReviewMoment = 'phase' | 'final' | 'standalone';
+type ReviewTier = 'light' | 'full';
+
+interface ReviewerRecord {
+  // compliance | bug | security | architecture | adversarial | typescript-strict | frontend-races
+  // for a full review; compliance-bug, and only that, for a light review. Any other id fails
+  // UNKNOWN_REVIEWER.
+  id: string;
+  required: boolean; // required by the tier and the activation set
+  ran: boolean;
+  modelTier?: string; // resolved tier, recorded for visibility
+  findingsPath?: string; // the reviewer's own findings file, relative to the receipt's directory
+  skippedReason?: string;
+}
+
+interface ReviewReceipt {
+  schemaVersion: 1;
+  moment: ReviewMoment;
+  tier: ReviewTier;
+  computedTier?: ReviewTier; // what harness review-tier printed for this review
+  tierReasons?: string[]; // the reasons it printed
+  demotion?: 'no-subagent-tool'; // only when tier is light and computedTier is full
+  backend: 'agent' | 'pipeline';
+  // resolved 40-character SHAs; baseSource says how the base was resolved; target (final only)
+  // is the remote-tracking branch (refs/remotes/...) a stacked branch merges into
+  diff: {
+    base: string;
+    head: string;
+    baseSource?: 'merge-base' | 'starting-commit';
+    target?: string;
+  };
+  coldContext: boolean;
+  priorFindingsSupplied: boolean;
+  reviewers: ReviewerRecord[];
+  blocking: number;
+  advisory: number;
+  round?: number; // 1 when absent; 1 + the round-R/ archives beside the receipt (D25)
+  priorRounds?: Array<{ round: number; head: string; blocking: number }>; // one per archive
+}
+
+// What each reviewer writes, as <reviewerId>.json beside the receipt.
+interface ReviewerFindingsFile {
+  schemaVersion: 1;
+  reviewerId: string;
+  base: string; // the base of the range the reviewer was given; must equal the receipt's diff.base
+  head: string; // the commit the reviewer read; must equal the receipt's diff.head
+  examinedFiles: string[]; // files of the diff the reviewer read
+  findings: ReviewFinding[];
+}
+
+// A review decision in autopilot's decisions[], read by the stamp.
+interface ReviewDecisionRecord {
+  state: 'REVIEW' | 'FINAL_REVIEW';
+  phase?: number | string; // required for REVIEW: the phase's 0-based position
+  kind: 'gate' | 'findings' | 'dismissed';
+  rationale: string;
+  codes?: ReviewGateFailureCode[]; // gate: the failure codes that were overridden
+  findingIds?: string[]; // dismissed: the blocking findings set aside
+  round?: number; // the round of the receipt it was taken against; 1 when absent
+  decidedBy: 'human' | 'audited' | 'unaudited'; // who took it; required (D24)
+}
+
+// The part of a session's autopilot-state.json that code reads. Other fields pass through.
+interface AutopilotPhaseEntry {
+  index?: number; // when present, the entry's 0-based position in phases[]
+  name: string;
+  status?: string;
+  planPath?: string | null;
+  complexity?: string;
+}
+interface AutopilotSessionState {
+  specPath?: string;
+  startingCommit?: string; // the base of the first phase
+  phases?: AutopilotPhaseEntry[];
+  decisions?: unknown[]; // mixed; a review decision among them is a ReviewDecisionRecord
+}
+
+type EscapedFrom = 'spec' | 'plan' | 'execution' | 'verification' | 'none';
+type FindingClass = 'stale-claim' | 'edge-case' | 'weak-test' | 'collateral' | 'design' | 'other';
+```
+
+`ReviewFinding` (`packages/core/src/review/types/fan-out.ts`) gains two optional fields, `escapedFrom` and `findingClass`. They are optional so that existing producers and stored findings stay valid.
+
+### Phase 1: Review fidelity and attribution
+
+**Tiers.**
+
+| Tier    | Reviewers                                                                                                  | Dispatch                                                                                       |
+| ------- | ---------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| `light` | One reviewer covering compliance and bug detection, after the mechanical checks                            | One dispatch                                                                                   |
+| `full`  | Compliance, bug, security and architecture, plus each conditional reviewer the depth calibration activates | One dispatch per reviewer, issued by the orchestrating session, or the coded pipeline under D8 |
+
+**Per-phase tier selection** is a pure function, `selectReviewTier(input)`, in `packages/core/src/review/tier-selector.ts`. A phase is `full` when any of these holds, and `light` otherwise:
+
+- the diff, a changed path or a commit message of the range matches at least one risk keyword from the existing list. The diff is read as text whatever git attributes say. Of the trailers git identifies in a message, only identity trailers are left out (the rule is `IDENTITY_TRAILER` in `tier-selector.ts`: a key ending in `-by`, `Cc`, `Change-Id`, `Claude-Session`); every other trailer is matched;
+- the diff touches a package entry point (`src/index.ts` or a file named in a `package.json` `exports`, `main` or `bin` field);
+- autopilot's assessed complexity for the phase is `high` (the spec's `<!-- complexity -->` annotation after autopilot's ASSESS refinements);
+- the rigor level is `thorough`.
+
+The final review is always `full`. `--fast` does not lower the final tier. `harness review-tier` is the function's caller: it gathers the diff, the commit messages and the package entry points with git from the repository top level, reads `review.backend` from the repository top's `harness.config.json`, and prints the tier, its reasons and the backend. For a final review it also prints the base the receipt gate will demand, from the gate's own resolver (`--session` supplies the starting commit; `--target <ref>` names the remote-tracking branch a stacked branch merges into, only a ref under `refs/remotes/`, whose merge base then replaces the default branch's; the final receipt records the full ref as `diff.target`, and the gate reads it from there). For a standalone review it prints the advised base, the default-branch merge base; a standalone review takes its base from the range it reviews, and when no merge base resolves the command says to name that range (a `commit-range` argument). `--session` applies to the final moment only. A `light` review always resolves to the agent backend; that rule is in core's `resolveReviewBackend`. A diff too large for git's output buffer is `full` (`diff-too-large`). It exits 1 when it cannot compute a tier and never falls back to `light`.
+
+**Fan-out.** Autopilot's `REVIEW` and `FINAL_REVIEW` states stop delegating the whole skill to one subagent. For a `full` review the orchestrating session runs the mechanical and context phases and then dispatches one reviewer per record. Each reviewer writes `{sessionDir}/reviews/<moment>-<phase>/<reviewerId>.json`, containing its findings, the commit it read (`head`) and the list of files it examined. `harness-code-review` gains a dispatched mode, decided by one test: the brief names a review directory. A dispatched reviewer is either autopilot's one `light` reviewer, which runs the mechanical and context phases itself, or one per-domain reviewer of a `full` review, which runs neither. It writes only its findings file, validates that file before returning with `harness check-review-receipt --findings <file> --base <sha> --head <sha>` (the gate's parser and diff, from the CLI), and skips the human acceptance prompt; the session that dispatched it writes the receipt, gates it and records attribution. A run that owns its review and cannot spawn reviewers is not dispatched: it runs `light` in its own context and writes its own receipt. When the mechanical phase fails (validate, typecheck or tests), no reviewer is dispatched and no receipt is written: autopilot treats it as a red check, asks fix or stop, and records no gate override (D21). A review that runs again after a fix is a new round: the ended round is archived into `round-R/` with `harness check-review-receipt --archive-round <review-dir>`, every required reviewer runs again at the new head, and the receipt records `round` (1 + the archives) and `priorRounds` (one entry per archive), which the gate checks (D25).
+
+**Backend.** `review.backend` in the repository top's `harness.config.json` is `"agent"` (the default) or `"pipeline"`. If `pipeline` is set and no runner resolves, the review runs on the agent backend and the receipt records `backend: agent`.
+
+**Cold final review.** The diff is `merge-base(<default branch>, HEAD)..HEAD`. If the default branch cannot be resolved, the base is autopilot's `startingCommit`, the receipt records `diff.baseSource: "starting-commit"` and the stamp says so. Autopilot takes the base and its source from `harness review-tier --moment final --session <slug>`, which uses the gate's resolver (D27). The gate accepts the declaration only when it cannot resolve a merge base itself and the base is the session's starting commit; when it can, the base must be the merge base whatever the receipt declares, and when the starting commit is unknown the gate fails `STARTING_COMMIT_UNKNOWN`. A commit made after the final review (a fix from the final review or from OUTCOME_EVAL) returns the session to the final review. Reviewer briefs carry no prior findings and no coherence-only focus. After the reviewers return, prior phase findings are matched by location to label repeats as `previously-raised`. A blocking finding the session proposes to set aside is put to a `judgment` pause first (D20), which in trusted mode resolves without the human only after a self-audit that ran and agreed (D24); the final review's status is `passed`, `passed-with-dismissals` or `overridden`. Fixes at the final review and at OUTCOME_EVAL share one budget of three attempts; when it is spent, only override and stop are offered.
+
+**Gate.** `validateReviewReceipt(receipt, context)` in `packages/core/src/receipts/review-gate.ts` fails when:
+
+- the receipt's `moment` is not the moment its directory states (`phase-<N>`, `final-all`, or a directory directly under `.harness/reviews/`), `--moment` contradicts the directory, or nothing states a moment (`--moment` is read only for a directory that states none);
+- the receipt or a findings file is not a regular file of at most 5 MB;
+- a reviewer with `required: true` has `ran: false`, a `full` roster lacks a core reviewer, a `light` roster is anything but the single reviewer `compliance-bug`, a reviewer is listed twice, or a reviewer id is not a known reviewer;
+- `round` is not 1 + the `round-R/` archives beside the receipt, or `priorRounds` does not list exactly the archived rounds with the head and blocking count of each archive's receipt;
+- a reviewer marked `ran: true` has no findings file, an invalid one, one shared with or written for another reviewer, one written at another head (`FINDINGS_HEAD_MISMATCH`) or for another base (`FINDINGS_BASE_MISMATCH`), or one whose examined files are empty or not a subset of the diff's files;
+- a `findingsPath` leaves the receipt directory (`FINDINGS_PATH_INVALID`), or, for the MCP tool, an argument is missing or invalid (`GATE_ERROR`);
+- a finding id is used twice in the review, or `blocking` or `advisory` differs from what the findings files hold;
+- `tier` is `light` and the receipt carries no `demotion: "no-subagent-tool"` while the recorded `computedTier` is `full`, or while the review is standalone (always computed `full`, whether or not `computedTier` is recorded) (`TIER_DEMOTED`);
+- the receipt is in another git repository than the one the gate runs in: another worktree, or a repository inside the review directory (`RECEIPT_OUTSIDE_REPO`; run the gate from the worktree that holds the receipt);
+- `diff.head` is not the current `HEAD` of the worktree that holds the receipt, `diff.base` is not an ancestor of it, or the range cannot be computed or changes no files;
+- the tracked files differ from `HEAD` (`WORKTREE_DIRTY`; untracked files do not count);
+- `moment` is `phase` and `diff.base` is not the `diff.head` of the nearest earlier usable phase receipt of the session, else the session's starting commit (`PHASE_BASE_MISMATCH`; an earlier receipt that cannot be read, or whose head is not an ancestor of the head, is passed over), or no base can be named, including a starting commit that is not an ancestor of the head (`PHASE_BASE_UNKNOWN`);
+- `moment` is `final` and the tier is not `full`, `coldContext` is false, `priorFindingsSupplied` is true, or `diff.base` is not the merge base with its `diff.target` or, without one, the default branch (a `diff.target` that is not a remote-tracking branch that resolves fails `TARGET_UNRESOLVED`, and one that is the branch under review itself, exactly `refs/remotes/<remote>/<its name>` for a configured remote, fails `TARGET_OWN_BRANCH`; `diff.baseSource: "starting-commit"` is accepted only when no default branch resolves and `diff.base` is the session's starting commit; an unknown starting commit fails `STARTING_COMMIT_UNKNOWN`).
+
+The full set of failure codes is `REVIEW_GATE_FAILURE_CODES`, a literal union defined in `packages/types/src/pipeline-receipts.ts`. The gate is exposed as `harness check-review-receipt [path] [--moment phase|final|standalone]` and as a `check_review_receipt` MCP tool. The command has two more modes, one per call: `--archive-round <review-dir>` archives an ended round and prints the next, and `--findings <file> [--base <sha> --head <sha>]` checks one reviewer findings file with the gate's parser (a reviewer's self-check). It is not part of `check_phase_gate`, which maps implementation files to spec files and has no session concept (`packages/cli/src/commands/check-phase-gate.ts:20-34`). A missing receipt fails the gate. Autopilot may not leave `REVIEW` or `FINAL_REVIEW` without a passing receipt, a human override, or a recorded empty-phase (or empty-final) skip: a phase or final range that changes no files is not reviewed, no receipt is written, and the skip is recorded in `decisions[]` (the next phase's base passes over a phase with no receipt); an override is recorded in `decisions[]` as a typed record and shown on the stamp, and so is each blocking finding that was set aside without a fix (`dismissed`, after its `judgment` pause). Each record carries the `round` of the receipt it was taken against and applies to that round only, and `decidedBy` (D24).
+
+**Artifact layout.** All review output moves to `{sessionDir}/reviews/<moment>-<phase>/`, holding `receipt.json` and one file per reviewer. A phase review's directory is `phase-N`, where `N` is the phase's 0-based position in the session's `phases[]` (D19): the first phase is `phase-0`. A standalone review has no session, so it writes to `.harness/reviews/<branch>-<head sha>/`. The two existing shapes are no longer written. No code reads them; the only reader is one step of autopilot's FINAL_REVIEW, which uses them to label repeats when it resumes a session started before this change.
+
+**Provenance stamp.** `harness review-provenance render --session <slug>` reads the receipts and prints a Markdown block delimited by `<!-- harness:review-provenance -->` markers: one row per review the session's phase list calls for (`MISSING` for one that has no directory) and one per review directory that exists (a directory without a readable receipt is a row whose Gate cell says `receipt missing`, `receipt invalid` or `receipt unreadable`), with moment, tier, backend, reviewers whose findings file loaded of required, diff range (with a gap note when a phase does not start at the head of the nearest earlier phase that was reviewed, passing over a missing or unread one, or, when no earlier phase was reviewed, at the session's starting commit), coverage, the gate's result re-run at render time (on the final row with the number of commits after the reviewed head, whether the gate passed, failed or was overridden), blocking count with dismissals and earlier rounds, blocking findings by class and escaped-from stage, and an Override cell that starts with the number of overrides and dismissals and then writes out the decisions of the receipt's round, each with its decider (`(human)`, `(audited)`, `(unaudited)`, or `(decider unknown)` for a record written before `decidedBy` existed). The Blocking cell flags dismissed findings whose dismissal is `unaudited` or of unknown decider. A row without a receipt shows the review's decisions too, and its Gate cell ends `(overridden)` when a `gate` decision names the code it fails with. Review rows are `phase-N` (no leading zeros) and `final-all` only, and free text is made inert, issue references, math and invisible characters included. Nothing is cut silently: a list that is too long ends `+N more` and a rationale that is too long ends with `…`. Notes under the table name what it could not show: decisions that could not be read, decisions recorded without `decidedBy`, a phase list the expected reviews could not be taken from (with the reason), and orphan decisions that belong to no review. The command resolves the session from the top level of the worktree. Autopilot's `DONE` state places the block in the PR body. `pre-merge-brief` reads the same block from the PR body (`--pr <number>` names the PR; a value that is not a positive decimal number exits 1) and shows it as stated in the PR body, not verified by CI, with a line when the PR head is not the commit the final row passed at. It accepts a stamp only when the marker pair opens with the stamp's heading outside HTML comments, and only rows and notes the renderer can write. A PR with no block reads as "no pipeline review recorded"; a PR body that could not be read reads as unavailable.
+
+**Attribution.** Each reviewer brief includes a rubric for `findingClass` and `escapedFrom`. `harness review-attribution record --receipt <path>` runs the receipt gate and, when it passes, appends one record for the run and one per blocking finding to `.harness/metrics/review-attribution.jsonl` with the PR or branch, moment, class and stage. The review's label is its receipt directory's name (`--review` may only repeat it). Every call is a new run with its own run number; the measured runs of a review at a head (head, moment and label) are merged as a union, per location (file, start line and class), so recording twice never counts a finding twice and a later run never lowers the count. Blocking findings that the session's `dismissed` decisions of that review and round name, recorded before `record` runs, are left out and counted as `dismissed`; autopilot therefore records attribution after settling dismissals. The log is in the main worktree of the repository, so every worktree of one clone shares it (a worktree of a bare repository has none, and the command refuses), and it is machine-local, because `.harness/metrics/*` is ignored (`.harness/.gitignore:34`); the stamp carries the same counts so they travel with the PR. A failed append is logged and does not fail the review. A receipt that fails the gate is refused: nothing is logged for a phase or final review, and a standalone review is logged as one `not-measured` record. `harness review-attribution report` prints counts by stage and class, and blocking findings per PR for `full` `standalone` reviews of stamped PRs, which is the success measure, with what it leaves out or merged (`light` standalone reviews, unstamped, stale stamp, incomplete stamp, unknown stamp state, not measured, merged runs, later and earlier runs not measured, incomplete runs, dismissed). A standalone review reads the stamp and the PR head from the PR through `gh` (D26): a PR whose stamp has one `final-all` row that passed or was overridden at the PR head, with no commit after it, is `stamped`; a stamp whose final row passed at another commit or reports unreviewed commits is `stamp-stale`; a stamp with no such row is `stamp-incomplete`; a branch with no PR or a body with no stamp is `unstamped`; a PR that could not be read, or no PR head, is `unknown`. The stamp state of a review at a head is the best any run read, in that order from `unknown` up: it upgrades when a later run reads a better stamp, and never downgrades.
+
+### Phase 2: Claim consistency
+
+**Plan.** `PlanTaskSchema` (`packages/types/src/plan-task.ts`) gains an optional `claims` array:
+
+```ts
+interface ClaimSite {
+  fact: string; // "the craft family has 11 skills"
+  stale: string; // literal or regex matching the old statement
+  sites: string[]; // paths that state the fact
+  exempt?: string[]; // paths allowed to keep the old statement, such as changelogs
+}
+```
+
+`harness-planning` adds a step to DECOMPOSE: for each fact a task changes (a count, a name, a rule, a version, a described behaviour), search the repository for statements of it and record them on the task as a `**Claims:**` line.
+
+**Execution.** After a task's change, the executor visits every listed site and records each as `updated` or `confirmed-unaffected` in a sweep receipt in session state.
+
+**Verification.** A fourth level, CONSISTENT, runs `checkClaimSites(claims, cwd)` from `packages/core/src/receipts/claim-check.ts`. It searches tracked files for each claim's `stale` pattern and fails on any match outside `exempt`. It is exposed as `harness check-claims --plan <path>`. It uses search only, so it runs with no model. If a `stale` pattern is not a valid regular expression, or a listed site does not exist, the command exits 2 and names the claim.
+
+A task with no `claims` passes CONSISTENT trivially, and the verifier reports the denominator: tasks with claims of tasks total.
+
+### Phase 3: Edge-case contract (provisional under D9)
+
+**Plan.** Each task that adds or changes behaviour carries an `**Edge cases:**` list, written as EARS unwanted-behaviour statements and prompted by a fixed checklist: empty or zero input, ties and equal values, unknown or invalid enum values, out-of-domain values, and error-path parity between sibling operations. Each entry has an id.
+
+**Execution.** Each edge case lands with a test whose title contains the id.
+
+**Verification.** `checkEdgeCases(plan, cwd)` searches the task's listed test files as text, so it does not depend on a test framework. It fails when an id has no test title containing it, or when that test is skipped.
+
+### Phase 4: Learnings write-back (provisional under D9)
+
+`recordReviewLearnings` in `packages/core/src/receipts/learnings-writer.ts` appends stage-attributed blocking findings to `.harness/review-learnings.md`, under the three headings `harness-code-review` already reads for calibration: Useful Findings, Noise / False Positives and Calibration Notes (`harness-code-review/SKILL.md:126`). The two code readers load the file whole. It runs at autopilot's `DONE` state and after a standalone review.
+
+`harness-planning` and `harness-execution` load the five most frequent finding classes attributed to their own stage, with a half-life so old patterns fade, and state them in the brief as checks to perform.
+
+## Integration Points
+
+### Entry Points
+
+- New CLI commands: `harness check-review-receipt` (with `--moment`, `--archive-round` and `--findings`), `harness review-tier` (with `--target`, a remote-tracking branch), `harness review-provenance render`, `harness review-attribution record`, `harness review-attribution report`, `harness check-claims`. Changed: `harness pre-merge-brief` gains a Review provenance section and `--pr <number>`.
+- Changed skills: `harness-autopilot` (Review records, REVIEW, FINAL_REVIEW, OUTCOME_EVAL, DONE), `harness-code-review` (dispatched mode, receipt, attribution), `pre-merge-brief` (the provenance section), `harness-planning` (claims, edge cases), `harness-execution` (sweep, edge-case tests), `harness-verification` (CONSISTENT level).
+- New MCP tool: `check_review_receipt`.
+- New core exports: `selectReviewTier`, `validateReviewReceipt`, `expectedReviewMoment`, `readSessionReviewState`, `ReviewDecisionRecordSchema`, `AutopilotSessionStateSchema`, `parseProvenanceStamp`, `resolveReviewBackend`, `finalReviewBase`, `archiveReviewRound`, `checkReviewerFindingsText`, `assembleStamp`, `stampCoverage`, `checkClaimSites`, `checkEdgeCases`, `recordReviewLearnings`. New contract types in `@harness-engineering/types`: the receipt types, `ReviewGateFailureCode`, `AutopilotSessionState`, `AutopilotPhaseEntry`, `ReviewDecider`, `ArchivedRound`, `FULL_SHA_PATTERN`.
+
+### Registrations Required
+
+- Core barrel allowlist in `scripts/generate-core-barrel.mjs` for the new exports.
+- CLI command registry regeneration (`_registry.ts`).
+- Slash-command and plugin regeneration for the changed skills. The Cursor, Gemini CLI and Codex mirrors of the five workflow skills are symlinks, so no separate mirror edit is needed; the mirrors of `pre-merge-brief` are real files and are copied from the Claude Code one.
+- `pnpm run generate-docs` and the tool catalog after the CLI changes.
+
+### Documentation Updates
+
+- `AGENTS.md`: the review tiers, the receipt gate and the CONSISTENT level.
+- `docs/reference/configuration.md`: the review backend key from D8.
+- `docs/reference/cli-commands.md` (generated).
+- A new guide, `docs/guides/review-provenance.md`, on reading the stamp.
+
+### Architectural Decisions
+
+- **D3 and D4 together** warrant an ADR: receipts recomputed by gates is a pattern later stages will copy.
+- **D6** warrants an ADR: it reverses the current final-review brief and fixes the meaning of "reviewed" on a PR.
+
+### Knowledge Impact
+
+- Concepts: review receipt, review tier, provenance stamp, claim site, escaped-from stage.
+- Relationship: a finding class maps to the earliest stage that could catch it.
+
+## Success Criteria
+
+1. When autopilot runs a `full` review, the system shall produce one findings file per required reviewer and a receipt listing each.
+2. If a required reviewer did not run, then `harness check-review-receipt` shall exit non-zero and name the reviewer.
+3. If a receipt marks a reviewer as run and that reviewer's findings file is absent, then the gate shall fail.
+4. When the moment is `final`, the gate shall fail unless the tier is `full`, the context is cold and no prior findings were supplied.
+5. When `harness-code-review` runs without the ability to spawn reviewers, its receipt shall state `tier: light` and one reviewer.
+6. When autopilot creates a PR, the PR body shall contain the provenance block with one row per review.
+7. Every blocking finding from a review that emits a receipt shall carry `findingClass` and `escapedFrom`. When the review's receipt passes the gate and `harness review-attribution record` runs, each blocking finding shall appear in `review-attribution.jsonl` as its own record: one per finding as the reviewer files hold it, never merged by file or line. A review whose receipt fails the gate, including one whose gate the human overrode, is not in the log as findings: a standalone one is logged as a single `not-measured` record, a phase or final one is not logged, and the stamp shows the failure and the override.
+8. `harness review-attribution report` shall print blocking findings per PR for `full` standalone reviews of stamped PRs, counted from the union of the measured runs of each review at each head.
+9. If a tracked, non-exempt file still matches a claim's `stale` pattern, then `harness check-claims` shall exit non-zero and list the file and line.
+10. The verifier shall report CONSISTENT with its denominator of tasks carrying claims.
+11. If an edge-case id has no matching test title, or the test is skipped, then verification shall fail.
+12. When autopilot reaches `DONE` with attributed blocking findings, `.harness/review-learnings.md` shall exist and contain them.
+13. Every gate in this spec shall pass or fail identically with no model credential set.
+14. When `harness-planning` or `harness-execution` starts and `.harness/review-learnings.md` holds findings attributed to that stage, the brief shall state the five most frequent classes as checks.
+15. When `review.backend` is `pipeline` and no runner resolves, the receipt shall record `backend: agent` and the gate shall evaluate it as an agent review.
+16. If no receipt exists at the expected path, then `harness check-review-receipt` shall exit non-zero.
+17. When the spec ships, the roadmap shall contain the evidence-review row with its 10-stamped-PR trigger. The spec ships with Phase 4, its last phase, and the row is created in Phase 4, not before.
+18. `harness validate` shall pass.
+19. If a receipt's `moment` is not the moment its directory states, if `--moment` contradicts the directory, or if the directory states none and `--moment` is absent or differs from the receipt, then the gate shall fail.
+20. If a reviewer's findings file was written at a commit other than the receipt's `diff.head`, or for a base other than its `diff.base`, then the gate shall fail and name the reviewer.
+21. If a default-branch merge base resolves and a final receipt's `diff.base` is not that commit, then the gate shall fail whatever `baseSource` the receipt declares. If none resolves, the gate shall fail unless the receipt declares `baseSource: starting-commit` and its base is the session's starting commit.
+22. When commits follow the head the final review read, the stamp's final row shall state how many, whether its gate passed, failed or was overridden, and shall not read as a bare result. When the count cannot be computed the row shall say so and shall not read as zero.
+23. When the session's phase list calls for a review that has no directory, the stamp shall show a `MISSING` row for it.
+24. When a review decision in `decisions[]` cannot be parsed, the stamp shall say that overrides could not be read and shall not print `none` for a review it has no decision for.
+25. When a standalone review's receipt fails its gate, `harness review-attribution record` shall log one `not-measured` record and the report shall count it.
+26. The stamp shall take the reviews a session calls for from the 0-based positions of `phases[]`. If an entry states an `index` other than its position, or is malformed, the stamp shall say that the expected reviews are unknown and why, and shall not guess.
+27. A review decision shall apply only to the receipt of the round it records. The stamp shall count decisions of other rounds without writing them out, and shall name in a note every decision that belongs to no review of the session.
+28. Before a blocking finding of a reviewer file is recorded as dismissed, autopilot shall have resolved a `judgment` pause for it. A final review in which a blocking finding was dismissed shall record `passed-with-dismissals`, and the DONE summary shall list dismissals beside overrides.
+29. When the mechanical phase of a review fails, autopilot shall dispatch no reviewer, write no receipt, record no gate override, and offer fix or stop.
+30. When a review directory exists without a readable receipt, the stamp shall show a row for it whose Gate cell says so.
+31. The stamp shall cut no cell silently: the Override cell shall start with the number of overrides and dismissals, a shortened list shall end `+N more`, and a shortened rationale shall end with `…`.
+32. When one review is recorded more than once at one head, the report shall count each blocking finding once, as the union of the measured runs, and shall state how many runs were merged; a later run shall never lower the count.
+33. A `light` standalone review of a stamped PR shall be listed by the report and shall not enter the per-PR measure.
+34. If `harness pre-merge-brief --pr` is given a value that is not a positive decimal number, then it shall exit 1 and read and post nothing.
+35. A PR-body reader shall accept as a stamp only a marker pair that opens with the stamp's heading outside HTML comments, and from it only rows and notes the renderer can write.
+36. If a receipt or a findings file is not a regular file of at most 5 MB, then the gate shall fail without reading it.
+37. If a receipt declares `baseSource: starting-commit` while a default-branch merge base resolves and its base is another commit, then the gate shall fail and say why.
+38. If no default-branch merge base resolves and a final receipt declares `baseSource: starting-commit`, then the gate shall fail unless `diff.base` is the session's starting commit, and shall fail `STARTING_COMMIT_UNKNOWN` when that commit is unknown.
+39. When `harness review-tier --moment final` runs, it shall print the base the gate will demand and its source, from the same resolver the gate uses.
+40. If a receipt's `round` is not 1 + the `round-R/` archives beside it, or its `priorRounds` does not list exactly the archived rounds with their receipts' heads and blocking counts, then the gate shall fail.
+41. When a review attempt writes no receipt (a failed mechanical phase, a stop or a crash), the next review in that directory shall have the same round number.
+42. If a receipt lists a reviewer id that is not a known reviewer, then the gate shall fail and name it.
+43. Every review decision record shall carry `decidedBy`, and the stamp shall print the decider of every decision and flag in the Blocking cell a dismissal that is `unaudited` or of unknown decider.
+44. A dismissal of a blocking finding shall be recorded without the human only when a blind-then-refute self-audit ran and agreed, as `decidedBy: audited`.
+45. When `harness check-review-receipt --findings <file> --base <sha> --head <sha>` runs, it shall check that one findings file with the gate's parser, head and diff rules, with the CLI alone and no model credential.
+46. A standalone review shall be in the per-PR measure only when the PR's stamp has one `final-all` row that passed or was overridden at the PR head with no unreviewed commit.
+47. If `--review` differs from the receipt directory's name, or that name is not a valid label, then `harness review-attribution record` shall exit 1 and append nothing.
+48. When a session's `dismissed` decision of the same review and round names a blocking finding before `record` runs, the finding shall not be logged as a finding record.
+49. When a `gate` decision names the code a row without a receipt fails with, that row's Gate cell shall end `(overridden)` and its Override cell shall show the decision.
+50. If a diff is too large for git's output buffer, then `harness review-tier` shall return `full`, never `light`.
+
+## Amendments (Phase 1)
+
+Dated 2026-11-23. Phase 1 was built, reviewed by six reviewers and fixed in four rounds. The text above was corrected in place where the build or the review changed it; this section lists each change and why. Nothing was renumbered: decisions D11 to D27 and success criteria 19 to 50 were added at the end of their lists. The first table is rounds 1 and 2; the second is round 3; the third is round 4, and its last row records the review rounds of unit 1 of the stacked recut.
+
+| Change                                                                                                                                            | Where                                  | Why                                                                                                                                                      |
+| ------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| The moment is checked against the review directory (`--moment` only where the directory states none; round 3 closed the override).                | Gate, D11, SC19                        | A receipt in `final-all/` that said `phase` passed as a light, warm, one-reviewer review.                                                                |
+| A findings file carries `head`, and the gate compares it with the receipt's.                                                                      | Type block, Fan-out, SC20              | A file left from an earlier round passed the gate at a new head.                                                                                         |
+| The gate checks the base: ancestry always, the merge base for a final review. `diff.baseSource` is in the type.                                   | Gate, Cold final review, D12, SC21     | The gate diffed from whatever base the receipt named, so a narrowed range passed.                                                                        |
+| The light roster is exactly `compliance-bug`.                                                                                                     | Type block, Gate                       | Any single required reviewer id passed as a light review.                                                                                                |
+| Counts are one per finding, and finding ids are unique across a review.                                                                           | Gate, SC7                              | The first build counted one per file and start line, which dropped a second reviewer's distinct finding at the same location from the log and the stamp. |
+| SC7 states what is logged and what is not.                                                                                                        | SC7, Attribution                       | The criterion said every blocking finding appears in the log; a gate-failed or overridden review never did, by design.                                   |
+| `not-measured` records, and the `unknown` stamp state.                                                                                            | Attribution, D15, SC25                 | A standalone review that failed its own gate left no trace, and a failed `gh` call recorded a stamped PR as unstamped for good.                          |
+| The attribution log is in the clone's main worktree.                                                                                              | Attribution                            | It was written under the working directory, so records landed in stray or short-lived places.                                                            |
+| The stamp gained Coverage and Gate columns, `MISSING` rows, the commits-after-final count, rounds, dismissals, and notes for what it cannot show. | Provenance stamp, D13, D18, SC22, SC23 | A review that never ran, a thin review and a commit after the final review were all invisible on the stamp.                                              |
+| Overrides and dismissals are typed decision records.                                                                                              | Type block, Gate, D14, SC24            | The stamp's Override column depended on four differently shaped literals in skill prose, parsed by heuristics, and failed silently.                      |
+| Fix rounds: every reviewer again, `round` and `priorRounds`.                                                                                      | Type block, Fan-out, D17               | The review directory was reused across rounds and the earlier round's findings were lost.                                                                |
+| A commit after the final review returns to it.                                                                                                    | Cold final review, D18                 | An OUTCOME_EVAL fix shipped unreviewed under a passing final row.                                                                                        |
+| The stamp in a PR body is unauthenticated; `pre-merge-brief` shows it as stated and gained `--pr`.                                                | Assumptions, Provenance stamp, D16     | The brief copied whatever sat between two markers into a CI-authored comment, and printed "no pipeline review recorded" when it could not read the PR.   |
+| Commands added during execution: `review-tier`, `review-attribution record`, `check-review-receipt --moment`, `pre-merge-brief --pr`.             | Entry Points, Tiers                    | The skills depend on them and the spec did not list them.                                                                                                |
+| The tier rule reads the range's commit messages, identity trailers excluded, and changed paths.                                                   | Tiers                                  | The spec said "the diff"; the first build read only the head commit's message, and a session trailer forced `full`.                                      |
+| The older artifact shapes have one reader, an autopilot step.                                                                                     | Artifact layout                        | The spec said they "are read"; no code reads them.                                                                                                       |
+| The `.gitignore` citation is line 34.                                                                                                             | Attribution                            | This change added a `reviews/` rule above the metrics rule.                                                                                              |
+| Module-size headroom.                                                                                                                             | Constraints                            | After round 2 Phase 1 left 74 lines of budget. Round 3 went over it; see the round 3 table.                                                              |
+
+Round 3 (the second review of the fixed build, six reviewers, 23 blocking findings):
+
+| Change                                                                                                                                                                                                                                                                                 | Where                                           | Why                                                                                                                                                                      |
+| -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| The directory decides the moment. `--moment` is read only for a directory that states none; contradicting the directory fails `MOMENT_MISMATCH`; a value outside the three is an argument error.                                                                                       | Gate, D11, SC19                                 | `--moment phase` made a light, warm, one-reviewer receipt in `final-all/` pass the gate a review state runs.                                                             |
+| `baseSource: starting-commit` is accepted only when no default-branch merge base resolves.                                                                                                                                                                                             | Cold final review, Gate, D12, SC21, SC37        | Declaring it switched the merge-base check off, so a final review of one commit passed as the cold full review.                                                          |
+| The session state the stamp reads is a typed contract (`AutopilotSessionState`, `AutopilotPhaseEntry`). A phase is its 0-based position; `index` is optional and must equal the position when written.                                                                                 | Type block, Artifact layout, D19, SC23, SC26    | `MISSING` rows depended on `phases[].index`, a field no skill told autopilot to write.                                                                                   |
+| Decision records carry `round` and apply only to that round's receipt. `codes` must be real failure codes. Orphan decisions are named in a note.                                                                                                                                       | Type block, Gate, D14, SC24, SC27               | A round 1 override or dismissal covered a different failure or finding in round 2; a decision with a wrong phase or state vanished and its row read `none`.              |
+| Dismissal is a `judgment` pause, and `passed-with-dismissals` is a final-review status.                                                                                                                                                                                                | Constraints, Cold final review, Gate, D20, SC28 | The orchestrating session could dismiss any blocking finding of the final review with no pause and record the review as passed.                                          |
+| A failed mechanical phase is a red check with its own path (fix or stop).                                                                                                                                                                                                              | Constraints, Fan-out, D21, SC29                 | Autopilot now runs the mechanical phase itself and had no branch for its failure; the gate's path recorded a gate override for a failed typecheck.                       |
+| Dispatched mode has one test (the brief names a review directory), and every reviewer validates its findings file before returning.                                                                                                                                                    | Fan-out                                         | The skill defined dispatched mode by two tests, and a reviewer's schema slip stopped the run for a human at every autonomy level.                                        |
+| A receipt or findings file is read only when it is a regular file of at most 5 MB, and the MCP tool confines the receipt path by real path.                                                                                                                                            | Assumptions, Gate, SC36                         | A FIFO named as a findings file hung the gate and the MCP server; a symlink led the receipt read out of the project.                                                     |
+| The stamp: a directory without a readable receipt is a row; the unreviewed-commit count is on failing and overridden final rows too; the Override cell starts with counts; lists and rationales are bounded with a visible mark; the first phase is compared with the starting commit. | Provenance stamp, D18, D23, SC22, SC30, SC31    | The 300-character cut dropped later overrides without a mark; an overridden final gate hid later commits; a receiptless review had a note and no row.                    |
+| The PR-body reader takes the last marker pair that opens with the stamp heading, ignores HTML comments, checks every cell against a grammar and accepts only the renderer's notes, within size bounds.                                                                                 | Assumptions, Provenance stamp, D23, SC35        | One marker quoted above a stamp made a stamped PR read as unstamped; any `- ` line was reposted by CI; a hidden marker pair replaced the visible stamp.                  |
+| `pre-merge-brief`: `--pr` is strict, a stale stamp is called out against the PR head, and the brief is bounded at 60,000 characters.                                                                                                                                                   | Provenance stamp, SC34                          | An invalid `--pr` was dropped silently and the brief read and commented on another PR.                                                                                   |
+| Attribution runs: every `record` is a new run, the latest measured run of a review at a head counts as a whole (round 4 replaced this with a union), and the stamp state only upgrades.                                                                                                | Attribution, D22, SC8, SC32                     | Re-recording at one head added the new findings beside the old; a re-record under `unknown` erased findings; a review recorded before its PR existed stayed `unstamped`. |
+| Only `full` standalone reviews are in the per-PR measure; `light` ones are listed.                                                                                                                                                                                                     | Attribution, D22, SC8, SC33                     | A one-reviewer review that read one file counted as "0 blocking" for the PR.                                                                                             |
+| The attribution log has one home: the main worktree, found through git; a bare repository's worktrees are refused.                                                                                                                                                                     | Attribution                                     | A separate git dir placed the log outside every worktree, and each worktree of a bare clone got its own log.                                                             |
+| The tier reads the diff as text and leaves out identity trailers only, as git identifies them. `light` is the agent backend, in core.                                                                                                                                                  | Tiers                                           | A git attribute hid a file's content from the keyword match, and a body line shaped like `Key: value` was dropped as a trailer.                                          |
+| Failure codes are a literal union in the contract types.                                                                                                                                                                                                                               | Gate                                            | A misspelt code in a decision parsed and overrode nothing, silently.                                                                                                     |
+| Module-size: 298,467 lines against a limit of 297,641, allowed on this branch by owner decision on 2026-11-23 (299,720 after round 4).                                                                                                                                                 | Constraints                                     | Round 3 added more than the 74 lines that were left; the allowance file records the number and the reason.                                                               |
+| The evidence-review roadmap row is created in Phase 4.                                                                                                                                                                                                                                 | SC17, Implementation Order                      | The spec said "when the spec ships" without saying which phase owns the row.                                                                                             |
+
+Round 4 (the third review of the fixed build, six reviewers, 12 blocking findings):
+
+| Change                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         | Where                                                            | Why                                                                                                                                                                                                                                                                |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| A final receipt declaring `starting-commit` must have the session's starting commit as its base; an unknown starting commit fails `STARTING_COMMIT_UNKNOWN`. `harness review-tier --moment final` prints the base from the gate's resolver, and the skills take it from there.                                                                                                                                                                                                                                                 | Cold final review, Gate, Tiers, D12, D27, SC21, SC38, SC39       | With no resolvable default branch any ancestor base passed, so a one-commit final review passed; the base rule lived as a shell recipe in a skill beside a private function in the gate.                                                                           |
+| The round is 1 + the `round-R/` archives; `--archive-round` archives; the gate checks `round` and `priorRounds` (`ROUND_MISMATCH`, `PRIOR_ROUNDS_MISMATCH`).                                                                                                                                                                                                                                                                                                                                                                   | Type block, Fan-out, Gate, Assumptions, D25, SC40, SC41          | A failed mechanical phase or a crash after the archive reset the round to 1, and round-1 decisions then applied to the new receipt.                                                                                                                                |
+| `decidedBy` on every decision; a dismissal auto-resolves only after a self-audit that ran and agreed; the stamp prints the decider and flags unaudited dismissals.                                                                                                                                                                                                                                                                                                                                                             | Constraints, Type block, Gate, Provenance stamp, D24, SC43, SC44 | In trusted mode a session with no auditor could dismiss its own blocking findings under the audit status `unavailable`, and the stamp could not show it.                                                                                                           |
+| Reviewer ids must be known ids (`UNKNOWN_REVIEWER`).                                                                                                                                                                                                                                                                                                                                                                                                                                                                           | Type block, Gate, Assumptions, SC42                              | A full receipt could require a reviewer that does not exist.                                                                                                                                                                                                       |
+| The reviewer self-check is `harness check-review-receipt --findings <file> --base <sha> --head <sha>`; reviewers list files from `git diff --name-only --no-renames -z`.                                                                                                                                                                                                                                                                                                                                                       | Fan-out, Gate, SC45                                              | The `node -e` self-check printed `parser unavailable` from this repository's root and with any released CLI; quoted non-ASCII paths failed the gate.                                                                                                               |
+| Attribution: the label is the receipt directory's name; measured runs merge as a union; a PR is `stamped` only when its stamp covers the PR head (`stamp-stale`, `stamp-incomplete`); dismissed findings are left out; the report's lines changed to match.                                                                                                                                                                                                                                                                    | Attribution, D22, D26, SC8, SC32, SC46, SC47, SC48               | A later run under another `--review` label, or a later clean run, erased an earlier run's findings; a stamp with no passing final review counted as a measurement; dismissed false positives ranked a stage.                                                       |
+| The stamp: rows without a receipt show their decisions and `(overridden)`; labels are `phase-N` and `final-all` only; free text drops invisible characters and neutralises `GH-n` and `$`; the gap check carries across missing rows.                                                                                                                                                                                                                                                                                          | Provenance stamp, SC49                                           | A gate override of a review with no receipt appeared nowhere; labels and rationales could still carry links, emphasis, issue references, math and hidden text; the phase after a missing one was never checked.                                                    |
+| `review-tier`: a diff too large to read is `full`; `review.backend` comes from the repository top.                                                                                                                                                                                                                                                                                                                                                                                                                             | Tiers, Backend, SC50                                             | An oversized diff was a dead end (exit 1) and a smaller one was `light`; a subdirectory's config changed the backend.                                                                                                                                              |
+| The identity-trailer rule is stated once, in code-review, and tested against `IDENTITY_TRAILER`; autopilot and the changeset point to it.                                                                                                                                                                                                                                                                                                                                                                                      | Tiers, D27                                                       | The rule was written three times and two copies already differed.                                                                                                                                                                                                  |
+| `harness skill run` never loads a `.jsonl` file as prior state.                                                                                                                                                                                                                                                                                                                                                                                                                                                                | (skill.yaml)                                                     | The attribution log was loaded as prior state when neither earlier state file existed.                                                                                                                                                                             |
+| Module-size 299,720 under the branch allowance; dependency depth (699) and coupling (473) at their limits.                                                                                                                                                                                                                                                                                                                                                                                                                     | Constraints                                                      | Round 4 added behaviour; shared constants went to the types package so no core module or edge was added.                                                                                                                                                           |
+| Unit 1 review rounds: a clean tracked tree (`WORKTREE_DIRTY`); a phase base recomputed from the earlier receipts and the starting commit (`PHASE_BASE_MISMATCH`, `PHASE_BASE_UNKNOWN`), passing over an unreadable or rebased-away receipt; a stacked branch's target, a remote-tracking branch recorded as `diff.target` (`TARGET_UNRESOLVED`); the gate runs git in the worktree that holds the receipt.                                                                                                                     | Type block, Tiers, Gate, Entry Points                            | A dirty tree, a narrowed phase base, a target naming any commit, and a lane gated from another worktree each passed the gate.                                                                                                                                      |
+| Unit 1 review rounds 3 and 4: a findings file carries `base` (`FINDINGS_BASE_MISMATCH`); the branch under review is refused as its own target, exactly `refs/remotes/<remote>/<its name>` and never its upstream (`TARGET_OWN_BRANCH`); a receipt in another worktree fails `RECEIPT_OUTSIDE_REPO`; a `light` standalone receipt without a demotion fails `TIER_DEMOTED`; an empty phase or final range is skipped with a recorded decision; `review-tier --moment final` exits 1 on an empty range and prints `Review head:`. | Type block, Gate, SC20, Fan-out                                  | A review over a narrower range passed by rewriting the receipt's base; a stacked branch's own last push could be its base; a lane receipt was gated against another worktree; a one-reviewer standalone review passed; an empty range had no exit but an override. |
+
+Left as designed, and stated as limits: the gate cannot prove separate contexts; `examinedFiles`, the conditional-reviewer set, entitlement to `light`, `coldContext` and `priorFindingsSupplied` stay claims; hook findings (canary detectors, craft domains) are outside the receipt and its counts; the per-PR leak sums a still-open finding once per reviewed head; a standalone review has no dismissal record, so a finding its own validation discarded is still logged (the measure errs high); coverage is the union over required reviewers, so `N/N` does not say any one reviewer read every file; a rebase or squash after the reviews makes every stamp row fail `HEAD_MISMATCH`; the final base comes from local remote-tracking refs the session can rewrite, so the gate's merge base is only as trustworthy as those refs (a network fetch would be needed to do better); the round archives are the session's own files, so the round check shows agreement with them and cannot show a round that was never archived; a finding that persists across fix rounds is counted once per round in the stage ranking.
+
+## Implementation Order
+
+Amended 2026-11-24. Phase 1 went through four six-reviewer review rounds without converging (blocking counts 23, 23, 12, 16), largely because every round reviewed one ~190-file, ~30,000-line diff. By owner decision the same design ships as a stack of pull requests, one per unit, each reviewed on its own diff. Each unit's PR targets the previous unit's branch (unit 1 targets `main`), and the units merge in order. The design above does not change. The cut is planned in `plans/2026-11-24-stacked-units-recut-plan.md`. In this section a phase number is a unit number. The Technical Design's Phases 2, 3 and 4 are units 7, 8 and 9.
+
+### Phase 1: Unit 1, gate core
+
+<!-- complexity: high -->
+
+Receipt and findings-file schemas and contract types; the gate (`validateReviewReceipt`, `harness check-review-receipt` with `--findings`, `check_review_receipt`); `harness review-tier` with tier, backend and base resolution; the skills' tier selection, dispatch, receipt writing and cold, full final review; ADRs 0139 and 0140; `review.backend`.
+
+### Phase 2: Unit 2, fix rounds
+
+<!-- complexity: medium -->
+
+`check-review-receipt --archive-round`; the receipt's `round` and `priorRounds` and the gate's `ROUND_MISMATCH` and `PRIOR_ROUNDS_MISMATCH`; the skills' fix-round text.
+
+### Phase 3: Unit 3, provenance stamp
+
+<!-- complexity: high -->
+
+`harness review-provenance render`; the session-state contract (`autopilot-state.json` phases); typed review decisions with rounds and `decidedBy`; the stamp grammar, its parser and inert text; the dismissal and override skill text.
+
+### Phase 4: Unit 4, reading the stamp back from a PR
+
+<!-- complexity: low -->
+
+The `pre-merge-brief` Review provenance section, `--pr`, and the workflow and template changes. Depends on unit 3.
+
+### Phase 5: Unit 5, attribution
+
+<!-- complexity: medium -->
+
+`harness review-attribution record` and `report`, the log, runs, stamp states and the per-PR measure. Depends on unit 3, and uses unit 4's PR reader.
+
+### Phase 6: Unit 6, receipts refactor before claim consistency
+
+<!-- complexity: medium -->
+
+Planned separately.
+
+### Phase 7: Unit 7, claim consistency (Technical Design, Phase 2)
+
+<!-- complexity: medium -->
+
+Plan schema and planning step, executor sweep, CONSISTENT level, `check-claims`.
+
+### Phase 8: Unit 8, edge-case contract (Technical Design, Phase 3)
+
+<!-- complexity: medium -->
+
+Planning list, executor tests, verifier check. Provisional under D9.
+
+### Phase 9: Unit 9, learnings write-back (Technical Design, Phase 4)
+
+<!-- complexity: low -->
+
+Writer, and the planning and execution readers. Provisional under D9. This is the last unit to ship, so it also creates the evidence-review roadmap row of criterion 17.
+
+### Follow-up (D9)
+
+A roadmap row, "evidence review: shift-left pipeline fidelity", triggered after 10 stamped PRs. Unit 9 creates the row when it ships; units 1 to 8 do not. It reads the attribution report and the stamps, compares blocking findings per PR against the Phase 1 baseline, and confirms or re-scopes Phases 3 and 4 and the generated-artifact candidate.

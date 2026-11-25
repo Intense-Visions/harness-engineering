@@ -115,6 +115,8 @@ cache/
 craft/
 # spill/: generated overflow/spill artifacts
 spill/
+# reviews/: standalone review receipts and findings files (machine-local)
+reviews/
 
 # security/: track timeline.json (trend ledger), ignore everything else
 security/*

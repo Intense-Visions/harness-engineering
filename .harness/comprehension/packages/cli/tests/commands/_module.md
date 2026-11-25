@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/tests/commands'
-sourceHash: '6c6bd631dbd1842c7c343ee4582da62ae42d8b57d1e24616efbed912a24751bb'
+sourceHash: '34c7d6b4ddeac6731eac3483cbf443c4ad8dc733abd4ab82012b13f381add625'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -37,6 +37,7 @@ members:
     'check-deps-cov544b.test.ts',
     'check-deps-cycle-chain.test.ts',
     'check-deps-err-swallow.test.ts',
+    'check-deps-fresh-scaffold.test.ts',
     'check-deps-no-layers-cycle.test.ts',
     'check-deps-skipped-abstention.test.ts',
     'check-deps-unparseable-files.test.ts',
@@ -53,6 +54,7 @@ members:
     'check-perf-exclusions.test.ts',
     'check-perf.test.ts',
     'check-phase-gate.test.ts',
+    'check-review-receipt.test.ts',
     'check-security-cov544.test.ts',
     'check-security-readonly.test.ts',
     'check-security.test.ts',
@@ -172,7 +174,14 @@ members:
     'resolve-skill-sources.test.ts',
     'review-ci-local-adapter.test.ts',
     'review-ci.test.ts',
+    'review-receipt-registration.test.ts',
+    'review-round3-suggestions.test.ts',
+    'review-tier-base.test.ts',
+    'review-tier.test.ts',
     'rollback.test.ts',
+    'round4-empty-final.test.ts',
+    'round4-final-base.test.ts',
+    'round4-robustness.test.ts',
     'scan-config-cov544b.test.ts',
     'scan-config.test.ts',
     'search.test.ts',
@@ -287,6 +296,7 @@ import { createCheckHarnessStrengthCommand, runCheckHarnessStrength } from '../.
 import { RunGit, collectChangedFiles, createCheckOperationalDriftCommand, resolveBaseRef, runCheckOperationalDrift } from '../../src/commands/check-operational-drift'
 import { createCheckPerfCommand, runCheckPerf } from '../../src/commands/check-perf'
 import { createCheckPhaseGateCommand, runCheckPhaseGate } from '../../src/commands/check-phase-gate'
+import { createCheckReviewReceiptCommand, formatCheckReviewReceipt } from '../../src/commands/check-review-receipt'
 import { createCheckSecurityCommand, runCheckSecurity } from '../../src/commands/check-security'
 import { createCheckVocabularyCommand, runCheckVocabulary } from '../../src/commands/check-vocabulary'
 import '../../src/commands/ci/check'
@@ -365,6 +375,7 @@ import { createRehearseCommand } from '../../src/commands/rehearse'
 import '../../src/commands/release-inventory'
 import { GIT_MAX_BUFFER_BYTES, assertKnownRunner, buildDegradedResult, buildDiffInfo, buildReviewBody, createReviewCiCommand, defaultRunGit, emitReviewCi, resolveDiffRange, runReviewCi } from '../../src/commands/review-ci'
 import { createLocalInvoke } from '../../src/commands/review-ci-local-adapter'
+import { ReviewTierOptions, createReviewTierCommand, formatReviewTier, runReviewTier } from '../../src/commands/review-tier'
 import '../../src/commands/roadmap'
 import { referencesTargetPr, runRollbackEvaluate, runRollbackSweepCommand, summarizeSweepReport } from '../../src/commands/rollback'
 import { createScanConfigCommand, runScanConfig } from '../../src/commands/scan-config'
@@ -433,6 +444,7 @@ import { getToolDefinitions } from '../../src/mcp/index'
 import { getToolDefinitions } from '../../src/mcp/server'
 import { NETWORK_TOOL_NAMES, deriveScope, deriveToolCapabilities, deriveToolCapability } from '../../src/mcp/tool-capabilities'
 import { TOOL_CAPABILITY_DECLARATIONS } from '../../src/mcp/tool-capability-declarations'
+import { handleCheckDependencies } from '../../src/mcp/tools/architecture'
 import { runAnatomyAudit, runComponentAnatomyAudit } from '../../src/mcp/tools/audit-anatomy'
 import { runAuditBrand } from '../../src/mcp/tools/audit-brand'
 import { handleRecordAutoDecision } from '../../src/mcp/tools/auto-decision'
@@ -458,6 +470,8 @@ import { downloadTarball, fetchPackageMetadata, searchNpmRegistry } from '../../
 import { findDependentsOf, resolveVersion } from '../../src/registry/resolver'
 import { cleanupTempDir, extractTarball, placeSkillContent, removeSkillContent } from '../../src/registry/tarball'
 import { validateForPublish } from '../../src/registry/validator'
+import { runCheckReviewReceipt } from '../../src/review-receipts/gate'
+import { CwdGit, resolveFinalReviewBase, runGitIn } from '../../src/review-receipts/io'
 import { ROLLBACK_EVENTS_FILE } from '../../src/rollback/breadcrumb'
 import { SweepSignalRule } from '../../src/rollback/sweep'
 import { SecurityCraftInput, SecurityCraftOutput } from '../../src/security-craft/index.js'

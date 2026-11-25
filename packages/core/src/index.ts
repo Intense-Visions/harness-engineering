@@ -134,6 +134,11 @@ export * from './ci';
 export * from './review';
 
 /**
+ * Pipeline receipts — typed review receipts and the credential-free gate that recomputes them (shift-left pipeline fidelity).
+ */
+export * from './receipts';
+
+/**
  * Roadmap module for parsing, serializing, and syncing project roadmaps.
  */
 export * from './roadmap';

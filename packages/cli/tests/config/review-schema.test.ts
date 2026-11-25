@@ -68,6 +68,18 @@ describe('ReviewConfigSchema', () => {
     });
     expect(result.success).toBe(false);
   });
+
+  it('accepts review.backend agent and pipeline, and leaves it unset by default (D8)', () => {
+    expect(ReviewConfigSchema.safeParse({ backend: 'agent' }).success).toBe(true);
+    const p = ReviewConfigSchema.safeParse({ backend: 'pipeline' });
+    expect(p.success && p.data.backend).toBe('pipeline');
+    const unset = ReviewConfigSchema.safeParse({});
+    expect(unset.success && unset.data.backend).toBeUndefined();
+  });
+
+  it('rejects an unknown review.backend', () => {
+    expect(ReviewConfigSchema.safeParse({ backend: 'cloud' }).success).toBe(false);
+  });
 });
 
 describe('HarnessConfigSchema with review block', () => {

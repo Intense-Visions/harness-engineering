@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/mcp'
-sourceHash: '5761225dda0639058c97452bb39cbb924666415bc9a19dc5110eab0afd488f86'
+sourceHash: '0f48a0fef37cc4e0ec83eb9a78f4d0ae4d4a18e255e8c3d597170dffa19aec32'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -112,6 +112,7 @@ import { handlePutComprehension, putComprehensionDefinition } from './tools/put-
 import { handleRecommendSkills, recommendSkillsDefinition } from './tools/recommend-skills.js'
 import { handleReviewChanges, reviewChangesDefinition } from './tools/review-changes.js'
 import { handleRunCodeReview, runCodeReviewDefinition } from './tools/review-pipeline.js'
+import { checkReviewReceiptDefinition, handleCheckReviewReceipt } from './tools/review-receipt.js'
 import { handleManageRoadmap, manageRoadmapDefinition } from './tools/roadmap.js'
 import { handleSearchSessions, searchSessionsDefinition } from './tools/search-sessions.js'
 import { handleSearchSkills, searchSkillsDefinition } from './tools/search-skills.js'

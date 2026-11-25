@@ -4,7 +4,7 @@ prompt = '''
 <context>
 Cognitive mode: constructive-architect
 Type: rigid
-State: persistent (files: .harness/sessions/*/autopilot-state.json, .harness/sessions/*/state.json, .harness/sessions/*/handoff.json, .harness/learnings.md, .harness/failures.md)
+State: persistent (files: .harness/sessions/*/autopilot-state.json, .harness/sessions/*/state.json, .harness/sessions/*/handoff.json, .harness/sessions/*/reviews/*/*.json, .harness/learnings.md, .harness/failures.md)
 </context>
 
 <objective>
@@ -13,7 +13,7 @@ Autonomous phase execution loop — chains planning, execution, verification, an
 Phases:
 - init: Load spec, identify phases, restore state if resuming
 - loop: Execute state machine — assess, plan, execute, verify, review per phase
-- final_review: Project-wide code review of cumulative changes before PR offer
+- final_review: Cold, full review of the whole change from the merge base (one dispatch per reviewer, no prior findings, a gated receipt); any later commit returns here
 - complete: Final summary and PR offering
 </objective>
 
@@ -33,15 +33,15 @@ Phases:
 
 ## Persona Agents
 
-| Skill                   | `subagent_type`         | State(s)             |
-| ----------------------- | ----------------------- | -------------------- |
-| harness-planning        | `harness-planner`       | PLAN                 |
-| harness-execution       | `harness-task-executor` | EXECUTE              |
-| harness-verification    | `harness-verifier`      | VERIFY               |
-| **harness-integration** | **`harness-verifier`**  | **INTEGRATE**        |
-| harness-code-review     | `harness-code-reviewer` | REVIEW, FINAL_REVIEW |
+| Skill                   | `subagent_type`                                                                                                                                                                                                                                                                             | State(s)             |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------- |
+| harness-planning        | `harness-planner`                                                                                                                                                                                                                                                                           | PLAN                 |
+| harness-execution       | `harness-task-executor`                                                                                                                                                                                                                                                                     | EXECUTE              |
+| harness-verification    | `harness-verifier`                                                                                                                                                                                                                                                                          | VERIFY               |
+| **harness-integration** | **`harness-verifier`**                                                                                                                                                                                                                                                                      | **INTEGRATE**        |
+| harness-code-review     | `harness-code-reviewer` (`compliance`, `bug`, `architecture`, and the single `light` reviewer), `harness-security-reviewer` (`security`), and, when the calibration activates them, `harness-adversarial-reviewer`, `harness-typescript-strict-reviewer`, `harness-frontend-races-reviewer` | REVIEW, FINAL_REVIEW |
 
-**Iron Law:** Autopilot delegates, never reimplements. If writing plan/execute/verify/review logic, STOP — delegate via `subagent_type`. Always use dedicated persona agents, never general-purpose agents. <!-- not-a-pause: self-correction against reimplementing skills -->
+**Iron Law:** Autopilot delegates, never reimplements. If writing plan/execute/verify/review logic, STOP — delegate via `subagent_type`. Always use dedicated persona agents, never general-purpose agents. At REVIEW and FINAL_REVIEW, preparing review context (harness-code-review's mechanical, context and calibration phases), dispatching one reviewer per record and collecting their findings files is orchestration, not reimplementation: this session writes no finding of its own. <!-- not-a-pause: self-correction against reimplementing skills -->
 
 ### Lifecycle skill hooks (project-declared) — `skillHooks`
 
@@ -164,7 +164,7 @@ The craft family's ceiling-layer critique runs automatically at autopilot's two 
   HARD-HALTS.** Availability is matched prefix-insensitively, so a catalog reporting
   `harness-claude:code-craft` wires the same domain as the bare name.
 - **A craft hook that FAILS at runtime is recorded, and the review does not fail.** Record it in
-  `{sessionDir}/phase-{N}-review.json` and in the denominator; an advisory reviewer that crashed is
+  `{sessionDir}/reviews/phase-{N}/hook-<hook name>.json` and in the denominator; an advisory reviewer that crashed is
   a missing opinion, not a broken gate.
 - **A project can override or park any domain.** Declaring it in `skillHooks` wins (no double
   dispatch); `{ "enabled": false }` parks it. Dedup is by canonical name — note that
@@ -217,7 +217,7 @@ INIT → ASSESS → PLAN → APPROVE_PLAN → EXECUTE → VERIFY → INTEGRATE �
 2. Derive session slug: strip `docs/`, drop `.md`, replace `/` and `.` with `--`, lowercase. Set `sessionDir = .harness/sessions/<slug>/`.
 3. **Apply autonomy flags first (D17).** Before any subagent dispatch and before the first marked point below: if this skill was invoked with `--supervised`, call `manage_state({ action: "set-autonomy", path, session, level: "supervised" })`; if with `--audit`, call it with `audit: true`. Flags only lower autonomy: on `--trusted` or `--no-audit`, change nothing and print the raise hint from the Pause Protocol. Then read autonomy with `gather_context({ path, session, include: ["autonomy"] })`. With no session slug nothing can auto-resolve, so there is nothing to lower.
 4. Check for existing state: read `{sessionDir}/autopilot-state.json`. If present and not DONE: report "Resuming from `{currentState}`, phase {N}: {name}." Apply schema migration if `schemaVersion < 5` (backfill missing fields). Jump to recorded state.
-5. Fresh start: read spec, parse `## Implementation Order` for phases (`### Phase N: Name` + `<!-- complexity: low|medium|high -->`, default: `medium`). Capture `startingCommit` via `git rev-parse HEAD`. Write `autopilot-state.json` (schemaVersion: 5, currentState: "ASSESS", currentPhase: 0).
+5. Fresh start: read spec, parse `## Implementation Order` for phases (`### Phase N: Name` + `<!-- complexity: low|medium|high -->`, default: `medium`). Capture `startingCommit` via `git rev-parse HEAD`, as the full 40-character sha. Write `autopilot-state.json` (schemaVersion: 5, currentState: "ASSESS", currentPhase: 0).
 6. Flags: `--fast` → `rigorLevel: "fast"`. `--thorough` → `rigorLevel: "thorough"`. `--review-plans` → `reviewPlans: true`. Both flags together → reject with error.
 7. Call `gather_context({ path, skill: "harness-autopilot", session: slug, include: ["state", "learnings", "handoff", "graph", "businessKnowledge", "sessions", "validation", "autonomy"] })`.
 8. → ASSESS.
@@ -398,16 +398,124 @@ _Pause point (gate): resolve per the Pause Protocol._ <!-- pause: gate -->
 
 ---
 
+### Review records
+
+REVIEW and FINAL_REVIEW share the rules in this section. The fields of the receipt and of a findings file, and every failure code of the gate, are defined in harness-code-review, "Review Receipt".
+
+**Who writes what.** Every reviewer brief names the review directory, the moment and the reviewed head. A dispatched reviewer writes only its own findings file. The session that dispatched it (this one) writes `receipt.json` and runs the gate; harness-code-review states the same rule for the reviewer's side. For a `light` review the dispatched reviewer runs harness-code-review Phase 2 (MECHANICAL) and Phase 3 (CONTEXT) itself. For a `full` review this session runs Phases 2, 3 and 3.5 once and hands each reviewer its context bundle. Every dispatched reviewer lists in `examinedFiles` only files that `git diff --name-only --no-renames -z {base}..{head}` prints (with `-z` git prints a path with a non-ASCII character as it is, not quoted, which is the form the gate compares), and validates its own findings file before it returns with `harness check-review-receipt --findings {file} --base {base} --head {head}` (harness-code-review, "Reviewer findings files", says what it checks and prints), so a slip in the file is caught by the reviewer that made it and not by the receipt gate. The reviewer corrects its file only for a code about the file's content; for `HEAD_MISMATCH`, `WORKTREE_DIRTY`, `EMPTY_DIFF`, `DIFF_UNRESOLVED` or any other code that is not about the file's content it edits nothing and reports the code to this session, which fixes the range or the tree (Clean tree; REVIEW step 1; FINAL_REVIEW step 2) and dispatches the reviewer again.
+
+**Mechanical phase and its hook point.** harness-code-review Phase 2 has a hook point of its own, `after:mechanical`. Phase 2 runs in this session for a `full` review and in the dispatched reviewer for a `light` one, but the project's configured `skillHooks` for `harness-code-review` at `after:mechanical` are run by this session, the one that orchestrates the review, for both tiers: a dispatched reviewer cannot dispatch, so a `light` reviewer never runs them (its brief says so). Run them over `{base}..{head}` as harness-code-review describes, after the mechanical checks pass. Their output goes to `hook-<hook name>.json` in the review directory, and their findings stay outside the receipt and its `blocking` and `advisory` counts, as every hook's do; for a `full` review they also join the mechanical exclusion set. The craft domains that harness-code-review auto-wires at `after:mechanical` do **not** run there under autopilot: autopilot is the host of the review, so craft resolves once, at REVIEW step 5 (`after:REVIEW`) or at FINAL_REVIEW (`after:FINAL_REVIEW`), and its output goes to `hook-<hook name>.json` in the review directory and to the craft denominator. Never resolve craft at both points for one review.
+
+**Clean tree.** A review reads the working tree, but its receipt is bound to one commit. Before step 1 of REVIEW and of FINAL_REVIEW, commit or discard every change to a tracked file: `git status --porcelain --untracked-files=no` must print nothing. The gate fails `WORKTREE_DIRTY` when tracked files differ from HEAD, and so does each reviewer's self-check with `--base` and `--head`. Untracked files, such as the review directory, do not count.
+
+**Findings files.** Each is `{ schemaVersion: 1, reviewerId, base, head, examinedFiles, findings }`. `head` is the 40-character sha of the commit the reviewer read and must equal the receipt's `diff.head`: a file without it is invalid (`FINDINGS_FILE_INVALID`) and a file written at another head fails `FINDINGS_HEAD_MISMATCH`. `base` is the 40-character sha of the range's base the brief gave, and must equal the receipt's `diff.base`: a file without it is invalid, and a file written for another range fails `FINDINGS_BASE_MISMATCH`, so a review over a narrower range cannot pass by rewriting the receipt's base. Give every brief `{base}` and `{head}` as resolved shas, never as the word `HEAD`. Finding ids are unique across the whole review (`DUPLICATE_FINDING_ID` otherwise), so every brief tells its reviewer to start each id with its reviewer id.
+
+**Counts.** The receipt's `blocking` and `advisory` are counted over the reviewer findings files as written: every finding counts once, `critical` and `important` are blocking, `suggestion` is advisory, and nothing is merged by file or line. VALIDATE and DEDUP shape the report this session presents. They never edit a findings file, never change these counts and never clear a blocking finding: **every blocking finding a reviewer file holds is fixed or overridden by the human**, including one VALIDATE judged a false positive (say so in the report; it is still overridden, not dropped). The receipt's `blocking` is the number to decide on, at REVIEW step 7 and at FINAL_REVIEW steps 4 and 5.
+
+**Hook findings.** The findings of an `after:REVIEW` or `after:FINAL_REVIEW` hook (a canary detector, a craft domain, a configured `skillHooks` entry) are written to their own `hook-<hook name>.json` file in the review directory. A hook file is not a reviewer findings file: it is never listed in the receipt's `reviewers`, its findings are never in the receipt's `blocking` or `advisory`, and the gate never reads it. A hook finding still blocks per that hook's own policy, in the fix-or-override question at the end of the review state. The human sees a blocking hook finding in the review report printed before that question and in the PHASE_COMPLETE or DONE summary. Craft findings are advisory and never block.
+
+**After a fix.** A review that runs again for the same phase, or again as the final review, after a fix commit runs at the new head. Dispatch **every** required reviewer again with the same briefs, carrying no finding from the review before; a reviewer whose findings were all fixed still runs. Each reviewer rewrites its findings file and this session rewrites `receipt.json`. No file of the review before is reused: its `head` is the old commit, and the gate fails it (`FINDINGS_HEAD_MISMATCH`). `{base}` stays the same for a phase review. For the final review, resolve it again (FINAL_REVIEW step 2): it is the merge base every time, so a review after a fix reads the whole change again and never the fix alone.
+
+**Overrides.** A review state left over a failed receipt gate, or over blocking findings, records the human's decision in `decisions[]`: the state (`REVIEW` or `FINAL_REVIEW`), for `REVIEW` the phase (its 0-based position, the `N` of `phase-N`), what was overridden (every failure code the gate raised, or the blocking findings), and the human's rationale. A gate or findings override is always the human's and never auto-resolves.
+
+**Retry.** After a failed receipt gate, `re-run` acts on every failure code as this table says. Four actions: **re-run all** (fix what the row names, then dispatch every required reviewer again over the corrected range, as After a fix says; each findings file records the base and head it was written for, so none from the old range is kept), **re-run named** (dispatch again only the reviewers the failures name, HEAD unchanged), **rewrite receipt** (write `receipt.json` again from the findings files as they stand, changing no finding and no file) and **stop for the human** (no action repairs it: report it and offer `override` or `stop` only). When the failures call for different actions, take the widest: stop for the human, then re-run all, then re-run named, then rewrite receipt; and when HEAD has moved since the review, re-run all whatever the codes. After any action, rewrite the receipt and gate it again. No action changes `tier`, `moment`, a reviewer's `required`, `coldContext`, `priorFindingsSupplied` or the range to make a failing receipt pass.
+
+| Code                         | Action                                                                                                      |
+| ---------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| `RECEIPT_MISSING`            | rewrite receipt (no reviewer file either: re-run all)                                                       |
+| `RECEIPT_INVALID`            | rewrite receipt                                                                                             |
+| `RECEIPT_OUTSIDE_REPO`       | run the gate again from the worktree that holds the receipt; nothing is rewritten                           |
+| `GATE_ERROR`                 | correct the tool call (`path`, `receipt`, `moment`) and gate again; if the tool threw, stop for the human   |
+| `MOMENT_MISMATCH`            | re-run all, with briefs that name the moment the directory states                                           |
+| `MOMENT_UNKNOWN`             | re-run all in the session review directory (`phase-{N}` or `final-all`)                                     |
+| `HEAD_MISMATCH`              | re-run all at the current HEAD                                                                              |
+| `WORKTREE_DIRTY`             | commit or discard every change to a tracked file (Clean tree), then re-run all                              |
+| `REQUIRED_REVIEWER_NOT_RUN`  | re-run named                                                                                                |
+| `CORE_REVIEWER_MISSING`      | stop for the human (a `full` roster without a core reviewer is not repaired by adding a record)             |
+| `LIGHT_TIER_ROSTER`          | stop for the human                                                                                          |
+| `TIER_DEMOTED`               | rewrite receipt with `demotion` when the demotion was decided (REVIEW step 3); otherwise stop for the human |
+| `DUPLICATE_REVIEWER`         | rewrite receipt, one record per reviewer                                                                    |
+| `UNKNOWN_REVIEWER`           | rewrite receipt without the record (an id that is no reviewer, such as `learnings`, has no reviewer record) |
+| `FINAL_NOT_FULL`             | stop for the human (this session cannot run `full`)                                                         |
+| `FINAL_NOT_COLD`             | re-run all, with cold briefs                                                                                |
+| `FINAL_PRIOR_FINDINGS`       | re-run all, with briefs that carry no earlier finding                                                       |
+| `FINAL_BASE_NOT_MERGE_BASE`  | resolve the base again (FINAL_REVIEW step 2), then re-run all                                               |
+| `TARGET_UNRESOLVED`          | name a `--target` that resolves (FINAL_REVIEW step 2), then re-run all                                      |
+| `TARGET_OWN_BRANCH`          | name the branch this one merges into as `--target` (FINAL_REVIEW step 2), then re-run all                   |
+| `STARTING_COMMIT_UNKNOWN`    | record the session's `startingCommit`, resolve the base again, then re-run all                              |
+| `PHASE_BASE_MISMATCH`        | take the phase base again (REVIEW step 1), then re-run all                                                  |
+| `PHASE_BASE_UNKNOWN`         | record the new `startingCommit` (REVIEW step 1, After a rebase), then re-run all                            |
+| `DIFF_BASE_NOT_ANCESTOR`     | resolve the base again (REVIEW step 1 or FINAL_REVIEW step 2), then re-run all                              |
+| `DIFF_UNRESOLVED`            | stop for the human                                                                                          |
+| `EMPTY_DIFF`                 | no review: skip as empty, as REVIEW step 1 or FINAL_REVIEW step 2 says, with its decision recorded          |
+| `FINDINGS_FILE_MISSING`      | re-run named                                                                                                |
+| `FINDINGS_PATH_INVALID`      | rewrite receipt with `findingsPath` as `<reviewerId>.json`                                                  |
+| `FINDINGS_FILE_SHARED`       | rewrite receipt with each reviewer's own `findingsPath`                                                     |
+| `FINDINGS_FILE_INVALID`      | re-run named                                                                                                |
+| `FINDINGS_REVIEWER_MISMATCH` | re-run named                                                                                                |
+| `FINDINGS_HEAD_MISMATCH`     | re-run named                                                                                                |
+| `FINDINGS_BASE_MISMATCH`     | re-run named                                                                                                |
+| `EXAMINED_FILES_EMPTY`       | re-run named                                                                                                |
+| `EXAMINED_OUTSIDE_DIFF`      | re-run named                                                                                                |
+| `DUPLICATE_FINDING_ID`       | re-run named: the reviewers whose files hold a repeated id                                                  |
+| `COUNTS_MISMATCH`            | rewrite receipt                                                                                             |
+
+---
+
 ### REVIEW
 
-Dispatch harness-code-reviewer:
+**1. Select the tier (computed, not asked).** The phase diff runs from `{base}` to `{head}`: `{base}` is the `diff.head` of the receipt of the nearest earlier phase that has a usable one, passing over a phase that was skipped or whose review wrote no receipt, a receipt that cannot be read or is not a valid phase receipt, and a receipt whose `diff.head` is not an ancestor of HEAD (a rebase rewrote it), and `startingCommit` when no earlier phase has a usable receipt (as for the first phase); `{head}` is `git rev-parse HEAD`. Both are resolved 40-character SHAs. A commit made between two reviewed phases, or by a phase that was never reviewed, is therefore inside the next phase's diff. The gate recomputes this base from the same files: a phase receipt whose `diff.base` is not it fails `PHASE_BASE_MISMATCH`, and when no base can be named (no usable earlier receipt and no `startingCommit`, or a `startingCommit` that is not an ancestor of HEAD) it fails `PHASE_BASE_UNKNOWN`. **After a rebase** (the branch was rebased onto its target, as when the unit below it merged), the old `startingCommit` and the earlier receipts' heads are off the branch: record the new starting commit in `autopilot-state.json`: the merge base with the default branch, or with the target branch of a stacked branch, as the `Review base:` line of `harness review-tier --moment final` (with the same `--target` as FINAL_REVIEW step 2) prints it, a full 40-character sha. The next phase review covers everything since it. After a fix the base stays and `{head}` is the new HEAD. Run `harness review-tier --base {base} --head {head} --complexity {complexity} --rigor {rigorLevel}` (`{complexity}` is the phase's assessed complexity; add `--pipeline-runner` when the `run_code_review` tool is callable in this session; `--json` prints the result as JSON) and use its output: the tier, its reasons and the backend. The command runs git from the repository top level and reads `review.backend` from the `harness.config.json` at that top level (a `harness.config.json` in a subdirectory, such as an example project's, is not read), so it prints the same tier and backend from any directory of the repository. It gathers the diff, every commit message of `{base}..{head}` and the package entry points itself and applies `selectReviewTier` (from `@harness-engineering/core`). A diff larger than git's output buffer gives `full` with the reason `diff-too-large`, never `light` and never an error. **An empty phase is not reviewed.** When `{base}` equals `{head}`, or `git diff --name-only --no-renames -z {base}..{head}` prints nothing, the phase made no change and there is nothing to review: run no review and write no receipt, record in `decisions[]` that the phase review was skipped as empty (the state `REVIEW`, the phase, and `{base}`), and go to PHASE_COMPLETE. The next phase's base is unchanged, because a phase that wrote no receipt is passed over. `harness review-tier` exits 1 on such a range (`changes no files`); that exit is this case, never a range to fix. If the command exits non-zero on a range that does change files, it could not compute a tier (an unresolvable `{base}` or `{head}`, a range git cannot list): do not assume `light`; fix the range and run it again. The rules below describe what the command computes; apply them by hand only when the CLI is unavailable. The phase is `full` when any of these holds, and `light` otherwise:
 
-```
-subagent_type: "harness-code-reviewer"
-prompt: "Phase {N}: {name}. Session: {sessionSlug}. Follow harness-code-review. Report findings (critical / important / suggestion)."
-```
+- the diff, a changed path or any commit message of the range matches at least one risk keyword (harness-code-review `references/risk-keywords.md`). The diff's content is read as text whatever git attributes say, so a file marked `-diff` or `binary` cannot hide a keyword. The command decides which commit-message trailers are left out of the match: identity trailers only, as harness-code-review "Review tier and dispatch" states the rule. Any other trailer is matched like the rest of the message, so a closing `Security: the token check now runs first` line still makes the phase `full`;
+- the diff touches a package entry point: `src/index.ts` at a package root, or a file named in a `package.json` `exports`, `main` or `bin` field of the reviewed head (a moved or renamed entry point counts, because its old path is in the diff; a field that points into a build directory, `dist/`, `build/`, `lib/` or `out/`, names its source under `src/` with the same stem, so changing `src/bin/x.ts` behind `./dist/bin/x.js` counts);
+- the phase's assessed complexity is `high`;
+- `rigorLevel` is `thorough`.
 
-**Then run each effective `after:REVIEW` hook.** Probe canary once (`canary_probe`; `status: "available"` ⇒ present), determine which of the four detectors are installed, and resolve `resolveReviewHooksWithCanary(config, "harness-autopilot", "after:REVIEW", { canaryPresent, availableSkills })` (from `@harness-engineering/core`). This returns the project's configured `skillHooks` (default none) followed by canary's **installed** deterministic detectors when canary is present — see "Canary detectors auto-wire" under Lifecycle skill hooks. When canary is absent it returns exactly the configured hooks (no regression). Run each hook in order by kind (see Lifecycle skill hooks): a `skill` hook is dispatched as an extra reviewer, a `command` hook runs via the command-runner, a `prompt` hook appends its text to the review brief. For a `skill` hook:
+Print the command's `Review tier:` line, for example `Review tier: full (risk-keyword:token, complexity:high)`.
+
+**2. Resolve the backend.** Use the `Review backend:` line of the same command: it reads `review.backend` from the repository top's `harness.config.json`, or from the file the global `-c` option names (default `"agent"`; any other value is an error, exit 1) and resolves it (`resolveReviewBackend`). `"pipeline"` applies to a `full` review only: a `light` review always resolves to the agent backend, a rule `resolveReviewBackend` holds in core, so every caller gets the same answer. For a `full` review the pipeline is used only when the `run_code_review` tool is callable in this session, which the command learns from `--pipeline-runner`; otherwise it prints `agent`, marked `DEGRADED` when the pipeline was configured and no runner resolved: run the agent backend and record `backend: "agent"` in the receipt. When the CLI is unavailable, read the key and apply this rule by hand.
+
+**3. Run the review from this session; do not hand the whole skill to one subagent.** A dispatched reviewer has no way to dispatch reviewers of its own, so the fan-out is issued here. Create `{sessionDir}/reviews/phase-{N}/`, where `{N}` is `currentPhase`, the phase's 0-based position (`phase-0` for the first phase). `Phase {N}` in every prompt and report below is that same 0-based number, matching the review directory; the spec's `### Phase N:` headings are numbered from 1, so the spec's Phase 1 is `Phase 0` and `phase-0` here. If it already holds a `receipt.json`, this review runs after a fix and rewrites it (Review records, After a fix). Who writes which file is the one rule in Review records, Who writes what.
+
+- **`light`:** one dispatch.
+
+  ```
+  subagent_type: "harness-code-reviewer"
+  prompt: "Phase {N}: {name}. Session: {sessionSlug}. Follow harness-code-review in dispatched mode: review-dir {sessionDir}/reviews/phase-{N}/, moment phase, tier light, base {base}, head {head}. Diff: git diff {base}..{head}. Run its Phase 2 (MECHANICAL) and Phase 3 (CONTEXT) yourself, then the compliance and bug-detection passes. Classify every critical or important finding per harness-code-review references/attribution-rubric.md (findingClass, escapedFrom). Write only your findings file, {sessionDir}/reviews/phase-{N}/compliance-bug.json, as { schemaVersion: 1, reviewerId: \"compliance-bug\", base: \"{base}\", head: \"{head}\", examinedFiles, findings }, where examinedFiles lists only files that git diff --name-only --no-renames -z {base}..{head} prints and that you read, and every finding id starts with compliance-bug-. Before you return, run harness check-review-receipt --findings {sessionDir}/reviews/phase-{N}/compliance-bug.json --base {base} --head {head}. If it reports a code about the file's content, correct the file and run it again until it prints PASS. If it reports HEAD_MISMATCH, WORKTREE_DIRTY, EMPTY_DIFF, DIFF_UNRESOLVED or any other code that is not about the file's content, do not edit the file: stop and report the code to the dispatching session. State the result. Run no `skillHooks` of harness-code-review: the dispatching session runs them. If your Phase 2 fails (harness validate, typecheck or tests), write no findings file and return a report whose first line is MECHANICAL FAILED, followed by each failing check. Write no receipt.json and run no receipt gate: the dispatching session does. Report findings (critical / important / suggestion)."
+  ```
+
+- **`full`, agent backend:** run harness-code-review Phase 2 (MECHANICAL), Phase 3 (CONTEXT) and Phase 3.5 (CALIBRATE DEPTH) in this session. Then issue one dispatch per reviewer, in parallel: `compliance`, `bug`, `security`, `architecture`, plus each conditional reviewer the calibration activates (`adversarial`, `typescript-strict`, `frontend-races`).
+
+  ```
+  subagent_type: "<reviewer persona>"
+  prompt: "Phase {N}: {name}. Session: {sessionSlug}. You are the {reviewerId} reviewer ONLY (harness-code-review Phase 4, the {reviewerId} section). Review-dir {sessionDir}/reviews/phase-{N}/, moment phase, base {base}, head {head}. Diff: git diff {base}..{head}. Context: {reviewer context bundle}. Classify every critical or important finding per harness-code-review references/attribution-rubric.md (findingClass, escapedFrom). Write only {sessionDir}/reviews/phase-{N}/{reviewerId}.json as { schemaVersion: 1, reviewerId, base: \"{base}\", head: \"{head}\", examinedFiles, findings }, where base is the base you were given, head is the commit you read, examinedFiles lists only files that git diff --name-only --no-renames -z {base}..{head} prints and that you read, and every finding id starts with {reviewerId}-. Before you return, run harness check-review-receipt --findings {sessionDir}/reviews/phase-{N}/{reviewerId}.json --base {base} --head {head}. If it reports a code about the file's content, correct the file and run it again until it prints PASS. If it reports HEAD_MISMATCH, WORKTREE_DIRTY, EMPTY_DIFF, DIFF_UNRESOLVED or any other code that is not about the file's content, do not edit the file: stop and report the code to the dispatching session. State the result. Run no mechanical check and write no receipt.json. Report findings (critical / important / suggestion)."
+  ```
+
+  Personas: `harness-code-reviewer` for `compliance`, `bug` and `architecture`; `harness-security-reviewer` for `security`; `harness-adversarial-reviewer`, `harness-typescript-strict-reviewer` and `harness-frontend-races-reviewer` for the conditional reviewers.
+
+- **`full`, pipeline backend:** call `run_code_review` with the phase diff, then write one findings file per reviewer from its findings, as harness-code-review "Review tier and dispatch" describes (every page of findings, grouped by `domain` and `subagent`, with the attribution labels set here). Every required reviewer gets a file, with `findings: []` when its domain returned nothing.
+
+- **This session has no subagent-spawning tool:** it cannot fan out. Run harness-code-review's single-context `light` review in this session (its mechanical and context phases included, then the compliance and bug-detection passes), write `compliance-bug.json` with `head` set to `{head}`, validate it with the same self-check (`harness check-review-receipt --findings {file} --base {base} --head {head}`), and record `tier: "light"` whatever step 1 computed. This is not dispatched mode: nothing dispatched this session, and it writes the receipt itself in step 4. Never record `full` for a review whose reviewers did not each run in their own dispatch. When step 1 computed `full`, running `light` is a demotion, decided as the next paragraph says.
+
+_Pause point (judgment): resolve per the Pause Protocol._ <!-- pause: judgment -->
+**A demotion is a decision, never silent.** When step 1 computed `full` and this session has no subagent-spawning tool, report the computed tier and its reasons and ask "run light / stop" (recommendation: `run light`, because a session without the tool cannot run `full`; `stop` lets the human resume in a session that can dispatch). In supervised mode this stops for the human. In trusted mode the recommendation is taken only as the Pause Protocol allows and is recorded with `record_auto_decision`. On `run light`, record the decision in `decisions[]` (the state, the phase, `demotion: no-subagent-tool`, the computed reasons, and who decided) and record `demotion: "no-subagent-tool"` in the receipt: a `light` receipt whose `computedTier` is `full` fails `TIER_DEMOTED` without it. Name every demoted phase in the PHASE_COMPLETE summary and at DONE. `stop`: save state and exit.
+
+When it dispatches reviewers, this session prepares context, issues the dispatches and collects the files. It writes no finding of its own and never writes a dispatched reviewer's findings file: a reviewer that returned no file, and did not report a failed mechanical phase, is `ran: false`.
+
+**If the mechanical phase fails, there is no review to gate.** harness-code-review Phase 2 ends the review when `harness validate`, the typecheck or the tests fail. That is a red check, not a failed receipt gate and not a finding to override. It reaches this session three ways, and the rule is the same for all of them:
+
+- `full`, agent backend, or a session with no subagent-spawning tool: this session ran Phase 2 and saw the failure itself. Dispatch no reviewer.
+- `light`, dispatched: the reviewer ran Phase 2, wrote no findings file and returned a report whose first line is `MECHANICAL FAILED`, with each failing check. Do not record it as `ran: false`.
+- `full`, pipeline backend: `run_code_review` reported `stoppedByMechanical`.
+
+_Pause point (gate): resolve per the Pause Protocol._ <!-- pause: gate -->
+In every case write no `receipt.json` and do not run `harness check-review-receipt`: there is no gate failure to override, so `override` is not offered. Report each failing check with its output and ask "fix / stop." `fix`: re-enter EXECUTE with the failing checks as the work; REVIEW then starts again at step 1. `stop`: save state and exit.
+
+Then run harness-code-review Phase 5 (VALIDATE) and Phase 6 (DEDUP + MERGE) over the union of the reviewer files. They shape the report and never edit a reviewer file; they clear no blocking finding (Review records, Counts).
+
+**4. Write the receipt** to `{sessionDir}/reviews/phase-{N}/receipt.json` (fields and an example: harness-code-review, "Review Receipt"). Set `moment: "phase"`, the tier and backend from steps 1 and 2, `computedTier` and `tierReasons` as step 1 printed them (`tier` and `reasons` in `--json`; the `Review tier:` line otherwise), `diff.base` and `diff.head` as resolved 40-character SHAs, `coldContext` and `priorFindingsSupplied` as what was done: with dispatched reviewers `coldContext: true` and `priorFindingsSupplied: false` (no reviewer brief above carries findings from an earlier review); when this session reviewed in its own context (no subagent-spawning tool) and has seen the findings of any earlier review, which it always has after a fix, `coldContext: false` and `priorFindingsSupplied: true`, the `blocking` and `advisory` counts over the reviewer findings files as written (every finding once: `critical` and `important` are blocking, `suggestion` is advisory, nothing is merged by location; the gate recounts them and fails on a mismatch), and one record per reviewer: `required: true` for every reviewer the tier and the activation set call for, `ran: true` only when its findings file exists, `findingsPath` relative to the receipt directory. List a conditional reviewer the calibration left inactive with `required: false`, `ran: false` and a `skippedReason`. A reviewer whose dispatch failed is `required: true`, `ran: false`: the gate then fails and names it. A `light` receipt lists exactly one required reviewer and its id is `compliance-bug`; any other roster fails `LIGHT_TIER_ROSTER`. Every reviewer id is one of the known reviewers (the core four, the three conditional reviewers, `compliance-bug`); any other id fails `UNKNOWN_REVIEWER`. A hook file (`hook-<hook name>.json`, below) is never a reviewer record and its findings are never in these counts.
+
+**5. Run each effective `after:REVIEW` hook.** This step belongs to REVIEW only: FINAL_REVIEW does not run it and runs its own `after:FINAL_REVIEW` hooks instead. Probe canary once (`canary_probe`; `status: "available"` ⇒ present), determine which of the four detectors are installed, and resolve `resolveReviewHooksWithCanary(config, "harness-autopilot", "after:REVIEW", { canaryPresent, availableSkills })` (from `@harness-engineering/core`). This returns the project's configured `skillHooks` (default none) followed by canary's **installed** deterministic detectors when canary is present — see "Canary detectors auto-wire" under Lifecycle skill hooks. When canary is absent it returns exactly the configured hooks (no regression). Run each hook in order by kind (see Lifecycle skill hooks): a `skill` hook is dispatched as an extra reviewer, a `command` hook runs via the command-runner, a `prompt` hook appends its text to the review brief. For a `skill` hook:
 
 **Also resolve craft's advisory domains at this moment.** Call
 `resolveReviewHooksWithCraft(config, "harness-autopilot", "after:REVIEW", { changedFiles, availableSkills })`
@@ -424,16 +532,25 @@ prompt: "Phase {N}: {name}. Session: {sessionSlug}. Domain review. Context: {hoo
 ```
 
 _Pause point (gate): resolve per the Pause Protocol._ <!-- pause: gate -->
-If a **user-declared** hooked skill cannot be dispatched (typo / not installed), or a `command` hook cannot be spawned (missing binary), do **not** skip it silently and do **not** offer it as an overridable finding: record it in `.harness/failures.md`, set the review status to failed, and halt REVIEW with "cannot verify" — a **hard halt** (see Lifecycle skill hooks, above). (A `command` that RAN and exited non-zero is instead a normal finding, blocking per policy — not a hard halt.) A **harness-default canary detector** that is not installed is the exception: it was already filtered out by `resolveReviewHooksWithCanary` (forward-wired, graceful skip) and is recorded as skipped in the denominator, never a hard halt. Persist each hook's findings under a per-hook key in `{sessionDir}/phase-{N}-review.json` so provenance survives, and merge them into the same blocking/non-blocking aggregation as the baseline reviewer. Report the detector denominator (how many hooks ran of how many were expected, and how many were skipped-not-installed) so a partial or forward-wired run is never presented as complete. Report the craft denominator in the same breath ("craft domains: N/M activated, K skipped: <reasons>") — a not-installed or unsupported-language craft domain is a graceful skip recorded in the denominator, never a hard halt and never a blocking finding.
+If a **user-declared** hooked skill cannot be dispatched (typo / not installed), or a `command` hook cannot be spawned (missing binary), do **not** skip it silently and do **not** offer it as an overridable finding: record it in `.harness/failures.md`, set the review status to failed, and halt REVIEW with "cannot verify" — a **hard halt** (see Lifecycle skill hooks, above). (A `command` that RAN and exited non-zero is instead a normal finding, blocking per policy — not a hard halt.) A **harness-default canary detector** that is not installed is the exception: it was already filtered out by `resolveReviewHooksWithCanary` (forward-wired, graceful skip) and is recorded as skipped in the denominator, never a hard halt. Persist each hook's findings as `{sessionDir}/reviews/phase-{N}/hook-<hook name>.json` so provenance survives. A hook file is not a reviewer findings file: the receipt does not list it and does not count it (Review records, Hook findings). Its findings still block per the hook's own policy: add them to the fix / override decision below, beside the blocking findings of the reviewer files. Report the detector denominator (how many hooks ran of how many were expected, and how many were skipped-not-installed) so a partial or forward-wired run is never presented as complete. Report the craft denominator in the same breath ("craft domains: N/M activated, K skipped: <reasons>") — a not-installed or unsupported-language craft domain is a graceful skip recorded in the denominator, never a hard halt and never a blocking finding.
+
+**6. Gate the receipt.** Run `harness check-review-receipt {sessionDir}/reviews/phase-{N}` (or the `check_review_receipt` tool; decide on its `pass` field alone, as harness-code-review "Review Receipt" describes: `failures` is absent on a pass, one object for one failure and a list for several). The review directory decides the moment, and nothing a caller passes changes it: `phase-{N}` is a phase review and `final-all` is the final review. A receipt whose `moment` says otherwise fails `MOMENT_MISMATCH`. Pass no `--moment` flag and no `moment` argument for a session review directory: one that agrees with the directory changes nothing, and one that disagrees fails `MOMENT_MISMATCH` (`the receipt directory is the phase review, but --moment says final; the directory decides`). The flag exists for a receipt in a directory that states no moment, such as a copy made elsewhere, which fails `MOMENT_UNKNOWN` without it. A missing receipt fails the gate, as does a required reviewer that did not run, a reviewer id that is not a known reviewer (`UNKNOWN_REVIEWER`), a `light` roster other than the single reviewer `compliance-bug`, a findings file that is absent, invalid, outside the diff or written at another head (`FINDINGS_HEAD_MISMATCH`), a finding id used twice, `blocking` or `advisory` counts that differ from the findings files, a `diff.base` that is not an ancestor of the head or is not the phase base of step 1 (`PHASE_BASE_MISMATCH`, `PHASE_BASE_UNKNOWN`), a HEAD that moved after the review, and tracked files that differ from HEAD (`WORKTREE_DIRTY`). Every code is listed in harness-code-review, "Review Receipt".
 
 _Pause point (gate): resolve per the Pause Protocol._ <!-- pause: gate -->
-Persist findings to `{sessionDir}/phase-{N}-review.json`. No blocking (across baseline + additional reviewers) → PHASE_COMPLETE. Blocking → ask "fix / override / stop." `fix`: re-enter EXECUTE. `override`: record decision in `decisions[]` → PHASE_COMPLETE.
+If the receipt gate fails, REVIEW may not be left. Report each failure and the reviewer it names, then ask "re-run / override / stop." `re-run`: act on every failure as the Retry table says (Review records, Retry); when a code there says stop for the human, `re-run` is not offered. `override`: record the override in `decisions[]` (Review records, Overrides) with every failure code the gate raised. `stop`: save state and exit.
+
+**7. Decide on the blocking findings:** every blocking finding of the reviewer findings files (the receipt's `blocking`), whatever VALIDATE judged of it, plus the blocking hook findings of step 5.
+
+_Pause point (gate): resolve per the Pause Protocol._ <!-- pause: gate -->
+No blocking (the receipt's `blocking` is 0 and no hook finding blocks) → PHASE_COMPLETE. Blocking → ask "fix / override / stop." `fix`: re-enter EXECUTE; the review that follows runs at the new head (Review records, After a fix). `override`: record the override in `decisions[]` (Review records, Overrides) → PHASE_COMPLETE. REVIEW is never left with a blocking finding of a reviewer file that was neither sent to fix nor covered by that override.
+
+All review output for the phase lives in `{sessionDir}/reviews/phase-{N}/`. The older shapes (`{sessionDir}/phase-{N}-review.json`, `phase-{N}-review-round-{M}.json`) are never written. No code reads them; their one reader is the labelling step of FINAL_REVIEW in this skill, when it resumes an older session.
 
 ---
 
 ### PHASE_COMPLETE
 
-1. Present summary: name, tasks completed, retries used, verification result, integration report (`{sessionDir}/phase-{N}-integration.json`), review findings count, elapsed time.
+1. Present summary: name, tasks completed, retries used, verification result, integration report (`{sessionDir}/phase-{N}-integration.json`), review findings count, the review's tier and, when it ran `light` below a computed `full` (`demotion: "no-subagent-tool"`), that demotion with its reasons, elapsed time.
 2. Record in `history[]`: phase index, name, startedAt, completedAt, tasksCompleted, retriesUsed, verificationPassed, integrationPassed, reviewFindings.
 3. Mark phase `complete` in state. Clear scratchpad: `clearScratchpad({ session, phase, projectPath })`.
 4. Sync roadmap: `manage_roadmap sync apply:true` (skip if no roadmap; never `force_sync: true`).
@@ -447,42 +564,62 @@ Persist findings to `{sessionDir}/phase-{N}-review.json`. No blocking (across ba
 ### FINAL_REVIEW
 
 1. Set `currentState: "FINAL_REVIEW"`, `finalReview.status: "in_progress"`.
-2. Gather per-phase findings from `{sessionDir}/phase-{N}-review.json` files.
-3. Dispatch harness-code-reviewer:
+2. Resolve the cold diff with the command the gate shares its resolver with: `harness review-tier --moment final --session {sessionSlug}` (add `--pipeline-runner` when the `run_code_review` tool is callable in this session, and `--json` for JSON). Take `{base}` and `{head}` from its output and from nothing else: the `Review base:` line names the base and its source, `Review base: <sha> (merge-base; …)` or `Review base: <sha> (starting-commit; …)` (`base` and `baseSource` in JSON), and `{head}` is the `Review head:` line, the commit the base was computed at (`head` in JSON). Record that base as `diff.base`, and when the source is `starting-commit` also record `diff.baseSource: "starting-commit"`. The gate demands exactly this base: the default-branch merge base whenever one resolves (any other base fails `FINAL_BASE_NOT_MERGE_BASE`, whatever `baseSource` says), and the session's starting commit only when none resolves. It accepts `baseSource: "starting-commit"` only when no default-branch merge base resolves AND `diff.base` is the `startingCommit` of this session's `autopilot-state.json`: another base fails `FINAL_BASE_NOT_MERGE_BASE`, and a receipt whose session records no full `startingCommit` fails `STARTING_COMMIT_UNKNOWN`. Never pick a base by hand. When this branch's PR targets another unmerged branch rather than the default branch (a stacked PR), add `--target <that branch's remote-tracking ref>` (such as `origin/feat/parent`; a sha, a HEAD-relative name, a local branch or a tag is refused, and so is this branch's own remote-tracking branch, exactly `refs/remotes/<remote>/<this branch's name>` for a configured remote, whose merge base is this branch's last pushed commit; this branch's upstream is fine when it is the parent, as it is for a branch created with `git checkout -b <branch> origin/<parent>`) to this command, and record the full ref it prints (`target` in JSON, `against refs/remotes/…` on the `Review base:` line) as `diff.target` in the receipt. The base is then the merge base with that ref, so the final review covers this branch's commits and not its parent's, and the gate reads the target from the receipt, so the gate step below takes no flag for it. When the command prints `Review base: unresolved (<why>)` (`baseUnresolved` in JSON) no base the gate would accept is known: fix what the reason names (pass `--session`, give a valid session name, name a `--target` that is a remote-tracking branch that resolves, resolve the head) and run it again. The merge base is taken from this clone's remote-tracking refs as they stand: the gate does not fetch, and those refs are only as trustworthy as the session that could rewrite them. After a fix run the command again at the new head; the base is the merge base again. At every moment the gate also requires `diff.base` to be an ancestor of `diff.head` (`DIFF_BASE_NOT_ANCESTOR`). **An empty final range is not reviewed.** When the command exits 1 with `the final range <base>..<head> is empty (it changes no files)`, the branch changes nothing against its base and there is nothing to review: run no review and write no receipt, record in `decisions[]` that the final review was skipped as empty (the state `FINAL_REVIEW`, that base and that head), set `finalReview.status: "skipped-empty"` and go to OUTCOME_EVAL. That exit is this case, never a range to fix. A receipt over an empty range fails `EMPTY_DIFF`, so a review dispatched over one could only leave by an override.
+3. Run a **cold, `full`** review from this session. The final review is always `full`: `--fast` does not lower it, and the tier is not recomputed here (the command of step 2 prints `full` whatever the rigor, and the backend on its `Review backend:` line). Follow REVIEW step 2 (backend), step 3 (run the review, including what to do when the mechanical phase fails) and step 4 (write the receipt), and no other REVIEW step: REVIEW step 5, the `after:REVIEW` hooks, is not run here, and the gate and the hooks of the final review are written out below. The differences in steps 2 to 4:
+   - the review directory is `{sessionDir}/reviews/final-all/`; when it already holds a `receipt.json`, this review runs after a fix and rewrites it (Review records, After a fix);
+   - every reviewer brief carries the cold diff and that reviewer's context bundle, and nothing from earlier reviews: no prior findings, no per-phase summary, no coherence-only focus. Each reviewer does the full hunt of its domain over the whole diff;
+   - the receipt records `moment: "final"`, `tier: "full"`, `coldContext: true`, `priorFindingsSupplied: false`. These are claims about what was done, not settings: if any brief did carry earlier findings, record `priorFindingsSupplied: true` and `coldContext: false`, and the gate fails. A session that reviews in its own context has seen the phase reviews' findings, so it records `coldContext: false` and `priorFindingsSupplied: true` here;
+   - the receipt records `computedTier: "full"` and `tierReasons` as step 2 printed them;
+   - a session with no subagent-spawning tool cannot produce a `full` review. It records `tier: "light"` and `demotion: "no-subagent-tool"` as REVIEW step 3 says, the final gate fails (`FINAL_NOT_FULL`), and the gate stop below applies. It never records `full`;
+   - a failed mechanical phase is handled as REVIEW step 3 says: no reviewer, no receipt, no gate override, and the question "fix / stop", where `fix` dispatches harness-task-executor as step 5 below does and counts against the same fix budget. When that budget is already spent, `fix` is not offered: report the failing checks and that the budget is spent, and offer `stop`; a fix the human commits by hand, followed by a resume, re-enters FINAL_REVIEW at step 1.
 
    ```
-   subagent_type: "harness-code-reviewer"
-   prompt: "Final cross-phase review. Diff: git diff {startingCommit}..HEAD. Session: {sessionSlug}. Prior findings: {collected}. Focus on cross-phase coherence: naming, duplicated utilities, architectural drift. Report findings (critical / important / suggestion)."
+   subagent_type: "<reviewer persona>"
+   prompt: "Final review. You are the {reviewerId} reviewer ONLY (harness-code-review Phase 4, the {reviewerId} section). Review-dir {sessionDir}/reviews/final-all/, moment final, base {base}, head {head}. Diff: git diff {base}..{head}. Context: {reviewer context bundle}. Classify every critical or important finding per harness-code-review references/attribution-rubric.md (findingClass, escapedFrom). Write only {sessionDir}/reviews/final-all/{reviewerId}.json as { schemaVersion: 1, reviewerId, base: \"{base}\", head: \"{head}\", examinedFiles, findings }, where base is the base you were given, head is the commit you read, examinedFiles lists only files that git diff --name-only --no-renames -z {base}..{head} prints and that you read, and every finding id starts with {reviewerId}-. Before you return, run harness check-review-receipt --findings {sessionDir}/reviews/final-all/{reviewerId}.json --base {base} --head {head}. If it reports a code about the file's content, correct the file and run it again until it prints PASS. If it reports HEAD_MISMATCH, WORKTREE_DIRTY, EMPTY_DIFF, DIFF_UNRESOLVED or any other code that is not about the file's content, do not edit the file: stop and report the code to the dispatching session. State the result. Run no mechanical check and write no receipt.json. Report findings (critical / important / suggestion)."
    ```
 
-   Then run **each effective `after:FINAL_REVIEW` hook** — `resolveReviewHooksWithCanary(config, "harness-autopilot", "after:FINAL_REVIEW", { canaryPresent, availableSkills })` (configured `skillHooks` plus canary's **installed** deterministic detectors when canary is present; exactly the configured hooks when absent) — over the same cross-phase diff. Run each by kind; a `skill` hook is dispatched as an extra reviewer:
+   Personas, as at REVIEW: `harness-code-reviewer` for `compliance`, `bug` and `architecture`; `harness-security-reviewer` for `security`; `harness-adversarial-reviewer`, `harness-typescript-strict-reviewer` and `harness-frontend-races-reviewer` for the conditional reviewers the calibration activates. These baseline reviewers always run; the `after:FINAL_REVIEW` hooks below run alongside them and never replace them.
+
+   After every reviewer has returned, and not before, read the per-phase findings (`{sessionDir}/reviews/phase-*/`, or the older `{sessionDir}/phase-{N}-review.json` shapes in an older session) and mark each final finding whose file and start line match a per-phase finding as `previously-raised` in `finalReview.findings`. The label is bookkeeping: it never removes a finding or lowers its severity.
+
+   Gate the receipt: `harness check-review-receipt {sessionDir}/reviews/final-all` (or the `check_review_receipt` tool; decide on its `pass` field alone). The directory `final-all` decides the moment: it is the final review, so a receipt there that says `phase` fails `MOMENT_MISMATCH`, and so does passing `--moment phase` (or the tool's `moment: "phase"`) for it. No flag makes a receipt in `final-all` anything but a final receipt. For a final review the gate also fails unless `tier` is `full`, `coldContext` is true and `priorFindingsSupplied` is false, it fails unless `diff.base` is the base of step 2 (`FINAL_BASE_NOT_MERGE_BASE`, `STARTING_COMMIT_UNKNOWN`; `TARGET_UNRESOLVED` when the recorded `diff.target` is not a remote-tracking branch that resolves, `TARGET_OWN_BRANCH` when it is this branch itself), and it fails when HEAD moved after the review. Its PASS line names the ref the base was measured against.
+
+   _Pause point (gate): resolve per the Pause Protocol._ <!-- pause: gate -->
+
+   If the receipt gate fails, FINAL_REVIEW may not be left. Report each failure and the reviewer it names, then ask "re-run / override / stop." `re-run`: act on every failure as the Retry table says (Review records, Retry); when a code there says stop for the human, `re-run` is not offered. `override`: record the override in `decisions[]` (Review records, Overrides) with every failure code the gate raised. `stop`: save state and exit.
+
+   Then run **each effective `after:FINAL_REVIEW` hook** — `resolveReviewHooksWithCanary(config, "harness-autopilot", "after:FINAL_REVIEW", { canaryPresent, availableSkills })` (configured `skillHooks` plus canary's **installed** deterministic detectors when canary is present; exactly the configured hooks when absent) — over the same `{base}..{head}` diff. Run each by kind; a `skill` hook is dispatched as an extra reviewer:
 
    Resolve craft's advisory domains here too:
    `resolveReviewHooksWithCraft(config, "harness-autopilot", "after:FINAL_REVIEW", { changedFiles, availableSkills, alreadyRanFor })`.
    `alreadyRanFor` is the set of craft domains wired at this phase's `after:REVIEW` **when the
    changed-file set is unchanged** — craft resolves once per phase per diff, and the budget is
    per-resolution, so omitting it lets the same code be critiqued twice. Domains passed this way are
-   reported `already-run` in the denominator, not silently absent. If the cross-phase diff differs
+   reported `already-run` in the denominator, not silently absent. If the final diff differs
    from the REVIEW diff, pass nothing. Craft findings merge into `finalReview.findings` as
    **non-blocking advisory** output and never set the final-review status to failed.
 
    ```
    subagent_type: "<hook skill name>"
-   prompt: "Final cross-phase domain review. Diff: git diff {startingCommit}..HEAD. Session: {sessionSlug}. Context: {hook context}. Report findings (critical / important / suggestion)."
+   prompt: "Final domain review. Diff: git diff {base}..{head}. Session: {sessionSlug}. Context: {hook context}. Report findings (critical / important / suggestion)."
    ```
 
    _Pause point (gate): resolve per the Pause Protocol._ <!-- pause: gate -->
 
-   An unresolvable **user-declared** hooked skill (a typo, a not-installed declared skill) or an un-spawnable `command` hook is a FINAL_REVIEW failure, not a skip, and not an overridable finding — record it in `.harness/failures.md`, set the final-review status to failed, and hard-halt with "cannot verify" rather than reporting a green final review that silently dropped a configured hook. A harness-default canary detector that is not installed is instead forward-wired: `resolveReviewHooksWithCanary` already filtered it out, so it is a graceful skip recorded in the denominator, never a FINAL_REVIEW failure. (A `command` that ran and exited non-zero is a normal blocking finding, not a hard halt.) Hook findings merge into the same `finalReview.findings` aggregation; report the detector denominator (including skipped-not-installed) so a partial or forward-wired run is never presented as complete.
+   An unresolvable **user-declared** hooked skill (a typo, a not-installed declared skill) or an un-spawnable `command` hook is a FINAL_REVIEW failure, not a skip, and not an overridable finding — record it in `.harness/failures.md`, set the final-review status to failed, and hard-halt with "cannot verify" rather than reporting a green final review that silently dropped a configured hook. A harness-default canary detector that is not installed is instead forward-wired: `resolveReviewHooksWithCanary` already filtered it out, so it is a graceful skip recorded in the denominator, never a FINAL_REVIEW failure. (A `command` that ran and exited non-zero is a normal blocking finding, not a hard halt.) Hook findings are written to `{sessionDir}/reviews/final-all/hook-<hook name>.json` and merge into the same `finalReview.findings` aggregation; they are not reviewer findings files and are not in the receipt's counts (Review records, Hook findings). Report the detector denominator (including skipped-not-installed) so a partial or forward-wired run is never presented as complete.
 
-4. No blocking (across baseline + additional reviewers): store in `finalReview.findings`, set `"passed"` → OUTCOME_EVAL.
+4. No blocking (the receipt's `blocking` is 0 and no hook finding blocks): store the findings in `finalReview.findings`, set `finalReview.status: "passed"` → OUTCOME_EVAL. A final review whose receipt counts a blocking finding is never set `passed`, whatever VALIDATE judged of the finding: it goes to step 5, where it is fixed or the human's override is recorded in `decisions[]` (Review records, Counts).
 
    _Pause point (gate): resolve per the Pause Protocol._ <!-- pause: gate -->
 
 5. Blocking: ask "fix / override / stop."
-   - `fix`: increment `finalReview.retryCount` (max 3). Dispatch harness-task-executor: "Fix these blocking findings: {findings with file, line, title}. Session: {sessionSlug}. Commit each fix atomically." Run `harness validate`. Re-run FINAL_REVIEW from step 1. If retryCount > 3: stop, record in `.harness/failures.md`.
-   - `override`: record rationale in `decisions[]`. Set `"overridden"` → OUTCOME_EVAL.
+   - `fix`: increment `finalReview.retryCount`. Dispatch harness-task-executor: "Fix these blocking findings: {findings with file, line, title}. Session: {sessionSlug}. Commit each fix atomically." Run `harness validate`. Re-run FINAL_REVIEW from step 1 at the new head (Review records, After a fix): every reviewer runs again.
+   - `override`: record the override in `decisions[]` (Review records, Overrides). Set `"overridden"` → OUTCOME_EVAL.
    - `stop`: save state and exit (resumable).
+
+   **One fix budget.** `finalReview.retryCount` counts every `fix` taken at FINAL_REVIEW and every `fix` taken at OUTCOME_EVAL, in one counter that is never reset: three fix attempts in total for the ship boundary, however many review rounds they produce. When it already stands at 3, `fix` is no longer offered at either state: record the exhaustion in `.harness/failures.md`, report that the budget is spent, and offer "override / stop" only. An exhausted budget changes nothing else. It does not lower a finding's severity, it does not skip the final review of the commits already made.
+
+6. **Any commit after the final review returns here.** The final receipt is for one commit, its `diff.head`. A commit made after it (a final-review fix, an OUTCOME_EVAL fix, a fix for a hook finding, a commit made by hand) has been read by no final review. Return to step 1 and run the final review again at the new head before OUTCOME_EVAL is entered or re-entered. DONE checks this once more before the PR.
 
 ---
 
@@ -509,7 +646,7 @@ The blocking post-execution **spec-satisfaction gate** — the harness's ship ga
    - `authority === "advisory"` (all `SATISFIED`, all `INCONCLUSIVE`, and every `medium`/`low` `NOT_SATISFIED`): record the verdict in `finalReview` and proceed → DONE. An advisory `NOT_SATISFIED` is surfaced for human attention but does not halt.
      _Pause point (gate): resolve per the Pause Protocol._ <!-- pause: gate -->
    - `authority === "blocking"` (a high-confidence `NOT_SATISFIED`, and ONLY that): HALT before DONE. Report `unmetCriteria` and ask "fix / override / stop."
-     - `fix`: increment `finalReview.retryCount` (max 3). Dispatch harness-task-executor to address the unmet criteria, run `harness validate`, then re-enter OUTCOME_EVAL. If retryCount > 3: stop, record in `.harness/failures.md`.
+     - `fix`: increment `finalReview.retryCount`, the one fix budget FINAL_REVIEW step 5 describes (three attempts shared by both states; when it is spent, `fix` is not offered here and the choices are `override` and `stop`). Dispatch harness-task-executor to address the unmet criteria and run `harness validate`. The fix is a commit no final review has read, so return to FINAL_REVIEW step 1 (a review at the new head) and re-enter OUTCOME_EVAL only after that review's gate passes.
      - `override`: record the rationale in `decisions[]` — the audit trail for shipping over a blocking verdict → DONE.
      - `stop`: save state and exit (resumable).
 5. **Never block on infrastructure noise.** A provider failure, a missing/unjudgable spec, or an absent `ANTHROPIC_API_KEY` degrades to `INCONCLUSIVE`/advisory and proceeds — surface the degradation to the human, but do not halt.
@@ -518,15 +655,19 @@ The blocking post-execution **spec-satisfaction gate** — the harness's ship ga
 
 ### DONE
 
-1. Present: total phases, tasks, retries, time, `finalReview.status` + findings count, any overridden findings, and the OUTCOME_EVAL verdict (`verdict` / `confidence` / `authority`, plus any recorded override).
+1. Present: total phases, tasks, retries, time, `finalReview.status` (`passed`, `overridden` or `skipped-empty`) + findings count, every override (the override decisions of each phase review and of the final review, with their reasons), every review demoted to `light` below a computed `full` (with its reasons), and the OUTCOME_EVAL verdict (`verdict` / `confidence` / `authority`, plus any recorded override).
 2. **Auto-decision summary (SC11).** If `.harness/sessions/<session-slug>/auto-decisions.jsonl` does not exist, print nothing. Otherwise run `harness autonomy log --session <session-slug>`. If its output contains a line starting `No auto-decisions recorded`, print nothing more; otherwise print the output verbatim. If the command fails or is not recognised, print `Auto-decision summary unavailable (<reason>); raw log: .harness/sessions/<session-slug>/auto-decisions.jsonl` and never report zero decisions you did not read.
+
+   _Pause point (gate): resolve per the Pause Protocol._ <!-- pause: gate -->
+
+3. **Commits after the final review.** Read `diff.head` from `{sessionDir}/reviews/final-all/receipt.json` and run `git rev-list --count <that head>..HEAD`. `0`: go on. Anything else: the branch holds commits no final review read. When that receipt is absent, unreadable or holds no full `diff.head` (FINAL_REVIEW was left by an override of `RECEIPT_MISSING` or `RECEIPT_INVALID`), every commit of the branch is unreviewed: count `git rev-list --count {startingCommit}..HEAD` and ask the same question. When the final review was skipped as empty, count from the head its decision recorded: `git rev-list --count <that head>..HEAD`. Never read a count from a receipt of an earlier round as this one's. Report the count and ask "re-review / ship unreviewed / stop." `re-review`: return to FINAL_REVIEW step 1. `ship unreviewed`: record the choice in `decisions[]` (state `DONE`) and go on, and name the unreviewed commits in the PR body. `stop`: save state and exit. This skill makes no commit of its own in DONE: steps 5 to 7 write the handoff, the learnings and the session summary, and may change the roadmap. If any of that is committed to the PR branch, it is a commit no final review read: report it to the human.
 
    _Pause point (irreversible): resolve per the Pause Protocol._ <!-- pause: irreversible -->
 
-3. Ask "Create a PR? (yes / no)." When creating the PR, include a bare closing line `Closes #<N>` where `<N>` is the issue number from the roadmap row's `External-ID`. The keyword MUST sit IMMEDIATELY before the ref — no intervening words (`Closes #<N>`, never `Closes roadmap #<N>`), or GitHub will not link/close the issue and roadmap auto-done will skip the row.
-4. Write final handoff to `{sessionDir}/handoff.json`. Append learnings to `.harness/learnings.md`. Call `promoteSessionLearnings(projectPath, sessionSlug)`. If learnings count > 30, suggest `harness learnings prune`.
-5. If `docs/roadmap.md` exists: call `manage_roadmap update` to set feature done. Skip if not found.
-6. Write final `writeSessionSummary()`. Set `currentState: "DONE"` in autopilot-state.json.
+4. Ask "Create a PR? (yes / no)." When creating the PR, include a bare closing line `Closes #<N>` where `<N>` is the issue number from the roadmap row's `External-ID`. The keyword MUST sit IMMEDIATELY before the ref — no intervening words (`Closes #<N>`, never `Closes roadmap #<N>`), or GitHub will not link/close the issue and roadmap auto-done will skip the row.
+5. Write final handoff to `{sessionDir}/handoff.json`. Append learnings to `.harness/learnings.md`. Call `promoteSessionLearnings(projectPath, sessionSlug)`. If learnings count > 30, suggest `harness learnings prune`.
+6. If `docs/roadmap.md` exists: call `manage_roadmap update` to set feature done. Skip if not found.
+7. Write final `writeSessionSummary()`. Set `currentState: "DONE"` in autopilot-state.json.
 
 ---
 
@@ -541,12 +682,12 @@ The blocking post-execution **spec-satisfaction gate** — the harness's ship ga
 4. **EXECUTE** — Dispatch harness-task-executor with plan path, handle checkpoints and retries (max 3).
 5. **VERIFY** — Dispatch harness-verifier, confirm code correctness and wiring. <!-- not-a-pause: the verifier checks correctness, not a human -->
 6. **INTEGRATE** — Resolve integration tier, dispatch harness-integration, verify system wiring, knowledge materialization, and documentation per tier.
-7. **REVIEW** — Dispatch harness-code-reviewer plus the effective `after:REVIEW` hooks (`resolveReviewHooksWithCanary`: project `skillHooks` plus canary's INSTALLED deterministic detectors when canary is present — forward-wired, not-installed ones skip), plus craft's ADVISORY domains (`resolveReviewHooksWithCraft`: diff-scoped, budget-capped, non-blocking, reported in a denominator), fix blocking findings.
+7. **REVIEW** — Select the review tier, dispatch one reviewer per record (`full`) or one reviewer (`light`), write the receipt, run the effective `after:REVIEW` hooks (`resolveReviewHooksWithCanary`: project `skillHooks` plus canary's INSTALLED deterministic detectors when canary is present — forward-wired, not-installed ones skip), plus craft's ADVISORY domains (`resolveReviewHooksWithCraft`: diff-scoped, budget-capped, non-blocking, reported in a denominator), gate the receipt, fix blocking findings (a fix is followed by a review at the new head), record every override in `decisions[]`. A failed mechanical phase is a red check that returns to EXECUTE, never a gate override.
 8. **PHASE_COMPLETE** — Summarize (including integration report), sync roadmap, loop to ASSESS for next phase or proceed to FINAL_REVIEW.
 
    _Pause point (gate): resolve per the Pause Protocol._ <!-- pause: gate -->
 
-9. **FINAL_REVIEW → OUTCOME_EVAL → DONE** — Cross-phase review, then the blocking spec-satisfaction gate (halt on a high-confidence NOT_SATISFIED), offer PR creation, write final handoff.
+9. **FINAL_REVIEW → OUTCOME_EVAL → DONE** — Cold, full final review over the diff from the merge base with a gated receipt, then the blocking spec-satisfaction gate (halt on a high-confidence NOT_SATISFIED; any commit after the final review returns to it), offer PR creation, write final handoff.
 
 ### Context-Budget Trip Wire
 
@@ -577,11 +718,11 @@ Autopilot keeps context fresh **between** phases — every state dispatches a di
 
 ## Gates
 
-- **No reimplementing delegated skills.** Writing planning/execution/verification/review/integration logic → STOP. Delegate via `subagent_type`. <!-- not-a-pause: self-correction against reimplementing skills -->
+- **No reimplementing delegated skills.** Writing planning/execution/verification/review/integration logic → STOP. Delegate via `subagent_type`. Preparing review context, dispatching reviewers and collecting their findings files at REVIEW and FINAL_REVIEW is orchestration; writing a review finding in this session is not. <!-- not-a-pause: self-correction against reimplementing skills -->
 - **No executing without plan approval.** Every plan passes APPROVE_PLAN. No exceptions.
 - **No skipping VERIFY, INTEGRATE, REVIEW, or OUTCOME_EVAL.** Human can override findings; steps cannot be skipped. INTEGRATE may be skipped only via explicit "skip" choice with decision recorded in `decisions[]`.
 - **Ship authority for OUTCOME_EVAL is derived in TypeScript, never read from the LLM.** Read `authority` off the verdict; do not recompute or override it. A high-confidence `NOT_SATISFIED` (`authority: "blocking"`) HALTS before DONE — shipping over it requires an explicit `override` recorded in `decisions[]`. Every other verdict is advisory.
-- **No infinite retries.** EXECUTE budget: 3 attempts. FINAL_REVIEW: 3 cycles. If exhausted, stop and surface.
+- **No infinite retries.** EXECUTE budget: 3 attempts. FINAL_REVIEW and OUTCOME_EVAL share one budget of 3 fix attempts. If exhausted, stop and surface.
 - **No modifying state files manually.** If corrupted, start fresh.
 
 ## Escalation
@@ -590,7 +731,7 @@ _Pause point (gate): resolve per the Pause Protocol._ <!-- pause: gate -->
 
 - **Spec missing Implementation Order:** Cannot identify phases. Ask user to add phase annotations or provide roadmap.
 - **Delegated skill fails to produce output:** Check `{sessionDir}/handoff.json`. Report and ask: retry or stop.
-- **User wants to reorder phases mid-run:** Update `phases[]` (mark skipped, adjust `currentPhase`). Do not re-run completed phases.
+- **User wants to reorder phases mid-run:** Mark the dropped phases `skipped` in `phases[]` and adjust `currentPhase`. Do not move or delete an entry (a phase's position is its number in review directories), and do not re-run completed phases.
 - **Context limits approaching:** Persist state immediately. "State saved. Re-invoke `/harness:autopilot` to continue."
 - **2 consecutive phase failures:** Suggest reviewing spec for systemic issues.
 
@@ -610,7 +751,9 @@ _Pause point (gate): resolve per the Pause Protocol._ <!-- pause: gate -->
 - All phases in the spec are executed in order with plan → execute → verify → integrate → review per phase
 - Every plan approval is recorded in `decisions[]` (auto or manual)
 - Retry budget (3 attempts) is enforced — exhausted retries surface to user, never silently continue
-- FINAL_REVIEW runs on `startingCommit..HEAD` diff and catches cross-phase coherence issues
+- FINAL_REVIEW is a cold, `full` review of the diff from the merge base; its receipt passes `harness check-review-receipt`
+- No commit follows the final review's head unreviewed: a fix after FINAL_REVIEW or OUTCOME_EVAL returns to FINAL_REVIEW
+- A phase is named by its 0-based position everywhere: `currentPhase` and `reviews/phase-N/`
 - OUTCOME_EVAL runs at the ship boundary on the full `startingCommit..HEAD` change; a high-confidence `NOT_SATISFIED` halts before DONE and its verdict persists as an `execution_outcome` node
 - State is persisted to `autopilot-state.json` after every state transition — re-invocation resumes correctly
 - `harness validate` passes after every phase
@@ -619,25 +762,27 @@ _Pause point (gate): resolve per the Pause Protocol._ <!-- pause: gate -->
 
 **Invocation:** `/harness:autopilot docs/changes/security-scanner/proposal.md`
 
-**INIT:** 3 phases found: Phase 1: Core Scanner (low), Phase 2: Rule Engine (high), Phase 3: CLI Integration (low).
+Phases are numbered from 0 throughout, as in `currentPhase` and the review directories.
 
-**Phase 1 — ASSESS → PLAN:** harness-planner dispatched. Returns plan: `docs/changes/security-scanner/plans/2026-03-19-core-scanner-plan.md` (8 tasks).
+**INIT:** 3 phases found: Phase 0: Core Scanner (low), Phase 1: Rule Engine (high), Phase 2: CLI Integration (low).
 
-**Phase 1 — APPROVE_PLAN (auto):** All signals false. "Auto-approved Phase 1: Core Scanner | auto | low | no concerns | 8 tasks."
+**Phase 0 — ASSESS → PLAN:** harness-planner dispatched. Returns plan: `docs/changes/security-scanner/plans/2026-03-19-core-scanner-plan.md` (8 tasks).
 
-**Phase 1 — EXECUTE:** harness-task-executor dispatched with plan path + session. 8 tasks complete. 2 checkpoint commits.
+**Phase 0 — APPROVE_PLAN (auto):** All signals false. "Auto-approved Phase 0: Core Scanner | auto | low | no concerns | 8 tasks."
 
-**Phase 1 — VERIFY:** harness-verifier dispatched. Pass. **REVIEW:** harness-code-reviewer. 0 blocking, 2 notes.
+**Phase 0 — EXECUTE:** harness-task-executor dispatched with plan path + session. 8 tasks complete. 2 checkpoint commits.
 
-**Phase 1 — PHASE_COMPLETE:** "Phase 1 complete. Next: Phase 2: Rule Engine (high). Continue? → yes"
+**Phase 0 — VERIFY:** harness-verifier dispatched. Pass. **REVIEW:** tier `light` (no rule held), 1/1 reviewers, receipt in `reviews/phase-0/`, receipt gate passed. 0 blocking, 2 notes.
 
-**Phase 2 — ASSESS:** High complexity. "Run `/harness:planning` interactively, then re-invoke." [User plans interactively. Re-invokes.]
+**Phase 0 — PHASE_COMPLETE:** "Phase 0 complete. Next: 1: Rule Engine (high). Continue? → yes"
 
-**INIT (resume):** "Resuming from PLAN, phase 2: Rule Engine. Found plan: docs/changes/security-scanner/plans/2026-03-19-rule-engine-plan.md"
+**Phase 1 — ASSESS:** High complexity. "Run `/harness:planning` interactively, then re-invoke." [User plans interactively. Re-invokes.]
 
-**Phase 2 — APPROVE_PLAN (paused):** Complexity: high triggered. "Approve? → yes" **EXECUTE → VERIFY → REVIEW → PHASE_COMPLETE.** 14 tasks, 1 retry.
+**INIT (resume):** "Resuming from PLAN, phase 1: Rule Engine. Found plan: docs/changes/security-scanner/plans/2026-03-19-rule-engine-plan.md"
 
-**Phase 3:** auto-plans and executes. **FINAL_REVIEW:** harness-code-reviewer on `startingCommit..HEAD`. 0 blocking, 1 warning. Passed.
+**Phase 1 — APPROVE_PLAN (paused):** Complexity: high triggered. "Approve? → yes" **EXECUTE → VERIFY → REVIEW → PHASE_COMPLETE.** 14 tasks, 1 retry. REVIEW: tier `full`, 5/5 reviewers, receipt in `reviews/phase-1/`.
+
+**Phase 2:** auto-plans and executes. **FINAL_REVIEW:** cold, tier `full`, 5/5 reviewers over the merge-base diff, receipt in `reviews/final-all/`, receipt gate passed. 0 blocking, 1 warning. `finalReview.status: "passed"`.
 
 **DONE:** 3 phases, 30 tasks, 1 retry. "Create PR? → yes" <!-- not-a-pause: worked example output, not a step -->
 
@@ -712,17 +857,20 @@ phases:
     description: Execute state machine — assess, plan, execute, verify, review per phase
     required: true
   - name: final_review
-    description: Project-wide code review of cumulative changes before PR offer
+    description: Cold, full review of the whole change from the merge base (one dispatch per reviewer, no prior findings, a gated receipt); any later commit returns here
     required: true
   - name: complete
     description: Final summary and PR offering
     required: true
 state:
   persistent: true
+  # What the skill writes. `harness skill run` also reads this list: it loads the first entry that
+  # exists as a literal path as prior state. A pattern with `*` never loads.
   files:
     - .harness/sessions/*/autopilot-state.json
     - .harness/sessions/*/state.json
     - .harness/sessions/*/handoff.json
+    - .harness/sessions/*/reviews/*/*.json
     - .harness/learnings.md
     - .harness/failures.md
 depends_on:

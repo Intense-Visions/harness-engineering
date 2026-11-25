@@ -649,6 +649,17 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 - **Priority:** —
 - **External-ID:** github:Intense-Visions/harness-engineering#2248
 
+### Shift-Left Pipeline Fidelity
+
+- **Status:** planned
+- **Spec:** docs/changes/shift-left-pipeline-fidelity/proposal.md
+- **Summary:** Shift-Left Pipeline Fidelity
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#2686
+
 ### Skill-behavior eval harness: trigger accuracy and fixture outcomes
 
 - **Status:** planned

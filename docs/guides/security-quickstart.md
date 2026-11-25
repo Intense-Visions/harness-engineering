@@ -218,7 +218,7 @@ This runs the full **7-phase code review pipeline** with security threat modelin
 1. **GATE** -- Checks if the PR is eligible for review
 2. **MECHANICAL** -- Runs lint, typecheck, tests, security scan. If any fail, it reports and stops.
 3. **CONTEXT** -- Assembles context per review domain at a 1:1 ratio (200-line diff = ~200 lines of surrounding context)
-4. **FAN-OUT** -- Dispatches parallel review agents including the **security agent**
+4. **FAN-OUT** -- Dispatches parallel review agents including the **security agent**. A session that cannot dispatch subagents runs one combined compliance-and-bug reviewer, with no security agent, and records the review as `light`.
 5. **VALIDATE** -- Filters out duplicates and mechanical-only issues
 6. **DEDUP+MERGE** -- Groups findings, assigns severity
 7. **OUTPUT** -- Delivers a structured report

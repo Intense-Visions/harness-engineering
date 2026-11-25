@@ -170,6 +170,7 @@ describe('deriveToolCapabilities over the live registry', () => {
       [
         'add_component',
         'assess_project',
+        'check_review_receipt',
         'design_craft',
         'dispatch_skills',
         'review_changes',

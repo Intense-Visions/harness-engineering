@@ -13,6 +13,9 @@
   "files": [
     "tests/metrics/census.test.ts",
     "tests/metrics/denominate.test.ts",
+    "tests/receipts/finding-compat.test.ts",
+    "tests/receipts/review-gate-round3.test.ts",
+    "tests/receipts/schema-types.test.ts",
     "tests/roadmap/tracker/factory.test.ts",
     "tests/roadmap/tracker/index.test.ts",
     "tests/roadmap/tracker/public-surface.test.ts"

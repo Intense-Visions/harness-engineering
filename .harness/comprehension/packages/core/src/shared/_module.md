@@ -1,12 +1,22 @@
 ---
 schemaVersion: 1
 module: 'packages/core/src/shared'
-sourceHash: '7dbc284423f4c921005da2855e8cb449ea366028ebdd812831824540bf5c3fb8'
+sourceHash: '7ba3e19d45ca90423d10f2b43746fab661a98d94bc59e0decbf077c2d31f2e47'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
 members:
-  ['errors.ts', 'fs-utils.ts', 'llm.ts', 'port.ts', 'result.ts', 'session-slug.ts', 'uuid.ts']
+  [
+    'errors.ts',
+    'fs-utils.ts',
+    'llm.ts',
+    'port.ts',
+    'result.ts',
+    'review-paths.ts',
+    'session-slug.ts',
+    'unsafe-text.ts',
+    'uuid.ts',
+  ]
 ---
 
 ## Interface Contract
@@ -21,13 +31,17 @@ export WHATWG_BAD_PORTS
 export assertPortUsable
 export createEntropyError
 export createError
+export escapeUnsafeText
 export fileExists
 export findFiles
 export generateId
 export isBadPort
 export isErr
 export isOk
+export isUnsafeTextChar
 export llmService
+export normalizeReviewPath
+export pathEscapes
 export readFileContent
 export relativePosix
 export sessionSlugError

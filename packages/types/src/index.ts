@@ -578,3 +578,37 @@ export type {
   AutonomyUserConfig,
   ResolvedAutonomy,
 } from './autonomy';
+
+// --- Shift-left pipeline fidelity: review receipts and finding attribution fields ---
+export {
+  REVIEW_MOMENTS,
+  REVIEW_TIERS,
+  REVIEW_TIER_DEMOTIONS,
+  REVIEW_BACKENDS,
+  REVIEW_BASE_SOURCES,
+  FULL_TIER_REVIEWER_IDS,
+  CONDITIONAL_REVIEWER_IDS,
+  LIGHT_TIER_REVIEWER_ID,
+  PIPELINE_DOMAINS_OUTSIDE_RECEIPT,
+  ESCAPED_FROM_STAGES,
+  FINDING_CLASSES,
+  REVIEW_GATE_FAILURE_CODES,
+  RECEIPT_UNREAD_REASONS,
+  ERRNO_REASON,
+  FULL_SHA_PATTERN,
+} from './pipeline-receipts';
+export type {
+  ReviewMoment,
+  ReviewTier,
+  ReviewTierDemotion,
+  ReviewBackend,
+  ReviewBaseSource,
+  ReviewerRecord,
+  ReviewReceipt,
+  EscapedFrom,
+  FindingClass,
+  ReviewGateFailureCode,
+  ReceiptUnreadReason,
+  ErrnoReason,
+  ReceiptReadProblem,
+} from './pipeline-receipts';

@@ -1,6 +1,7 @@
 // --- Phase 4: Fan-Out types ---
 
 import type { ContextBundle, ReviewDomain } from './context';
+import type { EscapedFrom, FindingClass } from '@harness-engineering/types';
 
 /**
  * Model tier — abstract label resolved at runtime from project config.
@@ -104,6 +105,17 @@ export interface ReviewFinding {
    * The existing 4 agents do not populate this; new agents always do.
    */
   subagent?: ReviewSubagent;
+  /**
+   * What kind of miss this finding is (shift-left pipeline fidelity). Optional so existing
+   * producers and stored findings stay valid; a review that emits a receipt sets it on every
+   * critical or important finding.
+   */
+  findingClass?: FindingClass;
+  /**
+   * The earliest pipeline stage that should have caught this finding. A reviewer's estimate
+   * against references/attribution-rubric.md; read as a ranking of stages, not exact counts.
+   */
+  escapedFrom?: EscapedFrom;
   /**
    * Emission-invariant annotations recorded by the finding-integrity layer
    * (Phase 5.75, issue #984). Absent on findings that satisfied every invariant,

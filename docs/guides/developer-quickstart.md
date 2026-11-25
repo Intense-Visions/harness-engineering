@@ -293,7 +293,7 @@ This runs a **7-phase pipeline** on your own code before anyone else sees it:
 1. **GATE** — Checks eligibility for review
 2. **MECHANICAL** — Runs lint, typecheck, tests, security scan
 3. **CONTEXT** — Assembles surrounding context for each review domain
-4. **FAN-OUT** — Dispatches parallel review agents for compliance, bugs, security, architecture
+4. **FAN-OUT** — Dispatches one review agent each for compliance, bugs, security and architecture, in parallel. A session that cannot dispatch subagents runs one combined compliance-and-bug reviewer instead and records the review as `light`.
 5. **VALIDATE** — Filters duplicates and mechanical-only issues
 6. **DEDUP+MERGE** — Groups findings, assigns severity
 7. **OUTPUT** — Structured report with file:line, severity, rationale, and suggested fix

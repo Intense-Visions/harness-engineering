@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/src/review'
-sourceHash: '3fddfc1412d5680339d0e1bcad212e1bbf0d3348e6139f294c163ebd23b9e03f'
+sourceHash: '8549eb56ed24e41133243d4a8c7ce0508004a238e29f12ce43b54c7b5b41a577'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -23,6 +23,7 @@ members:
     'model-tier-resolver.ts',
     'parallel-groups.ts',
     'pipeline-orchestrator.ts',
+    'tier-selector.ts',
     'trust-score.ts',
     'two-stage.ts',
     'types.ts',
@@ -87,12 +88,15 @@ export MechanicalFinding
 export ModelProvider
 export ModelTier
 export ModelTierConfig
+export PHASE_COMPLEXITIES
 export ParallelGroups
+export PhaseComplexity
 export PipelineContext
 export PipelineFlags
 export PrMetadata
 export PriorReview
 export ProviderDefaults
+export REVIEW_RIGORS
 export RISK_KEYWORDS
 export ReviewAgentDescriptor
 export ReviewAssessment
@@ -102,15 +106,18 @@ export ReviewDomain
 export ReviewFinding
 export ReviewOutputOptions
 export ReviewPipelineResult
+export ReviewRigor
 export ReviewStage
 export ReviewStrength
 export ReviewSubagent
+export ReviewTierSelection
 export Rubric
 export RubricItem
 export RunPipelineOptions
 export SECURITY_DESCRIPTOR
 export STANDALONE_AGREEMENT
 export SUBAGENT_ORDER
+export SelectReviewTierInput
 export TYPESCRIPT_STRICT_DESCRIPTOR
 export TrustScoreOptions
 export VALIDATION_SCORES
@@ -124,6 +131,7 @@ export checkEligibility
 export checkEvidenceClassConsistency
 export checkEvidenceCoverage
 export claimsVulnerabilityClass
+export collectPackageEntryPoints
 export computeActivations
 export computeDepth
 export computeTrustScores
@@ -163,6 +171,7 @@ export runReviewPipeline
 export runSecurityAgent
 export runTypescriptStrictAgent
 export scopeContext
+export selectReviewTier
 export splitBundlesByStage
 export stageDomains
 export tagUncitedFindings
@@ -183,6 +192,7 @@ import { SecurityScanner } from '../security/scanner'
 import { fileExists, findFiles, readFileContent, relativePosix } from '../shared/fs-utils'
 import { TypeScriptParser } from '../shared/parsers'
 import { Ok, Result } from '../shared/result'
+import { posix } from '../shared/review-paths'
 import { readSessionSection } from '../state/session-sections'
 import { runAdversarialAgent } from './agents/adversarial-agent'
 import { runArchitectureAgent } from './agents/architecture-agent'
@@ -196,7 +206,7 @@ import { detectChangeType } from './change-type'
 import { AGREEMENT_LINE_GAP, CORROBORATED_AGREEMENT, DOMAIN_BASELINES, EVIDENCE_SATURATION, FACTOR_WEIGHTS, SEVERITY_RANK, STANDALONE_AGREEMENT, VALIDATED_BY_RANK, VALIDATION_SCORES } from './constants'
 import { scopeContext } from './context-scoper'
 import { deduplicateFindings } from './deduplicate-findings'
-import { ConditionalSubagent, DepthCalibration, ReviewDepth, calibrateDepth } from './depth-calibrator'
+import { ConditionalSubagent, DepthCalibration, ReviewDepth, calibrateDepth, matchRiskKeywords } from './depth-calibrator'
 import { checkEligibility } from './eligibility-gate'
 import { checkEvidenceCoverage, tagUncitedFindings } from './evidence-gate'
 import { ExclusionSet, buildExclusionSet } from './exclusion-set'
@@ -211,6 +221,6 @@ import { AgentReviewResult, ChangeType, CommitHistoryEntry, ContextBundle, Conte
 import { ReviewDomain } from './types/context'
 import { EvidenceCoverageReport, MechanicalFinding } from './types/mechanical'
 import { validateFindings } from './validate-findings'
-import { SessionEntry } from '@harness-engineering/types'
+import { ReviewTier, SessionEntry } from '@harness-engineering/types'
 import * as path from 'node:path'
 ```

@@ -57,6 +57,16 @@ Verify implementation-to-spec mappings: checks that each implementation file has
 
 - `path` (string, required) — Path to project root directory
 
+### `check_review_receipt`
+
+Gate a review receipt: recomputes HEAD, the diff file set, the base and every reviewer findings file, checks the receipt is for the review its directory names, and treats the receipt fields as claims. Returns { pass, reviewersRun, reviewersRequired } plus `failures`, whose shape varies: `failures` is absent on a pass, a single object {code, reviewerId?, message} when there is exactly one failure, and an array of them when there are two or more. Gate on `pass` alone: pass:false (including RECEIPT_MISSING) means the review state may not be left. Needs no model credential.
+
+**Parameters:**
+
+- `path` (string, required) — Path to project root
+- `receipt` (string, required) — Path to receipt.json or to the review directory holding it, absolute or relative to path. It must be inside path
+- `moment` (string, optional) — Which review this is, for a receipt directory that does not say (phase-N, final-all and a directory directly under .harness/reviews each do). Contradicting the directory fails the gate
+
 ### `check_task_independence`
 
 Check whether N tasks can safely run in parallel by detecting file overlaps and transitive dependency conflicts. Returns pairwise independence matrix and parallel groupings.

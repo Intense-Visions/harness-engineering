@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/src/autonomy'
-sourceHash: '05d83389584bc95286941663c3daa884343a68934cf82c7f2e9b0fa0914bdd84'
+sourceHash: '3fe36aa7397d2991b20570f09f5b66ebdba55942dc230cfb32837206bf1088b5'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -92,6 +92,7 @@ export writeSessionOverride
 ```
 import { Err, Ok, Result } from '../shared/result'
 import { sessionSlugError } from '../shared/session-slug'
+import { isUnsafeTextChar } from '../shared/unsafe-text'
 import { AppendLockOptions, withAppendLock } from './append-lock'
 import { AutoDecisionInvalidError, escapeUnsafeLogText, isUnsafeLogChar, parseAutoDecisionLine, validateAutoDecisionInput } from './decision-schema'
 import { OverrideStoreOptions, readSessionOverride, writeSessionOverride } from './override-store'

@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/tests/ci'
-sourceHash: 'bcaced0e53d206352fa4da3e40c1429c6fae02f9a548635d4d02dfdf9f2d8574'
+sourceHash: '4c47bd3d43bd819dce53ee88f84f0f47d03d0b791170a04786929ee889e8a5e4'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -14,6 +14,7 @@ members:
     'diff-scope-guard.test.ts',
     'harness-cache-ignore.test.ts',
     'harness-metrics-ignore.test.ts',
+    'harness-reviews-ignore.test.ts',
     'init.test.ts',
     'notify.test.ts',
     'roadmap-auto-done-workflow.test.ts',
