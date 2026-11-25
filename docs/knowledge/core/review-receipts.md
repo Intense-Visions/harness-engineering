@@ -125,7 +125,12 @@ session's phase list calls for (`MISSING` for one that has no directory) and one
 directory that exists: a directory without a readable receipt is a row whose Gate cell says
 `receipt missing`, `receipt invalid`, `receipt unreadable (<reason>)`, `receipt outside
 repository` or `receipt outside project`, and it does not count as reviewed. A review with no
-receipt that a `skipped` decision covers is `skipped (empty)` or `skipped (dropped)` instead.
+receipt that a `skipped` decision covers is `skipped (empty)` or `skipped (dropped)` instead;
+for an `empty` skip the stamp recomputes the range at the head the decision names (a phase from
+the base the gate would demand at that head, the final review from the final base there) and
+writes `skipped (empty; range not empty)` when it lists files, `skipped (empty; unverified)` when
+there is no head or git cannot say. Every session calls for a final review, so `final-all` has a
+row even when the phase list cannot be read.
 The twelve columns are Review, Moment, Tier, Backend, Reviewers (findings files that loaded, of
 required), Diff (with `(base: starting-commit)` when declared, and a gap note when a phase's
 base is not the one the gate demands of it: the gate's own phase-base rule, read from the
@@ -135,11 +140,12 @@ head a rebase took off the branch, and falls back to the session's starting comm
 at render time with two differences from `check-review-receipt`: the reviewed head may be an
 ancestor of HEAD, and the working tree is not checked, so `WORKTREE_DIRTY` never appears; at
 most six codes then `+M more`; the final row, whatever its Gate cell says, a receipt-less one
-included, is followed by `, +N commits not reviewed` when commits follow the reviewed head, the
-head an empty-skip recorded or the starting commit, or `, +? commits not reviewed (count
-unavailable)`), Blocking (with dismissed findings, flagged `unaudited` or `decider unknown` where
+included, is followed by `, +N commits not reviewed` when commits follow the reviewed head, or,
+with no receipt that was read, the base the final gate would demand at HEAD (the merge base with
+the default branch, else the starting commit; the head a skip names only for a `skipped (empty)`
+cell, whose range was found empty), or `, +? commits not reviewed (count unavailable)`), Blocking (with dismissed findings, flagged `unaudited` or `decider unknown` where
 the dismissal was, `at least N; not loaded: …` when a findings file did not load, and earlier
-rounds), By class, Escaped from, and Override (`none`; `unknown` when a decision of the session
+rounds below the counted one), By class, Escaped from, and Override (`none`; `unknown` when a decision of the session
 could not be read and none of this review's could, on a row without a receipt too; otherwise the
 number of overrides and dismissals first, then `N skips`, then `N from other rounds`, the whole
 prefixed `unknown, at least` when any decision of the session could not be read, then the
@@ -147,7 +153,8 @@ prefixed `unknown, at least` when any decision of the session could not be read,
 decider, `(human)`, `(audited)`, `(unaudited)` or `(decider unknown)`, at most six, then `+N
 more`). The row's round is the one the gate counts, 1 + the `round-R/` archives beside the
 receipt, never the round the receipt states. A row without a receipt shows the review's
-decisions too, and its Gate cell ends `(overridden)` when a `gate` decision names the code it
+decisions too (of 1 + its directory's `round-R/` archives, with the rest counted `from other
+rounds`, when there are any archives; else all of them), and its Gate cell ends `(overridden)` when a `gate` decision names the code it
 fails with (`RECEIPT_MISSING`, `RECEIPT_INVALID`, `RECEIPT_OUTSIDE_REPO` or `GATE_ERROR`). Rows
 are `phase-N` and `final-all` only; any other entry under `reviews/` is skipped and counted. No
 cell is cut without a mark: a rationale over 120 characters ends with `…`. Free text is made
@@ -164,21 +171,27 @@ PR-body parser (`parseProvenanceStamp`, in `stamp-parser.ts`) share that grammar
 keeps only rows and notes the renderer can write, an Override cell no longer than the renderer
 writes included. It reads a stamp only as the rendered page shows one: the markers on lines of
 their own, each after an empty line, the heading on the line after the opening marker, outside
-HTML comments, fenced code blocks, raw HTML blocks (`<script>`, `<pre>`, `<style>`,
-`<textarea>`, `<?`, `<!X`, `<![CDATA[`) and `<details>` elements, open or not (GitHub shows one
-collapsed, or lets the reader collapse it); rows only under the table's header and rule, and
-notes only in the list after the table. A marker in a paragraph, a list item, a quote or a link
-reference definition's title is text. A body that shows more than one stamp is `conflicting` and
-none is read; a body over 262144 characters is `too-large` and is not read; the scan is linear
-in the body's length. Autopilot places the stamp in the PR body. The stamp in a PR body is
+HTML comments, fenced code blocks (a backtick fence's info string holds no backtick) and raw
+HTML blocks (`<script>`, `<pre>`, `<style>`, `<textarea>`, `<?`, `<!X`, `<![CDATA[`); rows only
+under the table's header and rule, and notes only in the list after the table, never a line
+indented four or more columns (a code block on the page). A marker in a paragraph, a list item, a
+quote or a link reference definition's title is text. It fails closed where it cannot tell what
+the page shows: `<details` or `</details` anywhere before the body's last marker (GitHub shows a
+`<details>` collapsed; a code span, a comment or a code block included), or an HTML comment
+opener there that shares its line with a backtick or leaves a comment open without starting its
+line, makes the body `ambiguous` (with the reason) and nothing is read. A body that shows more
+than one stamp is `conflicting` and none is read; a body over 262144 characters is `too-large`
+and is not read; the scan is linear in the body's length. A later reader of the stamp reports
+`ambiguous`, `conflicting` and `too-large` as states of their own, never as unstamped and never
+as a pass. Autopilot places the stamp in the PR body. The stamp in a PR body is
 unauthenticated: CI cannot recompute it, because receipts are machine-local.
 
 **Review decision.** An entry of `decisions[]` in a session's `autopilot-state.json` with
 `state` `REVIEW` or `FINAL_REVIEW` and a `kind`: `gate` (a failed receipt gate was overridden;
 carries the `codes`), `findings` (blocking findings were overridden), `dismissed` (blocking
 findings were set aside without a fix; carries the `findingIds`) or `skipped` (the review was
-not run; carries the `reason`, `empty` or `dropped`, and for an empty range may carry the
-`head` it was found empty at). Every kind carries a `rationale`, a `round`: the round of the
+not run; carries the `reason`, `empty` or `dropped` (a phase only: a final review skipped as
+`dropped` is refused), and for an empty range may carry the `head` it was found empty at). Every kind carries a `rationale`, a `round`: the round of the
 review it was taken in (1 when absent), and `decidedBy`: `human`, `audited` (taken in trusted
 mode after a blind-then-refute self-audit that ran and agreed) or `unaudited`. A record with no
 `decidedBy` key, written before the field existed, reads as decider unknown and is counted in a
@@ -293,8 +306,10 @@ standalone review after a fix commit is a new directory and needs no archive.
 - These stay claims: that reviewers ran in separate contexts, the conditional-reviewer set
   (beyond every id being known), a phase's entitlement to `light`, `coldContext` and
   `priorFindingsSupplied`, whether a reviewer read the files it lists in `examinedFiles`,
-  `computedTier` and `tierReasons` (what the session says the tier command printed), and the
-  `backend`. The merge base is
+  `computedTier` and `tierReasons` (what the session says the tier command printed), the
+  `backend`, and a `skipped` decision with its reason and head (the stamp recomputes an `empty`
+  skip's range and says when it is not empty or cannot be checked; a `dropped` reason is not
+  checked). The merge base is
   taken against the default branch ref as the clone holds it, or against the receipt's
   `diff.target`, a remote-tracking branch the session chose (the receipt schema requires a full
   `refs/remotes/` ref, so a sha, a HEAD-relative name, a local branch or a tag is an invalid

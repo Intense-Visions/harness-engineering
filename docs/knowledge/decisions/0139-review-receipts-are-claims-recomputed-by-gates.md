@@ -187,7 +187,9 @@ session that sets out to deceive it.
   entitled to `light`, `coldContext` and `priorFindingsSupplied` (checked for consistency on a
   final receipt, never against what the briefs held), whether a reviewer read the files it lists
   in `examinedFiles`, `computedTier` and `tierReasons` (what the session says the tier command
-  printed), and the `backend`. A `light` receipt whose recorded `computedTier` is `full`, and every `light` standalone
+  printed), the `backend`, and a `skipped` decision with its reason and the head it names (the
+  stamp recomputes an `empty` skip's range at that head and says when it is not empty or cannot
+  be checked; a `dropped` reason is not checked). A `light` receipt whose recorded `computedTier` is `full`, and every `light` standalone
   receipt (a standalone review is always computed `full`, recorded or not), fails
   (`TIER_DEMOTED`) unless it carries `demotion: "no-subagent-tool"`, so the one sanctioned
   demotion is visible on the receipt. The moment, the base (a phase's against the previous
@@ -217,11 +219,16 @@ session that sets out to deceive it.
 - The stamp in a PR body is unauthenticated. The receipts are ignored by git, so CI has nothing
   to recompute a stamp from. A reader of a PR body accepts as a stamp only what the rendered page
   shows as one: a marker pair on lines of their own, each after an empty line, the heading on
-  the line after the opening marker, none of it inside an HTML comment, a code block, a raw
-  HTML block or a `<details>` element (open or not), and from it only the table's rows and its
-  notes, in forms the renderer can write. A marker in a paragraph, a list item, a quote or a link
-  reference definition is text. A body that shows two stamps is conflicting and neither is read,
-  and a body over 262144 characters is not read.
+  the line after the opening marker, none of it inside an HTML comment, a code block or a raw
+  HTML block, and from it only the table's rows and its notes, in forms the renderer can write,
+  none indented four or more columns. A marker in a paragraph, a list item, a quote or a link
+  reference definition is text. Where the reader cannot tell what the page shows it fails
+  closed instead of modelling it: `<details` or `</details` anywhere before the body's last
+  marker (in a code span, a comment or a code block too), or an HTML comment opener there that
+  shares its line with a backtick or leaves a comment open without starting its line, makes the
+  body `ambiguous` and nothing is read. A body that shows two stamps is `conflicting` and neither
+  is read, and a body over 262144 characters is `too-large` and not read. A later reader reports
+  each of the three as a state of its own, never as unstamped and never as a pass.
 - A failed gate can be overridden by the human. Autopilot records the override in `decisions[]`
   as a typed record (`kind: "gate"`, with the overridden `codes` and a `rationale`;
   `ReviewDecisionRecord`) and the stamp shows it, so an override is visible on the PR but is not
@@ -245,12 +252,17 @@ session that sets out to deceive it.
   row's decisions are those of the round the gate counts from the `round-R/` archives, never the
   round the receipt states, and a Diff gap is the gate's own phase-base rule. For the final
   review the stamp also counts the commits made after the reviewed head, and prints the count
-  whether the gate passed, failed or was overridden, and on a final row with no receipt too
-  (from the head an empty-skip recorded, else the starting commit). A review directory without a
-  readable receipt is a row that says so, and shows the decisions recorded for it; a review that
-  was not run by a recorded `skipped` decision says `skipped (empty)` or `skipped (dropped)`.
-  After a rebase, an amend or a squash the reviewed commits are gone from the branch and every
-  row fails `HEAD_MISMATCH`; a new final review restores the final row only.
+  whether the gate passed, failed or was overridden, and on a final row with no receipt too:
+  from the base the final gate would demand at HEAD (the merge base with the default branch,
+  else the starting commit), or from the head an empty skip names only when the stamp found that
+  range empty. A review directory without a readable receipt is a row that says so, and shows
+  the decisions recorded for it; a review that was not run by a recorded `skipped` decision says
+  `skipped (empty)` or `skipped (dropped)`, and an `empty` skip whose range the stamp finds not
+  empty, or cannot check, says `skipped (empty; range not empty)` or `skipped (empty;
+unverified)`. After a rebase or a squash the reviewed commits are gone from the branch and the
+  rows it rewrote fail `HEAD_MISMATCH` (a phase row usually also `PHASE_BASE_UNKNOWN`); an amend
+  fails only the rows whose head was the amended commit; a new final review restores the final
+  row only.
 - MCP callers decide on the tool result's `pass` field alone. Through the shared
   response-compaction middleware `failures` is absent on a pass, a single object when there is
   exactly one failure, and an array when there are two or more, so its shape is not a contract
