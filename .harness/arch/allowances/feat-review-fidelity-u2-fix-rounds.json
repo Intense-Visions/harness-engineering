@@ -1,0 +1,13 @@
+{
+  "reason": "shift-left unit 2: review fix rounds (module-size only)",
+  "categories": {
+    "module-size": 298024
+  },
+  "violationIds": [
+    "b46124d1c0ec628de3430cf1daa13aa6f7520aecc9b147bdac4bf635eab57144"
+  ],
+  "violationReasons": {
+    "b46124d1c0ec628de3430cf1daa13aa6f7520aecc9b147bdac4bf635eab57144": "shift-left unit 2: a coupling-ratio warning the tool reports as new on packages/core/src/receipts/load.ts (5 imports, unchanged; its first importer, rounds.ts, lifts its connections from 5 to 6, past the detector's minimum); listed by the tool, not a category this allowance raises (module-size is the only category)"
+  },
+  "createdFrom": "17f92e5bc"
+}
