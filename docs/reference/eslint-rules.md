@@ -148,7 +148,7 @@ Without the option, only relative imports are checked — a monorepo whose packa
 
 ### `no-circular-deps`
 
-Detects circular import dependencies by building an import graph across the lint run and checking for cycles via DFS.
+Detects circular import dependencies by building an import graph of relative imports and reporting any import that lies on a cycle.
 
 | Property             | Value        |
 | -------------------- | ------------ |
@@ -160,7 +160,14 @@ Detects circular import dependencies by building an import graph across the lint
 
 **Source:** [`no-circular-deps.ts`](../../packages/eslint-plugin/src/rules/no-circular-deps.ts)
 
-**What it detects:** A relative import that creates a cycle in the import graph (A imports B imports C imports A).
+**What it detects:** A relative import that creates a cycle in the import graph (A imports B imports C imports A). Every import on the cycle is reported, in whichever of its files are linted.
+
+**How it builds the graph:**
+
+- Specifiers are resolved to real files: the exact path, then a TS-ESM `.js`/`.jsx`/`.mjs`/`.cjs` specifier to its `.ts`/`.tsx`/`.mts`/`.cts` source, then the extensions `.ts .tsx .mts .cts .js .jsx .mjs .cjs`, then `<dir>/index.*`. A specifier that resolves to nothing adds no edge.
+- Files are keyed by absolute path, so the same relative path in two packages never collides. Cycles are shown relative to the lint `cwd`.
+- Files that are not part of the current lint run are read from disk on demand, so a single-file run (lint-staged, an editor) still sees the whole cycle. Reads and resolutions are cached for the life of the lint process.
+- Type-only imports and exports (`import type`, `export type … from`, and imports whose specifiers are all `type`-qualified) are erased at compile time and add no edge. Re-exports (`export … from`, `export * from`) are runtime edges and count.
 
 **Violation:**
 
@@ -169,7 +176,7 @@ Detects circular import dependencies by building an import graph across the lint
 import { b } from './b';
 
 // File: src/b.ts
-import { a } from './a'; // ERROR: Circular dependency detected: a → b → a
+import { a } from './a'; // ERROR: Circular dependency detected: src/b.ts → src/a.ts → src/b.ts
 ```
 
 **Correct:**

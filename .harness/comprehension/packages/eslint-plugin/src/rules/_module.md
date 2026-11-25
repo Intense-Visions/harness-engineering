@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/eslint-plugin/src/rules'
-sourceHash: '2f511e8ebb9df5cc86ca9b173923a76aea0238d6bac0688dfbd7918124c34fab'
+sourceHash: '4694a59bf4484fc97058beb4ea07480814a42770880a31ee02b68a63be27278f'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -44,6 +44,7 @@ export rules
 import { hasJSDocComment, hasZodValidation, isMarkedInternal, isTestModifierCall } from '../utils/ast-helpers'
 import { getConfig, getConfigRoot } from '../utils/config-loader'
 import { getLayerByName, getLayerForFile, matchesPattern, normalizePath, resolveImportPath } from '../utils/path-utils'
+import { clearRelativeImportCaches, readRelativeImports, resolveRelativeImport, toGraphKey } from '../utils/relative-imports'
 import { resolveWorkspaceImport } from '../utils/workspace-packages'
 import enforceDocExports from './enforce-doc-exports'
 import noCircularDeps from './no-circular-deps'

@@ -1,13 +1,14 @@
 ---
 schemaVersion: 1
 module: 'packages/eslint-plugin/tests/rules'
-sourceHash: 'ddd56de14042d679b956234b8b8596253afd664d75d7e7be54a187f248cb53e8'
+sourceHash: 'c1ca491a37ec6a3318ccb13914f690e3a59eb14adbd73b643120f01e0643f5af'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
 members:
   [
     'enforce-doc-exports.test.ts',
+    'no-circular-deps-resolution.test.ts',
     'no-circular-deps.test.ts',
     'no-disabled-tests.test.ts',
     'no-empty-describe.test.ts',
@@ -64,7 +65,11 @@ import rule from '../../src/rules/require-boundary-schema'
 import rule from '../../src/rules/require-path-normalization'
 import { clearConfigCache } from '../../src/utils/config-loader'
 import { clearWorkspaceCache } from '../../src/utils/workspace-packages'
+import tsParser from '@typescript-eslint/parser'
 import { RuleTester } from '@typescript-eslint/rule-tester'
+import { Linter } from 'eslint'
+import * as fs from 'fs'
+import * as os from 'os'
 import * as path from 'path'
-import { afterAll, beforeEach, describe, expect, it } from 'vitest'
+import { afterAll, afterEach, beforeEach, describe, expect, it } from 'vitest'
 ```

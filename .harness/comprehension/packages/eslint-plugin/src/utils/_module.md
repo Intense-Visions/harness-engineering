@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/eslint-plugin/src/utils'
-sourceHash: 'b3040cff50279b32839a9f5bc8d67d36fec3083cbf9e9845b558fff4d5a3f90e'
+sourceHash: '2611269e7e4756044676fa113077426435625f08e7e769626faeab1ca51727d0'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -11,6 +11,7 @@ members:
     'config-loader.ts',
     'index.ts',
     'path-utils.ts',
+    'relative-imports.ts',
     'schema.ts',
     'workspace-packages.ts',
   ]
@@ -29,6 +30,8 @@ import { HarnessConfig, HarnessConfigSchema, Layer } from './schema'
 import { AST_NODE_TYPES, TSESTree } from '@typescript-eslint/utils'
 import * as fs from 'fs'
 import { minimatch } from 'minimatch'
+import { createRequire } from 'module'
 import * as path from 'path'
+import * as TS from 'typescript'
 import { z } from 'zod'
 ```
