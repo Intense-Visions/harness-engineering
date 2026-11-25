@@ -37,7 +37,7 @@ cli:
       description: Path to the review-ci --json CiReviewResult artifact to reuse
       required: false
     - name: comment
-      description: Upsert the brief as a sticky PR comment via gh (by marker)
+      description: Upsert the brief as a sticky comment (by marker) on the PR --pr names, else the one in GITHUB_REF, else the current branch's, via gh
       required: false
     - name: diff
       description: "git diff range for the diff summary (e.g. origin/main...HEAD)"

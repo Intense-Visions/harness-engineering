@@ -20,6 +20,9 @@ name: Required Review (dogfood)
 on:
   pull_request:
     branches: [main]
+    # `edited`: the pre-merge brief reads the review provenance stamp from the PR body, so a
+    # body edit re-runs it. pull_request (never pull_request_target): the PR's own token scope.
+    types: [opened, synchronize, reopened, edited]
 
 # The review gate itself only reads the diff. The pre-merge-brief step (below)
 # upserts a sticky senior-facing PR comment, so the job needs pull-requests:write.

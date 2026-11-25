@@ -44,5 +44,5 @@ export type {
 } from './provenance';
 export { NO_PIPELINE_REVIEW, PROVENANCE_MARKER, noteText } from './stamp-grammar';
 export type { StampNote } from './stamp-grammar';
-export { parseProvenanceStamp, renderParsedStamp, stampHeadNotice } from './stamp-parser';
-export type { ParsedProvenanceStamp, StampHeadNotice } from './stamp-parser';
+export { parseProvenanceStamp, renderParsedStamp, stampCoverage } from './stamp-parser';
+export type { FinalRowCoverage, ParsedProvenanceStamp, StampCoverage } from './stamp-parser';

@@ -6,10 +6,11 @@ import {
   NO_PIPELINE_REVIEW,
   parseProvenanceStamp,
   renderParsedStamp,
-  stampHeadNotice,
+  stampCoverage,
   type CiReviewResult,
   type DiffInfo,
   type ParsedProvenanceStamp,
+  type StampCoverage,
 } from '@harness-engineering/core';
 import { GraphStore } from '@harness-engineering/graph';
 import type { NodeType } from '@harness-engineering/graph';
@@ -23,7 +24,7 @@ import {
   guardianFileLines,
 } from '@harness-engineering/intelligence';
 import { buildDiffInfo, defaultRunGit, resolveDiffRange, type RunGit } from './review-ci';
-import { defaultPrReader, resolvePrNumber, type PrRead } from '../review-receipts/io';
+import { commentsOf, defaultPrReader, resolvePrNumber, type PrRead } from '../github/pr';
 
 /** Hidden HTML marker used to find + upsert the sticky comment. */
 export const BRIEF_MARKER = '<!-- harness:pre-merge-brief -->';
@@ -98,9 +99,11 @@ function renderPopulatedVerdict(verdict: CiReviewResult['verdict']): string[] {
   if (verdict.skipped) {
     out.push('', `> ⚠️ ${verdict.skipReason ?? 'A review tier was skipped.'}`);
   }
-  if (blocking.length) out.push('', '### Blocking', ...blocking.map(findingLine));
+  if (blocking.length) out.push('', '### Blocking', ...capped(blocking.map(findingLine)));
   const nonBlocking = findings.filter((f) => !blocking.some((b) => b.id === f.id));
-  if (nonBlocking.length) out.push('', '### Other findings', ...nonBlocking.map(findingLine));
+  if (nonBlocking.length) {
+    out.push('', '### Other findings', ...capped(nonBlocking.map(findingLine)));
+  }
   return out;
 }
 
@@ -114,13 +117,21 @@ const STATED_NOT_VERIFIED =
   '_As stated in the PR body by its author; not verified by CI (review receipts are machine-local)._';
 
 /**
+ * A stamp was found (its markers and heading) and the reader kept none of its lines: it may come
+ * from another harness version. That is not the renderer's "no pipeline review recorded".
+ */
+const NOTHING_READ = (dropped: number) =>
+  `> **Stamp found, nothing read.** A stamp was found but none of its lines could be read (${dropped} dropped); it may come from another harness version. This is neither "${NO_PIPELINE_REVIEW}" nor a pass.`;
+
+/**
  * Render the **Review provenance** section from the stamp autopilot placed in the PR body:
  * which reviews ran, at what tier, with how many reviewers of how many required. The PR author
  * writes the body and CI has no receipts to check it against, so the section always opens by
- * saying so, and only lines of the stamp's own shape are shown. A body with no stamp reads as
- * "no pipeline review recorded"; a body that could not be read reads as unavailable; a stamp the
- * parser did not read (`conflicting`, `too-large`, `ambiguous`) reads as that state, with its
- * reason, never as either of those and never as a pass.
+ * saying so, and only lines of the stamp's own shape are shown. A body with no stamp, or with the
+ * renderer's own no-review stamp, reads as "no pipeline review recorded"; a body that could not
+ * be read reads as unavailable; a stamp found with no line kept reads as found and not read; a
+ * stamp the parser did not read (`conflicting`, `too-large`, `ambiguous`) reads as that state,
+ * with its reason. None of the last three is "no pipeline review recorded" or a pass.
  */
 function renderReviewProvenance(
   stamp?: ParsedProvenanceStamp | 'unavailable',
@@ -130,9 +141,12 @@ function renderReviewProvenance(
   if (stamp === 'unavailable') return [...out, UNAVAILABLE];
   if (stamp === undefined) return [...out, `> _${NO_PIPELINE_REVIEW}._`];
   if (stamp.status !== 'read') return [...out, ...renderParsedStamp(stamp).map((l) => `> ${l}`)];
+  if (stamp.rows.length + stamp.notes.length === 0 && !stamp.noReview) {
+    return [...out, NOTHING_READ(stamp.dropped + stamp.omitted)];
+  }
+  if (stamp.noReview) out.push(`> _${NO_PIPELINE_REVIEW}._`, ...(stamp.notes.length ? [''] : []));
   out.push(...renderParsedStamp(stamp));
-  if (stamp.rows.length + stamp.notes.length === 0) out.push(`> _${NO_PIPELINE_REVIEW}._`);
-  return [...out, ...leftOutLines(stamp), ...staleStampLines(stamp, prHead)];
+  return [...out, ...leftOutLines(stamp), ...coverageLines(stamp, prHead)];
 }
 
 /** The counts of stamp lines the parser left out, as the brief writes them. */
@@ -153,36 +167,122 @@ function leftOutLines(stamp: ParsedProvenanceStamp): string[] {
   return out;
 }
 
-/** The stamp's head notice (core stampHeadNotice) as the brief writes it. */
-function staleStampLines(stamp: ParsedProvenanceStamp, prHead: string | undefined): string[] {
-  const notice = stampHeadNotice(stamp, prHead);
-  if (notice === undefined) return [];
-  if (notice.kind === 'final-elsewhere') {
-    const at = `this stamp's final-all row passed at ${notice.final}`;
-    return [
-      '',
-      `> The PR head is ${notice.head}; ${at}. Commits after ${notice.final} are not covered by the stamp.`,
-    ];
+/**
+ * Whether the stamp covers the PR head (core stampCoverage), as the brief words it. A stamp with
+ * no row says nothing here: its own line already does.
+ */
+function coverageLines(stamp: ParsedProvenanceStamp, prHead: string | undefined): string[] {
+  const text = stamp.rows.length === 0 ? undefined : coverageText(stampCoverage(stamp, prHead));
+  return text === undefined ? [] : ['', `> ${text}`];
+}
+
+function coverageText(c: StampCoverage): string | undefined {
+  switch (c.state) {
+    case 'not-read':
+      return undefined;
+    case 'no-final-row': {
+      const lead = c.head === undefined ? 'This' : `The PR head is ${c.head}; this`;
+      const passed = c.passed.length > 0 ? ` (other rows passed at: ${c.passed.join(', ')})` : '';
+      return `${lead} stamp has no final-all row, so it states no final review of the PR${passed}.`;
+    }
+    case 'several-final-rows':
+      return `This stamp has ${c.finalRows} final-all rows, so none is compared with the PR head, and the PR head is not shown as covered.`;
+    case 'head-unknown':
+      return `The PR head could not be read, so this stamp's final review (gate: ${c.finalGate}) is not compared with it.`;
+    case 'current':
+      return `The PR head is ${c.head}, the commit this stamp's final review is at (gate: ${c.finalGate}).`;
+    case 'stale':
+      return c.finalHead === undefined
+        ? `The PR head is ${c.head}; this stamp's final review names no reviewed commit (gate: ${c.finalGate}), so it does not cover the PR head.`
+        : `The PR head is ${c.head}; this stamp's final review is at ${c.finalHead} (gate: ${c.finalGate}). Commits after ${c.finalHead} are not covered.`;
   }
-  const at = `no row of this stamp passed at it (passed at: ${notice.passed.join(', ')})`;
-  return [
-    '',
-    `> The PR head is ${notice.head}; ${at}. Commits after the stamp are not covered by it.`,
-  ];
 }
 
 /** GitHub rejects a comment over 65,536 characters; the brief stays well under it. */
 export const BRIEF_MAX_CHARS = 60000;
 
-/** The brief, cut at a line end with a visible mark when it is over the comment size limit. */
-export function fitComment(body: string): string {
-  if (body.length <= BRIEF_MAX_CHARS) return body;
-  const mark = (n: number) =>
-    `\n> _Brief truncated: ${n} characters are not shown (GitHub comment size limit)._`;
-  const room = BRIEF_MAX_CHARS - mark(body.length).length;
-  const cut = body.lastIndexOf('\n', room);
-  const kept = body.slice(0, cut > 0 ? cut : room);
-  return `${kept}${mark(body.length - kept.length)}`;
+/** Items a finding list shows before `+N more`: the review verdict's lists and the 🛑 bullets. */
+export const BRIEF_LIST_MAX = 50;
+
+/** The first BRIEF_LIST_MAX lines, then how many were left out. */
+function capped(lines: readonly string[]): string[] {
+  if (lines.length <= BRIEF_LIST_MAX) return [...lines];
+  return [...lines.slice(0, BRIEF_LIST_MAX), `- +${lines.length - BRIEF_LIST_MAX} more`];
+}
+
+/**
+ * One section of the brief and how fitting may treat it: `cut` sections lose text first (the
+ * largest first), `last` only when cutting every `cut` section was not enough, `never` not at
+ * all. `title` names it in the truncation mark.
+ */
+export interface BriefSection {
+  title: string;
+  lines: string[];
+  fit: 'cut' | 'last' | 'never';
+}
+
+const CUT_NOTE = '> _This section is cut here (GitHub comment size limit)._';
+
+const truncationMark = (chars: number, titles: readonly string[]) =>
+  `> _Brief truncated: ${chars} characters are not shown (GitHub comment size limit); cut from: ${titles.join(', ')}._`;
+
+const renderSections = (sections: readonly BriefSection[]) =>
+  sections.map((s) => s.lines.join('\n')).join('\n\n');
+
+/**
+ * Cut lines from the end of a section (never its `## ` heading) until `need` characters are gone,
+ * and say where. The characters removed; 0 when cutting would not save more than the note costs.
+ */
+function cutSection(section: BriefSection, need: number): number {
+  const lines = section.lines.join('\n').split('\n');
+  const keep = lines[0]?.startsWith('## ') ? 2 : 0;
+  const removable = lines.slice(keep).reduce((n, l) => n + l.length + 1, 0);
+  if (removable <= CUT_NOTE.length + 1) return 0;
+  let removed = 0;
+  while (lines.length > keep && removed < need + CUT_NOTE.length + 1) {
+    removed += (lines.pop() ?? '').length + 1;
+  }
+  section.lines = [...lines, CUT_NOTE];
+  return removed;
+}
+
+/**
+ * The brief as one comment within BRIEF_MAX_CHARS. Over it, `cut` sections lose lines from their
+ * end, the largest first, then `last` ones, until it fits; `never` sections (the header and the
+ * Review provenance section) are not cut. Each cut section says where it was cut, and the mark at
+ * the end says how many characters are not shown and names the sections that lost text.
+ */
+export function fitComment(sections: readonly BriefSection[]): string {
+  const whole = renderSections(sections);
+  if (whole.length <= BRIEF_MAX_CHARS) return whole;
+  const out = sections.map((s) => ({ ...s, lines: [...s.lines] }));
+  const budget =
+    BRIEF_MAX_CHARS -
+    truncationMark(
+      whole.length,
+      sections.map((s) => s.title)
+    ).length -
+    1;
+  const cutFrom = new Set<BriefSection>();
+  let removed = 0;
+  for (const tier of ['cut', 'last'] as const) {
+    const candidates = out
+      .filter((s) => s.fit === tier)
+      .sort((a, b) => renderSections([b]).length - renderSections([a]).length);
+    for (const section of candidates) {
+      const need = renderSections(out).length - budget;
+      if (need <= 0) break;
+      const gone = cutSection(section, need);
+      if (gone > 0) cutFrom.add(section);
+      removed += gone;
+    }
+  }
+  const titles = out.filter((s) => cutFrom.has(s)).map((s) => s.title);
+  const kept = renderSections(out);
+  // Only text beyond the bounds of the uncut sections gets here; keep a prefix, as before.
+  const body =
+    kept.length <= budget ? kept : kept.slice(0, Math.max(kept.lastIndexOf('\n', budget), 0));
+  return `${body}\n${truncationMark(removed + (kept.length - body.length), titles)}`;
 }
 
 /** Render a single signal as a one-line Markdown bullet: status, label, value. */
@@ -259,8 +359,8 @@ function renderGuardian(guardian?: GuardianAnalysis[]): string[] {
  * may still carry a stale unmetCriteria array).
  */
 function blockingBullets(inputs: BriefInputs): string[] {
-  return (inputs.review?.blockingFindings ?? []).map(
-    (f) => `- 🛑 ${findingLine(f).replace(/^- /, '')}`
+  return capped(
+    (inputs.review?.blockingFindings ?? []).map((f) => `- 🛑 ${findingLine(f).replace(/^- /, '')}`)
   );
 }
 
@@ -305,34 +405,35 @@ function deriveWorthYourEyes(inputs: BriefInputs): string[] {
 }
 
 /**
- * Pure Markdown render (no I/O, no process.exit). Assembles the brief section by
- * section, in the order required by the spec: header, diff summary, review
- * verdict, Signal status, outcome-eval, "worth your eyes".
+ * Pure Markdown render (no I/O, no process.exit). Assembles the brief section by section, in the
+ * order the skill states: marker + header, Diff summary, Review verdict, Review provenance,
+ * Signal status, Outcome evaluation, Guardian diff-coverage, "Worth your eyes". The finding lists
+ * are capped (BRIEF_LIST_MAX), and fitComment keeps the header and Review provenance whole and
+ * cuts "Worth your eyes" only after every other section.
  */
 export function buildBriefBody(inputs: BriefInputs): string {
-  const lines: string[] = [
-    BRIEF_MARKER,
-    '# 🧭 Pre-merge brief',
-    '',
-    ...renderDiffSummary(inputs.diff),
-    '',
-    ...renderReviewVerdict(inputs.review),
-    '',
-    ...renderReviewProvenance(inputs.provenance, inputs.prHead),
-    '',
-    ...renderSignalStatus(inputs.signals),
-    '',
-    ...renderOutcomeEval(inputs.outcome),
-    '',
-    ...renderGuardian(inputs.guardian),
-    '',
-    ...deriveWorthYourEyes(inputs),
-  ];
-  return fitComment(lines.join('\n'));
+  return fitComment([
+    { title: 'header', lines: [BRIEF_MARKER, '# 🧭 Pre-merge brief'], fit: 'never' },
+    { title: 'Diff summary', lines: renderDiffSummary(inputs.diff), fit: 'cut' },
+    { title: 'Review verdict', lines: renderReviewVerdict(inputs.review), fit: 'cut' },
+    {
+      title: 'Review provenance',
+      lines: renderReviewProvenance(inputs.provenance, inputs.prHead),
+      fit: 'never',
+    },
+    { title: 'Signal status', lines: renderSignalStatus(inputs.signals), fit: 'cut' },
+    { title: 'Outcome evaluation', lines: renderOutcomeEval(inputs.outcome), fit: 'cut' },
+    { title: 'Guardian diff-coverage', lines: renderGuardian(inputs.guardian), fit: 'cut' },
+    { title: 'Worth your eyes', lines: deriveWorthYourEyes(inputs), fit: 'last' },
+  ]);
 }
 
-/** Seam for delivering the brief to a PR — real impl shells out to `gh`. */
-export type PostBrief = (body: string, pr?: number) => void;
+/**
+ * Seam for delivering the brief to a PR — real impl shells out to `gh`. `comments`: the PR's
+ * comments when the run already read them with its body (one `gh pr view` a run); the poster
+ * lists them itself otherwise.
+ */
+export type PostBrief = (body: string, pr?: number, comments?: MarkedComment[]) => void;
 
 /** The minimal comment shape the upsert logic needs: an id and a body. */
 export interface MarkedComment {
@@ -361,30 +462,29 @@ export function upsertComment(
   }
 }
 
-/**
- * Default poster: upsert the brief as a single sticky PR comment via `gh`.
- *
- * Lists the current PR's comments (`gh pr view --json comments`), finds the one
- * carrying {@link BRIEF_MARKER}, and either PATCHes it in place
- * (`gh api ... -X PATCH`) or posts a fresh one (`gh pr comment --body-file -`,
- * piping the body via stdin so a long brief never hits the shell arg-length
- * limit). Contains NO `process.exit`; the caller owns exit codes.
- */
-export const defaultPostBrief: PostBrief = (body, pr) => {
-  // On a detached merge ref (the pull_request event) gh cannot find the PR from the checkout.
-  const target = pr === undefined ? [] : [String(pr)];
+/** The PR's comments through `gh pr view --json comments`, for a run that did not read them. */
+function listComments(target: string[]): MarkedComment[] {
   const raw = execFileSync('gh', ['pr', 'view', ...target, '--json', 'comments'], {
     encoding: 'utf-8',
   }).toString();
-  const parsed = JSON.parse(raw) as {
-    comments?: Array<{ id?: number; url?: string; body?: string }>;
-  };
-  const comments: MarkedComment[] = (parsed.comments ?? [])
-    .filter(
-      (c): c is { id: number; body: string } =>
-        typeof c.id === 'number' && typeof c.body === 'string'
-    )
-    .map((c) => ({ id: c.id, body: c.body }));
+  const parsed = JSON.parse(raw) as { comments?: unknown };
+  return Array.isArray(parsed?.comments) ? commentsOf(parsed.comments) : [];
+}
+
+/**
+ * Default poster: upsert the brief as a single sticky PR comment via `gh`.
+ *
+ * Takes the PR's comments the run read with its body, else lists them
+ * (`gh pr view --json comments`), finds the one carrying {@link BRIEF_MARKER},
+ * and either PATCHes it in place (`gh api ... -X PATCH`) or posts a fresh one
+ * (`gh pr comment --body-file -`, piping the body via stdin so a long brief
+ * never hits the shell arg-length limit). Contains NO `process.exit`; the
+ * caller owns exit codes.
+ */
+export const defaultPostBrief: PostBrief = (body, pr, known) => {
+  // On a detached merge ref (the pull_request event) gh cannot find the PR from the checkout.
+  const target = pr === undefined ? [] : [String(pr)];
+  const comments = known ?? listComments(target);
 
   upsertComment(
     comments,
@@ -572,20 +672,27 @@ export interface PreMergeBriefOptions {
    * Read the PR's body and head; undefined when there is no PR, a throw when it could not be
    * read. Defaults to no read; the command action injects the `gh` reader.
    */
-  readPr?: () => Pick<PrRead, 'body' | 'headSha'> | undefined;
-  /** The PR to read and comment on. Default: the PR of the checked-out branch. */
+  readPr?: () => Pick<PrRead, 'body' | 'headSha' | 'comments'> | undefined;
+  /** The PR to read and comment on (`--pr`, else GITHUB_REF). Default: the checked-out branch's PR. */
   pr?: number;
 }
 
-/** The stamp parsed from the PR body (undefined: none; `'unavailable'`: a failed read), and the PR head. */
+/**
+ * The stamp parsed from the PR body (undefined: none; `'unavailable'`: a failed read), the PR
+ * head, and the PR's comments when the read listed them (the poster reuses them).
+ */
 function readProvenanceSafe(
   read: PreMergeBriefOptions['readPr']
-): Pick<BriefInputs, 'provenance' | 'prHead'> {
+): Pick<BriefInputs, 'provenance' | 'prHead'> & { comments?: MarkedComment[] } {
   if (read === undefined) return {};
   try {
     const pr = read();
     const provenance = parseProvenanceStamp(pr?.body ?? '');
-    return { provenance, ...(pr?.headSha !== undefined && { prHead: pr.headSha }) };
+    return {
+      provenance,
+      ...(pr?.headSha !== undefined && { prHead: pr.headSha }),
+      ...(pr?.comments !== undefined && { comments: pr.comments }),
+    };
   } catch {
     return { provenance: 'unavailable' };
   }
@@ -622,7 +729,7 @@ export async function runPreMergeBrief(opts: PreMergeBriefOptions): Promise<{ bo
   const signals = await gatherSignalsSafe(cwd, opts.gather);
   const outcome = findOutcomeVerdict(opts.store, opts.headSha);
   const guardian = await gatherGuardianSafe(cwd, opts.readGuardian);
-  const stated = readProvenanceSafe(opts.readPr);
+  const { comments, ...stated } = readProvenanceSafe(opts.readPr);
 
   const body = buildBriefBody({ diff, review, signals, outcome, guardian, ...stated });
 
@@ -632,7 +739,7 @@ export async function runPreMergeBrief(opts: PreMergeBriefOptions): Promise<{ bo
     // unauthenticated, API error) we still print the rendered brief + a
     // one-line warning to stderr and let the caller exit 0.
     try {
-      (opts.postBrief ?? defaultPostBrief)(body, opts.pr);
+      (opts.postBrief ?? defaultPostBrief)(body, opts.pr, comments);
     } catch (err) {
       const reason = err instanceof Error ? err.message : String(err);
       (opts.warn ?? ((m: string) => process.stderr.write(m + '\n')))(
@@ -654,6 +761,10 @@ function prNumberOrExit(flag: unknown): number | undefined {
   return process.exit(1);
 }
 
+/** The `--comment` help: the PR it posts to is the one the brief reads. */
+const COMMENT_HELP =
+  "upsert the brief as a sticky comment on the PR --pr names (else GITHUB_REF's, else the branch's)";
+
 /** Build the top-level `harness pre-merge-brief` command. */
 export function createPreMergeBriefCommand(): Command {
   return new Command('pre-merge-brief')
@@ -667,7 +778,7 @@ export function createPreMergeBriefCommand(): Command {
       'PR to read and comment on (default: from GITHUB_REF, else the branch). Not a number: exit 1'
     )
     .option('--from <path>', 'review-ci --json verdict artifact')
-    .option('--comment', "upsert the brief as a sticky comment on the current branch's PR")
+    .option('--comment', COMMENT_HELP)
     .option('--diff <range>', 'git range (default: origin/<base>...HEAD)')
     .option('--head <sha>', 'head commit sha for the outcome lookup (default: git rev-parse HEAD)')
     .action(async (opts: Record<string, unknown>) => {

@@ -1055,9 +1055,14 @@ describe('unit 4: pre-merge-brief reads the stamp back from the PR body', () => 
     expect(text).toContain(
       'always opens the section with the line `_As stated in the PR body by its author; not verified by CI (review receipts are machine-local)._`'
     );
-    expect(text).toMatch(/A body with no stamp reads `no pipeline review recorded`/);
     expect(text).toMatch(
-      /A body that could not be read \(`gh` failed\) reads `unavailable \/ not configured`, which is a different statement: it does not say no review ran/
+      /A body with no stamp, or with the renderer's own no-review stamp, reads `no pipeline review recorded`/
+    );
+    expect(text).toContain(
+      'A stamp that was found but none of whose lines could be read (a stamp from another harness version, say) reads `A stamp was found but none of its lines could be read (N dropped); it may come from another harness version.`'
+    );
+    expect(text).toMatch(
+      /A body that could not be read \(`gh` failed, or replied with something that is not a pull request\) reads `unavailable \/ not configured`, which is a different statement: it does not say no review ran/
     );
     expect(text).toContain('[--pr <number>]');
     expect(text).toMatch(/`--pr <number>` \(the PR to read and comment on/);
@@ -1074,8 +1079,19 @@ describe('unit 4: pre-merge-brief reads the stamp back from the PR body', () => 
       expect(text, state).toContain(state);
     expect(text).toContain('never `no pipeline review recorded` and never a pass');
     expect(text).toContain('`N line(s) of the stamp are over its size bounds and are not shown.`');
-    expect(text).toMatch(/Commits after <sha> are not covered by the stamp/);
-    expect(text).toMatch(/a brief longer than 60,000 characters is cut at a line end/);
+    expect(text).toContain(
+      "it compares the PR head with the head the `final-all` row reviewed (its Diff cell), whatever that row's Gate cell says"
+    );
+    expect(text).toContain(
+      "`The PR head is <sha>; this stamp's final review is at <sha> (gate: <gate>). Commits after <sha> are not covered.`"
+    );
+    expect(text).toContain('A stamp with no `final-all` row states no final review of the PR');
+    expect(text).not.toMatch(/no row of this stamp passed at it/);
+    expect(text).toMatch(
+      /a brief still longer than 60,000 characters is cut at a line end, section by section/
+    );
+    expect(text).toContain('the Review provenance section is never cut');
+    expect(text).toMatch(/show 50 items and then `\+N more`/);
     expect(text).not.toMatch(/the last such pair is read|Only the last complete marker pair/);
   });
   it('declares pr in all four platform copies, which are identical', () => {

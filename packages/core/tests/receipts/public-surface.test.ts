@@ -21,9 +21,9 @@ describe('receipts module surface', () => {
     'buildProvenanceRow',
     'renderProvenanceBlock',
     'parseProvenanceStamp',
-    // Unit 4: the stamp as pre-merge-brief prints it, and its head notice.
+    // Unit 4: the stamp as pre-merge-brief prints it, and whether it covers the PR head.
     'renderParsedStamp',
-    'stampHeadNotice',
+    'stampCoverage',
   ])('exports %s as a function', (name) => {
     expect(typeof (receipts as Record<string, unknown>)[name]).toBe('function');
   });

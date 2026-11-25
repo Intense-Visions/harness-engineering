@@ -632,6 +632,7 @@ FileSkipReason
 FileSpool
 FileSpoolOptions
 FinalReviewBase
+FinalRowCoverage
 FindingClass
 FindingIntegrityAction
 FindingIntegrityReport
@@ -1521,8 +1522,8 @@ StaleConstraint
 StaleReference
 StalenessEntry
 StalenessReport
+StampCoverage
 StampGit
-StampHeadNotice
 StampNote
 StampRow
 StampSessionState
@@ -2380,7 +2381,7 @@ spearmanRankCorrelation
 spillIfNeeded
 splitBundlesByStage
 stageDomains
-stampHeadNotice
+stampCoverage
 standaloneReviewBase
 suggestCategory
 summarizeAutoDecisions

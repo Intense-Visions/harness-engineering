@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/tests/commands'
-sourceHash: '4a04860cdff9b37065150492160ecdae7dd2145d3d73c190a80ea75df6c09cb1'
+sourceHash: '4df8881a4d7a6ea7d4a0716c1c518ca18806ca8945ba7b4c085895a1282e8258'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -367,7 +367,7 @@ import { GIT_DIFF_MAX_BUFFER, OutcomeEvaluatorLike, buildOutcomeBody, createOutc
 import { createPerfCommand } from '../../src/commands/perf'
 import { createPersonaCommand } from '../../src/commands/persona/index'
 import { createListCommand } from '../../src/commands/persona/list'
-import { BRIEF_MARKER, BRIEF_MAX_CHARS, buildBriefBody, createPreMergeBriefCommand, defaultPostBrief, findOutcomeVerdict, fitComment, gatherGuardianSafe, gatherSignalsSafe, loadOutcomeStore, readReview, runPreMergeBrief, upsertComment } from '../../src/commands/pre-merge-brief'
+import { BRIEF_LIST_MAX, BRIEF_MARKER, BRIEF_MAX_CHARS, BriefInputs, BriefSection, buildBriefBody, createPreMergeBriefCommand, defaultPostBrief, findOutcomeVerdict, fitComment, gatherGuardianSafe, gatherSignalsSafe, loadOutcomeStore, readReview, runPreMergeBrief, upsertComment } from '../../src/commands/pre-merge-brief'
 import { createPredictCommand, runPredict } from '../../src/commands/predict'
 import { actStatusCommand, createProposalsCommand, runProposalsList, runProposalsReject, runProposalsShow, runProposalsStatus } from '../../src/commands/proposals'
 import { RunGit, createProvenanceCommand, runProvenanceCommand } from '../../src/commands/provenance'
@@ -440,6 +440,7 @@ import { DesignPipelineContext, runDesignPipeline } from '../../src/design-pipel
 import { DocsCraftOutput, DocsFinding } from '../../src/docs-craft/findings/schema.js'
 import { DocsCraftInput, runDocsCraft } from '../../src/docs-craft/index.js'
 import { DriftFinding } from '../../src/drift/findings/finding.js'
+import { resolvePrNumber } from '../../src/github/pr'
 import { createProgram } from '../../src/index'
 import { readMcpConfig, writeMcpEntry, writeOpencodeMcpEntry } from '../../src/integrations/config'
 import { CATALOG_LAST_REVIEWED, INTEGRATION_REGISTRY } from '../../src/integrations/registry'
@@ -476,7 +477,7 @@ import { findDependentsOf, resolveVersion } from '../../src/registry/resolver'
 import { cleanupTempDir, extractTarball, placeSkillContent, removeSkillContent } from '../../src/registry/tarball'
 import { validateForPublish } from '../../src/registry/validator'
 import { runCheckReviewReceipt } from '../../src/review-receipts/gate'
-import { CwdGit, resolveFinalReviewBase, resolvePrNumber, runGitIn } from '../../src/review-receipts/io'
+import { CwdGit, resolveFinalReviewBase, runGitIn } from '../../src/review-receipts/io'
 import { ROLLBACK_EVENTS_FILE } from '../../src/rollback/breadcrumb'
 import { SweepSignalRule } from '../../src/rollback/sweep'
 import { SecurityCraftInput, SecurityCraftOutput } from '../../src/security-craft/index.js'

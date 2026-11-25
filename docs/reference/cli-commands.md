@@ -545,7 +545,7 @@ Compose a senior-facing pre-merge PR brief in seven sections: diff summary, revi
 
 - `--pr` — PR to read and comment on (default: from GITHUB_REF, else the branch). Not a number: exit 1
 - `--from` — review-ci --json verdict artifact
-- `--comment` — upsert the brief as a sticky comment on the current branch's PR
+- `--comment` — upsert the brief as a sticky comment on the PR --pr names (else GITHUB_REF's, else the branch's)
 - `--diff` — git range (default: origin/<base>...HEAD)
 - `--head` — head commit sha for the outcome lookup (default: git rev-parse HEAD)
 

@@ -58,6 +58,12 @@ export interface ParsedProvenanceStamp {
   passedAt: Array<{ review: string; sha: string }>;
   /** Every final-all row: its Gate cell and the abbreviated head its Diff cell names. */
   finalRows: Array<{ gate: string; head?: string }>;
+  /**
+   * The stamp is the renderer's own "no pipeline review recorded" line. A stamp that was read and
+   * kept no row and no note is not that unless this is set: its lines may all have been dropped
+   * (a stamp from another harness version, say), which is not a statement that no review ran.
+   */
+  noReview: boolean;
 }
 
 /**
@@ -441,6 +447,7 @@ const empty = (status: ParsedProvenanceStamp['status'], stamps: number): ParsedP
   reviewed: 0,
   passedAt: [],
   finalRows: [],
+  noReview: false,
 });
 
 /**
@@ -472,6 +479,7 @@ function readStamp(lines: readonly string[]): ParsedProvenanceStamp {
   const out = empty('read', 1);
   const [first = [], second = [], ...rest] = blocksOf(lines);
   const noReview = first.length === 1 && first[0] === `_${NO_PIPELINE_REVIEW}._`;
+  out.noReview = noReview;
   if (!noReview && first[0] === STAMP_TABLE_HEADER && first[1] === STAMP_TABLE_RULE) {
     readBlock(out, first.slice(2), (line) => {
       const cells = parseStampRow(line);
@@ -535,26 +543,62 @@ export function renderParsedStamp(stamp: ParsedProvenanceStamp): string[] {
 }
 
 /**
- * What a reader of the PR should be told when the stamp was not rendered at the PR head: the
- * final-all row passed at another commit, or (no passing final row) no row passed at the head.
- * undefined: nothing to say (the stamp was not read, the head is not a full sha, no row passed,
- * or the stamp is current).
+ * Whether a parsed stamp covers the PR head, as data: each consumer words it for itself.
+ *
+ * - `not-read`: the stamp was not read (`conflicting`, `too-large`, `ambiguous`).
+ * - `no-final-row`: the stamp has no final-all row, so it states no final review of the PR; it
+ *   is never current. `passed`: the commits its other rows passed at, distinct, in row order.
+ * - `several-final-rows`: it has more than one, so none is compared with the PR head.
+ * - `head-unknown`: one final row, and the PR head is not a full sha, so no comparison is made.
+ * - `current`: the one final row reviewed the PR head (its Diff cell's head) with no commit
+ *   counted as not reviewed. `stale`: it did not (another head, no head at all: `MISSING` and the
+ *   other unread Gate cells, or a `+N commits not reviewed` suffix).
+ *
+ * The final row decides whatever its Gate cell says: `accepted` says whether it passed or was
+ * overridden, and `finalGate` is the cell, verbatim. A reader that needs a passed review at the
+ * PR head wants `current` and `accepted`. `head`, `finalHead` and the shas in `passed` are
+ * abbreviated to seven characters, as the stamp writes them.
  */
-export type StampHeadNotice =
-  | { kind: 'final-elsewhere'; head: string; final: string }
-  | { kind: 'no-row-at-head'; head: string; passed: string[] };
+export type StampCoverage =
+  | { state: 'not-read' }
+  | { state: 'no-final-row'; head?: string; passed: string[] }
+  | { state: 'several-final-rows'; head?: string; finalRows: number }
+  | ({ state: 'head-unknown' } & FinalRowCoverage)
+  | ({ state: 'current' | 'stale'; head: string } & FinalRowCoverage);
 
-export function stampHeadNotice(
+/** The one final-all row of a stamp, as stampCoverage reports it. */
+export interface FinalRowCoverage {
+  finalHead?: string;
+  finalGate: string;
+  accepted: boolean;
+  /** The Gate cell's `+N commits not reviewed` suffix, without its comma. */
+  unreviewed?: string;
+}
+
+const UNREVIEWED_SUFFIX =
+  /, (\+(?:\d+ commits? not reviewed|\? commits not reviewed \(count unavailable\)))$/;
+
+export function stampCoverage(
   stamp: ParsedProvenanceStamp,
   prHead: string | undefined
-): StampHeadNotice | undefined {
-  if (stamp.status !== 'read' || prHead === undefined || !FULL_SHA_PATTERN.test(prHead)) {
-    return undefined;
+): StampCoverage {
+  if (stamp.status !== 'read') return { state: 'not-read' };
+  const head =
+    prHead !== undefined && FULL_SHA_PATTERN.test(prHead) ? prHead.slice(0, 7) : undefined;
+  const at = head === undefined ? {} : { head };
+  const [row, ...more] = stamp.finalRows;
+  if (row === undefined) {
+    return { state: 'no-final-row', ...at, passed: [...new Set(stamp.passedAt.map((p) => p.sha))] };
   }
-  const head = prHead.slice(0, 7);
-  const final = stamp.passedAt.find((p) => p.review === FINAL_REVIEW_LABEL)?.sha;
-  const passed = [...new Set(stamp.passedAt.map((p) => p.sha))];
-  if (passed.length === 0 || final === head) return undefined;
-  if (final !== undefined) return { kind: 'final-elsewhere', head, final };
-  return passed.includes(head) ? undefined : { kind: 'no-row-at-head', head, passed };
+  if (more.length > 0) return { state: 'several-final-rows', ...at, finalRows: more.length + 1 };
+  const unreviewed = UNREVIEWED_SUFFIX.exec(row.gate)?.[1];
+  const final: FinalRowCoverage = {
+    ...(row.head !== undefined && { finalHead: row.head }),
+    finalGate: row.gate,
+    accepted: /^pass at /.test(row.gate) || / \(overridden\)/.test(row.gate),
+    ...(unreviewed !== undefined && { unreviewed }),
+  };
+  if (head === undefined) return { state: 'head-unknown', ...final };
+  const current = row.head === head && unreviewed === undefined;
+  return { state: current ? 'current' : 'stale', head, ...final };
 }

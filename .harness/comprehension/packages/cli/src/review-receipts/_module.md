@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/review-receipts'
-sourceHash: '99c27b7121af579ae030a568cf4988b4e765bea5c90bc6476b20d011122b819e'
+sourceHash: '84881dc96bcdd8ba3e726b1f788148fe0349ba74185d188fe9c9bd32297ab0f5'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -15,7 +15,6 @@ export CwdGit
 export REVIEW_MOMENTS
 export ReviewGateFailure
 export ReviewMoment
-export defaultPrReader
 export earlierPhaseReceipt
 export gateReviewReceipt
 export isAncestor
@@ -29,7 +28,6 @@ export readSessionStateText
 export remoteTrackingRef
 export resolveCommit
 export resolveFinalReviewBase
-export resolvePrNumber
 export resolveRepoRoots
 export resolveStandaloneReviewBase
 export reviewMergeBase

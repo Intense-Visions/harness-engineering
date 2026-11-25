@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/src/receipts'
-sourceHash: '9ebc4c02b5b2e98c37f1c09b6b651ab30b964da057a249d2537b53314a6cac7b'
+sourceHash: 'f9d945eb5f028cba409e1049f7f7db6f4bdfdf5fb49a2fb9b08234fe15df42bd'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -29,6 +29,7 @@ export CommitsAfter
 export EarlierPhaseReceipt
 export ExpectedUnknown
 export FinalReviewBase
+export FinalRowCoverage
 export FindingsFileRange
 export NO_PIPELINE_REVIEW
 export OrphanDecision
@@ -47,8 +48,8 @@ export ReviewGateFailure
 export ReviewGateResult
 export SessionReviewState
 export SkipCheck
+export StampCoverage
 export StampGit
-export StampHeadNotice
 export StampNote
 export StampRow
 export StampSessionState
@@ -82,7 +83,7 @@ export resolveReviewBackend
 export reviewFindingsReaderFor
 export reviewGateFailure
 export sessionDirOfReviewDir
-export stampHeadNotice
+export stampCoverage
 export standaloneReviewBase
 export validateReviewReceipt
 ```
