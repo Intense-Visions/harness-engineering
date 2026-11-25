@@ -961,3 +961,23 @@ describe('unit 1 review round 4, fix 3: a standalone review is of the checked-ou
     );
   });
 });
+
+describe('unit 1 review round 4, fix 9: the dispatched-mode arguments carry the base', () => {
+  it('skill.yaml declares base beside head', () => {
+    const args = (
+      parseYaml(readFileSync(resolve(SKILL_DIR, 'skill.yaml'), 'utf-8')) as {
+        cli: { args: Array<{ name: string; description: string }> };
+      }
+    ).cli.args;
+    const names = args.map((a) => a.name);
+    expect(names.indexOf('base')).toBe(names.indexOf('head') - 1);
+    expect(args.find((a) => a.name === 'base')?.description).toBe(
+      "The reviewed range's base as a 40-character sha, named with review-dir; written as base in the findings file"
+    );
+  });
+  it('Argument Resolution names the base and head arguments', () => {
+    expect(section(md(), '## Argument Resolution')).toMatch(
+      /The brief also names the `moment`, the reviewed `base` and `head` \(the `base` and `head` arguments, each a 40-character sha, written as `base` and `head` in your findings file\) and your reviewer id\./
+    );
+  });
+});

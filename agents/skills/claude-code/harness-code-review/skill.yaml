@@ -61,6 +61,8 @@ cli:
     - name: reviewer
       description: "Reviewer id, named with review-dir: compliance-bug for the one reviewer of a light review, or one domain of a full review (compliance, bug, security, architecture, adversarial, typescript-strict, frontend-races). It names the findings file to write"
       required: false
+    - name: base
+      description: "The reviewed range's base as a 40-character sha, named with review-dir; written as base in the findings file"
     - name: head
       description: "The reviewed commit as a 40-character sha, named with review-dir; written as head in the findings file"
       required: false

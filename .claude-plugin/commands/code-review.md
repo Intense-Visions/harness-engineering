@@ -1,7 +1,7 @@
 ---
 name: harness:code-review
 description: Multi-phase code review pipeline with mechanical checks, graph-scoped context, and parallel review agents
-argument-hint: '[--path <path>] [--comment <comment>] [--deep <deep>] [--no-mechanical <no-mechanical>] [--ci <ci>] [--fast <fast>] [--thorough <thorough>] [--depth <depth>] [--session-slug <session-slug>] [--commit-range <commit-range>] [--review-dir <review-dir>] [--moment <moment>] [--reviewer <reviewer>] [--head <head>]'
+argument-hint: '[--path <path>] [--comment <comment>] [--deep <deep>] [--no-mechanical <no-mechanical>] [--ci <ci>] [--fast <fast>] [--thorough <thorough>] [--depth <depth>] [--session-slug <session-slug>] [--commit-range <commit-range>] [--review-dir <review-dir>] [--moment <moment>] [--reviewer <reviewer>] [--base <base>] [--head <head>]'
 allowed-tools:
   - Bash
   - Read
