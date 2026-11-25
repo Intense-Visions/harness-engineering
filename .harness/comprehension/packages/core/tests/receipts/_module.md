@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/tests/receipts'
-sourceHash: '3fbf31cb855b471e21a6305b3f5cd0e1fe91c8b991d069dcb75342ec4191a2e3'
+sourceHash: '7f8b4ad00925764fb82312b32b3e20fee18d6e589a22b074989fb891afb4d5ab'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -40,6 +40,7 @@ members:
     'unit3-findings.test.ts',
     'unit3-fix-round1.test.ts',
     'unit3-fix-round2.test.ts',
+    'unit3-fix-round3.test.ts',
   ]
 ---
 
