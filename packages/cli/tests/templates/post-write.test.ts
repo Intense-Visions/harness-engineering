@@ -229,6 +229,22 @@ describe('ensureHarnessGitignore', () => {
       expect(ignored('.harness/graph/graph.json')).toBe(true);
     });
 
+    // Unit 1 review round 3, fix 8: standalone review artifacts are machine-local in an adopter
+    // project too, not only in this repository.
+    it('ignores standalone review receipts and findings files in a fresh project', () => {
+      ensureHarnessGitignore(tmpDir);
+      expect(ignored('.harness/reviews/feat-x-abc/receipt.json')).toBe(true);
+      expect(ignored('.harness/reviews/feat-x-abc/bug.json')).toBe(true);
+      expect(ignored('.harness/sessions/s1/reviews/phase-0/receipt.json')).toBe(true);
+      expect(ignored('.harness/security/timeline.json')).toBe(false);
+    });
+    it('adds the reviews rule to an existing project gitignore that lacks it', () => {
+      fs.mkdirSync(path.join(tmpDir, '.harness'), { recursive: true });
+      fs.writeFileSync(path.join(tmpDir, '.harness', '.gitignore'), 'graph/\n');
+      ensureHarnessGitignore(tmpDir);
+      expect(ignored('.harness/reviews/x/receipt.json')).toBe(true);
+    });
+
     it('migrates a legacy bare security/ and hooks/ so the ledger and hooks become trackable', () => {
       fs.mkdirSync(path.join(tmpDir, '.harness'), { recursive: true });
       const gitignorePath = path.join(tmpDir, '.harness', '.gitignore');
