@@ -445,12 +445,25 @@ function rosterFailures(receipt: ReviewReceipt): ReviewGateFailure[] {
 }
 
 /**
- * A `light` receipt whose recorded computed tier is `full` ran below what the tier command
- * printed. That is allowed only for the one demotion a session states (`no-subagent-tool`).
+ * A `light` receipt below a computed `full` ran below what the tier command printed: one whose
+ * recorded computed tier is `full`, and every standalone one (a standalone review is always
+ * computed full, whatever the receipt records; its moment comes from the directory when that
+ * states one). That is allowed only for the one demotion a session states (`no-subagent-tool`).
+ * A final review is held to `full` by FINAL_NOT_FULL instead.
  */
-function demotionFailures(receipt: ReviewReceipt): ReviewGateFailure[] {
-  if (receipt.tier !== 'light' || receipt.computedTier !== 'full') return [];
-  if (receipt.demotion !== undefined) return [];
+function demotionFailures(receipt: ReviewReceipt, expected: ExpectedMoment): ReviewGateFailure[] {
+  if (receipt.tier !== 'light' || receipt.demotion !== undefined) return [];
+  const moment = expected.status === 'known' ? expected.moment : receipt.moment;
+  if (moment === 'standalone') {
+    return [
+      reviewGateFailure(
+        'TIER_DEMOTED',
+        'the receipt is tier light, but a standalone review is always computed full; a light ' +
+          'standalone review is allowed only with demotion "no-subagent-tool"'
+      ),
+    ];
+  }
+  if (receipt.computedTier !== 'full') return [];
   const why = (receipt.tierReasons ?? []).join(', ') || 'no reasons recorded';
   return [
     reviewGateFailure(
@@ -770,7 +783,7 @@ export function validateReviewReceipt(
     ...baseFailures(r, context),
     ...phaseBaseFailures(r, context.phaseBase),
     ...rosterFailures(r),
-    ...demotionFailures(r),
+    ...demotionFailures(r, context.expectedMoment),
     ...finalFailures(r),
     ...check.failures,
   ];

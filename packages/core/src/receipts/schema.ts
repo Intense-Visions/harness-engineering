@@ -93,12 +93,17 @@ export const ReviewReceiptSchema = z
     advisory: count,
   })
   .superRefine((r, ctx) => {
-    // A demotion says a review ran below its computed tier, so it is valid only on one.
-    if (r.demotion !== undefined && !(r.tier === 'light' && r.computedTier === 'full')) {
+    // A demotion says a review ran below its computed tier, so it is valid only on one. A final
+    // or standalone review is always computed full, so it needs no computedTier to say so.
+    const computedFull =
+      r.computedTier === 'full' || (r.computedTier === undefined && r.moment !== 'phase');
+    if (r.demotion !== undefined && !(r.tier === 'light' && computedFull)) {
       ctx.addIssue({
         code: 'custom',
         path: ['demotion'],
-        message: 'demotion is set only when tier is light and computedTier is full',
+        message:
+          'demotion is set only when tier is light and the computed tier is full (computedTier ' +
+          'full, or a final or standalone review)',
       });
     }
     if (r.diff.target !== undefined && r.moment !== 'final') {

@@ -830,7 +830,7 @@ describe('unit 1 fix round 1: a demotion to light is visible (fix 3)', () => {
   });
   it('the receipt fields say when a demotion is valid', () => {
     expect(section(md(), '### Review Receipt')).toMatch(
-      /`demotion` is set only when `tier` is `light` and `computedTier` is `full`, and its one value is `no-subagent-tool`/
+      /`demotion` is set only when `tier` is `light` and `computedTier` is `full` \(a standalone or final receipt may leave `computedTier` out: it is always computed `full`\), and its one value is `no-subagent-tool`/
     );
   });
 });
@@ -888,6 +888,14 @@ describe('unit 1 review round 3, fix 2: findings files are bound to the base', (
   it('a gate failure about the range or the tree re-runs every required reviewer', () => {
     expect(section(md(), '### Review Receipt')).toMatch(
       /`re-run`: dispatch the named reviewers again, or every required reviewer when HEAD has moved or a failure is about the range or the tree rather than one reviewer \(a base code, `WORKTREE_DIRTY`, `MOMENT_MISMATCH`, `MOMENT_UNKNOWN` or `HEAD_MISMATCH`/
+    );
+  });
+});
+
+describe('unit 1 review round 3, fix 5: a light standalone review is a demotion', () => {
+  it('TIER_DEMOTED covers a light standalone receipt whether or not computedTier is recorded', () => {
+    expect(gateFailureRows(section(md(), '### Review Receipt')).get('TIER_DEMOTED')).toMatch(
+      /or the review is standalone \(always computed `full`, whatever `computedTier` says or whether it is there\), `tier` is `light` and there is no `demotion`/
     );
   });
 });

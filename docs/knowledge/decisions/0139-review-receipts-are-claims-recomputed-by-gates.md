@@ -142,7 +142,8 @@ session that sets out to deceive it.
   entitled to `light`, `coldContext` and `priorFindingsSupplied` (checked for consistency on a
   final receipt, never against what the briefs held), whether a reviewer read the files it lists
   in `examinedFiles`, `computedTier` and `tierReasons` (what the session says the tier command
-  printed), and the `backend`. A `light` receipt whose recorded `computedTier` is `full` fails
+  printed), and the `backend`. A `light` receipt whose recorded `computedTier` is `full`, and every `light` standalone
+  receipt (a standalone review is always computed `full`, recorded or not), fails
   (`TIER_DEMOTED`) unless it carries `demotion: "no-subagent-tool"`, so the one sanctioned
   demotion is visible on the receipt. The moment, the base (a phase's against the previous
   receipt or the starting commit, a final's against the merge base), a clean tracked tree, the

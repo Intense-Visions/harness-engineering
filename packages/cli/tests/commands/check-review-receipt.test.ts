@@ -494,6 +494,10 @@ describe('fix 1: the moment is bound to where the receipt sits', () => {
         // name its base, so its base is unknown.
         if (directory !== 'phase' && directory !== 'final')
           codes = [...codes, 'PHASE_BASE_UNKNOWN'];
+        // Review round 3, fix 5: a light standalone review is a demotion. The receipt says phase,
+        // so it is standalone only where the directory, or a flag it does not contradict, says so.
+        const agreed = directory === undefined || flag === undefined || flag === directory;
+        if (expected === 'standalone' && agreed) codes = [...codes, 'TIER_DEMOTED'];
         return [name, flag, codes, at] as const;
       })
     );
@@ -507,7 +511,11 @@ describe('fix 1: the moment is bound to where the receipt sits', () => {
     const { mid, head } = realRepo();
     const standalone = path.join(tmp, '.harness', 'reviews', `work-${head}`);
     writeLight(standalone, head, mid);
-    expect(codesOf(real(undefined, standalone))).toEqual(['MOMENT_MISMATCH', 'PHASE_BASE_UNKNOWN']);
+    expect(codesOf(real(undefined, standalone))).toEqual([
+      'MOMENT_MISMATCH',
+      'PHASE_BASE_UNKNOWN',
+      'TIER_DEMOTED',
+    ]);
   });
   it('the command takes --moment', async () => {
     const { mid, head } = realRepo();
@@ -517,7 +525,8 @@ describe('fix 1: the moment is bound to where the receipt sits', () => {
     const light = JSON.parse(fs.readFileSync(path.join(odd, 'receipt.json'), 'utf-8'));
     fs.writeFileSync(
       path.join(odd, 'receipt.json'),
-      JSON.stringify({ ...light, moment: 'standalone' })
+      // A light standalone review is a demotion (review round 3, fix 5), so it says so.
+      JSON.stringify({ ...light, moment: 'standalone', demotion: 'no-subagent-tool' })
     );
     vi.spyOn(console, 'log').mockImplementation(() => {});
     vi.spyOn(console, 'error').mockImplementation(() => {});

@@ -52,7 +52,9 @@ diff, no repository) and never falls back to `light`. A session
 that cannot dispatch subagents runs `light` and says so, whatever the command printed: the
 receipt records the computed tier and reasons (`computedTier`, `tierReasons`), and a `light`
 receipt whose computed tier is `full` fails `TIER_DEMOTED` unless it carries
-`demotion: "no-subagent-tool"`, which autopilot records as a decision.
+`demotion: "no-subagent-tool"`, which autopilot records as a decision. A standalone review is
+always computed `full`, so a `light` standalone receipt fails `TIER_DEMOTED` without that
+demotion whether or not it records `computedTier`.
 
 This "review tier" is separate from three other tiers in the review code: the depth tier
 (Quick, Standard, Deep) that activates conditional reviewers, the model tier (`fast`,
