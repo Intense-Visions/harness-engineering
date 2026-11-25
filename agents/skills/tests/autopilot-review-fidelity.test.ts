@@ -178,7 +178,7 @@ describe('REVIEW: tier, fan-out, receipt, gate (SC1, SC2)', () => {
       at('**5. Run each effective `after:REVIEW` hook.**'),
       at('**6. Gate the receipt.**'),
       gateFail,
-      at('**7. Decide on the blocking findings**'),
+      at('**7. Decide on the blocking findings:**'),
       at('Blocking → ask "fix / override / stop."'),
     ];
     expect(order.every((n) => n > 0)).toBe(true);
@@ -407,7 +407,7 @@ describe('review round 2: Review records (A1, A3, A6, A7, A9)', () => {
   });
   it('A6: VALIDATE and DEDUP never change the receipt counts', () => {
     const text = records();
-    expect(text).toMatch(/They never edit a findings file and never change these counts/);
+    expect(text).toMatch(/They never edit a findings file, never change these counts/);
   });
   it('A9: hook findings have their own files, are never in the receipt counts, and still block', () => {
     const text = records();
@@ -863,5 +863,32 @@ describe('unit 1 review round 3, fix 2: findings files are bound to the base', (
       'When a failure is about the range or the tree rather than one reviewer (a base code: `DIFF_BASE_NOT_ANCESTOR`, `PHASE_BASE_MISMATCH`, `PHASE_BASE_UNKNOWN`, `FINAL_BASE_NOT_MERGE_BASE`, `TARGET_UNRESOLVED`, `TARGET_OWN_BRANCH`, `STARTING_COMMIT_UNKNOWN`; `WORKTREE_DIRTY`; `MOMENT_MISMATCH`, `MOMENT_UNKNOWN`; `HEAD_MISMATCH`), or HEAD has moved, every required reviewer runs again over the corrected range';
     expect(section(md(), '### REVIEW')).toContain(rule);
     expect(section(md(), '### FINAL_REVIEW')).toContain(rule);
+  });
+});
+
+describe('unit 1 review round 3, fix 9: one rule for blocking findings VALIDATE discarded', () => {
+  it('Counts: every blocking finding of a reviewer file is fixed or overridden by the human', () => {
+    expect(section(md(), '### Review records')).toMatch(
+      /never clear a blocking finding: \*\*every blocking finding a reviewer file holds is fixed or overridden by the human\*\*, including one VALIDATE judged a false positive/
+    );
+  });
+  it('REVIEW step 7 decides on the receipt count, not on the validated list', () => {
+    const review = section(md(), '### REVIEW');
+    expect(review).toMatch(
+      /\*\*7\. Decide on the blocking findings:\*\* every blocking finding of the reviewer findings files \(the receipt's `blocking`\), whatever VALIDATE judged of it/
+    );
+    expect(review).toMatch(
+      /No blocking \(the receipt's `blocking` is 0 and no hook finding blocks\) → PHASE_COMPLETE/
+    );
+    expect(review).not.toMatch(/the validated reviewer findings/);
+  });
+  it('FINAL_REVIEW step 4 never sets passed while the receipt counts a blocking finding', () => {
+    const final = section(md(), '### FINAL_REVIEW');
+    expect(final).toMatch(
+      /4\. No blocking \(the receipt's `blocking` is 0 and no hook finding blocks\): store the findings/
+    );
+    expect(final).toMatch(
+      /A final review whose receipt counts a blocking finding is never set `passed`, whatever VALIDATE judged of the finding: it goes to step 5, where it is fixed or the human's override is recorded in `decisions\[\]`/
+    );
   });
 });

@@ -172,7 +172,8 @@ reviewer findings files and are not in the receipt's counts.
   written; `critical` and `important` are blocking and `suggestion` is advisory. Nothing is
   merged by file or line. The gate fails a receipt whose `blocking` or `advisory` differs, and
   requires finding ids to be unique across the review. A finding the review's own validation
-  step later discarded stays in its reviewer's file, so it is still counted.
+  step later discarded stays in its reviewer's file, so it is still counted, and autopilot
+  leaves a review state over it only by a fix or a recorded human override.
 - The gate's text output prints every string that a receipt, a findings file or a path can
   carry through one helper, `escapeTerminalText`: control characters, DEL, the C1 controls, bidi
   controls and invisible format characters are printed as `\u{XXXX}`, so a receipt cannot
