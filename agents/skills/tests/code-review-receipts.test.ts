@@ -920,3 +920,11 @@ describe('unit 1 review round 4, fix 2: pipeline domains that are no receipt rev
     );
   });
 });
+
+describe('unit 1 review round 4, fix 5: review-tier names the head and refuses an empty final range', () => {
+  it('the tier paragraph states the Review head: line and the empty-final exit', () => {
+    expect(md()).toMatch(
+      /With a base it also prints `Review head: <sha>`, the commit the base was computed at; a final range that changes no files exits 1 \(`the final range <base>\.\.<head> is empty \(it changes no files\)`\), which harness-autopilot FINAL_REVIEW step 2 records as a final review skipped as empty\./
+    );
+  });
+});

@@ -900,3 +900,23 @@ describe('unit 1 review round 3, fix 10: entry points from build output', () => 
     );
   });
 });
+
+describe('unit 1 review round 4, fix 5: an empty final review is skipped and recorded', () => {
+  it('FINAL_REVIEW step 2 skips an empty final range with a recorded decision', () => {
+    expect(section(md(), '### FINAL_REVIEW')).toMatch(
+      /\*\*An empty final range is not reviewed\.\*\* When the command exits 1 with `the final range <base>\.\.<head> is empty \(it changes no files\)`, the branch changes nothing against its base and there is nothing to review: run no review and write no receipt, record in `decisions\[\]` that the final review was skipped as empty \(the state `FINAL_REVIEW`, that base and that head\), set `finalReview\.status: "skipped-empty"` and go to OUTCOME_EVAL\. That exit is this case, never a range to fix\./
+    );
+  });
+  it('FINAL_REVIEW step 2 takes {head} from the Review head: line', () => {
+    expect(section(md(), '### FINAL_REVIEW')).toMatch(
+      /`\{head\}` is the `Review head:` line, the commit the base was computed at \(`head` in JSON\)/
+    );
+  });
+  it('DONE reports a skipped-empty final review and counts commits from its recorded head', () => {
+    const done = section(md(), '### DONE');
+    expect(done).toMatch(/`finalReview\.status` \(`passed`, `overridden` or `skipped-empty`\)/);
+    expect(done).toMatch(
+      /When the final review was skipped as empty, count from the head its decision recorded: `git rev-list --count <that head>\.\.HEAD`\./
+    );
+  });
+});

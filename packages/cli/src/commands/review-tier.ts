@@ -91,9 +91,12 @@ export type StandaloneBaseUnresolved =
   | Extract<StandaloneBaseOutcome, { status: 'unresolved' }>['reason']
   | 'head-unresolved';
 
-/** The base a review is measured from, and the head it was resolved for; or why none resolved. */
+/**
+ * The base a review is measured from, and the head it was resolved for; or why none resolved.
+ * `target`: the full name of the remote-tracking branch `--target` named. Only a final receipt
+ * records it (as `diff.target`); a standalone receipt carrying `diff.target` is invalid.
+ */
 type ReviewBaseFields<U, S> =
-  /** `target`: the full name of the remote-tracking branch `--target` named; record it as `diff.target`. */
   | { base: string; baseSource: S; head: string; target?: string }
   | { baseUnresolved: U; head?: string };
 
@@ -342,7 +345,21 @@ function baseLine(r: ReviewTierResult, target: string | undefined): string[] {
       ? 'the gate requires exactly this base'
       : 'for a standalone review the gate checks only that the base is an ancestor of the head';
   const against = r.target === undefined ? '' : `, against ${inert(r.target)}`;
-  return [`Review base: ${r.base} (${r.baseSource}${against}; ${rule})`];
+  return [`Review base: ${r.base} (${r.baseSource}${against}; ${rule})`, `Review head: ${r.head}`];
+}
+
+/**
+ * A final review over an empty range (its base is its head, or the range changes no files) has
+ * nothing to review: the message says so, as a phase with no files does. undefined otherwise,
+ * including when git cannot list the range (the gate reports that).
+ */
+function emptyFinalRange(r: Tiered, git: CwdGit, cwd: string): string | undefined {
+  if (r.moment !== 'final' || !('base' in r)) return undefined;
+  const top = resolveRepoRoots(git, cwd)?.top ?? cwd;
+  const files = r.base === r.head ? [] : listDiffFiles(git, r.base, r.head, top);
+  return files?.length === 0
+    ? `the final range ${r.base}..${r.head} is empty (it changes no files): there is no final review`
+    : undefined;
 }
 
 /** A flag the moment does not read: an error, never silently ignored. */
@@ -409,6 +426,8 @@ export function runReviewTier(opts: ReviewTierOptions): Result<ReviewTierResult,
     tiered = Ok(reviewBaseOf({ ...opts, moment: opts.moment }, git, cwd));
   }
   if (!tiered.ok) return tiered;
+  const empty = emptyFinalRange(tiered.value, git, cwd);
+  if (empty !== undefined) return fail(empty);
   const backend = resolveReviewBackend({
     configured: configured.value,
     pipelineRunnerAvailable: opts.pipelineRunner === true,
