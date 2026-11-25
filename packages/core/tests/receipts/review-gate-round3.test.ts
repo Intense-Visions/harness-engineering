@@ -147,7 +147,8 @@ describe('a final receipt base against the default-branch merge base', () => {
   it.each([
     [undefined, BASE, []],
     ['merge-base', BASE, []],
-    ['starting-commit', BASE, []],
+    // Review round 3 on unit 1, fix 7: the label is refused while a merge base resolves.
+    ['starting-commit', BASE, ['FINAL_BASE_NOT_MERGE_BASE']],
     [undefined, OTHER, ['FINAL_BASE_NOT_MERGE_BASE']],
     ['merge-base', OTHER, ['FINAL_BASE_NOT_MERGE_BASE']],
     ['starting-commit', OTHER, ['FINAL_BASE_NOT_MERGE_BASE']],

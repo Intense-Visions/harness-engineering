@@ -34,13 +34,14 @@ type Row = [
 ];
 const rows: Row[] = [
   ['merge base resolves, base is it', BASE, BASE, undefined, undefined, []],
+  // Review round 3, fix 7: the label is checked too; it was accepted here before.
   [
     'merge base resolves, base is it, declared starting-commit',
     BASE,
     BASE,
     'starting-commit',
     START,
-    [],
+    ['FINAL_BASE_NOT_MERGE_BASE'],
   ],
   [
     'merge base resolves, base differs',

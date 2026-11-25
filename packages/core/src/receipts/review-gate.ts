@@ -335,8 +335,10 @@ function finalBaseFailure(
   const demanded = finalReviewBase(context.mergeBase, context.startingCommit);
   const starts = 'a final review starts at the merge base, but diff.base is';
   if (demanded.status === 'resolved' && demanded.base === base) {
-    // The starting commit stands in for the merge base only when no default branch resolves.
-    if (demanded.baseSource === 'merge-base' || baseSource === 'starting-commit') return undefined;
+    // The starting commit stands in for the merge base only when no default branch resolves, and
+    // the label says which: starting-commit is refused while a merge base resolves.
+    const declaresStart = baseSource === 'starting-commit';
+    if (declaresStart === (demanded.baseSource === 'starting-commit')) return undefined;
   }
   if (context.mergeBase !== undefined) {
     const declared =

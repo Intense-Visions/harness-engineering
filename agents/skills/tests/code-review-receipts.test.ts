@@ -315,7 +315,7 @@ describe('review round 2: what the gate now checks (A1, A2, A10)', () => {
     expect(text).toMatch(/and the base is an ancestor of the head/);
     const when = gateFailureRows(text);
     expect(when.get('FINAL_BASE_NOT_MERGE_BASE')).toMatch(
-      /`diff\.base` is not the merge base with the default branch, whatever `diff\.baseSource` says; or no default branch resolves and `diff\.baseSource` is not `starting-commit`/
+      /`diff\.base` is not the merge base with the default branch, whatever `diff\.baseSource` says; or a default branch resolves and `diff\.baseSource` is `starting-commit`; or no default branch resolves and `diff\.baseSource` is not `starting-commit`/
     );
     expect(when.get('DIFF_BASE_NOT_ANCESTOR')).toMatch(/is not an ancestor of `diff\.head`/);
   });
@@ -453,7 +453,7 @@ describe('review round 3: moment, base, phases and the mechanical exit (A1, A2, 
       /Add `"baseSource": "starting-commit"` to `diff` only when that command printed it: no default-branch merge base resolves and the base is the session's starting commit/
     );
     expect(text).toMatch(
-      /when a merge base resolves, the base must be that commit whatever `baseSource` says; when none resolves, the base must be the `startingCommit` of the session's `autopilot-state\.json`, and a receipt outside a session review directory, or a session that records no full `startingCommit`, fails `STARTING_COMMIT_UNKNOWN`/
+      /when a merge base resolves, the base must be that commit whatever `baseSource` says, and a receipt that declares `starting-commit` fails `FINAL_BASE_NOT_MERGE_BASE`; when none resolves, the base must be the `startingCommit` of the session's `autopilot-state\.json`, and a receipt outside a session review directory, or a session that records no full `startingCommit`, fails `STARTING_COMMIT_UNKNOWN`/
     );
     // Round 4: no skill carries a hand-run recipe for the base.
     expect(md()).not.toMatch(/symbolic-ref/);

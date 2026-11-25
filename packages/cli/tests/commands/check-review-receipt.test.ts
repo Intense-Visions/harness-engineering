@@ -641,8 +641,9 @@ describe('fix 4: diff.base is checked as far as git allows', () => {
     const declared = real();
     expect(codesOf(declared)).toEqual(['FINAL_BASE_NOT_MERGE_BASE']);
     expect(declared.failures[0]?.message).toMatch(/starting-commit is accepted only when/);
+    // Review round 3 on unit 1, fix 7: the label itself is refused while a merge base resolves.
     write(final(seed, { baseSource: 'starting-commit' }), FULL, { head });
-    expect(real().failures).toEqual([]);
+    expect(codesOf(real())).toEqual(['FINAL_BASE_NOT_MERGE_BASE']);
   });
   it('fails a final receipt when no default branch resolves, unless it declares a starting commit', () => {
     const { g, seed, head } = realRepo();
