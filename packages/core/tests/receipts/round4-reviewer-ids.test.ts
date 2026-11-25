@@ -64,11 +64,13 @@ describe('DUPLICATE_FINDING_ID: one pass over the ids', () => {
     if (repeated.length === 0) expect(dup).toBeUndefined();
     else expect(dup?.message).toMatch(new RegExp(`used more than once: ${repeated.join(', ')}$`));
   });
-  it('100,000 distinct ids are checked in well under a second (was quadratic)', () => {
+  // No wall-clock assertion: coverage instrumentation and loaded CI runners make
+  // tight timings flaky (a single pass took ~6s under pre-push coverage). The
+  // check was quadratic (~5e9 comparisons at this size); the generous timeout
+  // below is a coarse guard against a return to that, not a benchmark.
+  it('100,000 distinct ids are checked in one pass (was quadratic)', () => {
     const ids = Array.from({ length: 100_000 }, (_, i) => `f${i}`);
-    const started = Date.now();
     const r = validateReviewReceipt(receipt({ advisory: ids.length }), withIds(ids));
     expect(codesOf(r)).toEqual([]);
-    expect(Date.now() - started).toBeLessThan(3000);
-  });
+  }, 30_000);
 });

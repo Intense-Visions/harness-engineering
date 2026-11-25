@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/tests/receipts'
-sourceHash: 'ae0e4b8021b42e94b298707e76ff5fe2368180876be3f5377af79f8a3eaf9e43'
+sourceHash: '92020a2bfe348b5013cbd21bdd1c7dd4b67c6e73aced3955fe25100e6e70c38e'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
