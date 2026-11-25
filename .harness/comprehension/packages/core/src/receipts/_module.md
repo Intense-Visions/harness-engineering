@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/src/receipts'
-sourceHash: '5204ad8d7dc42b17e8b1c6fcba7f62127443ab30a563204bcfce65a2d355076a'
+sourceHash: '9ebc4c02b5b2e98c37f1c09b6b651ab30b964da057a249d2537b53314a6cac7b'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -48,6 +48,7 @@ export ReviewGateResult
 export SessionReviewState
 export SkipCheck
 export StampGit
+export StampHeadNotice
 export StampNote
 export StampRow
 export StampSessionState
@@ -75,11 +76,13 @@ export readArchivedRounds
 export readRegularFile
 export readReviewReceiptFile
 export readSessionReviewState
+export renderParsedStamp
 export renderProvenanceBlock
 export resolveReviewBackend
 export reviewFindingsReaderFor
 export reviewGateFailure
 export sessionDirOfReviewDir
+export stampHeadNotice
 export standaloneReviewBase
 export validateReviewReceipt
 ```

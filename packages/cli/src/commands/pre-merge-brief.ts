@@ -2,7 +2,15 @@ import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { Command } from 'commander';
-import type { CiReviewResult, DiffInfo } from '@harness-engineering/core';
+import {
+  NO_PIPELINE_REVIEW,
+  parseProvenanceStamp,
+  renderParsedStamp,
+  stampHeadNotice,
+  type CiReviewResult,
+  type DiffInfo,
+  type ParsedProvenanceStamp,
+} from '@harness-engineering/core';
 import { GraphStore } from '@harness-engineering/graph';
 import type { NodeType } from '@harness-engineering/graph';
 import { gatherSignals } from '@harness-engineering/signals';
@@ -15,6 +23,7 @@ import {
   guardianFileLines,
 } from '@harness-engineering/intelligence';
 import { buildDiffInfo, defaultRunGit, resolveDiffRange, type RunGit } from './review-ci';
+import { defaultPrReader, resolvePrNumber, type PrRead } from '../review-receipts/io';
 
 /** Hidden HTML marker used to find + upsert the sticky comment. */
 export const BRIEF_MARKER = '<!-- harness:pre-merge-brief -->';
@@ -35,6 +44,13 @@ export interface BriefInputs {
    * (fail / error-severity) additionally contributes to "Worth your eyes".
    */
   guardian?: GuardianAnalysis[] | undefined;
+  /**
+   * The review provenance stamp parsed from the PR body; undefined when the body holds none,
+   * `'unavailable'` when the body could not be read.
+   */
+  provenance?: ParsedProvenanceStamp | 'unavailable' | undefined;
+  /** The PR's head commit, when it could be read: the stamp is compared with it. */
+  prHead?: string | undefined;
 }
 
 /** Standard degradation line for an input that could not be gathered. */
@@ -91,6 +107,82 @@ function renderPopulatedVerdict(verdict: CiReviewResult['verdict']): string[] {
 function renderReviewVerdict(verdict?: CiReviewResult['verdict']): string[] {
   if (!verdict) return ['## Review verdict', '', UNAVAILABLE];
   return ['## Review verdict', '', ...renderPopulatedVerdict(verdict)];
+}
+
+/** The line every Review provenance section opens with, whatever the PR body held. */
+const STATED_NOT_VERIFIED =
+  '_As stated in the PR body by its author; not verified by CI (review receipts are machine-local)._';
+
+/**
+ * Render the **Review provenance** section from the stamp autopilot placed in the PR body:
+ * which reviews ran, at what tier, with how many reviewers of how many required. The PR author
+ * writes the body and CI has no receipts to check it against, so the section always opens by
+ * saying so, and only lines of the stamp's own shape are shown. A body with no stamp reads as
+ * "no pipeline review recorded"; a body that could not be read reads as unavailable; a stamp the
+ * parser did not read (`conflicting`, `too-large`, `ambiguous`) reads as that state, with its
+ * reason, never as either of those and never as a pass.
+ */
+function renderReviewProvenance(
+  stamp?: ParsedProvenanceStamp | 'unavailable',
+  prHead?: string
+): string[] {
+  const out: string[] = ['## Review provenance', '', STATED_NOT_VERIFIED, ''];
+  if (stamp === 'unavailable') return [...out, UNAVAILABLE];
+  if (stamp === undefined) return [...out, `> _${NO_PIPELINE_REVIEW}._`];
+  if (stamp.status !== 'read') return [...out, ...renderParsedStamp(stamp).map((l) => `> ${l}`)];
+  out.push(...renderParsedStamp(stamp));
+  if (stamp.rows.length + stamp.notes.length === 0) out.push(`> _${NO_PIPELINE_REVIEW}._`);
+  return [...out, ...leftOutLines(stamp), ...staleStampLines(stamp, prHead)];
+}
+
+/** The counts of stamp lines the parser left out, as the brief writes them. */
+function leftOutLines(stamp: ParsedProvenanceStamp): string[] {
+  const out: string[] = [];
+  if (stamp.dropped > 0) {
+    out.push(
+      '',
+      `> ${stamp.dropped} line(s) between the stamp markers are not stamp lines and are not shown.`
+    );
+  }
+  if (stamp.omitted > 0) {
+    out.push(
+      '',
+      `> ${stamp.omitted} line(s) of the stamp are over its size bounds and are not shown.`
+    );
+  }
+  return out;
+}
+
+/** The stamp's head notice (core stampHeadNotice) as the brief writes it. */
+function staleStampLines(stamp: ParsedProvenanceStamp, prHead: string | undefined): string[] {
+  const notice = stampHeadNotice(stamp, prHead);
+  if (notice === undefined) return [];
+  if (notice.kind === 'final-elsewhere') {
+    const at = `this stamp's final-all row passed at ${notice.final}`;
+    return [
+      '',
+      `> The PR head is ${notice.head}; ${at}. Commits after ${notice.final} are not covered by the stamp.`,
+    ];
+  }
+  const at = `no row of this stamp passed at it (passed at: ${notice.passed.join(', ')})`;
+  return [
+    '',
+    `> The PR head is ${notice.head}; ${at}. Commits after the stamp are not covered by it.`,
+  ];
+}
+
+/** GitHub rejects a comment over 65,536 characters; the brief stays well under it. */
+export const BRIEF_MAX_CHARS = 60000;
+
+/** The brief, cut at a line end with a visible mark when it is over the comment size limit. */
+export function fitComment(body: string): string {
+  if (body.length <= BRIEF_MAX_CHARS) return body;
+  const mark = (n: number) =>
+    `\n> _Brief truncated: ${n} characters are not shown (GitHub comment size limit)._`;
+  const room = BRIEF_MAX_CHARS - mark(body.length).length;
+  const cut = body.lastIndexOf('\n', room);
+  const kept = body.slice(0, cut > 0 ? cut : room);
+  return `${kept}${mark(body.length - kept.length)}`;
 }
 
 /** Render a single signal as a one-line Markdown bullet: status, label, value. */
@@ -226,6 +318,8 @@ export function buildBriefBody(inputs: BriefInputs): string {
     '',
     ...renderReviewVerdict(inputs.review),
     '',
+    ...renderReviewProvenance(inputs.provenance, inputs.prHead),
+    '',
     ...renderSignalStatus(inputs.signals),
     '',
     ...renderOutcomeEval(inputs.outcome),
@@ -234,11 +328,11 @@ export function buildBriefBody(inputs: BriefInputs): string {
     '',
     ...deriveWorthYourEyes(inputs),
   ];
-  return lines.join('\n');
+  return fitComment(lines.join('\n'));
 }
 
 /** Seam for delivering the brief to a PR — real impl shells out to `gh`. */
-export type PostBrief = (body: string) => void;
+export type PostBrief = (body: string, pr?: number) => void;
 
 /** The minimal comment shape the upsert logic needs: an id and a body. */
 export interface MarkedComment {
@@ -276,8 +370,10 @@ export function upsertComment(
  * piping the body via stdin so a long brief never hits the shell arg-length
  * limit). Contains NO `process.exit`; the caller owns exit codes.
  */
-export const defaultPostBrief: PostBrief = (body) => {
-  const raw = execFileSync('gh', ['pr', 'view', '--json', 'comments'], {
+export const defaultPostBrief: PostBrief = (body, pr) => {
+  // On a detached merge ref (the pull_request event) gh cannot find the PR from the checkout.
+  const target = pr === undefined ? [] : [String(pr)];
+  const raw = execFileSync('gh', ['pr', 'view', ...target, '--json', 'comments'], {
     encoding: 'utf-8',
   }).toString();
   const parsed = JSON.parse(raw) as {
@@ -304,7 +400,7 @@ export const defaultPostBrief: PostBrief = (body) => {
       );
     },
     (postBody) => {
-      execFileSync('gh', ['pr', 'comment', '--body-file', '-'], {
+      execFileSync('gh', ['pr', 'comment', ...target, '--body-file', '-'], {
         input: postBody,
         stdio: ['pipe', 'pipe', 'pipe'],
         encoding: 'utf-8',
@@ -472,6 +568,27 @@ export interface PreMergeBriefOptions {
   log?: (message: string) => void;
   /** Warning sink (stderr by default) for best-effort delivery failures. */
   warn?: (message: string) => void;
+  /**
+   * Read the PR's body and head; undefined when there is no PR, a throw when it could not be
+   * read. Defaults to no read; the command action injects the `gh` reader.
+   */
+  readPr?: () => Pick<PrRead, 'body' | 'headSha'> | undefined;
+  /** The PR to read and comment on. Default: the PR of the checked-out branch. */
+  pr?: number;
+}
+
+/** The stamp parsed from the PR body (undefined: none; `'unavailable'`: a failed read), and the PR head. */
+function readProvenanceSafe(
+  read: PreMergeBriefOptions['readPr']
+): Pick<BriefInputs, 'provenance' | 'prHead'> {
+  if (read === undefined) return {};
+  try {
+    const pr = read();
+    const provenance = parseProvenanceStamp(pr?.body ?? '');
+    return { provenance, ...(pr?.headSha !== undefined && { prHead: pr.headSha }) };
+  } catch {
+    return { provenance: 'unavailable' };
+  }
 }
 
 /**
@@ -505,8 +622,9 @@ export async function runPreMergeBrief(opts: PreMergeBriefOptions): Promise<{ bo
   const signals = await gatherSignalsSafe(cwd, opts.gather);
   const outcome = findOutcomeVerdict(opts.store, opts.headSha);
   const guardian = await gatherGuardianSafe(cwd, opts.readGuardian);
+  const stated = readProvenanceSafe(opts.readPr);
 
-  const body = buildBriefBody({ diff, review, signals, outcome, guardian });
+  const body = buildBriefBody({ diff, review, signals, outcome, guardian, ...stated });
 
   const log = opts.log ?? ((m: string) => process.stdout.write(m + '\n'));
   if (opts.comment) {
@@ -514,7 +632,7 @@ export async function runPreMergeBrief(opts: PreMergeBriefOptions): Promise<{ bo
     // unauthenticated, API error) we still print the rendered brief + a
     // one-line warning to stderr and let the caller exit 0.
     try {
-      (opts.postBrief ?? defaultPostBrief)(body);
+      (opts.postBrief ?? defaultPostBrief)(body, opts.pr);
     } catch (err) {
       const reason = err instanceof Error ? err.message : String(err);
       (opts.warn ?? ((m: string) => process.stderr.write(m + '\n')))(
@@ -528,11 +646,25 @@ export async function runPreMergeBrief(opts: PreMergeBriefOptions): Promise<{ bo
   return { body };
 }
 
+/** The PR to read and comment on. A value that is not a PR number ends the run with exit 1. */
+function prNumberOrExit(flag: unknown): number | undefined {
+  const named = resolvePrNumber(flag, process.env.GITHUB_REF);
+  if (named.ok) return named.pr;
+  process.stderr.write(`pre-merge-brief: ${named.error}\n`);
+  return process.exit(1);
+}
+
 /** Build the top-level `harness pre-merge-brief` command. */
 export function createPreMergeBriefCommand(): Command {
   return new Command('pre-merge-brief')
     .description(
-      'Compose a senior-facing pre-merge PR brief (diff, review, signals, outcome, "worth your eyes")'
+      'Compose a senior-facing pre-merge PR brief in seven sections: diff summary, review verdict, ' +
+        'review provenance (as stated in the PR body), Signal status, outcome-eval, Guardian analysis ' +
+        'and "worth your eyes"'
+    )
+    .option(
+      '--pr <number>',
+      'PR to read and comment on (default: from GITHUB_REF, else the branch). Not a number: exit 1'
     )
     .option('--from <path>', 'review-ci --json verdict artifact')
     .option('--comment', "upsert the brief as a sticky comment on the current branch's PR")
@@ -540,6 +672,7 @@ export function createPreMergeBriefCommand(): Command {
     .option('--head <sha>', 'head commit sha for the outcome lookup (default: git rev-parse HEAD)')
     .action(async (opts: Record<string, unknown>) => {
       const cwd = process.cwd();
+      const pr = prNumberOrExit(opts.pr);
       const runGit: RunGit = defaultRunGit;
       // Resolve the head sha (default: `git rev-parse HEAD`), degrading to
       // undefined (→ "not yet evaluated") if git can't resolve it.
@@ -563,6 +696,8 @@ export function createPreMergeBriefCommand(): Command {
         headSha,
         store,
         runGit,
+        readPr: () => defaultPrReader(cwd, pr),
+        ...(pr !== undefined && { pr }),
       });
       // process.exit is confined to the commander action so the pure functions
       // above remain testable; every input degrades independently, so a

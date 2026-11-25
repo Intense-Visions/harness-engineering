@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/tests/review-receipts'
-sourceHash: '60384247e35207d261e564777b87f548688745f530b36ccf0e0c4cbc2fc4d54a'
+sourceHash: 'a31509d9730fc720fb4d945b1c8f8512be8692721ac4b44ec0dc7a72e1a9927e'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -21,7 +21,7 @@ import { formatCheckReviewReceipt } from '../../src/commands/check-review-receip
 import { runReviewTier } from '../../src/commands/review-tier'
 import { handleCheckReviewReceipt } from '../../src/mcp/tools/review-receipt'
 import { runCheckFindingsFile, runCheckReviewReceipt } from '../../src/review-receipts/gate'
-import { CwdGit, isOwnBranchRef, listDiffFiles, runGitIn, sessionDirFrom } from '../../src/review-receipts/io'
+import { CwdGit, defaultPrReader, isOwnBranchRef, listDiffFiles, runGitIn, sessionDirFrom } from '../../src/review-receipts/io'
 import { execFileSync } from 'node:child_process'
 import * as fs from 'node:fs'
 import * as os from 'node:os'

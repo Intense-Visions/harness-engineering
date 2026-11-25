@@ -126,7 +126,7 @@ Registers `harness outcome-eval-ci`, the headless CI surface of the post-executi
 
 [`packages/cli/src/commands/pre-merge-brief.ts`](/packages/cli/src/commands/pre-merge-brief.ts)
 
-Registers `harness pre-merge-brief`, which composes a senior-facing PR brief from the diff, a `review-ci` JSON verdict, a fresh signal snapshot, guardian analyses, and the head commit's outcome-eval verdict, ending in a "worth your eyes" section. Every input is optional and gathered defensively — a missing one degrades to an "unavailable" line — and `--comment` upserts the body as a sticky PR comment keyed on a hidden HTML marker.
+Registers `harness pre-merge-brief`, which composes a senior-facing PR brief from the diff, a `review-ci` JSON verdict, the review provenance stamp as the PR body states it (not verified by CI), a fresh signal snapshot, guardian analyses, and the head commit's outcome-eval verdict, ending in a "worth your eyes" section. `--pr <number>` names the PR to read and comment on and must be a positive decimal number (anything else exits 1). Every input is optional and gathered defensively — a missing one degrades to an "unavailable" line — and `--comment` upserts the body as a sticky PR comment keyed on a hidden HTML marker.
 
 **Exports:** `BRIEF_MARKER`, `BriefInputs`, `buildBriefBody`, `PostBrief`, `MarkedComment`, `upsertComment`, `defaultPostBrief`, `ReadFile`, `readReview`, `GatherSignals`, `gatherSignalsSafe`, `ReadGuardian`, `gatherGuardianSafe`, `OutcomeStore`, `loadOutcomeStore`, `findOutcomeVerdict`, `PreMergeBriefOptions`, `runPreMergeBrief`, `createPreMergeBriefCommand`
 

@@ -193,7 +193,12 @@ over 262144 characters is `too-large` and is not read; the scan is linear in the
 A later reader of the stamp reports `ambiguous`, `conflicting` and `too-large` as states of their
 own, never as unstamped and never as a pass. A body crafted to show one stamp and hide another
 is not defended against in every form: anyone who can write the body can write any stamp, so the
-stamp is shown as stated, not verified. as a pass. Autopilot places the stamp in the PR body. The stamp in a PR body is
+stamp is shown as stated, not verified. Autopilot places the stamp in the PR body. `harness pre-merge-brief`
+shows it as stated in the PR body, not verified by CI, under a line that says so whatever the body
+holds; it prints "no pipeline review recorded" for a PR without one, "unavailable" when the PR
+body could not be read, and `conflicting`, `too-large` or `ambiguous` (with its reason) as a state
+of its own; it adds a line when the PR head is not the commit the final row passed at, and accepts
+`--pr` only as a positive decimal number (anything else exits 1). The stamp in a PR body is
 unauthenticated: CI cannot recompute it, because receipts are machine-local.
 
 **Review decision.** An entry of `decisions[]` in a session's `autopilot-state.json` with

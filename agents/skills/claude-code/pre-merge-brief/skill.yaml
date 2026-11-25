@@ -3,9 +3,11 @@ version: "0.1.0"
 description: >-
   Thin-wrapper skill that runs the `harness pre-merge-brief` command to compose
   and post the senior-facing pre-merge accountability brief — the diff summary,
-  the multi-persona review verdict (from review-ci --json), the curated Signal
-  status snapshot, the outcome-eval result, and a derived "Worth your eyes"
-  section — as a single sticky PR comment (upsert by marker). All composition and
+  the multi-persona review verdict (from review-ci --json), the review
+  provenance stamp as the PR body states it, the curated Signal status
+  snapshot, the outcome-eval result, the Guardian diff-coverage analysis, and a
+  derived "Worth your eyes" section — as a single sticky PR comment (upsert by
+  marker). All composition and
   degradation logic lives in the command; the skill orchestrates invocation,
   communicates which sections degraded to "unavailable", and hands off. Runs on
   on_pr and manual. The harness pointed at the human who clicks merge.
@@ -28,6 +30,9 @@ tools:
 cli:
   command: harness pre-merge-brief
   args:
+    - name: pr
+      description: "Pull request number to read and comment on, digits only (default: the number in GITHUB_REF, else the current branch's PR). Any other value exits 1"
+      required: false
     - name: from
       description: Path to the review-ci --json CiReviewResult artifact to reuse
       required: false

@@ -1522,6 +1522,7 @@ StaleReference
 StalenessEntry
 StalenessReport
 StampGit
+StampHeadNotice
 StampNote
 StampRow
 StampSessionState
@@ -2253,6 +2254,7 @@ removeProvenance
 renderAutoDecisionSummary
 renderDependencySlice
 renderInterfaceContract
+renderParsedStamp
 renderProvenanceBlock
 renderRetrospectiveMarkdown
 renderServedUnit
@@ -2378,6 +2380,7 @@ spearmanRankCorrelation
 spillIfNeeded
 splitBundlesByStage
 stageDomains
+stampHeadNotice
 standaloneReviewBase
 suggestCategory
 summarizeAutoDecisions

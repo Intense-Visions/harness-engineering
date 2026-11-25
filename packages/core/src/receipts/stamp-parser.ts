@@ -1,3 +1,4 @@
+import { FULL_SHA_PATTERN } from '@harness-engineering/types';
 import {
   FINAL_REVIEW_LABEL,
   NO_PIPELINE_REVIEW,
@@ -484,4 +485,76 @@ function readStamp(lines: readonly string[]): ParsedProvenanceStamp {
   });
   out.dropped += rest.reduce((n, b) => n + b.length, 0);
   return out;
+}
+
+/** What each `ambiguous` reason means, for a reader of the brief. */
+const AMBIGUITY_TEXT: Record<Ambiguity, string> = {
+  'details-element':
+    '`<details` or `</details` appears before the last stamp marker, and the page may show a `<details>` collapsed',
+  'comment-opener':
+    'an HTML comment opener before the last stamp marker shares its line with a backtick, leaves a comment open without starting its line, or reopens a comment after a `-->`',
+  'html-block':
+    'a line before the last stamp marker starts a tag a browser may hide, or an HTML block there holds a line that opens a fence, a raw HTML block or a comment',
+  container:
+    'a fence before the last stamp marker sits in a list item or a quote it may outlive, or a line inside a hidden block is less indented than its opener',
+};
+
+/**
+ * A parsed stamp as Markdown lines for a reader to print. A stamp that was read: its table and
+ * its notes. Otherwise one line that says why nothing was read (`conflicting`, `too-large`,
+ * `ambiguous` with its reason), which is never "no stamp" and never a pass.
+ */
+export function renderParsedStamp(stamp: ParsedProvenanceStamp): string[] {
+  const neither = 'This is neither "no pipeline review recorded" nor a pass.';
+  switch (stamp.status) {
+    case 'read': {
+      const table =
+        stamp.rows.length > 0 ? [STAMP_TABLE_HEADER, STAMP_TABLE_RULE, ...stamp.rows] : [];
+      const gap = table.length > 0 && stamp.notes.length > 0 ? [''] : [];
+      return [...table, ...gap, ...stamp.notes];
+    }
+    case 'conflicting':
+      return [
+        `**Stamp not read: conflicting.** The PR body shows ${stamp.stamps} stamps, so none of them is read. ${neither}`,
+      ];
+    case 'too-large':
+      return [
+        `**Stamp not read: too large.** The PR body is longer than ${STAMP_LIMITS.input} characters, so no stamp in it is read. ${neither}`,
+      ];
+    case 'ambiguous': {
+      // The parser sets a reason on every ambiguous stamp; a stamp built elsewhere may lack one.
+      const { reason } = stamp;
+      const label = reason === undefined ? 'ambiguous' : `ambiguous (${reason})`;
+      const why =
+        reason === undefined ? 'The reader cannot place the PR body' : AMBIGUITY_TEXT[reason];
+      return [
+        `**Stamp not read: ${label}.** ${why}, so no stamp in the PR body is read. ${neither}`,
+      ];
+    }
+  }
+}
+
+/**
+ * What a reader of the PR should be told when the stamp was not rendered at the PR head: the
+ * final-all row passed at another commit, or (no passing final row) no row passed at the head.
+ * undefined: nothing to say (the stamp was not read, the head is not a full sha, no row passed,
+ * or the stamp is current).
+ */
+export type StampHeadNotice =
+  | { kind: 'final-elsewhere'; head: string; final: string }
+  | { kind: 'no-row-at-head'; head: string; passed: string[] };
+
+export function stampHeadNotice(
+  stamp: ParsedProvenanceStamp,
+  prHead: string | undefined
+): StampHeadNotice | undefined {
+  if (stamp.status !== 'read' || prHead === undefined || !FULL_SHA_PATTERN.test(prHead)) {
+    return undefined;
+  }
+  const head = prHead.slice(0, 7);
+  const final = stamp.passedAt.find((p) => p.review === FINAL_REVIEW_LABEL)?.sha;
+  const passed = [...new Set(stamp.passedAt.map((p) => p.sha))];
+  if (passed.length === 0 || final === head) return undefined;
+  if (final !== undefined) return { kind: 'final-elsewhere', head, final };
+  return passed.includes(head) ? undefined : { kind: 'no-row-at-head', head, passed };
 }

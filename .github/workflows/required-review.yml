@@ -85,4 +85,4 @@ jobs:
         continue-on-error: true
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: node packages/cli/dist/bin/harness.js pre-merge-brief --from /tmp/review.json --diff "origin/${{ github.base_ref }}...HEAD" --comment
+        run: node packages/cli/dist/bin/harness.js pre-merge-brief --from /tmp/review.json --diff "origin/${{ github.base_ref }}...HEAD" --pr ${{ github.event.pull_request.number }} --comment

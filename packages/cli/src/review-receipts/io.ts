@@ -311,3 +311,63 @@ export function resolveStandaloneReviewBase(opts: {
     return { status: 'unresolved', reason: lookup.status };
   return standaloneReviewBase(mergeBaseOf(lookup));
 }
+
+const PR_NUMBER = /^[1-9][0-9]*$/;
+
+/**
+ * The PR number from `--pr`, else from the `refs/pull/N/merge` (or `/head`) ref a pull_request
+ * run has, else none. A value that is given and is not a PR number is an error, never "none": a
+ * silent fallback would read and comment on another PR.
+ */
+export function resolvePrNumber(
+  flag: unknown,
+  ref: string | undefined
+): { ok: true; pr: number | undefined } | { ok: false; error: string } {
+  if (flag !== undefined) {
+    if (typeof flag === 'string' && PR_NUMBER.test(flag)) return { ok: true, pr: Number(flag) };
+    const got = JSON.stringify(flag);
+    return { ok: false, error: `--pr must be a pull request number (digits only); got ${got}` };
+  }
+  if (ref === undefined || !/^refs\/pull\//.test(ref)) return { ok: true, pr: undefined };
+  const n = /^refs\/pull\/([1-9][0-9]*)\/(?:merge|head)$/.exec(ref)?.[1];
+  if (n !== undefined) return { ok: true, pr: Number(n) };
+  return { ok: false, error: `GITHUB_REF ${JSON.stringify(ref)} is not a pull request ref` };
+}
+
+/** A pull request as the review commands read it. `headSha`: the PR's head commit, when known. */
+export interface PrRead {
+  number: number;
+  body: string;
+  headSha?: string;
+}
+
+/**
+ * A PR's number, body and head: the PR `pr` names, else the current branch's. undefined when
+ * the branch has no PR. Throws when `gh` is absent, unauthenticated or fails for any other
+ * reason: that is "unknown", which is not "no PR".
+ */
+export type PrReader = (cwd: string, pr?: number) => PrRead | undefined;
+
+export const defaultPrReader: PrReader = (cwd, pr) => {
+  const target = pr === undefined ? [] : [String(pr)];
+  const args = ['pr', 'view', ...target, '--json', 'number,body,headRefOid'];
+  let raw: string;
+  try {
+    raw = execFileSync('gh', args, { cwd, encoding: 'utf-8', stdio: ['ignore', 'pipe', 'pipe'] });
+  } catch (err) {
+    if (/no pull requests found/i.test(String((err as { stderr?: unknown }).stderr))) {
+      return undefined;
+    }
+    throw err;
+  }
+  const parsed: unknown = JSON.parse(raw);
+  const fields: Record<string, unknown> =
+    parsed !== null && typeof parsed === 'object' ? { ...parsed } : {};
+  const { number, body, headRefOid } = fields;
+  if (typeof number !== 'number') return undefined;
+  return {
+    number,
+    body: typeof body === 'string' ? body : '',
+    ...(typeof headRefOid === 'string' && { headSha: headRefOid }),
+  };
+};

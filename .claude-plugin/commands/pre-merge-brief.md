@@ -1,7 +1,7 @@
 ---
 name: harness:pre-merge-brief
-description: Thin-wrapper skill that runs the `harness pre-merge-brief` command to compose and post the senior-facing pre-merge accountability brief — the diff summary, the multi-persona review verdict (from review-ci --json), the curated Signal status snapshot, the outcome-eval result, and a derived "Worth your eyes" section — as a single sticky PR comment (upsert by marker). All composition and degradation logic lives in the command; the skill orchestrates invocation, communicates which sections degraded to "unavailable", and hands off. Runs on on_pr and manual. The harness pointed at the human who clicks merge.
-argument-hint: '[--from <from>] [--comment <comment>] [--diff <diff>] [--head <head>]'
+description: Thin-wrapper skill that runs the `harness pre-merge-brief` command to compose and post the senior-facing pre-merge accountability brief — the diff summary, the multi-persona review verdict (from review-ci --json), the review provenance stamp as the PR body states it, the curated Signal status snapshot, the outcome-eval result, the Guardian diff-coverage analysis, and a derived "Worth your eyes" section — as a single sticky PR comment (upsert by marker). All composition and degradation logic lives in the command; the skill orchestrates invocation, communicates which sections degraded to "unavailable", and hands off. Runs on on_pr and manual. The harness pointed at the human who clicks merge.
+argument-hint: '[--pr <pr>] [--from <from>] [--comment <comment>] [--diff <diff>] [--head <head>]'
 allowed-tools:
   - Bash
   - Read
@@ -18,7 +18,7 @@ Type: rigid
 </context>
 
 <objective>
-Thin-wrapper skill that runs the `harness pre-merge-brief` command to compose and post the senior-facing pre-merge accountability brief — the diff summary, the multi-persona review verdict (from review-ci --json), the curated Signal status snapshot, the outcome-eval result, and a derived "Worth your eyes" section — as a single sticky PR comment (upsert by marker). All composition and degradation logic lives in the command; the skill orchestrates invocation, communicates which sections degraded to "unavailable", and hands off. Runs on on_pr and manual. The harness pointed at the human who clicks merge.
+Thin-wrapper skill that runs the `harness pre-merge-brief` command to compose and post the senior-facing pre-merge accountability brief — the diff summary, the multi-persona review verdict (from review-ci --json), the review provenance stamp as the PR body states it, the curated Signal status snapshot, the outcome-eval result, the Guardian diff-coverage analysis, and a derived "Worth your eyes" section — as a single sticky PR comment (upsert by marker). All composition and degradation logic lives in the command; the skill orchestrates invocation, communicates which sections degraded to "unavailable", and hands off. Runs on on_pr and manual. The harness pointed at the human who clicks merge.
 
 Phases:
 

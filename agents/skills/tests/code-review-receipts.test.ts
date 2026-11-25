@@ -1036,3 +1036,60 @@ describe('unit 1 review round 4, fixes 6-8: the spec, changeset and docs match t
       expect(read(doc), doc).toMatch(/SHA-256 object format (?:are|is) not\s+supported/);
   });
 });
+
+describe('unit 4: pre-merge-brief reads the stamp back from the PR body', () => {
+  const SKILLS = resolve(SKILL_DIR, '..', '..');
+  const brief = (platform = 'claude-code') =>
+    readFileSync(resolve(SKILLS, platform, 'pre-merge-brief', 'SKILL.md'), 'utf-8');
+  const yamlOf = (platform: string) =>
+    readFileSync(resolve(SKILLS, platform, 'pre-merge-brief', 'skill.yaml'), 'utf-8');
+  type Yaml = { cli: { args: Array<{ name: string; description: string }> } };
+  it('names seven sections in the order the command prints them', () => {
+    expect(brief()).toContain(
+      'the seven-section brief (marker + header, then Diff summary → Review verdict → **Review provenance** → **Signal status** → Outcome evaluation → Guardian diff-coverage → **👀 Worth your eyes**)'
+    );
+    expect(brief()).not.toMatch(/six-section/);
+  });
+  it('says the section is the PR body unverified, and what unavailable means', () => {
+    const text = brief();
+    expect(text).toContain(
+      'always opens the section with the line `_As stated in the PR body by its author; not verified by CI (review receipts are machine-local)._`'
+    );
+    expect(text).toMatch(/A body with no stamp reads `no pipeline review recorded`/);
+    expect(text).toMatch(
+      /A body that could not be read \(`gh` failed\) reads `unavailable \/ not configured`, which is a different statement: it does not say no review ran/
+    );
+    expect(text).toContain('[--pr <number>]');
+    expect(text).toMatch(/`--pr <number>` \(the PR to read and comment on/);
+  });
+  it('states the strict --pr rule, how a stamp is recognised and the three unread states', () => {
+    const text = brief();
+    expect(text).toMatch(
+      /digits only, so `#12`, `0` or `007` exits 1 with `--pr must be a pull request number \(digits only\)` and nothing is read or posted/
+    );
+    expect(text).toContain(
+      'opens with the heading `### Review provenance` outside HTML comments, code blocks and raw HTML blocks'
+    );
+    for (const state of ['`conflicting`', '`too-large`', '`ambiguous` with its reason'])
+      expect(text, state).toContain(state);
+    expect(text).toContain('never `no pipeline review recorded` and never a pass');
+    expect(text).toContain('`N line(s) of the stamp are over its size bounds and are not shown.`');
+    expect(text).toMatch(/Commits after <sha> are not covered by the stamp/);
+    expect(text).toMatch(/a brief longer than 60,000 characters is cut at a line end/);
+    expect(text).not.toMatch(/the last such pair is read|Only the last complete marker pair/);
+  });
+  it('declares pr in all four platform copies, which are identical', () => {
+    const canonical = yamlOf('claude-code');
+    const pr = (parseYaml(canonical) as Yaml).cli.args.find((a) => a.name === 'pr');
+    expect(pr?.description).toMatch(/digits only/);
+    expect(pr?.description).toMatch(/Any other value exits 1/);
+    for (const platform of ['cursor', 'gemini-cli', 'codex']) {
+      expect(yamlOf(platform), platform).toBe(canonical);
+      expect(brief(platform), platform).toBe(brief());
+    }
+  });
+  it('no description in skill.yaml holds an angle bracket (it would reach generated docs)', () => {
+    for (const a of (parseYaml(yamlOf('claude-code')) as Yaml).cli.args)
+      expect(a.description, a.name).not.toMatch(/[<>]/);
+  });
+});
