@@ -134,6 +134,10 @@ reviewer findings files and are not in the receipt's counts.
 
 ## Limits
 
+- Threat model (ADR 0139): the gate defends against honest mistakes and shortcuts by an agent
+  following the skills, not against a session that deliberately forges its own files and refs
+  (rewriting remote-tracking refs, hand-editing earlier receipts or the starting commit,
+  fabricating findings files).
 - The gate proves that each required reviewer produced its own findings file over files of the
   diff at the current commit. It does not prove the reviewers ran in separate contexts: one
   context that writes four findings files passes.

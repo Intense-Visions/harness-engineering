@@ -112,6 +112,21 @@ maps implementation files to spec files and has no session concept.
 A session with no subagent-spawning tool runs the `light` tier and records `tier: "light"`. It
 never records `full`. Honest capability is what makes the roster check meaningful.
 
+### Threat model
+
+The gate defends against honest mistakes and shortcuts by an agent following the skills: a
+fan-out that silently collapsed, a reviewer that was never dispatched, a stale receipt, a
+miscounted finding, a base taken from the wrong place. It does not defend against a session
+that deliberately forges the files and refs it writes itself. The known forging routes are
+limits, not defects: rewriting the clone's remote-tracking refs (`git update-ref`) to move the
+final base, hand-editing an earlier receipt or the `startingCommit` of `autopilot-state.json` to
+move a phase's or the final fallback base, fabricating findings files (one context writing every
+reviewer's file), and planting a repository or a worktree for the gate to read. Where a cheap
+check closes a route an honest agent could take by mistake (its own upstream named as the
+target, a findings file left from a review over another range, a receipt read in another
+repository, an invalid earlier receipt), the gate makes it; it does not try to out-guess a
+session that sets out to deceive it.
+
 ## Consequences
 
 - A degraded review now fails a gate, or its receipt records `tier: light`; a `light` receipt
