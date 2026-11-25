@@ -215,7 +215,9 @@ describe('fix 6: reviewersRun counts reviewers whose findings file loaded', () =
     );
     expect(codes(r)).toEqual(['FINDINGS_FILE_MISSING']);
     expect(r).toMatchObject({ reviewersRun: 3, reviewersRequired: 4 });
-    expect(r.unreadable).toEqual(['bug']);
+    // A file that is absent, or read and rejected, did not load (round 4: renamed from unreadable).
+    expect(r.notLoaded).toEqual(['bug']);
+    expect(r).not.toHaveProperty('unreadable');
     expect(r.loaded).toEqual(['compliance', 'security', 'architecture']);
   });
 });

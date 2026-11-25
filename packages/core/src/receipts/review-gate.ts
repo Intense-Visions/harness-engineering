@@ -230,9 +230,12 @@ export interface CheckedReceiptResult {
   receipt: ReviewReceipt;
   /** The count over the findings files that loaded (tallyReviewFindings). */
   tally: ReviewFindingTally;
-  /** Reviewers marked ran whose findings file loaded, and those whose file did not. */
+  /**
+   * Reviewers marked ran whose findings file loaded, and those whose file did not: absent,
+   * unreadable, or read and rejected (invalid, shared, a path outside the receipt directory).
+   */
   loaded: string[];
-  unreadable: string[];
+  notLoaded: string[];
 }
 
 export type ReviewGateResult = InvalidReceiptResult | CheckedReceiptResult;
@@ -622,7 +625,8 @@ export interface FindingsCheck {
   failures: ReviewGateFailure[];
   /** Findings files that loaded, by reviewer id, in receipt order. */
   files: Map<string, ReviewerFindingsFile>;
-  unreadable: string[];
+  /** Reviewers marked ran whose findings file did not load (absent, unreadable or rejected). */
+  notLoaded: string[];
   diffSet: ReadonlySet<string> | undefined;
 }
 
@@ -638,12 +642,12 @@ export function checkFindings(receipt: ReviewReceipt, context: FindingsSource): 
   const failures = diffFailures(receipt, diffSet);
   const usedPaths = new Set<string>();
   const files = new Map<string, ReviewerFindingsFile>();
-  const unreadable: string[] = [];
+  const notLoaded: string[] = [];
   for (const r of receipt.reviewers.filter((x) => x.ran)) {
     const loaded = loadFindingsFile(r, context, usedPaths);
     if ('failure' in loaded) {
       failures.push(loaded.failure);
-      unreadable.push(r.id);
+      notLoaded.push(r.id);
       continue;
     }
     files.set(r.id, loaded.file);
@@ -651,8 +655,8 @@ export function checkFindings(receipt: ReviewReceipt, context: FindingsSource): 
   }
   // Counts are compared only when every file loaded: a file that did not is already a failure,
   // and a count over part of the review would name the wrong number.
-  if (unreadable.length === 0) failures.push(...countFailures(receipt, [...files.values()]));
-  return { failures, files, unreadable, diffSet };
+  if (notLoaded.length === 0) failures.push(...countFailures(receipt, [...files.values()]));
+  return { failures, files, notLoaded, diffSet };
 }
 
 /** The receipt's `blocking` and `advisory` are claims; the findings files are the evidence. */
@@ -799,6 +803,6 @@ export function validateReviewReceipt(
     receipt: r,
     tally: tallyReviewFindings([...check.files.values()]),
     loaded: [...check.files.keys()],
-    unreadable: check.unreadable,
+    notLoaded: check.notLoaded,
   };
 }

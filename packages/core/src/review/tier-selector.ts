@@ -89,11 +89,11 @@ function groupTrailers(lines: readonly string[]): TrailerLines[] {
 }
 
 /**
- * A trailer by its parsed key and value, as git parses it: the key is the text before the first
+ * A trailer's identity, its parsed key and value together (`key:value`), as git parses it: the key is the text before the first
  * colon, trimmed and compared without case; the value is the rest with the continuation lines
  * unfolded and every run of whitespace read as one space. undefined: the line holds no colon.
  */
-function trailerKey(lines: TrailerLines): string | undefined {
+function trailerIdentity(lines: TrailerLines): string | undefined {
   const [first = '', ...more] = lines;
   const colon = first.indexOf(':');
   if (colon < 0) return undefined;
@@ -112,15 +112,15 @@ function trailerKey(lines: TrailerLines): string | undefined {
 function withoutIdentityTrailers(message: string, trailers: readonly string[]): string {
   const dropped = new Set<string>();
   for (const trailer of groupTrailers(trailers)) {
-    const key = trailerKey(trailer);
-    if (key !== undefined && IDENTITY_TRAILER.test(trailer[0] ?? '')) dropped.add(key);
+    const id = trailerIdentity(trailer);
+    if (id !== undefined && IDENTITY_TRAILER.test(trailer[0] ?? '')) dropped.add(id);
   }
   if (dropped.size === 0) return message;
   const lines = message.trimEnd().split('\n');
   const block = lines.map((line) => line.trim()).lastIndexOf('') + 1;
   const kept = groupTrailers(lines.slice(block)).filter((t) => {
-    const key = trailerKey(t);
-    return key === undefined || !dropped.has(key);
+    const id = trailerIdentity(t);
+    return id === undefined || !dropped.has(id);
   });
   return [...lines.slice(0, block), ...kept.flat()].join('\n');
 }
