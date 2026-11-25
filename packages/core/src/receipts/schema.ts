@@ -61,6 +61,7 @@ export const REVIEWER_ID_PATTERN = /^[a-z][a-z0-9-]*$/;
 const reviewerId = z.string().regex(REVIEWER_ID_PATTERN, 'must match ^[a-z][a-z0-9-]*$');
 const sha = z.string().regex(FULL_SHA_PATTERN, 'must be a resolved 40-character sha');
 const count = z.number().int().nonnegative();
+const round = z.number().int().positive();
 
 export const ReviewerRecordSchema = z.object({
   id: reviewerId,
@@ -94,6 +95,8 @@ export const ReviewReceiptSchema = z
     reviewers: z.array(ReviewerRecordSchema).min(1),
     blocking: count,
     advisory: count,
+    round: round.exactOptional(),
+    priorRounds: z.array(z.object({ round, head: sha, blocking: count })).exactOptional(),
   })
   .superRefine((r, ctx) => {
     // A demotion says a review ran below its computed tier, so it is valid only on one. A final

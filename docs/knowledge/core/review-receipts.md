@@ -18,7 +18,8 @@ live in `packages/types/src/pipeline-receipts.ts`; validators and the gate live 
 **Review receipt.** `receipt.json`: `moment` (`phase`, `final`, `standalone`), `tier`,
 `backend`, the diff range as resolved 40-character SHAs (with `baseSource` when the base fell
 back to the starting commit), `coldContext`, `priorFindingsSupplied`, one record per reviewer,
-blocking and advisory counts. Beside it sits one findings file per reviewer, `<reviewerId>.json`, holding the range it was given
+blocking and advisory counts, and, after a fix round, `round` and `priorRounds` (1 + the
+`round-R/` archives beside it, and one entry per archive). Beside it sits one findings file per reviewer, `<reviewerId>.json`, holding the range it was given
 (`base` and `head`, both required, equal to the receipt's `diff.base` and `diff.head`), the diff files it examined and its
 findings. Neither file is read unless it is a regular file of at most 5 MB.
 
@@ -71,7 +72,12 @@ directory states (`phase-N` with no leading zeros, `final-all`, or a directory d
 contradicts the directory fails `MOMENT_MISMATCH`), a required reviewer that did not run, a
 `full` roster missing a core reviewer, a `light` roster that is not exactly `compliance-bug` (no other reviewer listed, required or not), a
 reviewer listed twice, a reviewer id that is not a known reviewer (`UNKNOWN_REVIEWER`), a
-findings file that is absent, invalid, shared, outside the receipt directory (`FINDINGS_PATH_INVALID`), written under another reviewer's id, written at another head or for another base (`FINDINGS_BASE_MISMATCH`), empty of examined files or outside the recomputed diff,
+`round` that is not 1 + the `round-R/` archives or archives not numbered `round-1` to `round-n`
+(`ROUND_MISMATCH`), `priorRounds` that do not match them (`PRIOR_ROUNDS_MISMATCH`; each prior
+round's blocking count is recounted from its archived findings files), a round
+after the first at the head the round before it reviewed (`ROUND_SAME_HEAD`: only a fix commit
+starts a new round), a `.round-R.partial` staging directory an interrupted archive left beside
+the receipt (`ROUND_ARCHIVE_INTERRUPTED`), a findings file that is absent, invalid, shared, outside the receipt directory (`FINDINGS_PATH_INVALID`), written under another reviewer's id, written at another head or for another base (`FINDINGS_BASE_MISMATCH`), empty of examined files or outside the recomputed diff,
 a finding id used twice in the review, `blocking` or `advisory` counts that differ from what the
 findings files hold (`COUNTS_MISMATCH`), a head that is not the current HEAD (git runs at the
 top of the worktree that holds the receipt, which must be the caller's: a receipt in another
@@ -101,7 +107,8 @@ file and the session state hold is a 40-character SHA-1 id. The codes are `REVIE
 `packages/types/src/pipeline-receipts.ts`. Surfaces: `harness check-review-receipt [path]
 [--moment phase|final|standalone]` (the path is `receipt.json` or its directory, and a path that
 does not exist and does not end in `.json` is read as a directory; exit 0 on a pass, exit 1 on a
-failure), with one more mode:
+failure), with two more modes, one per call: `--archive-round <review-dir>` archives an ended
+round into `round-R/` and prints the next round, and
 `--findings <file> [--base <sha> --head <sha>]` checks one reviewer findings file with the gate's parser, reviewer-id rule and diff (a reviewer's
 self-check, which needs only the CLI; a flag the chosen mode does not read, `--base`/`--head` with a receipt path or `--moment` with `--findings`, exits 1), and the `check_review_receipt` MCP tool (`path` is the project root,
 `receipt` the review directory, which must be inside it by real path, so a symlink that leads
@@ -143,6 +150,31 @@ trailing `-` or `.` is removed, so the branch part is a single path segment. A d
 session (`sessions/<slug>/reviews/<label>`) is read by the session rule first. Review hooks write `hook-<name>.json` files into the same directory; they are not
 reviewer findings files and are not in the receipt's counts.
 
+**Fix rounds.** Before a fix round the ended round's files are archived into `round-R/` inside
+the review directory by `harness check-review-receipt --archive-round` (core
+`archiveReviewRound`); the gate reads the archived receipts and findings files to check `round`
+and `priorRounds`. The command archives only a review directory of the layout above that holds a
+`receipt.json` (a regular file, naming only findings files that are regular files directly in
+the directory, the only files the archive moves)
+(a round that wrote none, such as a failed mechanical phase, is not a round and keeps its
+number), only when HEAD is no longer the head that receipt reviewed (a fix round needs a fix
+commit; a review run again at the same head stays in its round and overwrites its files), and
+only when the archives present are numbered `round-1` to `round-(R-1)`. It moves the files into
+a staging directory `.round-R.partial`, `receipt.json` last, and renames it to `round-R/`, moving
+everything back on an error (`receipt.json` first), so an error archives the round whole or not
+at all. An interruption (the process dies) leaves the staging directory: the gate fails
+`ROUND_ARCHIVE_INTERRUPTED` while it exists, beside a missing or invalid receipt too. The next
+`--archive-round` completes the archive when the staging directory holds `receipt.json` and every
+findings file it names, renaming it to `round-R/` even when a newer attempt has written files
+into the review directory since (they stay; that attempt's receipt is rewritten as the next
+round). With no `receipt.json` staged it moves the staged files back and then archives. It
+refuses a staging directory that is not the next archive's, a staged receipt that is unreadable
+or names a findings file the staging directory lacks, and, when moving back, a name in both
+places (the staged copy is the ended round's, the other a newer attempt's): those stop for the
+human. A prior round's blocking count is recounted from its archived findings files, each once;
+when one cannot be read it is the archived receipt's own `blocking`, that receipt's claim. A standalone directory is named for its head, so a
+standalone review after a fix commit is a new directory and needs no archive.
+
 ## Limits
 
 - Threat model (ADR 0139): the gate defends against honest mistakes and shortcuts by an agent
@@ -156,7 +188,8 @@ reviewer findings files and are not in the receipt's counts.
   no flag overrides), the head, a clean tracked tree, each findings file's head, the base's ancestry, a phase's
   base (the previous usable receipt's head, else the starting commit), the merge base
   of a final review (whatever `baseSource` the receipt declares, while a merge base resolves;
-  the session's starting commit when none does), the `light` roster, the reviewer ids, finding-id uniqueness, and the `blocking`
+  the session's starting commit when none does), the `light` roster, the reviewer ids, `round`
+  and `priorRounds` against the `round-R/` archives, finding-id uniqueness, and the `blocking`
   and `advisory` counts.
 - These stay claims: that reviewers ran in separate contexts, the conditional-reviewer set
   (beyond every id being known), a phase's entitlement to `light`, `coldContext` and
@@ -173,7 +206,8 @@ reviewer findings files and are not in the receipt's counts.
   gate treats as the merge base: the final base is only as trustworthy as those refs. The
   starting commit (the final base's fallback and the first phase's base) and the earlier
   receipts (a later phase's base) are the session's own files, so the gate proves the receipts
-  agree with them, not that they are honest.
+  agree with them, not that they are honest. So are the `round-R/` archives: the round check
+  shows agreement with them and cannot show a round that was never archived.
 - Callers of the MCP tool decide on its `pass` field alone. Through the shared
   response-compaction middleware `failures` is absent on a pass, a single object when there is
   exactly one failure, and an array when there are two or more. The CLI's `--json` output always
@@ -204,6 +238,7 @@ reviewer findings files and are not in the receipt's counts.
 | [schema.ts](../../../packages/core/src/receipts/schema.ts)                            | Zod validators for both files; `tallyReviewFindings`, the counting rule                                                                     |
 | [review-gate.ts](../../../packages/core/src/receipts/review-gate.ts)                  | `validateReviewReceipt`, `finalReviewBase`, `checkReviewerFindingsText` (the self-check)                                                    |
 | [load.ts](../../../packages/core/src/receipts/load.ts)                                | Reads a receipt; the findings reader confined to the review directory                                                                       |
+| [rounds.ts](../../../packages/core/src/receipts/rounds.ts)                            | `archiveReviewRound`, `readArchivedRounds`: the `round-R/` archives of a fix round                                                          |
 | [review-paths.ts](../../../packages/core/src/shared/review-paths.ts)                  | `normalizeReviewPath`, `pathEscapes`: the path rules the gate and the tier selector share (a shared leaf)                                   |
 | [layout.ts](../../../packages/core/src/receipts/layout.ts)                            | Review directory names, `expectedReviewMoment` (the one precedence rule)                                                                    |
 | [backend.ts](../../../packages/core/src/receipts/backend.ts)                          | `resolveReviewBackend`                                                                                                                      |

@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/tests/commands'
-sourceHash: '34c7d6b4ddeac6731eac3483cbf443c4ad8dc733abd4ab82012b13f381add625'
+sourceHash: '31fcac761096ebfac480f3f6ad99ae4b79fee8161210eeee3343a80be2b1d5a0'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -179,6 +179,7 @@ members:
     'review-tier-base.test.ts',
     'review-tier.test.ts',
     'rollback.test.ts',
+    'round4-archive-round.test.ts',
     'round4-empty-final.test.ts',
     'round4-final-base.test.ts',
     'round4-robustness.test.ts',

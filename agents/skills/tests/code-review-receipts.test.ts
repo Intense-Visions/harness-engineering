@@ -550,7 +550,12 @@ describe('review round 3: craft, dispatched mode and the reviewer self-check (A6
       ),
       'utf-8'
     );
-    for (const flag of ['--findings <file>', '--base <sha>', '--head <sha>']) {
+    for (const flag of [
+      '--findings <file>',
+      '--base <sha>',
+      '--head <sha>',
+      '--archive-round <review-dir>',
+    ]) {
       expect(cli, flag).toContain(`'${flag}'`);
     }
   });

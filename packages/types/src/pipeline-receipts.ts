@@ -58,6 +58,14 @@ export interface ReviewerRecord {
   skippedReason?: string;
 }
 
+/** What an earlier round of the same review found, before its fix round. */
+export interface ReviewPriorRound {
+  round: number;
+  /** The 40-character SHA that round reviewed. */
+  head: string;
+  blocking: number;
+}
+
 export interface ReviewReceipt {
   schemaVersion: 1;
   moment: ReviewMoment;
@@ -79,6 +87,9 @@ export interface ReviewReceipt {
   reviewers: ReviewerRecord[];
   blocking: number;
   advisory: number;
+  /** Which round of this review the receipt is: 1, or higher after a fix round. Default 1. */
+  round?: number;
+  priorRounds?: ReviewPriorRound[];
 }
 
 /**
@@ -100,6 +111,12 @@ export const ERRNO_REASON = '[A-Z][A-Z0-9_]{1,30}';
 export type ErrnoReason = Uppercase<string>;
 /** Every reason an unread receipt or findings file carries. */
 export type ReceiptReadProblem = ReceiptUnreadReason | ErrnoReason;
+
+/**
+ * An archived earlier round of a review (`round-R/`): the head its archived receipt names and the
+ * blocking count its archived findings files hold, or `unreadable` when either cannot be read.
+ */
+export type ArchivedRound = ReviewPriorRound | { round: number; unreadable: true };
 
 /** Every way the review receipt gate (core `validateReviewReceipt`) can fail. */
 export const REVIEW_GATE_FAILURE_CODES = [
@@ -126,6 +143,10 @@ export const REVIEW_GATE_FAILURE_CODES = [
   'STARTING_COMMIT_UNKNOWN',
   'PHASE_BASE_MISMATCH',
   'PHASE_BASE_UNKNOWN',
+  'ROUND_MISMATCH',
+  'PRIOR_ROUNDS_MISMATCH',
+  'ROUND_SAME_HEAD',
+  'ROUND_ARCHIVE_INTERRUPTED',
   'DIFF_BASE_NOT_ANCESTOR',
   'DIFF_UNRESOLVED',
   'EMPTY_DIFF',
