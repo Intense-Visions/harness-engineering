@@ -314,6 +314,9 @@ const UNRESOLVED_TEXT: Record<FinalBaseUnresolved | StandaloneBaseUnresolved, st
     'its first commit is the base), or pass --target with the branch this one merges into',
   'target-unresolved':
     'is not a remote-tracking branch (such as origin/parent) that has a merge base with the head',
+  'target-own-branch':
+    'is the branch under review (its upstream, or a remote-tracking branch of the same name), ' +
+    'whose merge base is its own last pushed commit: name the branch this one merges into',
   'head-unresolved': 'the head could not be resolved to a commit',
   'session-invalid': 'the --session value is not a valid session name',
 };
@@ -324,7 +327,9 @@ function baseLine(r: ReviewTierResult, target: string | undefined): string[] {
   if ('baseUnresolved' in r) {
     const why = UNRESOLVED_TEXT[r.baseUnresolved];
     const text =
-      r.baseUnresolved === 'target-unresolved' ? `--target "${inert(target ?? '')}" ${why}` : why;
+      r.baseUnresolved === 'target-unresolved' || r.baseUnresolved === 'target-own-branch'
+        ? `--target "${inert(target ?? '')}" ${why}`
+        : why;
     return [`Review base: unresolved (${text})`];
   }
   const rule =

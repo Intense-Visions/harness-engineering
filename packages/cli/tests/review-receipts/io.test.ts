@@ -37,26 +37,16 @@ describe('sessionDirFrom', () => {
   ])('from %s the session is under the top level', (_name, cwd, top, root) => {
     expect(sessionDirFrom(at(top), cwd, 's1')).toEqual({ ok: true, value: sessions(root, 's1') });
   });
-  it.each(['s1', 'changes--x--proposal', 'my session', '_lead', 'a+b (2)'])(
+  it.each(['s1', 'changes--x--proposal', 'my session', '_lead', 'a+b (2)', '.harness'])(
     'accepts the slug %j, as core does',
     (slug) => {
       expect(sessionDirFrom(at('/repo'), '/repo', slug).ok).toBe(true);
     }
   );
-  it.each([
-    '',
-    '   ',
-    'a..b',
-    '..',
-    '.',
-    'a/b',
-    'a\\b',
-    'C:x',
-    ' padded',
-    'padded ',
-    'NUL',
-    '.harness',
-  ])('refuses the slug %j, as core does', (slug) => {
-    expect(sessionDirFrom(at('/repo'), '/repo', slug).ok).toBe(false);
-  });
+  it.each(['', '   ', 'a..b', '..', '.', 'a/b', 'a\\b', 'C:x', ' padded', 'padded ', 'NUL'])(
+    'refuses the slug %j, as core does',
+    (slug) => {
+      expect(sessionDirFrom(at('/repo'), '/repo', slug).ok).toBe(false);
+    }
+  );
 });

@@ -1,11 +1,11 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/tests/review-receipts'
-sourceHash: '9821f75e9068a729a838b1445993073c37b8129b553331fe45e9b0f1440d87e7'
+sourceHash: '2e8ccc82f221a8166e791dc2e07abd4f9d1eaf1699c6cb4a512f659edd4f7819'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
-members: ['gate-git.test.ts', 'io.test.ts']
+members: ['gate-git.test.ts', 'io.test.ts', 'round3-target.test.ts']
 ---
 
 ## Interface Contract
@@ -17,6 +17,7 @@ members: ['gate-git.test.ts', 'io.test.ts']
 ## Dependency Slice
 
 ```
+import { runReviewTier } from '../../src/commands/review-tier'
 import { handleCheckReviewReceipt } from '../../src/mcp/tools/review-receipt'
 import { runCheckFindingsFile, runCheckReviewReceipt } from '../../src/review-receipts/gate'
 import { CwdGit, listDiffFiles, runGitIn, sessionDirFrom } from '../../src/review-receipts/io'

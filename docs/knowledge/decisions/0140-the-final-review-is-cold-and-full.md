@@ -47,16 +47,22 @@ would otherwise be reviewed from the default branch's merge base, so its final r
 cover the parent's commits, and keep covering them after the parent squash-merges.
 `harness review-tier --moment final --target <ref>` takes the remote-tracking branch the PR
 targets: only a ref that `git rev-parse --symbolic-full-name --end-of-options` resolves under
-`refs/remotes/`, never a sha, a HEAD-relative name, a local branch or a tag, which would let the
-session base its final review on its own last commit. The base is then the merge base with that
+`refs/remotes/`, never a sha, a HEAD-relative name, a local branch or a tag. That restriction
+alone does not stop a session basing its final review on its own last pushed commit: the
+branch's own upstream is a remote-tracking ref too. So the branch under review is refused as
+its own target: its upstream (`@{upstream}`) and any `refs/remotes/<remote>/<current branch
+name>` fail `TARGET_OWN_BRANCH` at the gate, and `harness review-tier` reports them unresolved.
+The base is then the merge base with that
 ref instead of the default branch's, and the command prints the full ref. The receipt records it
 as `diff.target` (a final receipt only), and the gate reads it from there: the receipt is the one
 source, so no gate run can measure against a different ref, and the gate's PASS line names the
 ref it measured against. The default stays `origin/HEAD`, `origin/main`, `origin/master`. A
 `diff.target` that is not a remote-tracking branch that resolves fails `TARGET_UNRESOLVED` and
-never falls back to the starting commit. The target is the session's choice among
-remote-tracking refs, which the session can rewrite: it has the same trust as the
-default-branch base, no more. The unit PRs of the shift-left fidelity stack
+never falls back to the starting commit. The target is still the session's choice among the
+other remote-tracking refs, and those refs are local and rewritable (`git update-ref`): a session
+that names a branch it does not merge into, or moves a ref, chooses its own base. That is a
+forging route the gate does not close (ADR 0139, Threat model); refusing the branch's own
+upstream closes the route an honest session could take by mistake. The unit PRs of the shift-left fidelity stack
 use it: each unit's final review is based at the merge base with the unit below it.
 
 ### Full (D5)

@@ -82,13 +82,15 @@ function finalMergeBase(
   git: CwdGit,
   range: Range,
   cwd: string
-): Pick<ReviewGateContext, 'mergeBase' | 'mergeBaseWith' | 'targetUnresolved'> {
+): Pick<ReviewGateContext, 'mergeBase' | 'mergeBaseWith' | 'targetUnresolved' | 'targetOwnBranch'> {
   if (!range.final) return { mergeBase: undefined };
   const target = typeof range.target === 'string' ? range.target : undefined;
   const lookup = reviewMergeBase(git, range.head, cwd, target);
   if (lookup.status === 'resolved' && (target === undefined || lookup.with === target))
     return { mergeBase: lookup.mergeBase, mergeBaseWith: lookup.with };
   if (lookup.status === 'none') return { mergeBase: undefined };
+  if (lookup.status === 'target-own-branch')
+    return { mergeBase: undefined, targetOwnBranch: lookup.ref };
   return { mergeBase: undefined, targetUnresolved: String(target) };
 }
 

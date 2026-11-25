@@ -73,6 +73,8 @@ export interface ReviewGateContext extends FindingsSource {
   mergeBaseWith?: string;
   /** The receipt's `diff.target` when it is no remote-tracking branch with a merge base with the head. */
   targetUnresolved?: string;
+  /** The receipt's `diff.target` when it is the branch under review (its upstream, or the same name). */
+  targetOwnBranch?: string;
   /**
    * The session's starting commit, for a receipt in a session review directory whose
    * autopilot-state.json holds a full sha. Absent: unknown (no session, or no such field).
@@ -320,6 +322,14 @@ function finalBaseFailure(
       'TARGET_UNRESOLVED',
       `diff.target "${context.targetUnresolved}" is not a remote-tracking branch (a full ref ` +
         `under refs/remotes/) with a merge base with ${receipt.diff.head}, so the final base cannot be checked`
+    );
+  }
+  if (context.targetOwnBranch !== undefined) {
+    return reviewGateFailure(
+      'TARGET_OWN_BRANCH',
+      `diff.target "${context.targetOwnBranch}" is the branch under review (its upstream, or a ` +
+        'remote-tracking branch of the same name): its merge base is its own last pushed commit; ' +
+        'name the branch this one merges into'
     );
   }
   const demanded = finalReviewBase(context.mergeBase, context.startingCommit);

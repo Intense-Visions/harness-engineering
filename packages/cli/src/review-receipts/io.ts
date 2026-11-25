@@ -200,7 +200,23 @@ export type MergeBaseLookup =
   /** No default branch resolved (no target was named). */
   | { status: 'none' }
   /** The target is no remote-tracking branch with a merge base with the head. */
-  | { status: 'target-unresolved'; target: string };
+  | { status: 'target-unresolved'; target: string }
+  /** The target is the branch under review itself (`isOwnBranchRef`). */
+  | { status: 'target-own-branch'; target: string; ref: string };
+
+/**
+ * Whether the remote-tracking ref `ref` is the branch checked out in `cwd` itself: its upstream
+ * (`@{upstream}`), or `refs/remotes/<remote>/<current branch name>`. A final review measured from
+ * it would start at the branch's own last pushed commit.
+ */
+export function isOwnBranchRef(git: CwdGit, ref: string, cwd: string): boolean {
+  const upstream = tryGit(git, ['rev-parse', '--symbolic-full-name', '@{upstream}'], cwd);
+  if (upstream === ref) return true;
+  const branch = tryGit(git, ['symbolic-ref', '--quiet', '--short', 'HEAD'], cwd);
+  if (!branch) return false;
+  const remote = ref.slice('refs/remotes/'.length, -(branch.length + 1));
+  return ref.endsWith(`/${branch}`) && remote !== '' && !remote.startsWith('/');
+}
 
 /**
  * `git merge-base <ref> <head>` for the branch the review merges into. With `target` (a stacked
@@ -217,6 +233,8 @@ export function reviewMergeBase(
 ): MergeBaseLookup {
   if (target !== undefined) {
     const ref = remoteTrackingRef(git, target, cwd);
+    if (ref !== undefined && isOwnBranchRef(git, ref, cwd))
+      return { status: 'target-own-branch', target, ref };
     const base = ref && tryGit(git, ['merge-base', '--end-of-options', ref, head], cwd);
     return ref && base
       ? { status: 'resolved', mergeBase: base, with: ref }
@@ -238,9 +256,10 @@ const mergeBaseOf = (lookup: MergeBaseLookup): string | undefined =>
   lookup.status === 'resolved' ? lookup.mergeBase : undefined;
 
 /** A final review's base, or why none can be demanded (including an unresolvable target). */
-export type FinalBaseOutcome =
-  | FinalReviewBase
-  | { status: 'unresolved'; reason: 'target-unresolved' };
+export type FinalBaseOutcome = FinalReviewBase | { status: 'unresolved'; reason: TargetRefused };
+
+/** Why a named target gives no base. */
+export type TargetRefused = 'target-unresolved' | 'target-own-branch';
 
 /**
  * The base a final review must have: core `finalReviewBase` over the merge base (`reviewMergeBase`)
@@ -255,15 +274,15 @@ export function resolveFinalReviewBase(opts: {
   git?: CwdGit;
 }): FinalBaseOutcome {
   const lookup = reviewMergeBase(opts.git ?? runGitIn, opts.head, opts.cwd, opts.target);
-  if (lookup.status === 'target-unresolved')
-    return { status: 'unresolved', reason: 'target-unresolved' };
+  if (lookup.status === 'target-unresolved' || lookup.status === 'target-own-branch')
+    return { status: 'unresolved', reason: lookup.status };
   return finalReviewBase(mergeBaseOf(lookup), opts.startingCommit);
 }
 
 /** A standalone review's advised base (core `standaloneReviewBase`), or why none resolves. */
 export type StandaloneBaseOutcome =
   | StandaloneReviewBase
-  | { status: 'unresolved'; reason: 'target-unresolved' };
+  | { status: 'unresolved'; reason: TargetRefused };
 
 export function resolveStandaloneReviewBase(opts: {
   cwd: string;
@@ -272,7 +291,7 @@ export function resolveStandaloneReviewBase(opts: {
   git?: CwdGit;
 }): StandaloneBaseOutcome {
   const lookup = reviewMergeBase(opts.git ?? runGitIn, opts.head, opts.cwd, opts.target);
-  if (lookup.status === 'target-unresolved')
-    return { status: 'unresolved', reason: 'target-unresolved' };
+  if (lookup.status === 'target-unresolved' || lookup.status === 'target-own-branch')
+    return { status: 'unresolved', reason: lookup.status };
   return standaloneReviewBase(mergeBaseOf(lookup));
 }

@@ -457,7 +457,7 @@ describe('review round 2: moment, tier, base and commits after the final review 
     );
     expect(text).toMatch(/`DIFF_BASE_NOT_ANCESTOR`/);
     expect(text).toMatch(
-      /it fails unless `diff\.base` is the base of step 2 \(`FINAL_BASE_NOT_MERGE_BASE`, `STARTING_COMMIT_UNKNOWN`; `TARGET_UNRESOLVED` when the recorded `diff\.target` is not a remote-tracking branch that resolves\)/
+      /it fails unless `diff\.base` is the base of step 2 \(`FINAL_BASE_NOT_MERGE_BASE`, `STARTING_COMMIT_UNKNOWN`; `TARGET_UNRESOLVED` when the recorded `diff\.target` is not a remote-tracking branch that resolves, `TARGET_OWN_BRANCH` when it is this branch itself\)/
     );
     expect(text).toMatch(
       /When the command prints `Review base: unresolved \(<why>\)` \(`baseUnresolved` in JSON\) no base the gate would accept is known/
@@ -767,7 +767,7 @@ describe('unit 1 fix round 2: a stacked branch records its target in the receipt
   const final = () => section(md(), '### FINAL_REVIEW');
   it('FINAL_REVIEW step 2 passes --target to the tier command and records the full ref as diff.target', () => {
     expect(final()).toMatch(
-      /When this branch's PR targets another unmerged branch rather than the default branch \(a stacked PR\), add `--target <that branch's remote-tracking ref>` \(such as `origin\/feat\/parent`; a sha, a HEAD-relative name, a local branch or a tag is refused\) to this command, and record the full ref it prints \(`target` in JSON, `against refs\/remotes\/…` on the `Review base:` line\) as `diff\.target` in the receipt\./
+      /When this branch's PR targets another unmerged branch rather than the default branch \(a stacked PR\), add `--target <that branch's remote-tracking ref>` \(such as `origin\/feat\/parent`; a sha, a HEAD-relative name, a local branch or a tag is refused, and so is this branch's own upstream or any remote-tracking branch with this branch's name, whose merge base is this branch's last pushed commit\) to this command, and record the full ref it prints \(`target` in JSON, `against refs\/remotes\/…` on the `Review base:` line\) as `diff\.target` in the receipt\./
     );
     expect(final()).toMatch(
       /the gate reads the target from the receipt, so the gate step below takes no flag for it/

@@ -153,7 +153,8 @@ reviewer findings files and are not in the receipt's counts.
   `backend`. The merge base is
   taken against the default branch ref as the clone holds it, or against the receipt's
   `diff.target`, a remote-tracking branch the session chose (a sha, a HEAD-relative name, a local
-  branch or a tag fails `TARGET_UNRESOLVED`); the gate does not fetch, and the
+  branch or a tag fails `TARGET_UNRESOLVED`, and the branch's own upstream or a remote-tracking
+  branch of its name fails `TARGET_OWN_BRANCH`); the gate does not fetch, and the
   session can rewrite those local remote-tracking refs (`git update-ref`) and so move what the
   gate treats as the merge base: the final base is only as trustworthy as those refs. The
   starting commit (the final base's fallback and the first phase's base) and the earlier
