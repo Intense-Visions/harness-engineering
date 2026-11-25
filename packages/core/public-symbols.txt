@@ -1466,6 +1466,7 @@ SkillResult
 SkillRetroStat
 SkillTransitionQualityGate
 SkillUsageStats
+SkipCheck
 SkippedCreate
 SkippedFile
 SkippedRule
@@ -1520,6 +1521,7 @@ StaleConstraint
 StaleReference
 StalenessEntry
 StalenessReport
+StampGit
 StampNote
 StampRow
 StampSessionState

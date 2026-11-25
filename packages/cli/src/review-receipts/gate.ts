@@ -315,6 +315,20 @@ function phaseBaseOf(
 }
 
 /**
+ * The base the gate would demand of the phase review `reviewDir` (`phase-N`) whose range ended at
+ * `head`: phaseBaseOf for that head. The stamp uses it to recompute an empty skip's range.
+ */
+export function phaseBaseAt(
+  git: CwdGit,
+  at: { reviewDir: string; head: string; startingCommit: string | undefined; top: string }
+): PhaseReviewBase {
+  const { reviewDir, head, startingCommit, top } = at;
+  const range: Range = { base: head, head, final: false, target: undefined };
+  const sessionDir = sessionDirOfReviewDir(reviewDir);
+  return phaseBaseOf(git, { dir: reviewDir, sessionDir, startingCommit, range, top });
+}
+
+/**
  * `--archive-round`: archive a review's ended round before a fix round re-runs it (core
  * `archiveReviewRound`). HEAD is read in the review directory's repository; the fix round needs
  * a fix commit, so a HEAD still at the ended round's head is refused there.

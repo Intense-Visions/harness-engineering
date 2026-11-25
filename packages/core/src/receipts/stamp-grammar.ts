@@ -207,6 +207,12 @@ const UNREAD_GATE = [
   'receipt outside project',
 ].join('|');
 
+/**
+ * The Gate cell of a skipped review (provenance.ts `unreadGate`): an `empty` skip says what
+ * recomputing its range found when it is not plainly empty.
+ */
+const SKIP_GATE = 'skipped \\((?:empty(?:; (?:range not empty|unverified))?|dropped)\\)';
+
 /** What each cell of a stamp row may hold. The Gate cell is built from the failure-code list. */
 export const STAMP_CELL_GRAMMAR: Record<StampColumn, RegExp> = {
   Review: SESSION_REVIEW_LABEL,
@@ -220,7 +226,7 @@ export const STAMP_CELL_GRAMMAR: Record<StampColumn, RegExp> = {
   ),
   Coverage: orDash('\\d+/\\d+ files|unknown'),
   Gate: new RegExp(
-    `^(?:(?:${UNREAD_GATE})(?: \\(overridden\\))?|skipped \\(${SKIP_REASON}\\)|` +
+    `^(?:(?:${UNREAD_GATE})(?: \\(overridden\\))?|${SKIP_GATE}|` +
       `pass at [0-9a-f]{7}|FAIL: ${CODE}(?:, ${CODE})*${MORE}(?: \\(overridden\\))?)${UNREVIEWED}$`
   ),
   Blocking: orDash(
@@ -240,13 +246,13 @@ export const STAMP_CELL_GRAMMAR: Record<StampColumn, RegExp> = {
 export const STAMP_NOTES = {
   'skipped-entries': 'entries under reviews/ that are not review directories, skipped: {n}',
   'expected-unknown-no-state':
-    'expected reviews unknown (autopilot-state.json is absent or is not a JSON object), so a review that never ran is not shown',
+    'expected reviews unknown (autopilot-state.json is absent or is not a JSON object), so a phase review that never ran is not shown',
   'expected-unknown-no-phase-list':
-    'expected reviews unknown (autopilot-state.json has no phase list), so a review that never ran is not shown',
+    'expected reviews unknown (autopilot-state.json has no phase list), so a phase review that never ran is not shown',
   'expected-unknown-phase-entry':
-    'expected reviews unknown (phase entry {n} is malformed), so a review that never ran is not shown',
+    'expected reviews unknown (phase entry {n} is malformed), so a phase review that never ran is not shown',
   'expected-unknown-phase-index':
-    'expected reviews unknown (phase entry {n} states an index other than its 0-based position), so a review that never ran is not shown',
+    'expected reviews unknown (phase entry {n} states an index other than its 0-based position), so a phase review that never ran is not shown',
   'decisions-unreadable': 'overrides could not be read from autopilot-state.json',
   'decisions-legacy':
     'decision provenance unknown: {n} review decisions were recorded without decidedBy',

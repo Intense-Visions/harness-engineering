@@ -106,15 +106,29 @@ export type UnreadReview =
   | { status: 'outside-repo' }
   /** The receipt path leaves the project. */
   | { status: 'outside' }
-  /** No receipt, and a `skipped` decision says why the review was not run. */
-  | { status: 'skipped'; reason: ReviewSkipReason };
+  /**
+   * No receipt, and a `skipped` decision says why the review was not run. For an `empty` skip,
+   * `check` says what the stamp found when it recomputed the range at the head the skip names:
+   * `empty` (it is), `not-empty` (it is not), `unverified` (no head, or git could not say).
+   */
+  | { status: 'skipped'; reason: ReviewSkipReason; check?: SkipCheck };
+
+/** What recomputing an `empty` skip's range found. */
+export type SkipCheck = 'empty' | 'not-empty' | 'unverified';
 
 /** A review without a receipt that was read: a row, never only a note. */
 export interface UnreadReviewRow {
   review: string;
   unread: UnreadReview;
-  /** Every decision recorded for the review (no receipt says which round it is). */
+  /**
+   * The decisions recorded for the review: of the round `round` names when it is set (its
+   * directory holds `round-R/` archives), else every one (nothing says which round it is).
+   */
   decisions: ReadReviewDecision[];
+  /** 1 + the `round-R/` archives in the review's directory, set only when there are any. */
+  round?: number;
+  /** Decisions recorded for the review in another round than `round`. */
+  otherRoundDecisions?: number;
   decisionsReadable: boolean;
   /** The final review: commits on HEAD after the last commit it can be said to cover. */
   unreviewedCommits?: UnreviewedCommits;
@@ -237,13 +251,37 @@ export type StampSessionState = Pick<
 > &
   Partial<Pick<SessionReviewState, 'legacyDecisions'>>;
 
-/** What a review directory gave: its gated receipt, or why it could not be read. */
+/**
+ * What a review directory gave: its gated receipt, or why it could not be read and, when the
+ * directory holds `round-R/` archives, the round the gate would count (1 + the archives).
+ */
 export type ReviewDirRead =
-  | { review: string; unread: Exclude<UnreadReview, { status: 'absent' | 'skipped' }> }
+  | {
+      review: string;
+      unread: Exclude<UnreadReview, { status: 'absent' | 'skipped' }>;
+      round?: number;
+    }
   | { review: string; result: CheckedReceiptResult };
 
 /** Count the commits on HEAD after `from` (a full sha). */
 export type CommitsAfter = (from: string) => UnreviewedCommits;
+
+/** What the stamp asks git, through the caller. Absent: nothing is counted or recomputed. */
+export interface StampGit {
+  commitsAfter: CommitsAfter;
+  /**
+   * The base the final gate would demand at HEAD (`finalReviewBase`: the merge base with the
+   * default branch, else the session's starting commit). undefined: none resolves, and a final
+   * row without a receipt says its count is unavailable.
+   */
+  finalBase: string | undefined;
+  /**
+   * Whether a review's range at `head` lists no file: for `phase-N` from the phase base the gate
+   * would demand at that head, for `final-all` from the final base at that head. undefined: it
+   * could not be computed.
+   */
+  rangeEmpty?: (review: string, head: string) => boolean | undefined;
+}
 
 /**
  * A phase's continuity, by the gate's own rule (`phaseReviewBase`, which passes over an earlier
@@ -303,56 +341,84 @@ function skipOf(decisions: readonly ReadReviewDecision[]) {
   return skips[skips.length - 1];
 }
 
+type Skip = Extract<ReadReviewDecision, { kind: 'skipped' }>;
+
+/** An `empty` skip's range recomputed at the head it names; `dropped` is not checked. */
+function skipShown(skip: Skip, label: string, git: StampGit | undefined): UnreadReview {
+  if (skip.reason !== 'empty') return { status: 'skipped', reason: skip.reason };
+  const empty = skip.head === undefined ? undefined : git?.rangeEmpty?.(label, skip.head);
+  const check: SkipCheck = empty === undefined ? 'unverified' : empty ? 'empty' : 'not-empty';
+  return { status: 'skipped', reason: 'empty', check };
+}
+
+/** A review's decisions split by round, when its directory says which round it is. */
+function byRound(
+  decided: Pick<UnreadReviewRow, 'decisions' | 'decisionsReadable'>,
+  round: number | undefined
+): Pick<UnreadReviewRow, 'decisions' | 'decisionsReadable' | 'round' | 'otherRoundDecisions'> {
+  if (round === undefined) return decided;
+  const decisions = decided.decisions.filter((d) => (d.round ?? 1) === round);
+  const otherRoundDecisions = decided.decisions.length - decisions.length;
+  return { ...decided, decisions, round, otherRoundDecisions };
+}
+
 /**
  * A row without a read receipt. A review with no receipt (no directory, or no receipt.json) that a
  * `skipped` decision covers is `skipped`. The final review's row counts the commits after the
- * last commit it can be said to cover: the head its skip recorded, else the starting commit.
+ * last commit it can be said to cover: the head its skip names when the Gate cell shows the skip
+ * and its range there was recomputed as empty, else the base the final gate would demand at HEAD
+ * (`StampGit.finalBase`), else the count is unavailable.
  */
 function unreadRow(
   label: string,
-  unread: Exclude<UnreadReview, { status: 'skipped' }>,
+  got: { unread: Exclude<UnreadReview, { status: 'skipped' }>; round?: number | undefined },
   decided: Pick<UnreadReviewRow, 'decisions' | 'decisionsReadable'>,
-  final: { from: string | undefined; count: CommitsAfter | undefined } | undefined
+  git: StampGit | undefined
 ): UnreadReviewRow {
-  const skip = skipOf(decided.decisions);
+  const { unread } = got;
+  const ofRound = byRound(decided, got.round);
+  const skip = skipOf(ofRound.decisions);
   const noReceipt = unread.status === 'absent' || unread.status === 'missing';
   const shown: UnreadReview =
-    noReceipt && skip?.kind === 'skipped' ? { status: 'skipped', reason: skip.reason } : unread;
-  const row: UnreadReviewRow = { review: label, unread: shown, ...decided };
-  if (final === undefined || final.count === undefined) return row;
-  const from = (skip?.kind === 'skipped' ? skip.head : undefined) ?? final.from;
-  return { ...row, unreviewedCommits: from === undefined ? 'unavailable' : final.count(from) };
+    noReceipt && skip?.kind === 'skipped' ? skipShown(skip, label, git) : unread;
+  const row: UnreadReviewRow = { review: label, unread: shown, ...ofRound };
+  if (label !== FINAL_REVIEW_LABEL || git === undefined) return row;
+  const verified = shown.status === 'skipped' && shown.check === 'empty';
+  const from = verified && skip?.kind === 'skipped' ? skip.head : git.finalBase;
+  return { ...row, unreviewedCommits: from === undefined ? 'unavailable' : git.commitsAfter(from) };
 }
 
 /**
  * A session's stamp rows and notes: a row for every expected review and every review directory
  * (phases in order, then final-all), MISSING for an expected review with no directory, `skipped`
- * for one a `skipped` decision covers. `dirListing` lists the directories under `reviews/` by name
- * (`labels`) and counts the other entries (`skipped`); a directory whose name is not a review
- * label (SESSION_REVIEW_LABEL) is skipped too. `read` gates one review directory; `commitsAfter`
- * counts the commits the final review did not read (absent: not counted). Everything else
- * (decisions, continuity, notes) is decided here.
+ * for one a `skipped` decision covers. Every session calls for a final review, so final-all has a
+ * row even when the phase list cannot be read. `dirListing` lists the directories under
+ * `reviews/` by name (`labels`) and counts the other entries (`skipped`); a directory whose name
+ * is not a review label (SESSION_REVIEW_LABEL) is skipped too. `read` gates one review directory;
+ * `git` counts the commits the final review did not read and recomputes empty skips (absent:
+ * nothing is counted, and every empty skip is unverified). Everything else (decisions,
+ * continuity, notes) is decided here.
  */
 export function assembleStamp(
   state: StampSessionState,
   dirListing: { labels: readonly string[]; skipped: number },
   read: (label: string) => ReviewDirRead,
-  commitsAfter?: CommitsAfter
+  git?: StampGit
 ): { rows: StampRow[]; notes: StampNote[] } {
   const labels = dirListing.labels.filter((l) => SESSION_REVIEW_LABEL.test(l));
   const skipped = dirListing.skipped + dirListing.labels.length - labels.length;
-  const all = [...new Set([...(state.expected ?? []), ...labels])].sort(compareReviewLabels);
+  const expected = state.expected ?? [FINAL_REVIEW_LABEL];
+  const all = [...new Set([...expected, ...labels])].sort(compareReviewLabels);
   const rows = all.map((label): StampRow => {
     const decided = {
       decisions: state.decisions.get(label) ?? [],
       decisionsReadable: state.decisionsReadable,
     };
     const isFinal = label === FINAL_REVIEW_LABEL;
-    const final = isFinal ? { from: state.startingCommit, count: commitsAfter } : undefined;
     const got: ReviewDirRead | undefined = labels.includes(label) ? read(label) : undefined;
-    if (got === undefined) return unreadRow(label, { status: 'absent' }, decided, final);
-    if ('unread' in got) return unreadRow(label, got.unread, decided, final);
-    const later = isFinal ? commitsAfter?.(got.result.receipt.diff.head) : undefined;
+    if (got === undefined) return unreadRow(label, { unread: { status: 'absent' } }, decided, git);
+    if ('unread' in got) return unreadRow(label, got, decided, git);
+    const later = isFinal ? git?.commitsAfter(got.result.receipt.diff.head) : undefined;
     const gapAfter = isFinal ? undefined : gapOf(got.result);
     return buildProvenanceRow({
       review: label,
@@ -393,7 +459,10 @@ function gateCell(r: ProvenanceRow): string {
 
 /** The round, when it is not the first, and what the earlier rounds found. */
 function roundsText(r: ProvenanceRow): string[] {
-  const prior: readonly ReviewPriorRound[] = r.receipt.priorRounds ?? [];
+  // A prior round at or above the round the gate counts is not an earlier round of this row.
+  const prior: readonly ReviewPriorRound[] = (r.receipt.priorRounds ?? []).filter(
+    (p) => p.round < r.round
+  );
   const shown = prior.slice(0, STAMP_LIMITS.items);
   const parts = shown.map((p) => `round ${p.round}: ${p.blocking} blocking`);
   if (r.round > 1 || prior.length > 0) parts.unshift(`round ${r.round}`);
@@ -467,6 +536,13 @@ function overrideText(
   return `${floor}: ${[...shown, ...(more > 0 ? [`+${more} more`] : [])].join('; ')}`;
 }
 
+/** What recomputing an empty skip found, as its Gate cell says it. */
+function skipCheckText(check: SkipCheck | undefined): string {
+  if (check === 'not-empty') return '; range not empty';
+  if (check === 'unverified') return '; unverified';
+  return '';
+}
+
 function unreadGate(unread: UnreadReview): string {
   switch (unread.status) {
     case 'absent':
@@ -479,7 +555,7 @@ function unreadGate(unread: UnreadReview): string {
     case 'outside':
       return 'receipt outside project';
     case 'skipped':
-      return `skipped (${unread.reason})`;
+      return `skipped (${unread.reason}${skipCheckText(unread.check)})`;
     case 'unreadable': {
       const known = new RegExp(`^${UNREAD_REASON}$`).test(unread.reason);
       return `receipt unreadable (${known ? unread.reason : 'UNKNOWN'})`;
@@ -505,8 +581,9 @@ function unreadGateCell(r: UnreadReviewRow): string {
  */
 function unreadCells(r: UnreadReviewRow): StampCells {
   const cells = blank(r.review, unreadGateCell(r));
-  if (r.decisions.length === 0 && r.decisionsReadable) return cells;
-  return { ...cells, Override: overrideText(r.decisions, 0, r.decisionsReadable) };
+  const other = r.otherRoundDecisions ?? 0;
+  if (r.decisions.length + other === 0 && r.decisionsReadable) return cells;
+  return { ...cells, Override: overrideText(r.decisions, other, r.decisionsReadable) };
 }
 
 const blank = (review: string, gate: string): StampCells => ({

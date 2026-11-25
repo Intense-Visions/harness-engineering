@@ -34,6 +34,8 @@ export type {
   ProvenanceRow,
   ProvenanceRowInput,
   ReviewDirRead,
+  SkipCheck,
+  StampGit,
   StampRow,
   StampSessionState,
   UnreadReview,

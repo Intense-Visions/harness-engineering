@@ -859,7 +859,11 @@ describe('unit 1 fix round 1: a spent fix budget with a red mechanical phase', (
 describe('unit 1 fix round 2: suggestions folded in', () => {
   it('DONE step 3 says what an absent or unreadable final receipt means', () => {
     expect(section(md(), '### DONE')).toMatch(
-      /When that receipt is absent, unreadable or holds no full `diff\.head` \(FINAL_REVIEW was left by an override of `RECEIPT_MISSING` or `RECEIPT_INVALID`\), every commit of the branch is unreviewed/
+      /When that receipt is absent, unreadable or holds no full `diff\.head` \(FINAL_REVIEW was left by an override of `RECEIPT_MISSING` or `RECEIPT_INVALID`\), every commit of the branch since the base the final gate would demand is unreviewed/
+    );
+    // Unit 3 fix round 2 (adversarial F1): the base is the final gate's, never startingCommit first.
+    expect(section(md(), '### DONE')).toMatch(
+      /take the base from its `Review base:` line \(the merge base with the default branch, or `startingCommit` only when no merge base resolves; `base` in JSON\)/
     );
   });
 });
@@ -926,7 +930,7 @@ describe('unit 1 review round 4, fix 5: an empty final review is skipped and rec
       /`finalReview\.status` \(`passed`, `passed-with-dismissals`, `overridden` or `skipped-empty`\)/
     );
     expect(done).toMatch(
-      /When the final review was skipped as empty, count from the head its decision recorded: `git rev-list --count <that head>\.\.HEAD`\./
+      /When the final review was skipped as empty, count from the head its decision recorded: `git rev-list --count <that head>\.\.HEAD`, but only when that range is still empty/
     );
   });
 });
@@ -1103,7 +1107,11 @@ describe('unit 3: review decisions and the provenance stamp', () => {
     expect(text).toMatch(/`MISSING` for a review that has no directory/);
     expect(text).toMatch(/coverage \(the diff files a required reviewer examined\)/);
     expect(text).toMatch(
-      /a rebase, an amend or a squash after the reviews makes every row read `FAIL: HEAD_MISMATCH`/
+      /a rebase or a squash after the reviews makes every row it rewrote read `FAIL: HEAD_MISMATCH` \(a phase row usually also `PHASE_BASE_UNKNOWN`\), and an amend the rows whose head was the amended commit/
+    );
+    // Unit 3 fix round 2 (adversarial F6): one stamp in the body, replaced, never appended.
+    expect(text).toMatch(
+      /replace that block, markers included, with the new one; never append a second stamp/
     );
     expect(text).toMatch(
       /nothing authenticates it in a PR body: CI cannot recompute it, because the receipts stay on this machine/
@@ -1138,7 +1146,9 @@ describe('unit 3: review decisions and the provenance stamp', () => {
     expect(init()).toContain(
       /\(phase entry 7 is malformed\)/.exec(malformed)![0].replace('7', 'N')
     );
-    expect(init()).toMatch(/it can then show no `MISSING` row/);
+    expect(init()).toMatch(
+      /it can then show no `MISSING` phase row \(the `final-all` row is always shown/
+    );
   });
   it('A2: a decision carries its round and applies only to the receipt of that round', () => {
     const text = records();
@@ -1360,6 +1370,9 @@ describe('unit 3 fix round 1: skips, rounds, the working tree, hidden and confli
       '| phase-2 | - | - | - | - | - | - | skipped (dropped) | - | - | - | 0 overrides, 0 dismissals, 1 skip: skipped (dropped) (human): dropped |',
       '| final-all | - | - | - | - | - | - | receipt missing (overridden), +3 commits not reviewed | - | - | - | 1 override, 0 dismissals: gate (RECEIPT_MISSING) (human): crashed |',
       '| final-all | - | - | - | - | - | - | skipped (empty), +1 commit not reviewed | - | - | - | - |',
+      // Unit 3 fix round 2 (adversarial F3): an empty skip the stamp found not empty, or could not check.
+      '| phase-1 | - | - | - | - | - | - | skipped (empty; range not empty) | - | - | - | 0 overrides, 0 dismissals, 1 skip: skipped (empty) (unaudited): no files |',
+      '| final-all | - | - | - | - | - | - | skipped (empty; unverified), +2 commits not reviewed | - | - | - | - |',
       '| phase-0 | - | - | - | - | - | - | receipt outside repository | - | - | - | unknown, at least 0 overrides, 1 dismissal: dismissed b1 (human): x |',
     ]) {
       expect(parseProvenanceStamp(stampOf(row))?.rows, row).toHaveLength(1);
@@ -1387,13 +1400,21 @@ describe('unit 3 fix round 1: skips, rounds, the working tree, hidden and confli
     );
   });
   it('a stamp inside <details>, or a second visible stamp, is not read', () => {
-    expect(records()).toMatch(/A `<details>` element, open or not, hides what it holds/);
+    // Unit 3 fix round 2: `<details>` before the last marker fails closed as ambiguous.
     expect(records()).toMatch(
-      /A body that shows two stamps is read as conflicting and neither is read/
+      /when `<details` or `<\/details` appears anywhere before the body's last marker .* the body is read as ambiguous and no stamp in it is read/
+    );
+    expect(records()).toMatch(
+      /A body that shows two or more stamps is read as conflicting and none is read/
+    );
+    expect(records()).toMatch(
+      /Each of the three is a state of its own, never "no stamp" and never a pass/
     );
     const row =
       '| phase-0 | phase | light | agent | 1/1 | 0000001..0000002 | 1/1 files | pass at 0000002 | 0 | none | none | none |';
-    expect(parseProvenanceStamp(`<details>\n\n${stampOf(row)}\n\n</details>`)).toBe(undefined);
+    expect(parseProvenanceStamp(`<details>\n\n${stampOf(row)}\n\n</details>`)?.status).toBe(
+      'ambiguous'
+    );
     expect(parseProvenanceStamp(`${stampOf(row)}\n\n${stampOf(row)}`)?.status).toBe('conflicting');
   });
   it('the free-text rule names the links it does not break', () => {

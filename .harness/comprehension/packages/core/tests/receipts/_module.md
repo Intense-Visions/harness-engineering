@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/tests/receipts'
-sourceHash: 'dbfeb51f0fe7a0141436537720b62ff5fb745e5f0dab5ef9420893c8eb1d14b6'
+sourceHash: '3fbf31cb855b471e21a6305b3f5cd0e1fe91c8b991d069dcb75342ec4191a2e3'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -39,6 +39,7 @@ members:
     'stamp-round3.test.ts',
     'unit3-findings.test.ts',
     'unit3-fix-round1.test.ts',
+    'unit3-fix-round2.test.ts',
   ]
 ---
 
@@ -66,7 +67,7 @@ import { resolveReviewBackend } from '../../src/receipts/backend'
 import { ReviewDecisionRecordSchema, jsonObjectFields, readSessionReviewState } from '../../src/receipts/decisions'
 import { ExpectedMoment, REVIEW_RECEIPT_FILENAME, SESSION_REVIEW_LABEL, compareReviewLabels, expectedReviewMoment, isReviewDirectory, phaseOfReviewLabel, reviewLabel, reviewMomentOfDir, sessionDirOfReviewDir } from '../../src/receipts/layout'
 import { REVIEW_FILE_MAX_BYTES, errnoReason, readRegularFile, readReviewReceiptFile, reviewFindingsReaderFor } from '../../src/receipts/load'
-import { ProvenanceRow, ProvenanceRowInput, ReviewDirRead, STARTING_COMMIT_GAP, StampRow, UnreadReview, UnreadReviewRow, assembleStamp, buildProvenanceRow, renderProvenanceBlock } from '../../src/receipts/provenance'
+import { ProvenanceRow, ProvenanceRowInput, ReviewDirRead, STARTING_COMMIT_GAP, StampGit, StampRow, UnreadReview, UnreadReviewRow, assembleStamp, buildProvenanceRow, renderProvenanceBlock } from '../../src/receipts/provenance'
 import { CheckedReceiptResult, PhaseReviewBase, ReviewGateContext, checkReviewerFindingsText, finalReviewBase, phaseReviewBase, validateReviewReceipt } from '../../src/receipts/review-gate'
 import { ArchiveRoundIo, archiveReviewRound, listArchivedRounds, listInterruptedArchives, readArchivedRounds } from '../../src/receipts/rounds'
 import { BLOCKING_SEVERITIES, BlockingReceiptFinding, ReceiptFinding, ReviewReceiptSchema, ReviewerFindingsFile, isBlockingSeverity, parseReviewReceipt, parseReviewerFindingsFile } from '../../src/receipts/schema'

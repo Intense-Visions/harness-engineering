@@ -127,9 +127,13 @@ describe('a skipped review is a typed decision and a row of its own', () => {
     );
     const read = (review: string): ReviewDirRead => ({ review, unread: { status: 'missing' } });
     const counted: string[] = [];
-    const out = assembleStamp(state, { labels: dirs, skipped: 0 }, read, (from) => {
-      counted.push(from);
-      return count;
+    const out = assembleStamp(state, { labels: dirs, skipped: 0 }, read, {
+      commitsAfter: (from) => {
+        counted.push(from);
+        return count;
+      },
+      finalBase: START,
+      rangeEmpty: () => true,
     });
     return { ...out, block: renderProvenanceBlock(out.rows, out.notes), counted };
   }
@@ -147,7 +151,7 @@ describe('a skipped review is a typed decision and a row of its own', () => {
   });
   it('a directory with no receipt that a skip covers is skipped too', () => {
     const { block } = stamp([skip({ phase: 0, reason: 'empty' })], 1, ['phase-0']);
-    expect(cellsOf(block, 'phase-0').Gate).toBe('skipped (empty)');
+    expect(cellsOf(block, 'phase-0').Gate).toBe('skipped (empty; unverified)');
   });
   it('a phase with no skip decision is still MISSING', () => {
     expect(cellsOf(stamp([]).block, 'phase-0').Gate).toBe('MISSING');
@@ -178,14 +182,17 @@ describe('a final row without a read receipt counts the commits it did not cover
       state,
       { labels: dirs, skipped: 0 },
       (review) => ({ review, unread: { status: 'missing' } }),
-      (from) => {
-        counted.push(from);
-        return count;
+      {
+        commitsAfter: (from) => {
+          counted.push(from);
+          return count;
+        },
+        finalBase: startingCommit || undefined,
       }
     );
     return { gate: cellsOf(renderProvenanceBlock(out.rows), 'final-all').Gate, counted };
   }
-  it('MISSING: from the starting commit', () => {
+  it('MISSING: from the final base', () => {
     expect(finalCell([], [], 4)).toEqual({
       gate: 'MISSING, +4 commits not reviewed',
       counted: [START],
@@ -277,13 +284,19 @@ describe('the PR-body parser: hidden blocks, more than one stamp, and its input 
       'nested <details>',
       `${VISIBLE}\n\n<details>\n\n<details>\n\n</details>\n\n${HIDDEN}\n\n</details>`,
     ],
-  ])('%s is not read; the visible stamp is', (_name, body) => {
-    const parsed = parseProvenanceStamp(body);
-    expect(parsed).toMatchObject({ status: 'read', stamps: 1, passedAt: [] });
-    expect(parsed?.finalRows[0]?.gate).toMatch(/^FAIL: HEAD_MISMATCH/);
+    ['a <details> closed before the stamp', `<details>\n\nhidden\n\n</details>\n\n${VISIBLE}`],
+  ])('%s: neither stamp is read (round 2: ambiguous)', (_name, body) => {
+    expect(parseProvenanceStamp(body)).toMatchObject({
+      status: 'ambiguous',
+      reason: 'details-element',
+      stamps: 0,
+      rows: [],
+      passedAt: [],
+      finalRows: [],
+    });
   });
-  it('after </details> a stamp is visible again', () => {
-    const body = `<details>\n\nhidden\n\n</details>\n\n${VISIBLE}`;
+  it('a <details> after the last marker leaves the stamp read', () => {
+    const body = `${VISIBLE}\n\n<details>\n\nlater\n\n</details>`;
     expect(parseProvenanceStamp(body)).toMatchObject({ status: 'read', stamps: 1 });
   });
   it('two visible stamps are conflicting, and neither is read', () => {

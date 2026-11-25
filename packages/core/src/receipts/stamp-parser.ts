@@ -14,22 +14,33 @@ import {
 /**
  * The provenance stamp read back out of a PR body: text nobody vouches for. Only what a reader of
  * the rendered page sees is read, and only lines the renderer could have written (stamp-grammar.ts)
- * are kept.
+ * are kept. Where the parser cannot tell what the page shows it reads nothing (`ambiguous`).
  */
 export interface ParsedProvenanceStamp {
   /**
    * `read`: exactly one stamp is visible and was read. `conflicting`: more than one is visible,
    * so none was read. `too-large`: the text is longer than STAMP_LIMITS.input characters and was
-   * not read. Only `read` has rows; the other two say why there are none.
+   * not read. `ambiguous`: the text before the last marker holds what may hide part of the page
+   * from its reader (`reason`), so nothing was read. Only `read` has rows; the others say why
+   * there are none, and none of them is "no stamp".
    */
-  status: 'read' | 'conflicting' | 'too-large';
+  status: 'read' | 'conflicting' | 'too-large' | 'ambiguous';
+  /**
+   * Set exactly when `status` is `ambiguous`. `details-element`: `<details` or `</details`
+   * appears before the last marker. `comment-opener`: an HTML comment opener there shares its line
+   * with a backtick, or leaves a comment open without starting its line.
+   */
+  reason?: 'details-element' | 'comment-opener';
   /** Visible stamps found: 1 when read, 2 or more when conflicting, 0 when the text was not read. */
   stamps: number;
   /** Table rows that have the stamp's shape, verbatim. */
   rows: string[];
   /** List lines under the table that are one of the renderer's notes, verbatim. */
   notes: string[];
-  /** Lines inside the markers that are neither, or are outside the table and its notes, left out. */
+  /**
+   * Lines inside the markers that are neither, are outside the table and its notes, or are
+   * indented four or more columns (a code block on the page, not a table row), left out.
+   */
   dropped: number;
   /** Stamp lines left out because the stamp holds more rows, notes or text than it may. */
   omitted: number;
@@ -45,8 +56,8 @@ export interface ParsedProvenanceStamp {
  * Markdown and HTML that a rendered page does not show as blocks of its own and that may hold a
  * blank line: an HTML comment, a fenced code block, and an HTML block of CommonMark types 1, 3, 4
  * and 5 (`<script>`, `<pre>`, `<style>`, `<textarea>`, `<?`, `<!X`, `<![CDATA[`), each until its
- * terminator. A marker inside one is not a marker. (`<details>`, which GitHub shows collapsed, is
- * tracked separately by depth: see DETAILS_OPEN.)
+ * terminator. A marker inside one is not a marker. `<details>` is not tracked: any `<details` before
+ * the last marker makes the text `ambiguous` (stampAmbiguity).
  */
 const RAW_BLOCKS: ReadonlyArray<{ open: RegExp; close: RegExp }> = [
   {
@@ -57,21 +68,20 @@ const RAW_BLOCKS: ReadonlyArray<{ open: RegExp; close: RegExp }> = [
   { open: /^ {0,3}<![A-Za-z]/, close: />/ },
   { open: /^ {0,3}<!\[CDATA\[/, close: /\]\]>/ },
 ];
-const FENCE = /^ {0,3}(`{3,}|~{3,})/;
-/**
- * A `<details>` element, open or not, anywhere on a line outside a comment: GitHub shows its body
- * collapsed (or lets the reader collapse it), so nothing from it to the matching `</details>` is
- * what the page shows. Nested elements are counted.
- */
-const DETAILS_OPEN = /<details(?=[\s>/]|$)/gi;
-const DETAILS_CLOSE = /<\/details\s*>/gi;
+/** A fence opener. A backtick fence's info string holds no backtick (CommonMark), else no fence. */
+const FENCE = /^ {0,3}(?:(`{3,})(?!.*`)|(~{3,}))/;
+/** `<details` or `</details`, in any case, anywhere: GitHub may show its body collapsed. */
+const DETAILS = /<\/?details/i;
+/** A comment opener that starts its line: an HTML block (CommonMark type 2) on the page too. */
+const BLOCK_COMMENT = /^ {0,3}<!--/;
+/** A line the page shows as an indented code block when it does not continue a paragraph. */
+const INDENTED = /^(?: {0,3}\t| {4})/;
 
 type Hidden =
   | { in: 'none' }
   | { in: 'comment' }
   | { in: 'fence'; fence: string }
-  | { in: 'raw'; close: RegExp }
-  | { in: 'details'; depth: number };
+  | { in: 'raw'; close: RegExp };
 
 /**
  * A line's text outside its HTML comments, and whether it leaves one open. `<!-->` and `<!--->`
@@ -95,21 +105,14 @@ function scanComments(line: string): { outside: string; leavesOpen: boolean } {
   }
 }
 
-/** `<details>` opened minus closed on a line, outside its comments. */
-function detailsDelta(line: string): number {
-  const text = scanComments(line).outside;
-  return (text.match(DETAILS_OPEN)?.length ?? 0) - (text.match(DETAILS_CLOSE)?.length ?? 0);
-}
-
 /** Where a line that starts outside any hidden block leaves the scan. */
 function stepFree(line: string): Hidden {
-  const fence = FENCE.exec(line)?.[1];
+  const open = FENCE.exec(line);
+  const fence = open?.[1] ?? open?.[2];
   if (fence !== undefined) return { in: 'fence', fence };
   const raw = RAW_BLOCKS.find((b) => b.open.test(line));
   if (raw !== undefined)
     return raw.close.test(line) ? { in: 'none' } : { in: 'raw', close: raw.close };
-  const depth = detailsDelta(line);
-  if (depth > 0) return { in: 'details', depth };
   return scanComments(line).leavesOpen ? { in: 'comment' } : { in: 'none' };
 }
 
@@ -128,17 +131,9 @@ function step(state: Hidden, line: string): Hidden {
       return closesFence(state.fence, line) ? { in: 'none' } : state;
     case 'raw':
       return state.close.test(line) ? { in: 'none' } : state;
-    case 'details':
-      return leaveDetails(state.depth, line);
     case 'comment':
       return leaveComment(line);
   }
-}
-
-/** Inside `<details>` nested `depth` deep: where a line leaves the scan. */
-function leaveDetails(depth: number, line: string): Hidden {
-  const left = depth + detailsDelta(line);
-  return left > 0 ? { in: 'details', depth: left } : { in: 'none' };
 }
 
 /** Inside an HTML comment: where a line leaves the scan. */
@@ -151,8 +146,7 @@ function leaveComment(line: string): Hidden {
 /**
  * The line numbers of the markers a reader of the rendered page sees as a block of their own: a
  * line that is exactly the marker, at column 0, after an empty line (or first), and not inside
- * an HTML comment, a fenced code block, a raw HTML block (RAW_BLOCKS) or a `<details>` element.
- * A marker anywhere else (in a paragraph, a list item, a quote, a link reference definition's
+ * an HTML comment, a fenced code block or a raw HTML block (RAW_BLOCKS). A marker anywhere else (in a paragraph, a list item, a quote, a link reference definition's
  * title, a code block) is text, not a marker.
  */
 function visibleMarkers(lines: readonly string[]): number[] {
@@ -187,24 +181,68 @@ function stampRanges(lines: readonly string[]): Array<[number, number]> {
 const HTML_COMMENT = /<!--(?:>|->|[\s\S]*?(?:-->|$))/g;
 
 /**
- * The lines of the one stamp a reader of the rendered page sees; the number of visible stamps when
- * there is more than one; undefined when there is none. HTML comments inside the stamp are
- * removed, each leaving a line break.
+ * Why the text before the last marker leaves what the page shows unknown, or undefined. The scan
+ * of hidden blocks (visibleMarkers) follows CommonMark, but a page can hide text it does not
+ * track, and a code span can make an opener it does track into plain text. Two rules close that
+ * gap by refusing, not by modelling it: any `<details` or `</details` (in a code span, a comment,
+ * a code block or anywhere else); and any HTML comment opener that shares its line with a
+ * backtick, or that leaves a comment open without starting its line (where only a block-level
+ * comment, which nothing on the line can turn into text, may span lines). The markers themselves
+ * are left out of the second rule. Linear in the text.
  */
-function stampLines(body: string): string[] | { conflicting: number } | undefined {
+function stampAmbiguity(lines: readonly string[]): ParsedProvenanceStamp['reason'] {
+  let last = lines.length - 1;
+  while (last >= 0 && !(lines[last] ?? '').includes(PROVENANCE_MARKER)) last--;
+  for (const line of lines.slice(0, last + 1)) {
+    const reason = lineAmbiguity(line);
+    if (reason !== undefined) return reason;
+  }
+  return undefined;
+}
+
+/** One line's part in stampAmbiguity. */
+function lineAmbiguity(line: string): ParsedProvenanceStamp['reason'] {
+  if (DETAILS.test(line)) return 'details-element';
+  const rest = line.replaceAll(PROVENANCE_MARKER, '');
+  if (!rest.includes('<!--')) return undefined;
+  const textual = rest.includes('`');
+  const spans = scanComments(rest).leavesOpen && !BLOCK_COMMENT.test(rest);
+  return textual || spans ? 'comment-opener' : undefined;
+}
+
+/** Why nothing was read from text that holds a marker, or the lines of its one visible stamp. */
+type StampText =
+  | { status: 'ambiguous'; reason: NonNullable<ParsedProvenanceStamp['reason']> }
+  | { status: 'conflicting'; stamps: number }
+  | { status: 'read'; lines: string[] };
+
+/**
+ * The lines of the one stamp a reader of the rendered page sees, or why none is read: ambiguous
+ * text (stampAmbiguity), or more than one visible stamp. undefined: no stamp. HTML comments inside
+ * the stamp are removed, each leaving a line break. A line indented four or more columns keeps
+ * its indent, so it is never read as a table row or a note (the page shows a code block there);
+ * any other line is trimmed.
+ */
+function stampText(body: string): StampText | undefined {
   const lines = body
     .replace(/\r\n?/g, '\n')
     .split('\n')
     .map((l) => l.trimEnd());
+  if (!lines.some((l) => l.includes(PROVENANCE_MARKER))) return undefined;
+  const reason = stampAmbiguity(lines);
+  if (reason !== undefined) return { status: 'ambiguous', reason };
   const ranges = stampRanges(lines);
-  if (ranges.length > 1) return { conflicting: ranges.length };
+  if (ranges.length > 1) return { status: 'conflicting', stamps: ranges.length };
   const [range] = ranges;
   if (range === undefined) return undefined;
   const inside = lines
     .slice(range[0] + 2, range[1])
     .join('\n')
     .replace(HTML_COMMENT, '\n');
-  return inside.split('\n').map((l) => l.trim());
+  return {
+    status: 'read',
+    lines: inside.split('\n').map((l) => (INDENTED.test(l) ? l : l.trim())),
+  };
 }
 
 /** Keep a stamp line unless its list or the stamp as a whole is full; an omitted line is counted. */
@@ -240,8 +278,9 @@ function blocksOf(lines: readonly string[]): string[][] {
 }
 
 /**
- * Read a block in order: each line `accept` takes, up to the first it does not (that line and the
- * rest of the block are dropped: what follows a broken table or list is not shown as its rows).
+ * Read a block in order: each line `accept` takes, up to the first it does not or the first
+ * indented four or more columns (that line and the rest of the block are dropped: what follows a
+ * broken table or list is not shown as its rows).
  */
 function readBlock(
   out: ParsedProvenanceStamp,
@@ -253,7 +292,7 @@ function readBlock(
       out.omitted++;
       continue;
     }
-    if (!accept(line)) {
+    if (INDENTED.test(line) || !accept(line)) {
       out.dropped += block.length - i;
       return;
     }
@@ -274,20 +313,24 @@ const empty = (status: ParsedProvenanceStamp['status'], stamps: number): ParsedP
 
 /**
  * Read a stamp out of text nobody vouches for (a PR body). Text longer than STAMP_LIMITS.input
- * characters is refused unread (`too-large`). Only what a reader of the rendered page sees as a
- * stamp is read (stampLines), and only when exactly one is visible: two or more are `conflicting`
- * and none of them is read. The stamp's first block is the table (the header line, the rule line,
- * then rows) or the no-review line, and its second block, if any, the notes. A line is kept only
- * when the renderer could have written it (the cell grammar, the note templates), within fixed
- * bounds; everything else, any other block included, is counted and left out.
- * undefined: the text holds no stamp.
+ * characters is refused unread (`too-large`). Text whose part up to the last marker may hide
+ * content the parser cannot place (stampAmbiguity) is refused unread (`ambiguous`). Otherwise only
+ * what a reader of the rendered page sees as a stamp is read (stampText), and only when exactly
+ * one is visible: two or more are `conflicting` and none of them is read. The stamp's first block
+ * is the table (the header line, the rule line, then rows) or the no-review line, and its second
+ * block, if any, the notes. A line is kept only when the renderer could have written it (the cell
+ * grammar, the note templates), within fixed bounds; everything else, any other block included,
+ * is counted and left out. A consumer reports `ambiguous`, `conflicting` and `too-large` as
+ * states of their own, never as "no stamp" and never as a pass.
+ * undefined: the text holds no marker, or no stamp.
  */
 export function parseProvenanceStamp(text: string): ParsedProvenanceStamp | undefined {
   if (text.length > STAMP_LIMITS.input) return empty('too-large', 0);
-  const lines = stampLines(text);
-  if (lines === undefined) return undefined;
-  if (!Array.isArray(lines)) return empty('conflicting', lines.conflicting);
-  return readStamp(lines);
+  const found = stampText(text);
+  if (found === undefined) return undefined;
+  if (found.status === 'ambiguous') return { ...empty('ambiguous', 0), reason: found.reason };
+  if (found.status === 'conflicting') return empty('conflicting', found.stamps);
+  return readStamp(found.lines);
 }
 
 /** The table and notes of the one visible stamp, kept as far as the grammar and bounds allow. */

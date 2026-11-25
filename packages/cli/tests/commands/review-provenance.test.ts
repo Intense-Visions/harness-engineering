@@ -205,10 +205,11 @@ describe('runReviewProvenanceRender', () => {
     };
     expect(cellsOf(render().block, 'phase-0')[7]).toMatch(/^FAIL: /);
   });
-  it('renders "no pipeline review recorded" for a session with no reviews and no state', () => {
+  it('a session with no reviews and no state still has its final review row (round 2)', () => {
     const report = render();
-    expect(report.rows).toEqual([]);
-    expect(report.block).toContain('_no pipeline review recorded._');
+    expect(report.rows.map(labelOf)).toEqual(['final-all']);
+    expect(cellsOf(report.block, 'final-all')[7]).toMatch(/^MISSING/);
+    expect(report.block).not.toContain('_no pipeline review recorded._');
   });
   it('fails for an unknown session and for a slug that is not one path segment', () => {
     for (const s of ['nope', '../s1', 'a/b']) {
@@ -343,9 +344,9 @@ describe('fix 10: the stamp has an expected-review denominator', () => {
   it('says the expected set is unknown when there is no readable state file', () => {
     review('phase-0');
     const report = render();
-    expect(report.rows.map(labelOf)).toEqual(['phase-0']);
+    expect(report.rows.map(labelOf)).toEqual(['phase-0', 'final-all']);
     expect(report.notes).toContain(
-      'expected reviews unknown (autopilot-state.json is absent or is not a JSON object), so a review that never ran is not shown'
+      'expected reviews unknown (autopilot-state.json is absent or is not a JSON object), so a phase review that never ran is not shown'
     );
     expect(report.block).toContain('- expected reviews unknown');
   });
@@ -384,9 +385,9 @@ describe('fix 10: the stamp has an expected-review denominator', () => {
     writeState(over);
     review('phase-0');
     const report = render();
-    expect(report.rows.map(labelOf)).toEqual(['phase-0']);
+    expect(report.rows.map(labelOf)).toEqual(['phase-0', 'final-all']);
     expect(report.notes).toContain(
-      `expected reviews unknown (${why}), so a review that never ran is not shown`
+      `expected reviews unknown (${why}), so a phase review that never ran is not shown`
     );
   });
   it('still shows a review directory the phase list does not name', () => {
@@ -883,12 +884,16 @@ describe('unit 3 fix round 1: render', () => {
       { ...skip, phase: 2, reason: 'dropped' },
     ]);
     review('phase-0');
+    // Round 2: the stamp recomputes the empty range at the head the skip names; here git lists
+    // no file for it, so the skip is shown as plainly empty.
+    const inner = fakeGit();
+    git = (args, cwd) => (args[0] === 'diff' ? '' : inner(args, cwd));
     const block = render().block;
     expect(cellsOf(block, 'phase-1')[7]).toBe('skipped (empty)');
     expect(cellsOf(block, 'phase-2')[7]).toBe('skipped (dropped)');
     expect(parseProvenanceStamp(block)?.rows).toHaveLength(4);
   });
-  it('an overridden missing final receipt counts the commits after the starting commit', () => {
+  it('an overridden missing final receipt counts the commits after the final base', () => {
     state(1, [
       {
         state: 'FINAL_REVIEW',
@@ -904,5 +909,135 @@ describe('unit 3 fix round 1: render', () => {
     expect(cellsOf(render().block, 'final-all')[7]).toBe(
       'receipt missing (overridden), +2 commits not reviewed'
     );
+  });
+});
+
+/**
+ * Unit 3 fix round 2, against real git: a final row without a receipt counts from the final
+ * gate's base (adversarial F1); an empty skip is recomputed at its head (adversarial F3); a row
+ * without a receipt keys its decisions on its round archives (bug).
+ */
+describe('unit 3 fix round 2: render against real git', () => {
+  const g = (...args: string[]) =>
+    execFileSync(
+      'git',
+      [
+        '-c',
+        'user.name=t',
+        '-c',
+        'user.email=t@example.com',
+        '-c',
+        'commit.gpgsign=false',
+        '-c',
+        'core.hooksPath=/dev/null',
+        ...args,
+      ],
+      { cwd: tmp, encoding: 'utf-8', stdio: ['ignore', 'pipe', 'pipe'] }
+    ).trim();
+  const commit = (file: string) => {
+    fs.writeFileSync(path.join(tmp, file), `${file}\n`);
+    g('add', '--', file);
+    g('commit', '-q', '-m', `add ${file}`);
+    return g('rev-parse', 'HEAD');
+  };
+  const realCells = (label: string) => {
+    const out = runReviewProvenanceRender({ session: 's1', cwd: tmp });
+    if (!out.ok) throw out.error;
+    return cellsOf(out.value.block, label);
+  };
+  /** main at `root`; the branch holds a spec commit and a code commit before the session. */
+  function branch() {
+    fs.writeFileSync(path.join(tmp, '.gitignore'), '.harness/\n');
+    g('init', '-q', '-b', 'main');
+    g('add', '.gitignore');
+    g('commit', '-q', '-m', 'root');
+    const root = g('rev-parse', 'HEAD');
+    g('update-ref', 'refs/remotes/origin/main', root);
+    g('checkout', '-q', '-b', 'feat');
+    commit('spec.md');
+    const start = commit('pre.ts');
+    return { root, start };
+  }
+  it('a MISSING final row counts every commit since the merge base, not since startingCommit', () => {
+    const { start } = branch();
+    commit('p0.ts');
+    writeState({ startingCommit: start, phases: [], decisions: [] });
+    expect(realCells('final-all')[7]).toBe('MISSING, +3 commits not reviewed');
+  });
+  it('with no merge base it falls back to startingCommit', () => {
+    const { start } = branch();
+    commit('p0.ts');
+    g('update-ref', '-d', 'refs/remotes/origin/main');
+    writeState({ startingCommit: start, phases: [], decisions: [] });
+    expect(realCells('final-all')[7]).toBe('MISSING, +1 commit not reviewed');
+  });
+  it('a final skip recorded as empty on a branch that changes files is not believed', () => {
+    branch();
+    const head = commit('p0.ts');
+    writeState({
+      phases: [],
+      decisions: [
+        {
+          state: 'FINAL_REVIEW',
+          kind: 'skipped',
+          reason: 'empty',
+          head,
+          rationale: 'empty',
+          decidedBy: 'unaudited',
+        },
+      ],
+    });
+    expect(realCells('final-all')[7]).toBe(
+      'skipped (empty; range not empty), +3 commits not reviewed'
+    );
+  });
+  it('a phase skip recorded as empty is checked from the base the gate would demand', () => {
+    const { start } = branch();
+    const p0 = commit('p0.ts');
+    const p1 = commit('p1.ts');
+    writeState({
+      startingCommit: start,
+      phases: [phaseEntry(0), phaseEntry(1), phaseEntry(2)],
+      decisions: [
+        { state: 'REVIEW', phase: 1, kind: 'skipped', reason: 'empty', head: p1, rationale: 'e' },
+        { state: 'REVIEW', phase: 2, kind: 'skipped', reason: 'empty', head: p1, rationale: 'e' },
+      ].map(byHuman),
+    });
+    review('phase-0', { receipt: { diff: { base: start, head: p0 } }, file: {} });
+    // phase-1 at p1: from phase-0's head p0, p0..p1 changes p1.ts.
+    expect(realCells('phase-1')[7]).toBe('skipped (empty; range not empty)');
+    // phase-2 at p1: no earlier usable receipt is closer than phase-0, so the same range.
+    expect(realCells('phase-2')[7]).toBe('skipped (empty; range not empty)');
+  });
+  it('a phase skip whose range is empty reads plainly', () => {
+    const { start } = branch();
+    const p0 = commit('p0.ts');
+    writeState({
+      startingCommit: start,
+      phases: [phaseEntry(0), phaseEntry(1)],
+      decisions: [
+        { state: 'REVIEW', phase: 1, kind: 'skipped', reason: 'empty', head: p0, rationale: 'e' },
+      ].map(byHuman),
+    });
+    review('phase-0', { receipt: { diff: { base: start, head: p0 } } });
+    expect(realCells('phase-1')[7]).toBe('skipped (empty)');
+  });
+  it('a receipt-less row with a round archive takes only its round decisions', () => {
+    state(1, [
+      {
+        state: 'REVIEW',
+        phase: 0,
+        round: 1,
+        kind: 'gate',
+        codes: ['RECEIPT_MISSING'],
+        rationale: 'a',
+      },
+    ]);
+    const dir = review('phase-0');
+    archiveRound1(dir, 0);
+    fs.rmSync(path.join(dir, 'receipt.json'));
+    const cells = cellsOf(render().block, 'phase-0');
+    expect(cells[7]).toBe('receipt missing');
+    expect(cells[11]).toBe('0 overrides, 0 dismissals, 1 from other rounds');
   });
 });

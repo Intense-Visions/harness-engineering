@@ -32,19 +32,24 @@ const fields = {
  * A review decision, one shape per kind: a `gate` override names its codes, a dismissal its
  * finding ids, a skip its reason (and, for an empty range, may name the head it was empty at).
  * Plain objects: keys a kind does not declare are dropped, so nothing an agent wrote beside a
- * decision is carried into a stamp row or its JSON.
+ * decision is carried into a stamp row or its JSON. Only a phase can be dropped from the plan: a
+ * final review skipped as `dropped` is refused.
  */
-export const ReviewDecisionRecordSchema = z.discriminatedUnion('kind', [
-  z.object({ ...fields, kind: z.literal('gate'), codes }),
-  z.object({ ...fields, kind: z.literal('findings') }),
-  z.object({ ...fields, kind: z.literal('dismissed'), findingIds: ids }),
-  z.object({
-    ...fields,
-    kind: z.literal('skipped'),
-    reason: z.enum(REVIEW_SKIP_REASONS),
-    head: z.string().regex(FULL_SHA_PATTERN).exactOptional(),
-  }),
-]);
+export const ReviewDecisionRecordSchema = z
+  .discriminatedUnion('kind', [
+    z.object({ ...fields, kind: z.literal('gate'), codes }),
+    z.object({ ...fields, kind: z.literal('findings') }),
+    z.object({ ...fields, kind: z.literal('dismissed'), findingIds: ids }),
+    z.object({
+      ...fields,
+      kind: z.literal('skipped'),
+      reason: z.enum(REVIEW_SKIP_REASONS),
+      head: z.string().regex(FULL_SHA_PATTERN).exactOptional(),
+    }),
+  ])
+  .refine((d) => !(d.kind === 'skipped' && d.state === 'FINAL_REVIEW' && d.reason === 'dropped'), {
+    message: 'only a phase review can be skipped as dropped; the final review cannot',
+  });
 
 /**
  * The own fields of an unparsed JSON value when it is a JSON object; undefined for anything else,
