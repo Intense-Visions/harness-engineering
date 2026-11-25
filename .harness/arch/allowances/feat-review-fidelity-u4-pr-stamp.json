@@ -1,0 +1,9 @@
+{
+  "reason": "shift-left unit 4: PR stamp reader (module-size only)",
+  "categories": {
+    "module-size": 300543
+  },
+  "violationIds": [],
+  "violationReasons": {},
+  "createdFrom": "7a77d4e43"
+}
