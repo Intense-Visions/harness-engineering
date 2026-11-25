@@ -882,7 +882,10 @@ export function validateReviewReceipt(
 ): ReviewGateResult {
   const parsed = parseReviewReceipt(receipt);
   if (!parsed.ok) {
+    // An archive interrupted mid-way is reported beside an invalid receipt too.
+    const interrupted = interruptedArchiveFailure(context.interruptedArchives ?? []);
     const failures = [reviewGateFailure('RECEIPT_INVALID', parsed.error.message)];
+    if (interrupted !== undefined) failures.push(interrupted);
     return { checked: false, pass: false, failures };
   }
   const r = parsed.value;

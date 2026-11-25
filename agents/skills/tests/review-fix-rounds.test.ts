@@ -47,7 +47,7 @@ describe('autopilot, Review records, Fix rounds', () => {
   it('archives with the CLI only after a round wrote a receipt, and only after a fix commit', () => {
     const text = rounds();
     expect(text).toMatch(
-      /If the review directory holds a `receipt\.json` and HEAD is not that receipt's `diff\.head`, the round it records has ended: archive it with `harness check-review-receipt --archive-round \{review directory\}`\. Archive only after a round wrote a receipt\./
+      /Then, if the review directory holds a `receipt\.json` and HEAD is not that receipt's `diff\.head`, the round it records has ended: archive it with `harness check-review-receipt --archive-round \{review directory\}`\. Archive only after a round wrote a receipt\./
     );
     expect(text).toContain('`archived round R into round-R/; the next review is round R+1`');
     expect(text).toMatch(/a staging directory first and renames that to `round-R\/` in one step/);
@@ -91,28 +91,40 @@ describe('autopilot, Review records, Fix rounds', () => {
     const text = rounds();
     expect(text).not.toMatch(/so a failure leaves the round where it was/);
     expect(text).toMatch(
-      /moving `receipt\.json` last\. An error moves the files back, so the round is archived whole or not at all\. An interruption \(the session dies mid-archive\) leaves the staging directory `\.round-R\.partial`: the gate fails `ROUND_ARCHIVE_INTERRUPTED` while it exists, and the next `--archive-round` finishes the archive \(`completed an interrupted archive of round R`, when the staging directory holds the receipt\) or moves its files back and then archives/
+      /moving `receipt\.json` last\. An error moves the files back, so the round is archived whole or not at all\. An interruption \(the session dies mid-archive\) leaves the staging directory `\.round-R\.partial`: the gate fails `ROUND_ARCHIVE_INTERRUPTED` while it exists, and the next `--archive-round` finishes the archive \(`completed an interrupted archive of round R`, when the staging directory holds the receipt and every findings file it names; it is archived as round R even when files have been written into the review directory since, and those stay there: a receipt among them was written as the wrong round, so rewrite it with the next round the command printed, as \*\*rewrite receipt\*\* does\) or moves its files back and then archives/
     );
     for (const refusal of [
       /when that receipt is not a readable review receipt or not a regular file/,
-      /when a staging directory is not the next archive's, or holds a file the review directory also holds/,
+      /when a staging directory is not the next archive's, holds a receipt that is unreadable or lacks a findings file it names, or \(holding no receipt\) holds a file the review directory also holds \(the staged copy is the ended round's, the other a newer attempt's: stop for the human\)/,
+      /when it names a findings file that is not a regular file directly in the directory \(the archive moves only those\)/,
     ]) {
       expect(text).toMatch(refusal);
     }
   });
+  it('an interrupted archive is resumed first, receipt or not', () => {
+    const text = rounds();
+    expect(text).toMatch(
+      /1\. If the review directory holds a `\.round-\*\.partial` staging directory, an archive was interrupted: before anything else, whether or not the directory holds a `receipt\.json`, run `harness check-review-receipt --archive-round \{review directory\}`, which completes or undoes it \(below\)\. Then, if the review directory holds a `receipt\.json`/
+    );
+    expect(text).toMatch(
+      /Archive nothing for such an attempt \(with no `receipt\.json` there is nothing to archive, and the command refuses\), except that a `\.round-\*\.partial` in the review directory means a crash interrupted an archive: run `--archive-round` then, as step 1 says, and it completes or undoes that archive whether or not a `receipt\.json` is there/
+    );
+    expect(text).toMatch(/an archive with no readable `receipt\.json`\);/);
+    expect(text).not.toMatch(/no readable `receipt\.json` or findings file/);
+  });
   it('an unreadable ended receipt is rewritten at its old head, then archived; never deleted', () => {
     expect(rounds()).toMatch(
-      /When it refuses the ended round's receipt as unreadable, rewrite that `receipt\.json` from the round's findings files at the head they record \(as \*\*rewrite receipt\*\* does\), then archive; never delete it\./
+      /When it refuses the ended round's receipt as unreadable \(also after undoing an interrupted archive\), rewrite that `receipt\.json` from the round's findings files at the head they record \(as \*\*rewrite receipt\*\* does\), then run `--archive-round` again; stop for the human only if that is impossible, and never delete it\. Every other refusal stops for the human\./
     );
   });
   it('priorRounds blocking is the count the archived findings files hold', () => {
     expect(rounds()).toMatch(
-      /`\{ "round": r, "head": "<diff\.head of round-r\/receipt\.json>", "blocking": <the blocking findings in round-r's findings files> \}`/
+      /`\{ "round": r, "head": "<diff\.head of round-r\/receipt\.json>", "blocking": <the blocking findings in round-r's findings files> \}`, counting each file once \(when one of them cannot be read, the `blocking` of `round-r\/receipt\.json`\)/
     );
   });
   it('the Retry table repairs an interrupted archive with --archive-round', () => {
     expect(autopilot()).toMatch(
-      /\| `ROUND_ARCHIVE_INTERRUPTED` +\| before any other row: run `harness check-review-receipt --archive-round \{review directory\}` to finish or undo the archive, then gate again; when it refuses, stop for the human +\|/
+      /\| `ROUND_ARCHIVE_INTERRUPTED` +\| before any other row: run `harness check-review-receipt --archive-round \{review directory\}` to finish or undo the archive, then gate again; when it undoes the archive and then refuses the ended round's receipt as unreadable, rewrite that receipt at its old head from its findings files and run it again \(Fix rounds, step 1\); for any other refusal, or when that rewrite is impossible, stop for the human +\|/
     );
   });
 });
@@ -145,7 +157,7 @@ describe('code-review, Review Receipt, rounds', () => {
     const bullet = paragraph(codeReview(), '- `round` and `priorRounds` are set only');
     expect(bullet).toMatch(/Archive only after a round wrote a receipt/);
     expect(bullet).toMatch(
-      /refuses a directory with no `receipt\.json` \(a round that wrote none is not a round\), a path that is not a review directory, archives not numbered `round-1` to `round-\(R-1\)`, and a HEAD that is still the head the ended round reviewed \(a fix round needs a fix commit\), and a `receipt\.json` that is unreadable or not a regular file, and on an error it moves nothing/
+      /refuses a directory with no `receipt\.json` \(a round that wrote none is not a round\), a path that is not a review directory, archives not numbered `round-1` to `round-\(R-1\)`, and a HEAD that is still the head the ended round reviewed \(a fix round needs a fix commit\), and a `receipt\.json` that is unreadable or not a regular file, and one naming a findings file that is not a regular file directly in the directory, and on an error it moves nothing/
     );
     expect(bullet).toMatch(
       /A review run again at the same head .* stays in its round and overwrites its files/
@@ -154,7 +166,15 @@ describe('code-review, Review Receipt, rounds', () => {
     expect(bullet).toMatch(
       /on an error it moves nothing\. An interrupted archive leaves `\.round-R\.partial`: the gate fails `ROUND_ARCHIVE_INTERRUPTED` until the next `--archive-round` finishes or undoes it/
     );
-    expect(bullet).toMatch(/the blocking findings each archive's own findings files hold/);
+    expect(bullet).toMatch(
+      /the blocking findings each archive's own findings files hold, each file once, or that archive receipt's `blocking` when one cannot be read/
+    );
+    expect(bullet).toMatch(
+      /Run `--archive-round` whenever a `\.round-\*\.partial` is in the review directory, before anything else, whether or not a `receipt\.json` is there/
+    );
+    expect(bullet).toMatch(
+      /one naming a findings file that is not a regular file directly in the directory/
+    );
   });
   it('the code table states each round condition', () => {
     const rows = new Map(
@@ -168,7 +188,7 @@ describe('code-review, Review Receipt, rounds', () => {
       /not numbered `round-1` to `round-n`, or `round` \(absent: 1\) is not 1 \+ the number of those archives/
     );
     expect(rows.get('PRIOR_ROUNDS_MISMATCH')).toMatch(
-      /the blocking findings that archive's own findings files hold, or an archive has no readable receipt or findings file/
+      /the blocking findings that archive's own findings files hold \(each file once; that receipt's `blocking` when one cannot be read\), or an archive has no readable receipt/
     );
     expect(rows.get('ROUND_ARCHIVE_INTERRUPTED')).toMatch(
       /a `\.round-R\.partial` staging directory is in the review directory: an archive was interrupted; `--archive-round` finishes or undoes it/

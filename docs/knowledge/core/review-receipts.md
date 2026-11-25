@@ -154,17 +154,25 @@ reviewer findings files and are not in the receipt's counts.
 the review directory by `harness check-review-receipt --archive-round` (core
 `archiveReviewRound`); the gate reads the archived receipts and findings files to check `round`
 and `priorRounds`. The command archives only a review directory of the layout above that holds a
-`receipt.json` (a regular file)
+`receipt.json` (a regular file, naming only findings files that are regular files directly in
+the directory, the only files the archive moves)
 (a round that wrote none, such as a failed mechanical phase, is not a round and keeps its
 number), only when HEAD is no longer the head that receipt reviewed (a fix round needs a fix
 commit; a review run again at the same head stays in its round and overwrites its files), and
 only when the archives present are numbered `round-1` to `round-(R-1)`. It moves the files into
 a staging directory `.round-R.partial`, `receipt.json` last, and renames it to `round-R/`, moving
-everything back on an error, so an error archives the round whole or not at all. An interruption
-(the process dies) leaves the staging directory: the gate fails `ROUND_ARCHIVE_INTERRUPTED` while
-it exists, and the next `--archive-round` finishes the archive when the staging directory holds
-the receipt, or moves the staged files back (refusing when a name is in both places) and then
-archives. A standalone directory is named for its head, so a
+everything back on an error (`receipt.json` first), so an error archives the round whole or not
+at all. An interruption (the process dies) leaves the staging directory: the gate fails
+`ROUND_ARCHIVE_INTERRUPTED` while it exists, beside a missing or invalid receipt too. The next
+`--archive-round` completes the archive when the staging directory holds `receipt.json` and every
+findings file it names, renaming it to `round-R/` even when a newer attempt has written files
+into the review directory since (they stay; that attempt's receipt is rewritten as the next
+round). With no `receipt.json` staged it moves the staged files back and then archives. It
+refuses a staging directory that is not the next archive's, a staged receipt that is unreadable
+or names a findings file the staging directory lacks, and, when moving back, a name in both
+places (the staged copy is the ended round's, the other a newer attempt's): those stop for the
+human. A prior round's blocking count is recounted from its archived findings files, each once;
+when one cannot be read it is the archived receipt's own `blocking`, that receipt's claim. A standalone directory is named for its head, so a
 standalone review after a fix commit is a new directory and needs no archive.
 
 ## Limits

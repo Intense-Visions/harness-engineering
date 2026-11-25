@@ -22,6 +22,7 @@ import {
   finding,
   findingsText,
   receipt,
+  record,
 } from './round4-helpers';
 
 /** Fix rounds: the round comes from the archives, never from what the directory holds now. */
@@ -35,12 +36,24 @@ beforeEach(() => {
 afterEach(() => fs.rmSync(tmp, { recursive: true, force: true }));
 const mk = (name: string) => fs.mkdirSync(path.join(dir, name));
 const put = (name: string, text = '{}') => fs.writeFileSync(path.join(dir, name), text);
-/** A receipt that parses, for a round that reviewed `head`. */
-const putReceipt = (head = OTHER, at = '') =>
-  fs.writeFileSync(
-    path.join(dir, at, 'receipt.json'),
-    JSON.stringify(receipt({ diff: { base: START, head } }))
+/**
+ * The reviewers of a receipt whose ran reviewers name `files` as their findings files. With none,
+ * one reviewer that did not run, so the receipt names no findings file.
+ */
+const reviewersNaming = (files: readonly string[]) =>
+  files.length === 0
+    ? [{ id: 'bug', required: true, ran: false }]
+    : files.map((f) =>
+        record(f.replace(/\.json$/, '').replace(/[^a-z0-9-]/g, '-'), { findingsPath: f })
+      );
+/** The text of a receipt that parses, for a round that reviewed `head`. */
+const receiptText = (head = OTHER, files: readonly string[] = [], over = {}) =>
+  JSON.stringify(
+    receipt({ diff: { base: START, head }, reviewers: reviewersNaming(files), ...over })
   );
+/** A receipt that parses, for a round that reviewed `head`, naming `files` as findings files. */
+const putReceipt = (head = OTHER, at = '', files: readonly string[] = []) =>
+  fs.writeFileSync(path.join(dir, at, 'receipt.json'), receiptText(head, files));
 /** An archived round at `round-<n>/`: a receipt at OTHER and one findings file per reviewer. */
 const putArchivedRound = (
   n: number,
@@ -233,6 +246,66 @@ describe('archiveReviewRound: move the ended round into round-<current>/', () =>
       /the archive failed \(EIO\) and could not be undone \(EACCES\)/
     );
   });
+  it('a roll-back moves receipt.json back first, so one it cannot finish leaves no staged receipt', () => {
+    put('architecture.json');
+    put('bug.json');
+    putReceipt();
+    const back: string[] = [];
+    const io: ArchiveRoundIo = {
+      rename: (from, to) => {
+        if (path.basename(to) === 'round-1') throw Object.assign(new Error('x'), { code: 'EIO' });
+        if (path.basename(path.dirname(from)) === '.round-1.partial') {
+          back.push(path.basename(from));
+        }
+        fs.renameSync(from, to);
+      },
+    };
+    expect(archive(HEAD, io).ok).toBe(false);
+    expect(back[0]).toBe('receipt.json');
+    expect(listing()).toEqual(['architecture.json', 'bug.json', 'receipt.json']);
+  });
+  // A findings file the archive would not move: the round could not be archived whole.
+  it.each([
+    [
+      'in a subdirectory',
+      'sub/bug.json',
+      () => {
+        mk('sub');
+        fs.writeFileSync(path.join(dir, 'sub', 'bug.json'), '{}');
+      },
+    ],
+    ['absent', 'bug.json', () => undefined],
+    [
+      'a symlink',
+      'bug.json',
+      () => {
+        fs.writeFileSync(path.join(tmp, 'elsewhere.json'), '{}');
+        fs.symlinkSync(path.join(tmp, 'elsewhere.json'), path.join(dir, 'bug.json'));
+      },
+    ],
+    ['a directory', 'bug.json', () => mk('bug.json')],
+  ])(
+    "a ran reviewer's findings file %s: refused, naming it, nothing moves",
+    (_n, file, arrange) => {
+      arrange();
+      putReceipt(OTHER, '', [file]);
+      const before = listing();
+      const r = archive();
+      expect(!r.ok && r.error).toMatch(
+        new RegExp(
+          `names ${file.replace('.', '\\.')} as a findings file, which is not a regular file directly in`
+        )
+      );
+      expect(listing()).toEqual(before);
+    }
+  );
+  it('the findings files the receipt names, directly in the directory: archived', () => {
+    put('bug.json');
+    put('hook-x.json');
+    putReceipt(OTHER, '', ['bug.json', 'bug.json']);
+    expect(archive()).toEqual({ ok: true, archived: 1, next: 2 });
+    expect(listing(path.join(dir, 'round-1'))).toEqual(['bug.json', 'hook-x.json', 'receipt.json']);
+  });
   it.each([
     [
       'a symlink',
@@ -287,20 +360,34 @@ describe('archiveReviewRound: move the ended round into round-<current>/', () =>
       findingsText('security', [finding('s1', 'critical')])
     );
     fs.writeFileSync(path.join(dir, 'round-2', 'receipt.json'), 'not json');
-    // A receipt that parses, but a findings file it names is absent: unreadable, as before.
-    putArchivedRound(3, {}, {});
-    fs.rmSync(path.join(dir, 'round-3', 'bug.json'));
+    // A receipt that parses, but a findings file it names is absent: its own blocking count.
+    putArchivedRound(3, { blocking: 4 }, { bug: [finding('b1')] });
+    fs.rmSync(path.join(dir, 'round-3', 'security.json'));
     expect(readArchivedRounds(dir)).toEqual([
       { round: 1, head: OTHER, blocking: 2 },
       { round: 2, unreadable: true },
-      { round: 3, unreadable: true },
+      { round: 3, head: OTHER, blocking: 4 },
     ]);
   });
-  it('readArchivedRounds: a findings file that is not a findings file makes the round unreadable', () => {
+  it("readArchivedRounds: a findings file that is not a findings file: the receipt's own count", () => {
     mk('round-1');
-    putArchivedRound(1, {}, {});
+    putArchivedRound(1, { blocking: 5 }, {});
     fs.writeFileSync(path.join(dir, 'round-1', 'bug.json'), '{"not":"findings"}');
-    expect(readArchivedRounds(dir)).toEqual([{ round: 1, unreadable: true }]);
+    expect(readArchivedRounds(dir)).toEqual([{ round: 1, head: OTHER, blocking: 5 }]);
+  });
+  it('readArchivedRounds: a findings file two reviewers name is counted once', () => {
+    mk('round-1');
+    fs.writeFileSync(
+      path.join(dir, 'round-1', 'receipt.json'),
+      JSON.stringify(
+        receipt({
+          diff: { base: START, head: OTHER },
+          reviewers: [record('bug'), record('security', { findingsPath: 'bug.json' })],
+        })
+      )
+    );
+    fs.writeFileSync(path.join(dir, 'round-1', 'bug.json'), findingsText('bug', [finding('b1')]));
+    expect(readArchivedRounds(dir)).toEqual([{ round: 1, head: OTHER, blocking: 1 }]);
   });
 });
 
@@ -400,14 +487,19 @@ describe('the gate: round = 1 + archives, priorRounds = the archives', () => {
 
 describe('an interrupted archive: the gate fails, the next archive finishes or undoes it', () => {
   const staging = (n = 1) => path.join(dir, `.round-${n}.partial`);
-  /** The state a process killed mid-archive leaves: `staged` in staging, the rest in place. */
-  const crashed = (staged: string[], inPlace: string[], n = 1) => {
+  /**
+   * The state a process killed mid-archive leaves: `staged` in staging, the rest in place. A staged
+   * receipt names `names` as its findings files (by default, the other staged files).
+   */
+  const crashed = (
+    staged: string[],
+    inPlace: string[],
+    n = 1,
+    names = staged.filter((f) => f !== 'receipt.json')
+  ) => {
     fs.mkdirSync(staging(n));
     for (const name of staged) {
-      const text =
-        name === 'receipt.json'
-          ? JSON.stringify(receipt({ diff: { base: START, head: OTHER } }))
-          : '{}';
+      const text = name === 'receipt.json' ? receiptText(OTHER, names) : '{}';
       fs.writeFileSync(path.join(staging(n), name), text);
     }
     for (const name of inPlace) {
@@ -443,6 +535,34 @@ describe('an interrupted archive: the gate fails, the next archive finishes or u
       'security.json',
     ]);
   });
+  it('the staging directory holds the receipt and a newer attempt wrote files of the same names: still completed', () => {
+    crashed(['bug.json', 'receipt.json'], ['receipt.json', 'bug.json', 'security.json']);
+    fs.writeFileSync(path.join(dir, 'bug.json'), 'newer');
+    expect(archive()).toEqual({ ok: true, archived: 1, next: 2, interrupted: 'completed' });
+    expect(listing()).toEqual(['bug.json', 'receipt.json', 'round-1', 'security.json']);
+    expect(listing(path.join(dir, 'round-1'))).toEqual(['bug.json', 'receipt.json']);
+    expect(fs.readFileSync(path.join(dir, 'bug.json'), 'utf-8')).toBe('newer');
+    expect(fs.readFileSync(path.join(dir, 'round-1', 'bug.json'), 'utf-8')).toBe('{}');
+  });
+  it('the staged receipt names a findings file the staging directory does not hold: refused, nothing moves', () => {
+    crashed(['receipt.json'], ['bug.json'], 1, ['bug.json']);
+    const before = { here: listing(), staged: listing(staging()) };
+    const r = archive();
+    expect(!r.ok && r.error).toMatch(
+      /the receipt in \.round-1\.partial names bug\.json as a findings file, but \.round-1\.partial does not hold it; nothing was moved/
+    );
+    expect(!r.ok && r.error).toMatch(/stop for the human/);
+    expect({ here: listing(), staged: listing(staging()) }).toEqual(before);
+  });
+  it('the staged receipt is not a readable receipt: refused, nothing moves', () => {
+    crashed(['bug.json'], []);
+    fs.writeFileSync(path.join(staging(), 'receipt.json'), 'not json');
+    const r = archive();
+    expect(!r.ok && r.error).toMatch(
+      /\.round-1\.partial holds a receipt\.json that is not a readable review receipt/
+    );
+    expect(listing(staging())).toEqual(['bug.json', 'receipt.json']);
+  });
   it('undone, then refused (no fix commit): the files are back and the staging directory is gone', () => {
     crashed(['bug.json'], ['receipt.json']);
     const r = archive(OTHER);
@@ -451,11 +571,18 @@ describe('an interrupted archive: the gate fails, the next archive finishes or u
     );
     expect(listing()).toEqual(['bug.json', 'receipt.json']);
   });
-  it('a name in both places (a new round was written meanwhile): refused, naming it, nothing moves', () => {
-    crashed(['bug.json', 'receipt.json'], ['receipt.json', 'security.json']);
+  it('undoing, a name in both places (a newer attempt wrote it): refused, naming it, nothing moves', () => {
+    crashed(['bug.json'], ['receipt.json', 'bug.json']);
     const before = { here: listing(), staged: listing(staging()) };
     const r = archive();
-    expect(!r.ok && r.error).toMatch(/holds receipt\.json/);
+    const error = r.ok ? '' : r.error;
+    expect(error).toMatch(
+      /\.round-1\.partial holds bug\.json, which the review directory also holds/
+    );
+    expect(error).toMatch(/the staged files belong to round 1, the round being archived/);
+    expect(error).toMatch(/the review directory's copies belong to a newer attempt/);
+    expect(error).toMatch(/stop for the human/);
+    expect(error).not.toMatch(/remove|delete/);
     expect({ here: listing(), staged: listing(staging()) }).toEqual(before);
   });
   it('a staging directory that is not the next archive: refused, nothing moves', () => {
@@ -479,6 +606,13 @@ describe('an interrupted archive: the gate fails, the next archive finishes or u
     );
     expect(codesOf(r)).toEqual(['ROUND_ARCHIVE_INTERRUPTED']);
     expect(r.failures[0]?.message).toMatch(/--archive-round/);
+  });
+  it('the gate fails beside a receipt that does not parse, too', () => {
+    const r = validateReviewReceipt(
+      { schemaVersion: 1 },
+      ctx({ interruptedArchives: ['.round-1.partial'] })
+    );
+    expect(codesOf(r)).toEqual(['RECEIPT_INVALID', 'ROUND_ARCHIVE_INTERRUPTED']);
   });
   it('no staging directory: no failure', () => {
     const r = validateReviewReceipt(

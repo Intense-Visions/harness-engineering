@@ -136,10 +136,13 @@ export function createCheckReviewReceiptCommand(deps: CheckReviewReceiptDeps = {
       "Before a fix round: move the review directory's ended round (its receipt.json and every " +
         'other file in it) into round-R/ (R = 1 + the rounds already archived) and print R and ' +
         'the next round. An archive an earlier run left interrupted (.round-R.partial) is ' +
-        'finished, or undone and redone. Refused without a receipt.json, with a receipt.json ' +
-        'that is unreadable or not a regular file, outside the review layout, at the head the ' +
-        'round reviewed, with archives not numbered round-1..round-n, or with a staging ' +
-        'directory that is not the next archive'
+        'finished when it holds the receipt and every findings file that names, else undone ' +
+        'and redone. Refused without a receipt.json, with a receipt.json that is unreadable or ' +
+        'not a regular file or that names a findings file that is not a regular file directly ' +
+        'in the directory, outside the review layout, at the head the round reviewed, with ' +
+        'archives not numbered round-1..round-n, with a staging directory that is not the next ' +
+        'archive, that holds a receipt without its findings files, or whose files (holding no ' +
+        'receipt) the directory also holds'
     )
     .option('--base <sha>', 'With --findings: base of the reviewed range')
     .option('--head <sha>', 'With --findings: head of the reviewed range')

@@ -5,7 +5,7 @@
 
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import type { ArchivedRound } from '@harness-engineering/types';
+import type { ArchivedRound, ReviewReceipt } from '@harness-engineering/types';
 import { isReviewDirectory } from './layout';
 import { errnoReason, readReviewReceiptFile, reviewFindingsReaderFor } from './load';
 import {
@@ -49,52 +49,67 @@ export function listInterruptedArchives(reviewDir: string): string[] {
   }
 }
 
-/** The head a review directory's own receipt.json records, or why it records none. */
-function receiptHead(dir: string): { head: string } | { missing: boolean } {
+/** The receipt.json in `dir`, parsed, or why there is none: missing, or not a review receipt. */
+function receiptIn(dir: string): { receipt: ReviewReceipt } | { missing: boolean } {
   const read = readReviewReceiptFile(dir);
   const parsed = read.status === 'ok' ? parseReviewReceipt(read.raw) : undefined;
-  if (parsed?.ok) return { head: parsed.value.diff.head };
+  if (parsed?.ok) return { receipt: parsed.value };
   return { missing: read.status === 'missing' };
 }
 
-/**
- * The blocking findings an archived round's findings files hold, counted as the gate counts them
- * for a current receipt; undefined when a file its receipt names cannot be read or parsed.
- */
-function archivedBlocking(
-  dir: string,
-  reviewers: readonly { ran: boolean; findingsPath?: string | undefined }[]
-): number | undefined {
-  const read = reviewFindingsReaderFor(dir);
-  const files: ReviewerFindingsFile[] = [];
-  for (const r of reviewers.filter((x) => x.ran)) {
-    const text = r.findingsPath === undefined ? undefined : read(r.findingsPath);
-    if (text === undefined) return undefined;
-    let parsed: ReturnType<typeof parseReviewerFindingsFile>;
-    try {
-      parsed = parseReviewerFindingsFile(JSON.parse(text));
-    } catch {
-      return undefined;
-    }
-    if (!parsed.ok) return undefined;
-    files.push(parsed.value);
+/** The findings files a receipt's ran reviewers name, each once; undefined when one names none. */
+function namedFindings(receipt: ReviewReceipt): string[] | undefined {
+  const ran = receipt.reviewers.filter((r) => r.ran);
+  if (ran.some((r) => r.findingsPath === undefined)) return undefined;
+  return [...new Set(ran.map((r) => r.findingsPath ?? ''))];
+}
+
+/** The first of `names` that is not a regular file directly in `dir` (a name with no directory). */
+function notDirectlyIn(dir: string, names: readonly string[]): string | undefined {
+  return names.find(
+    (n) =>
+      n !== path.basename(n) ||
+      !fs.lstatSync(path.join(dir, n), { throwIfNoEntry: false })?.isFile()
+  );
+}
+
+/** A findings file's text, parsed; undefined when it is absent or not a findings file. */
+function findingsFile(text: string | undefined): ReviewerFindingsFile | undefined {
+  if (text === undefined) return undefined;
+  try {
+    const parsed = parseReviewerFindingsFile(JSON.parse(text));
+    return parsed.ok ? parsed.value : undefined;
+  } catch {
+    return undefined;
   }
-  return tallyReviewFindings(files).blocking.length;
+}
+
+/**
+ * The blocking findings an archived round's findings files hold, each file counted once, as the
+ * gate counts them for a current receipt. When a file its receipt names cannot be read or parsed
+ * (or a ran reviewer names none), the archived receipt's own `blocking`: then that is its claim.
+ */
+function archivedBlocking(dir: string, receipt: ReviewReceipt): number {
+  const read = reviewFindingsReaderFor(dir);
+  const files = (namedFindings(receipt) ?? [undefined]).map((p) =>
+    findingsFile(p === undefined ? undefined : read(p))
+  );
+  if (files.some((f) => f === undefined)) return receipt.blocking;
+  return tallyReviewFindings(files as ReviewerFindingsFile[]).blocking.length;
 }
 
 /**
  * Each archived round's head, from its own receipt, and its blocking count, recounted from its
- * own findings files (the archived receipt's `blocking` is a claim); or `unreadable`.
+ * own findings files where they can be read (else the archived receipt's `blocking`); or
+ * `unreadable` when the archive holds no readable receipt.
  */
 export function readArchivedRounds(reviewDir: string): ArchivedRound[] {
   return listArchivedRounds(reviewDir).map((round): ArchivedRound => {
     const dir = path.join(reviewDir, `round-${round}`);
-    const read = readReviewReceiptFile(dir);
-    const parsed = read.status === 'ok' ? parseReviewReceipt(read.raw) : undefined;
-    if (!parsed?.ok) return { round, unreadable: true };
-    const blocking = archivedBlocking(dir, parsed.value.reviewers);
-    if (blocking === undefined) return { round, unreadable: true };
-    return { round, head: parsed.value.diff.head, blocking };
+    const archived = receiptIn(dir);
+    if (!('receipt' in archived)) return { round, unreadable: true };
+    const { receipt } = archived;
+    return { round, head: receipt.diff.head, blocking: archivedBlocking(dir, receipt) };
   });
 }
 
@@ -139,7 +154,7 @@ function archiveTarget(reviewDir: string): { error: string } | { archived: numbe
 
 /** Why the round in `reviewDir` cannot be archived now; undefined when it can. */
 function archivePrecondition(reviewDir: string, head: string | undefined): string | undefined {
-  const ended = receiptHead(reviewDir);
+  const ended = receiptIn(reviewDir);
   if ('missing' in ended) {
     return ended.missing
       ? `no receipt.json in ${reviewDir}: a round that wrote no receipt is not a round, so there is nothing to archive`
@@ -149,13 +164,24 @@ function archivePrecondition(reviewDir: string, head: string | undefined): strin
     return `receipt.json in ${reviewDir} is not a regular file; nothing was archived`;
   }
   if (head === undefined) return 'HEAD could not be resolved; nothing was archived';
-  if (head === ended.head) {
+  if (head === ended.receipt.diff.head) {
     return (
       `HEAD is still ${head}, the head the ended round reviewed: a fix round needs a fix commit. ` +
       'A review run again at the same head stays in its round and overwrites its files'
     );
   }
-  return undefined;
+  return findingsOutside(reviewDir, ended.receipt);
+}
+
+/** Why the archive would not move a findings file the ended receipt names; undefined when not. */
+function findingsOutside(reviewDir: string, receipt: ReviewReceipt): string | undefined {
+  const outside = notDirectlyIn(reviewDir, namedFindings(receipt) ?? []);
+  if (outside === undefined) return undefined;
+  return (
+    `receipt.json names ${outside} as a findings file, which is not a regular file directly in ` +
+    `${reviewDir}: the archive moves only those, so it could not keep the round whole; nothing ` +
+    'was archived'
+  );
 }
 
 /** Move each name from one directory to another, stopping at the first failure. */
@@ -165,9 +191,10 @@ function moveAll(io: ArchiveRoundIo, names: readonly string[], from: string, to:
 
 /**
  * Finish or undo the archive an earlier run left in `.round-<archived>.partial`. Its files move
- * last-receipt, so a staging directory holding `receipt.json` (with none in the review directory)
- * holds the whole round: it is renamed to `round-<archived>/`. Otherwise its files go back, unless
- * a name is in both places.
+ * last-receipt, so a staging directory holding `receipt.json` and every findings file it names
+ * holds the whole round: it is renamed to `round-<archived>/`, a new name, whatever the review
+ * directory holds now (a newer attempt's files stay there). Otherwise its files go back, unless a
+ * name is in both places.
  */
 function resumeInterrupted(
   io: ArchiveRoundIo,
@@ -190,20 +217,15 @@ function resumeInterrupted(
   } catch (err) {
     return { error: `${name} cannot be read (${errnoReason(err)}); nothing was moved` };
   }
-  const receiptHere = fs.lstatSync(path.join(reviewDir, RECEIPT), { throwIfNoEntry: false });
+  const refused = staged.includes(RECEIPT) ? stagedRoundIncomplete(staging) : undefined;
+  if (refused !== undefined) return { error: refused };
   try {
-    if (staged.includes(RECEIPT) && receiptHere === undefined) {
+    if (staged.includes(RECEIPT)) {
       io.rename(staging, path.join(reviewDir, `round-${archived}`));
       return { resumed: 'completed' };
     }
     const clash = staged.filter((f) => fs.existsSync(path.join(reviewDir, f)));
-    if (clash.length > 0) {
-      return {
-        error:
-          `${name} holds ${clash.join(', ')}, which the review directory also holds; nothing was ` +
-          'moved: keep the copy of the round it belongs to, then remove the other by hand',
-      };
-    }
+    if (clash.length > 0) return { error: clashText(name, clash, archived) };
     moveAll(io, staged, staging, reviewDir);
     fs.rmdirSync(staging);
     return { resumed: 'undone' };
@@ -216,6 +238,34 @@ function resumeInterrupted(
   }
 }
 
+/** Why a staging directory that holds a receipt does not hold its whole round; undefined if it does. */
+function stagedRoundIncomplete(staging: string): string | undefined {
+  const name = path.basename(staging);
+  const staged = receiptIn(staging);
+  if (!('receipt' in staged)) {
+    return (
+      `${name} holds a receipt.json that is not a readable review receipt; nothing was moved: ` +
+      'the round being archived cannot be checked, so stop for the human'
+    );
+  }
+  const absent = notDirectlyIn(staging, namedFindings(staged.receipt) ?? []);
+  if (absent === undefined) return undefined;
+  return (
+    `the receipt in ${name} names ${absent} as a findings file, but ${name} does not hold it; ` +
+    'nothing was moved: the round being archived is incomplete, so stop for the human'
+  );
+}
+
+/** The refusal to undo an archive when a staged name is also in the review directory. */
+function clashText(name: string, clash: readonly string[], archived: number): string {
+  return (
+    `${name} holds ${clash.join(', ')}, which the review directory also holds; nothing was ` +
+    `moved: the staged files belong to round ${archived}, the round being archived, and the ` +
+    "review directory's copies belong to a newer attempt; which to keep is not decided here, so " +
+    'stop for the human'
+  );
+}
+
 /**
  * Archive the ended round of a review before a fix round re-runs it. The round that ended is the
  * one its `receipt.json` records: with no receipt (or one that is not a regular file) there is no
@@ -225,8 +275,9 @@ function resumeInterrupted(
  * `.round-<R>.partial` renamed in one step, `receipt.json` last. On an error the moved files go
  * back, so the round is archived whole or not at all. An interruption (the process dies) leaves
  * the staging directory: the gate fails while it exists, and the next run finishes the archive
- * (when the staging directory holds the receipt) or undoes it and then archives. The next review
- * is R + 1.
+ * (when the staging directory holds the receipt and every findings file it names) or undoes it
+ * and then archives. A findings file the receipt names that is not a regular file directly in the
+ * directory is refused, since the archive would not move it. The next review is R + 1.
  */
 export function archiveReviewRound(
   reviewDir: string,
@@ -281,10 +332,18 @@ function moveRound(io: ArchiveRoundIo, reviewDir: string, archived: number): str
   return undefined;
 }
 
-/** Undo a failed archive: the staged files go back and the staging directory goes. */
+/**
+ * Undo a failed archive: the staged files go back, `receipt.json` first (so a roll-back that stops
+ * part-way leaves a staging directory without it, which the next run undoes), and the staging
+ * directory goes.
+ */
 function rollBack(io: ArchiveRoundIo, staging: string, reviewDir: string, why: string): string {
   try {
-    moveAll(io, fs.readdirSync(staging), staging, reviewDir);
+    const staged = fs.readdirSync(staging);
+    const back = staged.includes(RECEIPT)
+      ? [RECEIPT, ...staged.filter((f) => f !== RECEIPT)]
+      : staged;
+    moveAll(io, back, staging, reviewDir);
     fs.rmdirSync(staging);
     return `the archive failed (${why}); nothing was archived`;
   } catch (err) {

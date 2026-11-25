@@ -90,18 +90,18 @@ const json = () => JSON.parse(out.join(''));
 
 describe('check-review-receipt --archive-round', () => {
   it('archives round 1 after a fix commit and says the next review is round 2; then round 2', async () => {
-    fs.writeFileSync(path.join(dir, 'receipt.json'), receiptAt(first));
+    writeRound(first);
     await run('--json', 'check-review-receipt', '--archive-round', dir);
     expect(json()).toEqual({ ok: true, archived: 1, next: 2 });
     expect(process.exitCode).toBe(0);
     out = [];
-    fs.writeFileSync(path.join(dir, 'receipt.json'), receiptAt(second));
+    writeRound(second);
     commit('c.txt');
     await run('--json', 'check-review-receipt', '--archive-round', dir);
     expect(json()).toEqual({ ok: true, archived: 2, next: 3 });
   });
   it('a relative review directory is read from the working directory', async () => {
-    fs.writeFileSync(path.join(dir, 'receipt.json'), receiptAt(first));
+    writeRound(first);
     await run(
       '--json',
       'check-review-receipt',
@@ -137,7 +137,7 @@ describe('check-review-receipt --archive-round', () => {
     expect(fs.readdirSync(tmp).sort()).toEqual(before);
   });
   it('the text output names the archive and the next round', async () => {
-    fs.writeFileSync(path.join(dir, 'receipt.json'), receiptAt(first));
+    writeRound(first);
     const info = vi.spyOn(console, 'log');
     await run('check-review-receipt', '--archive-round', dir);
     expect(info.mock.calls.flat().join('\n')).toMatch(
@@ -227,6 +227,41 @@ describe('an interrupted archive through the command', () => {
     writeRound(second, dir, { round: 2, priorRounds: [{ round: 1, head: first, blocking: 1 }] });
     await run('--json', 'check-review-receipt', dir);
     expect(codes().filter((c) => c.startsWith('ROUND') || c.startsWith('PRIOR'))).toEqual([]);
+  });
+  it('killed after the receipt was staged, then a new attempt was written: --archive-round still completes round 1, and the new receipt is rewritten as round 2', async () => {
+    fs.mkdirSync(staging());
+    writeRound(first, staging());
+    // The skill as written before this fix: no receipt.json here, so no archive; a review ran.
+    writeRound(second);
+    await run('--json', 'check-review-receipt', '--archive-round', dir);
+    expect(json()).toEqual({ ok: true, archived: 1, next: 2, interrupted: 'completed' });
+    expect(fs.readdirSync(dir).sort()).toEqual(['compliance-bug.json', 'receipt.json', 'round-1']);
+    out = [];
+    await run('--json', 'check-review-receipt', dir);
+    expect(codes()).toContain('ROUND_MISMATCH');
+    out = [];
+    writeRound(second, dir, { round: 2, priorRounds: [{ round: 1, head: first, blocking: 1 }] });
+    await run('--json', 'check-review-receipt', dir);
+    expect(codes().filter((c) => c.startsWith('ROUND') || c.startsWith('PRIOR'))).toEqual([]);
+  });
+  it('a findings file in a subdirectory: refused, exit 1, nothing moves', async () => {
+    fs.writeFileSync(
+      path.join(dir, 'receipt.json'),
+      JSON.stringify({
+        ...JSON.parse(receiptAt(first)),
+        reviewers: [
+          { id: 'compliance-bug', required: true, ran: true, findingsPath: 'sub/cb.json' },
+        ],
+      })
+    );
+    fs.mkdirSync(path.join(dir, 'sub'));
+    fs.writeFileSync(path.join(dir, 'sub', 'cb.json'), findingsAt(first));
+    await run('--json', 'check-review-receipt', '--archive-round', dir);
+    expect(process.exitCode).toBe(1);
+    expect(json().error).toMatch(
+      /names sub\/cb\.json as a findings file, which is not a regular file directly in/
+    );
+    expect(fs.readdirSync(dir).sort()).toEqual(['receipt.json', 'sub']);
   });
   it('a prior round whose archived findings hold another blocking count than its receipt fails', async () => {
     writeRound(first);

@@ -108,19 +108,31 @@ recomputed and the gate compares:
   archived with `harness check-review-receipt --archive-round <review-dir>`): the archives must
   be numbered `round-1` to `round-n` and `round` must be 1 + the archives (`ROUND_MISMATCH`),
   `priorRounds` must list exactly the archived rounds with the head of each archive's own
-  receipt and the blocking count its own findings files hold (`PRIOR_ROUNDS_MISMATCH`; the
-  archived receipt's `blocking` is a claim, recounted like the current one's), and a round after the first whose
+  receipt and a blocking count (`PRIOR_ROUNDS_MISMATCH`). The count is recounted from the
+  findings files the archived receipt's ran reviewers name, each file once, inside the archive;
+  when one of them is absent or not a findings file (or a ran reviewer names none), it is the
+  archived receipt's own `blocking`, which is then only that receipt's claim. An archive with no
+  readable `receipt.json` always fails. A round after the first whose
   `diff.head` is the head the round before it reviewed fails (`ROUND_SAME_HEAD`): only a fix
   commit starts a new round, so a review run again at the same head cannot re-roll its blocking
   findings away. The archive command refuses the routes an honest agent could take by mistake:
   a directory with no `receipt.json` (a round that wrote none is not a round), a path that is
   not a review directory of the layout, a HEAD still at the ended round's head, and archives
-  numbered out of sequence, and a `receipt.json` that is not a regular file. It moves the files
-  through a staging directory, `receipt.json` last, and moves them back on an error, so an
-  error archives the round whole or not at all. An interruption (the process dies) leaves the
-  staging directory `.round-R.partial`: the gate fails `ROUND_ARCHIVE_INTERRUPTED` while one
-  exists, and the next `--archive-round` finishes the archive (the staging directory holds the
-  receipt) or moves the staged files back and archives again.
+  numbered out of sequence, a `receipt.json` that is not a regular file, and a receipt naming a
+  findings file that is not a regular file directly in the review directory (the archive moves
+  only those). It moves the files through a staging directory, `receipt.json` last, and moves
+  them back on an error, `receipt.json` first, so an error archives the round whole or not at
+  all. An interruption (the process dies) leaves the staging directory `.round-R.partial`: the
+  gate fails `ROUND_ARCHIVE_INTERRUPTED` while one exists (beside a missing or invalid receipt
+  too). The next `--archive-round` completes the archive when the staging directory holds
+  `receipt.json` and every findings file that receipt names: it is renamed to `round-R/` as that
+  round, even when a newer attempt has since written files into the review directory (they stay
+  there, and that attempt's receipt is rewritten with the new round). When the staging directory
+  holds no `receipt.json`, it moves the staged files back and archives again. It refuses, moving
+  nothing, a staging directory that is not the next archive's, one whose receipt is unreadable or
+  names a findings file it does not hold, and, when moving back, a staged name the review
+  directory also holds (the staged copy is the ended round's, the other a newer attempt's;
+  which to keep is the human's call).
 
 A missing receipt fails (`RECEIPT_MISSING`), and so does an unreadable or invalid one
 (`RECEIPT_INVALID`); the MCP tool alone fails `GATE_ERROR` on a missing or invalid argument. A
