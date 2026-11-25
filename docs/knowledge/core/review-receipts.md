@@ -32,7 +32,9 @@ attributes say; of the trailers git identifies in a message, only identity trail
 out, by the rule `IDENTITY_TRAILER` in that file, which the `harness-code-review` skill states,
 compared by the key and value git parses rather than by line text;
 every other trailer is matched), the diff touches a package entry point (a package's `src/index.ts`, or a file named by
-a `package.json` `main`, `bin` or `exports` field; a renamed one counts under its old path), the
+a `package.json` `main`, `bin` or `exports` field at the reviewed head; a renamed one counts under its
+old path, and one that points into a build directory, `dist/`, `build/`, `lib/` or `out/`, names
+its source under `src/` with the same stem, `entryPointSources`), the
 phase's assessed complexity is `high`, or the rigor is `thorough`. It returns `full` for every
 final and standalone review. `harness review-tier` is its caller: the command runs git from the
 repository top level and reads `review.backend` from the `harness.config.json` there, so it

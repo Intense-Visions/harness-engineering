@@ -892,3 +892,11 @@ describe('unit 1 review round 3, fix 9: one rule for blocking findings VALIDATE 
     );
   });
 });
+
+describe('unit 1 review round 3, fix 10: entry points from build output', () => {
+  it('a field that points into a build directory names its source', () => {
+    expect(section(md(), '### REVIEW')).toMatch(
+      /a field that points into a build directory, `dist\/`, `build\/`, `lib\/` or `out\/`, names its source under `src\/` with the same stem/
+    );
+  });
+});

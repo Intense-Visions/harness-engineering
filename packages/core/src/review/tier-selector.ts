@@ -20,7 +20,10 @@ export interface PhaseTierInput {
    * among them are not matched. Absent: nothing is left out.
    */
   commitTrailers?: ReadonlyArray<readonly string[]>;
-  /** Repository-relative files named by any package.json `exports`, `main` or `bin` field. */
+  /**
+   * Repository-relative files named by any package.json `exports`, `main` or `bin` field. One in a
+   * build directory also names its source under `src/` (`entryPointSources`).
+   */
   entryPoints?: readonly string[];
   /** Autopilot's assessed complexity for the phase, after its ASSESS refinements. */
   complexity?: PhaseComplexity;
@@ -130,8 +133,35 @@ function riskKeywordReasons(input: PhaseTierInput): string[] {
   return matchRiskKeywords(haystack).map((k) => `risk-keyword:${k}`);
 }
 
+/** Directories a package.json entry may point into that hold build output, not source. */
+const BUILD_DIRS = new Set(['dist', 'build', 'lib', 'out']);
+const BUILT_EXTENSION = /\.(?:d\.)?[mc]?[jt]s$/;
+const SOURCE_EXTENSIONS = ['.ts', '.tsx', '.js', '.mts'];
+
+/**
+ * The source files an entry point in a build directory is built from: `<pkg>/dist/bin/p.js`
+ * names `<pkg>/src/bin/p.{ts,tsx,js,mts}`. A change to the source changes the entry point though
+ * the build output is never in a diff. Every build-directory segment of the path is tried, so a
+ * package that itself sits under a directory named `lib` still maps. Pure.
+ */
+export function entryPointSources(entryPoints: readonly string[]): string[] {
+  const out = new Set<string>();
+  for (const entry of entryPoints.map(posix)) {
+    const parts = entry.split('/');
+    parts.forEach((segment, i) => {
+      if (!BUILD_DIRS.has(segment) || i === parts.length - 1) return;
+      const rest = parts.slice(i + 1).join('/');
+      if (!BUILT_EXTENSION.test(rest)) return;
+      const stem = [...parts.slice(0, i), 'src', rest.replace(BUILT_EXTENSION, '')].join('/');
+      for (const ext of SOURCE_EXTENSIONS) out.add(`${stem}${ext}`);
+    });
+  }
+  return [...out];
+}
+
 function entryPointReasons(input: PhaseTierInput): string[] {
-  const entry = new Set((input.entryPoints ?? []).map(posix));
+  const named = (input.entryPoints ?? []).map(posix);
+  const entry = new Set([...named, ...entryPointSources(named)]);
   return input.changedFiles
     .map(posix)
     .filter((f) => PACKAGE_INDEX.test(f) || entry.has(f))

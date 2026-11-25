@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   collectPackageEntryPoints,
+  entryPointSources,
   selectReviewTier,
   type SelectReviewTierInput,
 } from '../../src/review/tier-selector';
@@ -270,5 +271,38 @@ describe('round 2: an entry point under a directory whose name holds a line term
       selectReviewTier({ moment: 'phase', changedFiles: [f], diffText: '', commitMessages: [] })
         .reasons
     ).toEqual([`entry-point:${f}`]);
+  });
+});
+
+describe('entryPointSources (review round 3, fix 10)', () => {
+  const ts = (stem: string) => ['.ts', '.tsx', '.js', '.mts'].map((e) => `${stem}${e}`);
+  it.each([
+    ['packages/cli/dist/bin/harness.js', ts('packages/cli/src/bin/harness')],
+    ['dist/index.mjs', ts('src/index')],
+    ['pkg/build/x.cjs', ts('pkg/src/x')],
+    ['pkg/dist/types.d.ts', ts('pkg/src/types')],
+    ['./out/a/b.js', ts('src/a/b')],
+  ])('%s names its source', (entry, expected) => {
+    expect(entryPointSources([entry])).toEqual(expected);
+  });
+  it.each([['bin/run.js'], ['pkg/src/index.ts'], ['dist'], ['pkg/dist/README.md']])(
+    '%s names no source',
+    (entry) => expect(entryPointSources([entry])).toEqual([])
+  );
+  it('a package under a directory named lib maps at every build segment', () => {
+    expect(entryPointSources(['lib/pkg/dist/x.js'])).toEqual([
+      ...ts('src/pkg/dist/x'),
+      ...ts('lib/pkg/src/x'),
+    ]);
+  });
+  it('selectReviewTier makes a phase full when the source of a built entry point changes', () => {
+    const r = selectReviewTier({
+      moment: 'phase',
+      changedFiles: ['pkg/src/bin/p.ts'],
+      diffText: '',
+      commitMessages: ['chore: tidy'],
+      entryPoints: ['pkg/dist/bin/p.js'],
+    });
+    expect(r).toEqual({ tier: 'full', reasons: ['entry-point:pkg/src/bin/p.ts'] });
   });
 });

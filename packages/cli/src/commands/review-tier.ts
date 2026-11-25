@@ -158,18 +158,22 @@ function configFileFor(opts: ReviewTierOptions, git: CwdGit, cwd: string): strin
   return found.ok ? found.value : undefined;
 }
 
-/** Files every tracked package.json names in `main`, `bin` or `exports`, from the top level. */
-function packageEntryPoints(git: CwdGit, top: string): string[] {
-  const manifests = git(['ls-files', '-z', '--', ':(glob)**/package.json'], top)
+/**
+ * Files every package.json of the reviewed head names in `main`, `bin` or `exports`, read from
+ * that commit (`git show <head>:<path>`), not from the working tree: the manifest that matters
+ * is the one that was reviewed.
+ */
+function packageEntryPoints(git: CwdGit, head: string, top: string): string[] {
+  const manifests = git(['ls-tree', '-r', '-z', '--name-only', head], top)
     .split('\0')
-    .filter((f) => f !== '');
+    .filter((f) => f === 'package.json' || f.endsWith('/package.json'));
   const out: string[] = [];
   for (const manifest of manifests) {
     try {
-      const pkg: unknown = JSON.parse(fs.readFileSync(path.join(top, manifest), 'utf-8'));
+      const pkg: unknown = JSON.parse(git(['show', `${head}:${manifest}`], top));
       out.push(...collectPackageEntryPoints(pkg, path.posix.dirname(manifest)));
     } catch {
-      // Deleted in the working tree, or not JSON: it names no entry point.
+      // Not JSON, or not readable at the head: it names no entry point.
     }
   }
   return out;
@@ -231,7 +235,7 @@ function phaseResult(opts: ReviewTierOptions, git: CwdGit, top: string): Result<
   if (files === undefined) return fail(`cannot compute the diff ${range}`);
   if (files.length === 0) return fail(`${range} changes no files; there is no tier`);
   try {
-    const selection = selectionOf(opts, git, range, files, top);
+    const selection = selectionOf(opts, git, range, files, top, head);
     return Ok({ moment: 'phase', ...selection, base, head, changedFiles: files.length });
   } catch (err) {
     return fail(`cannot read the diff: ${err instanceof Error ? err.message : String(err)}`);
@@ -244,7 +248,8 @@ function selectionOf(
   git: CwdGit,
   range: string,
   files: string[],
-  top: string
+  top: string,
+  head: string
 ): Pick<Tiered, 'tier' | 'reasons'> {
   const diffText = readDiffText(git, range, top);
   // Past the buffer: never "no rule holds" on a diff that was not read.
@@ -254,7 +259,7 @@ function selectionOf(
     changedFiles: files,
     diffText,
     ...commitsOf(git, range, top),
-    entryPoints: packageEntryPoints(git, top),
+    entryPoints: packageEntryPoints(git, head, top),
     ...(opts.complexity !== undefined && { complexity: opts.complexity }),
     ...(opts.rigor !== undefined && { rigor: opts.rigor }),
   });

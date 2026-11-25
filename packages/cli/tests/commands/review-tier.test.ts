@@ -549,3 +549,68 @@ describe('round 2: control bytes in messages, paths and the output', () => {
     expect(lines).toContain('\\u{001B}');
   });
 });
+
+/**
+ * Unit 1 review round 3, fix 10: a package.json entry that points into a build directory names a
+ * source file, and the manifests are read at --head. Real git.
+ */
+describe('review round 3: entry points from build output, manifests at --head', () => {
+  const pkg = (manifest: unknown) => JSON.stringify(manifest);
+  it('a bin in dist/ makes its src/ source an entry point (the reviewer repro)', () => {
+    commit({
+      'pkg/package.json': pkg({ name: 'p', bin: { p: './dist/bin/p.js' } }),
+      'pkg/src/bin/p.ts': '// one\n',
+    });
+    const before = g('rev-parse', 'HEAD');
+    commit({ 'pkg/src/bin/p.ts': '// two\n' });
+    expect(ok({ base: before })).toMatchObject({
+      tier: 'full',
+      reasons: ['entry-point:pkg/src/bin/p.ts'],
+    });
+  });
+  it.each([
+    ['main in dist, a .tsx source', { main: 'dist/app.js' }, 'pkg/src/app.tsx'],
+    ['exports in build, a .mts source', { exports: { '.': './build/x.mjs' } }, 'pkg/src/x.mts'],
+    [
+      'types in dist (.d.ts), a .ts source',
+      { exports: { types: './dist/y.d.ts' } },
+      'pkg/src/y.ts',
+    ],
+    ['main in lib, a .js source', { main: './lib/z.js' }, 'pkg/src/z.js'],
+  ])('%s', (_n, manifest, source) => {
+    commit({ 'pkg/package.json': pkg(manifest), [source]: '// one\n' });
+    const before = g('rev-parse', 'HEAD');
+    commit({ [source]: '// two\n' });
+    expect(ok({ base: before }).reasons).toEqual([`entry-point:${source}`]);
+  });
+  it('positive control: a src/ file no manifest names stays light', () => {
+    commit({
+      'pkg/package.json': pkg({ bin: { p: './dist/bin/p.js' } }),
+      'pkg/src/other.ts': '// one\n',
+    });
+    const before = g('rev-parse', 'HEAD');
+    commit({ 'pkg/src/other.ts': '// two\n' });
+    expect(ok({ base: before })).toMatchObject({ tier: 'light', reasons: [] });
+  });
+  it('reads the manifest at --head, not the working tree', () => {
+    commit({
+      'pkg/package.json': pkg({ bin: { p: './dist/bin/p.js' } }),
+      'pkg/src/bin/p.ts': '// one\n',
+    });
+    const before = g('rev-parse', 'HEAD');
+    const head = commit({ 'pkg/src/bin/p.ts': '// two\n' });
+    // The working tree drops the bin; the reviewed head still names it.
+    fs.writeFileSync(path.join(tmp, 'pkg', 'package.json'), pkg({ name: 'p' }));
+    expect(ok({ base: before, head }).reasons).toEqual(['entry-point:pkg/src/bin/p.ts']);
+    // And a manifest only the working tree holds names nothing.
+    g('checkout', '--', 'pkg/package.json');
+    fs.writeFileSync(path.join(tmp, 'pkg', 'package.json'), pkg({ bin: { q: './src/q.ts' } }));
+    commit({
+      'pkg/src/q.ts': '// q\n',
+      'pkg/package.json': pkg({ bin: { p: './dist/bin/p.js' } }),
+    });
+    const before2 = g('rev-parse', 'HEAD~1');
+    fs.writeFileSync(path.join(tmp, 'pkg', 'package.json'), pkg({ bin: { q: './src/q.ts' } }));
+    expect(ok({ base: before2, head: g('rev-parse', 'HEAD') }).reasons).toEqual([]);
+  });
+});
