@@ -128,8 +128,7 @@ All three are ignored by git: they are machine-local. `N` in `phase-N` is the ph
 position. A standalone directory is one level directly under `.harness/reviews/`: in its name each
 run of characters outside `[A-Za-z0-9._-]` in the branch is replaced by `-` and any leading or
 trailing `-` or `.` is removed, so the branch part is a single path segment. A directory inside a
-session (`sessions/<slug>/reviews/<label>`) is read by the session rule first, and a session slug
-that starts with a dot is refused. Review hooks write `hook-<name>.json` files into the same directory; they are not
+session (`sessions/<slug>/reviews/<label>`) is read by the session rule first. Review hooks write `hook-<name>.json` files into the same directory; they are not
 reviewer findings files and are not in the receipt's counts.
 
 ## Limits

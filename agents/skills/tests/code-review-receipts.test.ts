@@ -773,7 +773,7 @@ describe('unit 1 fix round 1: code-review instructions, each pinned', () => {
   const receipt = () => section(md(), '### Review Receipt');
   it('fix 9: a directory inside a session is read by the session rule before the standalone one', () => {
     expect(receipt()).toMatch(
-      /the gate reads any directory directly under `\.harness\/reviews\/` as a standalone review, except one inside a session \(`sessions\/<slug>\/reviews\/<label>`\), which it reads by the session rule first\. A session slug that starts with a dot is refused\./
+      /the gate reads any directory directly under `\.harness\/reviews\/` as a standalone review, except one inside a session \(`sessions\/<slug>\/reviews\/<label>`\), which it reads by the session rule first\./
     );
   });
 });

@@ -42,7 +42,7 @@ recomputed and the gate compares:
   directly under `.harness/reviews/` (one level: the branch part of its name is sanitised to a
   single path segment) a standalone review. The session layout (`sessions/<slug>/reviews/<label>`)
   is tested first, so a session whose slug is `.harness` cannot make its final review read as a
-  standalone one, and session slugs that start with a dot are refused. The directory decides: `--moment` is read only for a
+  standalone one. The directory decides: `--moment` is read only for a
   directory that states none of these, and a flag that contradicts the directory fails
   (`MOMENT_MISMATCH`), because the flag comes from the same caller the gate is checking. A
   receipt that says otherwise fails (`MOMENT_MISMATCH`), and when nothing states a moment the

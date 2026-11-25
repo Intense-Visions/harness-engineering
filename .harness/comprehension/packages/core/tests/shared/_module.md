@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/tests/shared'
-sourceHash: 'f385399a0f432a89479155155da8362fbb8c0baca1d34e5505e27bac9df9ec9d'
+sourceHash: '192b5f56631f9a785a38464cdc30461313811beafab3ac52450ba3ca8cc49986'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
