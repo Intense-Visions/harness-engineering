@@ -8,6 +8,7 @@ import {
   FULL_TIER_REVIEWER_IDS,
   CONDITIONAL_REVIEWER_IDS,
   LIGHT_TIER_REVIEWER_ID,
+  PIPELINE_DOMAINS_OUTSIDE_RECEIPT,
   ESCAPED_FROM_STAGES,
   FINDING_CLASSES,
 } from '../src/index';
@@ -29,6 +30,9 @@ describe('pipeline receipt contract', () => {
       'frontend-races',
     ]);
     expect(LIGHT_TIER_REVIEWER_ID).toBe('compliance-bug');
+  });
+  it('names the pipeline review domains that are no receipt reviewer', () => {
+    expect(PIPELINE_DOMAINS_OUTSIDE_RECEIPT).toEqual(['learnings']);
   });
   it('pins the attribution taxonomy shared by all four phases of the spec', () => {
     expect(ESCAPED_FROM_STAGES).toEqual(['spec', 'plan', 'execution', 'verification', 'none']);

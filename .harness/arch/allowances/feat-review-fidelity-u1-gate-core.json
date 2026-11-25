@@ -1,7 +1,7 @@
 {
   "reason": "shift-left unit 1: review receipt gate core (module-size only)",
   "categories": {
-    "module-size": 297679
+    "module-size": 297687
   },
   "violationIds": [
     "0cbdac9182ffd490c82b52af991af685bd9b638d3fe941a77c43ee3904d2fcd0",
@@ -11,5 +11,5 @@
     "0cbdac9182ffd490c82b52af991af685bd9b638d3fe941a77c43ee3904d2fcd0": "shift-left unit 1: review receipt gate core (module-size only)",
     "582415e5b752c0cd2b067eb0f7e34160478bc8fd7fbbe01836770a1d73cdf02b": "shift-left unit 1: review receipt gate core (module-size only)"
   },
-  "createdFrom": "454f48db6"
+  "createdFrom": "90674db2f"
 }

@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/types/src'
-sourceHash: 'ca3c42f26fa64b377694156634fe6dd5b12263f8d00408b13e8caf110fe8496a'
+sourceHash: '26c2a5bf4e6cd157fe6c55aa22d356e2852239bf3571ac92aaade13251a2a8b4'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -267,6 +267,7 @@ export OptionalStrategySection
 export OsvGuardConfig
 export OutcomeSection
 export OutputRetentionConfig
+export PIPELINE_DOMAINS_OUTSIDE_RECEIPT
 export PiBackendDef
 export PlanTask
 export PlanTaskSchema

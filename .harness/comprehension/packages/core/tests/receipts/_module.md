@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/tests/receipts'
-sourceHash: '922de116e0cf772d34cb188c065d53ebac75c5de31071af65ccd3c60c80afac6'
+sourceHash: 'db0b6ed7db3efec61cd70f73908b149cad260ebf563d12f692414392a80ed696'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -57,10 +57,11 @@ import { REVIEW_FILE_MAX_BYTES, errnoReason, readRegularFile, readReviewReceiptF
 import { PhaseReviewBase, ReviewGateContext, checkReviewerFindingsText, finalReviewBase, phaseReviewBase, validateReviewReceipt } from '../../src/receipts/review-gate'
 import { BLOCKING_SEVERITIES, ReceiptFinding, ReviewReceiptSchema, ReviewerFindingsFile, isBlockingSeverity, parseReviewReceipt, parseReviewerFindingsFile } from '../../src/receipts/schema'
 import { ConditionalSubagent } from '../../src/review/depth-calibrator'
-import { ReviewFinding } from '../../src/review/types/fan-out'
+import { ReviewDomain } from '../../src/review/types/context'
+import { ReviewFinding, ReviewSubagent } from '../../src/review/types/fan-out'
 import { normalizeReviewPath, pathEscapes } from '../../src/shared/review-paths'
 import { BASE, FULL, HEAD, OTHER, START, codesOf, ctx, finding, findingsText, receipt, record } from './round4-helpers'
-import { CONDITIONAL_REVIEWER_IDS, FULL_TIER_REVIEWER_IDS, LIGHT_TIER_REVIEWER_ID, RECEIPT_UNREAD_REASONS, REVIEW_MOMENTS, ReviewMoment, ReviewReceipt } from '@harness-engineering/types'
+import { CONDITIONAL_REVIEWER_IDS, FULL_TIER_REVIEWER_IDS, LIGHT_TIER_REVIEWER_ID, PIPELINE_DOMAINS_OUTSIDE_RECEIPT, RECEIPT_UNREAD_REASONS, REVIEW_MOMENTS, ReviewMoment, ReviewReceipt } from '@harness-engineering/types'
 import { execFileSync } from 'node:child_process'
 import * as fs from 'node:fs'
 import * as os from 'node:os'

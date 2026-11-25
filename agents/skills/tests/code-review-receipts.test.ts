@@ -912,3 +912,11 @@ describe('unit 1 review round 3, suggestions: the final base and the light roste
     );
   });
 });
+
+describe('unit 1 review round 4, fix 2: pipeline domains that are no receipt reviewer', () => {
+  it('learnings-domain findings stay outside the receipt and its counts', () => {
+    expect(md()).toMatch(
+      /Findings whose `domain` is `learnings` \(`PIPELINE_DOMAINS_OUTSIDE_RECEIPT`\), and any domain or subagent that is not a receipt reviewer id, are no reviewer's: write no findings file for them and leave them outside the receipt and its counts, as hook findings are; report them in the review output apart from the reviewers' findings\./
+    );
+  });
+});

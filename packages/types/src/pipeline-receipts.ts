@@ -37,6 +37,13 @@ export const CONDITIONAL_REVIEWER_IDS = [
 ] as const;
 /** The single reviewer of a `light` review: compliance and bug detection in one pass. */
 export const LIGHT_TIER_REVIEWER_ID = 'compliance-bug';
+/**
+ * Review domains of the coded pipeline (`run_code_review`) that are no receipt reviewer. Their
+ * findings stay outside the receipt and its counts, like hook findings: no findings file is
+ * written for them. core's schema-types test ties the pipeline's subagents to the receipt
+ * reviewer ids plus this set.
+ */
+export const PIPELINE_DOMAINS_OUTSIDE_RECEIPT = ['learnings'] as const;
 
 export interface ReviewerRecord {
   /** compliance | bug | security | architecture | adversarial | typescript-strict | frontend-races | compliance-bug */
