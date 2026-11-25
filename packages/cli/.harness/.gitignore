@@ -42,3 +42,4 @@ security/*
 state.events.jsonl
 state.snapshot.json
 cache/
+reviews/
