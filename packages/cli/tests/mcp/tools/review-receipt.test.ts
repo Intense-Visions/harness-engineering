@@ -37,6 +37,7 @@ function write(ran: boolean) {
     JSON.stringify({
       schemaVersion: 1,
       reviewerId: 'compliance-bug',
+      base: BASE,
       head: HEAD,
       examinedFiles: ['src/a.ts'],
       findings: [],

@@ -276,10 +276,13 @@ describe('review round 2: what the gate now checks (A1, A2, A10)', () => {
     expect(gateFailureRows(text).get('FINDINGS_HEAD_MISMATCH')).toMatch(
       /a findings file's `head` is not the receipt's `diff\.head`/
     );
-    expect(gateFailureRows(text).get('FINDINGS_FILE_INVALID')).toMatch(/no `head`/);
+    expect(gateFailureRows(text).get('FINDINGS_FILE_INVALID')).toMatch(/no `base` or `head`/);
+    expect(gateFailureRows(text).get('FINDINGS_BASE_MISMATCH')).toMatch(
+      /a findings file's `base` is not the receipt's `diff\.base`/
+    );
     const brief = section(md(), '#### Review tier and dispatch');
-    expect(brief).toMatch(/the reviewed head as a resolved 40-character sha/);
-    expect(brief).toMatch(/to set `head` in it to the reviewed head/);
+    expect(brief).toMatch(/the reviewed base and head as resolved 40-character shas/);
+    expect(brief).toMatch(/to set `base` and `head` in it to the reviewed base and head/);
     expect(brief).toMatch(/to start every finding id with its reviewer id/);
   });
   it('A2: the moment is checked against the review directory, or --moment', () => {
@@ -559,6 +562,7 @@ describe('review round 3: craft, dispatched mode and the reviewer self-check (A6
     const example =
       /```json\n(\{\s*"schemaVersion": 1,\s*"reviewerId"[\s\S]*?)```/.exec(text)?.[1] ?? '';
     const file = JSON.parse(example) as Record<string, unknown> & {
+      base: string;
       head: string;
       examinedFiles: string[];
     };
@@ -571,6 +575,7 @@ describe('review round 3: craft, dispatched mode and the reviewer self-check (A6
     };
     const range = {
       ranged: true,
+      base: file.base,
       head: file.head,
       worktreeHead: file.head,
       diffFiles: file.examinedFiles,
@@ -590,10 +595,11 @@ describe('review round 3: craft, dispatched mode and the reviewer self-check (A6
     add(example, { ...range, head: '1'.repeat(40), worktreeHead: '1'.repeat(40) });
     add(example, { ...range, worktreeHead: '2'.repeat(40) });
     add(example, { ...range, worktreeClean: false });
+    add(example, { ...range, base: '3'.repeat(40) });
     add(JSON.stringify({ ...file, reviewerId: 'not-a-reviewer' }), { ranged: false });
     add(example, { ...range, diffFiles: ['other.ts'] });
     expect([...raised].sort()).toEqual([...named].sort());
-    expect(named).toHaveLength(11);
+    expect(named).toHaveLength(12);
   });
 });
 
@@ -874,6 +880,14 @@ describe('unit 1 fix round 2: a standalone base is advice (compliance-3)', () =>
     );
     expect(md()).not.toMatch(
       /for a standalone or final review the base the receipt gate will demand/
+    );
+  });
+});
+
+describe('unit 1 review round 3, fix 2: findings files are bound to the base', () => {
+  it('a gate failure about the range or the tree re-runs every required reviewer', () => {
+    expect(section(md(), '### Review Receipt')).toMatch(
+      /`re-run`: dispatch the named reviewers again, or every required reviewer when HEAD has moved or a failure is about the range or the tree rather than one reviewer \(a base code, `WORKTREE_DIRTY`, `MOMENT_MISMATCH`, `MOMENT_UNKNOWN` or `HEAD_MISMATCH`/
     );
   });
 });

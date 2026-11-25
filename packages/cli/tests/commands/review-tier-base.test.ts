@@ -198,6 +198,7 @@ describe('round 2: the gate reads the target from the final receipt (diff.target
       const file = {
         schemaVersion: 1,
         reviewerId: id,
+        base,
         head,
         examinedFiles: ['f4.txt'],
         findings: [],

@@ -36,6 +36,7 @@ const finding = (over: Record<string, unknown> = {}) => ({
 const file = (findings: unknown[]) => ({
   schemaVersion: 1,
   reviewerId: 'bug',
+  base: BASE,
   head: 'b'.repeat(40),
   examinedFiles: ['src/a.ts'],
   findings,

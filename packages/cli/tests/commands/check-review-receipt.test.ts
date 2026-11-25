@@ -21,7 +21,11 @@ let dir: string;
 const git =
   (files: string[] = ['src/a.ts'], head = HEAD): CwdGit =>
   (args) => {
-    if (args[0] === 'rev-parse') return head;
+    if (args[0] === 'rev-parse') {
+      // A full sha resolves to itself (`rev-parse --verify <sha>^{commit}`); anything else is HEAD.
+      const named = (args[args.length - 1] ?? '').replace(/\^\{commit\}$/, '');
+      return /^[0-9a-f]{40}$/.test(named) ? named : head;
+    }
     if (args[0] === 'status') return '';
     if (args[0] === 'merge-base') return args[1] === '--is-ancestor' ? '' : BASE;
     if (args[0] === 'symbolic-ref') return 'origin/main';
@@ -36,6 +40,7 @@ const findingsFile = (id: string, over: Record<string, unknown> = {}) =>
   JSON.stringify({
     schemaVersion: 1,
     reviewerId: id,
+    base: BASE,
     head: HEAD,
     examinedFiles: ['src/a.ts'],
     findings: [],
@@ -56,7 +61,10 @@ const receipt = (over: Record<string, unknown> = {}) => ({
 });
 function write(r: unknown, ids: string[] = FULL, over: Record<string, unknown> = {}) {
   fs.writeFileSync(path.join(dir, 'receipt.json'), JSON.stringify(r));
-  for (const id of ids) fs.writeFileSync(path.join(dir, `${id}.json`), findingsFile(id, over));
+  // Each reviewer was given the receipt's range: its file records that base.
+  const base = (r as { diff?: { base?: unknown } }).diff?.base ?? BASE;
+  for (const id of ids)
+    fs.writeFileSync(path.join(dir, `${id}.json`), findingsFile(id, { base, ...over }));
 }
 const run = (g: CwdGit = git()) => runCheckReviewReceipt({ receiptPath: dir, cwd: tmp, git: g });
 
@@ -451,7 +459,7 @@ describe('fix 1: the moment is bound to where the receipt sits', () => {
   function writeLight(at: string, head: string, base: string) {
     fs.mkdirSync(at, { recursive: true });
     fs.writeFileSync(path.join(at, 'receipt.json'), JSON.stringify(lightPhase(head, base)));
-    const file = findingsFile('compliance-bug', { head, examinedFiles: ['src/b.ts'] });
+    const file = findingsFile('compliance-bug', { base, head, examinedFiles: ['src/b.ts'] });
     fs.writeFileSync(path.join(at, 'c.json'), file);
   }
   it("fails a receipt in final-all that says moment phase (the reviewers' reproduction)", () => {

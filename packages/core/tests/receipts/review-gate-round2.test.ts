@@ -36,6 +36,7 @@ const file = (id: string, over: Record<string, unknown> = {}) =>
   JSON.stringify({
     schemaVersion: 1,
     reviewerId: id,
+    base: BASE,
     head: HEAD,
     examinedFiles: ['src/a.ts'],
     findings: [],
@@ -113,6 +114,7 @@ describe('fix 3: a findings file carries the commit it reviewed', () => {
     const noHead = JSON.stringify({
       schemaVersion: 1,
       reviewerId: 'bug',
+      base: BASE,
       examinedFiles: ['src/a.ts'],
       findings: [],
     });

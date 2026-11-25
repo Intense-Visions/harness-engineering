@@ -27,7 +27,7 @@ Cursor, Codex and Gemini CLI, with no API key.
 
 A review writes a typed `ReviewReceipt` (`packages/types/src/pipeline-receipts.ts`): the moment,
 the tier, the backend, the diff range as resolved SHAs, and one record per reviewer. Each
-reviewer writes its own findings file naming the commit it read and the diff files it examined.
+reviewer writes its own findings file naming the range it was given (`base`, `head`) and the diff files it examined.
 The agent still does all the reviewing. A coded gate, `validateReviewReceipt` in
 `packages/core/src/receipts/review-gate.ts`, decides whether the review counts.
 
@@ -83,7 +83,9 @@ recomputed and the gate compares:
   resolved, so a symlink that leads out reads as absent), only when it is a regular file of at
   most 5 MB (a FIFO, a device or a directory is not opened), and parsed. The receipt is read
   under the same rule. A reviewer marked `ran` with no file, an invalid file, a file written
-  under another reviewer's id, a file written at another head (`FINDINGS_HEAD_MISMATCH`), a file
+  under another reviewer's id, a file written at another head (`FINDINGS_HEAD_MISMATCH`) or for another base
+  (`FINDINGS_BASE_MISMATCH`, so a review over a narrower range cannot pass by rewriting the
+  receipt's `diff.base`), a file
   shared with another reviewer, an empty examined-files list, or an examined file outside the
   diff fails.
 - A `full` receipt must list `compliance`, `bug`, `security` and `architecture` as required. A

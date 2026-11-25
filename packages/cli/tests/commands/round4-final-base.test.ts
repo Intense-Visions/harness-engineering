@@ -39,7 +39,14 @@ function writeReview(dir: string, base: string, head: string, files: string[]): 
   };
   fs.writeFileSync(path.join(dir, 'receipt.json'), JSON.stringify(receipt));
   for (const id of FULL) {
-    const file = { schemaVersion: 1, reviewerId: id, head, examinedFiles: files, findings: [] };
+    const file = {
+      schemaVersion: 1,
+      reviewerId: id,
+      base,
+      head,
+      examinedFiles: files,
+      findings: [],
+    };
     fs.writeFileSync(path.join(dir, `${id}.json`), JSON.stringify(file));
   }
 }

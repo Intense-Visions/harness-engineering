@@ -538,9 +538,10 @@ function loadFindingsFile(
 function contentFailures(
   r: ReviewerRecord,
   file: ReviewerFindingsFile,
-  head: string,
+  range: { base: string | undefined; head: string },
   diffSet: ReadonlySet<string> | undefined
 ): ReviewGateFailure[] {
+  const { head } = range;
   const out: ReviewGateFailure[] = [];
   if (file.reviewerId !== r.id) {
     out.push(
@@ -556,6 +557,16 @@ function contentFailures(
       reviewGateFailure(
         'FINDINGS_HEAD_MISMATCH',
         `reviewer "${r.id}" reviewed ${file.head}, but the receipt is for ${head}; the file is from another round`,
+        r.id
+      )
+    );
+  }
+  if (range.base !== undefined && file.base !== range.base) {
+    out.push(
+      reviewGateFailure(
+        'FINDINGS_BASE_MISMATCH',
+        `reviewer "${r.id}" reviewed from ${file.base}, but the review's base is ${range.base}; ` +
+          'the file covers another range',
         r.id
       )
     );
@@ -619,7 +630,7 @@ export function checkFindings(receipt: ReviewReceipt, context: FindingsSource): 
       continue;
     }
     files.set(r.id, loaded.file);
-    failures.push(...contentFailures(r, loaded.file, receipt.diff.head, diffSet));
+    failures.push(...contentFailures(r, loaded.file, receipt.diff, diffSet));
   }
   // Counts are compared only when every file loaded: a file that did not is already a failure,
   // and a count over part of the review would name the wrong number.
@@ -659,6 +670,8 @@ export type FindingsFileRange =
   | { ranged: false }
   | {
       ranged: true;
+      /** The resolved base the file must name. */
+      base: string;
       /** The resolved head the file must name. */
       head: string;
       /** `git rev-parse HEAD` where the reviewer read the files; undefined: git could not say. */
@@ -672,8 +685,7 @@ export type FindingsFileRange =
 /**
  * One reviewer findings file checked on its own, with the gate's parser and rules (a reviewer's
  * self-check before it reports). Without a range: shape, a known reviewer id, examined files and
- * unique ids. With one
- * (`diffFiles` present): also the head and that every examined file is in the diff.
+ * unique ids. With one: also the base, the head and that every examined file is in the diff.
  */
 export function checkReviewerFindingsText(
   text: string | undefined,
@@ -714,7 +726,8 @@ export function checkReviewerFindingsText(
   }
   if (range.ranged) out.push(...worktreeFailures(range.worktreeClean));
   const self = { id: file.reviewerId, required: true, ran: true, findingsPath: name };
-  out.push(...contentFailures(self, file, range.ranged ? range.head : file.head, diffSet));
+  const against = range.ranged ? range : { base: undefined, head: file.head };
+  out.push(...contentFailures(self, file, against, diffSet));
   const repeated = repeatedIds(file.findings.map((f) => f.id));
   if (repeated.length > 0) {
     out.push(

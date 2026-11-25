@@ -27,10 +27,11 @@ export const receipt = (over: Record<string, unknown> = {}) => ({
   advisory: 0,
   ...over,
 });
-export const findingsText = (id: string, findings: unknown[] = []) =>
+export const findingsText = (id: string, findings: unknown[] = [], base = BASE) =>
   JSON.stringify({
     schemaVersion: 1,
     reviewerId: id,
+    base,
     head: HEAD,
     examinedFiles: ['src/a.ts'],
     findings,

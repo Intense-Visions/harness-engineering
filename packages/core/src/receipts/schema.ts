@@ -48,7 +48,10 @@ export type BlockingReceiptFinding = ReceiptFinding & {
   escapedFrom: EscapedFrom;
 };
 
-/** What each reviewer writes: its findings and the diff files it read (`head`: the commit read). */
+/**
+ * What each reviewer writes: its findings and the diff files it read (`base`..`head`: the range
+ * it was given, `head` the commit read).
+ */
 export type ReviewerFindingsFile = Omit<z.infer<typeof ReviewerFindingsFileSchema>, 'findings'> & {
   findings: ReceiptFinding[];
 };
@@ -130,6 +133,7 @@ export const ReceiptFindingSchema = z
 export const ReviewerFindingsFileSchema = z.object({
   schemaVersion: z.literal(1),
   reviewerId,
+  base: sha,
   head: sha,
   examinedFiles: z.array(z.string().min(1)),
   findings: z.array(ReceiptFindingSchema),

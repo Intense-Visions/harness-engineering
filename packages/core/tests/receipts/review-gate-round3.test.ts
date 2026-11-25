@@ -25,6 +25,7 @@ const file = (id: string) =>
   JSON.stringify({
     schemaVersion: 1,
     reviewerId: id,
+    base: BASE,
     head: HEAD,
     examinedFiles: ['src/a.ts'],
     findings: [],

@@ -1,6 +1,11 @@
 import { describe, it, expect } from 'vitest';
 import { finalReviewBase, validateReviewReceipt } from '../../src/receipts/review-gate';
-import { BASE, HEAD, OTHER, START, codesOf, ctx, receipt } from './round4-helpers';
+import { BASE, HEAD, OTHER, START, codesOf, ctx, findingsText, receipt } from './round4-helpers';
+
+/** Findings files reviewed from `base`, so a row tests the final base and nothing else. */
+const from = (base: string) => ({
+  readFindings: (p: string) => findingsText(p.replace(/\.json$/, ''), [], base),
+});
 
 /**
  * Round 4, fix 1. The final review's base. Inputs: the default-branch merge base {resolves,
@@ -93,7 +98,10 @@ describe('the gate applies finalReviewBase to a final receipt', () => {
     const diff = { base, head: HEAD, ...(baseSource !== undefined && { baseSource }) };
     const r = validateReviewReceipt(
       receipt({ moment: 'final', diff }),
-      ctx({ mergeBase, ...(startingCommit !== undefined && { startingCommit }) }, 'final')
+      ctx(
+        { mergeBase, ...(startingCommit !== undefined && { startingCommit }), ...from(base) },
+        'final'
+      )
     );
     expect(codesOf(r)).toEqual(codes);
   });
@@ -101,7 +109,7 @@ describe('the gate applies finalReviewBase to a final receipt', () => {
     const diff = { base: OTHER, head: HEAD, baseSource: 'starting-commit' };
     const r = validateReviewReceipt(
       receipt({ moment: 'final', diff }),
-      ctx({ mergeBase: undefined, startingCommit: START }, 'final')
+      ctx({ mergeBase: undefined, startingCommit: START, ...from(OTHER) }, 'final')
     );
     expect(r.failures[0]?.message).toBe(
       `a final review starts at the merge base, but diff.base is ${OTHER} and the default ` +
@@ -112,7 +120,7 @@ describe('the gate applies finalReviewBase to a final receipt', () => {
     const diff = { base: OTHER, head: HEAD, baseSource: 'starting-commit' };
     const r = validateReviewReceipt(
       receipt({ moment: 'final', diff }),
-      ctx({ mergeBase: undefined }, 'final')
+      ctx({ mergeBase: undefined, ...from(OTHER) }, 'final')
     );
     expect(r.failures[0]?.message).toMatch(/session's starting commit is unknown/);
   });
@@ -120,7 +128,7 @@ describe('the gate applies finalReviewBase to a final receipt', () => {
     const phaseBase = { status: 'resolved', base: OTHER, source: 'starting-commit' } as const;
     const r = validateReviewReceipt(
       receipt({ diff: { base: OTHER, head: HEAD } }),
-      ctx({ phaseBase })
+      ctx({ phaseBase, ...from(OTHER) })
     );
     expect(codesOf(r)).toEqual([]);
   });

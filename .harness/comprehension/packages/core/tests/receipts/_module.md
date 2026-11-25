@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/tests/receipts'
-sourceHash: '3738c6b1ce137c88e1aea363b9577ebb6830aec451b0de9844a4f4418dee91e7'
+sourceHash: '0cbc0a940f1ed63f293fb6d74194f0782e75acc84f2fb6a2753040a17990661d'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -14,6 +14,9 @@ members:
     'public-surface.test.ts',
     'review-gate-demotion.test.ts',
     'review-gate-phase-base.test.ts',
+    'review-gate-review3-basesource.test.ts',
+    'review-gate-review3-standalone.test.ts',
+    'review-gate-review3.test.ts',
     'review-gate-round2.test.ts',
     'review-gate-round3.test.ts',
     'review-gate-worktree.test.ts',

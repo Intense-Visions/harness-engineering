@@ -108,7 +108,7 @@ describe('REVIEW: tier, fan-out, receipt, gate (SC1, SC2)', () => {
   it('a light review is one dispatch in dispatched mode writing compliance-bug.json', () => {
     expect(review()).toContain('{sessionDir}/reviews/phase-{N}/compliance-bug.json');
     expect(review()).toContain(
-      'Follow harness-code-review in dispatched mode: review-dir {sessionDir}/reviews/phase-{N}/, moment phase, tier light, head {head}.'
+      'Follow harness-code-review in dispatched mode: review-dir {sessionDir}/reviews/phase-{N}/, moment phase, tier light, base {base}, head {head}.'
     );
   });
   it('writes the receipt and may not leave REVIEW without a passing gate', () => {
@@ -371,8 +371,8 @@ describe('review round 2: Review records (A1, A3, A6, A7, A9)', () => {
       .filter((l) => l.trim().startsWith('prompt:') && l.includes('/reviews/'));
     expect(prompts).toHaveLength(3);
     for (const p of prompts) {
-      expect(p).toMatch(/head: \\"\{head\}\\", examinedFiles, findings \}/);
-      expect(p).toMatch(/moment (?:phase|final), (?:tier light, )?head \{head\}\./);
+      expect(p).toMatch(/base: \\"\{base\}\\", head: \\"\{head\}\\", examinedFiles, findings \}/);
+      expect(p).toMatch(/moment (?:phase|final), (?:tier light, )?base \{base\}, head \{head\}\./);
       expect(p).toMatch(/[Rr]eview-dir \{sessionDir\}\/reviews\/(?:phase-\{N\}|final-all)\//);
       expect(p).toMatch(/every finding id starts with (?:compliance-bug|\{reviewerId\})-/);
     }
@@ -380,12 +380,15 @@ describe('review round 2: Review records (A1, A3, A6, A7, A9)', () => {
       /\{ schemaVersion: 1, reviewerId(?:: \\"compliance-bug\\")?, examinedFiles/
     );
     const text = records();
-    expect(text).toContain('`{ schemaVersion: 1, reviewerId, head, examinedFiles, findings }`');
+    expect(text).toContain(
+      '`{ schemaVersion: 1, reviewerId, base, head, examinedFiles, findings }`'
+    );
+    expect(text).toMatch(/a file written for another range fails `FINDINGS_BASE_MISMATCH`/);
     expect(text).toMatch(
       /a file without it is invalid \(`FINDINGS_FILE_INVALID`\) and a file written at another head fails `FINDINGS_HEAD_MISMATCH`/
     );
     expect(text).toMatch(
-      /Give every brief `\{head\}` as the resolved sha, never as the word `HEAD`/
+      /Give every brief `\{base\}` and `\{head\}` as resolved shas, never as the word `HEAD`/
     );
   });
   it('A7: one rule for who writes the receipt, and who runs MECHANICAL for a light review', () => {
@@ -576,7 +579,8 @@ describe('review round 3: the fix budget and a failed mechanical phase (A4, A5)'
       /- `full`, pipeline backend: `run_code_review` reported `stoppedByMechanical`\./
     );
     // The light brief tells the reviewer what to return.
-    const light = text.split('\n').find((l) => l.includes('tier light, head {head}')) ?? '';
+    const light =
+      text.split('\n').find((l) => l.includes('tier light, base {base}, head {head}')) ?? '';
     expect(light).toMatch(
       /If your Phase 2 fails \(harness validate, typecheck or tests\), write no findings file and return a report whose first line is MECHANICAL FAILED/
     );
@@ -850,5 +854,14 @@ describe('unit 1 fix round 2: suggestions folded in', () => {
     expect(section(md(), '### DONE')).toMatch(
       /When that receipt is absent, unreadable or holds no full `diff\.head` \(FINAL_REVIEW was left by an override of `RECEIPT_MISSING` or `RECEIPT_INVALID`\), every commit of the branch is unreviewed/
     );
+  });
+});
+
+describe('unit 1 review round 3, fix 2: findings files are bound to the base', () => {
+  it('a failure about the range or the tree re-runs every required reviewer, at REVIEW and FINAL_REVIEW', () => {
+    const rule =
+      'When a failure is about the range or the tree rather than one reviewer (a base code: `DIFF_BASE_NOT_ANCESTOR`, `PHASE_BASE_MISMATCH`, `PHASE_BASE_UNKNOWN`, `FINAL_BASE_NOT_MERGE_BASE`, `TARGET_UNRESOLVED`, `TARGET_OWN_BRANCH`, `STARTING_COMMIT_UNKNOWN`; `WORKTREE_DIRTY`; `MOMENT_MISMATCH`, `MOMENT_UNKNOWN`; `HEAD_MISMATCH`), or HEAD has moved, every required reviewer runs again over the corrected range';
+    expect(section(md(), '### REVIEW')).toContain(rule);
+    expect(section(md(), '### FINAL_REVIEW')).toContain(rule);
   });
 });

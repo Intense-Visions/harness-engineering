@@ -38,7 +38,14 @@ function writeReview(label: string, base: string, examined: string[], over = {})
   const dir = path.join(session(), 'reviews', label);
   fs.mkdirSync(dir, { recursive: true });
   for (const id of FULL) {
-    const file = { schemaVersion: 1, reviewerId: id, head, examinedFiles: examined, findings: [] };
+    const file = {
+      schemaVersion: 1,
+      reviewerId: id,
+      base,
+      head,
+      examinedFiles: examined,
+      findings: [],
+    };
     fs.writeFileSync(path.join(dir, `${id}.json`), JSON.stringify(file));
   }
   const receipt = {
@@ -268,6 +275,7 @@ describe('round 2: the gate runs git in the worktree that holds the receipt', ()
     const file = (id: string) => ({
       schemaVersion: 1,
       reviewerId: id,
+      base: head,
       head: laneHead,
       examinedFiles: ['lane.ts'],
       findings: [],

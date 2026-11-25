@@ -279,6 +279,7 @@ export function runCheckFindingsFile(opts: {
     }
     range = {
       ranged: true,
+      base,
       head,
       worktreeHead: tryGit(git, ['rev-parse', 'HEAD'], top),
       diffFiles: listDiffFiles(git, base, head, top),

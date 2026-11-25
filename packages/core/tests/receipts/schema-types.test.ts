@@ -20,10 +20,10 @@ describe('runtime schemas match their contract types', () => {
       'base' | 'head' | 'baseSource' | 'target'
     >();
   });
-  it('ReviewerFindingsFile, derived from its schema, has exactly the five documented fields', () => {
+  it('ReviewerFindingsFile, derived from its schema, has exactly the six documented fields', () => {
     // ReceiptFinding is derived the same way; finding-compat.test.ts pins its seven fields.
     expectTypeOf<keyof ReviewerFindingsFile>().toEqualTypeOf<
-      'schemaVersion' | 'reviewerId' | 'head' | 'examinedFiles' | 'findings'
+      'schemaVersion' | 'reviewerId' | 'base' | 'head' | 'examinedFiles' | 'findings'
     >();
   });
   it('the conditional reviewer ids of the receipt contract are the ones depth calibration activates', () => {

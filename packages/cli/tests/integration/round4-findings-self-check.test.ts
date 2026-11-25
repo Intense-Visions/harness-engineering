@@ -29,6 +29,7 @@ const write = (name: string, body: unknown) => {
 const file = (over: Record<string, unknown> = {}) => ({
   schemaVersion: 1,
   reviewerId: 'bug',
+  base,
   head,
   examinedFiles: ['src/b.ts'],
   findings: [],

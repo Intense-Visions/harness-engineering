@@ -18,8 +18,8 @@ live in `packages/types/src/pipeline-receipts.ts`; validators and the gate live 
 **Review receipt.** `receipt.json`: `moment` (`phase`, `final`, `standalone`), `tier`,
 `backend`, the diff range as resolved 40-character SHAs (with `baseSource` when the base fell
 back to the starting commit), `coldContext`, `priorFindingsSupplied`, one record per reviewer,
-blocking and advisory counts. Beside it sits one findings file per reviewer, `<reviewerId>.json`, holding the commit that reviewer read
-(`head`, required, equal to the receipt's `diff.head`), the diff files it examined and its
+blocking and advisory counts. Beside it sits one findings file per reviewer, `<reviewerId>.json`, holding the range it was given
+(`base` and `head`, both required, equal to the receipt's `diff.base` and `diff.head`), the diff files it examined and its
 findings. Neither file is read unless it is a regular file of at most 5 MB.
 
 **Review tier.** `light` is one reviewer (`compliance-bug`, and the gate enforces the id) after
@@ -65,7 +65,7 @@ directory states (`phase-N` with no leading zeros, `final-all`, or a directory d
 contradicts the directory fails `MOMENT_MISMATCH`), a required reviewer that did not run, a
 `full` roster missing a core reviewer, a `light` roster that is not exactly `compliance-bug`, a
 reviewer listed twice, a reviewer id that is not a known reviewer (`UNKNOWN_REVIEWER`), a
-findings file that is absent, invalid, shared, written under another reviewer's id, written at another head, empty of examined files or outside the recomputed diff,
+findings file that is absent, invalid, shared, written under another reviewer's id, written at another head or for another base (`FINDINGS_BASE_MISMATCH`), empty of examined files or outside the recomputed diff,
 a finding id used twice in the review, `blocking` or `advisory` counts that differ from what the
 findings files hold (`COUNTS_MISMATCH`), a head that is not the current HEAD (git runs at the
 top of the worktree that holds the receipt, whatever the caller's directory), tracked files
