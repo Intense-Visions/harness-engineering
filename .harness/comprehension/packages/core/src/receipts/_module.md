@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/src/receipts'
-sourceHash: 'c0a2e8c2aa9ff56e912699c3d7783c391cafe6e6132bebef4baf3c0963c3561e'
+sourceHash: '71c4cb6e0f202a89106b6c0b579df29622fc6fd0b80549cf9a3b65a7b7a84043'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -29,6 +29,8 @@ export checkReviewerFindingsText
 export escapeTerminalText
 export expectedReviewMoment
 export finalReviewBase
+export interruptedArchiveFailure
+export listInterruptedArchives
 export parseReviewReceipt
 export parseReviewerFindingsFile
 export phaseOfReviewLabel
@@ -49,7 +51,7 @@ export validateReviewReceipt
 ```
 import { normalizeReviewPath, pathEscapes } from '../shared/review-paths'
 import { ExpectedMoment, REVIEW_RECEIPT_FILENAME, isReviewDirectory } from './layout'
-import { errnoReason, readReviewReceiptFile } from './load'
+import { errnoReason, readReviewReceiptFile, reviewFindingsReaderFor } from './load'
 import { ReviewFindingTally, ReviewerFindingsFile, parseReviewReceipt, parseReviewerFindingsFile, tallyReviewFindings } from './schema'
 import { ArchivedRound, CONDITIONAL_REVIEWER_IDS, ERRNO_REASON, ESCAPED_FROM_STAGES, Err, EscapedFrom, FINDING_CLASSES, FULL_SHA_PATTERN, FULL_TIER_REVIEWER_IDS, FindingClass, LIGHT_TIER_REVIEWER_ID, Ok, REVIEW_BACKENDS, REVIEW_BASE_SOURCES, REVIEW_MOMENTS, REVIEW_TIERS, REVIEW_TIER_DEMOTIONS, ReceiptReadProblem, ReceiptUnreadReason, Result, ReviewBackend, ReviewBaseSource, ReviewGateFailureCode, ReviewMoment, ReviewReceipt, ReviewTier, ReviewerRecord } from '@harness-engineering/types'
 import * as fs from 'node:fs'

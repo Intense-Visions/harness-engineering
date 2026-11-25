@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/tests/receipts'
-sourceHash: 'fc792ef831450536da5f92702851a4898f9be8c46259aaadf7e17680d1128f75'
+sourceHash: '8c8eb4ce32e25dae4424eb40f4d5943511886b5c0e77a869daf6491e077025dd'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -56,7 +56,7 @@ import { resolveReviewBackend } from '../../src/receipts/backend'
 import { ExpectedMoment, REVIEW_RECEIPT_FILENAME, SESSION_REVIEW_LABEL, expectedReviewMoment, isReviewDirectory, phaseOfReviewLabel, reviewMomentOfDir, sessionDirOfReviewDir } from '../../src/receipts/layout'
 import { REVIEW_FILE_MAX_BYTES, errnoReason, readRegularFile, readReviewReceiptFile, reviewFindingsReaderFor } from '../../src/receipts/load'
 import { PhaseReviewBase, ReviewGateContext, checkReviewerFindingsText, finalReviewBase, phaseReviewBase, validateReviewReceipt } from '../../src/receipts/review-gate'
-import { ArchiveRoundIo, archiveReviewRound, listArchivedRounds, readArchivedRounds } from '../../src/receipts/rounds'
+import { ArchiveRoundIo, archiveReviewRound, listArchivedRounds, listInterruptedArchives, readArchivedRounds } from '../../src/receipts/rounds'
 import { BLOCKING_SEVERITIES, ReceiptFinding, ReviewReceiptSchema, ReviewerFindingsFile, isBlockingSeverity, parseReviewReceipt, parseReviewerFindingsFile } from '../../src/receipts/schema'
 import { ConditionalSubagent } from '../../src/review/depth-calibrator'
 import { ReviewDomain } from '../../src/review/types/context'

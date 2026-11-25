@@ -1,13 +1,15 @@
 {
   "reason": "shift-left unit 2: review fix rounds (module-size only)",
   "categories": {
-    "module-size": 298024
+    "module-size": 298200
   },
   "violationIds": [
+    "2fe1cc9d6678a71e2e752eaae11d3a93630e62473ba92c22540427bfaba86964",
     "b46124d1c0ec628de3430cf1daa13aa6f7520aecc9b147bdac4bf635eab57144"
   ],
   "violationReasons": {
-    "b46124d1c0ec628de3430cf1daa13aa6f7520aecc9b147bdac4bf635eab57144": "shift-left unit 2: a coupling-ratio warning the tool reports as new on packages/core/src/receipts/load.ts (5 imports, unchanged; its first importer, rounds.ts, lifts its connections from 5 to 6, past the detector's minimum); listed by the tool, not a category this allowance raises (module-size is the only category)"
+    "2fe1cc9d6678a71e2e752eaae11d3a93630e62473ba92c22540427bfaba86964": "shift-left unit 2: a coupling-ratio warning (severity warning) that check-arch lists as new on packages/core/src/receipts/rounds.ts (couplingRatio=1); its type-only import of ArchivedRound from @harness-engineering/types adds one import edge, and project coupling goes from 472 to 473, within the tolerance. Listed by the tool; coupling is not a category this allowance raises. module-size is the only category.",
+    "b46124d1c0ec628de3430cf1daa13aa6f7520aecc9b147bdac4bf635eab57144": "shift-left unit 2: a coupling-ratio warning (severity warning) that check-arch lists as new on packages/core/src/receipts/load.ts (its own imports are unchanged; rounds.ts, its first importer in this unit, lifts its connections past the detector's minimum). Listed by the tool; coupling is not a category this allowance raises. module-size is the only category."
   },
-  "createdFrom": "17f92e5bc"
+  "createdFrom": "4b9e1c2ea"
 }
