@@ -1,9 +1,9 @@
 {
   "reason": "shift-left unit 3: review provenance stamp (module-size only)",
   "categories": {
-    "module-size": 300168
+    "module-size": 300292
   },
   "violationIds": [],
   "violationReasons": {},
-  "createdFrom": "877e81101"
+  "createdFrom": "243ef96f6"
 }
