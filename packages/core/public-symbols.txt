@@ -101,7 +101,9 @@ ArchMetricCategory
 ArchMetricCategorySchema
 ArchitectureOptions
 ArchiveHooks
+ArchiveRoundResult
 ArchiveSessionOptions
+ArchivedRound
 AriaConfidence
 AriaFinding
 AriaRule
@@ -1205,6 +1207,7 @@ ReviewItem
 ReviewMoment
 ReviewOutputOptions
 ReviewPipelineResult
+ReviewPriorRound
 ReviewReceipt
 ReviewRigor
 ReviewStage
@@ -1712,6 +1715,7 @@ architecture
 archiveDoneShardsForProject
 archiveFailures
 archiveLearnings
+archiveReviewRound
 archiveSession
 archiveShardDir
 archiveShards
@@ -2168,6 +2172,7 @@ pruneLearnings
 pushAssigneeToExternal
 reactRules
 readAdoptionRecords
+readArchivedRounds
 readArchivedShards
 readAutoDecisions
 readCheckState

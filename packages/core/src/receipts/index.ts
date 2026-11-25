@@ -19,3 +19,5 @@ export { expectedReviewMoment } from './layout';
 export { sessionDirOfReviewDir } from './layout';
 export { phaseOfReviewLabel, REVIEW_RECEIPT_FILENAME, REVIEWS_DIRNAME } from './layout';
 export { readRegularFile, readReviewReceiptFile, reviewFindingsReaderFor } from './load';
+export { archiveReviewRound, readArchivedRounds } from './rounds';
+export type { ArchiveRoundResult } from './rounds';

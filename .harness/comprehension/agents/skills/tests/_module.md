@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'agents/skills/tests'
-sourceHash: 'bb6d1f4fc6df47c166af5b092eb61681700689b9d2c797ddd9d8b81a78879a57'
+sourceHash: 'a44de997d2a38eea158ea1650b757d8e9b79e6f47c3b40a4f02f66b6f8601a99'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -25,6 +25,7 @@ members:
     'pause-protocol.test.ts',
     'platform-parity.test.ts',
     'references.test.ts',
+    'review-fix-rounds.test.ts',
     'review-json-examples.test.ts',
     'schema.test.ts',
     'schema.ts',

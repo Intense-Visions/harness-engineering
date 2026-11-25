@@ -4,6 +4,7 @@ import { ExitCode } from '../utils/errors';
 import { escapeTerminalText as inert } from '@harness-engineering/core';
 import {
   REVIEW_MOMENTS,
+  runArchiveReviewRound,
   runCheckFindingsFile,
   runCheckReviewReceipt,
   type CheckReviewReceiptReport,
@@ -41,6 +42,7 @@ export function formatCheckReviewReceipt(report: CheckReviewReceiptReport): stri
 }
 
 interface CheckFlags {
+  archiveRound?: string;
   moment?: ReviewMoment;
   findings?: string;
   base?: string;
@@ -70,8 +72,31 @@ function runFindings(opts: CheckFlags, deps: CheckReviewReceiptDeps, json: boole
   process.exitCode = report.pass ? ExitCode.SUCCESS : ExitCode.VALIDATION_FAILED;
 }
 
+/** `--archive-round`: archive the ended round and say which round the next receipt is. */
+function runArchive(dir: string, deps: CheckReviewReceiptDeps, json: boolean): void {
+  const out = runArchiveReviewRound({
+    reviewDir: dir,
+    ...(deps.cwd !== undefined && { cwd: deps.cwd() }),
+    ...(deps.git !== undefined && { git: deps.git }),
+  });
+  if (json) console.log(JSON.stringify(out, null, 2));
+  else if (out.ok) {
+    logger.info(
+      `archived round ${out.archived} into round-${out.archived}/; the next review is round ${out.next}`
+    );
+  } else logger.error(`--archive-round: ${inert(out.error)}`);
+  process.exitCode = out.ok ? ExitCode.SUCCESS : ExitCode.VALIDATION_FAILED;
+}
+
+/** `--archive-round` reads no other flag. */
+function flagsArchiveIgnores(opts: CheckFlags): string | undefined {
+  const given = [opts.base, opts.head, opts.moment].some((v) => v !== undefined);
+  return given ? '--base, --head and --moment do not apply to --archive-round' : undefined;
+}
+
 /** A flag the chosen mode would not read: an error, never silently ignored. */
 function flagsTheModeIgnores(opts: CheckFlags): string | undefined {
+  if (opts.archiveRound !== undefined) return flagsArchiveIgnores(opts);
   if (opts.findings === undefined && (opts.base !== undefined || opts.head !== undefined)) {
     return '--base and --head apply to --findings only; a receipt names its own range';
   }
@@ -100,6 +125,12 @@ export function createCheckReviewReceiptCommand(deps: CheckReviewReceiptDeps = {
       "A reviewer's self-check: validate one findings file with the gate's parser (with --base " +
         'and --head, also that its head is --head, the working tree is at --head and every examined file is in that diff)'
     )
+    .option(
+      '--archive-round <review-dir>',
+      "Before a fix round: move the review directory's ended round (its receipt.json and every " +
+        'other file in it) into round-R/ (R = 1 + the rounds already archived) and print R and ' +
+        'the next round. Refused without a receipt.json, outside the review layout, or at the head the round reviewed'
+    )
     .option('--base <sha>', 'With --findings: base of the reviewed range')
     .option('--head <sha>', 'With --findings: head of the reviewed range')
     .addOption(
@@ -111,9 +142,9 @@ export function createCheckReviewReceiptCommand(deps: CheckReviewReceiptDeps = {
     )
     .action((receiptPath: string | undefined, opts: CheckFlags, cmd: Command) => {
       const json = (cmd.optsWithGlobals() as { json?: boolean }).json === true;
-      const modes = [receiptPath, opts.findings].filter((m) => m !== undefined);
+      const modes = [receiptPath, opts.archiveRound, opts.findings].filter((m) => m !== undefined);
       if (modes.length !== 1) {
-        logger.error('give exactly one of: a receipt path or --findings');
+        logger.error('give exactly one of: a receipt path, --archive-round, or --findings');
         process.exitCode = ExitCode.VALIDATION_FAILED;
         return;
       }
@@ -123,6 +154,7 @@ export function createCheckReviewReceiptCommand(deps: CheckReviewReceiptDeps = {
         process.exitCode = ExitCode.VALIDATION_FAILED;
         return;
       }
+      if (opts.archiveRound !== undefined) return runArchive(opts.archiveRound, deps, json);
       if (opts.findings !== undefined) return runFindings(opts, deps, json);
       const report = runCheckReviewReceipt({
         receiptPath: receiptPath as string,

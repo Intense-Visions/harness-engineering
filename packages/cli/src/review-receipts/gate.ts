@@ -1,5 +1,6 @@
 import * as path from 'node:path';
 import {
+  archiveReviewRound,
   checkReviewerFindingsText,
   readRegularFile,
   reviewFindingsReaderFor,
@@ -7,8 +8,10 @@ import {
   readReviewReceiptFile,
   expectedReviewMoment,
   phaseReviewBase,
+  readArchivedRounds,
   sessionDirOfReviewDir,
   validateReviewReceipt,
+  type ArchiveRoundResult,
   type FindingsFileRange,
   type PhaseReviewBase,
   type ReviewGateContext,
@@ -215,6 +218,7 @@ export function gateReviewReceipt(opts: CheckReviewReceiptOptions): GatedReviewR
     ...recomputed,
     ...(startingCommit !== undefined && { startingCommit }),
     phaseBase,
+    archivedRounds: readArchivedRounds(read.dir),
     readFindings: reviewFindingsReaderFor(read.dir),
     expectedMoment: expectedReviewMoment(read.dir, opts.moment),
   });
@@ -267,6 +271,22 @@ function phaseBaseOf(
     startingCommit,
     startingCommitIsAncestor: startingCommit !== undefined && reachable(startingCommit),
   });
+}
+
+/**
+ * `--archive-round`: archive a review's ended round before a fix round re-runs it (core
+ * `archiveReviewRound`). HEAD is read in the review directory's repository; the fix round needs
+ * a fix commit, so a HEAD still at the ended round's head is refused there.
+ */
+export function runArchiveReviewRound(opts: {
+  reviewDir: string;
+  cwd?: string;
+  git?: CwdGit;
+}): ArchiveRoundResult {
+  const { cwd = process.cwd(), git = runGitIn } = opts;
+  const dir = path.resolve(cwd, opts.reviewDir);
+  const head = tryGit(git, ['rev-parse', 'HEAD'], dir);
+  return archiveReviewRound(dir, { head: isSha(head) ? head : undefined });
 }
 
 export function runCheckReviewReceipt(opts: CheckReviewReceiptOptions): CheckReviewReceiptReport {

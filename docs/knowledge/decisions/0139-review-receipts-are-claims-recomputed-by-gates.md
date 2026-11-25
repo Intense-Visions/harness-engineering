@@ -104,6 +104,18 @@ recomputed and the gate compares:
   finding (`critical` and `important` are blocking, `suggestion` is advisory, nothing is merged
   by location). A receipt whose counts differ fails (`COUNTS_MISMATCH`), and a finding id used
   twice in a review fails (`DUPLICATE_FINDING_ID`).
+- The round is counted from the `round-R/` archives beside the receipt (an ended round is
+  archived with `harness check-review-receipt --archive-round <review-dir>`): the archives must
+  be numbered `round-1` to `round-n` and `round` must be 1 + the archives (`ROUND_MISMATCH`),
+  `priorRounds` must list exactly the archived rounds with the head and blocking count of each
+  archive's own receipt (`PRIOR_ROUNDS_MISMATCH`), and a round after the first whose
+  `diff.head` is the head the round before it reviewed fails (`ROUND_SAME_HEAD`): only a fix
+  commit starts a new round, so a review run again at the same head cannot re-roll its blocking
+  findings away. The archive command refuses the routes an honest agent could take by mistake:
+  a directory with no `receipt.json` (a round that wrote none is not a round), a path that is
+  not a review directory of the layout, a HEAD still at the ended round's head, and archives
+  numbered out of sequence. It moves the files through a staging directory and moves them back
+  on any failure, so a round is archived whole or not at all.
 
 A missing receipt fails (`RECEIPT_MISSING`), and so does an unreadable or invalid one
 (`RECEIPT_INVALID`); the MCP tool alone fails `GATE_ERROR` on a missing or invalid argument. A
@@ -118,6 +130,7 @@ supported: every sha the gate accepts is a 40-character SHA-1 id. The gate reads
 model, so it passes or fails identically everywhere. It is exposed as `harness
 check-review-receipt [path] [--moment phase|final|standalone]` (exit 0 on a pass, exit 1 on any
 failure; `--moment` is for a directory that states no moment), whose
+`--archive-round <review-dir>` mode archives an ended round before a fix round, whose
 `--findings <file> --base <sha> --head <sha>` mode lets a reviewer check its own findings file with the gate's parser and
 diff before it returns, and the `check_review_receipt` MCP tool,
 which confines the receipt path to the project by real path. The failure codes are a literal
@@ -162,14 +175,17 @@ session that sets out to deceive it.
   (`TIER_DEMOTED`) unless it carries `demotion: "no-subagent-tool"`, so the one sanctioned
   demotion is visible on the receipt. The moment, the base (a phase's against the previous
   receipt or the starting commit, a final's against the merge base), a clean tracked tree, the
-  `light` roster, the reviewer ids, each findings file's head, and `blocking` and `advisory` are
-  not among the claims: the gate checks each of them.
+  `light` roster, the reviewer ids, each findings file's head, `round` and `priorRounds` against
+  the archives, and `blocking` and `advisory` are not among the claims: the gate checks each of
+  them.
 - **The starting commit and the earlier receipts are the session's own writing.** The final
   base's fallback and the first phase's base are the `startingCommit` of `autopilot-state.json`,
   and a later phase's base is an earlier receipt's `diff.head`; the session being checked writes
   all of them. A session that makes the default branch unresolvable chooses its final base, and
   one that rewrites an earlier receipt chooses the next phase's base. The gate proves the
-  receipts agree with each other, not that the session's own records are honest.
+  receipts agree with each other, not that the session's own records are honest. The `round-R/`
+  archives are the session's own files too: the round check proves the receipt agrees with
+  them, and cannot show a round that was never archived.
 - **The final base is only as trustworthy as the clone's remote-tracking refs.** The gate takes
   the default branch's merge base from local refs (`refs/remotes/origin/HEAD`'s target, then
   `refs/remotes/origin/main`, then `refs/remotes/origin/master`, always by full name so a local

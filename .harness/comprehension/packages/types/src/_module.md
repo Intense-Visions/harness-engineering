@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/types/src'
-sourceHash: '26c2a5bf4e6cd157fe6c55aa22d356e2852239bf3571ac92aaade13251a2a8b4'
+sourceHash: '538f42e17240da7085ebd9016d0204f9abc89a4267f32b3e45a6c9036b26009a'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -67,6 +67,7 @@ export AgentErrorCategory
 export AgentEvent
 export AgentSession
 export AnthropicBackendDef
+export ArchivedRound
 export ArmState
 export AssignmentRecord
 export AuthAuditEntry
@@ -348,6 +349,7 @@ export ReviewBackend
 export ReviewBaseSource
 export ReviewGateFailureCode
 export ReviewMoment
+export ReviewPriorRound
 export ReviewReceipt
 export ReviewTier
 export ReviewTierDemotion

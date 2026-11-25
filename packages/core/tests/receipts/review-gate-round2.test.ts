@@ -221,3 +221,20 @@ describe('fix 6: reviewersRun counts reviewers whose findings file loaded', () =
     expect(r.loaded).toEqual(['compliance', 'security', 'architecture']);
   });
 });
+
+describe('fix 13: a receipt may record its fix round and earlier rounds', () => {
+  it('accepts round and priorRounds and returns them on the parsed receipt', () => {
+    const priorRounds = [{ round: 1, head: OTHER, blocking: 3 }];
+    const r = validateReviewReceipt(receipt({ round: 2, priorRounds }), ctx());
+    expect(r.failures).toEqual([]);
+    expect(r.checked && r.receipt).toMatchObject({ round: 2, priorRounds });
+  });
+  it.each([
+    ['a round of zero', { round: 0 }],
+    ['a fractional round', { round: 1.5 }],
+    ['a prior round with no head', { priorRounds: [{ round: 1, blocking: 0 }] }],
+    ['a prior round with a short head', { priorRounds: [{ round: 1, head: 'abc', blocking: 0 }] }],
+  ])('rejects %s', (_name, over) => {
+    expect(codes(validateReviewReceipt(receipt(over), ctx()))).toEqual(['RECEIPT_INVALID']);
+  });
+});

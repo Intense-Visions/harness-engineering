@@ -168,6 +168,7 @@ Gate a review receipt: recompute HEAD, the diff file set, the base and every rev
 **Options:**
 
 - `--findings` — A reviewer's self-check: validate one findings file with the gate's parser (with --base and --head, also that its head is --head, the working tree is at --head and every examined file is in that diff)
+- `--archive-round` — Before a fix round: move the review directory's ended round (its receipt.json and every other file in it) into round-R/ (R = 1 + the rounds already archived) and print R and the next round. Refused without a receipt.json, outside the review layout, or at the head the round reviewed
 - `--base` — With --findings: base of the reviewed range
 - `--head` — With --findings: head of the reviewed range
 - `--moment` — Which review this is, for a directory that does not say (phase-N, final-all and a directory directly under .harness/reviews each do). Contradicting the directory fails the gate

@@ -34,7 +34,7 @@ from `harness review-tier --moment final --session <slug>`, which runs the gate'
 and rule, so the writer and the gate cannot disagree. The declaration is not a switch: the gate
 accepts it only when it resolves no merge base itself and `diff.base` is the session's starting
 commit (an unknown starting commit fails `STARTING_COMMIT_UNKNOWN`), and when a merge base
-resolves the base must be that commit whatever the receipt declares. A review after a fix starts
+resolves the base must be that commit whatever the receipt declares. A round after a fix starts
 at the merge base again; a final review never covers the fix alone.
 
 Prior findings are used only after every reviewer has returned: the orchestrating session labels
@@ -99,7 +99,12 @@ changes no files), nothing is reviewed, no receipt is written, and the skip is r
 ### One commit, one final review
 
 The final receipt is for one commit. Any commit after it (a final-review fix, an OUTCOME_EVAL
-fix) returns autopilot to FINAL_REVIEW, where every reviewer runs again at the new head.
+fix) returns autopilot to FINAL_REVIEW, as a new round in which every reviewer runs again at the
+new head and the receipt records `round` and `priorRounds`. The round is 1 + the `round-R/`
+archives in `final-all/` (each ended round is archived with `harness check-review-receipt
+--archive-round` after the fix commit), and the gate checks both fields against them, so an
+attempt that wrote no receipt keeps its round, and a round at the head the round before it
+reviewed fails `ROUND_SAME_HEAD`.
 
 ## Consequences
 

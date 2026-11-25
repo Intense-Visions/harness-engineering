@@ -39,6 +39,19 @@ export function reviewMomentOfDir(dir: string): ReviewMoment | undefined {
   return SESSION_REVIEW_LABEL.test(label) ? labelMoment(label) : undefined;
 }
 
+/**
+ * Whether `dir` is a review directory of the layout, by its place alone: a session's `phase-N`
+ * or `final-all` under `.harness/sessions/<slug>/reviews/`, or a standalone review directly under
+ * `.harness/reviews/`. Anything else (the repository top, a source directory) is not, so a caller
+ * that moves a review's files never moves those of another directory.
+ */
+export function isReviewDirectory(dir: string): boolean {
+  const [label = '', reviews, slugOrHarness, sessions, harness] = lastSegments(dir);
+  if (reviews !== REVIEWS_DIRNAME || label === '') return false;
+  if (slugOrHarness === '.harness') return true;
+  return sessions === 'sessions' && harness === '.harness' && SESSION_REVIEW_LABEL.test(label);
+}
+
 /** The path's segments, last first, on either separator. */
 function lastSegments(dir: string): string[] {
   return dir

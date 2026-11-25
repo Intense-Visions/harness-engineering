@@ -611,4 +611,6 @@ export type {
   ReceiptUnreadReason,
   ErrnoReason,
   ReceiptReadProblem,
+  ReviewPriorRound,
+  ArchivedRound,
 } from './pipeline-receipts';

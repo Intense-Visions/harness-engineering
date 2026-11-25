@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/commands'
-sourceHash: '442dfc0d0eb15f59a40a4853ed8c393e820e786245c0c81fa11761d04836a967'
+sourceHash: 'ee506db50b78c83c4393d10a4ac91b76aa30d0b9856068a1da3c07722ab9c373'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -500,7 +500,7 @@ import { LockfileEntry, SkillSource, readLockfile, removeLockfileEntry, updateLo
 import { downloadTarball, extractSkillName, fetchPackageMetadata, readNpmrcToken, resolvePackageName } from '../registry/npm-client'
 import { findDependentsOf, resolveVersion } from '../registry/resolver'
 import { cleanupTempDir, extractTarball, placeSkillContent, removeSkillContent } from '../registry/tarball'
-import { CheckReviewReceiptReport, CwdGit, REVIEW_MOMENTS, ReviewMoment, runCheckFindingsFile, runCheckReviewReceipt } from '../review-receipts/gate'
+import { CheckReviewReceiptReport, CwdGit, REVIEW_MOMENTS, ReviewMoment, runArchiveReviewRound, runCheckFindingsFile, runCheckReviewReceipt } from '../review-receipts/gate'
 import { CwdGit, FinalBaseOutcome, StandaloneBaseOutcome, listDiffFiles, remoteTrackingRef, resolveCommit, resolveFinalReviewBase, resolveRepoRoots, resolveStandaloneReviewBase, runGitIn, sessionDirFrom, sessionStartingCommit } from '../review-receipts/io'
 import { appendRollbackEvent, linkRollbackEventToGraph } from '../rollback/breadcrumb'
 import { ComposeGhSeam, ROLLBACK_LABEL, composeRevertPr } from '../rollback/compose'

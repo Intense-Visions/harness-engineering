@@ -1,4 +1,5 @@
 import {
+  type ArchivedRound,
   CONDITIONAL_REVIEWER_IDS,
   type ReviewBaseSource,
   type ReviewGateFailureCode,
@@ -82,6 +83,11 @@ export interface ReviewGateContext extends FindingsSource {
   startingCommit?: string;
   /** The base a phase receipt must have (`phaseReviewBase`). Read for a `phase` receipt only. */
   phaseBase: PhaseReviewBase;
+  /**
+   * The rounds archived beside the receipt (`round-R/`), each with what its own receipt says.
+   * Absent: not read, and the round fields are not checked.
+   */
+  archivedRounds?: readonly ArchivedRound[];
 }
 
 /**
@@ -372,6 +378,78 @@ function finalBaseFailure(
     'FINAL_BASE_NOT_MERGE_BASE',
     `${starts} ${base} and the default branch could not be resolved, so the base must be the ` +
       `session's starting commit ${demanded.base}`
+  );
+}
+
+/**
+ * The receipt's round against the `round-R/` archives beside it: the archives are numbered
+ * round-1..round-n, the round is n + 1, priorRounds lists exactly the archives, and a fix round is
+ * at another head than the round before it.
+ */
+function roundFailures(receipt: ReviewReceipt, context: ReviewGateContext): ReviewGateFailure[] {
+  const archives = context.archivedRounds;
+  if (archives === undefined) return [];
+  return [
+    roundNumberFailure(receipt.round ?? 1, archives),
+    priorRoundsFailure(receipt, archives),
+    sameHeadFailure(receipt, archives),
+  ].filter((f): f is ReviewGateFailure => f !== undefined);
+}
+
+function roundNumberFailure(
+  round: number,
+  archives: readonly ArchivedRound[]
+): ReviewGateFailure | undefined {
+  const n = archives.length;
+  if (archives.some((a, i) => a.round !== i + 1)) {
+    const found = archives.map((a) => `round-${a.round}`).join(', ');
+    return reviewGateFailure(
+      'ROUND_MISMATCH',
+      `the round archives beside the receipt must be numbered round-1..round-${n}, but are: ${found}`
+    );
+  }
+  if (round === n + 1) return undefined;
+  return reviewGateFailure(
+    'ROUND_MISMATCH',
+    `the receipt is round ${round}, but ${n} earlier round(s) are archived beside it, so it is round ${n + 1}`
+  );
+}
+
+const roundText = (p: { round: number; head: string; blocking: number }) =>
+  `round ${p.round} at ${p.head}: ${p.blocking} blocking`;
+const archivedText = (a: ArchivedRound) =>
+  'unreadable' in a ? `round ${a.round}: no readable receipt` : roundText(a);
+
+/** priorRounds against the archived receipts: the same rounds, heads and counts, in any order. */
+function priorRoundsFailure(
+  receipt: ReviewReceipt,
+  archives: readonly ArchivedRound[]
+): ReviewGateFailure | undefined {
+  const want = archives.map(archivedText);
+  const got = (receipt.priorRounds ?? []).map(roundText);
+  const same = [...want].sort().join('\n') === [...got].sort().join('\n');
+  if (same && archives.every((a) => !('unreadable' in a))) return undefined;
+  return reviewGateFailure(
+    'PRIOR_ROUNDS_MISMATCH',
+    'priorRounds must list each archived round with the head and blocking count of its ' +
+      `archived receipt; archived: ${want.join('; ') || 'none'}; listed: ${got.join('; ') || 'none'}`
+  );
+}
+
+/** A fix round re-reviews a fix: a round at the head the round before it reviewed is a re-roll. */
+function sameHeadFailure(
+  receipt: ReviewReceipt,
+  archives: readonly ArchivedRound[]
+): ReviewGateFailure | undefined {
+  const previous = archives.at(-1);
+  if ((receipt.round ?? 1) < 2 || previous === undefined || 'unreadable' in previous)
+    return undefined;
+  if (previous.head !== receipt.diff.head) return undefined;
+  return reviewGateFailure(
+    'ROUND_SAME_HEAD',
+    `the receipt is round ${receipt.round ?? 1} at ${receipt.diff.head}, the head round ` +
+      `${previous.round} already reviewed: a fix round needs a fix commit; a review run again ` +
+      'at the same head stays in its round'
   );
 }
 
@@ -791,6 +869,7 @@ export function validateReviewReceipt(
     ...rosterFailures(r),
     ...demotionFailures(r, context.expectedMoment),
     ...finalFailures(r),
+    ...roundFailures(r, context),
     ...check.failures,
   ];
   const required = r.reviewers.filter((x) => x.required);
