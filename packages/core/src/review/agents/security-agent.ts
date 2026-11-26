@@ -1,6 +1,9 @@
 import type { ContextBundle, ReviewFinding, ReviewAgentDescriptor } from '../types';
 import { makeFindingId } from '../constants';
-import { isReferenceOnlySecretValue } from '../../security/secret-reference';
+import {
+  isReferenceOnlySecretValue,
+  quoteClosesEnclosingString,
+} from '../../security/secret-reference';
 
 export const SECURITY_DESCRIPTOR: ReviewAgentDescriptor = {
   domain: 'security',
@@ -26,8 +29,8 @@ const EVAL_PATTERN = /\beval\s*\(|new\s+Function\s*\(/;
  * `isReferenceOnlySecretValue`.
  */
 const SECRET_PATTERNS = [
-  /(?:api[_-]?key|secret|password|token|private[_-]?key)\s*=\s*(?:"((?:\\.|[^"\\]){8,})|'((?:\\.|[^'\\]){8,}))/i,
-  /["']((?:sk|pk|api|key|secret|token|password)[-_][a-zA-Z0-9]{10,})["']/i,
+  /(?:api[_-]?key|secret|password|token|private[_-]?key)\s*=\s*(?:"((?:\\.|[^"\\]){8,})|'((?:\\.|[^'\\]){8,}))/gi,
+  /["']((?:sk|pk|api|key|secret|token|password)[-_][a-zA-Z0-9]{10,})["']/gi,
 ];
 
 /**
@@ -43,13 +46,21 @@ const SECRET_PATTERNS = [
  * was reported as a hardcoded secret (capwell#1372). Two branches means two
  * groups, hence the `m[1] ?? m[2]` — only one can be defined per match.
  *
- * The closing quote stays optional, as before, so an unterminated string is
- * still scanned rather than silently skipped.
+ * The closing quote stays optional, so an unterminated string is still
+ * scanned. A match whose quote merely closes an enclosing string
+ * (`grep '^API_KEY=' .env`, capwell#3311) is skipped, and the line is
+ * rescanned just past its start so a later real literal is still found.
  */
 function matchSecretValue(text: string): string | null {
   for (const pattern of SECRET_PATTERNS) {
-    const m = pattern.exec(text);
-    if (m) return m[1] ?? m[2] ?? '';
+    pattern.lastIndex = 0;
+    for (let m = pattern.exec(text); m; m = pattern.exec(text)) {
+      const valueQuote = m[1] !== undefined ? '"' : m[2] !== undefined ? "'" : undefined;
+      // Pattern 2 opens with its quote, so `valueQuote` is undefined there.
+      if (pattern !== SECRET_PATTERNS[0] || !quoteClosesEnclosingString(text, m.index, valueQuote))
+        return m[1] ?? m[2] ?? '';
+      pattern.lastIndex = m.index + 1;
+    }
   }
   return null;
 }

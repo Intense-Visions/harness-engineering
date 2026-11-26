@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/tests/security/rules'
-sourceHash: '347499f9577b9e601d39742a03cb134b48473acccdec7341e30de646ad2e836c'
+sourceHash: 'f514247f1103eb60b1fafe22ed839f21026cc9028ff1cee8bf01eff9aa59a5a7'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent

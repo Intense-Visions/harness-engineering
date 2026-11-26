@@ -102,3 +102,39 @@ export function extractQuotedSecretValue(matchText: string): string | null {
   const m = QUOTED_BODY.exec(matchText);
   return m ? (m[2] ?? '') : null;
 }
+
+/**
+ * The quote character of a string still open at `index` on a single line, or
+ * `null`. Backslash escapes count outside single quotes; inside single quotes
+ * nothing is escaped, as in shell. A heuristic: one line, no heredocs.
+ */
+export function enclosingQuoteAt(text: string, index: number): '"' | "'" | null {
+  let open: '"' | "'" | null = null;
+  for (let i = 0; i < index; i++) {
+    const c = text[i];
+    if (c === '\\' && open !== "'") {
+      i++;
+      continue;
+    }
+    if (open === null && (c === '"' || c === "'")) open = c;
+    else if (c === open) open = null;
+  }
+  return open;
+}
+
+/**
+ * True when a secret-assignment match starting at `nameIndex` sits inside an
+ * already-open string AND the quote after its `=`/`:` is that string's quote
+ * character. That quote then CLOSES the enclosing string rather than opening a
+ * value: `grep '^API_KEY=' .env` is a pattern, not an assignment
+ * (capwell#3311). A value quoted with the OTHER character is still a nested
+ * literal (`echo "API_KEY='…'"`) and is not excused.
+ */
+export function quoteClosesEnclosingString(
+  text: string,
+  nameIndex: number,
+  valueQuote: string | undefined
+): boolean {
+  if (valueQuote !== '"' && valueQuote !== "'") return false;
+  return enclosingQuoteAt(text, nameIndex) === valueQuote;
+}

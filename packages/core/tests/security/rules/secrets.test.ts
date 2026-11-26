@@ -70,6 +70,26 @@ describe('SecurityScanner secret reference suppression', () => {
   it('STILL flags a literal with a variable-only prefix', () => {
     expect(scan('export API_KEY="${PREFIX}sk-live-abc123def456"').length).toBeGreaterThan(0);
   });
+
+  // capwell#3311: a NAME= inside an already-open string (a grep pattern) is
+  // followed by that string's CLOSING quote, not a value's opening one.
+  it.each([
+    ["KEY=$(grep '^API_KEY=' apps/mobile/.env.local | cut -d= -f2)", 'scripts/key.sh'],
+    [" * `grep '^API_KEY=' .env`, the quote after `=` is that string's CLOSE, not a", 'src/a.ts'],
+    ['TOKEN=$(grep "^ACCESS_TOKEN=" .env | cut -d= -f2-)', 'scripts/key.sh'],
+  ])('does not flag a NAME= inside a quoted grep pattern: %s', (line, file) => {
+    expect(scan(line, file)).toHaveLength(0);
+  });
+
+  it('STILL flags a literal nested in a string of the other quote type', () => {
+    expect(scan(`echo "API_KEY='sk-live-abc123def456'" >> .env`).length).toBeGreaterThan(0);
+  });
+
+  it('STILL flags a later literal on a line whose first match is a grep pattern', () => {
+    expect(
+      scan(`grep '^API_KEY=' .env; export ACCESS_TOKEN="sk-live-abc123def456"`).length
+    ).toBeGreaterThan(0);
+  });
 });
 
 /**

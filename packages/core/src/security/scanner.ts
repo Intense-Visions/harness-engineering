@@ -2,7 +2,11 @@ import * as fs from 'node:fs/promises';
 import { minimatch } from 'minimatch';
 import { RuleRegistry } from './rules/registry';
 import { resolveRuleSeverity } from './config';
-import { isReferenceOnlySecretValue, extractQuotedSecretValue } from './secret-reference';
+import {
+  isReferenceOnlySecretValue,
+  extractQuotedSecretValue,
+  quoteClosesEnclosingString,
+} from './secret-reference';
 import { detectStack } from './stack-detector';
 import { secretRules } from './rules/secrets';
 import { injectionRules } from './rules/injection';
@@ -27,6 +31,29 @@ import { maskComments, supportsCommentMasking } from './comment-mask';
 // Re-exported so the existing `security/scanner` import path (and index barrel)
 // stays stable after the parser was extracted to its dependency-free module.
 export { parseHarnessIgnore } from './harness-ignore';
+
+/**
+ * The first secret-assignment match on the line whose value quote does not
+ * merely close an enclosing string (`grep '^API_KEY=' .env`, capwell#3311).
+ * A skipped match is rescanned from one character past its start, so a real
+ * literal later on the line is still found. Index-preserving: the returned
+ * match's `index` is relative to the whole line.
+ */
+function firstSecretAssignment(pattern: RegExp, text: string): RegExpExecArray | null {
+  for (let from = 0; from < text.length; ) {
+    pattern.lastIndex = 0;
+    const m = pattern.exec(text.slice(from));
+    if (!m) return null;
+    const at = from + m.index;
+    const valueQuote = /[:=]\s*(['"])/.exec(m[0])?.[1];
+    if (!quoteClosesEnclosingString(text, at, valueQuote)) {
+      m.index = at;
+      return m;
+    }
+    from = at + 1;
+  }
+  return null;
+}
 
 /** The text a rule is matched against, plus the masked code for context checks. */
 interface LineView {
@@ -158,7 +185,8 @@ export class SecurityScanner {
     const text = view.lines[view.index] ?? '';
     for (const pattern of rule.patterns) {
       pattern.lastIndex = 0; // Reset regex lastIndex for global/sticky patterns
-      const match = pattern.exec(text);
+      const match =
+        rule.category === 'secrets' ? firstSecretAssignment(pattern, text) : pattern.exec(text);
       if (!match) continue;
       if (rule.isMitigated?.(view.masked, view.index)) continue;
       // Secret rules match assignment shapes like `TOKEN="..."`. When the value

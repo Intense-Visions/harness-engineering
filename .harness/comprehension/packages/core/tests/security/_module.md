@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/tests/security'
-sourceHash: 'eca752e55cb50e858cdf793070fbdd2ecc00e15e88c05cda700535bddcd479ea'
+sourceHash: '9a47a2f9308f20ded29745f6f05487822e4fdcd4376c60bff649ea2b5b053102'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -42,7 +42,7 @@ import { createOsvClient } from '../../src/security/osv-client'
 import { ScanConfigFinding, findFencedCodeLines, isMarkdownPath, normalizeMarkdownTableRow, suppressMarkdownStructureFindings } from '../../src/security/scan-config-shared'
 import { SECURITY_SCAN_DEFAULT_IGNORE, SECURITY_SCAN_EXTENSIONS, SECURITY_SCAN_GLOB } from '../../src/security/scan-targets'
 import { SecurityScanner, parseHarnessIgnore } from '../../src/security/scanner'
-import { extractQuotedSecretValue, isReferenceOnlySecretValue } from '../../src/security/secret-reference'
+import { enclosingQuoteAt, extractQuotedSecretValue, isReferenceOnlySecretValue, quoteClosesEnclosingString } from '../../src/security/secret-reference'
 import { SecurityTimelineManager } from '../../src/security/security-timeline-manager'
 import { EMPTY_SUPPLY_CHAIN, SecurityTimelineFile, UNMEASURED_SUPPLY_CHAIN_SCORE_CEILING, isSupplyChainMeasured, securityFindingId } from '../../src/security/security-timeline-types'
 import { detectStack } from '../../src/security/stack-detector'

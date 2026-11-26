@@ -2,7 +2,35 @@ import { describe, it, expect } from 'vitest';
 import {
   isReferenceOnlySecretValue,
   extractQuotedSecretValue,
+  enclosingQuoteAt,
+  quoteClosesEnclosingString,
 } from '../../src/security/secret-reference';
+
+describe('enclosingQuoteAt', () => {
+  it.each([
+    [`grep '^API_KEY=' .env`, 7, "'"],
+    [`grep "^API_KEY=" .env`, 7, '"'],
+    [`a='x' API_KEY=`, 6, null],
+    [`echo "it's API_KEY=`, 11, '"'],
+    [`echo "a\\"b API_KEY=`, 11, '"'],
+    [`echo 'a\\' API_KEY=`, 11, null],
+  ])('%s at %i → %s', (text, index, expected) => {
+    expect(enclosingQuoteAt(text, index)).toBe(expected);
+  });
+});
+
+describe('quoteClosesEnclosingString (capwell#3311)', () => {
+  it('is true when the value quote matches the enclosing string', () => {
+    expect(quoteClosesEnclosingString(`grep '^API_KEY=' .env`, 7, "'")).toBe(true);
+  });
+  it('is false for a nested literal of the other quote type', () => {
+    expect(quoteClosesEnclosingString(`echo "API_KEY='abc'"`, 6, "'")).toBe(false);
+  });
+  it('is false outside any string, and for an unquoted value', () => {
+    expect(quoteClosesEnclosingString(`API_KEY="abc"`, 0, '"')).toBe(false);
+    expect(quoteClosesEnclosingString(`grep '^API_KEY=x`, 7, undefined)).toBe(false);
+  });
+});
 
 describe('isReferenceOnlySecretValue', () => {
   it.each([

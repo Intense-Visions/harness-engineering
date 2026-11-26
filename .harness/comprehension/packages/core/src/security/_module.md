@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/src/security'
-sourceHash: '07cc33c2bea24107ba1cd895a5ff7598759ee0833a5868d9b958113408f200c3'
+sourceHash: '78076768b43c8368859cdeca86fc6d9bde9c3464dcafee4f12e505f7dbc37eeb'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -153,7 +153,7 @@ import { reactRules } from './rules/stack/react'
 import { xssRules } from './rules/xss'
 import { ScanConfigFileResult, ScanConfigFinding, computeOverallSeverity, computeScanExitCode, isDuplicateFinding, mapInjectionFindings, mapSecurityFindings, mapSecuritySeverity } from './scan-config-shared'
 import { SECURITY_SCAN_DEFAULT_IGNORE } from './scan-targets'
-import { extractQuotedSecretValue, isReferenceOnlySecretValue } from './secret-reference'
+import { extractQuotedSecretValue, isReferenceOnlySecretValue, quoteClosesEnclosingString } from './secret-reference'
 import { Direction, EMPTY_SUPPLY_CHAIN, FindingLifecycle, SecurityCategorySnapshot, SecurityTimelineFile, SecurityTimelineFileSchema, SecurityTimelineSnapshot, SecurityTrendLine, SecurityTrendResult, SupplyChainSnapshot, TimeToFixResult, TimeToFixStats, TrendAttribution, UNMEASURED_SUPPLY_CHAIN_SCORE_CEILING, isSupplyChainMeasured, securityFindingId } from './security-timeline-types'
 import { detectStack } from './stack-detector'
 import { DEFAULT_SECURITY_CONFIG, RuleOverride, ScanResult, SecurityConfig, SecurityFinding, SecurityRule, SecuritySeverity } from './types'
