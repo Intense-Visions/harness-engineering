@@ -1,5 +1,14 @@
 # @harness-engineering/cli
 
+## 14.1.2
+
+### Patch Changes
+
+- Updated dependencies [dfdd909]
+  - @harness-engineering/core@0.57.2
+  - @harness-engineering/dashboard@0.17.3
+  - @harness-engineering/orchestrator@0.30.2
+
 ## 14.1.1
 
 ### Patch Changes
