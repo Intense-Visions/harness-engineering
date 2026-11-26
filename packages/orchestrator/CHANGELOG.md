@@ -1,5 +1,12 @@
 # @harness-engineering/orchestrator
 
+## 0.30.2
+
+### Patch Changes
+
+- Updated dependencies [dfdd909]
+  - @harness-engineering/core@0.57.2
+
 ## 0.30.1
 
 ### Patch Changes

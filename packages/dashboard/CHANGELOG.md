@@ -1,5 +1,13 @@
 # @harness-engineering/dashboard
 
+## 0.17.3
+
+### Patch Changes
+
+- Updated dependencies [dfdd909]
+  - @harness-engineering/core@0.57.2
+  - @harness-engineering/orchestrator@0.30.2
+
 ## 0.17.2
 
 ### Patch Changes
